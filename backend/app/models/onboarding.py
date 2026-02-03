@@ -1,7 +1,7 @@
 """Onboarding ORM model.
 
 Stores prerequisite checklist completion state for merchants.
-Migrated from localStorage in Story 1.2.
+Story 1.2: localStorage to PostgreSQL migration implemented.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ class PrerequisiteChecklist(Base):
     """Prerequisite checklist model.
 
     Stores the completion state of onboarding prerequisites.
-    Created in Story 1.1 and used for migration in Story 1.2.
+    Created in Story 1.1, migration implemented in Story 1.2.
     """
 
     __tablename__ = "prerequisite_checklists"

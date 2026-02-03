@@ -72,6 +72,7 @@ def create_response(data: dict) -> dict:
 @router.get("/integrations/facebook/authorize", response_model=MinimalEnvelope)
 @limiter.limit("1/10 second")  # Rate limit OAuth initiation
 async def facebook_authorize(
+    request: Request,
     merchant_id: int,
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:

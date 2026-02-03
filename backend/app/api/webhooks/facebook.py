@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, Request, Response, Header, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, Response, Header, HTTPException, BackgroundTasks, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db

@@ -1,15 +1,30 @@
 /** Zustand store for onboarding prerequisite checklist.
 
-Manages localStorage persistence for prerequisite checklist state.
-Migrates to PostgreSQL after deployment (Story 1.2).
+Story 1.2 (implemented): Syncs prerequisite state with PostgreSQL backend
+while keeping localStorage as fallback for offline scenarios.
+
+Features:
+- Primary storage: PostgreSQL (via API)
+- Fallback storage: localStorage (for offline)
+- Auto-sync: Changes saved to both backend and localStorage
+- Migration: Loads from localStorage and syncs to backend on first load
 
 Key: shop_onboarding_prerequisites
 Schema: { cloudAccount, facebookAccount, shopifyAccess, llmProviderChoice, updatedAt }
 */
 
 import { create } from "zustand";
+import {
+  getPrerequisiteState,
+  savePrerequisiteState as savePrerequisiteStateApi,
+  syncPrerequisiteState as syncPrerequisiteStateApi,
+  toBackendFormat,
+  fromBackendFormat,
+  type PrerequisiteSyncRequest,
+} from "../services/onboarding";
 
 const STORAGE_KEY = "shop_onboarding_prerequisites";
+const DEFAULT_MERCHANT_ID = 1;
 
 export type PrerequisiteKey =
   | "cloudAccount"
@@ -30,6 +45,8 @@ export interface OnboardingStore extends PrerequisiteState {
   togglePrerequisite: (key: PrerequisiteKey) => void;
   reset: () => void;
   loadFromStorage: () => void;
+  syncToBackend: () => Promise<void>;
+  loadFromBackend: () => Promise<void>;
   // Computed values
   isComplete: () => boolean;
   completedCount: () => number;
@@ -74,6 +91,20 @@ const saveToStorage = (state: PrerequisiteState): void => {
   }
 };
 
+/**
+ * Sync state to backend (PostgreSQL).
+ * Used internally when state changes occur.
+ */
+const syncToBackend = async (state: PrerequisiteState): Promise<void> => {
+  try {
+    const backendState = toBackendFormat(state);
+    await savePrerequisiteStateApi(backendState, DEFAULT_MERCHANT_ID);
+  } catch (error) {
+    console.warn("Failed to sync prerequisite state to backend:", error);
+    // Continue using localStorage as fallback
+  }
+};
+
 export const onboardingStore = create<OnboardingStore>((set, get) => ({
   ...initialState,
 
@@ -85,6 +116,8 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
     };
     set(newState);
     saveToStorage(newState);
+    // Sync to backend asynchronously (don't await)
+    syncToBackend(newState);
   },
 
   reset: () => {
@@ -96,11 +129,67 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
     } catch (error) {
       console.warn("Failed to clear onboarding state from localStorage:", error);
     }
+    // Backend state is not deleted - keeps server record as fallback
   },
 
   loadFromStorage: () => {
     const stored = loadFromStorage();
     set(stored);
+  },
+
+  /**
+   * Manually sync current state to backend (Story 1.2 migration).
+   * Call this after making changes to ensure backend is updated.
+   */
+  syncToBackend: async () => {
+    const state = get();
+    await syncToBackend(state);
+  },
+
+  /**
+   * Load state from backend (Story 1.2 migration).
+   * If backend has data, use it; otherwise keep localStorage data.
+   */
+  loadFromBackend: async () => {
+    try {
+      const backendData = await getPrerequisiteState(DEFAULT_MERCHANT_ID);
+
+      if (backendData) {
+        // Backend has data - use it
+        const frontendState = fromBackendFormat(backendData);
+        set(frontendState);
+        saveToStorage(frontendState);
+      } else {
+        // Backend has no data - try to migrate from localStorage
+        const localStorageState = loadFromStorage();
+        const hasLocalData =
+          localStorageState.cloudAccount ||
+          localStorageState.facebookAccount ||
+          localStorageState.shopifyAccess ||
+          localStorageState.llmProviderChoice;
+
+        if (hasLocalData) {
+          // Migrate localStorage data to backend
+          console.info("Migrating localStorage state to backend...");
+          const syncData: PrerequisiteSyncRequest = {
+            cloudAccount: localStorageState.cloudAccount,
+            facebookAccount: localStorageState.facebookAccount,
+            shopifyAccess: localStorageState.shopifyAccess,
+            llmProviderChoice: localStorageState.llmProviderChoice,
+            updatedAt: localStorageState.updatedAt ?? undefined,
+          };
+          const syncedState = await syncPrerequisiteStateApi(syncData, DEFAULT_MERCHANT_ID);
+          if (syncedState) {
+            const migratedState = fromBackendFormat(syncedState);
+            set(migratedState);
+            saveToStorage(migratedState);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to load onboarding state from backend:", error);
+      // Keep localStorage data as fallback
+    }
   },
 
   isComplete: () => {
@@ -129,4 +218,8 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
 // Initialize from localStorage on import (only in browser, not during tests)
 if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
   onboardingStore.getState().loadFromStorage();
+
+  // Story 1.2: Auto-migrate localStorage to backend on app load
+  // Don't await - let it happen in background
+  onboardingStore.getState().loadFromBackend();
 }
