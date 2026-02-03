@@ -70,7 +70,12 @@ def settings() -> dict[str, Any]:
         "FACEBOOK_PAGE_ID": os.getenv("FACEBOOK_PAGE_ID", ""),
         "FACEBOOK_PAGE_ACCESS_TOKEN": os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN", ""),
         "FACEBOOK_APP_SECRET": os.getenv("FACEBOOK_APP_SECRET", ""),
-        "FACEBOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_VERIFY_TOKEN", "verify_token"),
+        "FACEBOOK_APP_ID": os.getenv("FACEBOOK_APP_ID", ""),
+        "FACEBOOK_API_VERSION": os.getenv("FACEBOOK_API_VERSION", "v19.0"),
+        "FACEBOOK_REDIRECT_URI": os.getenv("FACEBOOK_REDIRECT_URI", ""),
+        "FACEBOOK_ENCRYPTION_KEY": os.getenv("FACEBOOK_ENCRYPTION_KEY", ""),
+        "FACEBOOK_WEBHOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", ""),
+        "FACEBOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_VERIFY_TOKEN", "verify_token"),  # Legacy alias
         # LLM Provider
         "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "ollama"),  # ollama, openai, anthropic, gemini
         "LLM_API_KEY": os.getenv("LLM_API_KEY", ""),

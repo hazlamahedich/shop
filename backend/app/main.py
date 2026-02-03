@@ -6,14 +6,37 @@ Shopping Assistant Bot - AI-powered conversational commerce for Facebook Messeng
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
 from app.core.database import init_db, close_db, engine
+from app.api.onboarding import router as onboarding_router
+from app.api.deployment import router as deployment_router
+from app.api.integrations import router as integrations_router
+from app.api.webhooks.facebook import router as facebook_webhook_router
+
+from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
+    MinimalEnvelope,
+    MetaData,
+    PrerequisiteCheckRequest,
+    PrerequisiteCheckResponse,
+)
+from app.schemas.deployment import (  # noqa: F401 (export for type generation)
+    Platform,
+    DeploymentStatus,
+    LogLevel,
+    DeploymentStep,
+    StartDeploymentRequest,
+    DeploymentLogEntry,
+    DeploymentState,
+    StartDeploymentResponse,
+)
 
 
 def get_error_status_code(error_code: ErrorCode) -> int:
@@ -25,10 +48,14 @@ def get_error_status_code(error_code: ErrorCode) -> int:
     Returns:
         HTTP status code
     """
-    # 2xxx: Auth/Security errors -> 401/403
+    # 2xxx: Auth/Security errors -> 401/403/400
     if 2000 <= error_code < 3000:
         if error_code in (ErrorCode.AUTH_FAILED, ErrorCode.TOKEN_EXPIRED, ErrorCode.UNAUTHORIZED):
             return status.HTTP_401_UNAUTHORIZED
+        if error_code in (ErrorCode.PREREQUISITES_INCOMPLETE, ErrorCode.DEPLOYMENT_IN_PROGRESS, ErrorCode.MERCHANT_ALREADY_EXISTS):
+            return status.HTTP_400_BAD_REQUEST
+        if error_code in (ErrorCode.MERCHANT_NOT_FOUND,):
+            return status.HTTP_404_NOT_FOUND
         return status.HTTP_403_FORBIDDEN
 
     # 6xxx: Cart/Checkout errors -> 400 or 404
@@ -98,14 +125,14 @@ async def root() -> dict[str, str]:
 
 
 @app.get("/health")
-async def health() -> dict[str, any]:
+async def health() -> dict[str, Any]:
     """Health check endpoint with database connectivity."""
     health_status = {"status": "healthy", "database": "connected"}
 
     # Check database connectivity
     try:
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
     except Exception as e:
         health_status["status"] = "unhealthy"
         health_status["database"] = f"disconnected: {str(e)}"
@@ -115,7 +142,7 @@ async def health() -> dict[str, any]:
 
 # Exception handlers
 @app.exception_handler(APIError)
-async def api_error_handler(request: Request, exc: APIError) -> tuple[dict, int]:
+async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     """Handle APIError exceptions with appropriate status codes.
 
     Args:
@@ -123,13 +150,20 @@ async def api_error_handler(request: Request, exc: APIError) -> tuple[dict, int]
         exc: The APIError exception
 
     Returns:
-        Tuple of (error response dict, HTTP status code)
+        JSONResponse with error details
     """
     status_code = get_error_status_code(exc.code)
-    return exc.to_dict(), status_code
+    return JSONResponse(
+        status_code=status_code,
+        content=exc.to_dict(),
+    )
 
 
 # Include API routes
+app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
+app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
+app.include_router(integrations_router, prefix="/api", tags=["integrations"])
+app.include_router(facebook_webhook_router, tags=["webhooks"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

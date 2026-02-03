@@ -80,6 +80,13 @@ Error codes that have been removed:
 | 2001 | TOKEN_EXPIRED | Access token expired | 2024-02-03 |
 | 2002 | WEBHOOK_SIGNATURE_INVALID | Webhook signature verification failed | 2024-02-03 |
 | 2003 | UNAUTHORIZED | Unauthorized access attempt | 2024-02-03 |
+| 2004 | PREREQUISITES_INCOMPLETE | Onboarding prerequisites not complete | 2026-02-03 |
+| 2005 | MERCHANT_NOT_FOUND | Merchant account not found | 2026-02-03 |
+| 2006 | DEPLOYMENT_IN_PROGRESS | Deployment already in progress for this merchant | 2026-02-03 |
+| 2007 | DEPLOYMENT_FAILED | Deployment operation failed | 2026-02-03 |
+| 2008 | DEPLOYMENT_CANCELLED | Deployment was cancelled by user | 2026-02-03 |
+| 2009 | DEPLOYMENT_TIMEOUT | Deployment exceeded time limit (15 minutes) | 2026-02-03 |
+| 2010 | MERCHANT_ALREADY_EXISTS | Merchant with this key already exists | 2026-02-03 |
 
 ### 3000-3999: LLM Provider
 | Code | Name | Description | Added |
@@ -103,6 +110,15 @@ Error codes that have been removed:
 | 5000 | MESSENGER_WEBHOOK_ERROR | Messenger webhook error | 2024-02-03 |
 | 5001 | MESSAGE_SEND_FAILED | Failed to send message | 2024-02-03 |
 | 5002 | WEBHOOK_VERIFICATION_FAILED | Webhook verification failed | 2024-02-03 |
+| 5010 | FACEBOOK_OAUTH_STATE_MISMATCH | OAuth state token mismatch (CSRF protection) | 2026-02-03 |
+| 5011 | FACEBOOK_OAUTH_DENIED | User denied OAuth authorization | 2026-02-03 |
+| 5012 | FACEBOOK_TOKEN_EXCHANGE_FAILED | Failed to exchange authorization code for token | 2026-02-03 |
+| 5013 | FACEBOOK_PAGE_ACCESS_DENIED | Insufficient permissions for page access | 2026-02-03 |
+| 5014 | FACEBOOK_WEBHOOK_SIGNATURE_INVALID | Webhook signature verification failed | 2026-02-03 |
+| 5015 | FACEBOOK_ALREADY_CONNECTED | Facebook Page already connected to this merchant | 2026-02-03 |
+| 5016 | FACEBOOK_NOT_CONNECTED | Facebook Page not connected to this merchant | 2026-02-03 |
+| 5017 | FACEBOOK_ENCRYPTION_KEY_MISSING | Facebook encryption key not configured | 2026-02-03 |
+| 5018 | FACEBOOK_WEBHOOK_VERIFY_FAILED | Facebook webhook verification failed | 2026-02-03 |
 
 ### 6000-6999: Cart/Checkout
 | Code | Name | Description | Added |
