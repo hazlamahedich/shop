@@ -3,10 +3,11 @@
 import { PrerequisiteChecklist } from "./onboarding/PrerequisiteChecklist";
 import { DeploymentWizard } from "./onboarding/DeploymentWizard";
 import { FacebookConnection } from "./onboarding/FacebookConnection";
+import { ShopifyConnection } from "./onboarding/ShopifyConnection";
 import { useIntegrationsStore } from "../stores/integrationsStore";
 
 export function App() {
-  const { facebookConnection } = useIntegrationsStore();
+  const { facebookConnection, shopifyConnection } = useIntegrationsStore();
 
   return (
     <div className="app min-h-screen bg-slate-50">
@@ -22,6 +23,9 @@ export function App() {
           <DeploymentWizard />
           {facebookConnection.connected && (
             <FacebookConnection />
+          )}
+          {facebookConnection.connected && (
+            <ShopifyConnection />
           )}
         </div>
       </main>

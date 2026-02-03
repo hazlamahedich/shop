@@ -99,10 +99,25 @@ Error codes that have been removed:
 ### 4000-4999: Shopify Integration
 | Code | Name | Description | Added |
 |------|------|-------------|-------|
-| 4000 | SHOPIFY_API_ERROR | Shopify API error | 2024-02-03 |
+| 4000 | SHOPIFY_API_ERROR | Generic Shopify API error | 2024-02-03 |
 | 4001 | CHECKOUT_GENERATION_FAILED | Checkout URL generation failed | 2024-02-03 |
 | 4002 | PRODUCT_NOT_FOUND | Product not found | 2024-02-03 |
 | 4003 | STOREFRONT_API_ERROR | Storefront API error | 2024-02-03 |
+| 4011 | SHOPIFY_OAUTH_STATE_MISMATCH | OAuth state token mismatch (CSRF protection) | 2026-02-03 |
+| 4012 | SHOPIFY_OAUTH_DENIED | User denied OAuth authorization | 2026-02-03 |
+| 4013 | SHOPIFY_TOKEN_EXCHANGE_FAILED | Failed to exchange authorization code | 2026-02-03 |
+| 4014 | SHOPIFY_ADMIN_API_ACCESS_DENIED | Insufficient permissions for Admin API | 2026-02-03 |
+| 4015 | SHOPIFY_STOREFRONT_TOKEN_FAILED | Failed to create Storefront access token | 2026-02-03 |
+| 4016 | SHOPIFY_STOREFRONT_API_DENIED | Storefront API access denied | 2026-02-03 |
+| 4017 | SHOPIFY_ALREADY_CONNECTED | Shopify store already connected | 2026-02-03 |
+| 4018 | SHOPIFY_NOT_CONNECTED | Shopify store not connected | 2026-02-03 |
+| 4019 | SHOPIFY_ENCRYPTION_KEY_MISSING | Shopify encryption key not configured | 2026-02-03 |
+| 4020 | SHOPIFY_WEBHOOK_HMAC_INVALID | Shopify webhook signature verification failed | 2026-02-03 |
+| 4021 | SHOPIFY_WEBHOOK_VERIFY_FAILED | Shopify webhook verification failed | 2026-02-03 |
+| 4022 | SHOPIFY_CHECKOUT_CREATE_FAILED | Checkout creation failed | 2026-02-03 |
+| 4023 | SHOPIFY_CHECKOUT_URL_INVALID | Checkout URL validation failed | 2026-02-03 |
+| 4024 | SHOPIFY_SHOP_DOMAIN_INVALID | Invalid Shopify domain format | 2026-02-03 |
+| 4025 | SHOPIFY_PRODUCT_SEARCH_FAILED | Product search failed | 2026-02-03 |
 
 ### 5000-5999: Facebook/Messenger
 | Code | Name | Description | Added |

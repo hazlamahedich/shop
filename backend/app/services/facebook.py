@@ -67,8 +67,9 @@ class FacebookService:
             if self.is_testing:
                 # Use ASGITransport for testing
                 from httpx import ASGITransport
+                from app.main import app
                 self._async_client = httpx.AsyncClient(
-                    transport=ASGITransport(),
+                    transport=ASGITransport(app=app),
                     base_url="http://test"
                 )
             else:

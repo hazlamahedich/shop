@@ -46,6 +46,21 @@ class ErrorCode(IntEnum):
     CHECKOUT_GENERATION_FAILED = 4001
     PRODUCT_NOT_FOUND = 4002
     STOREFRONT_API_ERROR = 4003
+    SHOPIFY_OAUTH_STATE_MISMATCH = 4011  # CSRF attack suspected
+    SHOPIFY_OAUTH_DENIED = 4012  # User denied authorization
+    SHOPIFY_TOKEN_EXCHANGE_FAILED = 4013  # Shopify API error
+    SHOPIFY_ADMIN_API_ACCESS_DENIED = 4014  # Insufficient permissions
+    SHOPIFY_STOREFRONT_TOKEN_FAILED = 4015  # Failed to create token
+    SHOPIFY_STOREFRONT_API_DENIED = 4016  # Storefront API access denied
+    SHOPIFY_ALREADY_CONNECTED = 4017  # Duplicate connection attempt
+    SHOPIFY_NOT_CONNECTED = 4018  # Operation requires connection
+    SHOPIFY_ENCRYPTION_KEY_MISSING = 4019  # Configuration error
+    SHOPIFY_WEBHOOK_HMAC_INVALID = 4020  # Webhook security
+    SHOPIFY_WEBHOOK_VERIFY_FAILED = 4021  # Webhook verification failed
+    SHOPIFY_CHECKOUT_CREATE_FAILED = 4022  # Checkout generation failed
+    SHOPIFY_CHECKOUT_URL_INVALID = 4023  # Checkout URL validation failed
+    SHOPIFY_SHOP_DOMAIN_INVALID = 4024  # Invalid shop domain format
+    SHOPIFY_PRODUCT_SEARCH_FAILED = 4025  # Product search failed
 
     # 5000-5999: Facebook/Messenger (owner: facebook team)
     MESSENGER_WEBHOOK_ERROR = 5000

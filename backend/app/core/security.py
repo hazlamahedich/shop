@@ -193,3 +193,37 @@ def generate_webhook_verify_token() -> str:
     """
     import secrets
     return secrets.token_urlsafe(32)
+
+
+def verify_shopify_webhook_hmac(
+    raw_payload: bytes,
+    hmac_header: str,
+    api_secret: str,
+) -> bool:
+    """Verify Shopify webhook HMAC signature.
+
+    Args:
+        raw_payload: Raw webhook payload bytes
+        hmac_header: X-Shopify-Hmac-Sha256 header value
+        api_secret: Shopify API secret
+
+    Returns:
+        True if signature is valid
+    """
+    import hmac
+    import hashlib
+    import base64
+    from secrets import compare_digest
+
+    # Decode HMAC header (base64 encoded)
+    expected_hmac = base64.b64decode(hmac_header)
+
+    # Compute HMAC of payload
+    computed_hmac = hmac.new(
+        api_secret.encode(),
+        raw_payload,
+        hashlib.sha256
+    ).digest()
+
+    # Use constant-time comparison to prevent timing attacks
+    return compare_digest(computed_hmac, expected_hmac)

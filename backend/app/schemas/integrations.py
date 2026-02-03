@@ -1,4 +1,4 @@
-"""Pydantic schemas for Facebook integration API.
+"""Pydantic schemas for Facebook and Shopify integration APIs.
 
 Request/response schemas with camelCase conversion for API compatibility.
 """
@@ -119,3 +119,54 @@ class ErrorResponse(BaseModel):
     error_code: int = Field(..., alias="errorCode")
     message: str = Field(..., description="Human-readable error message")
     details: Optional[dict[str, Any]] = Field(None, description="Additional error details")
+
+
+# ==================== Shopify OAuth Schemas ====================
+
+
+class ShopifyAuthorizeRequest(BaseModel):
+    """Request to initiate Shopify OAuth flow."""
+
+    merchant_id: int = Field(..., description="Merchant ID initiating OAuth")
+    shop_domain: str = Field(..., alias="shopDomain", description="Shopify shop domain")
+
+
+class ShopifyAuthorizeResponse(BaseModel):
+    """Response with Shopify OAuth URL and state token."""
+
+    auth_url: str = Field(..., alias="authUrl", description="Shopify OAuth dialog URL")
+    state: str = Field(..., description="CSRF state token for callback validation")
+
+
+class ShopifyCallbackRequest(BaseModel):
+    """Shopify OAuth callback request."""
+
+    code: str = Field(..., description="Authorization code from Shopify")
+    state: str = Field(..., description="State token for CSRF validation")
+    shop: str = Field(..., description="Shopify shop domain")
+
+
+class ShopifyCallbackResponse(BaseModel):
+    """Response after successful Shopify OAuth callback."""
+
+    shop_domain: str = Field(..., alias="shopDomain", description="Shopify shop domain")
+    shop_name: str = Field(..., alias="shopName", description="Shopify shop name")
+    connected_at: datetime = Field(..., alias="connectedAt", description="Connection timestamp")
+
+
+class ShopifyStatusResponse(BaseModel):
+    """Response with Shopify connection status."""
+
+    connected: bool = Field(..., description="Whether Shopify is connected")
+    shop_domain: Optional[str] = Field(None, alias="shopDomain", description="Shopify shop domain")
+    shop_name: Optional[str] = Field(None, alias="shopName", description="Shopify shop name")
+    storefront_api_connected: bool = Field(False, alias="storefrontApiConnected", description="Storefront API verified")
+    admin_api_connected: bool = Field(False, alias="adminApiConnected", description="Admin API verified")
+    webhook_subscribed: bool = Field(False, alias="webhookSubscribed", description="Webhook subscribed")
+    connected_at: Optional[datetime] = Field(None, alias="connectedAt", description="Connection timestamp")
+
+
+class ShopifyDisconnectResponse(BaseModel):
+    """Response after disconnecting Shopify integration."""
+
+    disconnected: bool = Field(..., description="Whether disconnection was successful")

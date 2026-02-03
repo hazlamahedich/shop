@@ -63,6 +63,11 @@ def settings() -> dict[str, Any]:
         "ALGORITHM": "HS256",
         "ACCESS_TOKEN_EXPIRE_MINUTES": 30,
         # Shopify
+        "SHOPIFY_API_KEY": os.getenv("SHOPIFY_API_KEY", ""),
+        "SHOPIFY_API_SECRET": os.getenv("SHOPIFY_API_SECRET", ""),
+        "SHOPIFY_ENCRYPTION_KEY": os.getenv("SHOPIFY_ENCRYPTION_KEY", ""),
+        "SHOPIFY_REDIRECT_URI": os.getenv("SHOPIFY_REDIRECT_URI", ""),
+        "SHOPIFY_WEBHOOK_URL": os.getenv("SHOPIFY_WEBHOOK_URL", ""),
         "SHOPIFY_STORE_URL": os.getenv("SHOPIFY_STORE_URL", ""),
         "SHOPIFY_STOREFRONT_TOKEN": os.getenv("SHOPIFY_STOREFRONT_TOKEN", ""),
         "SHOPIFY_API_VERSION": "2024-01",

@@ -7,6 +7,7 @@ from app.models.merchant import Merchant
 from app.models.deployment_log import DeploymentLog
 from app.models.onboarding import PrerequisiteChecklist
 from app.models.facebook_integration import FacebookIntegration
+from app.models.shopify_integration import ShopifyIntegration
 from app.models.conversation import Conversation
 from app.models.message import Message
 
@@ -15,6 +16,7 @@ __all__ = [
     "DeploymentLog",
     "PrerequisiteChecklist",
     "FacebookIntegration",
+    "ShopifyIntegration",
     "Conversation",
     "Message",
 ]
