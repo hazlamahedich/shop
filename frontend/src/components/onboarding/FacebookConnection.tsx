@@ -58,7 +58,7 @@ export function FacebookConnection({
   // Render compact version
   if (compact) {
     return (
-      <div className="flex items-center justify-between p-4 border rounded-lg">
+      <div className="flex items-center justify-between p-4 border rounded-lg" data-testid="facebook-connection-compact">
         <div className="flex items-center gap-3">
           {facebookConnection.connected && facebookConnection.pagePictureUrl && (
             <Avatar className="w-10 h-10">
@@ -89,7 +89,7 @@ export function FacebookConnection({
 
   // Full version
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="facebook-connection">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

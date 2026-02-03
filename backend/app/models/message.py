@@ -27,7 +27,7 @@ class Message(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     conversation_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("conversations.id"),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

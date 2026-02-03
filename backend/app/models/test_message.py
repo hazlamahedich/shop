@@ -85,7 +85,7 @@ class TestMessageModel:
 
         # Check defaults
         assert message.message_type == "text"
-        assert message.metadata is None
+        assert message.message_metadata is None
         assert message.created_at is not None
 
     @pytest.mark.asyncio
@@ -180,14 +180,14 @@ class TestMessageModel:
             sender="customer",
             content="Here's an image",
             message_type="attachment",
-            metadata=metadata,
+            message_metadata=metadata,
         )
         db_session.add(message)
         await db_session.flush()
 
         await db_session.refresh(message)
-        assert message.metadata == metadata
-        assert message.metadata["attachment_url"] == "https://example.com/image.jpg"
+        assert message.message_metadata == metadata
+        assert message.message_metadata["attachment_url"] == "https://example.com/image.jpg"
 
     @pytest.mark.asyncio
     async def test_messages_in_conversation(self, db_session):

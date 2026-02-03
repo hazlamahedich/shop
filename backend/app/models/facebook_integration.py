@@ -27,7 +27,7 @@ class FacebookIntegration(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     merchant_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("merchants.id"),
+        ForeignKey("merchants.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True,

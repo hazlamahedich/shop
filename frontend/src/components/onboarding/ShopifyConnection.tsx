@@ -103,7 +103,7 @@ export function ShopifyConnection({
 
   // Full version
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="shopify-connection">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

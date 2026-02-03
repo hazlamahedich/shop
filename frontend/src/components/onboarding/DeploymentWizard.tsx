@@ -99,7 +99,7 @@ export function DeploymentWizard(): React.ReactElement {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4" data-theme="onboarding">
+    <div className="w-full max-w-3xl mx-auto p-4" data-theme="onboarding" data-testid="deployment-wizard">
       <Card>
         <CardHeader>
           <CardTitle>Deploy Your Bot</CardTitle>
@@ -144,7 +144,7 @@ export function DeploymentWizard(): React.ReactElement {
           {(isDeploying || isComplete || hasFailed || isCancelled) && (
             <div className="space-y-4">
               {/* Status Badge */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between" data-testid="deployment-status">
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={
@@ -182,7 +182,7 @@ export function DeploymentWizard(): React.ReactElement {
               </div>
 
               {/* Progress Bar */}
-              <div>
+              <div data-testid="deployment-progress">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-slate-600">Deployment Progress</span>
                   <span className="font-medium">{progress}%</span>

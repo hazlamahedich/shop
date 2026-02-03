@@ -40,6 +40,7 @@ export function TestConnection({ onTest, isTesting = false }: TestConnectionProp
           type="text"
           value={testPrompt}
           onChange={(e) => setTestPrompt(e.target.value)}
+          data-testid="test-prompt-input"
           className="flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600"
           placeholder="Enter a test message..."
           disabled={isTesting}
@@ -51,6 +52,7 @@ export function TestConnection({ onTest, isTesting = false }: TestConnectionProp
         disabled={isTesting}
         className="w-full"
         variant="outline"
+        dataTestId="test-connection-button"
       >
         {isTesting ? (
           <>

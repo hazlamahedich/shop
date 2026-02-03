@@ -8,10 +8,11 @@ import * as React from "react";
 export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   label?: string;
   description?: string;
+  dataTestId?: string;
 }
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className = "", label, description, id, checked, onChange, ...props }, ref) => {
+  ({ className = "", label, description, id, checked, onChange, dataTestId, ...props }, ref) => {
     const checkboxId = id || `checkbox-${React.useId()}`;
 
     return (
@@ -22,6 +23,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           id={checkboxId}
           checked={checked}
           onChange={onChange}
+          data-testid={dataTestId}
           className={`
             mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-2
             focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed

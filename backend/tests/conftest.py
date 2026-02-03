@@ -31,6 +31,21 @@ os.environ["FACEBOOK_REDIRECT_URI"] = "https://example.com/callback"
 os.environ["FACEBOOK_APP_SECRET"] = "test_secret"
 os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"
 os.environ["FACEBOOK_ENCRYPTION_KEY"] = "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm9yLXRlc3Rpbmc="  # Valid Fernet key (base64)
+os.environ["SHOPIFY_API_SECRET"] = "test_shopify_secret_for_testing"  # Shopify webhook secret
+os.environ["FACEBOOK_APP_SECRET"] = "test_facebook_app_secret"  # Facebook app secret for webhook verification
+os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"  # Facebook webhook verification token
+
+
+# Import all models to ensure they're registered with Base.metadata
+# This must happen before Base.metadata.create_all() is called
+import app.models.merchant
+import app.models.onboarding
+import app.models.facebook_integration
+import app.models.shopify_integration
+import app.models.llm_configuration
+import app.models.conversation
+import app.models.message
+import app.models.deployment_log
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +67,10 @@ test_engine = create_async_engine(
     echo=False,
     poolclass=NullPool,  # Use NullPool for tests - no connection pooling needed
     future=True,
+    connect_args={
+        "prepared_statement_cache_size": 0,  # Disable statement cache to avoid OID issues when types are recreated
+        "statement_cache_size": 0,
+    },
 )
 
 # Create async session factory
@@ -73,32 +92,78 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
     """
     from app.core.database import Base
 
-    # Drop all tables to ensure clean slate
+    # List of custom enum types that must be dropped before tables
+    enum_types = [
+        "message_sender",  # No dependencies
+        "message_type",    # No dependencies
+        "conversation_status",  # Used by conversations
+        "shopify_status",  # Used by shopify_integrations
+        "facebook_status",  # Used by facebook_integrations
+        "llm_provider",    # Used by llm_configurations
+        "merchant_status", # Used by merchants
+    ]
+
+    # Drop custom enum types first (before dropping tables)
+    async with test_engine.begin() as conn:
+        for enum_type in enum_types:
+            await conn.execute(text(f"DROP TYPE IF EXISTS {enum_type} CASCADE;"))
+
+    # Close all connections to clear statement cache
+    await test_engine.dispose()
+
+    # Drop all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
     # Create enum types first (required before creating tables)
     async with test_engine.begin() as conn:
-        # Create llm_provider enum
+        # merchant_status enum
         await conn.execute(text("""
-            DO $$ BEGIN
-                CREATE TYPE llm_provider AS ENUM (
-                    'ollama', 'openai', 'anthropic', 'gemini', 'glm'
-                );
-            EXCEPTION
-                WHEN duplicate_object THEN null;
-            END $$;
+            CREATE TYPE merchant_status AS ENUM (
+                'pending', 'active', 'failed'
+            );
         """))
 
-        # Create llm_status enum
+        # llm_provider enum
         await conn.execute(text("""
-            DO $$ BEGIN
-                CREATE TYPE llm_status AS ENUM (
-                    'pending', 'active', 'error'
-                );
-            EXCEPTION
-                WHEN duplicate_object THEN null;
-            END $$;
+            CREATE TYPE llm_provider AS ENUM (
+                'ollama', 'openai', 'anthropic', 'gemini', 'glm'
+            );
+        """))
+
+        # facebook_status enum
+        await conn.execute(text("""
+            CREATE TYPE facebook_status AS ENUM (
+                'pending', 'active', 'error'
+            );
+        """))
+
+        # shopify_status enum
+        await conn.execute(text("""
+            CREATE TYPE shopify_status AS ENUM (
+                'pending', 'active', 'error'
+            );
+        """))
+
+        # conversation_status enum
+        await conn.execute(text("""
+            CREATE TYPE conversation_status AS ENUM (
+                'active', 'handoff', 'closed'
+            );
+        """))
+
+        # message_sender enum
+        await conn.execute(text("""
+            CREATE TYPE message_sender AS ENUM (
+                'customer', 'bot'
+            );
+        """))
+
+        # message_type enum
+        await conn.execute(text("""
+            CREATE TYPE message_type AS ENUM (
+                'text', 'attachment', 'postback'
+            );
         """))
 
     # Create tables fresh
@@ -109,7 +174,8 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSessionLocal() as session:
         yield session
 
-    # No cleanup after test - next test will drop/recreate
+    # Cleanup after test
+    await session.close()
 
 
 # Alias for backward compatibility with existing tests
@@ -121,14 +187,26 @@ async def async_client(async_session):
     """Create an async HTTP client for testing FastAPI endpoints.
 
     Uses ASGITransport to call the app directly without a server.
+    Overrides get_db dependency to use the test's async_session.
     """
     from app.main import app
+    from app.core.database import get_db
 
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as client:
-        yield client
+    # Override get_db dependency to use test's async_session
+    async def override_get_db():
+        yield async_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            yield client
+    finally:
+        # Clean up override
+        app.dependency_overrides.clear()
 
 
 # Note: pytest-asyncio handles event loop management automatically

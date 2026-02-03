@@ -144,7 +144,7 @@ class TestFacebookApiErrorResponseContract:
     """
 
     @pytest.mark.contract
-    def test_error_response_format(self, async_client):
+    async def test_error_response_format(self, async_client):
         """Test that error responses follow standard format."""
         response = await async_client.get("/api/integrations/facebook/status?merchant_id=999")
 

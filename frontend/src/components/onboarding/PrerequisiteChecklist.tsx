@@ -104,7 +104,7 @@ export function PrerequisiteChecklist(): React.ReactElement {
   const progressPercentage = (completedCount() / totalCount) * 100;
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4" data-theme="onboarding">
+    <div className="w-full max-w-2xl mx-auto p-4" data-theme="onboarding" data-testid="prerequisite-checklist">
       <Card>
         <CardHeader>
           <CardTitle>Setup Prerequisites</CardTitle>
@@ -112,7 +112,7 @@ export function PrerequisiteChecklist(): React.ReactElement {
             Complete these items before deploying your bot. <strong>Setup time: 30-60 minutes</strong>
           </CardDescription>
           <div className="mt-4" role="status" aria-live="polite" aria-atomic="true">
-            <p className="text-sm text-slate-600 mb-2">
+            <p className="text-sm text-slate-600 mb-2" data-testid="progress-text">
               Progress: {completedCount()} of {totalCount} items completed
             </p>
             <Progress value={completedCount()} max={totalCount} />
@@ -131,17 +131,18 @@ export function PrerequisiteChecklist(): React.ReactElement {
                       description={item.description}
                       checked={stateMap[item.key]}
                       onChange={() => togglePrerequisite(item.key)}
+                      dataTestId={`checkbox-${item.key}`}
                     />
                   </div>
                 </div>
 
                 <div className="mt-3 ml-7">
                   <Collapsible>
-                    <CollapsibleTrigger>
+                    <CollapsibleTrigger data-testid={`help-button-${item.key}`}>
                       Get help
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2">
-                      <div className="bg-slate-50 rounded-md p-3 text-sm text-slate-700">
+                      <div className="bg-slate-50 rounded-md p-3 text-sm text-slate-700" data-testid={`help-section-${item.key}`}>
                         <p className="font-medium mb-2">Setup Instructions:</p>
                         <ul className="list-disc list-inside space-y-1">
                           {item.helpContent.map((line, idx) => (
@@ -174,6 +175,7 @@ export function PrerequisiteChecklist(): React.ReactElement {
             disabled={!isComplete()}
             className="w-full"
             title={isComplete() ? "Ready to deploy" : "Complete all prerequisites first"}
+            dataTestId="deploy-button"
           >
             {isComplete() ? "Deploy Now" : "Complete all prerequisites to deploy"}
           </Button>

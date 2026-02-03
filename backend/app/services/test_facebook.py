@@ -43,6 +43,12 @@ class TestFacebookServiceOAuth:
     @pytest.mark.asyncio
     async def test_generate_oauth_url_missing_config(self, db_session, monkeypatch):
         """Test error when Facebook config is missing."""
+        from app.core.config import settings
+
+        # Clear the settings cache
+        settings.cache_clear()
+
+        # Delete the env var
         monkeypatch.delenv("FACEBOOK_APP_ID", raising=False)
 
         service = FacebookService(db_session, is_testing=True)
@@ -103,25 +109,36 @@ class TestFacebookServiceOAuth:
     @pytest.mark.asyncio
     async def test_verify_page_access_denied(self, db_session):
         """Test page access denied with invalid token."""
+        from unittest.mock import patch, MagicMock
+        from httpx import HTTPStatusError, Response, Request
+
         service = FacebookService(db_session, is_testing=False)
 
-        with patch.object(service.async_client, "get") as mock_get:
-            # Simulate 401/403 response
-            mock_response = AsyncMock()
-            mock_response.status_code = 401
-            mock_response.text = "Invalid access token"
-            mock_response.raise_for_status.side_effect = Exception("401")
+        # Create a mock response that will raise HTTPStatusError
+        mock_request = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 401
+        mock_response.text = "Invalid access token"
 
-            mock_get.return_value = mock_response
+        def raise_for_status():
+            raise HTTPStatusError(
+                "401 Unauthorized",
+                request=mock_request,
+                response=mock_response
+            )
 
+        mock_response.raise_for_status = raise_for_status
+        mock_response.json = lambda: {"error": {"message": "Invalid access token"}}
+
+        async def mock_get(*args, **kwargs):
+            return mock_response
+
+        with patch.object(service.async_client, "get", side_effect=mock_get):
             with pytest.raises(APIError) as exc_info:
                 await service.verify_page_access("invalid_token")
 
-            # Should raise either page access denied or token exchange failed
-            assert exc_info.value.code in (
-                ErrorCode.FACEBOOK_PAGE_ACCESS_DENIED,
-                ErrorCode.FACEBOOK_TOKEN_EXCHANGE_FAILED
-            )
+            # Should raise page access denied error
+            assert exc_info.value.code == ErrorCode.FACEBOOK_PAGE_ACCESS_DENIED
 
 
 class TestFacebookServiceIntegration:
@@ -407,11 +424,11 @@ class TestFacebookServiceConversations:
             sender="customer",
             content="Check this image",
             message_type="attachment",
-            metadata=metadata,
+            message_metadata=metadata,
         )
 
         assert message.message_type == "attachment"
-        assert message.metadata == metadata
+        assert message.message_metadata == metadata
 
     @pytest.mark.asyncio
     async def test_get_facebook_service_factory(self, db_session):

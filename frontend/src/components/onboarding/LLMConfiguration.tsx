@@ -38,7 +38,7 @@ export function LLMConfiguration() {
   const isConfigured = configuration.provider !== null;
 
   return (
-    <Card>
+    <Card data-testid="llm-configuration">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>LLM Provider Configuration</span>
@@ -64,6 +64,7 @@ export function LLMConfiguration() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setProviderType('ollama')}
+                data-testid="ollama-option"
                 className={`p-4 border rounded-lg text-left transition-colors ${
                   providerType === 'ollama'
                     ? 'border-indigo-500 bg-indigo-50'
@@ -81,6 +82,7 @@ export function LLMConfiguration() {
 
               <button
                 onClick={() => setProviderType('cloud')}
+                data-testid="cloud-option"
                 className={`p-4 border rounded-lg text-left transition-colors ${
                   providerType === 'cloud'
                     ? 'border-indigo-500 bg-indigo-50'
