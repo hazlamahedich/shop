@@ -40,6 +40,20 @@ class ErrorCode(IntEnum):
     LLM_RATE_LIMIT = 3001
     LLM_TIMEOUT = 3002
     LLM_QUOTA_EXCEEDED = 3003
+    LLM_PROVIDER_NOT_FOUND = 3004  # Unknown provider in factory
+    LLM_API_KEY_MISSING = 3005  # API key not provided
+    LLM_API_KEY_INVALID = 3006  # API key validation failed
+    LLM_CONNECTION_FAILED = 3007  # Provider connection failed
+    LLM_TEST_FAILED = 3008  # Test call failed
+    LLM_CONFIGURATION_MISSING = 3009  # No configuration found
+    LLM_INVALID_MODEL = 3010  # Invalid model for provider
+    LLM_SERVICE_UNAVAILABLE = 3011  # Provider service down
+    LLM_TOKEN_COUNT_FAILED = 3012  # Token counting failed
+    LLM_COST_CALCULATION_FAILED = 3013  # Cost estimation failed
+    LLM_INPUT_SANITIZATION_FAILED = 3014  # Input sanitization failed
+    LLM_RATE_LIMITER_ENABLED = 3015  # Rate limiter triggered
+    LLM_ROUTER_BOTH_FAILED = 3016  # Both primary and backup providers failed
+    LLM_HEALTH_CHECK_FAILED = 3017  # Health check endpoint failed
 
     # 4000-4999: Shopify Integration (owner: shopify team)
     SHOPIFY_API_ERROR = 4000

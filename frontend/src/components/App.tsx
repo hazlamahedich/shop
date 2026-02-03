@@ -4,6 +4,7 @@ import { PrerequisiteChecklist } from "./onboarding/PrerequisiteChecklist";
 import { DeploymentWizard } from "./onboarding/DeploymentWizard";
 import { FacebookConnection } from "./onboarding/FacebookConnection";
 import { ShopifyConnection } from "./onboarding/ShopifyConnection";
+import { LLMConfiguration } from "./onboarding/LLMConfiguration";
 import { useIntegrationsStore } from "../stores/integrationsStore";
 
 export function App() {
@@ -26,6 +27,9 @@ export function App() {
           )}
           {facebookConnection.connected && (
             <ShopifyConnection />
+          )}
+          {facebookConnection.connected && shopifyConnection.connected && (
+            <LLMConfiguration />
           )}
         </div>
       </main>

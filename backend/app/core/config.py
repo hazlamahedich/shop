@@ -82,12 +82,27 @@ def settings() -> dict[str, Any]:
         "FACEBOOK_WEBHOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", ""),
         "FACEBOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_VERIFY_TOKEN", "verify_token"),  # Legacy alias
         # LLM Provider
-        "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "ollama"),  # ollama, openai, anthropic, gemini
+        "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "ollama"),  # ollama, openai, anthropic, gemini, glm
         "LLM_API_KEY": os.getenv("LLM_API_KEY", ""),
         "LLM_API_BASE": os.getenv("LLM_API_BASE", ""),
         "LLM_MODEL": os.getenv("LLM_MODEL", ""),
         "LLM_TEMPERATURE": float(os.getenv("LLM_TEMPERATURE", "0.7")),
         "LLM_MAX_TOKENS": int(os.getenv("LLM_MAX_TOKENS", "1000")),
+        # Ollama Configuration
+        "OLLAMA_DEFAULT_URL": os.getenv("OLLAMA_DEFAULT_URL", "http://localhost:11434"),
+        "OLLAMA_DEFAULT_MODEL": os.getenv("OLLAMA_DEFAULT_MODEL", "llama3"),
+        # OpenAI Configuration
+        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+        "OPENAI_DEFAULT_MODEL": os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4o-mini"),
+        # Anthropic Configuration
+        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
+        "ANTHROPIC_DEFAULT_MODEL": os.getenv("ANTHROPIC_DEFAULT_MODEL", "claude-3-haiku"),
+        # Gemini Configuration
+        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
+        "GEMINI_DEFAULT_MODEL": os.getenv("GEMINI_DEFAULT_MODEL", "gemini-1.5-flash"),
+        # GLM-4.7 Configuration
+        "GLM_API_KEY": os.getenv("GLM_API_KEY", ""),
+        "GLM_DEFAULT_MODEL": os.getenv("GLM_DEFAULT_MODEL", "glm-4-flash"),
         # CORS
         "CORS_ORIGINS": os.getenv(
             "CORS_ORIGINS",

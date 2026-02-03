@@ -11,7 +11,7 @@ from typing import Optional
 
 from sqlalchemy import String, Integer, Boolean, DateTime, JSON
 from sqlalchemy.dialects.postgresql import JSONB, ENUM
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -50,6 +50,14 @@ class Merchant(Base):
         JSONB,
         nullable=True,
     )
+
+    # Relationships
+    llm_configuration: Mapped[Optional["LLMConfiguration"]] = relationship(
+        "LLMConfiguration",
+        back_populates="merchant",
+        uselist=False,  # One-to-one relationship
+    )
+
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,

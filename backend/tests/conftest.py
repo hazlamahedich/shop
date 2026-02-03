@@ -77,6 +77,30 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
+    # Create enum types first (required before creating tables)
+    async with test_engine.begin() as conn:
+        # Create llm_provider enum
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE llm_provider AS ENUM (
+                    'ollama', 'openai', 'anthropic', 'gemini', 'glm'
+                );
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+
+        # Create llm_status enum
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE llm_status AS ENUM (
+                    'pending', 'active', 'error'
+                );
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+
     # Create tables fresh
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

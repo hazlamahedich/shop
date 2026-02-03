@@ -10,6 +10,8 @@ from app.models.facebook_integration import FacebookIntegration
 from app.models.shopify_integration import ShopifyIntegration
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.llm_configuration import LLMConfiguration
+from app.models.llm_conversation_cost import LLMConversationCost
 
 __all__ = [
     "Merchant",
@@ -19,4 +21,6 @@ __all__ = [
     "ShopifyIntegration",
     "Conversation",
     "Message",
+    "LLMConfiguration",
+    "LLMConversationCost",
 ]
