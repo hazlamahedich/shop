@@ -1,0 +1,113 @@
+# Pre-commit Hooks Configuration
+# Shopping Assistant Bot - Pattern Tooling Enforcement
+
+repos:
+  # Generic hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: detect-private-key
+
+  # Python: Formatting
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ['--profile', 'black']
+
+  # Python: Linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=100', '--extend-ignore=E203,W503']
+        files: ^backend/
+
+  # Python: Security
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        args: ['-r', 'backend/app', '-ll']
+        files: ^backend/
+
+  # Custom hooks - Test colocation validation
+  - repo: local
+    hooks:
+      - id: test-colocation-python
+        name: Validate Python test co-location
+        entry: python scripts/validate_test_colocation.py
+        language: system
+        types: [python]
+        files: ^backend/app/
+        pass_filenames: false
+
+  # Custom hooks - Type generation (only when schemas change)
+  - repo: local
+    hooks:
+      - id: openapi-type-generator
+        name: Generate TypeScript types from OpenAPI
+        entry: python scripts/generate_types.py
+        language: system
+        pass_filenames: false
+        files: ^backend/app/schemas/.*\.py$
+
+# Frontend hooks (enable when frontend scripts are created)
+# Uncomment when ready:
+#
+#   - repo: local
+#     hooks:
+#       - id: test-colocation-typescript
+#         name: Validate TypeScript test co-location
+#         entry: node scripts/hooks/test-colocation.js
+#         language: system
+#         types: [typescript]
+#         files: ^frontend/src/
+#         pass_filenames: false
+#
+#   - repo: local
+#     hooks:
+#       - id: api-version-prefix
+#         name: Validate API version prefix
+#         entry: node scripts/hooks/api-version.js
+#         language: system
+#         types: [typescript]
+#         files: ^frontend/src/
+#         pass_filenames: false
+
+# Phase 2 hooks (add after base setup)
+# Uncomment when ready:
+#
+#   - repo: https://github.com/pre-commit/mirrors-mypy
+#     rev: v1.8.0
+#     hooks:
+#       - id: mypy
+#         additional_dependencies: [pydantic>=2.0, types-requests]
+#         args: [--ignore-missing-imports]
+#         files: ^backend/
+#
+#   - repo: https://github.com/pre-commit/mirrors-eslint
+#     rev: v8.56.0
+#     hooks:
+#       - id: eslint
+#         types: [typescript]
+#         files: ^frontend/
+#         additional_dependencies:
+#           - eslint@^8.56.0
+#           - '@typescript-eslint/eslint-plugin'
+#           - '@typescript-eslint/parser'

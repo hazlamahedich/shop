@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shop-backend"
+version = "0.1.0"
+description = "Shopping Assistant Bot Backend"
+requires-python = ">=3.11.7"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "sqlalchemy>=2.0.23",
+    "asyncpg>=0.29.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "alembic>=1.13.0",
+    "httpx>=0.25.0",
+    "python-dotenv>=1.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "schemathesis>=3.20.0",
+    "httpx>=0.25.0",
+]
+dev = [
+    "ruff>=0.1.9",
+    "black>=23.12.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E203", "W503"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+env = [
+    "IS_TESTING=true",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+]
+
+# Fail if coverage drops below 80%
+fail_under = 80
