@@ -102,11 +102,13 @@ export const useDeploymentStore = create<DeploymentState>()(
       },
 
       pollDeploymentStatus: async (deploymentId: string) => {
+        // Capture clearInterval at call time to avoid reference issues in tests
+        const clearIntervalRef = globalThis.clearInterval;
         const pollInterval = setInterval(async () => {
           try {
             const response = await fetch(`/api/deployment/status/${deploymentId}`);
             if (!response.ok) {
-              clearInterval(pollInterval);
+              clearIntervalRef(pollInterval);
               return;
             }
 
@@ -128,10 +130,10 @@ export const useDeploymentStore = create<DeploymentState>()(
               deployment.status === "failed" ||
               deployment.status === "cancelled"
             ) {
-              clearInterval(pollInterval);
+              clearIntervalRef(pollInterval);
             }
           } catch (error) {
-            clearInterval(pollInterval);
+            clearIntervalRef(pollInterval);
             set({
               status: "failed",
               errorMessage: error instanceof Error ? error.message : "Failed to fetch deployment status",
@@ -140,7 +142,7 @@ export const useDeploymentStore = create<DeploymentState>()(
         }, 2000);
 
         // Return cleanup function to prevent memory leak
-        return () => clearInterval(pollInterval);
+        return () => clearIntervalRef(pollInterval);
       },
 
       cancelDeployment: async () => {

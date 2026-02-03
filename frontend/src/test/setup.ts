@@ -21,11 +21,38 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// Track all intervals for cleanup
+const activeIntervals = new Set<ReturnType<typeof setInterval>>();
+
+// Override setInterval to track active intervals
+const originalSetInterval = global.setInterval;
+global.setInterval = ((handler: Function, delay?: number, ...args: any[]) => {
+  const id = originalSetInterval(handler, delay ?? 0, ...args);
+  activeIntervals.add(id);
+  return id;
+}) as any;
+
+// Override clearInterval to remove from tracking
+const originalClearInterval = global.clearInterval;
+global.clearInterval = ((id: ReturnType<typeof setInterval>) => {
+  activeIntervals.delete(id);
+  return originalClearInterval(id);
+}) as any;
+
 beforeEach(() => {
   // Reset all mocks before each test
   vi.clearAllMocks();
 });
 
 afterEach(() => {
+  // Clean up all active intervals to prevent memory leaks and errors
+  activeIntervals.forEach(id => {
+    try {
+      originalClearInterval(id);
+    } catch (e) {
+      // Ignore errors during cleanup
+    }
+  });
+  activeIntervals.clear();
   cleanup();
 });
