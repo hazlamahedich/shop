@@ -59,9 +59,6 @@ testpaths = ["tests"]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
-env = [
-    "IS_TESTING=true",
-]
 
 [tool.mypy]
 python_version = "3.11"

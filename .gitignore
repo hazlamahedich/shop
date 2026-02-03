@@ -36,6 +36,7 @@ dmypy.json
 
 # Virtual environments
 venv/
+.venv/
 env/
 ENV/
 env.bak/
@@ -92,6 +93,10 @@ htmlcov/
 coverage.xml
 *.cover
 .hypothesis/
+
+# Direnv
+.envrc
+.direnv/
 
 # BMAD output (exclude from version control)
 _bmad-output/
