@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, Request, Response, Header, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, Request, Response, Header, HTTPException, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -59,11 +59,11 @@ async def enqueue_failed_webhook(webhook_data: dict, error: str, page_id: str) -
         logger.error("dlq_enqueue_failed", error=str(e))
 
 
-@router.get("/webhooks/facebook")
+@router.get("/facebook")
 async def facebook_webhook_verify(
-    mode: str,
-    token: str,
-    challenge: str
+    hub_mode: Optional[str] = Query(None, alias="hub.mode"),
+    hub_challenge: Optional[str] = Query(None, alias="hub.challenge"),
+    hub_verify_token: Optional[str] = Query(None, alias="hub.verify_token")
 ) -> Response:
     """Verify Facebook webhook subscription.
 
@@ -71,9 +71,9 @@ async def facebook_webhook_verify(
     Must return the challenge token to verify ownership.
 
     Args:
-        mode: Hub mode (should be "subscribe")
-        token: Verify token
-        challenge: Challenge string to echo back
+        hub_mode: Hub mode (should be "subscribe")
+        hub_verify_token: Verify token
+        hub_challenge: Challenge string to echo back
 
     Returns:
         Plain text response with challenge or 403 error
@@ -87,13 +87,13 @@ async def facebook_webhook_verify(
             detail="FACEBOOK_WEBHOOK_VERIFY_TOKEN not configured"
         )
 
-    if mode == "subscribe" and token == expected_token:
-        return Response(content=challenge, media_type="text/plain")
+    if hub_mode == "subscribe" and hub_verify_token == expected_token:
+        return Response(content=hub_challenge, media_type="text/plain")
 
     raise HTTPException(status_code=403, detail="Webhook verification failed")
 
 
-@router.post("/webhooks/facebook")
+@router.post("/facebook")
 async def facebook_webhook_receive(
     request: Request,
     background_tasks: BackgroundTasks,

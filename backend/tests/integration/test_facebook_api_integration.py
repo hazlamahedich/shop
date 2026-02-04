@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.models.facebook_integration import FacebookIntegration
 from app.models.merchant import Merchant
 from app.core.security import encrypt_access_token
+from app.core.config import settings
 
 
 class TestFacebookOAuthFlow:
@@ -101,10 +102,11 @@ class TestFacebookWebhookEndpoints:
     @pytest.mark.asyncio
     async def test_webhook_verify_success(self, async_client, monkeypatch):
         """Test webhook verification with correct token."""
+        settings.cache_clear()
         monkeypatch.setenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", "test_token")
 
         response = await async_client.get(
-            "/webhooks/facebook",
+            "/api/webhooks/facebook",
             params={
                 "hub.mode": "subscribe",
                 "hub.challenge": "challenge_value",
@@ -118,10 +120,11 @@ class TestFacebookWebhookEndpoints:
     @pytest.mark.asyncio
     async def test_webhook_verify_wrong_token(self, async_client, monkeypatch):
         """Test webhook verification fails with wrong token."""
+        settings.cache_clear()
         monkeypatch.setenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", "correct_token")
 
         response = await async_client.get(
-            "/webhooks/facebook",
+            "/api/webhooks/facebook",
             params={
                 "hub.mode": "subscribe",
                 "hub.challenge": "challenge_value",
@@ -138,6 +141,7 @@ class TestFacebookWebhookEndpoints:
         import hashlib
         import json
 
+        settings.cache_clear()
         monkeypatch.setenv("FACEBOOK_APP_SECRET", "test_secret")
 
         # Create webhook payload
@@ -167,7 +171,7 @@ class TestFacebookWebhookEndpoints:
         signature_header = f"sha256={signature}"
 
         response = await async_client.post(
-            "/webhooks/facebook",
+            "/api/webhooks/facebook",
             content=raw_payload,
             headers={"X-Hub-Signature-256": signature_header}
         )
@@ -179,10 +183,11 @@ class TestFacebookWebhookEndpoints:
     @pytest.mark.asyncio
     async def test_webhook_post_invalid_signature(self, async_client, monkeypatch):
         """Test webhook POST fails with invalid signature."""
+        settings.cache_clear()
         monkeypatch.setenv("FACEBOOK_APP_SECRET", "test_secret")
 
         response = await async_client.post(
-            "/webhooks/facebook",
+            "/api/webhooks/facebook",
             content=b'{"test": "payload"}',
             headers={"X-Hub-Signature-256": "sha256=invalid_signature"}
         )
