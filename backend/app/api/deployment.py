@@ -47,6 +47,42 @@ router = APIRouter()
 _active_subprocesses: dict[str, asyncio.subprocess.Process] = {}
 _active_deployments: dict[str, datetime] = {}  # Track deployment start times for rate limiting
 
+
+def _safe_step_to_enum(step_value: Optional[str]) -> Optional[DeploymentStep]:
+    """Safely convert a step string to DeploymentStep enum.
+
+    Handles both enum values (e.g., "check_cli") and script output
+    (e.g., "Prerequisites"). Returns None if step doesn't match a known enum.
+
+    Args:
+        step_value: The step value from the database
+
+    Returns:
+        DeploymentStep enum if valid, None otherwise
+    """
+    if not step_value:
+        return None
+
+    # Try direct enum conversion first
+    try:
+        return DeploymentStep(step_value)
+    except ValueError:
+        pass
+
+    # Map script output to enum values (DEFER-1.2-1 fix)
+    script_to_enum = {
+        "Prerequisites": DeploymentStep.CHECK_CLI,
+        "Authentication": DeploymentStep.AUTHENTICATION,
+        "App Setup": DeploymentStep.APP_SETUP,
+        "Configuration": DeploymentStep.CONFIGURATION,
+        "Secrets": DeploymentStep.SECRETS,
+        "Deployment": DeploymentStep.DEPLOYMENT,
+        "Health Check": DeploymentStep.HEALTH_CHECK,
+        "Complete": DeploymentStep.COMPLETE,
+    }
+
+    return script_to_enum.get(step_value)
+
 # Rate limiting configuration (per AC requirements)
 MIN_DEPLOYMENT_INTERVAL_SECONDS = 600  # 10 minutes between deployments per merchant
 MAX_CONCURRENT_DEPLOYMENTS = 1  # Max concurrent deployments per merchant
@@ -432,10 +468,16 @@ async def get_deployment_status(
 
     # Get latest log for current step
     latest_log = logs[-1] if logs else None
-    current_step = latest_log.step if latest_log else None
+    # Use raw step string for progress calculation (supports both enum and script output)
+    current_step_raw = latest_log.step if latest_log else None
+    # Convert to enum for API response (returns None for script-style names)
+    current_step = _safe_step_to_enum(current_step_raw) if latest_log else None
 
     # Calculate progress based on step
+    # Maps both human-readable script output and enum values to progress percentages
+    # This handles the alignment between script output (e.g., "Prerequisites") and API enums (e.g., "check_cli")
     step_progress = {
+        # Enum values (from DeploymentStep)
         "check_cli": 10,
         "authentication": 20,
         "app_setup": 30,
@@ -444,8 +486,17 @@ async def get_deployment_status(
         "deploy": 70,
         "health_check": 90,
         "complete": 100,
+        # Human-readable script output (from deployment scripts)
+        "Prerequisites": 10,
+        "Authentication": 20,
+        "App Setup": 30,
+        "Configuration": 40,
+        "Secrets": 50,
+        "Deployment": 70,
+        "Health Check": 90,
+        "Complete": 100,
     }
-    progress = step_progress.get(current_step, 0) if current_step else 0
+    progress = step_progress.get(current_step_raw, 0) if current_step_raw else 0
     if deployment_status == DeploymentStatus.SUCCESS:
         progress = 100
 
@@ -454,7 +505,7 @@ async def get_deployment_status(
         DeploymentLogEntry(
             timestamp=log.timestamp,
             level=LogLevel(log.level) if log.level else LogLevel.INFO,
-            step=DeploymentStep(log.step) if log.step else None,
+            step=_safe_step_to_enum(log.step),
             message=log.message,
         )
         for log in logs
@@ -538,9 +589,15 @@ async def stream_deployment_progress(
             deployment_status = status_mapping.get(merchant.status, DeploymentStatus.IN_PROGRESS)
 
             latest_log = logs[-1] if logs else None
-            current_step = latest_log.step if latest_log else None
+            # Use raw step string for progress calculation (supports both enum and script output)
+            current_step_raw = latest_log.step if latest_log else None
+            # Convert to enum for API response (returns None for script-style names)
+            current_step = _safe_step_to_enum(current_step_raw) if latest_log else None
 
+            # Maps both human-readable script output and enum values to progress percentages
+            # This handles the alignment between script output (e.g., "Prerequisites") and API enums (e.g., "check_cli")
             step_progress = {
+                # Enum values (from DeploymentStep)
                 "check_cli": 10,
                 "authentication": 20,
                 "app_setup": 30,
@@ -549,8 +606,17 @@ async def stream_deployment_progress(
                 "deploy": 70,
                 "health_check": 90,
                 "complete": 100,
+                # Human-readable script output (from deployment scripts)
+                "Prerequisites": 10,
+                "Authentication": 20,
+                "App Setup": 30,
+                "Configuration": 40,
+                "Secrets": 50,
+                "Deployment": 70,
+                "Health Check": 90,
+                "Complete": 100,
             }
-            progress = step_progress.get(current_step, 0) if current_step else 0
+            progress = step_progress.get(current_step_raw, 0) if current_step_raw else 0
             if deployment_status == DeploymentStatus.SUCCESS:
                 progress = 100
 
@@ -558,7 +624,7 @@ async def stream_deployment_progress(
                 DeploymentLogEntry(
                     timestamp=log.timestamp,
                     level=LogLevel(log.level) if log.level else LogLevel.INFO,
-                    step=DeploymentStep(log.step) if log.step else None,
+                    step=_safe_step_to_enum(log.step),
                     message=log.message,
                 )
                 for log in logs

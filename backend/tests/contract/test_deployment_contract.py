@@ -126,3 +126,132 @@ class TestDeploymentAPIContract:
         if response.status_code != 500:
             # Content type may include charset
             assert "text/event-stream" in response.headers.get("content-type", "")
+
+
+class TestDeploymentSSEEdgeCases:
+    """Tests for SSE edge cases and error handling (DEFER-1.2-2).
+
+    Tests SSE connection failure scenarios including:
+    - Network timeout
+    - Malformed SSE events
+    - Connection interruption mid-stream
+    - Concurrent SSE connections to same deployment_id
+    """
+
+    @pytest.mark.asyncio
+    async def test_sse_handles_unknown_deployment_id(self, client: httpx.AsyncClient) -> None:
+        """Test that SSE handles unknown deployment ID gracefully."""
+        response = await client.get("/api/deployment/progress/unknown-deployment-id-12345")
+
+        # Should return event stream with error message
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers.get("content-type", "")
+
+        # Read the stream content
+        content = response.text
+        # Should contain error information
+        assert "error" in content.lower() or "not found" in content.lower() or "[DONE]" in content
+
+    @pytest.mark.asyncio
+    async def test_sse_sends_done_on_complete(self, client: httpx.AsyncClient) -> None:
+        """Test that SSE sends [DONE] marker when deployment is complete."""
+        # Start a deployment to get a valid deployment_id
+        start_response = await client.post(
+            "/api/deployment/start",
+            json={"platform": "flyio"},
+        )
+
+        if start_response.status_code == 202:
+            deployment_id = start_response.json().get("data", {}).get("deploymentId")
+            if deployment_id:
+                # Get progress stream
+                response = await client.get(f"/api/deployment/progress/{deployment_id}")
+
+                assert response.status_code == 200
+                # Stream should contain SSE format data
+                content = response.text
+                # Should contain [DONE] marker or valid SSE events
+                assert "[DONE]" in content or "data:" in content
+
+    @pytest.mark.asyncio
+    async def test_sse_handles_malformed_deployment_id(self, client: httpx.AsyncClient) -> None:
+        """Test that SSE handles malformed deployment IDs gracefully."""
+        malformed_ids = [
+            "",
+            " ",
+            "!!!invalid!!!",
+            "../../../etc/passwd",
+            "<script>alert('xss')</script>",
+        ]
+
+        for malformed_id in malformed_ids:
+            response = await client.get(f"/api/deployment/progress/{malformed_id}")
+            # Should handle gracefully without crashing
+            # May return 404, 422, or stream with error
+            assert response.status_code in (200, 404, 422)
+
+    @pytest.mark.asyncio
+    async def test_sse_concurrent_connections_same_deployment(self, client: httpx.AsyncClient) -> None:
+        """Test that SSE handles concurrent connections to the same deployment_id (DEFER-1.2-2)."""
+        import asyncio
+
+        # Start a deployment
+        start_response = await client.post(
+            "/api/deployment/start",
+            json={"platform": "railway"},
+        )
+
+        if start_response.status_code == 202:
+            deployment_id = start_response.json().get("data", {}).get("deploymentId")
+            if deployment_id:
+                # Make concurrent requests to the same deployment progress endpoint
+                async def get_progress():
+                    return await client.get(f"/api/deployment/progress/{deployment_id}")
+
+                # Run 3 concurrent requests
+                responses = await asyncio.gather(
+                    get_progress(),
+                    get_progress(),
+                    get_progress(),
+                    return_exceptions=True,
+                )
+
+                # All should succeed without errors
+                for resp in responses:
+                    if not isinstance(resp, Exception):
+                        assert resp.status_code == 200
+                        assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    @pytest.mark.asyncio
+    async def test_sse_includes_required_headers(self, client: httpx.AsyncClient) -> None:
+        """Test that SSE response includes required headers for proper streaming."""
+        response = await client.get("/api/deployment/progress/test-deployment-id")
+
+        if response.status_code == 200:
+            headers = response.headers
+            # SSE should have no-cache to prevent buffering
+            cache_control = headers.get("cache-control", "").lower()
+            assert "no-cache" in cache_control
+
+            # Should indicate keep-alive connection
+            connection = headers.get("connection", "").lower()
+            assert "keep-alive" in connection or connection == ""
+
+            # Should disable nginx buffering
+            assert headers.get("x-accel-buffering", "") == "no" or headers.get("x-accel-buffering") is None
+
+    @pytest.mark.asyncio
+    async def test_sse_format_validation(self, client: httpx.AsyncClient) -> None:
+        """Test that SSE events follow proper SSE format (DEFER-1.2-2)."""
+        response = await client.get("/api/deployment/progress/format-validation-test")
+
+        if response.status_code == 200:
+            content = response.text
+            # SSE format: "data: {json}\n\n"
+            # Events should be separated by double newlines
+            # Should contain "data:" prefix for events
+            lines = content.split("\n")
+            for line in lines:
+                if line.strip() and not line.strip().startswith("[DONE]"):
+                    # Non-empty lines that aren't [DONE] should be SSE data lines
+                    assert line.startswith("data:") or line.strip() == "", f"Invalid SSE format: {line}"

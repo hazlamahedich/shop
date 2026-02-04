@@ -334,3 +334,115 @@ class TestDeploymentProgressStream:
         # Note: This test would require mocking to fully test SSE stream
         # For now, just verify the endpoint is accessible
         assert response.status_code == status.HTTP_200_OK
+
+
+class TestStepProgressMapping:
+    """Tests for step progress mapping alignment (DEFER-1.2-1).
+
+    Tests that both human-readable script output (e.g., "Prerequisites")
+    and enum values (e.g., "check_cli") map correctly to progress percentages.
+    """
+
+    @pytest.mark.asyncio
+    async def test_step_progress_handles_enum_values(self, client: AsyncClient, clear_deployments: None) -> None:
+        """Test that step progress handles enum values (snake_case)."""
+        from app.models.deployment_log import DeploymentLog as DeploymentLogModel
+        from app.models.merchant import Merchant
+        from app.schemas.deployment import DeploymentStep
+        from sqlalchemy import text
+
+        # Create a merchant and deployment logs with enum step values
+        async with TestingSessionLocal() as db:
+            merchant = Merchant(
+                merchant_key="shop-test123",
+                platform="flyio",
+                status="active",
+                config={},
+            )
+            db.add(merchant)
+            await db.commit()
+            await db.refresh(merchant)
+
+            deployment_id = str(uuid4())
+            # Add logs with enum step values
+            for step_enum in [
+                DeploymentStep.CHECK_CLI,
+                DeploymentStep.AUTHENTICATION,
+                DeploymentStep.APP_SETUP,
+                DeploymentStep.CONFIGURATION,
+                DeploymentStep.SECRETS,
+                DeploymentStep.DEPLOYMENT,
+                DeploymentStep.HEALTH_CHECK,
+                DeploymentStep.COMPLETE,
+            ]:
+                log = DeploymentLogModel(
+                    deployment_id=deployment_id,
+                    merchant_id=merchant.id,
+                    timestamp=None,
+                    level="info",
+                    step=step_enum.value,
+                    message=f"Step: {step_enum.value}",
+                )
+                db.add(log)
+            await db.commit()
+
+        # Get status and verify progress is calculated correctly
+        response = await client.get(f"/api/deployment/status/{deployment_id}")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # Last step is "complete" which should map to 100%
+        assert data["data"]["progress"] == 100
+
+    @pytest.mark.asyncio
+    async def test_step_progress_handles_script_output(self, client: AsyncClient, clear_deployments: None) -> None:
+        """Test that step progress handles script output (Title Case with spaces).
+
+        This addresses DEFER-1.2-1: Ensure script output like "Prerequisites",
+        "Authentication", "App Setup" etc. map correctly to progress values.
+        """
+        from app.models.deployment_log import DeploymentLog as DeploymentLogModel
+        from app.models.merchant import Merchant
+        from sqlalchemy import text
+
+        # Create a merchant and deployment logs with script output step names
+        async with TestingSessionLocal() as db:
+            merchant = Merchant(
+                merchant_key="shop-test456",
+                platform="flyio",
+                status="active",
+                config={},
+            )
+            db.add(merchant)
+            await db.commit()
+            await db.refresh(merchant)
+
+            deployment_id = str(uuid4())
+            # Add logs with human-readable script output step names
+            script_steps = [
+                ("Prerequisites", 10),
+                ("Authentication", 20),
+                ("App Setup", 30),
+                ("Configuration", 40),
+                ("Secrets", 50),
+                ("Deployment", 70),
+                ("Health Check", 90),
+                ("Complete", 100),
+            ]
+            for step_name, expected_progress in script_steps:
+                log = DeploymentLogModel(
+                    deployment_id=deployment_id,
+                    merchant_id=merchant.id,
+                    timestamp=None,
+                    level="info",
+                    step=step_name,  # Human-readable name from script
+                    message=f"Step: {step_name}",
+                )
+                db.add(log)
+            await db.commit()
+
+        # Get status and verify progress is calculated correctly for script output
+        response = await client.get(f"/api/deployment/status/{deployment_id}")
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # Last step is "Complete" which should map to 100%
+        assert data["data"]["progress"] == 100
