@@ -1,7 +1,8 @@
-"""Webhooks API module."""
+"""Webhook API endpoints."""
 
-from __future__ import annotations
+from app.api.webhooks.facebook import router as facebook_router, verify_facebook_webhook_signature
 
-from app.api.webhooks.facebook import router as facebook_router
-
-__all__ = ["facebook_router"]
+__all__ = [
+    "facebook_router",
+    "verify_facebook_webhook_signature",
+]
