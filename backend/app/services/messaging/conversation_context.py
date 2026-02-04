@@ -146,3 +146,36 @@ class ConversationContextManager:
             self.logger.info("conversation_context_deleted", psid=psid)
         except Exception as e:
             self.logger.error("context_deletion_failed", psid=psid, error=str(e))
+
+    async def update_search_results(
+        self,
+        psid: str,
+        search_result: dict[str, Any],
+    ) -> None:
+        """Update conversation context with product search results.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            search_result: Search results dict with products and metadata
+        """
+        context = await self.get_context(psid)
+        session_key = self._get_session_key(psid)
+
+        try:
+            # Store search results in context
+            context["last_search_results"] = search_result
+
+            # Update timestamp
+            context["last_message_at"] = datetime.now(UTC).isoformat()
+
+            # Save to Redis with TTL
+            self.redis.setex(
+                session_key,
+                self.SESSION_TTL_SECONDS,
+                json.dumps(context),
+            )
+
+            self.logger.debug("search_results_stored", psid=psid, result_count=len(search_result.get("products", [])))
+
+        except Exception as e:
+            self.logger.error("search_results_update_failed", psid=psid, error=str(e))

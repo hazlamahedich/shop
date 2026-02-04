@@ -32,7 +32,7 @@ async def test_shopify_oauth_state_validation(async_client: AsyncClient, monkeyp
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     # Generate OAuth URL and capture state
     response = await async_client.get(
@@ -69,7 +69,7 @@ async def test_shopify_oauth_callback_success(async_client: AsyncClient, monkeyp
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     # Mock Shopify token exchange response
     mock_token_response = {
@@ -129,7 +129,7 @@ async def test_shopify_oauth_callback_state_mismatch(async_client: AsyncClient, 
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     response = await async_client.get(
         "/api/integrations/shopify/callback",
@@ -164,7 +164,7 @@ async def test_shopify_oauth_denied(async_client: AsyncClient, monkeypatch) -> N
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     response = await async_client.get(
         "/api/integrations/shopify/callback",
@@ -201,7 +201,7 @@ async def test_shopify_storefront_token_creation(async_client: AsyncClient, monk
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     # Mock Storefront token creation response
     mock_token_response = {
@@ -284,7 +284,7 @@ async def test_shopify_insufficient_permissions(async_client: AsyncClient, monke
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     # Mock token response with limited scopes
     mock_token_response = {

@@ -67,7 +67,8 @@ async def test_generate_oauth_url_valid_domain(db_session, merchant, monkeypatch
             "IS_TESTING": True,
         }
 
-    monkeypatch.setattr("app.services.shopify.settings", mock_settings)
+    # Patch the shopify_oauth module where settings is used
+    monkeypatch.setattr("app.services.shopify_oauth.settings", mock_settings)
 
     service = ShopifyService(db_session, is_testing=True)
 

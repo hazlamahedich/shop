@@ -69,7 +69,11 @@ def settings() -> dict[str, Any]:
         "SHOPIFY_REDIRECT_URI": os.getenv("SHOPIFY_REDIRECT_URI", ""),
         "SHOPIFY_WEBHOOK_URL": os.getenv("SHOPIFY_WEBHOOK_URL", ""),
         "SHOPIFY_STORE_URL": os.getenv("SHOPIFY_STORE_URL", ""),
-        "SHOPIFY_STOREFRONT_TOKEN": os.getenv("SHOPIFY_STOREFRONT_TOKEN", ""),
+        # Support both variable names for backward compatibility
+        "SHOPIFY_STOREFRONT_ACCESS_TOKEN": os.getenv(
+            "SHOPIFY_STOREFRONT_ACCESS_TOKEN",
+            os.getenv("SHOPIFY_STOREFRONT_TOKEN", ""),
+        ),
         "SHOPIFY_API_VERSION": "2024-01",
         # Facebook Messenger
         "FACEBOOK_PAGE_ID": os.getenv("FACEBOOK_PAGE_ID", ""),
@@ -82,7 +86,9 @@ def settings() -> dict[str, Any]:
         "FACEBOOK_WEBHOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", ""),
         "FACEBOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_VERIFY_TOKEN", "verify_token"),  # Legacy alias
         # LLM Provider
-        "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "ollama"),  # ollama, openai, anthropic, gemini, glm
+        "LLM_PROVIDER": os.getenv(
+            "LLM_PROVIDER", "ollama"
+        ),  # ollama, openai, anthropic, gemini, glm
         "LLM_API_KEY": os.getenv("LLM_API_KEY", ""),
         "LLM_API_BASE": os.getenv("LLM_API_BASE", ""),
         "LLM_MODEL": os.getenv("LLM_MODEL", ""),

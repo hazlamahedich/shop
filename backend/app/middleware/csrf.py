@@ -48,6 +48,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     # Paths that bypass CSRF validation
     BYPASS_PATHS = [
         "/api/webhooks/",
+        "/webhooks/",  # Webhook endpoints (use signature-based verification)
         "/api/oauth/",
         "/api/auth/",
         "/api/deletion/",  # Data deletion for GDPR/CCPA compliance

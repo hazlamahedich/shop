@@ -75,18 +75,23 @@ class ErrorCode(IntEnum):
     SHOPIFY_CHECKOUT_URL_INVALID = 4023  # Checkout URL validation failed
     SHOPIFY_SHOP_DOMAIN_INVALID = 4024  # Invalid shop domain format
     SHOPIFY_PRODUCT_SEARCH_FAILED = 4025  # Product search failed
+    SHOPIFY_TIMEOUT = 4026  # API timeout (Storefront)
+    SHOPIFY_INVALID_QUERY = 4027  # Malformed query
+    SHOPIFY_RATE_LIMITED = 4028  # Admin API rate limit (not Storefront)
+    PRODUCT_MAPPING_FAILED = 4029  # Entity to filter mapping error
+    SHOPIFY_PRODUCT_NOT_FOUND_SEARCH = 4030  # No products found in search
 
     # 5000-5999: Facebook/Messenger (owner: facebook team)
     MESSENGER_WEBHOOK_ERROR = 5000
     MESSAGE_SEND_FAILED = 5001
     WEBHOOK_VERIFICATION_FAILED = 5002
     FACEBOOK_OAUTH_STATE_MISMATCH = 5010  # CSRF attack suspected
-    FACEBOOK_OAUTH_DENIED = 5011          # User denied authorization
+    FACEBOOK_OAUTH_DENIED = 5011  # User denied authorization
     FACEBOOK_TOKEN_EXCHANGE_FAILED = 5012  # Facebook API error
-    FACEBOOK_PAGE_ACCESS_DENIED = 5013     # Insufficient permissions
+    FACEBOOK_PAGE_ACCESS_DENIED = 5013  # Insufficient permissions
     FACEBOOK_WEBHOOK_SIGNATURE_INVALID = 5014  # Webhook security
-    FACEBOOK_ALREADY_CONNECTED = 5015      # Duplicate connection attempt
-    FACEBOOK_NOT_CONNECTED = 5016          # Operation requires connection
+    FACEBOOK_ALREADY_CONNECTED = 5015  # Duplicate connection attempt
+    FACEBOOK_NOT_CONNECTED = 5016  # Operation requires connection
     FACEBOOK_ENCRYPTION_KEY_MISSING = 5017  # Configuration error
     FACEBOOK_WEBHOOK_VERIFY_FAILED = 5018  # Webhook verification failed
 

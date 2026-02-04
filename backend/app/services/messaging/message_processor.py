@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 import structlog
 
+from app.core.errors import APIError
 from app.schemas.messaging import (
     ConversationContext,
     FacebookWebhookPayload,
@@ -117,19 +118,70 @@ class MessageProcessor:
 
         # Route based on intent
         if intent == IntentType.PRODUCT_SEARCH:
-            # Placeholder for product search (Story 2.2)
-            entities = classification.entities.model_dump(exclude_none=True, exclude_defaults=True)
-            response_text = "Searching for products"
-            if entities.get("category"):
-                response_text += f" in {entities['category']}"
-            if entities.get("budget"):
-                response_text += f" under ${entities['budget']}"
-            response_text += ". This feature will be implemented in Story 2.2."
+            # Import here to avoid circular dependency
+            from app.services.shopify import ProductSearchService
 
-            return MessengerResponse(
-                text=response_text,
-                recipient_id=context.get("psid", ""),
-            )
+            psid = context.get("psid", "")
+            try:
+                # Search for products using ProductSearchService
+                search_service = ProductSearchService()
+                search_result = await search_service.search_products(classification.entities)
+
+                # Update context with search results using Pydantic model_dump
+                await self.context_manager.update_search_results(
+                    psid,
+                    {
+                        "products": [
+                            p.model_dump(exclude_none=True, exclude_defaults=True)
+                            for p in search_result.products
+                        ],
+                        "total_count": search_result.total_count,
+                        "search_params": search_result.search_params,
+                        "searched_at": search_result.search_time_ms,
+                    },
+                )
+
+                # Format response based on results
+                if search_result.total_count == 0:
+                    return MessengerResponse(
+                        text=(
+                            "No exact matches found. "
+                            "Want to see similar items or broaden your budget?"
+                        ),
+                        recipient_id=psid,
+                    )
+                else:
+                    # Format products for display (Story 2.3 will improve this)
+                    response_text = f"Found {search_result.total_count} product"
+                    if search_result.total_count > 1:
+                        response_text += "s"
+                    response_text += ":\n\n"
+
+                    for i, product in enumerate(search_result.products[:3], 1):
+                        response_text += f"{i}. {product.title}\n"
+                        response_text += f"   Price: ${product.price:.2f}\n"
+                        if product.description:
+                            # Truncate description to 100 chars
+                            desc = product.description[:100]
+                            if len(product.description) > 100:
+                                desc += "..."
+                            response_text += f"   {desc}\n"
+                        response_text += "\n"
+
+                    if search_result.total_count > 3:
+                        response_text += f"And {search_result.total_count - 3} more product(s).\n"
+
+                    return MessengerResponse(
+                        text=response_text.strip(),
+                        recipient_id=psid,
+                    )
+
+            except APIError as e:
+                self.logger.error("product_search_failed", error=str(e), error_code=e.code)
+                return MessengerResponse(
+                    text="Sorry, I'm having trouble finding products. Please try again or type 'human' for help.",
+                    recipient_id=psid,
+                )
 
         elif intent == IntentType.GREETING:
             return MessengerResponse(
