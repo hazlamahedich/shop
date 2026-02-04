@@ -13,6 +13,7 @@ from app.models.message import Message
 from app.models.llm_configuration import LLMConfiguration
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.tutorial import Tutorial
+from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
 
 __all__ = [
     "Merchant",
@@ -25,4 +26,6 @@ __all__ = [
     "LLMConfiguration",
     "LLMConversationCost",
     "Tutorial",
+    "DataDeletionRequest",
+    "DeletionStatus",
 ]

@@ -1,0 +1,293 @@
+name: Security Scans
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # Secret Scanning - Prevent credential leaks
+  secret-scan:
+    name: Secret Scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # Backend Dependency Security
+  backend-security:
+    name: Backend Security Scans
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        scan: [bandit, safety, semgrep]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.7'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -e ".[test,dev]"
+
+      - name: Bandit security scan
+        if: matrix.scan == 'bandit'
+        run: |
+          cd backend
+          pip install bandit[toml]
+          bandit -r app/ -f json -o bandit-report.json || true
+          bandit -r app/ -ll -ii
+
+      - name: Upload Bandit SARIF
+        if: matrix.scan == 'bandit'
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: backend/bandit-report.json
+          category: bandit-security
+
+      - name: Safety dependency scan
+        if: matrix.scan == 'safety'
+        run: |
+          cd backend
+          pip install safety
+          safety check --json --output safety-report.json || true
+          safety check
+
+      - name: Semgrep static analysis
+        if: matrix.scan == 'semgrep'
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+          target: backend/app
+          severity: ERROR
+          sarif: true
+
+  # Frontend Dependency Security
+  frontend-security:
+    name: Frontend Security Scans
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: npm audit (HIGH/CRITICAL only)
+        run: |
+          cd frontend
+          npm audit --audit-level=high --json > npm-audit-report.json || true
+          npm audit --audit-level=high
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --sarif-file-output=snyk-report.sarif
+          working-directory: frontend
+
+      - name: Upload Snyk SARIF
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: frontend/snyk-report.sarif
+          category: snyk-frontend
+
+  # Infrastructure Security (Docker)
+  infrastructure-security:
+    name: Infrastructure Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-config-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-config-results.sarif'
+          category: 'trivy-config'
+
+  # CodeQL Advanced Analysis
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python', 'javascript']
+        include:
+          - language: python
+            build-path: backend
+          - language: javascript
+            build-path: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          config-file: .github/codeql-config.yml
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: true
+
+  # API Contract Security Testing
+  api-security:
+    name: API Security Testing (Schemathesis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: backend-security
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: shop_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.7'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -e ".[test,dev]"
+
+      - name: Run Schemathesis security tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/shop_test
+          REDIS_URL: redis://localhost:6379/0
+          IS_TESTING: "true"
+        run: |
+          cd backend
+          pytest tests/contract/ \
+            --schemathesis-io \
+            --hypothesis-seed=0 \
+            -v || true
+
+  # Dependency Update Check
+  dependency-update:
+    name: Dependency Update Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Dependabot summary
+        uses: ActionsLab/dependabot-summary-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for outdated dependencies
+        run: |
+          cd backend
+          pip list --outdated --format=json > outdated-python.json || true
+          cd ../frontend
+          npm outdated --json > outdated-npm.json || true
+
+  # Security Summary Report
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [secret-scan, backend-security, frontend-security, infrastructure-security, codeql]
+    if: always()
+
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend Security: ${{ needs.backend-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend Security: ${{ needs.frontend-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Infrastructure Security: ${{ needs.infrastructure-security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- CodeQL Analysis: ${{ needs.codeql.result }}" >> $GITHUB_STEP_SUMMARY

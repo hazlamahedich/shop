@@ -28,7 +28,19 @@ class TestMainApp:
 
     def test_cors_middleware(self):
         """Test CORS middleware is configured."""
-        # Check that CORS middleware is added
-        middleware_types = [type(m).__name__ for m in app.user_middleware]
-        # CORSMiddleware should be present
-        assert "CORSMiddleware" in middleware_types
+        # Check that CORS middleware is working by making a request
+        import httpx
+        from httpx import ASGITransport
+        import asyncio
+
+        async def check_cors():
+            async with httpx.AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                response = await client.get("/", headers={"Origin": "http://localhost:3000"})
+                # CORS headers should be present
+                return response.headers.get("access-control-allow-credentials") == "true"
+
+        result = asyncio.run(check_cors())
+        assert result is True

@@ -108,6 +108,9 @@ def settings() -> dict[str, Any]:
             "CORS_ORIGINS",
             "http://localhost:3000,http://localhost:5173",
         ).split(","),
+        # Data Retention (NFR-S11)
+        "VOLUNTARY_DATA_RETENTION_DAYS": int(os.getenv("VOLUNTARY_DATA_RETENTION_DAYS", "30")),
+        "SESSION_RETENTION_HOURS": int(os.getenv("SESSION_RETENTION_HOURS", "24")),
     }
 
 

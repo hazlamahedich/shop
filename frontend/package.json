@@ -18,7 +18,11 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "security": "npm audit --audit-level=high",
+    "security:fix": "npm audit fix",
+    "security:check": "snyk test",
+    "outdated": "npm outdated"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.20",

@@ -1,6 +1,7 @@
 """Conversation ORM model.
 
 Stores conversation sessions for messaging platforms (Facebook Messenger, etc.).
+Supports field-level encryption for sensitive metadata (NFR-S2).
 """
 
 from __future__ import annotations
@@ -8,10 +9,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey
+from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.encryption import (
+    encrypt_metadata,
+    decrypt_metadata,
+)
 
 
 class Conversation(Base):
@@ -19,6 +25,9 @@ class Conversation(Base):
 
     Represents a messaging conversation with a customer.
     Each conversation is tied to a merchant and a platform (Facebook, Instagram, etc.).
+
+    Sensitive metadata (user_input, voluntary_memory) is encrypted at rest (NFR-S2).
+    Order references and platform IDs are kept in plaintext (business requirements).
     """
 
     __tablename__ = "conversations"
@@ -51,6 +60,13 @@ class Conversation(Base):
         default="active",
         nullable=True,
     )
+    # Encrypted conversation_data for storing sensitive conversation data
+    # (renamed from 'metadata' which is reserved in SQLAlchemy)
+    conversation_data: Mapped[Optional[dict]] = mapped_column(
+        "conversation_data",
+        JSONB,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -62,6 +78,36 @@ class Conversation(Base):
         onupdate=datetime.utcnow,
         nullable=False,
     )
+
+    @property
+    def decrypted_metadata(self) -> Optional[dict]:
+        """Get decrypted conversation metadata.
+
+        Returns:
+            Decrypted metadata dictionary with sensitive fields decrypted.
+
+        Note:
+            Automatically decrypts user_input and voluntary_memory fields.
+            Order references and other non-sensitive data remain unchanged.
+        """
+        if self.conversation_data is None:
+            return None
+        return decrypt_metadata(self.conversation_data)
+
+    def set_encrypted_metadata(self, metadata: Optional[dict]) -> None:
+        """Set conversation metadata with automatic encryption.
+
+        Args:
+            metadata: Metadata dictionary potentially containing sensitive data
+
+        Note:
+            Encrypts user_input and voluntary_memory fields before storage.
+            Order references and other non-sensitive data remain in plaintext.
+        """
+        if metadata is None:
+            self.conversation_data = None
+        else:
+            self.conversation_data = encrypt_metadata(metadata)
 
     def __repr__(self) -> str:
         return (

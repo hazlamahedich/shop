@@ -251,7 +251,7 @@ async def process_messaging_event(event: dict, db: AsyncSession, log: structlog.
 
     if message:
         # Handle message
-        await process_message(message, conversation.id, "customer", service)
+        await process_message(message, conversation.id, "customer", service, sender_id)
     elif postback:
         # Handle postback
         await process_postback(postback, conversation.id, "customer", service)
@@ -261,7 +261,8 @@ async def process_message(
     message: dict,
     conversation_id: int,
     sender: str,
-    service: FacebookService
+    service: FacebookService,
+    sender_id: str = None,
 ) -> None:
     """Process a message event.
 
@@ -270,10 +271,32 @@ async def process_message(
         conversation_id: Conversation ID
         sender: Message sender (customer/bot)
         service: Facebook service
+        sender_id: Platform sender ID for deletion requests
     """
     # Check for text message
     text = message.get("text")
     if text:
+        # Check for data deletion commands (GDPR/CCPA compliance)
+        deletion_commands = [
+            "forget my preferences",
+            "delete my data",
+            "delete my information",
+            "forget me",
+        ]
+        text_lower = text.strip().lower()
+
+        if text_lower in deletion_commands:
+            # Store the message first
+            await service.store_message(
+                conversation_id=conversation_id,
+                sender=sender,
+                content=text,
+                message_type="text",
+            )
+            # Trigger data deletion flow
+            await handle_data_deletion_request(sender_id, "facebook", service)
+            return
+
         await service.store_message(
             conversation_id=conversation_id,
             sender=sender,
@@ -312,6 +335,83 @@ async def process_message(
                     "attachment_type": "audio",
                     "attachment_url": url,
                 }
+            )
+
+
+async def handle_data_deletion_request(
+    customer_id: str,
+    platform: str,
+    facebook_service: FacebookService,
+) -> None:
+    """Handle data deletion request from messaging platform.
+
+    Creates deletion request and sends confirmation message.
+
+    Args:
+        customer_id: Platform customer ID
+        platform: Platform name
+        facebook_service: Facebook service instance
+    """
+    import asyncio
+    from app.services.data_deletion import DataDeletionService
+    from app.core.database import async_session
+
+    # Create deletion request
+    async with async_session() as db:
+        try:
+            service = DataDeletionService(db)
+            request = await service.request_deletion(customer_id, platform)
+
+            # Start background processing
+            asyncio.create_task(
+                process_deletion_background(request.id)
+            )
+
+            logger.info(
+                "data_deletion_requested_via_messaging",
+                customer_id=customer_id,
+                platform=platform,
+                request_id=request.id,
+            )
+
+            # TODO: Send confirmation message to user via Facebook Send API
+            # This would require implementing the send_message functionality
+
+        except Exception as e:
+            logger.error(
+                "data_deletion_request_failed",
+                customer_id=customer_id,
+                error=str(e),
+            )
+
+
+async def process_deletion_background(request_id: int) -> None:
+    """Background task to process deletion request from messaging.
+
+    Args:
+        request_id: Deletion request ID
+    """
+    from app.services.data_deletion import DataDeletionService
+    from app.core.database import async_session
+
+    async with async_session() as db:
+        try:
+            service = DataDeletionService(db)
+            deleted = await service.process_deletion(request_id)
+
+            logger.info(
+                "messaging_deletion_completed",
+                request_id=request_id,
+                deleted_items=deleted,
+            )
+
+            # TODO: Send completion notification to user
+
+        except Exception as e:
+            logger.error(
+                "messaging_deletion_failed",
+                request_id=request_id,
+                error=str(e),
             )
 
 

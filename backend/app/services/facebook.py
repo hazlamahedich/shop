@@ -482,25 +482,40 @@ class FacebookService:
         message_type: str = "text",
         message_metadata: Optional[dict] = None
     ) -> Message:
-        """Store message in conversation.
+        """Store message in conversation with automatic encryption.
 
         Args:
             conversation_id: Conversation ID
             sender: Message sender (customer or bot)
-            content: Message content
+            content: Message content (will be encrypted for customer messages)
             message_type: Message type (text, attachment, postback)
-            message_metadata: Optional message metadata dict
+            message_metadata: Optional message metadata dict (sensitive fields encrypted)
 
         Returns:
             Created Message record
+
+        Note:
+            Customer message content is encrypted at rest (NFR-S2).
+            Bot responses are stored in plaintext (non-sensitive).
+            Metadata fields like user_input and voluntary_memory are encrypted.
         """
+        from app.core.encryption import encrypt_metadata
+
         message = Message(
             conversation_id=conversation_id,
             sender=sender,
-            content=content,
+            content="",  # Will be set via set_encrypted_content
             message_type=message_type,
-            message_metadata=message_metadata,
+            message_metadata=None,  # Will be set via set_encrypted_metadata
         )
+
+        # Use encrypted content setter for automatic encryption
+        message.set_encrypted_content(content, sender)
+
+        # Encrypt metadata if provided
+        if message_metadata:
+            message.set_encrypted_metadata(message_metadata)
+
         self.db.add(message)
         await self.db.commit()
         await self.db.refresh(message)

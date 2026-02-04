@@ -1,0 +1,105 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Shopping Assistant Bot" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Merchant Onboarding
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - heading "Setup Prerequisites" [level=3] [ref=e13]
+          - paragraph [ref=e14]:
+            - text: Complete these items before deploying your bot.
+            - strong [ref=e15]: "Setup time: 30-60 minutes"
+          - status [ref=e16]:
+            - paragraph [ref=e17]: "Progress: 0 of 4 items completed"
+            - progressbar
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e23]:
+              - checkbox "Cloud Provider Account" [active] [ref=e24]
+              - generic [ref=e25]:
+                - text: Cloud Provider Account
+                - paragraph [ref=e26]: Fly.io, Railway, or Render account with payment method
+            - button "Get help" [ref=e29]:
+              - text: Get help
+              - img [ref=e30]
+          - generic [ref=e32]:
+            - generic [ref=e35]:
+              - checkbox "Facebook Business Account" [ref=e36]
+              - generic [ref=e37]:
+                - text: Facebook Business Account
+                - paragraph [ref=e38]: Meta Business account and Facebook Page created
+            - button "Get help" [ref=e41]:
+              - text: Get help
+              - img [ref=e42]
+          - generic [ref=e44]:
+            - generic [ref=e47]:
+              - checkbox "Shopify Admin Access" [ref=e48]
+              - generic [ref=e49]:
+                - text: Shopify Admin Access
+                - paragraph [ref=e50]: Store admin access with API permissions
+            - button "Get help" [ref=e53]:
+              - text: Get help
+              - img [ref=e54]
+          - generic [ref=e56]:
+            - generic [ref=e59]:
+              - checkbox "LLM Provider" [ref=e60]
+              - generic [ref=e61]:
+                - text: LLM Provider
+                - paragraph [ref=e62]: Ollama (local) or cloud API key selected
+            - button "Get help" [ref=e65]:
+              - text: Get help
+              - img [ref=e66]
+        - button "Complete all prerequisites to deploy" [disabled] [ref=e69]
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - heading "Deploy Your Bot" [level=3] [ref=e73]
+          - paragraph [ref=e74]:
+            - text: Choose your cloud platform and deploy with one click.
+            - strong [ref=e75]: "Estimated time: 15m 0s (15 minutes)"
+        - generic [ref=e78]:
+          - text: Select Deployment Platform
+          - combobox "Select deployment platform" [ref=e79]:
+            - option "Fly.io (Recommended)" [selected]
+            - option "Railway"
+            - option "Render"
+        - generic [ref=e80]:
+          - button "Select a platform to deploy" [disabled] [ref=e81]
+          - paragraph [ref=e82]: Complete all prerequisites before deploying
+      - generic [ref=e83]:
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - heading "Webhook Verification" [level=3] [ref=e88]
+            - paragraph [ref=e89]: Verify and test webhook connections for Facebook Messenger and Shopify
+          - generic [ref=e90]:
+            - generic [ref=e91]: Unknown
+            - button [ref=e92]:
+              - img [ref=e93]
+        - alert [ref=e98]:
+          - generic [ref=e99]:
+            - img [ref=e100]
+            - text: Not Found
+            - button "Dismiss" [ref=e102]
+        - generic [ref=e103]:
+          - heading "Troubleshooting" [level=3] [ref=e105]
+          - generic [ref=e106]:
+            - paragraph [ref=e107]:
+              - strong [ref=e108]: Webhook not connected?
+              - text: Make sure you've completed the Facebook Page and Shopify store connection steps in the onboarding process.
+            - paragraph [ref=e109]:
+              - strong [ref=e110]: Test webhook failing?
+              - text: Try clicking "Resubscribe" to re-establish the webhook subscription. If that doesn't work, check your platform's developer dashboard for webhook settings.
+            - paragraph [ref=e111]:
+              - strong [ref=e112]: Need help?
+              - text: Consult the
+              - link "Facebook webhook documentation" [ref=e113]:
+                - /url: https://developers.facebook.com/docs/messenger-platform/webhooks
+              - text: or
+              - link "Shopify webhook documentation" [ref=e114]:
+                - /url: https://shopify.dev/docs/api/admin-rest/latest/resources/webhook
+              - text: .
+```

@@ -44,13 +44,13 @@ def create_meta(request_id: str) -> MetaData:
 
 @router.get(
     "/status",
-    response_model=MinimalEnvelope[WebhookStatusResponse],
+    response_model=MinimalEnvelope,
     tags=["webhooks"],
 )
 async def get_webhook_verification_status(
     merchant_id: int,
     db: AsyncSession = Depends(get_db),
-) -> MinimalEnvelope[WebhookStatusResponse]:
+) -> MinimalEnvelope:
     """Get webhook connection status for all platforms.
 
     Returns comprehensive status including:
@@ -96,13 +96,13 @@ async def get_webhook_verification_status(
 
 @router.post(
     "/test-facebook",
-    response_model=MinimalEnvelope[WebhookTestResponse],
+    response_model=MinimalEnvelope,
     tags=["webhooks"],
 )
 async def test_facebook_webhook(
     merchant_id: int,
     db: AsyncSession = Depends(get_db),
-) -> MinimalEnvelope[WebhookTestResponse]:
+) -> MinimalEnvelope:
     """Send test message via Facebook Messenger.
 
     Verifies Facebook webhook is working by sending a test message.
@@ -154,13 +154,13 @@ async def test_facebook_webhook(
 
 @router.post(
     "/test-shopify",
-    response_model=MinimalEnvelope[WebhookTestResponse],
+    response_model=MinimalEnvelope,
     tags=["webhooks"],
 )
 async def test_shopify_webhook(
     merchant_id: int,
     db: AsyncSession = Depends(get_db),
-) -> MinimalEnvelope[WebhookTestResponse]:
+) -> MinimalEnvelope:
     """Trigger test Shopify webhook.
 
     Verifies Shopify webhook subscription is active and working.
@@ -212,13 +212,13 @@ async def test_shopify_webhook(
 
 @router.post(
     "/resubscribe-facebook",
-    response_model=MinimalEnvelope[WebhookResubscribeResponse],
+    response_model=MinimalEnvelope,
     tags=["webhooks"],
 )
 async def resubscribe_facebook_webhook(
     merchant_id: int,
     db: AsyncSession = Depends(get_db),
-) -> MinimalEnvelope[WebhookResubscribeResponse]:
+) -> MinimalEnvelope:
     """Re-subscribe to Facebook Messenger webhooks.
 
     Re-establishes webhook subscription via Facebook Graph API.
@@ -261,13 +261,13 @@ async def resubscribe_facebook_webhook(
 
 @router.post(
     "/resubscribe-shopify",
-    response_model=MinimalEnvelope[WebhookResubscribeResponse],
+    response_model=MinimalEnvelope,
     tags=["webhooks"],
 )
 async def resubscribe_shopify_webhook(
     merchant_id: int,
     db: AsyncSession = Depends(get_db),
-) -> MinimalEnvelope[WebhookResubscribeResponse]:
+) -> MinimalEnvelope:
     """Re-subscribe to Shopify webhooks.
 
     Re-establishes webhook subscriptions via Shopify Admin API.

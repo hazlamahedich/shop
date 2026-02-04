@@ -122,6 +122,11 @@ class ErrorCode(IntEnum):
     WEBHOOK_RATE_LIMITED = 9009
     WEBHOOK_UNKNOWN_ERROR = 9010
 
+    # 10000-10999: Data Deletion (owner: privacy team)
+    DELETION_REQUEST_NOT_FOUND = 10001
+    DELETION_ALREADY_IN_PROGRESS = 10002
+    DELETION_FAILED = 10003
+
 
 @dataclass
 class ErrorDetail:

@@ -1,0 +1,188 @@
+name: Docker Security
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'Dockerfile*'
+      - 'docker-compose.yml'
+      - '.dockerignore'
+      - 'backend/Dockerfile*'
+      - 'frontend/Dockerfile*'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'Dockerfile*'
+      - 'docker-compose.yml'
+      - '.dockerignore'
+      - 'backend/Dockerfile*'
+      - 'frontend/Dockerfile*'
+  schedule:
+    # Weekly on Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  dockerfile-scan:
+    name: Dockerfile Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        dockerfile:
+          - { name: backend, path: backend/Dockerfile }
+          - { name: frontend, path: frontend/Dockerfile }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image for scanning
+        run: |
+          if [ -f "${{ matrix.dockerfile.path }}" ]; then
+            docker build -f ${{ matrix.dockerfile.path }} -t test-${{ matrix.dockerfile.name }} .
+          else
+            echo "Dockerfile not found for ${{ matrix.dockerfile.name }}"
+            exit 0
+          fi
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: test-${{ matrix.dockerfile.name }}
+          format: 'sarif'
+          output: 'trivy-${{ matrix.dockerfile.name }}-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          vuln-type: 'os,library'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.dockerfile.name }}-results.sarif'
+          category: 'trivy-docker-${{ matrix.dockerfile.name }}'
+
+      - name: Run Grype vulnerability scanner
+        uses: anchore/scan-action@v3
+        if: hashFiles(matrix.dockerfile.path) != ''
+        with:
+          image: test-${{ matrix.dockerfile.name }}
+          format: sarif
+          output: grype-${{ matrix.dockerfile.name }}-results.sarif
+          severity: HIGH,CRITICAL
+
+      - name: Upload Grype results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'grype-${{ matrix.dockerfile.name }}-results.sarif'
+          category: 'grype-docker-${{ matrix.dockerfile.name }}'
+
+  docker-compose-scan:
+    name: Docker Compose Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy config scan on docker-compose
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'docker-compose.yml'
+          format: 'sarif'
+          output: 'trivy-compose-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload docker-compose scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-compose-results.sarif'
+          category: 'trivy-docker-compose'
+
+  hadolint-dockerfile:
+    name: Dockerfile Linting
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        dockerfile:
+          - { name: backend, path: backend/Dockerfile }
+          - { name: frontend, path: frontend/Dockerfile }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile.path }}
+          format: sarif
+          output-file: hadolint-${{ matrix.dockerfile.name }}-results.sarif
+        continue-on-error: true
+
+      - name: Upload Hadolint results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'hadolint-${{ matrix.dockerfile.name }}-results.sarif'
+          category: 'hadolint-${{ matrix.dockerfile.name }}'
+
+  # Dockerfile security best practices check
+  dockerfile-security-checks:
+    name: Dockerfile Security Best Practices
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Dockerfile security best practices
+        run: |
+          # Check for common security issues in Dockerfiles
+          echo "Checking Dockerfile security best practices..." > security-checks.log
+
+          for dockerfile in $(find . -name "Dockerfile*" -not -path "./.git/*"); do
+            echo "" >> security-checks.log
+            echo "Analyzing: $dockerfile" >> security-checks.log
+
+            # Check for root user
+            if grep -qi "USER root" "$dockerfile" 2>/dev/null; then
+              echo "  WARNING: Container runs as root user" >> security-checks.log
+            fi
+
+            # Check for latest tag
+            if grep -qi "FROM.*:latest" "$dockerfile" 2>/dev/null; then
+              echo "  WARNING: Using :latest tag is not recommended" >> security-checks.log
+            fi
+
+            # Check for exposed ports
+            if grep -qi "EXPOSE" "$dockerfile" 2>/dev/null; then
+              echo "  INFO: Exposed ports found" >> security-checks.log
+            fi
+
+            # Check for credentials
+            if grep -iE "(password|secret|key|token)" "$dockerfile" 2>/dev/null; then
+              echo "  WARNING: Possible hardcoded secrets detected" >> security-checks.log
+            fi
+          done
+
+          cat security-checks.log
+
+      - name: Upload security check results
+        uses: actions/upload-artifact@v3
+        with:
+          name: dockerfile-security-checks
+          path: security-checks.log

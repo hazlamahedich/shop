@@ -1,0 +1,146 @@
+"""Background jobs for data retention enforcement.
+
+Schedules and manages automated cleanup tasks for NFR-S11 compliance.
+Runs daily at midnight UTC to clean up expired data.
+"""
+
+from __future__ import annotations
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime
+from typing import Optional
+
+import structlog
+
+from app.core.database import async_session
+from app.services.data_retention import DataRetentionService
+
+logger = structlog.get_logger(__name__)
+
+# Global scheduler instance
+scheduler: Optional[AsyncIOScheduler] = None
+
+# Retention service instance
+retention_service = DataRetentionService()
+
+
+async def run_retention_cleanup() -> dict:
+    """Run daily data retention cleanup job.
+
+    Executes all retention cleanup tasks:
+    - Voluntary conversation data cleanup (30-day retention)
+    - Session data cleanup (24-hour retention)
+
+    Returns:
+        Dictionary with cleanup results from all retention tasks
+    """
+    logger.info("data_retention_job_started", timestamp=datetime.utcnow().isoformat())
+
+    results = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "voluntary_data": {},
+        "sessions": {},
+    }
+
+    async with async_session() as db:
+        try:
+            # Clean up voluntary data
+            voluntary_result = await retention_service.cleanup_voluntary_data(db)
+            results["voluntary_data"] = voluntary_result
+
+            # Clean up expired sessions
+            session_result = await retention_service.cleanup_expired_sessions(db)
+            results["sessions"] = session_result
+
+            logger.info(
+                "data_retention_job_completed",
+                **results
+            )
+        except Exception as e:
+            logger.error(
+                "data_retention_job_failed",
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            results["error"] = str(e)
+            raise
+
+    return results
+
+
+def start_scheduler() -> None:
+    """Start the data retention scheduler.
+
+    Initializes the APScheduler and adds the daily cleanup job.
+    Should be called during application startup.
+    """
+    global scheduler
+
+    if scheduler is not None and scheduler.running:
+        logger.warning("data_retention_scheduler_already_running")
+        return
+
+    scheduler = AsyncIOScheduler()
+
+    # Schedule daily cleanup at midnight UTC
+    scheduler.add_job(
+        run_retention_cleanup,
+        trigger=CronTrigger(hour=0, minute=0, timezone="UTC"),
+        id="data_retention_cleanup",
+        name="Daily data retention cleanup",
+        replace_existing=True,
+    )
+
+    scheduler.start()
+
+    logger.info(
+        "data_retention_scheduler_started",
+        job_id="data_retention_cleanup",
+        schedule="0 0 * * * (daily at midnight UTC)"
+    )
+
+
+def shutdown_scheduler() -> None:
+    """Shutdown the data retention scheduler.
+
+    Should be called during application shutdown.
+    """
+    global scheduler
+
+    if scheduler is None:
+        return
+
+    if scheduler.running:
+        scheduler.shutdown(wait=True)
+        logger.info("data_retention_scheduler_shutdown")
+
+    scheduler = None
+
+
+def get_scheduler_status() -> dict:
+    """Get the current status of the data retention scheduler.
+
+    Returns:
+        Dictionary with scheduler status information
+    """
+    global scheduler
+
+    status = {
+        "running": False,
+        "job_count": 0,
+        "jobs": [],
+    }
+
+    if scheduler is not None and scheduler.running:
+        status["running"] = True
+        status["job_count"] = len(scheduler.get_jobs())
+
+        for job in scheduler.get_jobs():
+            status["jobs"].append({
+                "id": job.id,
+                "name": job.name,
+                "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+            })
+
+    return status

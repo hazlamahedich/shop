@@ -1,0 +1,91 @@
+# CodeQL Configuration for Security Analysis
+# https://docs.github.com/en/code-security/code-scanning/using-advanced-setup-and-customization/customizing-code-scanning
+
+version: 2
+
+# Python-specific configuration
+python:
+  # Exclude specific paths from analysis
+  exclude:
+    - '**/tests/**'
+    - '**/test_*.py'
+    - '**/conftest.py'
+    - '**/migrations/**'
+
+  # Query packs to include
+  query-filters:
+    - include:
+        tags:
+          - security
+          - security-extended
+          - security-and-quality
+    - exclude:
+        tags:
+          - dependency
+
+  # Specific security queries for Python
+  queries:
+    - uses: security-and-quality
+
+# JavaScript/TypeScript configuration
+javascript:
+  exclude:
+    - '**/node_modules/**'
+    - '**/dist/**'
+    - '**/build/**'
+    - '**/*.test.ts'
+    - '**/*.test.tsx'
+    - '**/*.spec.ts'
+
+  query-filters:
+    - include:
+        tags:
+          - security
+          - security-extended
+          - security-and-quality
+
+  queries:
+    - uses: security-and-quality
+
+# Global configuration
+paths:
+  include:
+    - backend
+    - frontend/src
+  exclude:
+    - '**/tests/**'
+    - '**/node_modules/**'
+    - '**/__pycache__/**'
+    - '**/.venv/**'
+    - '**/venv/**'
+    - '**/dist/**'
+    - '**/build/**'
+
+# Query suites
+query-suites:
+  - name: security-extended
+    description: Extended security queries
+    queries:
+      - security
+      - security-extended
+
+# Problem patterns
+problem-patterns:
+  - pattern-either:
+      # SQL Injection patterns
+      - pattern: execute($$$QUERY)
+      - pattern: exec($$$QUERY)
+      - pattern: eval($$$QUERY)
+      # Command Injection patterns
+      - pattern: os.system($$$CMD)
+      - pattern: subprocess.call($$$CMD)
+      # XSS patterns
+      - pattern: dangerouslySetInnerHTML={$$$HTML}
+
+# Custom query overrides
+overrides:
+  - patterns:
+      - pattern: |
+          { $CODE: $_ }
+    message: Avoid using eval-like functions with user input
+    severity: error

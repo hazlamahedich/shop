@@ -70,3 +70,20 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Close database connections."""
     await engine.dispose()
+
+
+async def get_db_context() -> AsyncSession:
+    """Get database session for background jobs.
+
+    This is a context manager version for use in background tasks
+    that need to manage their own database sessions.
+
+    Yields:
+        Async database session
+    """
+    async with async_session() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise

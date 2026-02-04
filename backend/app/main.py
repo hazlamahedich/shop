@@ -19,11 +19,15 @@ from app.core.database import init_db, close_db, engine
 from app.api.onboarding import router as onboarding_router
 from app.api.deployment import router as deployment_router
 from app.api.integrations import router as integrations_router
+from app.api.data_deletion import router as data_deletion_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
 from app.api.webhooks.verification import router as verification_router
 from app.api.llm import router as llm_router
 from app.api.tutorial import router as tutorial_router
+from app.api.csrf import router as csrf_router
+from app.middleware.security import setup_security_middleware
+from app.middleware.csrf import setup_csrf_middleware
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
     MinimalEnvelope,
@@ -120,8 +124,17 @@ app.add_middleware(
     allow_origins=settings()["CORS_ORIGINS"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Webhook-Signature"],
+    allow_headers=["Content-Type", "Authorization", "X-Webhook-Signature", "X-CSRF-Token"],
 )
+
+# Setup security middleware (HTTPS enforcement, HSTS, CSP, etc.)
+# NFR-S1: HTTPS Enforcement with HSTS
+# NFR-S7: Content Security Policy and other security headers
+setup_security_middleware(app)
+
+# Setup CSRF middleware for state-changing operations
+# NFR-S8: CSRF tokens for POST/PUT/DELETE operations
+setup_csrf_middleware(app)
 
 
 # Root endpoints
@@ -174,8 +187,10 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
+app.include_router(data_deletion_router, prefix="/api", tags=["data-deletion"])
 app.include_router(llm_router, prefix="/api/llm", tags=["llm"])
 app.include_router(tutorial_router, prefix="/api/tutorial", tags=["tutorial"])
+app.include_router(csrf_router, prefix="/api/v1", tags=["csrf"])
 app.include_router(facebook_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
