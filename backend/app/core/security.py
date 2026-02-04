@@ -12,7 +12,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.hmac import HMAC
 from secrets import compare_digest
-from typing import Optional
+from typing import Optional, Any, Dict
 import redis
 from redis import Redis
 
@@ -20,7 +20,7 @@ from app.core.config import settings
 
 
 # Simple in-memory state storage (TODO: replace with Redis in production)
-_oauth_state_store: dict[str, dict[str, any]] = {}
+_oauth_state_store: Dict[str, Dict[str, Any]] = {}
 _redis_client: Optional[Redis] = None
 
 
@@ -139,7 +139,7 @@ def decrypt_access_token(encrypted: str) -> str:
 
 def verify_webhook_signature(
     raw_payload: bytes,
-    signature: str | None,
+    signature: Optional[str],
     app_secret: str,
 ) -> bool:
     """Verify X-Hub-Signature-256 from Facebook webhook.

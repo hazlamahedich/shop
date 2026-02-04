@@ -6,6 +6,7 @@ Unit tests for webhook parsing, signature verification, and response handling.
 from __future__ import annotations
 
 import json
+from typing import Optional, Dict, Any
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 

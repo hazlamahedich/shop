@@ -85,6 +85,10 @@ def settings() -> dict[str, Any]:
         "FACEBOOK_ENCRYPTION_KEY": os.getenv("FACEBOOK_ENCRYPTION_KEY", ""),
         "FACEBOOK_WEBHOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN", ""),
         "FACEBOOK_VERIFY_TOKEN": os.getenv("FACEBOOK_VERIFY_TOKEN", "verify_token"),  # Legacy alias
+        "MESSENGER_FALLBACK_IMAGE_URL": os.getenv(
+            "MESSENGER_FALLBACK_IMAGE_URL",
+            "https://cdn.example.com/fallback-product.png",
+        ),
         # LLM Provider
         "LLM_PROVIDER": os.getenv(
             "LLM_PROVIDER", "ollama"

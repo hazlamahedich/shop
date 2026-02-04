@@ -8,7 +8,7 @@ automatic failover.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -26,7 +26,7 @@ class LLMResponse(BaseModel):
     tokens_used: int
     model: str
     provider: str
-    metadata: dict[str, Any] = {}
+    metadata: Dict[str, Any] = {}
 
 
 class BaseLLMService(ABC):
@@ -36,7 +36,7 @@ class BaseLLMService(ABC):
     consistent interface across providers.
     """
 
-    def __init__(self, config: dict[str, Any], is_testing: bool = False) -> None:
+    def __init__(self, config: Dict[str, Any], is_testing: bool = False) -> None:
         """Initialize LLM service with configuration.
 
         Args:
@@ -65,8 +65,8 @@ class BaseLLMService(ABC):
     @abstractmethod
     async def chat(
         self,
-        messages: list[LLMMessage],
-        model: str | None = None,
+        messages: List[LLMMessage],
+        model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:
@@ -108,7 +108,7 @@ class BaseLLMService(ABC):
         """
         pass
 
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> Dict[str, Any]:
         """Perform health check and return status.
 
         Returns:

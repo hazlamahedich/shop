@@ -7,7 +7,7 @@ testing, and status endpoints.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
@@ -43,9 +43,9 @@ class LLMProviderMetadata(BaseModel):
     id: str
     name: str
     description: str
-    pricing: dict[str, Any]
-    models: list[str]
-    features: list[str]
+    pricing: Dict[str, Any]
+    models: List[str]
+    features: List[str]
 
 
 class OllamaConfigRequest(BaseModel):
@@ -73,14 +73,14 @@ class LLMConfigureRequest(BaseModel):
     """LLM configuration request (union of all provider types)."""
 
     provider: LLMProvider
-    ollama_config: OllamaConfigRequest | None = None
-    cloud_config: CloudConfigRequest | None = None
-    backup_provider: str | None = None
-    backup_api_key: str | None = None
+    ollama_config: Optional[OllamaConfigRequest] = None
+    cloud_config: Optional[CloudConfigRequest] = None
+    backup_provider: Optional[str] = None
+    backup_api_key: Optional[str] = None
 
     @field_validator("backup_api_key")
     @classmethod
-    def validate_backup_api_key(cls, v: str | None, info) -> str | None:
+    def validate_backup_api_key(cls, v: Optional[str], info) -> Optional[str]:
         """Validate backup API key is provided if backup provider is set."""
         if info.data.get("backup_provider") and not v:
             raise ValueError("backup_api_key required when backup_provider is set")
@@ -90,13 +90,13 @@ class LLMConfigureRequest(BaseModel):
 class LLMUpdateRequest(BaseModel):
     """LLM configuration update request."""
 
-    provider: LLMProvider | None = None
-    ollama_url: str | None = None
-    ollama_model: str | None = None
-    api_key: str | None = None
-    model: str | None = None
-    backup_provider: str | None = None
-    backup_api_key: str | None = None
+    provider: Optional[LLMProvider] = None
+    ollama_url: Optional[str] = None
+    ollama_model: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    backup_provider: Optional[str] = None
+    backup_api_key: Optional[str] = None
 
 
 class LLMTestRequest(BaseModel):
@@ -118,11 +118,11 @@ class LLMStatusResponse(BaseModel):
     model: str
     status: LLMStatus
     configured_at: datetime
-    last_test_at: datetime | None
-    test_result: dict[str, Any] | None
+    last_test_at: Optional[datetime]
+    test_result: Optional[Dict[str, Any]]
     total_tokens_used: int
     total_cost_usd: float
-    backup_provider: str | None
+    backup_provider: Optional[str]
 
 
 class LLMTestResponse(BaseModel):
@@ -134,7 +134,7 @@ class LLMTestResponse(BaseModel):
     response: str
     tokens_used: int
     latency_ms: float
-    error: str | None
+    error: Optional[str]
 
 
 class LLMProviderInfo(BaseModel):
@@ -143,23 +143,23 @@ class LLMProviderInfo(BaseModel):
     id: str
     name: str
     description: str
-    pricing: dict[str, Any]
-    models: list[str]
-    features: list[str]
+    pricing: Dict[str, Any]
+    models: List[str]
+    features: List[str]
 
 
 class LLMProvidersResponse(BaseModel):
     """Available LLM providers response."""
 
-    providers: list[LLMProviderInfo]
+    providers: List[LLMProviderInfo]
 
 
 class LLMHealthResponse(BaseModel):
     """LLM health check response."""
 
     router: str
-    primary_provider: dict[str, Any] | None
-    backup_provider: dict[str, Any] | None
+    primary_provider: Optional[Dict[str, Any]]
+    backup_provider: Optional[Dict[str, Any]]
 
 
 # Envelope Schemas (for consistent API responses)
@@ -169,7 +169,7 @@ class MinimalLLMEnvelope(BaseModel):
     """Minimal envelope for LLM API responses."""
 
     data: Any
-    meta: dict[str, Any]
+    meta: Dict[str, Any]
 
 
 class LLMConfigureResponse(BaseModel):
@@ -185,7 +185,7 @@ class LLMUpdateResponse(BaseModel):
     """LLM update response."""
 
     message: str
-    updated_fields: list[str]
+    updated_fields: List[str]
 
 
 class LLMClearResponse(BaseModel):

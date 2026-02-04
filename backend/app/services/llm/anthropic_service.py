@@ -6,7 +6,7 @@ Pricing: claude-3-haiku - $0.25/1M input, $1.25/1M output
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List, Optional
 import httpx
 import structlog
 
@@ -99,8 +99,8 @@ class AnthropicService(BaseLLMService):
 
     async def chat(
         self,
-        messages: list[LLMMessage],
-        model: str | None = None,
+        messages: List[LLMMessage],
+        model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:

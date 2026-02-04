@@ -85,6 +85,12 @@ class ErrorCode(IntEnum):
     MESSENGER_WEBHOOK_ERROR = 5000
     MESSAGE_SEND_FAILED = 5001
     WEBHOOK_VERIFICATION_FAILED = 5002
+    FACEBOOK_TIMEOUT = 5026  # Send API timeout
+    FACEBOOK_INVALID_RECIPIENT = 5027  # Invalid PSID
+    FACEBOOK_MESSAGE_TOO_LARGE = 5028  # Message exceeds size limit
+    FACEBOOK_RATE_LIMITED = 5029  # Rate limit exceeded
+    MESSENGER_FORMATTING_FAILED = 5030  # Product formatting error
+    IMAGE_VALIDATION_FAILED = 5031  # Invalid image URL
     FACEBOOK_OAUTH_STATE_MISMATCH = 5010  # CSRF attack suspected
     FACEBOOK_OAUTH_DENIED = 5011  # User denied authorization
     FACEBOOK_TOKEN_EXCHANGE_FAILED = 5012  # Facebook API error

@@ -6,7 +6,7 @@ single provider per merchant.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List
 
 from app.core.errors import APIError, ErrorCode
 from app.core.config import is_testing
@@ -37,7 +37,7 @@ class LLMProviderFactory:
     def create_provider(
         cls,
         provider_name: str,
-        config: dict[str, Any],
+        config: Dict[str, Any],
     ) -> BaseLLMService:
         """Create LLM service instance for provider.
 
@@ -62,7 +62,7 @@ class LLMProviderFactory:
         return provider_class(config, is_testing=is_testing())
 
     @classmethod
-    def get_available_providers(cls) -> list[dict[str, Any]]:
+    def get_available_providers(cls) -> List[Dict[str, Any]]:
         """Get list of available providers with metadata.
 
         Returns:

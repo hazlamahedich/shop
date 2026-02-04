@@ -157,6 +157,14 @@ Error codes that have been removed:
 | 5016 | FACEBOOK_NOT_CONNECTED             | Facebook Page not connected to this merchant     | 2026-02-03 |
 | 5017 | FACEBOOK_ENCRYPTION_KEY_MISSING    | Facebook encryption key not configured           | 2026-02-03 |
 | 5018 | FACEBOOK_WEBHOOK_VERIFY_FAILED     | Facebook webhook verification failed             | 2026-02-03 |
+| 5026 | FACEBOOK_TIMEOUT                   | Send API timeout                                 | 2026-02-04 |
+| 5027 | FACEBOOK_INVALID_RECIPIENT         | Invalid PSID                                     | 2026-02-04 |
+| 5028 | FACEBOOK_MESSAGE_TOO_LARGE         | Message exceeds size limit                       | 2026-02-04 |
+| 5029 | FACEBOOK_RATE_LIMITED              | Rate limit exceeded                              | 2026-02-04 |
+| 5030 | MESSENGER_FORMATTING_FAILED        | Product formatting error                         | 2026-02-04 |
+| 5031 | IMAGE_VALIDATION_FAILED            | Invalid image URL                                | 2026-02-04 |
+
+| 5031 | IMAGE_VALIDATION_FAILED | Invalid image URL | 2026-02-04 |
 
 ### 6000-6999: Cart/Checkout
 

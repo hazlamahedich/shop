@@ -43,28 +43,88 @@ async def test_process_message_product_search():
                 "conversation_state": "active",
             })
             mock_context.update_classification = AsyncMock(return_value=None)
+            mock_context.update_search_results = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
-            processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+            # Mock the messenger services used in Story 2.3
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_class, \
+                 patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
+                 patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
 
-            payload = FacebookWebhookPayload(
-                object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "running shoes under $100"},
+                # Mock search result
+                from app.schemas.shopify import ProductSearchResult, Product, ProductVariant, ProductImage, CurrencyCode
+                mock_search_result = ProductSearchResult(
+                    products=[
+                        Product(
+                            id="gid://shopify/Product/1",
+                            title="Running Shoes",
+                            description="Great shoes",
+                            product_type="Footwear",
+                            price=89.99,
+                            currency_code=CurrencyCode.USD,
+                            images=[ProductImage(url="https://example.com/test.jpg")],
+                            variants=[
+                                ProductVariant(
+                                    id="gid://shopify/ProductVariant/1",
+                                    product_id="gid://shopify/Product/1",
+                                    title="Default",
+                                    price=89.99,
+                                    currency_code=CurrencyCode.USD,
+                                    available_for_sale=True,
+                                )
+                            ],
+                        )
+                    ],
+                    total_count=1,
+                    search_params={"category": "shoes"},
+                )
+
+                mock_search_service = AsyncMock()
+                mock_search_service.search_products.return_value = mock_search_result
+                mock_search_class.return_value = mock_search_service
+
+                # Mock formatter
+                mock_formatter = MagicMock()
+                mock_formatter.format_product_results.return_value = {
+                    "attachment": {
+                        "type": "template",
+                        "payload": {
+                            "template_type": "generic",
+                            "elements": [{
+                                "title": "Running Shoes",
+                                "image_url": "https://example.com/test.jpg",
+                            }],
+                        },
+                    },
+                }
+                mock_formatter_class.return_value = mock_formatter
+
+                # Mock send service
+                mock_send_service = AsyncMock()
+                mock_send_service.send_message.return_value = {"message_id": "mid.123"}
+                mock_send_service.close = AsyncMock(return_value=None)
+                mock_send_class.return_value = mock_send_service
+
+                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+
+                payload = FacebookWebhookPayload(
+                    object="page",
+                    entry=[{
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [{
+                            "sender": {"id": "123456"},
+                            "message": {"text": "running shoes under $100"},
+                        }],
                     }],
-                }],
-            )
+                )
 
-            response = await processor.process_message(payload)
+                response = await processor.process_message(payload)
 
-            assert isinstance(response, MessengerResponse)
-            assert response.recipient_id == "123456"
-            assert "Searching for products" in response.text
-            assert "shoes" in response.text
+                assert isinstance(response, MessengerResponse)
+                assert response.recipient_id == "123456"
+                # After Story 2.3, response confirms products were sent to Messenger
+                assert "product" in response.text.lower() or "found" in response.text.lower()
 
 
 @pytest.mark.asyncio

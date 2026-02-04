@@ -19,6 +19,10 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "python-jose[cryptography]>=3.3.0",
     "python-multipart>=0.0.6",
+    "Pillow>=10.0.0",
+    "structlog>=24.0.0",
+    "slowapi>=0.1.9",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]

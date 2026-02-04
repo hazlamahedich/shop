@@ -6,7 +6,7 @@ Pricing: gemini-1.5-flash - $0.075/1M input, $0.30/1M output
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List, Optional
 import httpx
 import structlog
 
@@ -96,8 +96,8 @@ class GeminiService(BaseLLMService):
 
     async def chat(
         self,
-        messages: list[LLMMessage],
-        model: str | None = None,
+        messages: List[LLMMessage],
+        model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:

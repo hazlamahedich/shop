@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import html
-from typing import List
+from typing import List, Optional, Tuple
 
 
 # Blocked prompt injection patterns
@@ -52,7 +52,7 @@ def sanitize_llm_input(text: str, max_length: int = 10000) -> str:
     return text.strip()
 
 
-def validate_test_prompt(prompt: str) -> tuple[bool, str | None]:
+def validate_test_prompt(prompt: str) -> Tuple[bool, Optional[str]]:
     """Validate test prompt is safe for LLM processing.
 
     Args:

@@ -18,6 +18,8 @@ from app.schemas.messaging import (
 )
 from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
+from app.services.messenger import MessengerProductFormatter, MessengerSendService
+from app.services.shopify import ProductSearchService
 
 
 logger = structlog.get_logger(__name__)
@@ -118,9 +120,6 @@ class MessageProcessor:
 
         # Route based on intent
         if intent == IntentType.PRODUCT_SEARCH:
-            # Import here to avoid circular dependency
-            from app.services.shopify import ProductSearchService
-
             psid = context.get("psid", "")
             try:
                 # Search for products using ProductSearchService
@@ -151,28 +150,18 @@ class MessageProcessor:
                         recipient_id=psid,
                     )
                 else:
-                    # Format products for display (Story 2.3 will improve this)
-                    response_text = f"Found {search_result.total_count} product"
-                    if search_result.total_count > 1:
-                        response_text += "s"
-                    response_text += ":\n\n"
+                    # Story 2.3: Format products for Messenger using Generic Template
+                    formatter = MessengerProductFormatter()
+                    message_payload = formatter.format_product_results(search_result)
 
-                    for i, product in enumerate(search_result.products[:3], 1):
-                        response_text += f"{i}. {product.title}\n"
-                        response_text += f"   Price: ${product.price:.2f}\n"
-                        if product.description:
-                            # Truncate description to 100 chars
-                            desc = product.description[:100]
-                            if len(product.description) > 100:
-                                desc += "..."
-                            response_text += f"   {desc}\n"
-                        response_text += "\n"
+                    # Send to Facebook Messenger
+                    send_service = MessengerSendService()
+                    await send_service.send_message(psid, message_payload)
+                    await send_service.close()
 
-                    if search_result.total_count > 3:
-                        response_text += f"And {search_result.total_count - 3} more product(s).\n"
-
+                    # Return success response (empty text since message was sent)
                     return MessengerResponse(
-                        text=response_text.strip(),
+                        text=f"Found {search_result.total_count} product(s) for you!",
                         recipient_id=psid,
                     )
 

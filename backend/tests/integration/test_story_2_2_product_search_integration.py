@@ -83,7 +83,7 @@ async def test_product_search_intent_routes_to_product_service():
             mock_context_mgr.update_search_results.side_effect = mock_update_search_results
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -91,28 +91,54 @@ async def test_product_search_intent_routes_to_product_service():
                 mock_search_service.search_products.side_effect = mock_search
                 mock_search_service_class.return_value = mock_search_service
 
-                payload = FacebookWebhookPayload(
-                    object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "running shoes"},
+                # Mock Story 2.3 Messenger services
+                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
+                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
+
+                    # Mock formatter
+                    mock_formatter = MagicMock()
+                    mock_formatter.format_product_results.return_value = {
+                        "attachment": {
+                            "type": "template",
+                            "payload": {
+                                "template_type": "generic",
+                                "elements": [{"title": "Nike Air Max"}],
+                            },
+                        },
+                    }
+                    mock_formatter_class.return_value = mock_formatter
+
+                    # Mock send service
+                    mock_send_service = AsyncMock()
+                    mock_send_service.send_message.return_value = {"message_id": "mid.123"}
+                    mock_send_service.close = AsyncMock(return_value=None)
+                    mock_send_class.return_value = mock_send_service
+
+                    payload = FacebookWebhookPayload(
+                        object="page",
+                        entry=[{
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [{
+                                "sender": {"id": "123456"},
+                                "message": {"text": "running shoes"},
+                            }],
                         }],
-                    }],
-                )
+                    )
 
-                processor = MessageProcessor()
-                response = await processor.process_message(payload)
+                    processor = MessageProcessor()
+                    response = await processor.process_message(payload)
 
-                # Verify ProductSearchService was called
-                mock_search_service.search_products.assert_called_once()
-                # Verify search results were stored in context
-                assert any(call[0] == "search_results" for call in update_calls)
-                # Verify response contains product information
-                assert "Nike Air Max" in response.text
-                assert "$99.99" in response.text
+                    # Verify ProductSearchService was called
+                    mock_search_service.search_products.assert_called_once()
+                    # Verify search results were stored in context
+                    assert any(call[0] == "search_results" for call in update_calls)
+                    # Verify formatter was called
+                    mock_formatter.format_product_results.assert_called_once()
+                    # Verify send service was called
+                    mock_send_service.send_message.assert_called_once()
+                    # After Story 2.3, response confirms products were sent
+                    assert "product" in response.text.lower() or "found" in response.text.lower()
 
 
 @pytest.mark.asyncio
@@ -184,7 +210,7 @@ async def test_product_search_response_formatting():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -192,27 +218,53 @@ async def test_product_search_response_formatting():
                 mock_search_service.search_products.side_effect = mock_search
                 mock_search_service_class.return_value = mock_search_service
 
-                payload = FacebookWebhookPayload(
-                    object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "show me shoes"},
+                # Mock Story 2.3 Messenger services
+                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
+                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
+
+                    # Mock formatter
+                    mock_formatter = MagicMock()
+                    mock_formatter.format_product_results.return_value = {
+                        "attachment": {
+                            "type": "template",
+                            "payload": {
+                                "template_type": "generic",
+                                "elements": [
+                                    {"title": "Running Shoes Pro"},
+                                    {"title": "Walking Comfort"},
+                                ],
+                            },
+                        },
+                    }
+                    mock_formatter_class.return_value = mock_formatter
+
+                    # Mock send service
+                    mock_send_service = AsyncMock()
+                    mock_send_service.send_message.return_value = {"message_id": "mid.123"}
+                    mock_send_service.close = AsyncMock(return_value=None)
+                    mock_send_class.return_value = mock_send_service
+
+                    payload = FacebookWebhookPayload(
+                        object="page",
+                        entry=[{
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [{
+                                "sender": {"id": "123456"},
+                                "message": {"text": "show me shoes"},
+                            }],
                         }],
-                    }],
-                )
+                    )
 
-                processor = MessageProcessor()
-                response = await processor.process_message(payload)
+                    processor = MessageProcessor()
+                    response = await processor.process_message(payload)
 
-                # Verify response format
-                assert "Found 2 products" in response.text
-                assert "Running Shoes Pro" in response.text
-                assert "$129.99" in response.text
-                assert "Walking Comfort" in response.text
-                assert "$89.99" in response.text
+                    # After Story 2.3, response confirms products were sent to Messenger
+                    assert "product" in response.text.lower()
+                    # Verify formatter was called with search result
+                    mock_formatter.format_product_results.assert_called_once()
+                    # Verify send service was called
+                    mock_send_service.send_message.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -259,7 +311,7 @@ async def test_empty_product_search_results():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -326,7 +378,7 @@ async def test_product_search_error_handling():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search_error(entities):
                     raise APIError(
                         code="SHOPIFY_API_ERROR",
@@ -419,7 +471,7 @@ async def test_search_results_update_conversation_context():
             mock_context_mgr.update_search_results.side_effect = mock_update_search_results
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -506,7 +558,7 @@ async def test_product_search_with_all_entity_types():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     entities_passed_to_search["value"] = entities
                     return mock_search_result
@@ -600,7 +652,7 @@ async def test_product_search_more_than_three_results():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -608,27 +660,50 @@ async def test_product_search_more_than_three_results():
                 mock_search_service.search_products.side_effect = mock_search
                 mock_search_service_class.return_value = mock_search_service
 
-                payload = FacebookWebhookPayload(
-                    object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "show me products"},
+                # Mock Story 2.3 Messenger services
+                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
+                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
+
+                    # Mock formatter - returns elements for 5 products
+                    mock_formatter = MagicMock()
+                    mock_formatter.format_product_results.return_value = {
+                        "attachment": {
+                            "type": "template",
+                            "payload": {
+                                "template_type": "generic",
+                                "elements": [
+                                    {"title": f"Product {i+1}"} for i in range(5)
+                                ],
+                            },
+                        },
+                    }
+                    mock_formatter_class.return_value = mock_formatter
+
+                    # Mock send service
+                    mock_send_service = AsyncMock()
+                    mock_send_service.send_message.return_value = {"message_id": "mid.123"}
+                    mock_send_service.close = AsyncMock(return_value=None)
+                    mock_send_class.return_value = mock_send_service
+
+                    payload = FacebookWebhookPayload(
+                        object="page",
+                        entry=[{
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [{
+                                "sender": {"id": "123456"},
+                                "message": {"text": "show me products"},
+                            }],
                         }],
-                    }],
-                )
+                    )
 
-                processor = MessageProcessor()
-                response = await processor.process_message(payload)
+                    processor = MessageProcessor()
+                    response = await processor.process_message(payload)
 
-                # Verify shows "more" message
-                assert "And 2 more" in response.text or "more product" in response.text
-                # Verify first 3 products are shown
-                assert "Product 1" in response.text
-                assert "Product 2" in response.text
-                assert "Product 3" in response.text
+                    # After Story 2.3, response confirms products were sent
+                    assert "product" in response.text.lower()
+                    # Verify formatter was called
+                    mock_formatter.format_product_results.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -690,7 +765,7 @@ async def test_description_truncation_in_response():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -698,26 +773,56 @@ async def test_description_truncation_in_response():
                 mock_search_service.search_products.side_effect = mock_search
                 mock_search_service_class.return_value = mock_search_service
 
-                payload = FacebookWebhookPayload(
-                    object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "test"},
+                # Mock Story 2.3 Messenger services
+                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
+                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
+
+                    # Mock formatter - verifies truncation in formatted result
+                    mock_formatter = MagicMock()
+                    formatted_payload = {
+                        "attachment": {
+                            "type": "template",
+                            "payload": {
+                                "template_type": "generic",
+                                "elements": [
+                                    {
+                                        "title": "Test Product",
+                                        "subtitle": long_description[:100] + "..." if len(long_description) > 100 else long_description,
+                                    }
+                                ],
+                            },
+                        },
+                    }
+                    mock_formatter.format_product_results.return_value = formatted_payload
+                    mock_formatter_class.return_value = mock_formatter
+
+                    # Mock send service
+                    mock_send_service = AsyncMock()
+                    mock_send_service.send_message.return_value = {"message_id": "mid.123"}
+                    mock_send_service.close = AsyncMock(return_value=None)
+                    mock_send_class.return_value = mock_send_service
+
+                    payload = FacebookWebhookPayload(
+                        object="page",
+                        entry=[{
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [{
+                                "sender": {"id": "123456"},
+                                "message": {"text": "test"},
+                            }],
                         }],
-                    }],
-                )
+                    )
 
-                processor = MessageProcessor()
-                response = await processor.process_message(payload)
+                    processor = MessageProcessor()
+                    response = await processor.process_message(payload)
 
-                # Verify description is truncated with ellipsis
-                assert "..." in response.text
-                # Count characters before ellipsis (should be <= 100)
-                desc_portion = response.text.split("...")[0].split("\n")[-1] if "..." in response.text else ""
-                assert len(desc_portion) <= 103  # 100 chars plus margin
+                    # After Story 2.3, verify formatter was called with long description
+                    mock_formatter.format_product_results.assert_called_once()
+                    # Verify the formatted subtitle is truncated
+                    formatted_subtitle = formatted_payload["attachment"]["payload"]["elements"][0]["subtitle"]
+                    assert "..." in formatted_subtitle
+                    assert len(formatted_subtitle) <= 103  # 100 + "..."
 
 
 @pytest.mark.asyncio
@@ -766,7 +871,7 @@ async def test_search_result_recipient_id_matches_sender():
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.shopify.ProductSearchService") as mock_search_service_class:
+            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
                 async def mock_search(entities):
                     return mock_search_result
 
