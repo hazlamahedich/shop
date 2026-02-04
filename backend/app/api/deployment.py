@@ -88,7 +88,7 @@ MIN_DEPLOYMENT_INTERVAL_SECONDS = 600  # 10 minutes between deployments per merc
 MAX_CONCURRENT_DEPLOYMENTS = 1  # Max concurrent deployments per merchant
 
 
-async def _get_script_path(platform: Platform) -> Path:
+def _get_script_path(platform: Platform) -> Path:
     """Get the path to the deployment script for a platform.
 
     Args:
@@ -147,7 +147,6 @@ def hash_secret_key(secret_key: str) -> str:
 
 
 async def _run_deployment_script(
-    db: AsyncSession,
     deployment_id: str,
     platform: Platform,
     merchant_key: str,
@@ -157,8 +156,9 @@ async def _run_deployment_script(
 ) -> None:
     """Run the deployment script in a subprocess.
 
+    Creates its own database session to avoid concurrent operations error.
+
     Args:
-        db: Database session
         deployment_id: Unique deployment identifier
         platform: Deployment platform
         merchant_key: Generated merchant key
@@ -169,102 +169,107 @@ async def _run_deployment_script(
     Raises:
         APIError: If deployment exceeds timeout
     """
-    script_path = _get_script_path(platform)
-    deployment_start_time = datetime.utcnow()
-    _active_deployments[deployment_id] = deployment_start_time
+    from app.core.database import async_session
 
-    # Deployment timeout: 15 minutes (900 seconds) per AC requirement
-    DEPLOYMENT_TIMEOUT_SECONDS = 900
+    # Create a new database session for this background task
+    # This avoids concurrent operations error with the request's session
+    async with async_session() as db:
+        script_path = _get_script_path(platform)
+        deployment_start_time = datetime.utcnow()
+        _active_deployments[deployment_id] = deployment_start_time
 
-    async def log_message(level: LogLevel, step: Optional[DeploymentStep], message: str) -> None:
-        """Add a log entry to database."""
-        log_entry = DeploymentLogModel(
-            deployment_id=deployment_id,
-            merchant_id=merchant_id,
-            timestamp=datetime.utcnow(),
-            level=level.value,
-            step=step.value if step else None,
-            message=message,
-        )
-        db.add(log_entry)
-        await db.commit()
+        # Deployment timeout: 15 minutes (900 seconds) per AC requirement
+        DEPLOYMENT_TIMEOUT_SECONDS = 900
 
-    try:
-        # Log deployment start
-        await log_message(LogLevel.INFO, DeploymentStep.CHECK_CLI, "Starting deployment process")
+        async def log_message(level: LogLevel, step: Optional[DeploymentStep], message: str) -> None:
+            """Add a log entry to database."""
+            log_entry = DeploymentLogModel(
+                deployment_id=deployment_id,
+                merchant_id=merchant_id,
+                timestamp=datetime.utcnow(),
+                level=level.value,
+                step=step.value if step else None,
+                message=message,
+            )
+            db.add(log_entry)
+            await db.commit()
 
-        # Prepare command arguments
-        args = [str(script_path), merchant_key, secret_key]
-        if render_api_key:
-            args.append(render_api_key)
+        try:
+            # Log deployment start
+            await log_message(LogLevel.INFO, DeploymentStep.CHECK_CLI, "Starting deployment process")
 
-        # Run the script
-        process = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+            # Prepare command arguments
+            args = [str(script_path), merchant_key, secret_key]
+            if render_api_key:
+                args.append(render_api_key)
 
-        # Store subprocess handle for cancellation
-        _active_subprocesses[deployment_id] = process
+            # Run the script
+            process = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
-        # Read output line by line with timeout check
-        while True:
-            # Check for timeout before reading next line (per AC: 15 minutes)
-            elapsed = (datetime.utcnow() - deployment_start_time).total_seconds()
-            if elapsed > DEPLOYMENT_TIMEOUT_SECONDS:
-                process.terminate()
-                try:
-                    await asyncio.wait_for(process.wait(), timeout=5.0)
-                except asyncio.TimeoutError:
-                    process.kill()
-                    await process.wait()
-                _active_subprocesses.pop(deployment_id, None)
+            # Store subprocess handle for cancellation
+            _active_subprocesses[deployment_id] = process
+
+            # Read output line by line with timeout check
+            while True:
+                # Check for timeout before reading next line (per AC: 15 minutes)
+                elapsed = (datetime.utcnow() - deployment_start_time).total_seconds()
+                if elapsed > DEPLOYMENT_TIMEOUT_SECONDS:
+                    process.terminate()
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        process.kill()
+                        await process.wait()
+                    _active_subprocesses.pop(deployment_id, None)
+                    await DeploymentService.update_merchant_status(db, merchant_key, "failed")
+                    await log_message(LogLevel.ERROR, None, f"Deployment timeout after {int(elapsed)} seconds")
+                    raise APIError(
+                        ErrorCode.DEPLOYMENT_TIMEOUT,
+                        f"Deployment exceeded time limit of {DEPLOYMENT_TIMEOUT_SECONDS} seconds",
+                        details={"troubleshootingUrl": f"https://docs.example.com/deploy-troubleshoot#{platform.value}"}
+                    )
+
+                line = await process.stdout.readline()
+                if not line:
+                    break
+
+                line_str = line.decode().strip()
+                if not line_str:
+                    continue
+
+                await log_message(LogLevel.INFO, None, line_str)
+
+            # Wait for process to complete
+            returncode = await process.wait()
+
+            # Clean up subprocess handles
+            _active_subprocesses.pop(deployment_id, None)
+            _active_deployments.pop(deployment_id, None)
+
+            if returncode == 0:
+                # Update merchant status to active
+                await DeploymentService.update_merchant_status(db, merchant_key, "active")
+                await log_message(LogLevel.INFO, DeploymentStep.COMPLETE, "Deployment completed successfully")
+            else:
+                stderr_output = (await process.stderr.read()).decode()
+                # Update merchant status to failed
                 await DeploymentService.update_merchant_status(db, merchant_key, "failed")
-                await log_message(LogLevel.ERROR, None, f"Deployment timeout after {int(elapsed)} seconds")
-                raise APIError(
-                    ErrorCode.DEPLOYMENT_TIMEOUT,
-                    f"Deployment exceeded time limit of {DEPLOYMENT_TIMEOUT_SECONDS} seconds",
-                    details={"troubleshootingUrl": f"https://docs.example.com/deploy-troubleshoot#{platform.value}"}
-                )
+                await log_message(LogLevel.ERROR, None, f"Deployment failed: {stderr_output}")
 
-            line = await process.stdout.readline()
-            if not line:
-                break
-
-            line_str = line.decode().strip()
-            if not line_str:
-                continue
-
-            await log_message(LogLevel.INFO, None, line_str)
-
-        # Wait for process to complete
-        returncode = await process.wait()
-
-        # Clean up subprocess handles
-        _active_subprocesses.pop(deployment_id, None)
-        _active_deployments.pop(deployment_id, None)
-
-        if returncode == 0:
-            # Update merchant status to active
-            await DeploymentService.update_merchant_status(db, merchant_key, "active")
-            await log_message(LogLevel.INFO, DeploymentStep.COMPLETE, "Deployment completed successfully")
-        else:
-            stderr_output = (await process.stderr.read()).decode()
-            # Update merchant status to failed
+        except APIError:
+            # Re-raise APIError (like timeout)
+            _active_subprocesses.pop(deployment_id, None)
+            _active_deployments.pop(deployment_id, None)
+            raise
+        except Exception as e:
+            _active_subprocesses.pop(deployment_id, None)
+            _active_deployments.pop(deployment_id, None)
             await DeploymentService.update_merchant_status(db, merchant_key, "failed")
-            await log_message(LogLevel.ERROR, None, f"Deployment failed: {stderr_output}")
-
-    except APIError:
-        # Re-raise APIError (like timeout)
-        _active_subprocesses.pop(deployment_id, None)
-        _active_deployments.pop(deployment_id, None)
-        raise
-    except Exception as e:
-        _active_subprocesses.pop(deployment_id, None)
-        _active_deployments.pop(deployment_id, None)
-        await DeploymentService.update_merchant_status(db, merchant_key, "failed")
-        await log_message(LogLevel.ERROR, None, f"Deployment error: {str(e)}")
+            await log_message(LogLevel.ERROR, None, f"Deployment error: {str(e)}")
 
 
 @router.post(
@@ -387,7 +392,6 @@ async def start_deployment(
     # Start deployment in background
     asyncio.create_task(
         _run_deployment_script(
-            db=db,
             deployment_id=deployment_id,
             platform=start_request.platform,
             merchant_key=merchant_key,
