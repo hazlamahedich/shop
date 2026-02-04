@@ -5,6 +5,46 @@ Uses factory pattern for generating test data with sensible defaults.
 
 from __future__ import annotations
 
+from typing import Any, TypeVar, Type
+
+T = TypeVar('T')
+
+
+class BaseFactory:
+    """Base factory for ORM model test fixtures.
+
+    Provides a simple pattern for creating test instances with defaults.
+    """
+
+    model: Type[T]
+
+    def __init__(self, **kwargs):
+        """Initialize factory with override values.
+
+        Args:
+            **kwargs: Field values to override defaults
+        """
+        self.defaults = {
+            "current_step": 1,
+            "completed_steps": [],
+            "skipped": False,
+            "tutorial_version": "1.0",
+            "steps_total": 4,
+        }
+        self.defaults.update(kwargs)
+
+    def create(self, **kwargs) -> T:
+        """Create model instance with combined defaults and overrides.
+
+        Args:
+            **kwargs: Additional field values to override
+
+        Returns:
+            Model instance
+        """
+        params = {**self.defaults, **kwargs}
+        return self.model(**params)
+
 import random
 import string
 from dataclasses import dataclass, field

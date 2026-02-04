@@ -57,6 +57,12 @@ class Merchant(Base):
         back_populates="merchant",
         uselist=False,  # One-to-one relationship
     )
+    tutorial: Mapped[Optional["Tutorial"]] = relationship(
+        "Tutorial",
+        back_populates="merchant",
+        uselist=False,  # One-to-one relationship
+        passive_deletes="all",  # Let DB handle cascade deletes
+    )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),

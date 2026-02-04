@@ -12,6 +12,7 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.llm_configuration import LLMConfiguration
 from app.models.llm_conversation_cost import LLMConversationCost
+from app.models.tutorial import Tutorial
 
 __all__ = [
     "Merchant",
@@ -23,4 +24,5 @@ __all__ = [
     "Message",
     "LLMConfiguration",
     "LLMConversationCost",
+    "Tutorial",
 ]

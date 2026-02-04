@@ -22,6 +22,7 @@ from app.api.integrations import router as integrations_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
 from app.api.llm import router as llm_router
+from app.api.tutorial import router as tutorial_router
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
     MinimalEnvelope,
@@ -166,6 +167,7 @@ app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboardin
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
 app.include_router(llm_router, prefix="/api/llm", tags=["llm"])
+app.include_router(tutorial_router, prefix="/api/tutorial", tags=["tutorial"])
 app.include_router(facebook_webhook_router, tags=["webhooks"])
 app.include_router(shopify_webhook_router, tags=["webhooks"])
 # These will be added as features are implemented:
