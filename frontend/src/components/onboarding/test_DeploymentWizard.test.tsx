@@ -1,7 +1,7 @@
 /** Tests for DeploymentWizard component.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { DeploymentWizard } from "./DeploymentWizard";
@@ -116,7 +116,7 @@ describe("DeploymentWizard", () => {
   it("shows progress bar during deployment", () => {
     vi.mocked(useDeploymentStore).mockReturnValue({
       platform: "flyio" as any,
-      status: "in-progress",
+      status: "inProgress",
       progress: 45,
       logs: [],
       currentStep: "deploy",
@@ -151,7 +151,7 @@ describe("DeploymentWizard", () => {
 
     vi.mocked(useDeploymentStore).mockReturnValue({
       platform: "flyio" as any,
-      status: "in-progress",
+      status: "inProgress",
       progress: 30,
       logs: mockLogs,
       currentStep: "build",
@@ -257,7 +257,7 @@ describe("DeploymentWizard", () => {
 
     vi.mocked(useDeploymentStore).mockReturnValue({
       platform: "railway" as any,
-      status: "in-progress",
+      status: "inProgress",
       progress: 50,
       logs: [],
       currentStep: "deploy",

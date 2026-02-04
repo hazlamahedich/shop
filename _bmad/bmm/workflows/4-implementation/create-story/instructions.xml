@@ -309,6 +309,44 @@
     context engine analysis completed - comprehensive developer guide created"</action>
   </step>
 
+  <step n="5b" goal="Ensure E2E test tasks are explicitly added">
+    <critical>🧪 E2E TEST TASK ENFORCEMENT - Prevent missing E2E tests!</critical>
+
+    <action>Parse the generated story file's Testing Requirements section</action>
+    <action>Look for E2E test entries in the testing requirements table</action>
+    <action>Check if E2E test file paths are listed (e.g., `tests/e2e/*.spec.ts`)</action>
+
+    <check if="E2E tests are listed in testing requirements">
+      <action>Verify Tasks/Subtasks section includes an explicit task for creating E2E tests</action>
+
+      <check if="NO explicit E2E test creation task exists">
+        <critical>E2E TESTS ARE REQUIRED BUT NO TASK EXISTS - MUST ADD TASK NOW!</critical>
+
+        <action>Add a new task to the Tasks/Subtasks section:</action>
+        <action>Insert task: "- [ ] **Create E2E Tests** (AC: Multiple)"</action>
+        <action>Add subtask: "  - [ ] Create E2E test file: {path from testing requirements}"</action>
+        <action>Add subtask: "  - [ ] Implement critical user flow test scenarios"</action>
+        <action>Add subtask: "  - [ ] Add E2E test for error/edge cases"</action>
+        <action>Add subtask: "  - [ ] Verify E2E tests pass in isolation"</action>
+
+        <output>✅ **E2E Test Task Added**
+          E2E tests were listed in requirements but no task existed.
+          Added explicit E2E test creation task to ensure implementation.
+        </output>
+      </check>
+
+      <check if="E2E test task already exists">
+        <output>✅ E2E test task already exists in story - no action needed</output>
+      </check>
+    </check>
+
+    <check if="No E2E tests in testing requirements">
+      <output>ℹ️ No E2E tests specified in testing requirements - skipping E2E task enforcement</output>
+    </check>
+
+    <action>Save the updated story file with E2E test task (if added)</action>
+  </step>
+
   <step n="6" goal="Update sprint status and finalize">
     <invoke-task>Validate against checklist at {installed_path}/checklist.md using _bmad/core/tasks/validate-workflow.xml</invoke-task>
     <action>Save story document unconditionally</action>

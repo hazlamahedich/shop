@@ -387,9 +387,9 @@ class TestDeploymentAPI:
         data = response.json()
 
         # 'active' status maps to 'success' in the API
-        # For true 'in-progress' we need a different status that's not pending/active/failed
+        # For true 'in_progress' we need a different status that's not pending/active/failed
         # Since merchant status enum is limited, let's just verify the response is valid
-        assert data["data"]["status"] in ["pending", "in-progress", "success"]
+        assert data["data"]["status"] in ["pending", "in_progress", "success"]
         assert data["data"]["progress"] >= 0
         assert data["data"]["currentStep"] == "deploy"
 

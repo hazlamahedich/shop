@@ -176,9 +176,9 @@ app.include_router(deployment_router, prefix="/api/deployment", tags=["deploymen
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
 app.include_router(llm_router, prefix="/api/llm", tags=["llm"])
 app.include_router(tutorial_router, prefix="/api/tutorial", tags=["tutorial"])
-app.include_router(facebook_webhook_router, tags=["webhooks"])
-app.include_router(shopify_webhook_router, tags=["webhooks"])
-app.include_router(verification_router, tags=["webhooks"])
+app.include_router(facebook_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
+app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
+app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

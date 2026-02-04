@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { LLMProvider, LLMStatus } from '../types/enums';
 
 export interface LLMConfiguration {
-  provider: 'ollama' | 'openai' | 'anthropic' | 'gemini' | 'glm' | null;
+  provider: LLMProvider | null;
   ollamaUrl?: string;
   ollamaModel?: string;
   cloudModel?: string;
-  status: 'idle' | 'loading' | 'success' | 'error';
+  status: LLMStatus;
   error?: string;
   configuredAt?: string;
   lastTestAt?: string;
@@ -21,7 +22,7 @@ export interface LLMConfiguration {
   totalCostUsd?: number;
 }
 
-export interface LLMProvider {
+export interface LLMProviderInfo {
   id: string;
   name: string;
   description: string;
@@ -36,7 +37,7 @@ export interface LLMProvider {
 
 interface LLMState {
   configuration: LLMConfiguration;
-  providers: LLMProvider[];
+  providers: LLMProviderInfo[];
   isConfiguring: boolean;
   isTesting: boolean;
 
@@ -58,7 +59,7 @@ export const useLLMStore = create<LLMState>()(
     (set, get) => ({
       configuration: {
         provider: null,
-        status: 'idle',
+        status: 'pending',
       },
       providers: [],
       isConfiguring: false,
@@ -106,7 +107,7 @@ export const useLLMStore = create<LLMState>()(
           if (!response.ok) {
             // Not configured is expected state
             if (response.status === 404) {
-              set({ configuration: { provider: null, status: 'idle' } });
+              set({ configuration: { provider: null, status: 'pending' } });
               return;
             }
             throw new Error('Failed to get LLM status');
@@ -169,7 +170,7 @@ export const useLLMStore = create<LLMState>()(
             throw new Error('Clear failed');
           }
 
-          set({ configuration: { provider: null, status: 'idle' } });
+          set({ configuration: { provider: null, status: 'pending' } });
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;

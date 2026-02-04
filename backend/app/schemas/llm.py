@@ -7,8 +7,31 @@ testing, and status endpoints.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
+from enum import Enum
+
 from pydantic import BaseModel, Field, field_validator
+
+
+# Enum Types
+
+
+class LLMProvider(str, Enum):
+    """LLM provider identifiers."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GEMINI = "gemini"
+    GLM = "glm"
+
+
+class LLMStatus(str, Enum):
+    """LLM configuration status."""
+
+    PENDING = "pending"
+    ACTIVE = "active"
+    ERROR = "error"
 
 
 # Request Schemas
@@ -41,7 +64,7 @@ class OllamaConfigRequest(BaseModel):
 class CloudConfigRequest(BaseModel):
     """Cloud provider configuration request."""
 
-    provider: Literal["openai", "anthropic", "gemini", "glm"]
+    provider: LLMProvider
     api_key: str = Field(..., description="API key for the provider")
     model: str = Field(..., description="Model to use")
 
@@ -49,7 +72,7 @@ class CloudConfigRequest(BaseModel):
 class LLMConfigureRequest(BaseModel):
     """LLM configuration request (union of all provider types)."""
 
-    provider: Literal["ollama", "openai", "anthropic", "gemini", "glm"]
+    provider: LLMProvider
     ollama_config: OllamaConfigRequest | None = None
     cloud_config: CloudConfigRequest | None = None
     backup_provider: str | None = None
@@ -67,7 +90,7 @@ class LLMConfigureRequest(BaseModel):
 class LLMUpdateRequest(BaseModel):
     """LLM configuration update request."""
 
-    provider: Literal["ollama", "openai", "anthropic", "gemini", "glm"] | None = None
+    provider: LLMProvider | None = None
     ollama_url: str | None = None
     ollama_model: str | None = None
     api_key: str | None = None
@@ -93,7 +116,7 @@ class LLMStatusResponse(BaseModel):
 
     provider: str
     model: str
-    status: str  # pending, active, error
+    status: LLMStatus
     configured_at: datetime
     last_test_at: datetime | None
     test_result: dict[str, Any] | None

@@ -6,13 +6,14 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Platform, DeploymentStatus, LogLevel } from "../types/enums";
 
-export type Platform = "flyio" | "railway" | "render";
-export type DeploymentStatus = "pending" | "in-progress" | "success" | "failed" | "cancelled";
+// Re-export Platform type for convenience
+export type { Platform };
 
 export interface DeploymentLog {
   timestamp: string;
-  level: "info" | "warning" | "error";
+  level: LogLevel;
   step?: string;
   message: string;
 }

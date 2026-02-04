@@ -4,6 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import type { DeploymentLog } from "./deploymentStore";
+import type { LogLevel, DeploymentStatus } from "../types/enums";
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -202,7 +204,7 @@ describe("deploymentStore", () => {
           data: {
             deploymentId: "test-deployment-123",
             merchantKey: "shop-test123",
-            status: "in-progress",
+            status: "inProgress",
             progress: 50,
             logs: [],
             currentStep: "deploy",
@@ -231,7 +233,7 @@ describe("deploymentStore", () => {
             data: {
               deploymentId: "test-123",
               merchantKey: "shop-test",
-              status: "in-progress",
+              status: "inProgress",
               progress: 50,
               logs: [],
               currentStep: "deploy",
@@ -407,7 +409,7 @@ describe("deploymentStore", () => {
         result.current.updateDeploymentStatus({
           deploymentId: "test-deployment-123",
           merchantKey: "shop-test",
-          status: "in-progress" as const,
+          status: "inProgress" as const,
           progress: 50,
           logs: [],
         });
@@ -439,7 +441,7 @@ describe("deploymentStore", () => {
         result.current.updateDeploymentStatus({
           deploymentId: "test-deployment-123",
           merchantKey: "shop-test",
-          status: "in-progress" as const,
+          status: "inProgress" as const,
           progress: 50,
           logs: [],
         });
@@ -450,7 +452,7 @@ describe("deploymentStore", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.status).toBe("in-progress"); // Should remain unchanged
+        expect(result.current.status).toBe("inProgress"); // Should remain unchanged
         expect(result.current.errorMessage).toBe("Cancellation failed");
       });
     });
@@ -476,19 +478,20 @@ describe("deploymentStore", () => {
       const statusUpdate = {
         deploymentId: "test-123",
         merchantKey: "shop-test",
-        status: "in-progress" as const,
+        status: "inProgress" as DeploymentStatus,
         progress: 75,
         logs: [
           {
             timestamp: "2026-02-03T12:00:00Z",
-            level: "info" as const,
+            level: "info" as LogLevel,
+            step: "deploy",
             message: "Deployment in progress",
           },
-        ],
+        ] as DeploymentLog[],
         currentStep: "deploy",
         errorMessage: null,
         troubleshootingUrl: null,
-      };
+      } as any;
 
       act(() => {
         result.current.updateDeploymentStatus(statusUpdate);
@@ -496,7 +499,7 @@ describe("deploymentStore", () => {
 
       expect(result.current.deploymentId).toBe("test-123");
       expect(result.current.merchantKey).toBe("shop-test");
-      expect(result.current.status).toBe("in-progress");
+      expect(result.current.status).toBe("inProgress");
       expect(result.current.progress).toBe(75);
       expect(result.current.logs).toEqual(statusUpdate.logs);
       expect(result.current.currentStep).toBe("deploy");
@@ -712,7 +715,7 @@ describe("deploymentStore", () => {
           data: {
             deploymentId: "test-123",
             merchantKey: "shop-test",
-            status: "in-progress",
+            status: "inProgress",
             progress: 50,
             logs: [],
           },
@@ -749,9 +752,9 @@ describe("deploymentStore", () => {
     it("handles deployment status transitions correctly", async () => {
       const transitions = [
         { status: "pending", progress: 0 },
-        { status: "in-progress", progress: 25 },
-        { status: "in-progress", progress: 50 },
-        { status: "in-progress", progress: 75 },
+        { status: "inProgress", progress: 25 },
+        { status: "inProgress", progress: 50 },
+        { status: "inProgress", progress: 75 },
         { status: "success", progress: 100 },
       ];
 

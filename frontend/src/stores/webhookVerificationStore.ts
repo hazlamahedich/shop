@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type {
+  VerificationPlatform,
+  OverallStatus,
+  SubscriptionStatus,
+  TestStatus,
+  ResubscribeStatus
+} from '../types/enums';
 
 export interface WebhookStatus {
   webhookUrl: string;
   connected: boolean;
   lastWebhookAt?: string;
   lastVerifiedAt?: string;
-  subscriptionStatus: 'active' | 'inactive';
+  subscriptionStatus: SubscriptionStatus;
   topics: string[];
   error?: string;
 }
@@ -14,13 +21,13 @@ export interface WebhookStatus {
 export interface WebhookVerificationStatus {
   facebook: WebhookStatus;
   shopify: WebhookStatus;
-  overallStatus: 'ready' | 'partial' | 'not_connected';
+  overallStatus: OverallStatus;
   canGoLive: boolean;
 }
 
 export interface WebhookTestResult {
   testId: string;
-  status: 'success' | 'failed';
+  status: TestStatus;
   message: string;
   testMessageId?: string;
   deliveredAt?: string;
@@ -34,8 +41,8 @@ export interface WebhookTestResult {
 }
 
 export interface WebhookResubscribeResult {
-  platform: 'facebook' | 'shopify';
-  status: 'success' | 'partial' | 'failed';
+  platform: VerificationPlatform;
+  status: ResubscribeStatus;
   message: string;
   topics: Array<{ topic: string; success?: boolean; error?: string }>;
   subscribedAt?: string;

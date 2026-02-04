@@ -191,11 +191,11 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         await conn.run_sync(Base.metadata.create_all)
 
     # Create session
-    async with TestingSessionLocal() as session:
+    session = TestingSessionLocal()
+    try:
         yield session
-
-    # Cleanup after test
-    await session.close()
+    finally:
+        await session.close()
 
 
 # Alias for backward compatibility with existing tests
@@ -207,12 +207,12 @@ async def async_client(async_session):
     """Create an async HTTP client for testing FastAPI endpoints.
 
     Uses ASGITransport to call the app directly without a server.
-    Overrides get_db dependency to use the test's async_session.
+    Reuses the async_session fixture when both are used in tests.
     """
     from app.main import app
     from app.core.database import get_db
 
-    # Override get_db dependency to use test's async_session
+    # Override get_db dependency to use the test's async_session
     async def override_get_db():
         yield async_session
 

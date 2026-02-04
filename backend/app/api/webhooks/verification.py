@@ -43,7 +43,7 @@ def create_meta(request_id: str) -> MetaData:
 
 
 @router.get(
-    "/webhooks/verification/status",
+    "/status",
     response_model=MinimalEnvelope[WebhookStatusResponse],
     tags=["webhooks"],
 )
@@ -95,7 +95,7 @@ async def get_webhook_verification_status(
 
 
 @router.post(
-    "/webhooks/verification/test-facebook",
+    "/test-facebook",
     response_model=MinimalEnvelope[WebhookTestResponse],
     tags=["webhooks"],
 )
@@ -153,7 +153,7 @@ async def test_facebook_webhook(
 
 
 @router.post(
-    "/webhooks/verification/test-shopify",
+    "/test-shopify",
     response_model=MinimalEnvelope[WebhookTestResponse],
     tags=["webhooks"],
 )
@@ -211,7 +211,7 @@ async def test_shopify_webhook(
 
 
 @router.post(
-    "/webhooks/verification/resubscribe-facebook",
+    "/resubscribe-facebook",
     response_model=MinimalEnvelope[WebhookResubscribeResponse],
     tags=["webhooks"],
 )
@@ -260,7 +260,7 @@ async def resubscribe_facebook_webhook(
 
 
 @router.post(
-    "/webhooks/verification/resubscribe-shopify",
+    "/resubscribe-shopify",
     response_model=MinimalEnvelope[WebhookResubscribeResponse],
     tags=["webhooks"],
 )

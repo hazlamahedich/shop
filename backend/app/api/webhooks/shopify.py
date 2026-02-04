@@ -24,7 +24,7 @@ router = APIRouter()
 logger = structlog.get_logger(__name__)
 
 
-@router.post("/webhooks/shopify")
+@router.post("/shopify")
 async def shopify_webhook_receive(
     request: Request,
     x_shopify_hmac_sha256: str = Header(None),

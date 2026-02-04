@@ -7,67 +7,55 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field
 
-
-class MinimalEnvelope(BaseModel):
-    """Minimal response envelope with metadata."""
-
-    data: dict[str, Any]
-    meta: MetaData
-
-
-class MetaData(BaseModel):
-    """Response metadata."""
-
-    request_id: str
-    timestamp: datetime
+from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
 
 
 # ==================== Facebook OAuth Schemas ====================
 
 
-class FacebookAuthorizeRequest(BaseModel):
+class FacebookAuthorizeRequest(BaseSchema):
     """Request to initiate Facebook OAuth flow."""
 
     merchant_id: int = Field(..., description="Merchant ID initiating OAuth")
 
 
-class FacebookAuthorizeResponse(BaseModel):
+class FacebookAuthorizeResponse(BaseSchema):
     """Response with Facebook OAuth URL and state token."""
 
-    auth_url: str = Field(..., alias="authUrl", description="Facebook OAuth dialog URL")
+    auth_url: str = Field(..., description="Facebook OAuth dialog URL")
     state: str = Field(..., description="CSRF state token for callback validation")
 
 
-class FacebookCallbackRequest(BaseModel):
+class FacebookCallbackRequest(BaseSchema):
     """Facebook OAuth callback request."""
 
     code: str = Field(..., description="Authorization code from Facebook")
     state: str = Field(..., description="State token for CSRF validation")
 
 
-class FacebookCallbackResponse(BaseModel):
+class FacebookCallbackResponse(BaseSchema):
     """Response after successful Facebook OAuth callback."""
 
-    page_id: str = Field(..., alias="pageId", description="Facebook Page ID")
-    page_name: str = Field(..., alias="pageName", description="Facebook Page name")
-    page_picture_url: Optional[str] = Field(None, alias="pagePictureUrl", description="Page profile picture URL")
-    connected_at: datetime = Field(..., alias="connectedAt", description="Connection timestamp")
+    page_id: str = Field(..., description="Facebook Page ID")
+    page_name: str = Field(..., description="Facebook Page name")
+    page_picture_url: Optional[str] = Field(None, description="Page profile picture URL")
+    connected_at: datetime = Field(..., description="Connection timestamp")
 
 
-class FacebookStatusResponse(BaseModel):
+class FacebookStatusResponse(BaseSchema):
     """Response with Facebook connection status."""
 
     connected: bool = Field(..., description="Whether Facebook is connected")
-    page_id: Optional[str] = Field(None, alias="pageId", description="Facebook Page ID")
-    page_name: Optional[str] = Field(None, alias="pageName", description="Facebook Page name")
-    page_picture_url: Optional[str] = Field(None, alias="pagePictureUrl", description="Page profile picture URL")
-    connected_at: Optional[datetime] = Field(None, alias="connectedAt", description="Connection timestamp")
-    webhook_verified: bool = Field(False, alias="webhookVerified", description="Whether webhook is verified")
+    page_id: Optional[str] = Field(None, description="Facebook Page ID")
+    page_name: Optional[str] = Field(None, description="Facebook Page name")
+    page_picture_url: Optional[str] = Field(None, description="Page profile picture URL")
+    connected_at: Optional[datetime] = Field(None, description="Connection timestamp")
+    webhook_verified: bool = Field(False, description="Whether webhook is verified")
 
 
-class FacebookDisconnectResponse(BaseModel):
+class FacebookDisconnectResponse(BaseSchema):
     """Response after disconnecting Facebook integration."""
 
     disconnected: bool = Field(..., description="Whether disconnection was successful")
@@ -76,7 +64,7 @@ class FacebookDisconnectResponse(BaseModel):
 # ==================== Facebook Webhook Schemas ====================
 
 
-class FacebookWebhookVerifyRequest(BaseModel):
+class FacebookWebhookVerifyRequest(BaseSchema):
     """Facebook webhook verification challenge request."""
 
     hub_mode: str = Field(..., alias="hub.mode")
@@ -84,26 +72,26 @@ class FacebookWebhookVerifyRequest(BaseModel):
     hub_verify_token: str = Field(..., alias="hub.verify_token")
 
 
-class FacebookWebhookMessage(BaseModel):
+class FacebookWebhookMessage(BaseSchema):
     """Incoming Facebook Messenger message."""
 
-    sender_id: str = Field(..., alias="senderId", description="Facebook PSID")
-    recipient_id: str = Field(..., alias="recipientId", description="Page ID")
-    message_text: Optional[str] = Field(None, alias="messageText", description="Message text content")
-    attachment_url: Optional[str] = Field(None, alias="attachmentUrl", description="Attachment URL if present")
-    postback_payload: Optional[str] = Field(None, alias="postbackPayload", description="Postback payload if present")
+    sender_id: str = Field(..., description="Facebook PSID")
+    recipient_id: str = Field(..., description="Page ID")
+    message_text: Optional[str] = Field(None, description="Message text content")
+    attachment_url: Optional[str] = Field(None, description="Attachment URL if present")
+    postback_payload: Optional[str] = Field(None, description="Postback payload if present")
     timestamp: int = Field(..., description="Message timestamp from Facebook")
 
 
-class WebhookTestResponse(BaseModel):
+class WebhookTestResponse(BaseSchema):
     """Response after testing webhook."""
 
     success: bool = Field(..., description="Whether webhook test was successful")
     message: str = Field(..., description="Test result message")
-    webhook_status: Optional[str] = Field(None, alias="webhookStatus", description="Current webhook status")
+    webhook_status: Optional[str] = Field(None, description="Current webhook status")
 
 
-class WebhookResubscribeResponse(BaseModel):
+class WebhookResubscribeResponse(BaseSchema):
     """Response after resubscribing to webhook."""
 
     success: bool = Field(..., description="Whether resubscription was successful")
@@ -113,10 +101,10 @@ class WebhookResubscribeResponse(BaseModel):
 # ==================== Error Response Schemas ====================
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(BaseSchema):
     """Standard error response."""
 
-    error_code: int = Field(..., alias="errorCode")
+    error_code: int = Field(...)
     message: str = Field(..., description="Human-readable error message")
     details: Optional[dict[str, Any]] = Field(None, description="Additional error details")
 
@@ -124,21 +112,21 @@ class ErrorResponse(BaseModel):
 # ==================== Shopify OAuth Schemas ====================
 
 
-class ShopifyAuthorizeRequest(BaseModel):
+class ShopifyAuthorizeRequest(BaseSchema):
     """Request to initiate Shopify OAuth flow."""
 
     merchant_id: int = Field(..., description="Merchant ID initiating OAuth")
-    shop_domain: str = Field(..., alias="shopDomain", description="Shopify shop domain")
+    shop_domain: str = Field(..., description="Shopify shop domain")
 
 
-class ShopifyAuthorizeResponse(BaseModel):
+class ShopifyAuthorizeResponse(BaseSchema):
     """Response with Shopify OAuth URL and state token."""
 
-    auth_url: str = Field(..., alias="authUrl", description="Shopify OAuth dialog URL")
+    auth_url: str = Field(..., description="Shopify OAuth dialog URL")
     state: str = Field(..., description="CSRF state token for callback validation")
 
 
-class ShopifyCallbackRequest(BaseModel):
+class ShopifyCallbackRequest(BaseSchema):
     """Shopify OAuth callback request."""
 
     code: str = Field(..., description="Authorization code from Shopify")
@@ -146,27 +134,50 @@ class ShopifyCallbackRequest(BaseModel):
     shop: str = Field(..., description="Shopify shop domain")
 
 
-class ShopifyCallbackResponse(BaseModel):
+class ShopifyCallbackResponse(BaseSchema):
     """Response after successful Shopify OAuth callback."""
 
-    shop_domain: str = Field(..., alias="shopDomain", description="Shopify shop domain")
-    shop_name: str = Field(..., alias="shopName", description="Shopify shop name")
-    connected_at: datetime = Field(..., alias="connectedAt", description="Connection timestamp")
+    shop_domain: str = Field(..., description="Shopify shop domain")
+    shop_name: str = Field(..., description="Shopify shop name")
+    connected_at: datetime = Field(..., description="Connection timestamp")
 
 
-class ShopifyStatusResponse(BaseModel):
+class ShopifyStatusResponse(BaseSchema):
     """Response with Shopify connection status."""
 
     connected: bool = Field(..., description="Whether Shopify is connected")
-    shop_domain: Optional[str] = Field(None, alias="shopDomain", description="Shopify shop domain")
-    shop_name: Optional[str] = Field(None, alias="shopName", description="Shopify shop name")
-    storefront_api_connected: bool = Field(False, alias="storefrontApiConnected", description="Storefront API verified")
-    admin_api_connected: bool = Field(False, alias="adminApiConnected", description="Admin API verified")
-    webhook_subscribed: bool = Field(False, alias="webhookSubscribed", description="Webhook subscribed")
-    connected_at: Optional[datetime] = Field(None, alias="connectedAt", description="Connection timestamp")
+    shop_domain: Optional[str] = Field(None, description="Shopify shop domain")
+    shop_name: Optional[str] = Field(None, description="Shopify shop name")
+    storefront_api_connected: bool = Field(False, description="Storefront API verified")
+    admin_api_connected: bool = Field(False, description="Admin API verified")
+    webhook_subscribed: bool = Field(False, description="Webhook subscribed")
+    connected_at: Optional[datetime] = Field(None, description="Connection timestamp")
 
 
-class ShopifyDisconnectResponse(BaseModel):
+class ShopifyDisconnectResponse(BaseSchema):
     """Response after disconnecting Shopify integration."""
 
     disconnected: bool = Field(..., description="Whether disconnection was successful")
+
+
+__all__ = [
+    "MinimalEnvelope",
+    "MetaData",
+    "FacebookAuthorizeRequest",
+    "FacebookAuthorizeResponse",
+    "FacebookCallbackRequest",
+    "FacebookCallbackResponse",
+    "FacebookStatusResponse",
+    "FacebookDisconnectResponse",
+    "FacebookWebhookVerifyRequest",
+    "FacebookWebhookMessage",
+    "WebhookTestResponse",
+    "WebhookResubscribeResponse",
+    "ErrorResponse",
+    "ShopifyAuthorizeRequest",
+    "ShopifyAuthorizeResponse",
+    "ShopifyCallbackRequest",
+    "ShopifyCallbackResponse",
+    "ShopifyStatusResponse",
+    "ShopifyDisconnectResponse",
+]

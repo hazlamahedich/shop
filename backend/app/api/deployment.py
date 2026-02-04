@@ -22,6 +22,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
+from app.schemas.base import to_camel
 from app.schemas.deployment import (
     DeploymentStatus,
     DeploymentState,
@@ -33,7 +34,6 @@ from app.schemas.deployment import (
     Platform,
     StartDeploymentRequest,
     StartDeploymentResponse,
-    to_camel,
 )
 from app.services.deployment import DeploymentService
 from app.models.merchant import Merchant

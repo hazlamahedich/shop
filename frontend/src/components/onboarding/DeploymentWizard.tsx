@@ -73,8 +73,8 @@ export function DeploymentWizard(): React.ReactElement {
 
   const { isComplete: prerequisitesComplete } = onboardingStore();
 
-  // Only "in-progress" means actively deploying. "pending" means ready to start.
-  const isDeploying = status === "in-progress";
+  // Only "inProgress" means actively deploying. "pending" means ready to start.
+  const isDeploying = status === "inProgress";
   const isComplete = status === "success";
   const hasFailed = status === "failed";
   const isCancelled = status === "cancelled";
@@ -118,7 +118,6 @@ export function DeploymentWizard(): React.ReactElement {
                 options={PLATFORM_OPTIONS}
                 value={platform || undefined}
                 onChange={(e) => setPlatform(e.target.value as Platform)}
-                placeholder="Choose a platform..."
                 disabled={isDeploying}
                 aria-label="Select deployment platform"
               />
@@ -155,13 +154,15 @@ export function DeploymentWizard(): React.ReactElement {
                         : "default"
                     }
                   >
-                    {status === "pending" && "Initializing..."}
-                    {status === "in-progress" && currentStep
+                    {status === "inProgress" && currentStep
                       ? `Deploying: ${currentStep}`
-                      : "Deploying..."}
-                    {status === "success" && "Deployment Complete"}
-                    {status === "failed" && "Deployment Failed"}
-                    {status === "cancelled" && "Deployment Cancelled"}
+                      : status === "inProgress"
+                      ? "Deploying..."
+                      : status === "success"
+                      ? "Deployment Complete"
+                      : status === "failed"
+                      ? "Deployment Failed"
+                      : "Deployment Cancelled"}
                   </Badge>
                   {platform && (
                     <span className="text-sm text-slate-600">

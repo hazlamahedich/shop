@@ -4,120 +4,82 @@ from __future__ import annotations
 
 from typing import Any, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import BaseSchema, MetaData, MinimalEnvelope
 
 
-class PrerequisiteCheckRequest(BaseModel):
+class PrerequisiteCheckRequest(BaseSchema):
     """Request schema for prerequisite check.
 
     Uses camelCase aliases for API compatibility with frontend.
     """
 
-    cloud_account: bool = Field(alias="cloudAccount")
-    facebook_account: bool = Field(alias="facebookAccount")
-    shopify_access: bool = Field(alias="shopifyAccess")
-    llm_provider_choice: bool = Field(alias="llmProviderChoice")
-
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    cloud_account: bool = Field(description="Cloud account ready")
+    facebook_account: bool = Field(description="Facebook account ready")
+    shopify_access: bool = Field(description="Shopify access ready")
+    llm_provider_choice: bool = Field(description="LLM provider chosen")
 
 
-class PrerequisiteCheckResponse(BaseModel):
+class PrerequisiteCheckResponse(BaseSchema):
     """Response schema for prerequisite check.
 
     Returns completion status and list of missing prerequisites.
     """
 
-    is_complete: bool = Field(alias="isComplete")
-    missing: list[str] = Field(default_factory=list)
-
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    is_complete: bool = Field(description="Whether all prerequisites are complete")
+    missing: list[str] = Field(default_factory=list, description="Missing prerequisite names")
 
 
-class PrerequisiteStateCreate(BaseModel):
+class PrerequisiteStateCreate(BaseSchema):
     """Request schema for creating/updating prerequisite state.
 
     Maps to PrerequisiteChecklist ORM model for database storage.
     """
 
-    has_cloud_account: bool = Field(alias="hasCloudAccount")
-    has_facebook_account: bool = Field(alias="hasFacebookAccount")
-    has_shopify_access: bool = Field(alias="hasShopifyAccess")
-    has_llm_provider_choice: bool = Field(alias="hasLlmProviderChoice")
-
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    has_cloud_account: bool = Field(description="Has cloud account")
+    has_facebook_account: bool = Field(description="Has Facebook account")
+    has_shopify_access: bool = Field(description="Has Shopify access")
+    has_llm_provider_choice: bool = Field(description="Has chosen LLM provider")
 
 
-class PrerequisiteStateResponse(BaseModel):
+class PrerequisiteStateResponse(BaseSchema):
     """Response schema for prerequisite state from database.
 
     Returns the stored prerequisite checklist state for a merchant.
     """
 
-    id: int
-    merchant_id: int = Field(alias="merchantId")
-    has_cloud_account: bool = Field(alias="hasCloudAccount")
-    has_facebook_account: bool = Field(alias="hasFacebookAccount")
-    has_shopify_access: bool = Field(alias="hasShopifyAccess")
-    has_llm_provider_choice: bool = Field(alias="hasLlmProviderChoice")
-    is_complete: bool = Field(alias="isComplete")
-    completed_at: Optional[datetime] = Field(None, alias="completedAt")
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
-
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    id: int = Field(description="Database record ID")
+    merchant_id: int = Field(description="Merchant ID")
+    has_cloud_account: bool = Field(description="Has cloud account")
+    has_facebook_account: bool = Field(description="Has Facebook account")
+    has_shopify_access: bool = Field(description="Has Shopify access")
+    has_llm_provider_choice: bool = Field(description="Has chosen LLM provider")
+    is_complete: bool = Field(description="Whether all prerequisites are complete")
+    completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
+    created_at: datetime = Field(description="Record creation timestamp")
+    updated_at: datetime = Field(description="Last update timestamp")
 
 
-class PrerequisiteSyncRequest(BaseModel):
+class PrerequisiteSyncRequest(BaseSchema):
     """Request schema for syncing localStorage state to backend.
 
     Used for migration from localStorage to PostgreSQL.
     """
 
-    cloud_account: bool = Field(alias="cloudAccount")
-    facebook_account: bool = Field(alias="facebookAccount")
-    shopify_access: bool = Field(alias="shopifyAccess")
-    llm_provider_choice: bool = Field(alias="llmProviderChoice")
-    updated_at: Optional[str] = Field(None, alias="updatedAt")
-
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    cloud_account: bool = Field(description="Cloud account status")
+    facebook_account: bool = Field(description="Facebook account status")
+    shopify_access: bool = Field(description="Shopify access status")
+    llm_provider_choice: bool = Field(description="LLM provider choice status")
+    updated_at: Optional[str] = Field(None, description="Last update timestamp")
 
 
-class MetaData(BaseModel):
-    """Metadata for API responses following Minimal Envelope pattern.
-
-    Includes request_id for tracing and ISO-8601 timestamp.
-    """
-
-    request_id: str = Field(alias="requestId")
-    timestamp: str
-
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
-
-
-class MinimalEnvelope(BaseModel):
-    """Minimal envelope pattern for API responses.
-
-    Structure: {data: {...}, meta: {requestId, timestamp}}
-    Follows project architecture pattern for consistent API responses.
-    """
-
-    data: Any
-    meta: MetaData
+__all__ = [
+    "MinimalEnvelope",
+    "MetaData",
+    "PrerequisiteCheckRequest",
+    "PrerequisiteCheckResponse",
+    "PrerequisiteStateCreate",
+    "PrerequisiteStateResponse",
+    "PrerequisiteSyncRequest",
+]
