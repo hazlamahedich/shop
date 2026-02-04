@@ -21,6 +21,7 @@ from app.api.deployment import router as deployment_router
 from app.api.integrations import router as integrations_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
+from app.api.webhooks.verification import router as verification_router
 from app.api.llm import router as llm_router
 from app.api.tutorial import router as tutorial_router
 
@@ -39,6 +40,13 @@ from app.schemas.deployment import (  # noqa: F401 (export for type generation)
     DeploymentLogEntry,
     DeploymentState,
     StartDeploymentResponse,
+)
+from app.schemas.webhook_verification import (  # noqa: F401 (export for type generation)
+    WebhookStatusResponse,
+    WebhookTestResponse,
+    WebhookResubscribeResponse,
+    FacebookWebhookStatus,
+    ShopifyWebhookStatus,
 )
 
 
@@ -170,6 +178,7 @@ app.include_router(llm_router, prefix="/api/llm", tags=["llm"])
 app.include_router(tutorial_router, prefix="/api/tutorial", tags=["tutorial"])
 app.include_router(facebook_webhook_router, tags=["webhooks"])
 app.include_router(shopify_webhook_router, tags=["webhooks"])
+app.include_router(verification_router, tags=["webhooks"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

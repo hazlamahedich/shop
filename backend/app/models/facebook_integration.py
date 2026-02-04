@@ -72,6 +72,10 @@ class FacebookIntegration(Base):
         DateTime,
         nullable=True,
     )
+    last_webhook_verified_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
     connected_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

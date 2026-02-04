@@ -46,6 +46,7 @@ import app.models.llm_configuration
 import app.models.conversation
 import app.models.message
 import app.models.deployment_log
+import app.models.webhook_verification_log
 
 
 @pytest.fixture(autouse=True)
@@ -92,31 +93,30 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
     """
     from app.core.database import Base
 
-    # List of custom enum types that must be dropped before tables
+    # List of custom enum types
     enum_types = [
-        "message_sender",  # No dependencies
-        "message_type",    # No dependencies
-        "conversation_status",  # Used by conversations
-        "shopify_status",  # Used by shopify_integrations
-        "facebook_status",  # Used by facebook_integrations
-        "llm_provider",    # Used by llm_configurations
-        "merchant_status", # Used by merchants
+        "message_sender",
+        "message_type",
+        "conversation_status",
+        "shopify_status",
+        "facebook_status",
+        "llm_provider",
+        "merchant_status",
+        "verification_platform",
+        "test_type",
+        "verification_status",
     ]
 
-    # Drop custom enum types first (before dropping tables)
+    # Clean up and recreate schema in a single transaction
     async with test_engine.begin() as conn:
+        # First, drop all custom enum types (they may block table drops)
         for enum_type in enum_types:
             await conn.execute(text(f"DROP TYPE IF EXISTS {enum_type} CASCADE;"))
 
-    # Close all connections to clear statement cache
-    await test_engine.dispose()
-
-    # Drop all tables
-    async with test_engine.begin() as conn:
+        # Drop all tables using metadata (handles foreign keys correctly)
         await conn.run_sync(Base.metadata.drop_all)
 
-    # Create enum types first (required before creating tables)
-    async with test_engine.begin() as conn:
+        # Recreate enum types (required before creating tables)
         # merchant_status enum
         await conn.execute(text("""
             CREATE TYPE merchant_status AS ENUM (
@@ -166,8 +166,28 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
             );
         """))
 
-    # Create tables fresh
-    async with test_engine.begin() as conn:
+        # verification_platform enum
+        await conn.execute(text("""
+            CREATE TYPE verification_platform AS ENUM (
+                'facebook', 'shopify'
+            );
+        """))
+
+        # test_type enum
+        await conn.execute(text("""
+            CREATE TYPE test_type AS ENUM (
+                'status_check', 'test_webhook', 'resubscribe'
+            );
+        """))
+
+        # verification_status enum
+        await conn.execute(text("""
+            CREATE TYPE verification_status AS ENUM (
+                'pending', 'success', 'failed'
+            );
+        """))
+
+        # Create all tables fresh
         await conn.run_sync(Base.metadata.create_all)
 
     # Create session

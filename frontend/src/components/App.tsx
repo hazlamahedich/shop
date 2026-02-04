@@ -5,6 +5,7 @@ import { DeploymentWizard } from "./onboarding/DeploymentWizard";
 import { FacebookConnection } from "./onboarding/FacebookConnection";
 import { ShopifyConnection } from "./onboarding/ShopifyConnection";
 import { LLMConfiguration } from "./onboarding/LLMConfiguration";
+import { WebhookVerification } from "./settings/WebhookVerification";
 import { useIntegrationsStore } from "../stores/integrationsStore";
 
 export function App() {
@@ -31,6 +32,7 @@ export function App() {
           {facebookConnection.connected && shopifyConnection.connected && (
             <LLMConfiguration />
           )}
+          <WebhookVerification />
         </div>
       </main>
     </div>
