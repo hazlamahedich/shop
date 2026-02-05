@@ -168,12 +168,14 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
 
     async def create_checkout_url(
         self,
-        items: List[Dict[str, Any]]
+        items: List[Dict[str, Any]],
+        custom_attributes: Optional[List[Dict[str, str]]] = None
     ) -> str:
         """Generate Shopify checkout URL.
 
         Args:
             items: List of cart items (variant_id, quantity)
+            custom_attributes: Optional list of custom attributes (e.g., PSID for order confirmation)
 
         Returns:
             Checkout URL
@@ -210,6 +212,13 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
                 "lineItems": line_items
             }
         }
+
+        # Add custom attributes if provided (Story 2.9: PSID tracking)
+        if custom_attributes:
+            variables["checkoutInput"]["customAttributes"] = [
+                {"key": attr["key"], "value": attr["value"]}
+                for attr in custom_attributes
+            ]
 
         try:
             if self.is_testing:

@@ -44,12 +44,14 @@ class MessengerSendService:
         self,
         recipient_id: str,
         message_payload: Dict[str, Any],
+        tag: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send a message to a Facebook Messenger recipient.
 
         Args:
             recipient_id: Facebook PSID (Page-Scoped ID)
             message_payload: Message payload (text or attachment)
+            tag: Optional messaging tag for 24-hour rule compliance (Story 2.9)
 
         Returns:
             Facebook API response data
@@ -63,6 +65,10 @@ class MessengerSendService:
             "recipient": {"id": recipient_id},
             "message": message_payload,
         }
+
+        # Story 2.9: Add messaging tag for 24-hour rule compliance
+        if tag:
+            payload["tag"] = tag
 
         headers = {
             "Content-Type": "application/json",
@@ -102,6 +108,7 @@ class MessengerSendService:
                 "message_sent",
                 recipient_id=recipient_id,
                 message_id=data.get("message_id"),
+                tag=tag,
             )
 
             return data

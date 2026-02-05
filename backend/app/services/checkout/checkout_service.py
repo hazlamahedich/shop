@@ -138,9 +138,15 @@ class CheckoutService:
         last_error = None
         for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
             try:
+                # Story 2.9: Pass PSID as custom attribute for order confirmation
+                custom_attributes = [{"key": "psid", "value": psid}]
+
                 # Generate checkout URL via Shopify
                 # Note: client.create_checkout_url performs HTTP HEAD validation
-                checkout_url = await self.shopify_client.create_checkout_url(line_items)
+                checkout_url = await self.shopify_client.create_checkout_url(
+                    line_items,
+                    custom_attributes=custom_attributes
+                )
 
                 # Store checkout token for cart preservation
                 checkout_token = self._extract_checkout_token(checkout_url)
@@ -151,6 +157,12 @@ class CheckoutService:
                         checkout_token=checkout_token,
                         checkout_url=checkout_url,
                         cart=cart,
+                    )
+
+                    # Story 2.9: Create reverse lookup for PSID fallback
+                    await self._store_checkout_token_reverse_lookup(
+                        psid=psid,
+                        checkout_token=checkout_token,
                     )
 
                 # Mask token for logging (Issue #6)
@@ -269,6 +281,44 @@ class CheckoutService:
         masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if len(checkout_token) > 8 else "tok_***"
         self.logger.info(
             "checkout_token_stored",
+            psid=psid,
+            token_masked=masked_token,
+            ttl_hours=self.CHECKOUT_TOKEN_TTL_HOURS,
+        )
+
+    async def _store_checkout_token_reverse_lookup(
+        self,
+        psid: str,
+        checkout_token: str,
+    ) -> None:
+        """Store reverse lookup for checkout token to PSID mapping.
+
+        Story 2.9: Fallback mechanism if custom attributes fail.
+        Allows retrieving PSID from checkout token when processing order webhook.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            checkout_token: Checkout token from URL
+        """
+        reverse_lookup_key = f"checkout_token_lookup:{checkout_token}"
+        ttl_seconds = self.CHECKOUT_TOKEN_TTL_HOURS * 60 * 60
+
+        reverse_lookup_data = {
+            "psid": psid,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Store reverse lookup with same TTL
+        await self.redis.setex(
+            reverse_lookup_key,
+            ttl_seconds,
+            json.dumps(reverse_lookup_data),
+        )
+
+        # Mask token in logs
+        masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if len(checkout_token) > 8 else "tok_***"
+        self.logger.info(
+            "checkout_token_reverse_lookup_stored",
             psid=psid,
             token_masked=masked_token,
             ttl_hours=self.CHECKOUT_TOKEN_TTL_HOURS,

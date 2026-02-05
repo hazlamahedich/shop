@@ -151,6 +151,8 @@ async def process_shopify_webhook(
 async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
     """Handle orders/create webhook.
 
+    Story 2.9: Process order confirmation, send message to shopper, clear cart.
+
     Args:
         payload: Order payload
         shop_domain: Shopify shop domain
@@ -158,11 +160,43 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
     """
     order_id = payload.get("id")
     email = payload.get("email")
+    financial_status = payload.get("financial_status")
 
-    log.info("shopify_order_created", order_id=order_id, email=email)
+    log.info(
+        "shopify_order_created",
+        order_id=order_id,
+        email=email,
+        financial_status=financial_status,
+    )
 
-    # TODO: Implement order processing logic
-    # This will be implemented in Epic 4 (Order Tracking & Support)
+    # Story 2.9: Process order confirmation
+    try:
+        from app.services.order_confirmation import OrderConfirmationService
+
+        # Create order confirmation service
+        confirmation_service = OrderConfirmationService()
+
+        # Process the order confirmation
+        result = await confirmation_service.process_order_confirmation(payload)
+
+        log.info(
+            "order_confirmation_processed",
+            order_id=order_id,
+            status=result.status,
+            psid=result.psid,
+        )
+
+        # Close the service's HTTP client
+        await confirmation_service.send_service.close()
+
+    except Exception as e:
+        log.error(
+            "order_confirmation_processing_error",
+            order_id=order_id,
+            error=str(e),
+        )
+        # Re-raise to enqueue to DLQ
+        raise
 
 
 async def handle_order_updated(payload: dict, shop_domain: str, log) -> None:
