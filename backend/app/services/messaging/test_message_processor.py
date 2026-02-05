@@ -80,7 +80,7 @@ async def test_process_message_product_search():
                 )
 
                 mock_search_service = AsyncMock()
-                mock_search_service.search_products.return_value = mock_search_result
+                mock_search_service.search_products = AsyncMock(return_value=mock_search_result)
                 mock_search_class.return_value = mock_search_service
 
                 # Mock formatter
@@ -99,9 +99,9 @@ async def test_process_message_product_search():
                 }
                 mock_formatter_class.return_value = mock_formatter
 
-                # Mock send service
-                mock_send_service = AsyncMock()
-                mock_send_service.send_message.return_value = {"message_id": "mid.123"}
+                # Mock send service - use MagicMock with AsyncMock methods
+                mock_send_service = MagicMock()
+                mock_send_service.send_message = AsyncMock(return_value={"message_id": "mid.123"})
                 mock_send_service.close = AsyncMock(return_value=None)
                 mock_send_class.return_value = mock_send_service
 
@@ -175,7 +175,7 @@ async def test_process_message_greeting():
 
 @pytest.mark.asyncio
 async def test_process_message_low_confidence():
-    """Test processing message with low confidence (clarification)."""
+    """Test processing message with low confidence (clarification flow)."""
     with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
@@ -195,28 +195,49 @@ async def test_process_message_low_confidence():
             mock_context.get_context = AsyncMock(return_value={
                 "psid": "123456",
                 "conversation_state": "active",
+                "clarification": {},  # No active clarification
             })
             mock_context.update_classification = AsyncMock(return_value=None)
+            mock_context.update_clarification_state = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
-            processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+            # Mock the MessengerSendService to avoid actual Facebook API calls
+            with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_service_class:
+                mock_send_service = MagicMock()
+                mock_send_service.send_message = AsyncMock(return_value=None)
+                mock_send_service.close = AsyncMock(return_value=None)
+                mock_send_service_class.return_value = mock_send_service
 
-            payload = FacebookWebhookPayload(
-                object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "something"},
-                    }],
-                }],
-            )
+                # Mock QuestionGenerator
+                with patch("app.services.messaging.message_processor.QuestionGenerator") as mock_qg_class:
+                    mock_qg = MagicMock()
+                    # FIX: generate_next_question now returns tuple (question, constraint)
+                    mock_qg.generate_next_question = AsyncMock(return_value=("What's your budget for this?", "budget"))
+                    mock_qg_class.return_value = mock_qg
 
-            response = await processor.process_message(payload)
+                    processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
 
-            assert isinstance(response, MessengerResponse)
-            assert "not sure" in response.text.lower() or "more details" in response.text.lower()
+                    payload = FacebookWebhookPayload(
+                        object="page",
+                        entry=[{
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [{
+                                "sender": {"id": "123456"},
+                                "message": {"text": "something"},
+                            }],
+                        }],
+                    )
+
+                    response = await processor.process_message(payload)
+
+                    assert isinstance(response, MessengerResponse)
+                    # Should ask about budget (first priority question)
+                    assert "budget" in response.text.lower()
+                    # Should have updated clarification state
+                    mock_context.update_clarification_state.assert_called_once()
+                    # FIX: send_message is NO LONGER called here - the response is returned
+                    # for the webhook handler to send. This prevents double-message bug.
 
 
 @pytest.mark.asyncio

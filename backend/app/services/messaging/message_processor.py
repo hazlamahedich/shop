@@ -16,6 +16,8 @@ from app.schemas.messaging import (
     FacebookWebhookPayload,
     MessengerResponse,
 )
+from app.services.clarification import ClarificationService
+from app.services.clarification.question_generator import QuestionGenerator
 from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
 from app.services.messenger import MessengerProductFormatter, MessengerSendService
@@ -70,13 +72,17 @@ class MessageProcessor:
             # Update context with classification
             classification_dict = {
                 "intent": classification.intent.value,
-                "entities": classification.entities.model_dump(exclude_none=True, exclude_defaults=True),
+                "entities": classification.entities.model_dump(
+                    exclude_none=True, exclude_defaults=True
+                ),
                 "raw_message": classification.raw_message,
             }
             await self.context_manager.update_classification(psid, classification_dict)
 
             # Route to appropriate handler based on intent
-            response = await self._route_response(classification, context)
+            response = await self._route_response(
+                psid, classification, context
+            )
 
             self.logger.info(
                 "message_processing_complete",
@@ -97,12 +103,14 @@ class MessageProcessor:
 
     async def _route_response(
         self,
+        psid: str,
         classification: Any,
         context: dict[str, Any],
     ) -> MessengerResponse:
         """Route classification result to appropriate response.
 
         Args:
+            psid: Facebook Page-Scoped ID
             classification: Intent classification result
             context: Conversation context
 
@@ -111,99 +119,234 @@ class MessageProcessor:
         """
         intent = classification.intent
 
-        # Check for low confidence - trigger clarification
-        if classification.needs_clarification:
-            return MessengerResponse(
-                text="I'm not sure what you're looking for. Could you provide more details?",
-                recipient_id=context.get("psid", ""),
+        # Check for low confidence - trigger clarification flow for product search
+        if intent == IntentType.PRODUCT_SEARCH:
+            clarification_service = ClarificationService()
+            needs_clarification = await clarification_service.needs_clarification(
+                classification=classification,
+                context=context,
             )
 
-        # Route based on intent
-        if intent == IntentType.PRODUCT_SEARCH:
-            psid = context.get("psid", "")
-            try:
-                # Search for products using ProductSearchService
-                search_service = ProductSearchService()
-                search_result = await search_service.search_products(classification.entities)
-
-                # Update context with search results using Pydantic model_dump
-                await self.context_manager.update_search_results(
-                    psid,
-                    {
-                        "products": [
-                            p.model_dump(exclude_none=True, exclude_defaults=True)
-                            for p in search_result.products
-                        ],
-                        "total_count": search_result.total_count,
-                        "search_params": search_result.search_params,
-                        "searched_at": search_result.search_time_ms,
-                    },
+            if needs_clarification:
+                return await self._handle_clarification_flow(
+                    psid=psid,
+                    classification=classification,
+                    context=context,
                 )
 
-                # Format response based on results
-                if search_result.total_count == 0:
-                    return MessengerResponse(
-                        text=(
-                            "No exact matches found. "
-                            "Want to see similar items or broaden your budget?"
-                        ),
-                        recipient_id=psid,
-                    )
-                else:
-                    # Story 2.3: Format products for Messenger using Generic Template
-                    formatter = MessengerProductFormatter()
-                    message_payload = formatter.format_product_results(search_result)
-
-                    # Send to Facebook Messenger
-                    send_service = MessengerSendService()
-                    await send_service.send_message(psid, message_payload)
-                    await send_service.close()
-
-                    # Return success response (empty text since message was sent)
-                    return MessengerResponse(
-                        text=f"Found {search_result.total_count} product(s) for you!",
-                        recipient_id=psid,
-                    )
-
-            except APIError as e:
-                self.logger.error("product_search_failed", error=str(e), error_code=e.code)
-                return MessengerResponse(
-                    text="Sorry, I'm having trouble finding products. Please try again or type 'human' for help.",
-                    recipient_id=psid,
-                )
+            # No clarification needed - proceed to product search
+            return await self._proceed_to_search(psid, classification, context)
 
         elif intent == IntentType.GREETING:
             return MessengerResponse(
                 text="Hi! How can I help you today?",
-                recipient_id=context.get("psid", ""),
+                recipient_id=psid,
             )
 
         elif intent == IntentType.CART_VIEW:
             return MessengerResponse(
                 text="Your cart is empty. This feature will be implemented in Story 2.6.",
-                recipient_id=context.get("psid", ""),
+                recipient_id=psid,
             )
 
         elif intent == IntentType.CHECKOUT:
             return MessengerResponse(
                 text="Checkout feature will be implemented in Story 2.8.",
-                recipient_id=context.get("psid", ""),
+                recipient_id=psid,
             )
 
         elif intent == IntentType.ORDER_TRACKING:
             return MessengerResponse(
                 text="Order tracking feature will be implemented in Story 4.1.",
-                recipient_id=context.get("psid", ""),
+                recipient_id=psid,
             )
 
         elif intent == IntentType.HUMAN_HANDOFF:
             return MessengerResponse(
                 text="Connecting you to a human agent...",
-                recipient_id=context.get("psid", ""),
+                recipient_id=psid,
             )
 
         else:  # UNKNOWN or unhandled
             return MessengerResponse(
                 text="I'm not sure what you're looking for. Could you provide more details?",
-                recipient_id=context.get("psid", ""),
+                recipient_id=psid,
             )
+
+    async def _handle_clarification_flow(
+        self,
+        psid: str,
+        classification: Any,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Handle the clarification flow for low-confidence intents.
+
+        CRITICAL FIX: This method only returns MessengerResponse.
+        The webhook handler (facebook.py) handles sending - we do NOT send here.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            classification: Intent classification
+            context: Conversation context
+
+        Returns:
+            Messenger response (to be sent by webhook handler)
+        """
+        clarification_service = ClarificationService()
+
+        # Check if this is a clarification response
+        clarification_state = context.get("clarification", {})
+        is_clarification_response = clarification_state.get("active", False)
+
+        if is_clarification_response:
+            # FIRST: Check if confidence improved after clarification response
+            if (
+                classification.confidence
+                >= ClarificationService.CONFIDENCE_THRESHOLD
+            ):
+                # Confidence improved, proceed to search
+                await self.context_manager.update_clarification_state(
+                    psid, {"active": False}
+                )
+                return await self._proceed_to_search(psid, classification, context)
+            # SECOND: If still low confidence, check if we should fallback to assumptions
+            elif await clarification_service.should_fallback_to_assumptions(context):
+                # Fallback to assumptions
+                message, assumed = await clarification_service.generate_assumption_message(
+                    classification=classification,
+                    context=context,
+                )
+
+                # Clear clarification state
+                await self.context_manager.update_clarification_state(psid, {"active": False})
+
+                # Proceed to search with suppressed summary (sends carousel only)
+                await self._proceed_to_search(psid, classification, context, suppress_summary=True)
+
+                # Return assumption message for webhook handler to send
+                return MessengerResponse(
+                    text=message,
+                    recipient_id=psid,
+                )
+            else:
+                # Still low confidence, ask another question
+                return await self._ask_next_clarification_question(
+                    psid=psid,
+                    classification=classification,
+                    context=context,
+                )
+        else:
+            # First clarification question
+            return await self._ask_next_clarification_question(
+                psid=psid,
+                classification=classification,
+                context=context,
+            )
+
+    async def _ask_next_clarification_question(
+        self,
+        psid: str,
+        classification: Any,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Ask the next clarification question.
+
+        CRITICAL FIX: This method only returns MessengerResponse.
+        The webhook handler (facebook.py) handles sending - we do NOT send here.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            classification: Intent classification
+            context: Conversation context
+
+        Returns:
+            Messenger response (to be sent by webhook handler)
+        """
+        # Generate next question (returns tuple of question and constraint)
+        generator = QuestionGenerator()
+        clarification_state = context.get("clarification", {})
+        questions_asked = clarification_state.get("questions_asked", [])
+
+        question, constraint_asked = await generator.generate_next_question(
+            classification=classification,
+            questions_asked=questions_asked,
+        )
+
+        # Update clarification state
+        attempt_count = clarification_state.get("attempt_count", 0)
+
+        await self.context_manager.update_clarification_state(
+            psid,
+            {
+                "active": True,
+                "attempt_count": attempt_count + 1,
+                "questions_asked": questions_asked + [constraint_asked],
+                "last_question": question,
+            },
+        )
+
+        # Return response for webhook handler to send (NOT sending here)
+        return MessengerResponse(
+            text=question,
+            recipient_id=psid,
+        )
+
+    async def _proceed_to_search(
+        self,
+        psid: str,
+        classification: Any,
+        context: dict[str, Any],
+        suppress_summary: bool = False,
+    ) -> MessengerResponse:
+        """Proceed to product search after clarification.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            classification: Intent classification
+            context: Conversation context
+            suppress_summary: If True, return empty response (for fallback flow)
+
+        Returns:
+            Messenger response (empty if suppress_summary=True)
+        """
+        # Clear clarification state if active
+        if context.get("clarification", {}).get("active", False):
+            await self.context_manager.update_clarification_state(psid, {"active": False})
+
+        # Search for products
+        search_service = ProductSearchService()
+        search_result = await search_service.search_products(classification.entities)
+
+        # Update context
+        await self.context_manager.update_search_results(
+            psid,
+            {
+                "products": [
+                    p.model_dump(exclude_none=True, exclude_defaults=True)
+                    for p in search_result.products
+                ],
+                "total_count": search_result.total_count,
+                "search_params": search_result.search_params,
+                "searched_at": search_result.search_time_ms,
+            },
+        )
+
+        # Format and send
+        formatter = MessengerProductFormatter()
+        message_payload = formatter.format_product_results(search_result)
+
+        send_service = MessengerSendService()
+        await send_service.send_message(psid, message_payload)
+        await send_service.close()
+
+        # Return empty response if suppressing summary (e.g., fallback flow)
+        if suppress_summary:
+            return MessengerResponse(
+                text="",
+                recipient_id=psid,
+            )
+
+        return MessengerResponse(
+            text=f"Found {search_result.total_count} product(s) for you!",
+            recipient_id=psid,
+        )

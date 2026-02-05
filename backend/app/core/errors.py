@@ -111,6 +111,12 @@ class ErrorCode(IntEnum):
     SESSION_EXPIRED = 7000
     CONVERSATION_NOT_FOUND = 7001
     INVALID_CONTEXT = 7002
+    CLARIFICATION_FLOW_FAILED = 7010  # Generic clarification error
+    CLARIFICATION_TIMEOUT = 7011  # User didn't respond to question
+    CLARIFICATION_MAX_ATTEMPTS = 7012  # Max 3 questions exceeded
+    QUESTION_GENERATION_FAILED = 7013  # Failed to generate question
+    CLARIFICATION_STATE_ERROR = 7014  # Invalid clarification state
+    CONSTRAINT_EXTRACTION_FAILED = 7015  # Failed to extract constraints
 
     # 8000-8999: Tutorial (owner: onboarding team)
     TUTORIAL_NOT_STARTED = 8001

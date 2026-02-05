@@ -6,6 +6,7 @@ camelCase API compatibility.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -84,6 +85,25 @@ class MessengerResponse(BaseModel):
         populate_by_name = True
 
 
+class ClarificationState(BaseModel):
+    """State of clarification flow for handling ambiguous user requests."""
+
+    active: bool = Field(False, description="Is clarification flow active?")
+    attempt_count: int = Field(0, description="Number of clarification attempts")
+    questions_asked: list[str] = Field(
+        default_factory=list, description="Constraints asked about"
+    )
+    last_question: Optional[str] = Field(None, description="Last question asked")
+    original_intent: Optional[dict[str, Any]] = Field(
+        None, description="Original intent being clarified"
+    )
+    started_at: Optional[str] = Field(None, description="When clarification started")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
 class ConversationContext(BaseModel):
     """Conversation context for message processing."""
 
@@ -94,6 +114,7 @@ class ConversationContext(BaseModel):
     previous_intents: list[str] = Field(default_factory=list, description="Previous intent classifications")
     extracted_entities: dict[str, Any] = Field(default_factory=dict, description="Extracted entities from conversation")
     conversation_state: str = Field("active", description="Current conversation state")
+    clarification: Optional[ClarificationState] = Field(None, description="Clarification flow state")
 
     class Config:
         alias_generator = to_camel

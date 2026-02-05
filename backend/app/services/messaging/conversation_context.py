@@ -179,3 +179,66 @@ class ConversationContextManager:
 
         except Exception as e:
             self.logger.error("search_results_update_failed", psid=psid, error=str(e))
+
+    async def update_clarification_state(
+        self,
+        psid: str,
+        state: dict[str, Any],
+    ) -> None:
+        """Update clarification state for conversation.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            state: New clarification state
+        """
+        context = await self.get_context(psid)
+        session_key = self._get_session_key(psid)
+
+        try:
+            # Update or initialize clarification state
+            if "clarification" in context and context["clarification"]:
+                # Merge with existing state
+                context["clarification"].update(state)
+            else:
+                # Initialize new state
+                context["clarification"] = state
+
+            # Update timestamp
+            context["last_message_at"] = datetime.now(UTC).isoformat()
+
+            # Save to Redis with TTL
+            self.redis.setex(
+                session_key,
+                self.SESSION_TTL_SECONDS,
+                json.dumps(context),
+            )
+
+            self.logger.debug("clarification_state_updated", psid=psid, state=state)
+
+        except Exception as e:
+            self.logger.error("clarification_state_update_failed", psid=psid, error=str(e))
+
+    async def clear_clarification_state(self, psid: str) -> None:
+        """Clear clarification state for conversation.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+        """
+        context = await self.get_context(psid)
+        session_key = self._get_session_key(psid)
+
+        try:
+            # Clear clarification state
+            context["clarification"] = {"active": False}
+
+            # Save to Redis with TTL
+            self.redis.setex(
+                session_key,
+                self.SESSION_TTL_SECONDS,
+                json.dumps(context),
+            )
+
+            self.logger.debug("clarification_state_cleared", psid=psid)
+
+        except Exception as e:
+            self.logger.error("clarification_state_clear_failed", psid=psid, error=str(e))

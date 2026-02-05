@@ -13,6 +13,19 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
 
+def to_camel(value: str) -> str:
+    """Convert snake_case to camelCase for API compatibility.
+
+    Args:
+        value: snake_case string
+
+    Returns:
+        camelCase string
+    """
+    components = value.split("_")
+    return components[0] + "".join(x.title() for x in components[1:])
+
+
 # Enum Types
 
 
@@ -192,3 +205,25 @@ class LLMClearResponse(BaseModel):
     """LLM configuration clear response."""
 
     message: str
+
+
+# Clarification Flow Schemas (Story 2.4)
+
+
+class ClarificationState(BaseModel):
+    """State of clarification flow for handling ambiguous user requests."""
+
+    active: bool = Field(False, description="Is clarification flow active?")
+    attempt_count: int = Field(0, description="Number of clarification attempts")
+    questions_asked: list[str] = Field(
+        default_factory=list, description="Constraints asked about"
+    )
+    last_question: Optional[str] = Field(None, description="Last question asked")
+    original_intent: Optional[dict[str, Any]] = Field(
+        None, description="Original intent being clarified"
+    )
+    started_at: Optional[str] = Field(None, description="When clarification started")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
