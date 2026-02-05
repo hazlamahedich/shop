@@ -36,7 +36,7 @@ class CartItem(BaseModel):
     variant_id: str = Field(description="Shopify variant ID (unique identifier)")
     title: str = Field(description="Product title")
     price: float = Field(gt=0, description="Item price (must be positive)")
-    image_url: str = Field(description="Product image URL")
+    image_url: str = Field(default="", description="Product image URL (empty if unavailable)")
     currency_code: CurrencyCode = Field(
         default=CurrencyCode.USD,
         description="Price currency code"

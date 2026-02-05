@@ -116,6 +116,8 @@ class ErrorCode(IntEnum):
     INVALID_VARIANT_ID = 6011  # Invalid variant_id format
     CART_EXPIRED = 6012  # Cart session expired (24h)
     CART_CLEAR_FAILED = 6013  # Failed to clear cart
+    CART_CURRENCY_MISMATCH = 6014  # Currency doesn't match cart
+    CART_DATA_CORRUPTED = 6015  # Cart data corrupted in Redis
 
     # 7000-7999: Conversation/Session (owner: conversation team)
     SESSION_EXPIRED = 7000

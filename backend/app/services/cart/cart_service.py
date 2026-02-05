@@ -74,6 +74,7 @@ class CartService:
             Cart object (empty if no cart exists)
         """
         cart_key = self._get_cart_key(psid)
+        data = None  # Initialize for exception handling
 
         try:
             data = self.redis.get(cart_key)
@@ -88,6 +89,17 @@ class CartService:
                     currency_code=CurrencyCode.USD
                 )
 
+        except json.JSONDecodeError as e:
+            self.logger.error(
+                "cart_data_corrupted",
+                psid=psid,
+                error=str(e),
+                data_preview=data[:200] if data else None
+            )
+            raise APIError(
+                ErrorCode.CART_DATA_CORRUPTED,
+                "Cart data is corrupted. Please try clearing your cart."
+            )
         except Exception as e:
             self.logger.error("cart_retrieval_failed", psid=psid, error=str(e))
             raise APIError(
@@ -129,6 +141,21 @@ class CartService:
         try:
             # Get existing cart or create new one
             cart = await self.get_cart(psid)
+
+            # Validate currency matches cart (unless cart is empty)
+            item_currency = CurrencyCode(currency_code)
+            if cart.items and cart.currency_code != item_currency:
+                self.logger.warning(
+                    "cart_currency_mismatch",
+                    psid=psid,
+                    cart_currency=cart.currency_code.value,
+                    item_currency=item_currency.value
+                )
+                raise APIError(
+                    ErrorCode.CART_CURRENCY_MISMATCH,
+                    f"Cannot add {item_currency.value} item to {cart.currency_code.value} cart. "
+                    f"Please clear your cart first or add items in the same currency."
+                )
 
             # Check if item already exists
             existing_item: Optional[CartItem] = None

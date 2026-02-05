@@ -20,7 +20,7 @@ from app.services.clarification import ClarificationService
 from app.services.clarification.question_generator import QuestionGenerator
 from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
-from app.services.messenger import MessengerProductFormatter, MessengerSendService
+from app.services.messenger import CartFormatter, MessengerProductFormatter, MessengerSendService
 from app.services.shopify import ProductSearchService
 from app.services.cart import CartService
 
@@ -120,16 +120,41 @@ class MessageProcessor:
         self.logger.info("postback_processing_start", psid=psid, payload=payload)
 
         try:
-            # Parse postback payload: "ADD_TO_CART:{product_id}:{variant_id}"
+            # Load conversation context
+            context = await self.context_manager.get_context(psid)
+
+            # Parse postback payload: "ACTION:{param1}:{param2}"
             parts = payload.split(":")
             action = parts[0] if parts else ""
 
-            if action == "ADD_TO_CART" and len(parts) == 3:
+            # Cart management actions
+            if action == "remove_item" and len(parts) == 2:
+                variant_id = parts[1]
+                return await self._handle_remove_item(psid, variant_id, context)
+
+            elif action == "increase_quantity" and len(parts) == 2:
+                variant_id = parts[1]
+                return await self._handle_adjust_quantity(
+                    psid, variant_id, "increase", context
+                )
+
+            elif action == "decrease_quantity" and len(parts) == 2:
+                variant_id = parts[1]
+                return await self._handle_adjust_quantity(
+                    psid, variant_id, "decrease", context
+                )
+
+            # Continue shopping action
+            elif action == "continue_shopping":
+                return MessengerResponse(
+                    text="What else can I help you find? Type a product or category.",
+                    recipient_id=psid,
+                )
+
+            # Add to cart action (from Story 2.5)
+            elif action == "ADD_TO_CART" and len(parts) == 3:
                 product_id = parts[1]
                 variant_id = parts[2]
-
-                # Load conversation context to get product info
-                context = await self.context_manager.get_context(psid)
 
                 # Use unified add-to-cart helper
                 return await self._perform_add_to_cart(
@@ -137,6 +162,19 @@ class MessageProcessor:
                     product_id=product_id,
                     variant_id=variant_id,
                     context=context
+                )
+
+            # Browse/Search products (empty cart actions)
+            elif action == "browse_products":
+                return MessengerResponse(
+                    text="What category of products are you interested in?",
+                    recipient_id=psid,
+                )
+
+            elif action == "search_products":
+                return MessengerResponse(
+                    text="What would you like to search for?",
+                    recipient_id=psid,
                 )
 
             else:
@@ -195,10 +233,7 @@ class MessageProcessor:
             )
 
         elif intent == IntentType.CART_VIEW:
-            return MessengerResponse(
-                text="Your cart is empty. This feature will be implemented in Story 2.6.",
-                recipient_id=psid,
-            )
+            return await self._handle_view_cart(psid, context)
 
         elif intent == IntentType.CART_ADD:
             return await self._handle_cart_add(psid, classification, context)
@@ -551,3 +586,187 @@ class MessageProcessor:
             variant_id=variant_id,
             context=context
         )
+
+    async def _handle_view_cart(
+        self,
+        psid: str,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Handle cart view intent.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            context: Conversation context
+
+        Returns:
+            Messenger response with cart display
+        """
+        # Get cart service
+        cart_service = CartService(redis_client=self.context_manager.redis)
+
+        # Get cart
+        try:
+            cart = await cart_service.get_cart(psid)
+
+            # Format cart for display
+            from app.core.config import settings
+            config = settings()
+            shop_domain = config.get("STORE_URL", "https://shop.example.com").replace("https://", "").replace("http://", "")
+            formatter = CartFormatter(shop_domain=shop_domain)
+            message_payload = formatter.format_cart(cart, psid)
+
+            # Send the formatted cart message
+            send_service = MessengerSendService()
+            await send_service.send_message(psid, message_payload)
+            await send_service.close()
+
+            # Return empty text response (attachment already sent)
+            return MessengerResponse(text="", recipient_id=psid)
+
+        except Exception as e:
+            self.logger.error("view_cart_failed", psid=psid, error=str(e))
+            return MessengerResponse(
+                text="Sorry, I couldn't retrieve your cart. Please try again.",
+                recipient_id=psid,
+            )
+
+    async def _handle_remove_item(
+        self,
+        psid: str,
+        variant_id: str,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Handle remove item from cart.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            variant_id: Variant ID to remove
+            context: Conversation context
+
+        Returns:
+            Messenger response with updated cart display
+        """
+        cart_service = CartService(redis_client=self.context_manager.redis)
+
+        try:
+            # Get cart before removal (for product name)
+            cart = await cart_service.get_cart(psid)
+            removed_item = None
+            for item in cart.items:
+                if item.variant_id == variant_id:
+                    removed_item = item
+                    break
+
+            # Remove item
+            cart = await cart_service.remove_item(psid, variant_id)
+
+            # Format updated cart for display
+            from app.core.config import settings
+            config = settings()
+            shop_domain = config.get("STORE_URL", "https://shop.example.com").replace("https://", "").replace("http://", "")
+            formatter = CartFormatter(shop_domain=shop_domain)
+            message_payload = formatter.format_cart(cart, psid)
+
+            # Send updated cart display
+            send_service = MessengerSendService()
+            await send_service.send_message(psid, message_payload)
+            await send_service.close()
+
+            # Log removal
+            self.logger.info(
+                "cart_item_removed",
+                psid=psid,
+                variant_id=variant_id,
+                item_title=removed_item.title if removed_item else "unknown"
+            )
+
+            # Return text message with confirmation
+            prefix = f"Removed {removed_item.title if removed_item else 'item'} from cart. "
+            if not cart.items:
+                prefix += "Your cart is now empty. Let's find some more products!"
+
+            return MessengerResponse(text=prefix, recipient_id=psid)
+
+        except Exception as e:
+            self.logger.error("remove_item_failed", psid=psid, variant_id=variant_id, error=str(e))
+            return MessengerResponse(
+                text="Sorry, I couldn't remove that item. Please try again.",
+                recipient_id=psid,
+            )
+
+    async def _handle_adjust_quantity(
+        self,
+        psid: str,
+        variant_id: str,
+        adjustment: str,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Handle quantity adjustment.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            variant_id: Variant ID to adjust
+            adjustment: "increase" or "decrease"
+            context: Conversation context
+
+        Returns:
+            Messenger response with updated cart display
+        """
+        cart_service = CartService(redis_client=self.context_manager.redis)
+
+        try:
+            # Get current cart
+            cart = await cart_service.get_cart(psid)
+
+            # Find item and calculate new quantity
+            current_quantity = 1
+            for item in cart.items:
+                if item.variant_id == variant_id:
+                    current_quantity = item.quantity
+                    break
+
+            # Calculate new quantity
+            if adjustment == "increase":
+                new_quantity = min(current_quantity + 1, CartService.MAX_QUANTITY)
+            else:  # decrease
+                new_quantity = max(current_quantity - 1, 1)
+
+            # Update quantity
+            cart = await cart_service.update_quantity(psid, variant_id, new_quantity)
+
+            # Format updated cart for display
+            from app.core.config import settings
+            config = settings()
+            shop_domain = config.get("STORE_URL", "https://shop.example.com").replace("https://", "").replace("http://", "")
+            formatter = CartFormatter(shop_domain=shop_domain)
+            message_payload = formatter.format_cart(cart, psid)
+
+            # Send updated cart display
+            send_service = MessengerSendService()
+            await send_service.send_message(psid, message_payload)
+            await send_service.close()
+
+            # Log adjustment
+            self.logger.info(
+                "cart_quantity_adjusted",
+                psid=psid,
+                variant_id=variant_id,
+                adjustment=adjustment,
+                new_quantity=new_quantity
+            )
+
+            # Return empty response (attachment sent)
+            return MessengerResponse(text="", recipient_id=psid)
+
+        except Exception as e:
+            self.logger.error(
+                "adjust_quantity_failed",
+                psid=psid,
+                variant_id=variant_id,
+                adjustment=adjustment,
+                error=str(e)
+            )
+            return MessengerResponse(
+                text="Sorry, I couldn't update the quantity. Please try again.",
+                recipient_id=psid,
+            )
