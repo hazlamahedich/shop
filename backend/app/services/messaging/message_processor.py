@@ -17,6 +17,8 @@ from app.schemas.messaging import (
     MessengerResponse,
 )
 from app.services.cart import CartService
+from app.services.checkout import CheckoutService
+from app.services.checkout.checkout_schema import CheckoutStatus
 from app.services.clarification import ClarificationService
 from app.services.clarification.question_generator import QuestionGenerator
 from app.services.consent import ConsentService, ConsentStatus
@@ -25,6 +27,7 @@ from app.services.messaging.conversation_context import ConversationContextManag
 from app.services.messenger import CartFormatter, MessengerProductFormatter, MessengerSendService
 from app.services.session import SessionService
 from app.services.shopify import ProductSearchService
+from app.services.shopify_storefront import ShopifyStorefrontClient
 
 
 logger = structlog.get_logger(__name__)
@@ -58,6 +61,16 @@ class MessageProcessor:
         self.session_service = session_service or SessionService(
             redis_client=redis_client,
             consent_service=self.consent_service
+        )
+
+        # Initialize checkout service (Story 2.8)
+        # Pass shared Redis client, shopify client, and cart service
+        shopify_client = ShopifyStorefrontClient()
+        cart_service = CartService(redis_client=redis_client)
+        self.checkout_service = CheckoutService(
+            redis_client=redis_client,
+            shopify_client=shopify_client,
+            cart_service=cart_service,
         )
 
     async def process_message(
@@ -290,10 +303,7 @@ class MessageProcessor:
             return await self._handle_cart_add(psid, classification, context)
 
         elif intent == IntentType.CHECKOUT:
-            return MessengerResponse(
-                text="Checkout feature will be implemented in Story 2.8.",
-                recipient_id=psid,
-            )
+            return await self._handle_checkout(psid)
 
         elif intent == IntentType.ORDER_TRACKING:
             return MessengerResponse(
@@ -1058,5 +1068,66 @@ class MessageProcessor:
             # User opted out
             return MessengerResponse(
                 text="No problem. I won't save your cart. You can still shop, but your cart will be cleared when you close this chat.",
+                recipient_id=psid,
+            )
+
+    async def _handle_checkout(self, psid: str) -> MessengerResponse:
+        """Handle checkout intent (Story 2.8).
+
+        Generates Shopify checkout URL from cart items and returns it to user.
+        Retains local cart to support abandoned checkout recovery.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+
+        Returns:
+            Messenger response with checkout URL or error message
+        """
+        try:
+            # Generate checkout URL
+            result = await self.checkout_service.generate_checkout_url(psid)
+
+            # Handle different checkout statuses
+            if result["status"] == CheckoutStatus.EMPTY_CART:
+                return MessengerResponse(
+                    text=result["message"],
+                    recipient_id=psid,
+                )
+
+            elif result["status"] == CheckoutStatus.SUCCESS:
+                self.logger.info(
+                    "checkout_success",
+                    psid=psid,
+                    checkout_url=result["checkout_url"],
+                    checkout_token=result["checkout_token"],
+                )
+
+                return MessengerResponse(
+                    text=result["message"],
+                    recipient_id=psid,
+                )
+
+            else:  # FAILED or RETRYING
+                self.logger.error(
+                    "checkout_failed",
+                    psid=psid,
+                    status=result["status"],
+                    message=result["message"],
+                    retry_count=result.get("retry_count", 0),
+                )
+
+                return MessengerResponse(
+                    text=result["message"],
+                    recipient_id=psid,
+                )
+
+        except Exception as e:
+            self.logger.error(
+                "checkout_handler_error",
+                psid=psid,
+                error=str(e),
+            )
+            return MessengerResponse(
+                text="Sorry, I encountered an error during checkout. Please try again.",
                 recipient_id=psid,
             )
