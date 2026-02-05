@@ -22,6 +22,7 @@ from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
 from app.services.messenger import MessengerProductFormatter, MessengerSendService
 from app.services.shopify import ProductSearchService
+from app.services.cart import CartService
 
 
 logger = structlog.get_logger(__name__)
@@ -101,6 +102,56 @@ class MessageProcessor:
                 recipient_id=psid,
             )
 
+    async def process_postback(
+        self,
+        webhook_payload: FacebookWebhookPayload,
+    ) -> MessengerResponse:
+        """Process postback callback from button tap.
+
+        Args:
+            webhook_payload: Parsed Facebook webhook payload
+
+        Returns:
+            Messenger response to send to user
+        """
+        psid = webhook_payload.sender_id
+        payload = webhook_payload.postback_payload or ""
+
+        self.logger.info("postback_processing_start", psid=psid, payload=payload)
+
+        try:
+            # Parse postback payload: "ADD_TO_CART:{product_id}:{variant_id}"
+            parts = payload.split(":")
+            action = parts[0] if parts else ""
+
+            if action == "ADD_TO_CART" and len(parts) == 3:
+                product_id = parts[1]
+                variant_id = parts[2]
+
+                # Load conversation context to get product info
+                context = await self.context_manager.get_context(psid)
+
+                # Use unified add-to-cart helper
+                return await self._perform_add_to_cart(
+                    psid=psid,
+                    product_id=product_id,
+                    variant_id=variant_id,
+                    context=context
+                )
+
+            else:
+                return MessengerResponse(
+                    text="Sorry, I didn't understand that action. Please try again.",
+                    recipient_id=psid,
+                )
+
+        except Exception as e:
+            self.logger.error("postback_processing_failed", psid=psid, error=str(e))
+            return MessengerResponse(
+                text="Sorry, I encountered an error. Please try again.",
+                recipient_id=psid,
+            )
+
     async def _route_response(
         self,
         psid: str,
@@ -148,6 +199,9 @@ class MessageProcessor:
                 text="Your cart is empty. This feature will be implemented in Story 2.6.",
                 recipient_id=psid,
             )
+
+        elif intent == IntentType.CART_ADD:
+            return await self._handle_cart_add(psid, classification, context)
 
         elif intent == IntentType.CHECKOUT:
             return MessengerResponse(
@@ -349,4 +403,151 @@ class MessageProcessor:
         return MessengerResponse(
             text=f"Found {search_result.total_count} product(s) for you!",
             recipient_id=psid,
+        )
+
+    async def _perform_add_to_cart(
+        self,
+        psid: str,
+        product_id: str,
+        variant_id: str,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Unified add-to-cart logic for button taps and natural language.
+
+        Handles product lookup, availability checking, and cart addition.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            product_id: Shopify product ID
+            variant_id: Shopify variant ID
+            context: Conversation context with product search results
+
+        Returns:
+            Messenger response with confirmation or error
+        """
+        # Get cart service using shared Redis client from context manager
+        cart_service = CartService(redis_client=self.context_manager.redis)
+
+        # Extract product info from context (last viewed products)
+        last_search = context.get("last_search_results", {})
+        products = last_search.get("products", [])
+
+        if not products:
+            self.logger.warning("cart_add_no_products", psid=psid)
+            return MessengerResponse(
+                text="Sorry, I don't know which product to add. Please search for products first.",
+                recipient_id=psid,
+            )
+
+        # Find the product in last search results
+        product_data = None
+        variant_data = None
+
+        for p in products:
+            if p.get("id") == product_id:
+                product_data = p
+                # Find variant
+                for v in p.get("variants", []):
+                    if v.get("id") == variant_id:
+                        variant_data = v
+                        break
+                break
+
+        if not product_data:
+            self.logger.warning("cart_add_product_not_found", psid=psid, product_id=product_id)
+            return MessengerResponse(
+                text="Sorry, I couldn't find that product. Please search again.",
+                recipient_id=psid,
+            )
+
+        if not variant_data:
+            self.logger.warning("cart_add_variant_not_found", psid=psid, variant_id=variant_id)
+            return MessengerResponse(
+                text="Sorry, that product variant is not available.",
+                recipient_id=psid,
+            )
+
+        # Check availability
+        if not variant_data.get("available_for_sale", False):
+            self.logger.info(
+                "cart_add_out_of_stock",
+                psid=psid,
+                product_id=product_id,
+                variant_id=variant_id
+            )
+            return MessengerResponse(
+                text=f"Sorry, '{product_data.get('title')}' is currently out of stock.",
+                recipient_id=psid,
+            )
+
+        # Add to cart
+        try:
+            cart = await cart_service.add_item(
+                psid=psid,
+                product_id=product_id,
+                variant_id=variant_id,
+                title=product_data.get("title"),
+                price=variant_data.get("price"),
+                image_url=product_data.get("images", [{}])[0].get("url", ""),
+                currency_code=variant_data.get("currency_code", "USD"),
+                quantity=1
+            )
+
+            self.logger.info(
+                "cart_add_success",
+                psid=psid,
+                product_id=product_id,
+                variant_id=variant_id,
+                item_count=cart.item_count
+            )
+
+            return MessengerResponse(
+                text=f"Added {product_data.get('title')} (${variant_data.get('price')}) to your cart. View cart: [View Cart] button or type 'cart'",
+                recipient_id=psid,
+            )
+
+        except Exception as e:
+            self.logger.error("cart_add_failed", psid=psid, product_id=product_id, error=str(e))
+            return MessengerResponse(
+                text="Sorry, I encountered an error adding that item to your cart. Please try again.",
+                recipient_id=psid,
+            )
+
+    async def _handle_cart_add(
+        self,
+        psid: str,
+        classification: Any,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Handle cart add intent (natural language "add to cart").
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            classification: Intent classification
+            context: Conversation context
+
+        Returns:
+            Messenger response
+        """
+        # Extract product info from context (last viewed products)
+        last_search = context.get("last_search_results", {})
+        products = last_search.get("products", [])
+
+        if not products:
+            return MessengerResponse(
+                text="Sorry, I don't know which product to add. Please search for products first.",
+                recipient_id=psid,
+            )
+
+        # Get first product from last search (or extract from entities)
+        entities = classification.entities.model_dump()
+        product_id = entities.get("product_id", products[0].get("id"))
+        variant_id = entities.get("variant_id", products[0].get("variants", [{}])[0].get("id"))
+
+        # Use unified add-to-cart helper
+        return await self._perform_add_to_cart(
+            psid=psid,
+            product_id=product_id,
+            variant_id=variant_id,
+            context=context
         )

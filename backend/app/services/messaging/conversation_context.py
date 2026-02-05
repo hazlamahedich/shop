@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import redis
@@ -119,7 +119,7 @@ class ConversationContextManager:
 
             # Set created_at on first message
             if not context.get("created_at"):
-                context["created_at"] = datetime.now(UTC).isoformat()
+                context["created_at"] = datetime.now(timezone.utc).isoformat()
 
             # Save to Redis with TTL
             self.redis.setex(
@@ -166,7 +166,7 @@ class ConversationContextManager:
             context["last_search_results"] = search_result
 
             # Update timestamp
-            context["last_message_at"] = datetime.now(UTC).isoformat()
+            context["last_message_at"] = datetime.now(timezone.utc).isoformat()
 
             # Save to Redis with TTL
             self.redis.setex(
@@ -204,7 +204,7 @@ class ConversationContextManager:
                 context["clarification"] = state
 
             # Update timestamp
-            context["last_message_at"] = datetime.now(UTC).isoformat()
+            context["last_message_at"] = datetime.now(timezone.utc).isoformat()
 
             # Save to Redis with TTL
             self.redis.setex(

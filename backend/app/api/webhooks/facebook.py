@@ -103,7 +103,13 @@ async def process_webhook_message(
         processor: Message processor instance
         payload: Webhook payload
     """
-    if payload.message_text:
+    # Handle postback (button taps like "Add to Cart")
+    if payload.postback_payload:
+        response = await processor.process_postback(payload)
+        if response:
+            await send_messenger_response(response)
+    # Handle text messages
+    elif payload.message_text:
         response = await processor.process_message(payload)
 
         # Send response back to Facebook via Messenger API

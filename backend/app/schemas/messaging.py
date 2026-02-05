@@ -69,6 +69,14 @@ class FacebookWebhookPayload(BaseModel):
             return message.get("text")
         return None
 
+    @property
+    def postback_payload(self) -> Optional[str]:
+        """Extract postback payload from button tap."""
+        if self.entry and self.entry[0].messaging:
+            postback = self.entry[0].messaging[0].get("postback", {})
+            return postback.get("payload")
+        return None
+
     class Config:
         alias_generator = to_camel
         populate_by_name = True

@@ -106,6 +106,16 @@ class ErrorCode(IntEnum):
     INVALID_QUANTITY = 6001
     CHECKOUT_EXPIRED = 6002
     CART_SESSION_EXPIRED = 6003
+    CART_ADD_FAILED = 6004  # Failed to add item to cart
+    CART_REMOVE_FAILED = 6005  # Failed to remove item from cart
+    CART_UPDATE_FAILED = 6006  # Failed to update cart quantity
+    CART_RETRIEVAL_FAILED = 6007  # Failed to retrieve cart
+    ITEM_NOT_FOUND = 6008  # Item not found in cart
+    OUT_OF_STOCK = 6009  # Product variant not available
+    INVALID_PRODUCT_ID = 6010  # Invalid product_id format
+    INVALID_VARIANT_ID = 6011  # Invalid variant_id format
+    CART_EXPIRED = 6012  # Cart session expired (24h)
+    CART_CLEAR_FAILED = 6013  # Failed to clear cart
 
     # 7000-7999: Conversation/Session (owner: conversation team)
     SESSION_EXPIRED = 7000
