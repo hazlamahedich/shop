@@ -275,7 +275,12 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             True if URL is valid (returns 200 OK)
         """
         try:
-            response = await self.async_client.head(checkout_url)
+            # Issue #2: Follow redirects (302/307) and set timeout
+            response = await self.async_client.head(
+                checkout_url,
+                follow_redirects=True,
+                timeout=5.0
+            )
             return response.status_code == 200
         except Exception:
             return False

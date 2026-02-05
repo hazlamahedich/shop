@@ -24,8 +24,11 @@ class TestCheckoutService:
 
     @pytest.fixture
     def mock_redis(self):
-        """Create mock Redis client."""
-        return MagicMock(spec=redis.Redis)
+        """Create mock Redis client with async methods."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock()
+        mock_client.setex = AsyncMock()
+        return mock_client
 
     @pytest.fixture
     def mock_cart_service(self):
@@ -229,7 +232,7 @@ class TestCheckoutService:
         # Generate checkout URL
         result = await checkout_service.generate_checkout_url("test_psid")
 
-        # Verify failure without retry
+        # Verify failure - non-validation errors break immediately
         assert result["status"] == CheckoutStatus.FAILED
         assert result["retry_count"] == 0
 
@@ -245,10 +248,10 @@ class TestCheckoutService:
 
     @pytest.mark.asyncio
     async def test_extract_checkout_token_invalid(self, checkout_service):
-        """Test token extraction from invalid URL."""
-        url = "https://invalid-url.com/checkout"
+        """Test token extraction from invalid URL with short token."""
+        url = "https://invalid-url.com/abc"
         token = checkout_service._extract_checkout_token(url)
-        assert token is None
+        assert token is None  # Token too short (< 5 chars)
 
     @pytest.mark.asyncio
     async def test_store_checkout_token(

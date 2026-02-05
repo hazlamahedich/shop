@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import structlog
+import redis.asyncio as redis
 
 from app.core.errors import APIError, ErrorCode
 from app.core.config import settings
@@ -43,8 +44,7 @@ class CartService:
             redis_client: Redis client instance (creates default if not provided)
         """
         if redis_client is None:
-            # Create default Redis client
-            import redis
+            # Create default Redis client (Async)
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
             self.redis = redis.from_url(redis_url, decode_responses=True)
@@ -77,7 +77,7 @@ class CartService:
         data = None  # Initialize for exception handling
 
         try:
-            data = self.redis.get(cart_key)
+            data = await self.redis.get(cart_key)
             if data:
                 cart_dict = json.loads(data)
                 return Cart(**cart_dict)
@@ -211,7 +211,7 @@ class CartService:
 
             # Save to Redis with TTL
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
-            self.redis.setex(
+            await self.redis.setex(
                 cart_key,
                 self.CART_TTL_SECONDS,
                 json.dumps(cart_dict)
@@ -252,7 +252,7 @@ class CartService:
 
             # Save to Redis
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
-            self.redis.setex(
+            await self.redis.setex(
                 cart_key,
                 self.CART_TTL_SECONDS,
                 json.dumps(cart_dict)
@@ -319,7 +319,7 @@ class CartService:
 
             # Save to Redis
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
-            self.redis.setex(
+            await self.redis.setex(
                 cart_key,
                 self.CART_TTL_SECONDS,
                 json.dumps(cart_dict)
@@ -352,7 +352,7 @@ class CartService:
         cart_key = self._get_cart_key(psid)
 
         try:
-            self.redis.delete(cart_key)
+            await self.redis.delete(cart_key)
             self.logger.info("cart_cleared", psid=psid)
 
         except Exception as e:

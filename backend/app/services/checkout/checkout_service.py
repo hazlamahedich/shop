@@ -7,11 +7,13 @@ checkout token tracking for order confirmation.
 from __future__ import annotations
 
 import json
-import re
+import asyncio
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from typing import Any, Dict, Optional
 
 import structlog
+import redis.asyncio as redis
 
 from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart
@@ -27,7 +29,7 @@ class CheckoutService:
     1. Retrieve cart using CartService (encapsulated)
     2. Build Shopify line items from Cart object
     3. Call checkoutCreate mutation (client handles validation)
-    4. Retry on failure (max 3 attempts)
+    4. Retry on failure (max 3 attempts with backoff)
     5. Store checkout token for cart preservation
     6. Retain local cart (do NOT clear) until order confirmation
 
@@ -38,6 +40,7 @@ class CheckoutService:
 
     MAX_RETRY_ATTEMPTS = 3
     CHECKOUT_TOKEN_TTL_HOURS = 24
+    RETRY_BACKOFF_SECONDS = 1.0
 
     def __init__(
         self,
@@ -49,11 +52,11 @@ class CheckoutService:
 
         Args:
             redis_client: Redis client instance
-            shopify_client: Shopify Storefront API client
+            shopify_client: Shopify Storefront API client (REQUIRED)
             cart_service: Cart service instance
         """
         if redis_client is None:
-            import redis
+            # Create default Redis client (Async)
             from app.core.config import settings
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
@@ -61,7 +64,11 @@ class CheckoutService:
         else:
             self.redis = redis_client
 
-        self.shopify_client = shopify_client or ShopifyStorefrontClient()
+        # Initialization Guard (Issue #1)
+        if shopify_client is None:
+            raise ValueError("CheckoutService requires a valid shopify_client instance")
+        self.shopify_client = shopify_client
+
         # Reuse Redis client for CartService
         self.cart_service = cart_service or CartService(self.redis)
         self.logger = structlog.get_logger(__name__)
@@ -80,13 +87,11 @@ class CheckoutService:
     async def generate_checkout_url(
         self,
         psid: str,
-        retry_count: int = 0,
     ) -> Dict[str, Any]:
         """Generate Shopify checkout URL from cart items.
 
         Args:
             psid: Facebook Page-Scoped ID
-            retry_count: Current retry attempt number
 
         Returns:
             Dict with status, checkout_url, and message
@@ -101,7 +106,7 @@ class CheckoutService:
                 "checkout_url": None,
                 "checkout_token": None,
                 "message": "Failed to retrieve your cart.",
-                "retry_count": retry_count,
+                "retry_count": 0,
             }
 
         # Check if cart has items
@@ -112,7 +117,7 @@ class CheckoutService:
                 "checkout_url": None,
                 "checkout_token": None,
                 "message": "Your cart is empty. Add items before checkout.",
-                "retry_count": retry_count,
+                "retry_count": 0,
             }
 
         # Build line items for Shopify
@@ -127,75 +132,83 @@ class CheckoutService:
             "checkout_generation_started",
             psid=psid,
             item_count=len(line_items),
-            retry_count=retry_count,
         )
 
-        try:
-            # Generate checkout URL via Shopify
-            # Note: client.create_checkout_url performs HTTP HEAD validation
-            checkout_url = await self.shopify_client.create_checkout_url(line_items)
+        # Retry Loop (Issue #4)
+        last_error = None
+        for attempt in range(self.MAX_RETRY_ATTEMPTS + 1):
+            try:
+                # Generate checkout URL via Shopify
+                # Note: client.create_checkout_url performs HTTP HEAD validation
+                checkout_url = await self.shopify_client.create_checkout_url(line_items)
 
-            # Store checkout token for cart preservation
-            checkout_token = self._extract_checkout_token(checkout_url)
+                # Store checkout token for cart preservation
+                checkout_token = self._extract_checkout_token(checkout_url)
 
-            if checkout_token:
-                await self._store_checkout_token(
+                if checkout_token:
+                    await self._store_checkout_token(
+                        psid=psid,
+                        checkout_token=checkout_token,
+                        checkout_url=checkout_url,
+                        cart=cart,
+                    )
+
+                # Mask token for logging (Issue #6)
+                masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if checkout_token and len(checkout_token) > 8 else "tok_***"
+
+                self.logger.info(
+                    "checkout_generation_success",
                     psid=psid,
-                    checkout_token=checkout_token,
-                    checkout_url=checkout_url,
-                    cart=cart,
+                    retry_count=attempt,
+                    checkout_token_masked=masked_token,
                 )
 
-            # NOTE: We do NOT clear the local cart here.
-            # It is retained until Order Confirmation (Story 2.9)
-            # This allows the user to back out of checkout and resume shopping.
+                return {
+                    "status": CheckoutStatus.SUCCESS,
+                    "checkout_url": checkout_url,
+                    "checkout_token": checkout_token,
+                    "message": f"Complete your purchase here: {checkout_url}",
+                    "retry_count": attempt,
+                }
 
-            self.logger.info(
-                "checkout_generation_success",
-                psid=psid,
-                retry_count=retry_count,
-                checkout_token=checkout_token,
-            )
-
-            return {
-                "status": CheckoutStatus.SUCCESS,
-                "checkout_url": checkout_url,
-                "checkout_token": checkout_token,
-                "message": f"Complete your purchase here: {checkout_url}",
-                "retry_count": retry_count,
-            }
-
-        except APIError as e:
-            if e.code == ErrorCode.SHOPIFY_CHECKOUT_URL_INVALID:
-                # Retry on validation failure
-                if retry_count < self.MAX_RETRY_ATTEMPTS:
+            except APIError as e:
+                last_error = e
+                if e.code == ErrorCode.SHOPIFY_CHECKOUT_URL_INVALID and attempt < self.MAX_RETRY_ATTEMPTS:
+                    # Retry on validation failure with backoff
                     self.logger.warning(
                         "checkout_validation_failed_retry",
                         psid=psid,
-                        retry_count=retry_count,
+                        retry_count=attempt,
                         max_retries=self.MAX_RETRY_ATTEMPTS,
+                        backoff=self.RETRY_BACKOFF_SECONDS
                     )
-                    # Recursively retry with incremented count
-                    return await self.generate_checkout_url(psid, retry_count + 1)
+                    await asyncio.sleep(self.RETRY_BACKOFF_SECONDS)
+                    continue
+                else:
+                    # Break immediately for non-retryable errors or max attempts
+                    break
 
-            self.logger.error(
-                "checkout_generation_failed",
-                psid=psid,
-                error=str(e),
-                error_code=e.code.value if isinstance(e.code, ErrorCode) else None,
-                retry_count=retry_count,
-            )
+        # If we get here, all retries failed
+        self.logger.error(
+            "checkout_generation_failed",
+            psid=psid,
+            error=str(last_error) if last_error else "Unknown error",
+            error_code=last_error.code.value if last_error and isinstance(last_error.code, ErrorCode) else None,
+            retry_count=attempt,
+        )
 
-            return {
-                "status": CheckoutStatus.FAILED,
-                "checkout_url": None,
-                "checkout_token": None,
-                "message": "Sorry, checkout failed. Please try again later.",
-                "retry_count": retry_count,
-            }
+        return {
+            "status": CheckoutStatus.FAILED,
+            "checkout_url": None,
+            "checkout_token": None,
+            "message": "Sorry, checkout failed. Please try again later.",
+            "retry_count": attempt,
+        }
 
     def _extract_checkout_token(self, checkout_url: str) -> Optional[str]:
         """Extract checkout token from Shopify checkout URL.
+
+        Handles custom domains by extracting the last path segment.
 
         Args:
             checkout_url: Shopify checkout URL
@@ -203,9 +216,19 @@ class CheckoutService:
         Returns:
             Checkout token or None if not found
         """
-        # Pattern: https://checkout.shopify.com/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456
-        token_match = re.search(r'checkout\.shopify\.com/([^/?]+)', checkout_url)
-        return token_match.group(1) if token_match else None
+        try:
+            # Issue #3: Robust extraction using urlparse
+            path = urlparse(checkout_url).path
+            # Handle potential trailing slashes
+            path = path.rstrip('/')
+            token = path.split('/')[-1]
+
+            # Basic validation: Token should be reasonably long
+            if len(token) > 5:
+                return token
+            return None
+        except Exception:
+            return None
 
     async def _store_checkout_token(
         self,
@@ -235,16 +258,19 @@ class CheckoutService:
             "currency_code": cart.currency_code.value,
         }
 
-        self.redis.setex(
+        # Issue #5: Async Redis call
+        await self.redis.setex(
             checkout_token_key,
             ttl_seconds,
             json.dumps(token_data),
         )
 
+        # Issue #6: Mask token in logs
+        masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if len(checkout_token) > 8 else "tok_***"
         self.logger.info(
             "checkout_token_stored",
             psid=psid,
-            token=checkout_token,
+            token_masked=masked_token,
             ttl_hours=self.CHECKOUT_TOKEN_TTL_HOURS,
         )
 
@@ -258,7 +284,8 @@ class CheckoutService:
             Checkout token data or None if not found
         """
         checkout_token_key = self._get_checkout_token_key(psid)
-        token_data = self.redis.get(checkout_token_key)
+        # Issue #5: Async Redis call
+        token_data = await self.redis.get(checkout_token_key)
 
         if token_data:
             return json.loads(token_data)

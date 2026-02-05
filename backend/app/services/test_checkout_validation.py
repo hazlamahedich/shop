@@ -40,7 +40,11 @@ class TestCheckoutURLValidation:
         result = await client._validate_checkout_url(checkout_url)
 
         assert result is True
-        client.async_client.head.assert_called_once_with(checkout_url)
+        client.async_client.head.assert_called_once_with(
+            checkout_url,
+            follow_redirects=True,
+            timeout=5.0
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_checkout_url_fails_validation(self):

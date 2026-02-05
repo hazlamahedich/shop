@@ -11,13 +11,13 @@ Tests full user flows with Messenger integration including:
 import json
 import time
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import redis.asyncio as redis
 
 from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart, CartItem, CurrencyCode
-from app.schemas.messaging import FacebookWebhookPayload
 from app.services.checkout import CheckoutService
 from app.services.checkout.checkout_schema import CheckoutStatus
 from app.services.shopify_storefront import ShopifyStorefrontClient
@@ -61,12 +61,10 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_complete_checkout_flow(self, sample_cart):
         """Test E2E: Complete user flow from cart with items to checkout URL."""
-        import redis
-
         # Mock dependencies
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         checkout_url = "https://checkout.shopify.com/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
@@ -90,6 +88,8 @@ class TestStory28CheckoutE2E:
         assert result["checkout_url"] == checkout_url
         assert "Complete your purchase here:" in result["message"]
         assert checkout_url in result["message"]
+        # The token extraction logic changed to take the last segment
+        # URL: .../ABCDEFGHIJKLMNOPQRSTUVWXYZ123456
         assert result["checkout_token"] == "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
 
         # Verify checkout token was stored with 24-hour TTL
@@ -102,8 +102,6 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_empty_cart(self):
         """Test E2E: User attempts checkout with empty cart."""
-        import redis
-
         # Create empty cart
         empty_cart = Cart(
             items=[],
@@ -112,7 +110,7 @@ class TestStory28CheckoutE2E:
         )
 
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = empty_cart.model_dump_json()
+        mock_redis.get = AsyncMock(return_value=empty_cart.model_dump_json())
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         mock_cart_service = AsyncMock()
@@ -140,11 +138,9 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_retry_on_validation_failure(self, sample_cart):
         """Test E2E: Checkout retries on validation failure and succeeds."""
-        import redis
-
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         mock_cart_service = AsyncMock()
@@ -164,6 +160,8 @@ class TestStory28CheckoutE2E:
             shopify_client=mock_shopify_client,
             cart_service=mock_cart_service,
         )
+        # Speed up backoff for test
+        checkout_service.RETRY_BACKOFF_SECONDS = 0.01
 
         # Generate checkout URL (should retry and succeed)
         result = await checkout_service.generate_checkout_url("test_psid")
@@ -179,10 +177,8 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_max_retries_exceeded(self, sample_cart):
         """Test E2E: Checkout fails after max retries exceeded."""
-        import redis
-
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         mock_cart_service = AsyncMock()
@@ -199,6 +195,8 @@ class TestStory28CheckoutE2E:
             shopify_client=mock_shopify_client,
             cart_service=mock_cart_service,
         )
+        # Speed up backoff for test
+        checkout_service.RETRY_BACKOFF_SECONDS = 0.01
 
         # Generate checkout URL (should fail after max retries)
         result = await checkout_service.generate_checkout_url("test_psid")
@@ -215,15 +213,13 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_token_persistence(self, sample_cart):
         """Test E2E: Checkout token persists for 24 hours and can be retrieved."""
-        import redis
-
         psid = "test_psid"
         checkout_token = "CheckoutTokenABC123"
         checkout_url = f"https://checkout.shopify.com/{checkout_token}"
 
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         mock_shopify_client.create_checkout_url.return_value = checkout_url
@@ -252,7 +248,7 @@ class TestStory28CheckoutE2E:
             "subtotal": 217.95,
             "currency_code": "USD",
         }
-        mock_redis.get.return_value = json.dumps(stored_token_data)
+        mock_redis.get = AsyncMock(return_value=json.dumps(stored_token_data))
 
         # Get checkout token
         result = await checkout_service.get_checkout_token(psid)
@@ -268,11 +264,9 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_cart_retained_after_checkout(self, sample_cart):
         """Test E2E: Local cart is NOT cleared after checkout (for abandoned checkout recovery)."""
-        import redis
-
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         checkout_url = "https://checkout.shopify.com/CheckoutToken123"
@@ -301,11 +295,9 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_performance_under_5_seconds(self, sample_cart):
         """Test E2E: Checkout completes within 5 seconds (AC requirement)."""
-        import redis
-
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         checkout_url = "https://checkout.shopify.com/CheckoutToken123"
@@ -335,11 +327,9 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_service_direct_call(self, sample_cart):
         """Test E2E: Checkout service generates URL when called directly."""
-        import redis
-
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = sample_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         checkout_url = "https://checkout.shopify.com/CheckoutToken123"
@@ -368,8 +358,6 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_natural_language_checkout_variations(self, sample_cart):
         """Test E2E: Various natural language checkout phrases work."""
-        import redis
-
         checkout_phrases = [
             "checkout",
             "check out",
@@ -380,8 +368,8 @@ class TestStory28CheckoutE2E:
 
         for phrase in checkout_phrases:
             mock_redis = MagicMock(spec=redis.Redis)
-            mock_redis.get.return_value = sample_cart.model_dump_json()
-            mock_redis.setex.return_value = True
+            mock_redis.get = AsyncMock(return_value=sample_cart.model_dump_json())
+            mock_redis.setex = AsyncMock(return_value=True)
 
             mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
             checkout_url = "https://checkout.shopify.com/CheckoutToken123"
@@ -406,8 +394,6 @@ class TestStory28CheckoutE2E:
     @pytest.mark.asyncio
     async def test_e2e_checkout_with_single_item(self):
         """Test E2E: Checkout works correctly with single item in cart."""
-        import redis
-
         # Create cart with single item
         single_item_cart = Cart(
             items=[
@@ -427,8 +413,8 @@ class TestStory28CheckoutE2E:
         )
 
         mock_redis = MagicMock(spec=redis.Redis)
-        mock_redis.get.return_value = single_item_cart.model_dump_json()
-        mock_redis.setex.return_value = True
+        mock_redis.get = AsyncMock(return_value=single_item_cart.model_dump_json())
+        mock_redis.setex = AsyncMock(return_value=True)
 
         mock_shopify_client = AsyncMock(spec=ShopifyStorefrontClient)
         checkout_url = "https://checkout.shopify.com/SingleItemCheckout"
