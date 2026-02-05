@@ -23,6 +23,7 @@ class IntentType(str, Enum):
     CHECKOUT = "checkout"
     ORDER_TRACKING = "order_tracking"
     HUMAN_HANDOFF = "human_handoff"
+    FORGET_PREFERENCES = "forget_preferences"  # Story 2.7: Clear cart and data
     UNKNOWN = "unknown"
 
 

@@ -2,6 +2,9 @@
 
 Schedules and manages automated cleanup tasks for NFR-S11 compliance.
 Runs daily at midnight UTC to clean up expired data.
+
+Story 2-7: Persistent Cart Sessions
+- Includes 30-day cart retention cleanup for opted-in shoppers
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ import structlog
 
 from app.core.database import async_session
 from app.services.data_retention import DataRetentionService
+from app.services.cart.cart_retention import run_cart_retention_cleanup
 
 logger = structlog.get_logger(__name__)
 
@@ -31,6 +35,7 @@ async def run_retention_cleanup() -> dict:
     Executes all retention cleanup tasks:
     - Voluntary conversation data cleanup (30-day retention)
     - Session data cleanup (24-hour retention)
+    - Cart retention cleanup (30-day extended retention) - Story 2-7
 
     Returns:
         Dictionary with cleanup results from all retention tasks
@@ -41,6 +46,7 @@ async def run_retention_cleanup() -> dict:
         "timestamp": datetime.utcnow().isoformat(),
         "voluntary_data": {},
         "sessions": {},
+        "cart_retention": {},  # Story 2-7: Cart retention cleanup
     }
 
     async with async_session() as db:
@@ -65,6 +71,18 @@ async def run_retention_cleanup() -> dict:
             )
             results["error"] = str(e)
             raise
+
+    # Story 2-7: Clean up extended cart retention (independent of DB)
+    try:
+        cart_result = await run_cart_retention_cleanup()
+        results["cart_retention"] = cart_result
+    except Exception as e:
+        logger.error(
+            "cart_retention_job_failed",
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        results["cart_retention"] = {"error": str(e)}
 
     return results
 

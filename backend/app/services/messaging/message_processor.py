@@ -16,13 +16,15 @@ from app.schemas.messaging import (
     FacebookWebhookPayload,
     MessengerResponse,
 )
+from app.services.cart import CartService
 from app.services.clarification import ClarificationService
 from app.services.clarification.question_generator import QuestionGenerator
+from app.services.consent import ConsentService, ConsentStatus
 from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
 from app.services.messenger import CartFormatter, MessengerProductFormatter, MessengerSendService
+from app.services.session import SessionService
 from app.services.shopify import ProductSearchService
-from app.services.cart import CartService
 
 
 logger = structlog.get_logger(__name__)
@@ -35,16 +37,28 @@ class MessageProcessor:
         self,
         classifier: Optional[IntentClassifier] = None,
         context_manager: Optional[ConversationContextManager] = None,
+        consent_service: Optional[ConsentService] = None,
+        session_service: Optional[SessionService] = None,
     ) -> None:
         """Initialize message processor.
 
         Args:
             classifier: Intent classifier (uses default if not provided)
             context_manager: Conversation context manager (uses default if not provided)
+            consent_service: Consent service (uses default if not provided)
+            session_service: Session service (uses default if not provided)
         """
         self.classifier = classifier or IntentClassifier()
         self.context_manager = context_manager or ConversationContextManager()
         self.logger = structlog.get_logger(__name__)
+
+        # Initialize consent and session services (Story 2.7)
+        redis_client = self.context_manager.redis
+        self.consent_service = consent_service or ConsentService(redis_client=redis_client)
+        self.session_service = session_service or SessionService(
+            redis_client=redis_client,
+            consent_service=self.consent_service
+        )
 
     async def process_message(
         self,
@@ -64,6 +78,39 @@ class MessageProcessor:
         self.logger.info("message_processing_start", psid=psid, message=message)
 
         try:
+            # Check for returning shopper and welcome them if inactive (Story 2.7)
+            # We get last activity BEFORE updating it to see if it's a "return"
+            last_activity = await self.session_service.get_last_activity(psid)
+            is_returning = await self.session_service.is_returning_shopper(psid)
+
+            # Update activity timestamp (Story 2.7)
+            await self.session_service.update_activity(psid)
+
+            if is_returning:
+                # Welcome back if last activity was > 30 mins ago or never recorded
+                should_welcome = True
+                if last_activity:
+                    from datetime import datetime, timezone
+                    diff = datetime.now(timezone.utc) - last_activity
+                    if diff.total_seconds() < 1800:  # 30 minutes
+                        should_welcome = False
+
+                if should_welcome:
+                    item_count = await self.session_service.get_cart_item_count(psid)
+                    self.logger.info(
+                        "returning_shopper_welcome",
+                        psid=psid,
+                        item_count=item_count
+                    )
+                    welcome_back = (
+                        f"Welcome back! You have {item_count} "
+                        f"item{'s' if item_count != 1 else ''} in your cart. "
+                        "Type 'cart' to view."
+                    )
+                    send_service = MessengerSendService()
+                    await send_service.send_message(psid, {"text": welcome_back})
+                    await send_service.close()
+
             # Load conversation context
             context = await self.context_manager.get_context(psid)
 
@@ -164,6 +211,10 @@ class MessageProcessor:
                     context=context
                 )
 
+            # Consent response handling (Story 2.7)
+            elif action == "CONSENT" and len(parts) >= 3:
+                return await self._handle_consent_response(psid, parts)
+
             # Browse/Search products (empty cart actions)
             elif action == "browse_products":
                 return MessengerResponse(
@@ -255,6 +306,10 @@ class MessageProcessor:
                 text="Connecting you to a human agent...",
                 recipient_id=psid,
             )
+
+        elif intent == IntentType.FORGET_PREFERENCES:
+            # Story 2.7: Handle forget preferences request
+            return await self._handle_forget_preferences(psid)
 
         else:  # UNKNOWN or unhandled
             return MessengerResponse(
@@ -449,7 +504,7 @@ class MessageProcessor:
     ) -> MessengerResponse:
         """Unified add-to-cart logic for button taps and natural language.
 
-        Handles product lookup, availability checking, and cart addition.
+        Handles product lookup, availability checking, consent check, and cart addition.
 
         Args:
             psid: Facebook Page-Scoped ID
@@ -460,6 +515,12 @@ class MessageProcessor:
         Returns:
             Messenger response with confirmation or error
         """
+        # Check consent status (Story 2.7: opt-in flow)
+        consent_status = await self.consent_service.get_consent(psid)
+        if consent_status == ConsentStatus.PENDING:
+            # Store product info temporarily and request consent
+            return await self._request_consent(psid, product_id, variant_id, context)
+
         # Get cart service using shared Redis client from context manager
         cart_service = CartService(redis_client=self.context_manager.redis)
 
@@ -768,5 +829,234 @@ class MessageProcessor:
             )
             return MessengerResponse(
                 text="Sorry, I couldn't update the quantity. Please try again.",
+                recipient_id=psid,
+            )
+
+    async def _handle_forget_preferences(self, psid: str) -> MessengerResponse:
+        """Handle forget preferences request.
+
+        Clears voluntary data (cart, consent, context) while preserving
+        operational data (order references) as per GDPR/CCPA requirements.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+
+        Returns:
+            Messenger response confirming data deletion
+        """
+        try:
+            # Clear voluntary session data (cart, consent, context, activity)
+            await self.session_service.clear_session(psid)
+
+            self.logger.info(
+                "forget_preferences_success",
+                psid=psid,
+                voluntary_data_cleared=True
+            )
+
+            # Send confirmation with data tier explanation
+            return MessengerResponse(
+                text=(
+                    "I've forgotten your cart and preferences. "
+                    "Your order references are kept for business purposes."
+                ),
+                recipient_id=psid,
+            )
+
+        except Exception as e:
+            self.logger.error(
+                "forget_preferences_failed",
+                psid=psid,
+                error=str(e)
+            )
+            return MessengerResponse(
+                text="Sorry, I couldn't clear your data. Please try again.",
+                recipient_id=psid,
+            )
+
+    async def _request_consent(
+        self,
+        psid: str,
+        product_id: str,
+        variant_id: str,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Request consent for cart persistence (Story 2.7).
+
+        Stores product info temporarily and sends consent request with quick reply buttons.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            product_id: Shopify product ID
+            variant_id: Shopify variant ID
+            context: Conversation context with product search results
+
+        Returns:
+            Messenger response with consent request (empty text, quick replies sent via service)
+        """
+        # Extract product info from context
+        last_search = context.get("last_search_results", {})
+        products = last_search.get("products", [])
+
+        product_data = None
+        variant_data = None
+
+        for p in products:
+            if p.get("id") == product_id:
+                product_data = p
+                for v in p.get("variants", []):
+                    if v.get("id") == variant_id:
+                        variant_data = v
+                        break
+                break
+
+        if not product_data or not variant_data:
+            self.logger.warning("consent_request_product_not_found", psid=psid, product_id=product_id)
+            return MessengerResponse(
+                text="Sorry, I couldn't find that product. Please search again.",
+                recipient_id=psid,
+            )
+
+        # Store pending product temporarily for 5 minutes
+        pending_key = f"pending_cart:{psid}"
+        pending_data = {
+            "product_id": product_id,
+            "variant_id": variant_id,
+            "title": product_data.get("title"),
+            "price": variant_data.get("price"),
+            "image_url": product_data.get("images", [{}])[0].get("url", ""),
+            "currency_code": variant_data.get("currency_code", "USD"),
+        }
+        import json
+        self.context_manager.redis.setex(
+            pending_key,
+            300,  # 5 minutes
+            json.dumps(pending_data)
+        )
+
+        self.logger.info(
+            "consent_request_sent",
+            psid=psid,
+            product_id=product_id,
+            variant_id=variant_id
+        )
+
+        # Send consent request with quick reply buttons via MessengerSendService
+        send_service = MessengerSendService()
+        consent_message = {
+            "text": "To remember your cart for next time, I'll save it. OK?",
+            "quick_replies": [
+                {
+                    "content_type": "text",
+                    "title": "Yes, save my cart",
+                    "payload": f"CONSENT:YES:{product_id}:{variant_id}"
+                },
+                {
+                    "content_type": "text",
+                    "title": "No, don't save",
+                    "payload": f"CONSENT:NO:{product_id}:{variant_id}"
+                }
+            ]
+        }
+        await send_service.send_message(psid, consent_message)
+        await send_service.close()
+
+        # Return empty response (quick reply message already sent)
+        return MessengerResponse(text="", recipient_id=psid)
+
+    async def _handle_consent_response(
+        self,
+        psid: str,
+        parts: list[str],
+    ) -> MessengerResponse:
+        """Handle consent response from quick reply buttons (Story 2.7).
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            parts: Payload parts ["CONSENT", "YES/NO", "product_id", "variant_id"]
+
+        Returns:
+            Messenger response with confirmation or next action
+        """
+        # Parse consent response
+        consent_choice = parts[1]  # YES or NO
+        product_id = parts[2] if len(parts) > 2 else None
+        variant_id = parts[3] if len(parts) > 3 else None
+
+        consent_granted = consent_choice == "YES"
+
+        # Record consent choice
+        await self.consent_service.record_consent(psid, consent_granted=consent_granted)
+
+        self.logger.info(
+            "consent_response_handled",
+            psid=psid,
+            consent_granted=consent_granted,
+            product_id=product_id,
+            variant_id=variant_id
+        )
+
+        # If user opted in and we have pending product, add to cart
+        if consent_granted and product_id and variant_id:
+            # Retrieve pending product from temp storage
+            pending_key = f"pending_cart:{psid}"
+            import json
+            pending_data = self.context_manager.redis.get(pending_key)
+
+            if pending_data:
+                # Clear pending storage
+                self.context_manager.redis.delete(pending_key)
+
+                # Add item to cart
+                cart_service = CartService(redis_client=self.context_manager.redis)
+                pending = json.loads(pending_data)
+
+                try:
+                    cart = await cart_service.add_item(
+                        psid=psid,
+                        product_id=pending["product_id"],
+                        variant_id=pending["variant_id"],
+                        title=pending["title"],
+                        price=pending["price"],
+                        image_url=pending["image_url"],
+                        currency_code=pending.get("currency_code", "USD"),
+                        quantity=1
+                    )
+
+                    self.logger.info(
+                        "cart_add_after_consent",
+                        psid=psid,
+                        product_id=pending["product_id"],
+                        item_count=cart.item_count
+                    )
+
+                    return MessengerResponse(
+                        text=f"Great! I've added {pending['title']} (${pending['price']}) to your cart. Your cart will be saved for 24 hours.",
+                        recipient_id=psid,
+                    )
+
+                except Exception as e:
+                    self.logger.error("cart_add_after_consent_failed", psid=psid, error=str(e))
+                    return MessengerResponse(
+                        text="Sorry, I encountered an error adding that item. Please try again.",
+                        recipient_id=psid,
+                    )
+            else:
+                # Pending data expired - ask user to try again
+                return MessengerResponse(
+                    text="Your cart session expired. Please search for the product again and add it.",
+                    recipient_id=psid,
+                )
+
+        elif consent_granted:
+            # User opted in but no pending product
+            return MessengerResponse(
+                text="Thanks! I'll save your cart for next time. What would you like to add?",
+                recipient_id=psid,
+            )
+        else:
+            # User opted out
+            return MessengerResponse(
+                text="No problem. I won't save your cart. You can still shop, but your cart will be cleared when you close this chat.",
                 recipient_id=psid,
             )

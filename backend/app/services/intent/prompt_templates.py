@@ -19,6 +19,7 @@ Classify the message into one of these intents:
 - checkout: User wants to complete purchase
 - order_tracking: User wants to check order status
 - human_handoff: User requests human assistance
+- forget_preferences: User wants to clear their data/cart
 - unknown: Intent cannot be determined
 
 Extract these entities if present:
@@ -31,7 +32,7 @@ Extract these entities if present:
 
 Respond ONLY with valid JSON in this format:
 {
-    "intent": "product_search|greeting|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|unknown",
+    "intent": "product_search|greeting|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|unknown",
     "confidence": 0.0-1.0,
     "entities": {
         "category": "shoes or null",
@@ -66,6 +67,15 @@ Output: {"intent": "order_tracking", "confidence": 0.90, "entities": {}, "reason
 
 Input: "Talk to a person"
 Output: {"intent": "human_handoff", "confidence": 0.99, "entities": {}, "reasoning": "Explicit human agent request"}
+
+Input: "forget my preferences"
+Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "User wants to clear their data"}
+
+Input: "delete my data"
+Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "User requests data deletion"}
+
+Input: "clear my memory"
+Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "User wants to reset session"}
 """
 
 

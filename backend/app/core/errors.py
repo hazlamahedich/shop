@@ -118,6 +118,12 @@ class ErrorCode(IntEnum):
     CART_CLEAR_FAILED = 6013  # Failed to clear cart
     CART_CURRENCY_MISMATCH = 6014  # Currency doesn't match cart
     CART_DATA_CORRUPTED = 6015  # Cart data corrupted in Redis
+    # Story 2.7 new error codes
+    CONSENT_RECORD_FAILED = 6016  # Failed to record consent
+    CONSENT_REVOKE_FAILED = 6017  # Failed to revoke consent
+    SESSION_CLEAR_FAILED = 6018  # Failed to clear session data
+    ACTIVITY_UPDATE_FAILED = 6019  # Failed to update activity
+    PERSISTENCE_NOT_ALLOWED = 6020  # Cart persistence not allowed (opted out)
 
     # 7000-7999: Conversation/Session (owner: conversation team)
     SESSION_EXPIRED = 7000

@@ -28,6 +28,7 @@ from app.api.tutorial import router as tutorial_router
 from app.api.csrf import router as csrf_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
+from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
     MinimalEnvelope,
@@ -102,8 +103,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     # Startup
     await init_db()
+    start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
     yield
     # Shutdown
+    shutdown_scheduler()  # Story 2-7: Shutdown scheduler gracefully
     await close_db()
 
 
