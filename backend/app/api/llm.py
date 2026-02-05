@@ -45,6 +45,8 @@ from app.schemas.llm import (
 )
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.llm.base_llm_service import LLMMessage
+from app.services.messaging.message_processor import MessageProcessor
+from app.schemas.messaging import FacebookWebhookPayload, FacebookEntry
 
 
 router = APIRouter()
@@ -66,9 +68,7 @@ async def configure_llm(
 
     # Check if configuration already exists
     result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == merchant_id
-        )
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
     )
     existing_config = result.scalar_one_or_none()
 
@@ -147,9 +147,7 @@ async def configure_llm(
         cloud_model=cloud_model,
         backup_provider=request.backup_provider,
         backup_api_key_encrypted=(
-            encrypt_access_token(request.backup_api_key)
-            if request.backup_api_key
-            else None
+            encrypt_access_token(request.backup_api_key) if request.backup_api_key else None
         ),
         status="active",
         configured_at=datetime.utcnow(),
@@ -186,9 +184,7 @@ async def get_llm_status(
     merchant_id = 1  # TODO: get from auth
 
     result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == merchant_id
-        )
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
     )
     config = result.scalar_one_or_none()
 
@@ -240,9 +236,7 @@ async def test_llm(
         )
 
     result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == merchant_id
-        )
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
     )
     config = result.scalar_one_or_none()
 
@@ -262,20 +256,14 @@ async def test_llm(
         service_config["ollama_url"] = config.ollama_url
     else:
         if config.api_key_encrypted:
-            service_config["api_key"] = decrypt_access_token(
-                config.api_key_encrypted
-            )
+            service_config["api_key"] = decrypt_access_token(config.api_key_encrypted)
 
     # Test connection
     try:
-        llm_service = LLMProviderFactory.create_provider(
-            config.provider, service_config
-        )
+        llm_service = LLMProviderFactory.create_provider(config.provider, service_config)
 
         start_time = time.time()
-        response = await llm_service.chat(
-            [LLMMessage(role="user", content=request.test_prompt)]
-        )
+        response = await llm_service.chat([LLMMessage(role="user", content=request.test_prompt)])
         latency = (time.time() - start_time) * 1000
 
         # Update test result
@@ -340,9 +328,7 @@ async def update_llm(
     merchant_id = 1  # TODO: get from auth
 
     result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == merchant_id
-        )
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
     )
     config = result.scalar_one_or_none()
 
@@ -383,9 +369,7 @@ async def update_llm(
         updated_fields.append("backup_provider")
 
     if request.backup_api_key is not None:
-        config.backup_api_key_encrypted = encrypt_access_token(
-            request.backup_api_key
-        )
+        config.backup_api_key_encrypted = encrypt_access_token(request.backup_api_key)
         updated_fields.append("backup_api_key")
 
     if not updated_fields:
@@ -416,9 +400,7 @@ async def clear_llm(
     merchant_id = 1  # TODO: get from auth
 
     result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == merchant_id
-        )
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
     )
     config = result.scalar_one_or_none()
 
@@ -466,9 +448,7 @@ async def health_check(
     merchant_id = 1  # TODO: get from auth
 
     result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == merchant_id
-        )
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
     )
     config = result.scalar_one_or_none()
 
@@ -488,14 +468,10 @@ async def health_check(
         if config.provider == "ollama":
             service_config["ollama_url"] = config.ollama_url
         elif config.api_key_encrypted:
-            service_config["api_key"] = decrypt_access_token(
-                config.api_key_encrypted
-            )
+            service_config["api_key"] = decrypt_access_token(config.api_key_encrypted)
 
         try:
-            llm_service = LLMProviderFactory.create_provider(
-                config.provider, service_config
-            )
+            llm_service = LLMProviderFactory.create_provider(config.provider, service_config)
             health_status["primary_provider"] = await llm_service.health_check()
             health_status["router"] = "configured"
         except Exception:
@@ -512,6 +488,68 @@ async def health_check(
             "timestamp": datetime.utcnow().isoformat(),
         },
     }
+
+
+@router.post("/chat", response_model=MinimalLLMEnvelope)
+async def chat_with_bot(
+    request: dict[str, str],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Test chat endpoint for manual verification.
+
+    Simulates a Facebook Messenger message and processes it through
+    the full Shopping Assistant Bot flow.
+    """
+    message_text = request.get("message", "")
+    if not message_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message text required",
+        )
+
+    # Use a fixed test PSID for the simulation
+    test_psid = "TEST_USER_123"
+
+    # Create a simulated webhook payload
+    simulated_payload = FacebookWebhookPayload(
+        object="page",
+        entry=[
+            FacebookEntry(
+                id="PAGE_123",
+                time=int(time.time() * 1000),
+                messaging=[
+                    {
+                        "sender": {"id": test_psid},
+                        "recipient": {"id": "PAGE_123"},
+                        "timestamp": int(time.time() * 1000),
+                        "message": {"text": message_text},
+                    }
+                ],
+            )
+        ],
+    )
+
+    try:
+        # Process the message through the actual flow
+        processor = MessageProcessor()
+        response = await processor.process_message(simulated_payload)
+
+        return {
+            "data": {
+                "response": response.text,
+                "recipient_id": response.recipient_id,
+            },
+            "meta": {
+                "request_id": "simulated-chat",
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        }
+
+    except Exception as e:
+        raise APIError(
+            ErrorCode.UNKNOWN_ERROR,
+            f"Failed to process chat message: {str(e)}",
+        ) from e
 
 
 def _get_troubleshooting_steps(provider: str) -> list[str]:

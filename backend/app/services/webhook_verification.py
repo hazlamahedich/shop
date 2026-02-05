@@ -95,13 +95,13 @@ class WebhookVerificationService:
                     "webhookUrl": f"{self.app_url}/api/webhooks/facebook",
                     "connected": False,
                     "subscriptionStatus": "inactive",
+                    "topics": [],
                     "error": "Facebook Page not connected",
                 }
 
             # Check if webhook has been received recently
             webhook_active = (
-                fb_integration.last_webhook_at is not None
-                and fb_integration.webhook_verified
+                fb_integration.last_webhook_at is not None and fb_integration.webhook_verified
             )
 
             return {
@@ -129,6 +129,7 @@ class WebhookVerificationService:
             return {
                 "webhookUrl": f"{self.app_url}/api/webhooks/facebook",
                 "connected": False,
+                "topics": [],
                 "error": "Failed to retrieve Facebook status",
             }
 
@@ -140,9 +141,7 @@ class WebhookVerificationService:
         """
         try:
             result = await self.db.execute(
-                select(ShopifyIntegration).where(
-                    ShopifyIntegration.merchant_id == self.merchant_id
-                )
+                select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == self.merchant_id)
             )
             shopify_integration = result.scalar_one_or_none()
 
@@ -151,6 +150,7 @@ class WebhookVerificationService:
                     "webhookUrl": f"{self.app_url}/api/webhooks/shopify",
                     "connected": False,
                     "subscriptionStatus": "inactive",
+                    "topics": [],
                     "error": "Shopify store not connected",
                 }
 
@@ -186,6 +186,7 @@ class WebhookVerificationService:
             return {
                 "webhookUrl": f"{self.app_url}/api/webhooks/shopify",
                 "connected": False,
+                "topics": [],
                 "error": "Failed to retrieve Shopify status",
             }
 
@@ -227,9 +228,7 @@ class WebhookVerificationService:
                 )
 
             # Decrypt access token
-            access_token = decrypt_access_token(
-                fb_integration.access_token_encrypted
-            )
+            access_token = decrypt_access_token(fb_integration.access_token_encrypted)
 
             # Send a message to the page itself for testing
             # In production, you would send to a test user or system user
@@ -296,9 +295,7 @@ class WebhookVerificationService:
                 )
 
             # Decrypt admin token
-            admin_token = decrypt_access_token(
-                shopify_integration.admin_token_encrypted
-            )
+            admin_token = decrypt_access_token(shopify_integration.admin_token_encrypted)
 
             # Create admin client and verify webhook subscription
             client = ShopifyAdminClient(
@@ -308,9 +305,7 @@ class WebhookVerificationService:
             )
 
             # Verify webhook subscription is active
-            webhook_active = await client.verify_webhook_subscription(
-                "orders/create"
-            )
+            webhook_active = await client.verify_webhook_subscription("orders/create")
 
             if not webhook_active:
                 await self._create_verification_log(
@@ -385,9 +380,7 @@ class WebhookVerificationService:
 
             # Re-subscribe via Graph API
             # POST /{page_id}/subscribed_apps
-            access_token = decrypt_access_token(
-                fb_integration.access_token_encrypted
-            )
+            access_token = decrypt_access_token(fb_integration.access_token_encrypted)
 
             url = f"https://graph.facebook.com/v19.0/{fb_integration.page_id}/subscribed_apps"
 
@@ -454,9 +447,7 @@ class WebhookVerificationService:
                     "Shopify store not connected",
                 )
 
-            admin_token = decrypt_access_token(
-                shopify_integration.admin_token_encrypted
-            )
+            admin_token = decrypt_access_token(shopify_integration.admin_token_encrypted)
 
             client = ShopifyAdminClient(
                 shop_domain=shopify_integration.shop_domain,
@@ -521,9 +512,7 @@ class WebhookVerificationService:
                 f"Shopify webhook re-subscription failed: {str(e)}",
             )
 
-    async def diagnose_webhook_failure(
-        self, platform: str, error: str
-    ) -> Dict[str, Any]:
+    async def diagnose_webhook_failure(self, platform: str, error: str) -> Dict[str, Any]:
         """Analyze webhook failure and provide troubleshooting steps.
 
         Args:
@@ -537,43 +526,55 @@ class WebhookVerificationService:
 
         if platform == "facebook":
             if "access_token" in error.lower() or "access token" in error.lower():
-                troubleshooting_steps.extend([
-                    "Check Facebook Page connection status",
-                    "Verify page access token hasn't expired",
-                    "Re-connect your Facebook Page if needed",
-                ])
+                troubleshooting_steps.extend(
+                    [
+                        "Check Facebook Page connection status",
+                        "Verify page access token hasn't expired",
+                        "Re-connect your Facebook Page if needed",
+                    ]
+                )
             elif "webhook" in error.lower():
-                troubleshooting_steps.extend([
-                    "Verify webhook URL is publicly accessible",
-                    "Check that your server allows external requests",
-                    "Confirm webhook is subscribed in Facebook Developer settings",
-                ])
+                troubleshooting_steps.extend(
+                    [
+                        "Verify webhook URL is publicly accessible",
+                        "Check that your server allows external requests",
+                        "Confirm webhook is subscribed in Facebook Developer settings",
+                    ]
+                )
             else:
-                troubleshooting_steps.extend([
-                    "Check Facebook Developer dashboard for app status",
-                    "Verify required permissions are granted",
-                    "Try re-subscribing to webhooks",
-                ])
+                troubleshooting_steps.extend(
+                    [
+                        "Check Facebook Developer dashboard for app status",
+                        "Verify required permissions are granted",
+                        "Try re-subscribing to webhooks",
+                    ]
+                )
 
         elif platform == "shopify":
             if "hmac" in error.lower():
-                troubleshooting_steps.extend([
-                    "Verify SHOPIFY_API_SECRET is correct",
-                    "Check webhook signature calculation",
-                    "Ensure webhook URL matches exactly",
-                ])
+                troubleshooting_steps.extend(
+                    [
+                        "Verify SHOPIFY_API_SECRET is correct",
+                        "Check webhook signature calculation",
+                        "Ensure webhook URL matches exactly",
+                    ]
+                )
             elif "timeout" in error.lower():
-                troubleshooting_steps.extend([
-                    "Check server firewall allows Shopify requests",
-                    "Verify webhook endpoint is responsive",
-                    "Check rate limiting settings",
-                ])
+                troubleshooting_steps.extend(
+                    [
+                        "Check server firewall allows Shopify requests",
+                        "Verify webhook endpoint is responsive",
+                        "Check rate limiting settings",
+                    ]
+                )
             else:
-                troubleshooting_steps.extend([
-                    "Verify Shopify App is installed correctly",
-                    "Check webhook subscription in Shopify Admin",
-                    "Try re-subscribing to webhooks",
-                ])
+                troubleshooting_steps.extend(
+                    [
+                        "Verify Shopify App is installed correctly",
+                        "Check webhook subscription in Shopify Admin",
+                        "Try re-subscribing to webhooks",
+                    ]
+                )
 
         return {
             "platform": platform,
@@ -646,9 +647,7 @@ class WebhookVerificationService:
             FacebookIntegration or None
         """
         result = await self.db.execute(
-            select(FacebookIntegration).where(
-                FacebookIntegration.merchant_id == self.merchant_id
-            )
+            select(FacebookIntegration).where(FacebookIntegration.merchant_id == self.merchant_id)
         )
         return result.scalar_one_or_none()
 
@@ -661,8 +660,6 @@ class WebhookVerificationService:
             ShopifyIntegration or None
         """
         result = await self.db.execute(
-            select(ShopifyIntegration).where(
-                ShopifyIntegration.merchant_id == self.merchant_id
-            )
+            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == self.merchant_id)
         )
         return result.scalar_one_or_none()

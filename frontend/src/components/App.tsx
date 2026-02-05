@@ -1,12 +1,13 @@
 /** Main App component for Shopping Assistant Bot frontend. */
 
-import { PrerequisiteChecklist } from "./onboarding/PrerequisiteChecklist";
-import { DeploymentWizard } from "./onboarding/DeploymentWizard";
-import { FacebookConnection } from "./onboarding/FacebookConnection";
-import { ShopifyConnection } from "./onboarding/ShopifyConnection";
-import { LLMConfiguration } from "./onboarding/LLMConfiguration";
-import { WebhookVerification } from "./settings/WebhookVerification";
-import { useIntegrationsStore } from "../stores/integrationsStore";
+import { PrerequisiteChecklist } from './onboarding/PrerequisiteChecklist';
+import { DeploymentWizard } from './onboarding/DeploymentWizard';
+import { FacebookConnection } from './onboarding/FacebookConnection';
+import { ShopifyConnection } from './onboarding/ShopifyConnection';
+import { LLMConfiguration } from './onboarding/LLMConfiguration';
+import { WebhookVerification } from './settings/WebhookVerification';
+import { InteractiveTutorial } from './onboarding/InteractiveTutorial';
+import { useIntegrationsStore } from '../stores/integrationsStore';
 
 export function App() {
   const { facebookConnection, shopifyConnection } = useIntegrationsStore();
@@ -23,16 +24,11 @@ export function App() {
         <div className="space-y-8">
           <PrerequisiteChecklist />
           <DeploymentWizard />
-          {facebookConnection.connected && (
-            <FacebookConnection />
-          )}
-          {facebookConnection.connected && (
-            <ShopifyConnection />
-          )}
-          {facebookConnection.connected && shopifyConnection.connected && (
-            <LLMConfiguration />
-          )}
+          {facebookConnection.connected && <FacebookConnection />}
+          {facebookConnection.connected && <ShopifyConnection />}
+          {facebookConnection.connected && shopifyConnection.connected && <LLMConfiguration />}
           <WebhookVerification />
+          <InteractiveTutorial />
         </div>
       </main>
     </div>

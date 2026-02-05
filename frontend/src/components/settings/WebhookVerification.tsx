@@ -67,7 +67,11 @@ export function WebhookVerification() {
   };
 
   const handleResubscribeFacebook = async () => {
-    if (!confirm('Re-subscribe to Facebook webhooks? This will re-establish the webhook subscription.')) {
+    if (
+      !confirm(
+        'Re-subscribe to Facebook webhooks? This will re-establish the webhook subscription.'
+      )
+    ) {
       return;
     }
     try {
@@ -78,7 +82,11 @@ export function WebhookVerification() {
   };
 
   const handleResubscribeShopify = async () => {
-    if (!confirm('Re-subscribe to Shopify webhooks? This will re-establish the webhook subscriptions.')) {
+    if (
+      !confirm(
+        'Re-subscribe to Shopify webhooks? This will re-establish the webhook subscriptions.'
+      )
+    ) {
       return;
     }
     try {
@@ -142,12 +150,7 @@ export function WebhookVerification() {
             </div>
             <div className="flex items-center gap-2">
               {getOverallStatusBadge()}
-              <Button
-                onClick={loadStatus}
-                disabled={isRefreshing}
-                variant="outline"
-                size="sm"
-              >
+              <Button onClick={loadStatus} disabled={isRefreshing} variant="outline" size="sm">
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
             </div>
@@ -168,12 +171,7 @@ export function WebhookVerification() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
-          <Button
-            onClick={clearError}
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-          >
+          <Button onClick={clearError} variant="ghost" size="sm" className="ml-auto">
             Dismiss
           </Button>
         </Alert>
@@ -192,7 +190,7 @@ export function WebhookVerification() {
       )}
 
       {/* Webhook Status Cards */}
-      {status && (
+      {status && status.facebook && status.shopify && (
         <div className="grid gap-6 md:grid-cols-2">
           <WebhookStatusCard
             platform="facebook"
@@ -200,11 +198,11 @@ export function WebhookVerification() {
             isLoading={isTestingFacebook || isResubscribingFacebook}
             onTest={handleTestFacebook}
             onResubscribe={handleResubscribeFacebook}
-            lastTestResult={
-              lastTestResult?.pageId ? lastTestResult : undefined
-            }
+            lastTestResult={lastTestResult?.pageId ? (lastTestResult as any) : undefined}
             lastResubscribeResult={
-              lastResubscribeResult?.platform === 'facebook' ? lastResubscribeResult : undefined
+              lastResubscribeResult?.platform === 'facebook'
+                ? (lastResubscribeResult as any)
+                : undefined
             }
           />
           <WebhookStatusCard
@@ -213,11 +211,11 @@ export function WebhookVerification() {
             isLoading={isTestingShopify || isResubscribingShopify}
             onTest={handleTestShopify}
             onResubscribe={handleResubscribeShopify}
-            lastTestResult={
-              lastTestResult?.shopDomain ? lastTestResult : undefined
-            }
+            lastTestResult={lastTestResult?.shopDomain ? (lastTestResult as any) : undefined}
             lastResubscribeResult={
-              lastResubscribeResult?.platform === 'shopify' ? lastResubscribeResult : undefined
+              lastResubscribeResult?.platform === 'shopify'
+                ? (lastResubscribeResult as any)
+                : undefined
             }
           />
         </div>
@@ -230,13 +228,13 @@ export function WebhookVerification() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-slate-600">
           <p>
-            <strong>Webhook not connected?</strong> Make sure you've completed the Facebook Page and Shopify
-            store connection steps in the onboarding process.
+            <strong>Webhook not connected?</strong> Make sure you've completed the Facebook Page and
+            Shopify store connection steps in the onboarding process.
           </p>
           <p>
-            <strong>Test webhook failing?</strong> Try clicking "Resubscribe" to re-establish the webhook
-            subscription. If that doesn't work, check your platform's developer dashboard for webhook
-            settings.
+            <strong>Test webhook failing?</strong> Try clicking "Resubscribe" to re-establish the
+            webhook subscription. If that doesn't work, check your platform's developer dashboard
+            for webhook settings.
           </p>
           <p>
             <strong>Need help?</strong> Consult the{' '}

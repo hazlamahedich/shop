@@ -45,6 +45,10 @@ class ShopifyStorefrontClient:
         self.access_token = access_token or app_settings.get("SHOPIFY_STOREFRONT_ACCESS_TOKEN", "")
         self.store_url = store_url or app_settings.get("SHOPIFY_STORE_URL", "")
         self.base_url = f"{self.store_url}/api/{self.API_VERSION}/graphql.json"
+
+        # Check testing mode
+        self.is_testing = app_settings.get("IS_TESTING", False)
+
         self.logger = structlog.get_logger(__name__)
 
         self.client = httpx.AsyncClient(
@@ -59,6 +63,7 @@ class ShopifyStorefrontClient:
         self,
         category: Optional[str] = None,
         max_price: Optional[float] = None,
+        size: Optional[str] = None,
         first: int = 20,
     ) -> list[dict[str, Any]]:
         """Search for products with filters.
@@ -74,6 +79,10 @@ class ShopifyStorefrontClient:
         Raises:
             APIError: If Shopify API call fails
         """
+        if self.is_testing:
+            self.logger.info("returning_mock_products_for_testing")
+            return self._get_mock_products()
+
         query = self._build_product_search_query(category, max_price, first)
 
         try:
@@ -195,6 +204,93 @@ class ShopifyStorefrontClient:
         }}"""
 
         return query
+
+    def _get_mock_products(self) -> list[dict[str, Any]]:
+        """Return mock products for testing."""
+        return [
+            {
+                "id": "gid://shopify/Product/1",
+                "title": "Performance Running Shoes",
+                "description": "High-performance running shoes.",
+                "descriptionHtml": "<p>High-performance running shoes.</p>",
+                "productType": "Footwear",
+                "tags": ["shoes", "running", "sports"],
+                "vendor": "Nike",
+                "priceRangeV2": {
+                    "minVariantPrice": {"amount": "99.99", "currencyCode": "USD"},
+                    "maxVariantPrice": {"amount": "129.99", "currencyCode": "USD"},
+                },
+                "images": {
+                    "edges": [
+                        {
+                            "node": {
+                                "url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff",
+                                "altText": "Red running shoes",
+                                "width": 800,
+                                "height": 600,
+                            }
+                        }
+                    ]
+                },
+                "variants": {
+                    "edges": [
+                        {
+                            "node": {
+                                "id": "gid://shopify/ProductVariant/1",
+                                "title": "Size 8",
+                                "priceV2": {"amount": "99.99", "currencyCode": "USD"},
+                                "availableForSale": True,
+                                "selectedOptions": [
+                                    {"name": "Size", "value": "8"},
+                                    {"name": "Color", "value": "Red"},
+                                ],
+                            }
+                        }
+                    ]
+                },
+            },
+            {
+                "id": "gid://shopify/Product/2",
+                "title": "Classic Canvas Sneakers",
+                "description": "Casual canvas sneakers for everyday wear.",
+                "descriptionHtml": "<p>Casual canvas sneakers.</p>",
+                "productType": "Footwear",
+                "tags": ["shoes", "casual", "sneakers"],
+                "vendor": "Converse",
+                "priceRangeV2": {
+                    "minVariantPrice": {"amount": "45.00", "currencyCode": "USD"},
+                    "maxVariantPrice": {"amount": "45.00", "currencyCode": "USD"},
+                },
+                "images": {
+                    "edges": [
+                        {
+                            "node": {
+                                "url": "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77",
+                                "altText": "White canvas sneakers",
+                                "width": 800,
+                                "height": 600,
+                            }
+                        }
+                    ]
+                },
+                "variants": {
+                    "edges": [
+                        {
+                            "node": {
+                                "id": "gid://shopify/ProductVariant/2",
+                                "title": "Size 9",
+                                "priceV2": {"amount": "45.00", "currencyCode": "USD"},
+                                "availableForSale": True,
+                                "selectedOptions": [
+                                    {"name": "Size", "value": "9"},
+                                    {"name": "Color", "value": "White"},
+                                ],
+                            }
+                        }
+                    ]
+                },
+            },
+        ]
 
     async def close(self) -> None:
         """Close the HTTP client.

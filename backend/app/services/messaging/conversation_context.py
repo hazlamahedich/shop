@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import redis
+import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
@@ -64,7 +64,7 @@ class ConversationContextManager:
         session_key = self._get_session_key(psid)
 
         try:
-            data = self.redis.get(session_key)
+            data = await self.redis.get(session_key)
             if data:
                 context = json.loads(data)
                 self.logger.debug("conversation_context_retrieved", psid=psid)
@@ -122,7 +122,7 @@ class ConversationContextManager:
                 context["created_at"] = datetime.now(timezone.utc).isoformat()
 
             # Save to Redis with TTL
-            self.redis.setex(
+            await self.redis.setex(
                 session_key,
                 self.SESSION_TTL_SECONDS,
                 json.dumps(context),
@@ -142,7 +142,7 @@ class ConversationContextManager:
         session_key = self._get_session_key(psid)
 
         try:
-            self.redis.delete(session_key)
+            await self.redis.delete(session_key)
             self.logger.info("conversation_context_deleted", psid=psid)
         except Exception as e:
             self.logger.error("context_deletion_failed", psid=psid, error=str(e))
@@ -169,13 +169,17 @@ class ConversationContextManager:
             context["last_message_at"] = datetime.now(timezone.utc).isoformat()
 
             # Save to Redis with TTL
-            self.redis.setex(
+            await self.redis.setex(
                 session_key,
                 self.SESSION_TTL_SECONDS,
                 json.dumps(context),
             )
 
-            self.logger.debug("search_results_stored", psid=psid, result_count=len(search_result.get("products", [])))
+            self.logger.debug(
+                "search_results_stored",
+                psid=psid,
+                result_count=len(search_result.get("products", [])),
+            )
 
         except Exception as e:
             self.logger.error("search_results_update_failed", psid=psid, error=str(e))
@@ -207,7 +211,7 @@ class ConversationContextManager:
             context["last_message_at"] = datetime.now(timezone.utc).isoformat()
 
             # Save to Redis with TTL
-            self.redis.setex(
+            await self.redis.setex(
                 session_key,
                 self.SESSION_TTL_SECONDS,
                 json.dumps(context),

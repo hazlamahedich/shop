@@ -16,6 +16,7 @@ from app.services.llm.openai_service import OpenAIService
 from app.services.llm.anthropic_service import AnthropicService
 from app.services.llm.gemini_service import GeminiService
 from app.services.llm.glm_service import GLMService
+from app.services.llm.mock_service import MockLLMService
 
 
 class LLMProviderFactory:
@@ -31,6 +32,7 @@ class LLMProviderFactory:
         "anthropic": AnthropicService,
         "gemini": GeminiService,
         "glm": GLMService,
+        "mock": MockLLMService,
     }
 
     @classmethod

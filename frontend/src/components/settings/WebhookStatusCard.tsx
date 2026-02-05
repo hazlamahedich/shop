@@ -49,7 +49,7 @@ export function WebhookStatusCard({
     if (isLoading) {
       return <Loader2 className="h-4 w-4 animate-spin" />;
     }
-    if (status.connected) {
+    if (status?.connected) {
       return <CheckCircle2 className="h-4 w-4 text-green-600" />;
     }
     return <XCircle className="h-4 w-4 text-red-600" />;
@@ -64,7 +64,7 @@ export function WebhookStatusCard({
         </Badge>
       );
     }
-    if (status.connected) {
+    if (status?.connected) {
       return (
         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
           <CheckCircle2 className="h-3 w-3" />
@@ -81,7 +81,7 @@ export function WebhookStatusCard({
   };
 
   const getSubscriptionStatusBadge = () => {
-    if (status.subscriptionStatus === 'active') {
+    if (status?.subscriptionStatus === 'active') {
       return (
         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
           Active
@@ -111,7 +111,7 @@ export function WebhookStatusCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Error Message */}
-        {status.error && (
+        {status?.error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             {status.error}
@@ -164,9 +164,9 @@ export function WebhookStatusCard({
           </div>
           <div>
             <span className="text-slate-500">Topics:</span>
-            <span className="ml-2">{status.topics.length} subscribed</span>
+            <span className="ml-2">{status?.topics?.length || 0} subscribed</span>
           </div>
-          {status.lastWebhookAt && (
+          {status?.lastWebhookAt && (
             <div className="col-span-2">
               <span className="text-slate-500">Last webhook:</span>
               <span className="ml-2">{new Date(status.lastWebhookAt).toLocaleString()}</span>
@@ -176,12 +176,7 @@ export function WebhookStatusCard({
 
         {/* Actions */}
         <div className="flex gap-2 pt-2">
-          <Button
-            onClick={onTest}
-            disabled={isLoading}
-            variant="outline"
-            className="flex-1"
-          >
+          <Button onClick={onTest} disabled={isLoading} variant="outline" className="flex-1">
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -191,12 +186,7 @@ export function WebhookStatusCard({
               'Test Webhook'
             )}
           </Button>
-          <Button
-            onClick={onResubscribe}
-            disabled={isLoading}
-            variant="outline"
-            className="flex-1"
-          >
+          <Button onClick={onResubscribe} disabled={isLoading} variant="outline" className="flex-1">
             <RefreshCw className="h-4 w-4 mr-2" />
             Resubscribe
           </Button>
@@ -206,7 +196,7 @@ export function WebhookStatusCard({
         <div className="pt-2 border-t">
           <p className="text-xs text-slate-500 mb-1">Webhook URL:</p>
           <code className="text-xs bg-slate-100 px-2 py-1 rounded block break-all">
-            {status.webhookUrl}
+            {status?.webhookUrl || 'Not configured'}
           </code>
         </div>
       </CardContent>

@@ -15,7 +15,7 @@ import json
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
-import redis
+import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
@@ -45,7 +45,6 @@ class CartRetentionService:
             redis_client: Redis client instance (creates default if not provided)
         """
         if redis_client is None:
-            import redis
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
             self.redis = redis.from_url(redis_url, decode_responses=True)
@@ -83,20 +82,12 @@ class CartRetentionService:
         timestamp_data = {
             "psid": psid,
             "extended_at": datetime.now(timezone.utc).isoformat(),
-            "retention_days": 30
+            "retention_days": 30,
         }
 
-        self.redis.setex(
-            timestamp_key,
-            self.EXTENDED_TTL_SECONDS,
-            json.dumps(timestamp_data)
-        )
+        await self.redis.setex(timestamp_key, self.EXTENDED_TTL_SECONDS, json.dumps(timestamp_data))
 
-        self.logger.info(
-            "cart_extended_retention_enabled",
-            psid=psid,
-            retention_days=30
-        )
+        self.logger.info("cart_extended_retention_enabled", psid=psid, retention_days=30)
 
         return {
             "psid": psid,
@@ -104,7 +95,7 @@ class CartRetentionService:
             "retention_days": 30,
             "expires_at": (
                 datetime.now(timezone.utc) + timedelta(seconds=self.EXTENDED_TTL_SECONDS)
-            ).isoformat()
+            ).isoformat(),
         }
 
     async def is_extended_retention(self, psid: str) -> bool:
@@ -117,7 +108,7 @@ class CartRetentionService:
             True if extended retention is enabled
         """
         timestamp_key = self._get_extended_timestamp_key(psid)
-        return self.redis.exists(timestamp_key) > 0
+        return await self.redis.exists(timestamp_key) > 0
 
     async def get_cart_age_days(self, psid: str) -> Optional[int]:
         """Get age of extended cart in days.
@@ -129,7 +120,7 @@ class CartRetentionService:
             Age in days, or None if not extended retention
         """
         timestamp_key = self._get_extended_timestamp_key(psid)
-        timestamp_data = self.redis.get(timestamp_key)
+        timestamp_data = await self.redis.get(timestamp_key)
 
         if not timestamp_data:
             return None
@@ -140,11 +131,7 @@ class CartRetentionService:
             age = datetime.now(timezone.utc) - created_at
             return age.days
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            self.logger.error(
-                "cart_timestamp_parse_error",
-                psid=psid,
-                error=str(e)
-            )
+            self.logger.error("cart_timestamp_parse_error", psid=psid, error=str(e))
             return None
 
     async def disable_extended_retention(self, psid: str) -> None:
@@ -157,12 +144,9 @@ class CartRetentionService:
             psid: Facebook Page-Scoped ID
         """
         timestamp_key = self._get_extended_timestamp_key(psid)
-        self.redis.delete(timestamp_key)
+        await self.redis.delete(timestamp_key)
 
-        self.logger.info(
-            "cart_extended_retention_disabled",
-            psid=psid
-        )
+        self.logger.info("cart_extended_retention_disabled", psid=psid)
 
     async def cleanup_expired_extended_carts(self, max_age_days: int = 30) -> dict[str, Any]:
         """Clean up extended carts older than max_age_days.
@@ -185,7 +169,7 @@ class CartRetentionService:
             "max_age_days": max_age_days,
             "scanned": 0,
             "removed": 0,
-            "errors": 0
+            "errors": 0,
         }
 
         try:
@@ -195,11 +179,7 @@ class CartRetentionService:
             removed_psids = []
 
             while cursor != 0:
-                cursor, keys = self.redis.scan(
-                    cursor=cursor,
-                    match=pattern,
-                    count=100
-                )
+                cursor, keys = await self.redis.scan(cursor=cursor, match=pattern, count=100)
 
                 results["scanned"] += len(keys)
 
@@ -213,7 +193,7 @@ class CartRetentionService:
 
                         if age_days is None:
                             # Invalid timestamp data, remove
-                            self.redis.delete(key)
+                            await self.redis.delete(key)
                             results["removed"] += 1
                             removed_psids.append(psid)
                             continue
@@ -228,29 +208,21 @@ class CartRetentionService:
                                 "cart_extended_retention_expired",
                                 psid=psid,
                                 age_days=age_days,
-                                max_age_days=max_age_days
+                                max_age_days=max_age_days,
                             )
 
                     except Exception as e:
                         results["errors"] += 1
-                        logger.error(
-                            "cart_cleanup_error",
-                            key=key,
-                            error=str(e)
-                        )
+                        logger.error("cart_cleanup_error", key=key, error=str(e))
 
             logger.info(
                 "cart_retention_cleanup_completed",
                 **results,
-                removed_samples=removed_psids[:10]  # Log first 10
+                removed_samples=removed_psids[:10],  # Log first 10
             )
 
         except Exception as e:
-            logger.error(
-                "cart_retention_cleanup_failed",
-                error=str(e),
-                error_type=type(e).__name__
-            )
+            logger.error("cart_retention_cleanup_failed", error=str(e), error_type=type(e).__name__)
             results["error"] = str(e)
             raise
 

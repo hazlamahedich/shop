@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import redis
+import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
@@ -42,7 +42,7 @@ class SessionService:
     def __init__(
         self,
         redis_client: Optional[redis.Redis] = None,
-        consent_service: Optional[ConsentService] = None
+        consent_service: Optional[ConsentService] = None,
     ) -> None:
         """Initialize session service.
 
@@ -51,7 +51,6 @@ class SessionService:
             consent_service: Consent service instance
         """
         if redis_client is None:
-            import redis
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
             self.redis = redis.from_url(redis_url, decode_responses=True)
@@ -83,19 +82,12 @@ class SessionService:
 
         activity_data: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "psid": psid
+            "psid": psid,
         }
 
-        self.redis.setex(
-            activity_key,
-            ttl_seconds,
-            json.dumps(activity_data)
-        )
+        await self.redis.setex(activity_key, ttl_seconds, json.dumps(activity_data))
 
-        self.logger.info(
-            "activity_updated",
-            psid=psid
-        )
+        self.logger.info("activity_updated", psid=psid)
 
     async def get_last_activity(self, psid: str) -> Optional[datetime]:
         """Get last activity timestamp for shopper.
@@ -107,7 +99,7 @@ class SessionService:
             Datetime of last activity or None if not found
         """
         activity_key = self._get_activity_key(psid)
-        activity_data = self.redis.get(activity_key)
+        activity_data = await self.redis.get(activity_key)
 
         if not activity_data:
             return None
@@ -126,7 +118,7 @@ class SessionService:
         """
         # Check for existing cart
         cart_key = f"cart:{psid}"
-        has_cart = self.redis.exists(cart_key) > 0
+        has_cart = await self.redis.exists(cart_key) > 0
 
         # Check for consent (not pending)
         consent_status = await self.consent_service.get_consent(psid)
@@ -144,7 +136,7 @@ class SessionService:
             Number of items in cart (count of distinct items, not quantity)
         """
         cart_key = f"cart:{psid}"
-        cart_data = self.redis.get(cart_key)
+        cart_data = await self.redis.get(cart_key)
 
         if not cart_data:
             return 0
@@ -169,21 +161,17 @@ class SessionService:
         """
         # Clear cart
         cart_key = f"cart:{psid}"
-        self.redis.delete(cart_key)
+        await self.redis.delete(cart_key)
 
         # Clear consent
         await self.consent_service.revoke_consent(psid)
 
         # Clear activity
         activity_key = self._get_activity_key(psid)
-        self.redis.delete(activity_key)
+        await self.redis.delete(activity_key)
 
         # Clear conversation context (if exists)
         context_key = f"context:{psid}"
-        self.redis.delete(context_key)
+        await self.redis.delete(context_key)
 
-        self.logger.info(
-            "session_cleared",
-            psid=psid,
-            voluntary_data_cleared=True
-        )
+        self.logger.info("session_cleared", psid=psid, voluntary_data_cleared=True)

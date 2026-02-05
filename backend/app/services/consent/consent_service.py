@@ -10,7 +10,8 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import redis
+
+import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
@@ -44,7 +45,6 @@ class ConsentService:
             redis_client: Redis client instance (creates default if not provided)
         """
         if redis_client is None:
-            import redis
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
             self.redis = redis.from_url(redis_url, decode_responses=True)
@@ -74,7 +74,7 @@ class ConsentService:
             ConsentStatus value
         """
         consent_key = self._get_consent_key(psid)
-        consent_data = self.redis.get(consent_key)
+        consent_data = await self.redis.get(consent_key)
 
         if not consent_data:
             return ConsentStatus.PENDING
@@ -82,11 +82,7 @@ class ConsentService:
         data = json.loads(consent_data)
         return ConsentStatus(data.get("status", ConsentStatus.PENDING.value))
 
-    async def record_consent(
-        self,
-        psid: str,
-        consent_granted: bool
-    ) -> dict[str, Any]:
+    async def record_consent(self, psid: str, consent_granted: bool) -> dict[str, Any]:
         """Record shopper's consent choice.
 
         Args:
@@ -101,16 +97,12 @@ class ConsentService:
         consent_data: dict[str, Any] = {
             "status": ConsentStatus.OPTED_IN if consent_granted else ConsentStatus.OPTED_OUT,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "psid": psid
+            "psid": psid,
         }
 
         # Store consent with 30-day TTL
         ttl_seconds = self.CONSENT_TTL_DAYS * 24 * 60 * 60
-        self.redis.setex(
-            consent_key,
-            ttl_seconds,
-            json.dumps(consent_data)
-        )
+        await self.redis.setex(consent_key, ttl_seconds, json.dumps(consent_data))
 
         # Enable extended 30-day cart retention if granted (Story 2.7)
         if consent_granted:
@@ -121,7 +113,7 @@ class ConsentService:
             "consent_recorded",
             psid=psid,
             consent_granted=consent_granted,
-            status=consent_data["status"].value
+            status=consent_data["status"].value,
         )
 
         return consent_data
@@ -135,12 +127,9 @@ class ConsentService:
         consent_key = self._get_consent_key(psid)
 
         # Clear consent record
-        self.redis.delete(consent_key)
+        await self.redis.delete(consent_key)
 
-        self.logger.info(
-            "consent_revoked",
-            psid=psid
-        )
+        self.logger.info("consent_revoked", psid=psid)
 
     async def can_persist_cart(self, psid: str) -> bool:
         """Check if cart can be persisted for shopper.

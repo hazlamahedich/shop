@@ -12,7 +12,12 @@ import httpx
 class ShopifyBaseClient:
     """Base class for Shopify API clients with common patterns."""
 
-    def __init__(self, shop_domain: str, access_token: str, is_testing: bool = False) -> None:
+    def __init__(
+        self,
+        shop_domain: Optional[str] = None,
+        access_token: Optional[str] = None,
+        is_testing: bool = False,
+    ) -> None:
         """Initialize Shopify base client.
 
         Args:
@@ -20,9 +25,15 @@ class ShopifyBaseClient:
             access_token: Shopify access token
             is_testing: Whether running in test mode (uses mock client)
         """
-        self.shop_domain = shop_domain
-        self.access_token = access_token
-        self.is_testing = is_testing
+        from app.core.config import settings
+
+        app_settings = settings()
+
+        self.shop_domain = shop_domain or app_settings.get("SHOPIFY_STORE_URL", "").replace(
+            "https://", ""
+        ).replace("http://", "").strip("/")
+        self.access_token = access_token or app_settings.get("SHOPIFY_STOREFRONT_ACCESS_TOKEN", "")
+        self.is_testing = is_testing or app_settings.get("IS_TESTING", False)
         self._async_client: Optional[httpx.AsyncClient] = None
 
     @property
@@ -35,12 +46,13 @@ class ShopifyBaseClient:
         if self._async_client is None:
             if self.is_testing:
                 from httpx import ASGITransport
+
                 # For testing, use a mock client that raises errors on actual calls
                 # The subclasses override methods to return mock data
                 from app.main import app
+
                 self._async_client = httpx.AsyncClient(
-                    transport=ASGITransport(app=app),
-                    base_url="http://test"
+                    transport=ASGITransport(app=app), base_url="http://test"
                 )
             else:
                 self._async_client = httpx.AsyncClient()
