@@ -13,12 +13,18 @@ NC='\033[0m' # No Color
 # Required arguments
 MERCHANT_KEY="${1:-}"
 SECRET_KEY="${2:-}"
+RAILWAY_TOKEN="${3:-}"
 
 # Validate arguments
 if [[ -z "$MERCHANT_KEY" ]] || [[ -z "$SECRET_KEY" ]]; then
     echo -e "${RED}ERROR: Missing required arguments${NC}"
-    echo "Usage: $0 <MERCHANT_KEY> <SECRET_KEY>"
+    echo "Usage: $0 <MERCHANT_KEY> <SECRET_KEY> [RAILWAY_TOKEN]"
     exit 1
+fi
+
+# Export Railway Token if provided
+if [[ -n "$RAILWAY_TOKEN" ]]; then
+    export RAILWAY_TOKEN
 fi
 
 # Configuration

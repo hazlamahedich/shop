@@ -53,7 +53,7 @@ export const useTutorialStore = create<TutorialState>()(
 
       startTutorial: async () => {
         try {
-          await fetch(`${API_BASE}/start`, {
+          await fetch(`${API_BASE}/start?merchant_id=1`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({}),
@@ -93,7 +93,7 @@ export const useTutorialStore = create<TutorialState>()(
 
       skipTutorial: async () => {
         try {
-          await fetch(`${API_BASE}/skip`, {
+          await fetch(`${API_BASE}/skip?merchant_id=1`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({}),
@@ -110,7 +110,7 @@ export const useTutorialStore = create<TutorialState>()(
 
       completeTutorial: async () => {
         try {
-          await fetch(`${API_BASE}/complete`, {
+          await fetch(`${API_BASE}/complete?merchant_id=1`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({}),
@@ -128,7 +128,7 @@ export const useTutorialStore = create<TutorialState>()(
 
       resetTutorial: async () => {
         try {
-          await fetch(`${API_BASE}/reset`, {
+          await fetch(`${API_BASE}/reset?merchant_id=1`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({}),

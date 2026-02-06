@@ -3,39 +3,22 @@
 Handles OAuth flow, connection status, and webhook management.
 """
 
-from __future__ import annotations
-
-import json
-import os
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from pydantic import ValidationError
 import structlog
 
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.core.config import settings
 from app.core.security import validate_oauth_state
 from app.schemas.integrations import (
     MinimalEnvelope,
-    MetaData,
-    FacebookAuthorizeResponse,
-    FacebookCallbackResponse,
-    FacebookStatusResponse,
-    FacebookDisconnectResponse,
-    WebhookTestResponse,
-    WebhookResubscribeResponse,
-    ShopifyAuthorizeResponse,
-    ShopifyCallbackResponse,
-    ShopifyStatusResponse,
-    ShopifyDisconnectResponse,
+    ShopifyCredentialsRequest,
 )
 from app.services.facebook import (
     FacebookService,
@@ -74,7 +57,7 @@ def create_response(data: dict) -> dict:
         "meta": {
             "requestId": str(uuid4()),
             "timestamp": datetime.utcnow().isoformat(),
-        }
+        },
     }
 
 
@@ -84,9 +67,7 @@ def create_response(data: dict) -> dict:
 @router.get("/integrations/facebook/authorize", response_model=MinimalEnvelope)
 @limiter.limit("1/10 second")  # Rate limit OAuth initiation
 async def facebook_authorize(
-    request: Request,
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
+    request: Request, merchant_id: int, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Initiate Facebook OAuth flow.
 
@@ -120,11 +101,7 @@ async def facebook_authorize(
 
 @router.get("/integrations/facebook/callback", response_model=MinimalEnvelope)
 async def facebook_callback(
-    code: str,
-    state: str,
-    merchant_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    code: str, state: str, merchant_id: int, request: Request, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Handle Facebook OAuth callback.
 
@@ -154,16 +131,14 @@ async def facebook_callback(
             log.warning("oauth_state_mismatch", state=state)
             raise APIError(
                 ErrorCode.FACEBOOK_OAUTH_STATE_MISMATCH,
-                "OAuth state mismatch - possible CSRF attack"
+                "OAuth state mismatch - possible CSRF attack",
             )
 
         service = await get_facebook_service(db)
 
         # Exchange code for short-lived token
         token_response = await service.exchange_code_for_token(
-            code=code,
-            state=state,
-            expected_state=expected_state
+            code=code, state=state, expected_state=expected_state
         )
         short_lived_token = token_response["access_token"]
 
@@ -199,10 +174,7 @@ async def facebook_callback(
 
 
 @router.get("/integrations/facebook/status", response_model=MinimalEnvelope)
-async def facebook_status(
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
-) -> JSONResponse:
+async def facebook_status(merchant_id: int, db: AsyncSession = Depends(get_db)) -> JSONResponse:
     """Get Facebook connection status for merchant.
 
     Args:
@@ -237,10 +209,7 @@ async def facebook_status(
 
 
 @router.delete("/integrations/facebook/disconnect", response_model=MinimalEnvelope)
-async def facebook_disconnect(
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
-) -> JSONResponse:
+async def facebook_disconnect(merchant_id: int, db: AsyncSession = Depends(get_db)) -> JSONResponse:
     """Disconnect Facebook integration for merchant.
 
     Args:
@@ -272,8 +241,7 @@ async def facebook_disconnect(
 
 @router.post("/integrations/facebook/test-webhook", response_model=MinimalEnvelope)
 async def test_facebook_webhook(
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
+    merchant_id: int, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Test Facebook webhook connection.
 
@@ -296,7 +264,7 @@ async def test_facebook_webhook(
         if not integration:
             raise APIError(
                 ErrorCode.FACEBOOK_NOT_CONNECTED,
-                "Facebook Page not connected - cannot test webhook"
+                "Facebook Page not connected - cannot test webhook",
             )
 
         # Check webhook verification status
@@ -304,7 +272,11 @@ async def test_facebook_webhook(
 
         response_data = {
             "success": integration.webhook_verified,
-            "message": "Webhook is verified and working" if integration.webhook_verified else "Webhook not verified - please complete webhook setup",
+            "message": (
+                "Webhook is verified and working"
+                if integration.webhook_verified
+                else "Webhook not verified - please complete webhook setup"
+            ),
             "webhookStatus": webhook_status,
         }
 
@@ -316,9 +288,7 @@ async def test_facebook_webhook(
 
 @router.post("/integrations/facebook/resubscribe-webhook", response_model=MinimalEnvelope)
 async def resubscribe_facebook_webhook(
-    merchant_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    merchant_id: int, request: Request, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Re-subscribe to Facebook webhook.
 
@@ -346,7 +316,7 @@ async def resubscribe_facebook_webhook(
             log.warning("resubscribe_failed_not_connected")
             raise APIError(
                 ErrorCode.FACEBOOK_NOT_CONNECTED,
-                "Facebook Page not connected - cannot resubscribe webhook"
+                "Facebook Page not connected - cannot resubscribe webhook",
             )
 
         # Get page access token and call Graph API to resubscribe
@@ -365,7 +335,7 @@ async def resubscribe_facebook_webhook(
             log.error("webhook_resubscribe_failed", page_id=integration.page_id)
             raise APIError(
                 ErrorCode.FACEBOOK_WEBHOOK_VERIFY_FAILED,
-                "Failed to re-subscribe webhook with Facebook"
+                "Failed to re-subscribe webhook with Facebook",
             )
 
         return JSONResponse(content=create_response(response_data))
@@ -381,10 +351,7 @@ async def resubscribe_facebook_webhook(
 @router.get("/integrations/shopify/authorize", response_model=MinimalEnvelope)
 @limiter.limit("1/10 second")  # Rate limit OAuth initiation
 async def shopify_authorize(
-    request: Request,
-    merchant_id: int,
-    shop_domain: str,
-    db: AsyncSession = Depends(get_db)
+    request: Request, merchant_id: int, shop_domain: str, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Initiate Shopify OAuth flow.
 
@@ -424,11 +391,7 @@ async def shopify_authorize(
 
 @router.get("/integrations/shopify/callback", response_model=MinimalEnvelope)
 async def shopify_callback(
-    code: str,
-    state: str,
-    shop: str,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    code: str, state: str, shop: str, request: Request, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Handle Shopify OAuth callback.
 
@@ -455,10 +418,10 @@ async def shopify_callback(
         # Validate state from session (CSRF protection)
         expected_merchant_id = validate_oauth_state(state)
         if not expected_merchant_id:
-            log.warning("shopify_oauth_state_mismatch", state=state)
+            log.warning("shopify_oauth_state_mismatch")
             raise APIError(
                 ErrorCode.SHOPIFY_OAUTH_STATE_MISMATCH,
-                "OAuth state mismatch - possible CSRF attack"
+                "OAuth state mismatch - possible CSRF attack",
             )
 
         service = await get_shopify_service(db)
@@ -467,6 +430,7 @@ async def shopify_callback(
         token_response = await service.exchange_code_for_token(
             shop_domain=shop,
             code=code,
+            merchant_id=expected_merchant_id,
         )
         admin_token = token_response["access_token"]
         granted_scopes = token_response["scope"].split(",")
@@ -478,7 +442,7 @@ async def shopify_callback(
             raise APIError(
                 ErrorCode.SHOPIFY_ADMIN_API_ACCESS_DENIED,
                 f"Insufficient permissions granted. Missing scopes: {', '.join(missing_scopes)}. "
-                f"Please grant all required permissions and try again."
+                f"Please grant all required permissions and try again.",
             )
 
         # Verify Admin API access and get shop details
@@ -524,10 +488,7 @@ async def shopify_callback(
 
 
 @router.get("/integrations/shopify/status", response_model=MinimalEnvelope)
-async def shopify_status(
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
-) -> JSONResponse:
+async def shopify_status(merchant_id: int, db: AsyncSession = Depends(get_db)) -> JSONResponse:
     """Get Shopify connection status for merchant.
 
     Args:
@@ -563,10 +524,7 @@ async def shopify_status(
 
 
 @router.delete("/integrations/shopify/disconnect", response_model=MinimalEnvelope)
-async def shopify_disconnect(
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
-) -> JSONResponse:
+async def shopify_disconnect(merchant_id: int, db: AsyncSession = Depends(get_db)) -> JSONResponse:
     """Disconnect Shopify integration for merchant.
 
     Args:
@@ -598,8 +556,7 @@ async def shopify_disconnect(
 
 @router.post("/integrations/shopify/test-webhook", response_model=MinimalEnvelope)
 async def test_shopify_webhook(
-    merchant_id: int,
-    db: AsyncSession = Depends(get_db)
+    merchant_id: int, db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """Test Shopify webhook connection.
 
@@ -621,15 +578,18 @@ async def test_shopify_webhook(
 
         if not integration:
             raise APIError(
-                ErrorCode.SHOPIFY_NOT_CONNECTED,
-                "Shopify store not connected - cannot test webhook"
+                ErrorCode.SHOPIFY_NOT_CONNECTED, "Shopify store not connected - cannot test webhook"
             )
 
         webhook_status = "connected" if integration.webhook_subscribed else "not-connected"
 
         response_data = {
             "success": integration.webhook_subscribed,
-            "message": "Webhook is subscribed" if integration.webhook_subscribed else "Webhook not subscribed",
+            "message": (
+                "Webhook is subscribed"
+                if integration.webhook_subscribed
+                else "Webhook not subscribed"
+            ),
             "webhookStatus": webhook_status,
         }
 
@@ -637,3 +597,33 @@ async def test_shopify_webhook(
 
     except APIError as e:
         raise HTTPException(status_code=400, detail=e.to_dict())
+
+
+@router.post("/integrations/shopify/credentials", status_code=204, response_model=None)
+async def save_shopify_credentials(
+    request: ShopifyCredentialsRequest,
+    db=Depends(get_db),
+    shopify_service=Depends(get_shopify_service),
+) -> None:
+    """Save Shopify App credentials."""
+    try:
+        await shopify_service.save_shopify_credentials(
+            merchant_id=request.merchant_id,
+            api_key=request.api_key,
+            api_secret=request.api_secret,
+        )
+    except APIError as e:
+        raise HTTPException(status_code=400, detail=e.to_dict())
+    except Exception as e:
+        logger.error(
+            "unexpected_error_saving_shopify_credentials",
+            merchant_id=request.merchant_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": ErrorCode.UNEXPECTED_ERROR,
+                "message": "An unexpected error occurred.",
+            },
+        )

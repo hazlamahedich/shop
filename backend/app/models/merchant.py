@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, JSON
+from sqlalchemy import String, Integer, DateTime
 from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,7 +39,9 @@ class Merchant(Base):
     # Use PostgreSQL ENUM to properly map to the database type
     status: Mapped[str] = mapped_column(
         ENUM(
-            "pending", "active", "failed",
+            "pending",
+            "active",
+            "failed",
             name="merchant_status",
             create_type=False,  # Type already exists from migration
         ),

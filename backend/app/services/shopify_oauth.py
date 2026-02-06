@@ -5,11 +5,8 @@ Handles OAuth flow, token management, and API client operations.
 
 from __future__ import annotations
 
-import json
-import os
 import re
-from datetime import datetime
-from typing import Optional, Any, Dict
+from typing import Optional, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -26,8 +23,6 @@ from app.core.security import (
 )
 from app.core.errors import APIError, ErrorCode
 from app.core.config import settings
-from app.services.shopify_storefront import ShopifyStorefrontClient
-from app.services.shopify_admin import ShopifyAdminClient
 
 # Shopify API endpoints
 SHOPIFY_OAUTH_DIALOG_URL = "https://{shop}/admin/oauth/authorize"
@@ -61,7 +56,7 @@ def validate_shop_domain(shop_domain: str) -> bool:
         >>> validate_shop_domain("mystore.com")
         False
     """
-    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$'
+    pattern = r"^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$"
     return re.match(pattern, shop_domain) is not None
 
 
@@ -90,9 +85,9 @@ class ShopifyService:
             if self.is_testing:
                 from httpx import ASGITransport
                 from app.main import app
+
                 self._async_client = httpx.AsyncClient(
-                    transport=ASGITransport(app=app),
-                    base_url="http://test"
+                    transport=ASGITransport(app=app), base_url="http://test"
                 )
             else:
                 self._async_client = httpx.AsyncClient()
@@ -121,7 +116,7 @@ class ShopifyService:
         if not validate_shop_domain(shop_domain):
             raise APIError(
                 ErrorCode.SHOPIFY_SHOP_DOMAIN_INVALID,
-                "Shop domain format is invalid. Expected format: mystore.myshopify.com"
+                "Shop domain format invalid. Expected: mystore.myshopify.com",
             )
 
         config = settings()
@@ -131,14 +126,24 @@ class ShopifyService:
         if not api_key:
             raise APIError(
                 ErrorCode.SHOPIFY_ENCRYPTION_KEY_MISSING,
-                "Shopify API Key not configured"
+                "Shopify API Key not configured",
             )
 
         if not redirect_uri:
             raise APIError(
                 ErrorCode.SHOPIFY_ENCRYPTION_KEY_MISSING,
-                "Shopify redirect URI not configured"
+                "Shopify redirect URI not configured",
             )
+
+        # Use merchant-specific credentials if available in config
+        result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = result.scalars().first()
+
+        if merchant and merchant.config:
+            merchant_api_key = merchant.config.get("shopify_api_key")
+            if merchant_api_key:
+                api_key = merchant_api_key
+                logger.debug("using_merchant_shopify_api_key", merchant_id=merchant_id)
 
         # Generate state token for CSRF protection (stores merchant_id)
         state = generate_oauth_state(merchant_id)
@@ -153,19 +158,22 @@ class ShopifyService:
             "grant_options[]": "per-user",
         }
 
-        auth_url = f"{SHOPIFY_OAUTH_DIALOG_URL.format(shop=shop_domain)}?{urlencode(params)}"
+        query_string = urlencode(params)
+        auth_url = f"{SHOPIFY_OAUTH_DIALOG_URL.format(shop=shop_domain)}?{query_string}"
         return auth_url, state
 
     async def exchange_code_for_token(
         self,
         shop_domain: str,
         code: str,
+        merchant_id: Optional[int] = None,
     ) -> dict[str, Any]:
         """Exchange authorization code for Admin API access token.
 
         Args:
             shop_domain: Shopify shop domain
             code: Authorization code from Shopify
+            merchant_id: Optional merchant ID for manual credential lookup
 
         Returns:
             Dict with access_token, scope, and associated_user
@@ -177,6 +185,33 @@ class ShopifyService:
         api_key = config.get("SHOPIFY_API_KEY")
         api_secret = config.get("SHOPIFY_API_SECRET")
         redirect_uri = config.get("SHOPIFY_REDIRECT_URI")
+
+        # Try to find merchant-specific credentials
+        lookup_id = merchant_id
+        if not lookup_id:
+            # Fallback to finding merchant by shop_domain if merchant_id not provided
+            result = await self.db.execute(
+                select(ShopifyIntegration).where(ShopifyIntegration.shop_domain == shop_domain)
+            )
+            integration = result.scalars().first()
+            if integration:
+                lookup_id = integration.merchant_id
+
+        if lookup_id:
+            merchant_result = await self.db.execute(
+                select(Merchant).where(Merchant.id == lookup_id)
+            )
+            merchant = merchant_result.scalars().first()
+            if merchant and merchant.config:
+                merchant_api_key = merchant.config.get("shopify_api_key")
+                merchant_api_secret_encrypted = merchant.config.get("shopify_api_secret_encrypted")
+                if merchant_api_key and merchant_api_secret_encrypted:
+                    api_key = merchant_api_key
+                    api_secret = decrypt_access_token(merchant_api_secret_encrypted)
+                    logger.debug(
+                        "using_merchant_shopify_credentials",
+                        merchant_id=lookup_id,
+                    )
 
         # Exchange code for access token
         params = {
@@ -198,7 +233,7 @@ class ShopifyService:
                         "email": "test@example.com",
                         "email_verified": True,
                         "account_owner": True,
-                    }
+                    },
                 }
 
             url = SHOPIFY_TOKEN_EXCHANGE_URL.format(shop=shop_domain)
@@ -209,7 +244,7 @@ class ShopifyService:
         except httpx.HTTPStatusError as e:
             raise APIError(
                 ErrorCode.SHOPIFY_TOKEN_EXCHANGE_FAILED,
-                f"Failed to exchange authorization code: {e.response.text}"
+                f"Failed to exchange authorization code: {e.response.text}",
             )
 
     async def create_shopify_integration(
@@ -239,16 +274,14 @@ class ShopifyService:
         """
         # Check if merchant already has Shopify integration
         result = await self.db.execute(
-            select(ShopifyIntegration).where(
-                ShopifyIntegration.merchant_id == merchant_id
-            )
+            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
         )
         existing = result.scalars().first()
 
         if existing:
             raise APIError(
                 ErrorCode.SHOPIFY_ALREADY_CONNECTED,
-                "Shopify store already connected to this merchant"
+                "Shopify store already connected to this merchant",
             )
 
         # Encrypt access tokens
@@ -272,10 +305,7 @@ class ShopifyService:
 
         return integration
 
-    async def get_shopify_integration(
-        self,
-        merchant_id: int
-    ) -> Optional[ShopifyIntegration]:
+    async def get_shopify_integration(self, merchant_id: int) -> Optional[ShopifyIntegration]:
         """Get Shopify integration for merchant.
 
         Args:
@@ -285,9 +315,7 @@ class ShopifyService:
             ShopifyIntegration record or None
         """
         result = await self.db.execute(
-            select(ShopifyIntegration).where(
-                ShopifyIntegration.merchant_id == merchant_id
-            )
+            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
         )
         return result.scalars().first()
 
@@ -306,10 +334,7 @@ class ShopifyService:
         integration = await self.get_shopify_integration(merchant_id)
 
         if not integration:
-            raise APIError(
-                ErrorCode.SHOPIFY_NOT_CONNECTED,
-                "Shopify store not connected"
-            )
+            raise APIError(ErrorCode.SHOPIFY_NOT_CONNECTED, "Shopify store not connected")
 
         return decrypt_access_token(integration.admin_token_encrypted)
 
@@ -328,10 +353,7 @@ class ShopifyService:
         integration = await self.get_shopify_integration(merchant_id)
 
         if not integration:
-            raise APIError(
-                ErrorCode.SHOPIFY_NOT_CONNECTED,
-                "Shopify store not connected"
-            )
+            raise APIError(ErrorCode.SHOPIFY_NOT_CONNECTED, "Shopify store not connected")
 
         return decrypt_access_token(integration.storefront_token_encrypted)
 
@@ -350,10 +372,7 @@ class ShopifyService:
         integration = await self.get_shopify_integration(merchant_id)
 
         if not integration:
-            raise APIError(
-                ErrorCode.SHOPIFY_NOT_CONNECTED,
-                "Shopify store not connected"
-            )
+            raise APIError(ErrorCode.SHOPIFY_NOT_CONNECTED, "Shopify store not connected")
 
         return integration.shop_domain
 
@@ -369,16 +388,38 @@ class ShopifyService:
         integration = await self.get_shopify_integration(merchant_id)
 
         if not integration:
-            raise APIError(
-                ErrorCode.SHOPIFY_NOT_CONNECTED,
-                "Shopify store not connected"
-            )
+            raise APIError(ErrorCode.SHOPIFY_NOT_CONNECTED, "Shopify store not connected")
 
         await self.db.delete(integration)
         await self.db.commit()
 
+    async def save_shopify_credentials(self, merchant_id: int, api_key: str, api_secret: str):
+        """Save Shopify API Key and Secret for a merchant."""
+        result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = result.scalars().first()
 
-async def get_shopify_service(db: AsyncSession) -> ShopifyService:
+        if not merchant:
+            raise APIError(
+                ErrorCode.MERCHANT_NOT_FOUND, f"Merchant with id {merchant_id} not found."
+            )
+
+        encrypted_secret = encrypt_access_token(api_secret)
+
+        if merchant.config is None:
+            merchant.config = {}
+
+        merchant.config["shopify_api_key"] = api_key
+        merchant.config["shopify_api_secret_encrypted"] = encrypted_secret
+
+        await self.db.commit()
+        await self.db.refresh(merchant)
+
+
+from fastapi import Depends
+from app.core.database import get_db
+
+
+async def get_shopify_service(db: AsyncSession = Depends(get_db)) -> ShopifyService:
     """Get Shopify service instance.
 
     Args:
@@ -388,4 +429,5 @@ async def get_shopify_service(db: AsyncSession) -> ShopifyService:
         ShopifyService instance
     """
     from app.core.config import is_testing
+
     return ShopifyService(db, is_testing=is_testing())

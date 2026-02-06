@@ -83,6 +83,7 @@ def _safe_step_to_enum(step_value: Optional[str]) -> Optional[DeploymentStep]:
 
     return script_to_enum.get(step_value)
 
+
 # Rate limiting configuration (per AC requirements)
 MIN_DEPLOYMENT_INTERVAL_SECONDS = 600  # 10 minutes between deployments per merchant
 MAX_CONCURRENT_DEPLOYMENTS = 1  # Max concurrent deployments per merchant
@@ -108,7 +109,9 @@ def _get_script_path(platform: Platform) -> Path:
         raise APIError(
             ErrorCode.DEPLOYMENT_FAILED,
             f"Deployment script not found: {script_name}",
-            details={"troubleshootingUrl": f"https://docs.example.com/deploy-troubleshoot#{platform.value}"}
+            details={
+                "troubleshootingUrl": f"https://docs.example.com/deploy-troubleshoot#{platform.value}"
+            },
         )
 
     return script_path
@@ -120,7 +123,7 @@ def generate_merchant_key() -> str:
     Returns:
         A unique merchant key in format "shop-{random8chars}"
     """
-    suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     return f"shop-{suffix}"
 
 
@@ -143,6 +146,7 @@ def hash_secret_key(secret_key: str) -> str:
         Hashed secret key using SHA-256
     """
     import hashlib
+
     return hashlib.sha256(secret_key.encode()).hexdigest()
 
 
@@ -152,7 +156,7 @@ async def _run_deployment_script(
     merchant_key: str,
     secret_key: str,
     merchant_id: int,
-    render_api_key: Optional[str] = None,
+    config: Optional[dict[str, str]] = None,
 ) -> None:
     """Run the deployment script in a subprocess.
 
@@ -164,7 +168,7 @@ async def _run_deployment_script(
         merchant_key: Generated merchant key
         secret_key: Generated SECRET_KEY
         merchant_id: Database merchant ID
-        render_api_key: Optional Render API key
+        config: Optional platform configuration (e.g., API keys)
 
     Raises:
         APIError: If deployment exceeds timeout
@@ -181,7 +185,9 @@ async def _run_deployment_script(
         # Deployment timeout: 15 minutes (900 seconds) per AC requirement
         DEPLOYMENT_TIMEOUT_SECONDS = 900
 
-        async def log_message(level: LogLevel, step: Optional[DeploymentStep], message: str) -> None:
+        async def log_message(
+            level: LogLevel, step: Optional[DeploymentStep], message: str
+        ) -> None:
             """Add a log entry to database."""
             log_entry = DeploymentLogModel(
                 deployment_id=deployment_id,
@@ -196,12 +202,21 @@ async def _run_deployment_script(
 
         try:
             # Log deployment start
-            await log_message(LogLevel.INFO, DeploymentStep.CHECK_CLI, "Starting deployment process")
+            await log_message(
+                LogLevel.INFO, DeploymentStep.CHECK_CLI, "Starting deployment process"
+            )
 
             # Prepare command arguments
             args = [str(script_path), merchant_key, secret_key]
-            if render_api_key:
-                args.append(render_api_key)
+
+            # Add platform-specific tokens if present
+            if config:
+                if platform == Platform.RENDER and config.get("RENDER_API_KEY"):
+                    args.append(config["RENDER_API_KEY"])
+                elif platform == Platform.FLYIO and config.get("FLY_API_TOKEN"):
+                    args.append(config["FLY_API_TOKEN"])
+                elif platform == Platform.RAILWAY and config.get("RAILWAY_TOKEN"):
+                    args.append(config["RAILWAY_TOKEN"])
 
             # Run the script
             process = await asyncio.create_subprocess_exec(
@@ -226,11 +241,15 @@ async def _run_deployment_script(
                         await process.wait()
                     _active_subprocesses.pop(deployment_id, None)
                     await DeploymentService.update_merchant_status(db, merchant_key, "failed")
-                    await log_message(LogLevel.ERROR, None, f"Deployment timeout after {int(elapsed)} seconds")
+                    await log_message(
+                        LogLevel.ERROR, None, f"Deployment timeout after {int(elapsed)} seconds"
+                    )
                     raise APIError(
                         ErrorCode.DEPLOYMENT_TIMEOUT,
                         f"Deployment exceeded time limit of {DEPLOYMENT_TIMEOUT_SECONDS} seconds",
-                        details={"troubleshootingUrl": f"https://docs.example.com/deploy-troubleshoot#{platform.value}"}
+                        details={
+                            "troubleshootingUrl": f"https://docs.example.com/deploy-troubleshoot#{platform.value}"
+                        },
                     )
 
                 line = await process.stdout.readline()
@@ -253,7 +272,9 @@ async def _run_deployment_script(
             if returncode == 0:
                 # Update merchant status to active
                 await DeploymentService.update_merchant_status(db, merchant_key, "active")
-                await log_message(LogLevel.INFO, DeploymentStep.COMPLETE, "Deployment completed successfully")
+                await log_message(
+                    LogLevel.INFO, DeploymentStep.COMPLETE, "Deployment completed successfully"
+                )
             else:
                 stderr_output = (await process.stderr.read()).decode()
                 # Update merchant status to failed
@@ -306,7 +327,7 @@ async def start_deployment(
         raise APIError(
             ErrorCode.VALIDATION_ERROR,
             "Request body is required",
-            details={"errors": [{"field": "platform", "message": "Field required"}]}
+            details={"errors": [{"field": "platform", "message": "Field required"}]},
         )
 
     try:
@@ -315,7 +336,7 @@ async def start_deployment(
         raise APIError(
             ErrorCode.VALIDATION_ERROR,
             "Invalid JSON in request body",
-            details={"errors": [{"message": "Invalid JSON"}]}
+            details={"errors": [{"message": "Invalid JSON"}]},
         )
 
     # Validate platform field exists
@@ -323,7 +344,7 @@ async def start_deployment(
         raise APIError(
             ErrorCode.VALIDATION_ERROR,
             "Platform field is required",
-            details={"errors": [{"field": "platform", "message": "Field required"}]}
+            details={"errors": [{"field": "platform", "message": "Field required"}]},
         )
 
     # Validate platform value
@@ -331,15 +352,13 @@ async def start_deployment(
         start_request = StartDeploymentRequest(**body_data)
     except ValidationError as e:
         raise APIError(
-            ErrorCode.VALIDATION_ERROR,
-            "Invalid platform value",
-            details={"errors": e.errors()}
+            ErrorCode.VALIDATION_ERROR, "Invalid platform value", details={"errors": e.errors()}
         )
 
     # Rate limiting: Check for recent deployments (per AC requirements)
     from sqlalchemy import func, text
     from datetime import timedelta
-    
+
     # Calculate threshold time
     threshold_time = datetime.utcnow() - timedelta(seconds=MIN_DEPLOYMENT_INTERVAL_SECONDS)
     recent_deployments = await db.execute(
@@ -351,7 +370,7 @@ async def start_deployment(
         raise APIError(
             ErrorCode.DEPLOYMENT_IN_PROGRESS,
             f"Deployment already in progress. Please wait {MIN_DEPLOYMENT_INTERVAL_SECONDS // 60} minutes between deployments.",
-            details={"retryAfterSeconds": MIN_DEPLOYMENT_INTERVAL_SECONDS}
+            details={"retryAfterSeconds": MIN_DEPLOYMENT_INTERVAL_SECONDS},
         )
 
     prerequisites = body_data.get("prerequisites")
@@ -397,6 +416,7 @@ async def start_deployment(
             merchant_key=merchant_key,
             secret_key=secret_key,
             merchant_id=merchant.id,
+            config=start_request.config,
         )
     )
 
@@ -444,22 +464,16 @@ async def get_deployment_status(
     logs = result.scalars().all()
 
     if not logs:
-        raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Deployment not found: {deployment_id}"
-        )
+        raise APIError(ErrorCode.MERCHANT_NOT_FOUND, f"Deployment not found: {deployment_id}")
 
     # Get merchant info from first log
     first_log = logs[0]
-    merchant_result = await db.execute(
-        select(Merchant).where(Merchant.id == first_log.merchant_id)
-    )
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == first_log.merchant_id))
     merchant = merchant_result.scalars().first()
 
     if not merchant:
         raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Merchant not found for deployment: {deployment_id}"
+            ErrorCode.MERCHANT_NOT_FOUND, f"Merchant not found for deployment: {deployment_id}"
         )
 
     # Determine status from merchant
@@ -570,7 +584,7 @@ async def stream_deployment_progress(
             logs = result.scalars().all()
 
             if not logs:
-                yield f"data: {{\"error\": \"Deployment not found: {deployment_id}\"}}\n\n"
+                yield f'data: {{"error": "Deployment not found: {deployment_id}"}}\n\n'
                 break
 
             # Get merchant status
@@ -581,7 +595,7 @@ async def stream_deployment_progress(
             merchant = merchant_result.scalars().first()
 
             if not merchant:
-                yield f"data: {{\"error\": \"Merchant not found\"}}\n\n"
+                yield f'data: {{"error": "Merchant not found"}}\n\n'
                 break
 
             # Build deployment state
@@ -648,7 +662,7 @@ async def stream_deployment_progress(
                 updated_at=merchant.updated_at,
             )
 
-            event_data = deployment_state.model_dump(by_alias=True, mode='json')
+            event_data = deployment_state.model_dump(by_alias=True, mode="json")
             yield f"data: {json.dumps(event_data, default=str)}\n\n"
 
             # Stop streaming if deployment is complete or failed
@@ -701,35 +715,26 @@ async def cancel_deployment(
     """
     # Get deployment logs to find merchant
     result = await db.execute(
-        select(DeploymentLogModel)
-        .where(DeploymentLogModel.deployment_id == deployment_id)
-        .limit(1)
+        select(DeploymentLogModel).where(DeploymentLogModel.deployment_id == deployment_id).limit(1)
     )
     first_log = result.scalars().first()
 
     if not first_log:
-        raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Deployment not found: {deployment_id}"
-        )
+        raise APIError(ErrorCode.MERCHANT_NOT_FOUND, f"Deployment not found: {deployment_id}")
 
     # Get merchant
-    merchant_result = await db.execute(
-        select(Merchant).where(Merchant.id == first_log.merchant_id)
-    )
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == first_log.merchant_id))
     merchant = merchant_result.scalars().first()
 
     if not merchant:
         raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Merchant not found for deployment: {deployment_id}"
+            ErrorCode.MERCHANT_NOT_FOUND, f"Merchant not found for deployment: {deployment_id}"
         )
 
     # Check if deployment can be cancelled
     if merchant.status not in ("pending", "active"):
         raise APIError(
-            ErrorCode.DEPLOYMENT_FAILED,
-            f"Cannot cancel deployment with status: {merchant.status}"
+            ErrorCode.DEPLOYMENT_FAILED, f"Cannot cancel deployment with status: {merchant.status}"
         )
 
     # Kill subprocess if running

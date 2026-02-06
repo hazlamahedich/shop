@@ -13,12 +13,18 @@ NC='\033[0m' # No Color
 # Required arguments
 MERCHANT_KEY="${1:-}"
 SECRET_KEY="${2:-}"
+FLY_API_TOKEN="${3:-}"
 
 # Validate arguments
 if [[ -z "$MERCHANT_KEY" ]] || [[ -z "$SECRET_KEY" ]]; then
     echo -e "${RED}ERROR: Missing required arguments${NC}"
-    echo "Usage: $0 <MERCHANT_KEY> <SECRET_KEY>"
+    echo "Usage: $0 <MERCHANT_KEY> <SECRET_KEY> [FLY_API_TOKEN]"
     exit 1
+fi
+
+# Export Fly API Token if provided
+if [[ -n "$FLY_API_TOKEN" ]]; then
+    export FLY_API_TOKEN
 fi
 
 # Configuration

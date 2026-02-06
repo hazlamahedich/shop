@@ -1,36 +1,43 @@
-/** Main App component for Shopping Assistant Bot frontend. */
-
-import { PrerequisiteChecklist } from './onboarding/PrerequisiteChecklist';
-import { DeploymentWizard } from './onboarding/DeploymentWizard';
-import { FacebookConnection } from './onboarding/FacebookConnection';
-import { ShopifyConnection } from './onboarding/ShopifyConnection';
-import { LLMConfiguration } from './onboarding/LLMConfiguration';
-import { WebhookVerification } from './settings/WebhookVerification';
-import { InteractiveTutorial } from './onboarding/InteractiveTutorial';
-import { useIntegrationsStore } from '../stores/integrationsStore';
+import React, { useState, useEffect } from 'react';
+import DashboardLayout from './layout/DashboardLayout';
+import Dashboard from '../pages/Dashboard';
+import Conversations from '../pages/Conversations';
+import Costs from '../pages/Costs';
+import Settings from '../pages/Settings';
+import Onboarding from '../pages/Onboarding';
+import OnboardingSuccess from '../pages/OnboardingSuccess';
 
 export function App() {
-  const { facebookConnection, shopifyConnection } = useIntegrationsStore();
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
-  return (
-    <div className="app min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-slate-900">Shopping Assistant Bot</h1>
-          <p className="text-sm text-slate-600">Merchant Onboarding</p>
-        </div>
-      </header>
-      <main className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="space-y-8">
-          <PrerequisiteChecklist />
-          <DeploymentWizard />
-          {facebookConnection.connected && <FacebookConnection />}
-          {facebookConnection.connected && <ShopifyConnection />}
-          {facebookConnection.connected && shopifyConnection.connected && <LLMConfiguration />}
-          <WebhookVerification />
-          <InteractiveTutorial />
-        </div>
-      </main>
-    </div>
-  );
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  // Simple routing for demo purposes
+  // In a real app we'd use react-router-dom
+  const renderPage = () => {
+    switch (currentPath) {
+      case '/conversations':
+        return <Conversations />;
+      case '/costs':
+        return <Costs />;
+      case '/settings':
+        return <Settings />;
+      case '/onboarding':
+        return <Onboarding />;
+      case '/onboarding/success':
+        return <OnboardingSuccess />;
+      case '/dashboard':
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  return <DashboardLayout>{renderPage()}</DashboardLayout>;
 }

@@ -4,9 +4,9 @@
  * Tracks deployment progress, logs, and status.
  */
 
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import type { Platform, DeploymentStatus, LogLevel } from "../types/enums";
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { Platform, DeploymentStatus, LogLevel } from '../types/enums';
 
 // Re-export Platform type for convenience
 export type { Platform };
@@ -33,8 +33,9 @@ export interface DeploymentState {
 
   // Actions
   setPlatform: (platform: Platform) => void;
-  startDeployment: (platform: Platform) => Promise<void>;
+  startDeployment: (platform: Platform, config?: Record<string, string>) => Promise<void>;
   cancelDeployment: () => Promise<void>;
+  skipDeployment: () => void;
   pollDeploymentStatus: (deploymentId: string) => () => void; // Returns cleanup function
   updateDeploymentStatus: (data: {
     deploymentId: string;
@@ -54,7 +55,7 @@ const initialState = {
   platform: null,
   deploymentId: null,
   merchantKey: null,
-  status: "pending" as DeploymentStatus,
+  status: 'pending' as DeploymentStatus,
   progress: 0,
   logs: [],
   currentStep: null,
@@ -70,14 +71,14 @@ export const useDeploymentStore = create<DeploymentState>()(
 
       setPlatform: (platform) => set({ platform }),
 
-      startDeployment: async (platform: Platform) => {
-        set({ platform, status: "pending", progress: 0, logs: [] });
+      startDeployment: async (platform: Platform, config?: Record<string, string>) => {
+        set({ platform, status: 'pending', progress: 0, logs: [] });
 
         try {
-          const response = await fetch("/api/deployment/start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ platform }),
+          const response = await fetch('/api/deployment/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platform, config }),
           });
 
           if (!response.ok) {
@@ -96,8 +97,8 @@ export const useDeploymentStore = create<DeploymentState>()(
           get().pollDeploymentStatus(data.data.deploymentId);
         } catch (error) {
           set({
-            status: "failed",
-            errorMessage: error instanceof Error ? error.message : "Unknown error",
+            status: 'failed',
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       },
@@ -127,17 +128,18 @@ export const useDeploymentStore = create<DeploymentState>()(
 
             // Stop polling if deployment is complete
             if (
-              deployment.status === "success" ||
-              deployment.status === "failed" ||
-              deployment.status === "cancelled"
+              deployment.status === 'success' ||
+              deployment.status === 'failed' ||
+              deployment.status === 'cancelled'
             ) {
               clearIntervalRef(pollInterval);
             }
           } catch (error) {
             clearIntervalRef(pollInterval);
             set({
-              status: "failed",
-              errorMessage: error instanceof Error ? error.message : "Failed to fetch deployment status",
+              status: 'failed',
+              errorMessage:
+                error instanceof Error ? error.message : 'Failed to fetch deployment status',
             });
           }
         }, 2000);
@@ -152,19 +154,36 @@ export const useDeploymentStore = create<DeploymentState>()(
 
         try {
           const response = await fetch(`/api/deployment/cancel/${deploymentId}`, {
-            method: "POST",
+            method: 'POST',
           });
 
           if (!response.ok) {
             throw new Error(`Failed to cancel deployment: ${response.statusText}`);
           }
 
-          set({ status: "cancelled" });
+          set({ status: 'cancelled' });
         } catch (error) {
           set({
-            errorMessage: error instanceof Error ? error.message : "Failed to cancel deployment",
+            errorMessage: error instanceof Error ? error.message : 'Failed to cancel deployment',
           });
         }
+      },
+
+      skipDeployment: () => {
+        set({
+          platform: 'render', // Default to avoid UI issues
+          status: 'success',
+          merchantKey: 'dev_skipped_deployment',
+          progress: 100,
+          currentStep: 'Deployment Skipped',
+          logs: [
+            {
+              timestamp: new Date().toISOString(),
+              level: 'info',
+              message: 'Deployment skipped for development/testing.',
+            },
+          ],
+        });
       },
 
       updateDeploymentStatus: (data) => set(data),
@@ -174,7 +193,7 @@ export const useDeploymentStore = create<DeploymentState>()(
       reset: () => set(initialState),
     }),
     {
-      name: "shop-deployment-storage",
+      name: 'shop-deployment-storage',
       partialize: (state) => ({
         platform: state.platform,
         deploymentId: state.deploymentId,

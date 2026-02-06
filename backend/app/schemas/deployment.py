@@ -60,8 +60,9 @@ class DeploymentStep(str, Enum):
 class StartDeploymentRequest(BaseSchema):
     """Request to start a new deployment."""
 
-    platform: Platform = Field(
-        description="Deployment platform to use"
+    platform: Platform = Field(description="Deployment platform to use")
+    config: Optional[dict[str, str]] = Field(
+        default=None, description="Platform-specific configuration (e.g., API keys, tokens)"
     )
 
 
@@ -88,7 +89,9 @@ class DeploymentState(BaseSchema):
     progress: int = Field(default=0, ge=0, le=100, description="Progress percentage (0-100)")
     logs: list[DeploymentLogEntry] = Field(default_factory=list, description="Deployment logs")
     error_message: Optional[str] = Field(None, description="Error message if deployment failed")
-    troubleshooting_url: Optional[str] = Field(None, description="Troubleshooting URL if deployment failed")
+    troubleshooting_url: Optional[str] = Field(
+        None, description="Troubleshooting URL if deployment failed"
+    )
     created_at: datetime = Field(description="Deployment creation timestamp")
     updated_at: datetime = Field(description="Last update timestamp")
 

@@ -45,10 +45,12 @@ export interface IntegrationsState {
   initiateFacebookOAuth: () => Promise<void>;
   checkFacebookStatus: () => Promise<void>;
   disconnectFacebook: () => Promise<void>;
+  saveFacebookCredentials: (appId: string, appSecret: string) => Promise<void>;
 
   initiateShopifyOAuth: (shopDomain: string) => Promise<void>;
   checkShopifyStatus: () => Promise<void>;
   disconnectShopify: () => Promise<void>;
+  saveShopifyCredentials: (apiKey: string, apiSecret: string) => Promise<void>;
 
   clearError: () => void;
   clearFacebookError: () => void;
@@ -94,7 +96,9 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
 
     try {
       // Get OAuth URL from backend
-      const response = await fetch(`/api/integrations/facebook/authorize?merchant_id=${merchantId}`);
+      const response = await fetch(
+        `/api/integrations/facebook/authorize?merchant_id=${merchantId}`
+      );
       if (!response.ok) {
         throw new Error('Failed to initiate OAuth');
       }
@@ -140,7 +144,6 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       };
 
       window.addEventListener('message', messageHandler);
-
     } catch (error) {
       set({
         facebookStatus: 'error',
@@ -191,10 +194,13 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     set({ facebookStatus: 'connecting', facebookError: undefined });
 
     try {
-      const response = await fetch(`/api/integrations/facebook/disconnect?merchant_id=${merchantId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await fetch(
+        `/api/integrations/facebook/disconnect?merchant_id=${merchantId}`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to disconnect');
@@ -211,6 +217,39 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       set({
         facebookStatus: 'error',
         facebookError: error instanceof Error ? error.message : 'Failed to disconnect',
+      });
+    }
+  },
+
+  /**
+   * Save Facebook App Credentials
+   */
+  saveFacebookCredentials: async (appId: string, appSecret: string) => {
+    const { merchantId } = get();
+    set({ facebookStatus: 'connecting', facebookError: undefined });
+
+    try {
+      const response = await fetch('/api/integrations/facebook/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          appSecret,
+          merchantId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save credentials');
+      }
+
+      // After saving, try to initiate OAuth immediately or just let user click connect again
+      // For now, reset status to idle so they can click Connect
+      set({ facebookStatus: 'idle' });
+    } catch (error) {
+      set({
+        facebookStatus: 'error',
+        facebookError: error instanceof Error ? error.message : 'Failed to save credentials',
       });
     }
   },
@@ -245,7 +284,7 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     set({ shopifyStatus: 'connecting', shopifyError: undefined });
 
     // Validate shop domain format
-    const shopDomainPattern = /^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/;
+    const shopDomainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
     if (!shopDomainPattern.test(shopDomain)) {
       set({
         shopifyStatus: 'error',
@@ -304,7 +343,6 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       };
 
       window.addEventListener('message', messageHandler);
-
     } catch (error) {
       set({
         shopifyStatus: 'error',
@@ -356,10 +394,13 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     set({ shopifyStatus: 'connecting', shopifyError: undefined });
 
     try {
-      const response = await fetch(`/api/integrations/shopify/disconnect?merchant_id=${merchantId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await fetch(
+        `/api/integrations/shopify/disconnect?merchant_id=${merchantId}`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to disconnect');
@@ -387,6 +428,38 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
    */
   setMerchantId: (merchantId: number) => {
     set({ merchantId });
+  },
+
+  /**
+   * Save Shopify App Credentials
+   */
+  saveShopifyCredentials: async (apiKey: string, apiSecret: string) => {
+    const { merchantId } = get();
+    set({ shopifyStatus: 'connecting', shopifyError: undefined });
+
+    try {
+      const response = await fetch('/api/integrations/shopify/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey,
+          apiSecret,
+          merchantId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save credentials');
+      }
+
+      // After saving, reset status to idle so they can enter domain and click Connect
+      set({ shopifyStatus: 'idle' });
+    } catch (error) {
+      set({
+        shopifyStatus: 'error',
+        shopifyError: error instanceof Error ? error.message : 'Failed to save credentials',
+      });
+    }
   },
 
   /**

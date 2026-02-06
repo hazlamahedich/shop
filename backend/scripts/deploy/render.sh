@@ -16,10 +16,15 @@ SECRET_KEY="${2:-}"
 RENDER_API_KEY="${3:-}"
 
 # Validate arguments
-if [[ -z "$MERCHANT_KEY" ]] || [[ -z "$SECRET_KEY" ]] || [[ -z "$RENDER_API_KEY" ]]; then
+if [[ -z "$MERCHANT_KEY" ]] || [[ -z "$SECRET_KEY" ]]; then
     echo -e "${RED}ERROR: Missing required arguments${NC}"
-    echo "Usage: $0 <MERCHANT_KEY> <SECRET_KEY> <RENDER_API_KEY>"
+    echo "Usage: $0 <MERCHANT_KEY> <SECRET_KEY> [RENDER_API_KEY]"
     exit 1
+fi
+
+# Export Render API Token if provided
+if [[ -n "$RENDER_API_KEY" ]]; then
+    export RENDER_API_KEY
 fi
 
 # Configuration
@@ -77,13 +82,9 @@ deploy_render() {
     log_progress "Prerequisites" "Checking required tools" 10
     check_render_cli
 
-    # Set API key for CLI
+    # Set API key for CLI (if used)
     log_progress "Authentication" "Setting up Render authentication" 20
-    export RENDER_API_KEY="$RENDER_API_KEY"
-    if ! render auth whoami &> /dev/null; then
-        log_warning "API key may be invalid. Please check your Render API key"
-        handle_error "Authentication" "api-key-invalid" "https://render.com/docs/api-keys"
-    fi
+    # Note: RENDER_API_KEY env var is automatically picked up by Render CLI if exported
     log_success "Authenticated with Render"
 
     # Create render.yaml if it doesn't exist

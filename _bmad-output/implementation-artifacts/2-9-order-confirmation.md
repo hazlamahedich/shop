@@ -1,11 +1,5 @@
-# Story 2.9: Order Confirmation
-
-Status: done
-
-## Change Log
-
 - **2026-02-05**: Story 2-9 implementation complete. Order confirmation with PSID tracking, cart clearing, and Messenger integration (42 tests passing).
-- **2026-02-06**: Resolved infrastructure issues (Redis/Postgres) and LLM connection errors. Verified end-to-end Onboarding Flow on Frontend.
+- **2026-02-06**: Resolved infrastructure issues (Redis/Postgres) and LLM connection errors. Implemented manual Facebook AND Shopify credential configuration features to fix connection failures. Verified end-to-end Onboarding Flow on Frontend.
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -593,13 +587,31 @@ None yet - story not started.
 ### Manual Verification - Onboarding Flow & Infrastructure Fixes
 
 **Date**: 2026-02-06
-**Scope**: Infrastructure Recovery -> Onboarding Prerequisite Sync -> Integration Simulation -> Interactive Tutorial
+**Scope**: Infrastructure Recovery -> Onboarding Prerequisite Sync -> Integration Simulation -> Interactive Tutorial -> Facebook Connection Fix
 
 **Infrastructure Recovery**:
 
 - **Issue**: Redis and Postgres were inactive, causing API failures and connection errors.
 - **Resolution**: Successfully started Docker services and verified connectivity.
 - **Bot Fix**: Modified `MessengerSendService` to safely bypass real API calls during development testing, resolving the generic fallback error.
+
+**Facebook Connection Fix**:
+
+- **Issue**: The "Connect to Facebook" button was non-functional due to reliance on environment variables that might be missing or incorrect for specific merchants.
+- **Implementation**:
+  - Added an "Advanced" configuration section to `FacebookConnection.tsx` allowing manual entry of App ID and App Secret.
+  - Implemented `POST /integrations/facebook/credentials` API for secure, encrypted storage of merchant-specific credentials.
+  - Updated `FacebookService` to prioritize merchant-specific config over environment variables.
+- **Verification**: ✅ Confirmed credentials can be saved and are correctly used to initiate the OAuth flow.
+
+**Shopify Connection Fix**:
+
+- **Issue**: Similar to Facebook, Shopify connection could fail if default credentials were not suitable for a specific merchant's private app.
+- **Implementation**:
+  - Added "Advanced" configuration section to `ShopifyConnection.tsx` for manual entry of API Key and API Secret.
+  - Implemented `POST /integrations/shopify/credentials` API for secure storage.
+  - Updated `ShopifyService` to prioritize merchant-provided credentials and use them during OAuth `exchange_code_for_token`.
+- **Verification**: ✅ Confirmed manual credentials correctly override defaults and initiate OAuth.
 
 **Onboarding Verification Results**:
 
@@ -612,3 +624,44 @@ None yet - story not started.
 
 - Onboarding Verification Recording: `onboarding_verification_flow_1770345948153.webp`
 - Mock Flow Recording: `onboarding_mock_flow_1770346233229.webp`
+- Facebook Connection Fix Proof: `onboarding_final_test_connection_1770379058411.png`
+
+### Manual Verification - Deployment Variable Support
+
+**Date**: 2026-02-06
+**Scope**: Deployment Wizard -> Deployment Scripts -> Headless Authentication
+
+**Context**:
+When deploying to cloud platforms (Fly.io, Railway, Render), the previous implementation relied on the CLI being already authenticated on the machine. This is not suitable for a headless "one-click deployment" experience where the user might just want to provide an API token.
+
+**Implementation**:
+
+- **Backend**: Updated `StartDeploymentRequest` schema and `deployment.py` to accept a generic `config` dictionary in the API request.
+- **Shell Scripts**: Updated `flyio.sh`, `railway.sh`, and `render.sh` to accept and export platform-specific tokens (`FLY_API_TOKEN`, `RAILWAY_TOKEN`, `RENDER_API_KEY`) passed as arguments.
+- **Frontend**: Updated `DeploymentWizard.tsx` to display secure password input fields for these tokens when the respective platform is selected.
+
+**Verification**:
+
+- **UI Check**: Confirmed that selecting "Render", "Fly.io", or "Railway" reveals the corresponding API Token input field.
+- **Data Flow**: Confirmed that the token is correctly passed from the React component -> Store -> Backend API -> Shell Script.
+
+### User Interface Polish & Developer Experience
+
+**Date**: 2026-02-06
+**Scope**: Onboarding Wizard Navigation & Testing Utilities
+
+**1. Active Step Highlighting (UI Polish)**
+
+- **Issue**: Users reported difficulty identifying which onboarding step was currently active due to subtle color differences.
+- **Improvement**:
+  - Implemented logic in `Onboarding.tsx` to apply **Bold Primary Color** to the active step's label.
+  - Added a distinct visual indicator (primary color dot) below the active step.
+- **Verification**: ✅ Visual check confirmed the active step is now immediately distinct from completed and future steps.
+
+**2. "Skip Deployment" Utility (Developer Experience)**
+
+- **Issue**: Testing the "Configuration" step (Step 3) was blocked for developers/testers who hadn't performed a real cloud deployment (Step 2).
+- **Implmentation**:
+  - Added a **"Skip / Use Localhost (Development)"** button to the `DeploymentWizard` footer.
+  - Implemented a `skipDeployment` action in `deploymentStore` that sets specific success states (`merchantKey: 'dev_skipped_deployment'`), ensuring downstream availability of Step 3 without external API calls.
+- **Verification**: ✅ Verified that clicking "Skip" simulates a successful deployment and correctly unlocks the Configuration tab.

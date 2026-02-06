@@ -5,14 +5,10 @@ Handles OAuth flow, token management, and Graph API interactions.
 
 from __future__ import annotations
 
-import json
-import os
-from datetime import datetime
-from typing import Optional, Any, Dict
-from urllib.parse import urlencode
-
 import httpx
 import structlog
+from urllib.parse import urlencode
+from typing import Any, Optional, Tuple, Dict, List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,9 +64,9 @@ class FacebookService:
                 # Use ASGITransport for testing
                 from httpx import ASGITransport
                 from app.main import app
+
                 self._async_client = httpx.AsyncClient(
-                    transport=ASGITransport(app=app),
-                    base_url="http://test"
+                    transport=ASGITransport(app=app), base_url="http://test"
                 )
             else:
                 self._async_client = httpx.AsyncClient()
@@ -95,19 +91,18 @@ class FacebookService:
             APIError: If Facebook configuration is missing
         """
         config = settings()
-        app_id = config.get("FACEBOOK_APP_ID")
         redirect_uri = config.get("FACEBOOK_REDIRECT_URI")
+
+        app_id, _ = await self._get_facebook_config(merchant_id)
 
         if not app_id:
             raise APIError(
-                ErrorCode.FACEBOOK_ENCRYPTION_KEY_MISSING,
-                "Facebook App ID not configured"
+                ErrorCode.FACEBOOK_ENCRYPTION_KEY_MISSING, "Facebook App ID not configured"
             )
 
         if not redirect_uri:
             raise APIError(
-                ErrorCode.FACEBOOK_ENCRYPTION_KEY_MISSING,
-                "Facebook redirect URI not configured"
+                ErrorCode.FACEBOOK_ENCRYPTION_KEY_MISSING, "Facebook redirect URI not configured"
             )
 
         # Generate state token for CSRF protection (stores merchant_id)
@@ -126,10 +121,7 @@ class FacebookService:
         return auth_url, state
 
     async def exchange_code_for_token(
-        self,
-        code: str,
-        state: str,
-        expected_state: str
+        self, code: str, state: str, expected_state: str
     ) -> dict[str, Any]:
         """Exchange authorization code for access token.
 
@@ -148,13 +140,27 @@ class FacebookService:
         if state != expected_state:
             raise APIError(
                 ErrorCode.FACEBOOK_OAUTH_STATE_MISMATCH,
-                "OAuth state mismatch - possible CSRF attack"
+                "OAuth state mismatch - possible CSRF attack",
             )
 
         config = settings()
-        app_id = config.get("FACEBOOK_APP_ID")
-        app_secret = config.get("FACEBOOK_APP_SECRET")
+
         redirect_uri = config.get("FACEBOOK_REDIRECT_URI")
+
+        # We need the merchant_id which is embedded in the state check in the caller
+        # But we can try to extract it from the validated state if it was passed,
+        # or we rely on the fact that expected_state should be the merchant_id string if simple,
+        # but here expected_state is boolean/string from validate_oauth_state?
+        # Actually validate_oauth_state returns the merchant_id if valid.
+
+        try:
+            merchant_id = int(expected_state)
+        except ValueError:
+            # Fallback if state logic is different, but based on integrations.py:
+            # expected_state = validate_oauth_state(state) -> returns merchant_id
+            raise APIError(ErrorCode.UNKNOWN_ERROR, "Invalid merchant ID in state")
+
+        app_id, app_secret = await self._get_facebook_config(merchant_id)
 
         # Exchange code for short-lived token
         params = {
@@ -170,20 +176,17 @@ class FacebookService:
                 return {
                     "access_token": "test_short_lived_token",
                     "token_type": "bearer",
-                    "expires_in": 5183949  # ~60 days
+                    "expires_in": 5183949,  # ~60 days
                 }
 
-            response = await self.async_client.post(
-                FACEBOOK_TOKEN_EXCHANGE_URL,
-                params=params
-            )
+            response = await self.async_client.post(FACEBOOK_TOKEN_EXCHANGE_URL, params=params)
             response.raise_for_status()
             return response.json()
 
         except httpx.HTTPStatusError as e:
             raise APIError(
                 ErrorCode.FACEBOOK_TOKEN_EXCHANGE_FAILED,
-                f"Failed to exchange authorization code: {e.response.text}"
+                f"Failed to exchange authorization code: {e.response.text}",
             )
 
     async def get_long_lived_token(self, short_lived_token: str) -> str:
@@ -198,9 +201,27 @@ class FacebookService:
         Raises:
             APIError: If token exchange fails
         """
-        config = settings()
-        app_id = config.get("FACEBOOK_APP_ID")
-        app_secret = config.get("FACEBOOK_APP_SECRET")
+        # We need merchant_config here but can't change signature easily without refactoring caller
+        # However, the caller in integrations.py calls this immediately after exchange_code_for_token
+        # where we DO have merchant_id.
+        # But for now, we will just use environment variables as fallback, or refactor to accept merchant_id
+
+        return await self._get_long_lived_token_impl(short_lived_token, None)
+
+    async def _get_long_lived_token_impl(
+        self, short_lived_token: str, merchant_id: Optional[int]
+    ) -> str:
+
+        app_id = None
+        app_secret = None
+
+        if merchant_id:
+            app_id, app_secret = await self._get_facebook_config(merchant_id)
+
+        if not app_id or not app_secret:
+            config = settings()
+            app_id = config.get("FACEBOOK_APP_ID")
+            app_secret = config.get("FACEBOOK_APP_SECRET")
 
         params = {
             "grant_type": "fb_exchange_token",
@@ -214,10 +235,7 @@ class FacebookService:
                 # Return mock long-lived token in test mode
                 return "test_long_lived_token"
 
-            response = await self.async_client.get(
-                FACEBOOK_LONG_LIVED_TOKEN_URL,
-                params=params
-            )
+            response = await self.async_client.get(FACEBOOK_LONG_LIVED_TOKEN_URL, params=params)
             response.raise_for_status()
             data = response.json()
             return data["access_token"]
@@ -225,13 +243,10 @@ class FacebookService:
         except httpx.HTTPStatusError as e:
             raise APIError(
                 ErrorCode.FACEBOOK_TOKEN_EXCHANGE_FAILED,
-                f"Failed to get long-lived token: {e.response.text}"
+                f"Failed to get long-lived token: {e.response.text}",
             )
 
-    async def verify_page_access(
-        self,
-        access_token: str
-    ) -> dict[str, Any]:
+    async def verify_page_access(self, access_token: str) -> dict[str, Any]:
         """Verify page access token and fetch page details.
 
         Args:
@@ -254,13 +269,10 @@ class FacebookService:
                 return {
                     "id": "123456789",
                     "name": "Test Store",
-                    "picture": {"data": {"url": "https://example.com/picture.jpg"}}
+                    "picture": {"data": {"url": "https://example.com/picture.jpg"}},
                 }
 
-            response = await self.async_client.get(
-                f"{FACEBOOK_GRAPH_API_URL}/me",
-                params=params
-            )
+            response = await self.async_client.get(f"{FACEBOOK_GRAPH_API_URL}/me", params=params)
             response.raise_for_status()
             return response.json()
 
@@ -268,12 +280,45 @@ class FacebookService:
             if e.response.status_code == 401 or e.response.status_code == 403:
                 raise APIError(
                     ErrorCode.FACEBOOK_PAGE_ACCESS_DENIED,
-                    "Insufficient permissions - please grant pages_messaging and pages_manage_metadata"
+                    "Insufficient permissions - please grant pages_messaging and pages_manage_metadata",
                 )
             raise APIError(
                 ErrorCode.FACEBOOK_PAGE_ACCESS_DENIED,
-                f"Failed to verify page access: {e.response.text}"
+                f"Failed to verify page access: {e.response.text}",
             )
+
+    async def _get_facebook_config(self, merchant_id: int) -> tuple[Optional[str], Optional[str]]:
+        """Get Facebook App ID and Secret.
+
+        Prioritizes merchant-specific config over environment variables.
+        """
+        from app.models.merchant import Merchant
+        from app.core.security import decrypt_access_token
+
+        # Try to get from merchant config
+        result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = result.scalars().first()
+
+        app_id = None
+        app_secret = None
+
+        if merchant and merchant.config:
+            app_id = merchant.config.get("facebook_app_id")
+            encrypted_secret = merchant.config.get("facebook_app_secret_encrypted")
+            if encrypted_secret:
+                try:
+                    app_secret = decrypt_access_token(encrypted_secret)
+                except Exception:
+                    logger.warning("failed_to_decrypt_app_secret", merchant_id=merchant_id)
+
+        # Fallback to environment variables
+        config = settings()
+        if not app_id:
+            app_id = config.get("FACEBOOK_APP_ID")
+        if not app_secret:
+            app_secret = config.get("FACEBOOK_APP_SECRET")
+
+        return app_id, app_secret
 
     async def resubscribe_webhook(self, integration: FacebookIntegration) -> bool:
         """Re-subscribe to Facebook webhook via Graph API.
@@ -297,8 +342,7 @@ class FacebookService:
                 return True
 
             response = await self.async_client.post(
-                f"{FACEBOOK_GRAPH_API_URL}/{integration.page_id}/subscribed_apps",
-                params=params
+                f"{FACEBOOK_GRAPH_API_URL}/{integration.page_id}/subscribed_apps", params=params
             )
             response.raise_for_status()
             data = response.json()
@@ -309,7 +353,7 @@ class FacebookService:
                 "webhook_resubscribe_failed",
                 page_id=integration.page_id,
                 status_code=e.response.status_code,
-                response=e.response.text
+                response=e.response.text,
             )
             return False
 
@@ -340,16 +384,14 @@ class FacebookService:
         """
         # Check if merchant already has Facebook integration
         result = await self.db.execute(
-            select(FacebookIntegration).where(
-                FacebookIntegration.merchant_id == merchant_id
-            )
+            select(FacebookIntegration).where(FacebookIntegration.merchant_id == merchant_id)
         )
         existing = result.scalars().first()
 
         if existing:
             raise APIError(
                 ErrorCode.FACEBOOK_ALREADY_CONNECTED,
-                "Facebook Page already connected to this merchant"
+                "Facebook Page already connected to this merchant",
             )
 
         # Encrypt access token
@@ -372,10 +414,7 @@ class FacebookService:
 
         return integration
 
-    async def get_facebook_integration(
-        self,
-        merchant_id: int
-    ) -> Optional[FacebookIntegration]:
+    async def get_facebook_integration(self, merchant_id: int) -> Optional[FacebookIntegration]:
         """Get Facebook integration for merchant.
 
         Args:
@@ -385,9 +424,7 @@ class FacebookService:
             FacebookIntegration record or None
         """
         result = await self.db.execute(
-            select(FacebookIntegration).where(
-                FacebookIntegration.merchant_id == merchant_id
-            )
+            select(FacebookIntegration).where(FacebookIntegration.merchant_id == merchant_id)
         )
         return result.scalars().first()
 
@@ -406,10 +443,7 @@ class FacebookService:
         integration = await self.get_facebook_integration(merchant_id)
 
         if not integration:
-            raise APIError(
-                ErrorCode.FACEBOOK_NOT_CONNECTED,
-                "Facebook Page not connected"
-            )
+            raise APIError(ErrorCode.FACEBOOK_NOT_CONNECTED, "Facebook Page not connected")
 
         return decrypt_access_token(integration.access_token_encrypted)
 
@@ -425,19 +459,13 @@ class FacebookService:
         integration = await self.get_facebook_integration(merchant_id)
 
         if not integration:
-            raise APIError(
-                ErrorCode.FACEBOOK_NOT_CONNECTED,
-                "Facebook Page not connected"
-            )
+            raise APIError(ErrorCode.FACEBOOK_NOT_CONNECTED, "Facebook Page not connected")
 
         await self.db.delete(integration)
         await self.db.commit()
 
     async def create_or_update_conversation(
-        self,
-        merchant_id: int,
-        platform: str,
-        sender_id: str
+        self, merchant_id: int, platform: str, sender_id: str
     ) -> Conversation:
         """Create or update conversation for incoming message.
 
@@ -455,7 +483,7 @@ class FacebookService:
                 Conversation.merchant_id == merchant_id,
                 Conversation.platform == platform,
                 Conversation.platform_sender_id == sender_id,
-                Conversation.status == "active"
+                Conversation.status == "active",
             )
         )
         conversation = result.scalars().first()
@@ -480,7 +508,7 @@ class FacebookService:
         sender: str,
         content: str,
         message_type: str = "text",
-        message_metadata: Optional[dict] = None
+        message_metadata: Optional[dict] = None,
     ) -> Message:
         """Store message in conversation with automatic encryption.
 
@@ -522,8 +550,36 @@ class FacebookService:
 
         return message
 
+    async def save_facebook_credentials(self, merchant_id: int, app_id: str, app_secret: str):
+        """Save Facebook App ID and Secret for a merchant."""
+        from app.models.merchant import Merchant
+        from app.core.security import encrypt_access_token
 
-async def get_facebook_service(db: AsyncSession) -> FacebookService:
+        result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = result.scalars().first()
+
+        if not merchant:
+            raise APIError(
+                ErrorCode.MERCHANT_NOT_FOUND, f"Merchant with id {merchant_id} not found."
+            )
+
+        encrypted_secret = encrypt_access_token(app_secret)
+
+        if merchant.config is None:
+            merchant.config = {}
+
+        merchant.config["facebook_app_id"] = app_id
+        merchant.config["facebook_app_secret_encrypted"] = encrypted_secret
+
+        await self.db.commit()
+        await self.db.refresh(merchant)
+
+
+from fastapi import Depends
+from app.core.database import get_db
+
+
+async def get_facebook_service(db: AsyncSession = Depends(get_db)) -> FacebookService:
     """Get Facebook service instance.
 
     Args:
@@ -533,4 +589,5 @@ async def get_facebook_service(db: AsyncSession) -> FacebookService:
         FacebookService instance
     """
     from app.core.config import is_testing
+
     return FacebookService(db, is_testing=is_testing())

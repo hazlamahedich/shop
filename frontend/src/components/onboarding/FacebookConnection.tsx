@@ -3,12 +3,16 @@
  * Handles Facebook Page OAuth connection with status display
  */
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useIntegrationsStore } from '../../stores/integrationsStore';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Alert } from '../ui/Alert';
 import { Avatar, AvatarImage } from '../ui/Avatar';
+import { Input } from '../ui/Input';
+import { Label } from '../ui/Label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export interface FacebookConnectionProps {
   /** Whether to show in compact mode */
@@ -31,8 +35,14 @@ export function FacebookConnection({
     initiateFacebookOAuth,
     checkFacebookStatus,
     disconnectFacebook,
+    saveFacebookCredentials,
     clearError,
   } = useIntegrationsStore();
+
+  const [showConfig, setShowConfig] = useState(false);
+  const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Check status on mount
   useEffect(() => {
@@ -55,14 +65,31 @@ export function FacebookConnection({
     await disconnectFacebook();
   };
 
+  const handleSaveCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appId || !appSecret) return;
+
+    setIsSaving(true);
+    await saveFacebookCredentials(appId, appSecret);
+    setIsSaving(false);
+    // After saving, immediately try to connect
+    handleConnect();
+  };
+
   // Render compact version
   if (compact) {
     return (
-      <div className="flex items-center justify-between p-4 border rounded-lg" data-testid="facebook-connection-compact">
+      <div
+        className="flex items-center justify-between p-4 border rounded-lg"
+        data-testid="facebook-connection-compact"
+      >
         <div className="flex items-center gap-3">
           {facebookConnection.connected && facebookConnection.pagePictureUrl && (
             <Avatar className="w-10 h-10">
-              <AvatarImage src={facebookConnection.pagePictureUrl} alt={facebookConnection.pageName} />
+              <AvatarImage
+                src={facebookConnection.pagePictureUrl}
+                alt={facebookConnection.pageName}
+              />
             </Avatar>
           )}
           <div>
@@ -75,7 +102,12 @@ export function FacebookConnection({
           </div>
         </div>
         {facebookConnection.connected ? (
-          <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={facebookStatus === 'connecting'}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDisconnect}
+            disabled={facebookStatus === 'connecting'}
+          >
             Disconnect
           </Button>
         ) : (
@@ -123,11 +155,16 @@ export function FacebookConnection({
           <div className="flex items-start gap-4">
             {facebookConnection.pagePictureUrl && (
               <Avatar className="w-16 h-16">
-                <AvatarImage src={facebookConnection.pagePictureUrl} alt={facebookConnection.pageName} />
+                <AvatarImage
+                  src={facebookConnection.pagePictureUrl}
+                  alt={facebookConnection.pageName}
+                />
               </Avatar>
             )}
             <div className="flex-1">
-              <h4 className="font-semibold text-lg">{facebookConnection.pageName || 'Facebook Page'}</h4>
+              <h4 className="font-semibold text-lg">
+                {facebookConnection.pageName || 'Facebook Page'}
+              </h4>
               <p className="text-sm text-muted-foreground">Page ID: {facebookConnection.pageId}</p>
               {facebookConnection.connectedAt && (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -145,7 +182,11 @@ export function FacebookConnection({
                 {facebookConnection.webhookVerified ? 'Verified' : 'Pending'}
               </Badge>
             </div>
-            <Button variant="outline" onClick={handleDisconnect} disabled={facebookStatus === 'connecting'}>
+            <Button
+              variant="outline"
+              onClick={handleDisconnect}
+              disabled={facebookStatus === 'connecting'}
+            >
               Disconnect Page
             </Button>
           </div>
@@ -156,14 +197,14 @@ export function FacebookConnection({
           <div className="text-center space-y-4">
             <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
               <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
               </svg>
             </div>
             <div>
               <h4 className="font-semibold text-lg">Connect Your Facebook Page</h4>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Click the button below to authorize the bot to send and receive messages
-                through your Facebook Page.
+                Click the button below to authorize the bot to send and receive messages through
+                your Facebook Page.
               </p>
             </div>
             <Button onClick={handleConnect} disabled={facebookStatus === 'connecting'} size="lg">
@@ -173,6 +214,68 @@ export function FacebookConnection({
               Required permissions: pages_messaging, pages_manage_metadata
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Manual Configuration Section */}
+      {!facebookConnection.connected && (
+        <div className="border rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowConfig(!showConfig)}
+            className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <span className="text-sm font-medium">
+              Advanced: Configure Facebook App Credentials
+            </span>
+            {showConfig ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showConfig && (
+            <div className="p-4 bg-background border-t">
+              <form onSubmit={handleSaveCredentials} className="space-y-4">
+                <Alert>
+                  <p className="text-sm text-muted-foreground">
+                    If the "Connect" button above fails, you may need to provide your own Facebook
+                    App ID and Secret. You can find these in the{' '}
+                    <a
+                      href="https://developers.facebook.com/apps/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline text-primary"
+                    >
+                      Meta for Developers Dashboard
+                    </a>
+                    .
+                  </p>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label htmlFor="appId">App ID</Label>
+                  <Input
+                    id="appId"
+                    value={appId}
+                    onChange={(e) => setAppId(e.target.value)}
+                    placeholder="e.g., 1234567890"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="appSecret">App Secret</Label>
+                  <Input
+                    id="appSecret"
+                    type="password"
+                    value={appSecret}
+                    onChange={(e) => setAppSecret(e.target.value)}
+                    placeholder="e.g., a1b2c3d4e5..."
+                  />
+                </div>
+
+                <Button type="submit" disabled={isSaving || !appId || !appSecret}>
+                  {isSaving ? 'Saving...' : 'Save & Connect'}
+                </Button>
+              </form>
+            </div>
+          )}
         </div>
       )}
 

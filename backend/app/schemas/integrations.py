@@ -28,6 +28,14 @@ class FacebookAuthorizeResponse(BaseSchema):
     state: str = Field(..., description="CSRF state token for callback validation")
 
 
+class FacebookCredentialsRequest(BaseSchema):
+    """Request to update Facebook App credentials."""
+
+    app_id: str = Field(..., description="Facebook App ID")
+    app_secret: str = Field(..., description="Facebook App Secret")
+    merchant_id: int = Field(..., description="Merchant ID")
+
+
 class FacebookCallbackRequest(BaseSchema):
     """Facebook OAuth callback request."""
 
@@ -134,6 +142,14 @@ class ShopifyCallbackRequest(BaseSchema):
     shop: str = Field(..., description="Shopify shop domain")
 
 
+class ShopifyCredentialsRequest(BaseSchema):
+    """Request to update Shopify App credentials."""
+
+    api_key: str = Field(..., description="Shopify API Key")
+    api_secret: str = Field(..., description="Shopify API Secret")
+    merchant_id: int = Field(..., description="Merchant ID")
+
+
 class ShopifyCallbackResponse(BaseSchema):
     """Response after successful Shopify OAuth callback."""
 
@@ -165,6 +181,7 @@ __all__ = [
     "MetaData",
     "FacebookAuthorizeRequest",
     "FacebookAuthorizeResponse",
+    "FacebookCredentialsRequest",
     "FacebookCallbackRequest",
     "FacebookCallbackResponse",
     "FacebookStatusResponse",
@@ -178,6 +195,7 @@ __all__ = [
     "ShopifyAuthorizeResponse",
     "ShopifyCallbackRequest",
     "ShopifyCallbackResponse",
+    "ShopifyCredentialsRequest",
     "ShopifyStatusResponse",
     "ShopifyDisconnectResponse",
 ]

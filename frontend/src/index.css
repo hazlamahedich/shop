@@ -1,8 +1,68 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-#root {
-  min-height: 100vh;
+@import 'tailwindcss';
+
+@layer base {
+  :root {
+    /* Brand Colors - Primary: Trust Blue */
+    --shop-primary-50: #eff6ff;
+    --shop-primary-100: #dbeafe;
+    --shop-primary-500: #3b82f6;
+    --shop-primary-600: #2563eb;
+    --shop-primary-700: #1d4ed8;
+
+    /* Brand Colors - Accent: Growth Green */
+    --shop-accent-50: #d1fae5;
+    --shop-accent-100: #a7f3d3;
+    --shop-accent-500: #10b981;
+    --shop-accent-600: #059669;
+    --shop-accent-700: #047857;
+
+    /* Spacing Scale */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    /* Theme: Clean Modern (Default) */
+    --card-bg: #ffffff;
+    --card-border: #e5e7eb;
+    --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    --card-radius: 12px;
+    --card-padding: 1.5rem;
+    --stat-bg: #f9fafb;
+    --text-primary: #374151; /* Gray 700 */
+    --text-secondary: #6b7280; /* Gray 500 */
+  }
+
+  [data-theme='onboarding'] {
+    /* Theme: Airy Friendly */
+    --card-bg: linear-gradient(135deg, #dbeafe, #eff6ff);
+    --card-border: transparent;
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    --card-radius: 16px;
+    --card-padding: 2rem;
+    --stat-bg: white;
+  }
+
+  [data-theme='technical'] {
+    /* Theme: Minimal Technical */
+    --card-bg: #0d1117;
+    --card-border: #30363d;
+    --card-shadow: none;
+    --card-radius: 6px;
+    --card-padding: 1rem;
+    --stat-bg: #161b22;
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+  }
+
+  body {
+    @apply font-sans antialiased text-gray-700;
+  }
 }
