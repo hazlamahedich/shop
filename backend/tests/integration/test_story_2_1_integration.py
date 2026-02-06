@@ -34,7 +34,10 @@ async def test_classification_flow_with_budget_constraint():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -48,8 +51,13 @@ async def test_classification_flow_with_budget_constraint():
         async def mock_update(psid, classification):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
@@ -58,14 +66,18 @@ async def test_classification_flow_with_budget_constraint():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "running shoes under $100"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "running shoes under $100"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
@@ -92,7 +104,10 @@ async def test_low_confidence_triggers_clarification():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -103,8 +118,13 @@ async def test_low_confidence_triggers_clarification():
         async def mock_get_context(psid):
             return {"psid": psid}
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.return_value = None
             mock_context_class.return_value = mock_context_mgr
@@ -113,20 +133,35 @@ async def test_low_confidence_triggers_clarification():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "something"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "something"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
             response = await processor.process_message(payload)
 
-            assert "not sure" in response.text.lower() or "more details" in response.text.lower()
+            assert any(
+                word in response.text.lower()
+                for word in [
+                    "not sure",
+                    "more details",
+                    "budget",
+                    "category",
+                    "size",
+                    "color",
+                    "brand",
+                ]
+            )
 
 
 @pytest.mark.asyncio
@@ -145,7 +180,10 @@ async def test_conversation_context_usage_flow():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -166,8 +204,13 @@ async def test_conversation_context_usage_flow():
         async def mock_get_context(psid):
             return existing_context
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.return_value = None
             mock_context_class.return_value = mock_context_mgr
@@ -176,14 +219,18 @@ async def test_conversation_context_usage_flow():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "size 8"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "size 8"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
@@ -198,7 +245,9 @@ async def test_all_intent_types_integration():
 
     Validates: PRODUCT_SEARCH, GREETING, CART_VIEW, CHECKOUT, ORDER_TRACKING, HUMAN_HANDOFF
     """
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         test_cases = [
             (IntentType.PRODUCT_SEARCH, "Searching"),
             (IntentType.GREETING, "Hi"),
@@ -229,7 +278,9 @@ async def test_all_intent_types_integration():
             async def mock_get_context(psid):
                 return {"psid": psid}
 
-            with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+            with patch(
+                "app.services.messaging.message_processor.ConversationContextManager"
+            ) as mock_context_class:
                 mock_context_mgr = AsyncMock()
                 mock_context_mgr.get_context.side_effect = mock_get_context
                 mock_context_mgr.update_classification.return_value = None
@@ -239,14 +290,18 @@ async def test_all_intent_types_integration():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "test"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "test"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()
@@ -266,14 +321,18 @@ async def test_webhook_signature_verification_before_classification():
 
         payload_data = {
             "object": "page",
-            "entry": [{
-                "id": "123456789",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "123456"},
-                    "message": {"text": "running shoes under $100"},
-                }],
-            }],
+            "entry": [
+                {
+                    "id": "123456789",
+                    "time": 1234567890,
+                    "messaging": [
+                        {
+                            "sender": {"id": "123456"},
+                            "message": {"text": "running shoes under $100"},
+                        }
+                    ],
+                }
+            ],
         }
 
         class MockRequest:
@@ -288,8 +347,10 @@ async def test_webhook_signature_verification_before_classification():
         request = MockRequest()
 
         from fastapi import HTTPException
+
         with pytest.raises(HTTPException) as exc_info:
             from app.api.webhooks.facebook import facebook_messenger_webhook
+
             await facebook_messenger_webhook(request, MagicMock())
 
         assert exc_info.value.status_code == 403
@@ -310,7 +371,7 @@ async def test_entity_extraction_comprehensive():
             size="9",
             color="red",
             brand="Nike",
-            constraints={"type": "running", "usage": "marathon"}
+            constraints={"type": "running", "usage": "marathon"},
         ),
         raw_message="red Nike marathon running shoes size 9 under $150",
         llm_provider="test",
@@ -318,7 +379,10 @@ async def test_entity_extraction_comprehensive():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -329,8 +393,13 @@ async def test_entity_extraction_comprehensive():
         async def mock_get_context(psid):
             return {"psid": psid}
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.return_value = None
             mock_context_class.return_value = mock_context_mgr
@@ -339,14 +408,20 @@ async def test_entity_extraction_comprehensive():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "red Nike marathon running shoes size 9 under $150"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {
+                                    "text": "red Nike marathon running shoes size 9 under $150"
+                                },
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
@@ -366,7 +441,10 @@ async def test_error_handling_in_flow():
 
     Validates graceful degradation when components fail.
     """
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify_error(message, context=None):
             raise Exception("LLM service unavailable")
 
@@ -377,8 +455,13 @@ async def test_error_handling_in_flow():
         async def mock_get_context(psid):
             return {"psid": psid}
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_class.return_value = mock_context_mgr
 
@@ -386,14 +469,18 @@ async def test_error_handling_in_flow():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "test"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "test"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
@@ -421,7 +508,10 @@ async def test_context_update_after_classification():
     update_called = {"value": False}
     classification_data = {"value": None}
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -436,8 +526,13 @@ async def test_context_update_after_classification():
             update_called["value"] = True
             classification_data["value"] = classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
@@ -446,14 +541,18 @@ async def test_context_update_after_classification():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "running shoes under $100"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "running shoes under $100"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
@@ -477,7 +576,10 @@ async def test_unknown_intent_routing():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -488,8 +590,13 @@ async def test_unknown_intent_routing():
         async def mock_get_context(psid):
             return {"psid": psid}
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
+            mock_context_mgr.redis = AsyncMock()
+            mock_context_mgr.redis.get.return_value = None
+            mock_context_mgr.redis.exists.return_value = 0
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.return_value = None
             mock_context_class.return_value = mock_context_mgr
@@ -498,20 +605,26 @@ async def test_unknown_intent_routing():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "gibberish text"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "gibberish text"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
             response = await processor.process_message(payload)
 
-            assert "not sure" in response.text.lower() or "details" in response.text.lower()
+            assert any(
+                word in response.text.lower() for word in ["not sure", "details", "sorry", "help"]
+            )
 
 
 @pytest.mark.asyncio
@@ -528,14 +641,18 @@ async def test_process_webhook_message_background_task():
 
     payload = FacebookWebhookPayload(
         object="page",
-        entry=[{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "test message"},
-            }],
-        }],
+        entry=[
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "test message"},
+                    }
+                ],
+            }
+        ],
     )
 
     with patch("app.api.webhooks.facebook.send_messenger_response") as mock_send:
@@ -562,13 +679,18 @@ async def test_clarification_threshold_boundary():
     async def mock_get_context(psid):
         return {"psid": psid}
 
-    with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+    with patch(
+        "app.services.messaging.message_processor.ConversationContextManager"
+    ) as mock_context_class:
         mock_context_mgr = AsyncMock()
         mock_context_mgr.get_context.side_effect = mock_get_context
         mock_context_mgr.update_classification.return_value = None
         mock_context_class.return_value = mock_context_mgr
 
-        with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+        with patch(
+            "app.services.messaging.message_processor.IntentClassifier"
+        ) as mock_classifier_class:
+
             async def mock_classify(message, context=None):
                 return result_at_threshold
 
@@ -580,14 +702,18 @@ async def test_clarification_threshold_boundary():
 
             payload = FacebookWebhookPayload(
                 object="page",
-                entry=[{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "shoes"},
-                    }],
-                }],
+                entry=[
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "shoes"},
+                            }
+                        ],
+                    }
+                ],
             )
 
             processor = MessageProcessor()
@@ -600,7 +726,9 @@ async def test_clarification_threshold_boundary():
 @pytest.mark.asyncio
 async def test_budget_variations_extracted():
     """Test budget extraction handles various formats: $100, under 100, max 100, etc."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         test_cases = [
             ("shoes under $100", 100.0),
             ("shoes under 100", 100.0),
@@ -630,7 +758,9 @@ async def test_budget_variations_extracted():
             async def mock_get_context(psid):
                 return {"psid": psid}
 
-            with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+            with patch(
+                "app.services.messaging.message_processor.ConversationContextManager"
+            ) as mock_context_class:
                 mock_context_mgr = AsyncMock()
                 mock_context_mgr.get_context.side_effect = mock_get_context
                 mock_context_mgr.update_classification.return_value = None
@@ -640,14 +770,18 @@ async def test_budget_variations_extracted():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": phrase},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": phrase},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()

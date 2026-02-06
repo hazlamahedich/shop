@@ -79,6 +79,18 @@ class MessengerSendService:
         }
 
         try:
+            # Bypass real API calls in testing mode (Story 2.1 manual verification fix)
+            if settings().get("IS_TESTING", False):
+                self.logger.info(
+                    "facebook_send_bypassed_in_testing",
+                    recipient_id=recipient_id,
+                    message_payload=message_payload,
+                )
+                return {
+                    "recipient_id": recipient_id,
+                    "message_id": "mid.test_message_id",
+                }
+
             response = await self.client.post(
                 url,
                 json=payload,
