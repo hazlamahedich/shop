@@ -38,4 +38,31 @@ export interface ConversationsListParams {
   perPage?: number;
   sortBy?: 'updated_at' | 'status' | 'created_at';
   sortOrder?: 'asc' | 'desc';
+  // Search and filter parameters
+  search?: string;
+  dateFrom?: string;  // ISO 8601 date string
+  dateTo?: string;    // ISO 8601 date string
+  status?: ConversationStatus[];
+  sentiment?: Sentiment[];
+  hasHandoff?: boolean;
+}
+
+// Filter state for the conversations list
+export interface ConversationsFilterState {
+  searchQuery: string;
+  dateRange: {
+    from: string | null;
+    to: string | null;
+  };
+  statusFilters: ConversationStatus[];
+  sentimentFilters: Sentiment[];
+  hasHandoffFilter: boolean | null;  // true = has handoff, false = no handoff, null = any
+}
+
+// Saved filter for quick re-application
+export interface SavedFilter {
+  id: string;
+  name: string;
+  filters: ConversationsFilterState;
+  createdAt: string;
 }

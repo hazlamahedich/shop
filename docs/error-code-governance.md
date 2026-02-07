@@ -177,11 +177,15 @@ Error codes that have been removed:
 
 ### 7000-7999: Conversation/Session
 
-| Code | Name                   | Description                  | Added      |
-| ---- | ---------------------- | ---------------------------- | ---------- |
-| 7000 | SESSION_EXPIRED        | Session expired              | 2024-02-03 |
-| 7001 | CONVERSATION_NOT_FOUND | Conversation not found       | 2024-02-03 |
-| 7002 | INVALID_CONTEXT        | Invalid conversation context | 2024-02-03 |
+| Code | Name                   | Description                         | Added      |
+| ---- | ---------------------- | ----------------------------------- | ---------- |
+| 7000 | SESSION_EXPIRED        | Session expired                     | 2024-02-03 |
+| 7001 | CONVERSATION_NOT_FOUND | Conversation not found              | 2024-02-03 |
+| 7002 | INVALID_CONTEXT        | Invalid conversation context        | 2024-02-03 |
+| 7003 | INVALID_PAGE_NUMBER    | Page number < 1                     | 2026-02-07 |
+| 7004 | INVALID_PER_PAGE       | Items per page out of range         | 2026-02-07 |
+| 7005 | INVALID_SORT_COLUMN    | Invalid sort column                 | 2026-02-07 |
+| 7006 | MERCHANT_ACCESS_DENIED | Merchant cannot access conversation | 2026-02-07 |
 
 ## Examples
 
@@ -192,15 +196,19 @@ Error codes that have been removed:
 1. **Check ownership:** Product-related → Shopify team → 4000-4999 range ✓
 2. **Pick next code:** 4004 (after 4003)
 3. **Update errors.py:**
-   ```python
-   PRODUCT_OUT_OF_STOCK = 4004
-   ```
+
+```python
+PRODUCT_OUT_OF_STOCK = 4004
+```
+
+
 4. **Document here:** Add to 4000-4999 table
 5. **Add tests:** Create test for new error
 
 ### Error Response Format
 
 All API errors follow this format:
+
 
 ```json
 {
@@ -211,6 +219,7 @@ All API errors follow this format:
   }
 }
 ```
+
 
 ## Review Process
 

@@ -229,5 +229,85 @@ async def async_client(async_session):
         app.dependency_overrides.clear()
 
 
+@pytest.fixture(scope="function")
+async def authenticated_conversation_client(async_session):
+    """Create an async HTTP client with authentication setup for conversations endpoint testing.
+
+    Returns a tuple of (client, merchant_id) for testing protected endpoints.
+    """
+    from app.main import app
+    from app.models.merchant import Merchant
+    from app.core.errors import ErrorCode, APIError
+
+    # Create test merchant
+    merchant = Merchant(
+        merchant_key="test-conversations-auth",
+        platform="facebook",
+        status="active",
+    )
+    async_session.add(merchant)
+    await async_session.commit()
+    await async_session.refresh(merchant)
+
+    # Create a custom transport that injects authentication
+    from httpx import Request as HttpxRequest, Response as HttpxResponse
+    from httpx import ASGITransport
+
+    class AuthenticatedTransport(ASGITransport):
+        """Custom transport that injects authentication into requests."""
+
+        async def handle(
+            self, request: HttpxRequest, handler
+        ) -> HttpxResponse:
+            # Inject merchant_id into request state via a custom header
+            # The app will extract this from request.state
+            request.headers["X-Merchant-ID"] = str(merchant.id)
+            return await handler(request)
+
+    transport = AuthenticatedTransport(app=app)
+
+    # Also override the app's dependency to set merchant_id from our custom header
+    # We need to modify the request processing to extract from header
+    from fastapi import Request
+    from unittest.mock import AsyncMock, patch
+
+    original_get_db = app.dependency_overrides.get(get_db)
+
+    async def override_get_db_with_auth():
+        yield async_session
+
+    async def override_list_conversations(request: Request, *args, **kwargs):
+        # Extract merchant_id from header and set in request.state
+        merchant_id_header = request.headers.get("X-Merchant-ID")
+        if merchant_id_header:
+            try:
+                request.state.merchant_id = int(merchant_id_header)
+            except ValueError:
+                raise APIError(ErrorCode.AUTH_FAILED, "Invalid merchant ID")
+        else:
+            raise APIError(ErrorCode.AUTH_FAILED, "Authentication required")
+
+        # Call the original endpoint function
+        from app.api.conversations import list_conversations
+        # Re-import to get fresh reference
+        import importlib
+        import app.api.conversations
+        importlib.reload(app.api.conversations)
+        return await app.api.conversations.list_conversations(request, *args, **kwargs)
+
+    app.dependency_overrides[get_db] = override_get_db_with_auth
+
+    # Patch the conversations endpoint to use our auth override
+    with patch.object(app.api.conversations, "list_conversations", override_list_conversations):
+        try:
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://test",
+            ) as client:
+                yield client, merchant.id
+        finally:
+            app.dependency_overrides.clear()
+
+
 # Note: pytest-asyncio handles event loop management automatically
 # No custom event_loop fixture needed

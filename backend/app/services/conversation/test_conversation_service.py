@@ -646,3 +646,666 @@ class TestConversationService:
         assert len(conversations) == 1
         # The latest message (message3) should be shown
         assert "Third message (even later)" in conversations[0]["last_message"] or conversations[0]["last_message"] == "Third message (even later)"
+
+    # ========== SEARCH AND FILTER TESTS (Story 3.2) ==========
+
+    async def test_search_by_customer_id(self, async_session):
+        """Test search by platform_sender_id (customer ID)."""
+        merchant = Merchant(
+            merchant_key="test-shop-search",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different customer IDs
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_abc_123",
+            status="active",
+        )
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_xyz_789",
+            status="active",
+        )
+        async_session.add(conv1)
+        async_session.add(conv2)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Search for "abc" should return only conv1
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            search="abc",
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["id"] == conv1.id
+
+    async def test_search_by_message_content(self, async_session):
+        """Test search by bot message content (plaintext).
+
+        Note: Customer messages are encrypted at rest. Searching customer message
+        content requires full-text search infrastructure with decrypted content.
+        This test searches bot messages which are stored in plaintext.
+        """
+        merchant = Merchant(
+            merchant_key="test-shop-search",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different message content
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_1",
+            status="active",
+        )
+        async_session.add(conv1)
+        await async_session.flush()
+
+        # Bot message (plaintext) - searchable
+        msg1 = Message(
+            conversation_id=conv1.id,
+            sender="bot",
+            content="Here are some running shoes for you",
+            message_type="text",
+        )
+        async_session.add(msg1)
+
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_2",
+            status="active",
+        )
+        async_session.add(conv2)
+        await async_session.flush()
+
+        # Bot message (plaintext) - different content
+        msg2 = Message(
+            conversation_id=conv2.id,
+            sender="bot",
+            content="I found some t-shirts for you",
+            message_type="text",
+        )
+        async_session.add(msg2)
+
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Search for "shoes" should return only conv1 (bot response about shoes)
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            search="shoes",
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["id"] == conv1.id
+
+    async def test_search_case_insensitive(self, async_session):
+        """Test search is case-insensitive."""
+        merchant = Merchant(
+            merchant_key="test-shop-search",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        conv = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="RUNNING_SHOES_CUSTOMER",
+            status="active",
+        )
+        async_session.add(conv)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Search with lowercase should find uppercase customer ID
+        # Search for "running" (without space) should match "RUNNING_SHOES_CUSTOMER"
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            search="running",
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["id"] == conv.id
+
+    async def test_search_empty_returns_all(self, async_session):
+        """Test empty search returns all conversations."""
+        merchant = Merchant(
+            merchant_key="test-shop-search",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create multiple conversations
+        for i in range(5):
+            conv = Conversation(
+                merchant_id=merchant.id,
+                platform="facebook",
+                platform_sender_id=f"customer_{i}",
+                status="active",
+            )
+            async_session.add(conv)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Empty search should return all
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            search="",  # Empty search
+        )
+
+        assert total == 5
+        assert len(conversations) == 5
+
+    async def test_filter_by_date_range_both_dates(self, async_session):
+        """Test date range filtering with both start and end dates."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different dates
+        from datetime import timedelta
+
+        base_date = datetime(2026, 2, 7, 12, 0, 0)
+
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_1",
+            status="active",
+            created_at=base_date - timedelta(days=5),  # Feb 2
+        )
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_2",
+            status="active",
+            created_at=base_date - timedelta(days=2),  # Feb 5
+        )
+        conv3 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_3",
+            status="active",
+            created_at=base_date,  # Feb 7
+        )
+        async_session.add(conv1)
+        async_session.add(conv2)
+        async_session.add(conv3)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter for Feb 3-6 should return only conv2
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            date_from="2026-02-03",
+            date_to="2026-02-06",
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["id"] == conv2.id
+
+    async def test_filter_by_date_range_start_only(self, async_session):
+        """Test date range filtering with only start date."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        from datetime import timedelta
+
+        base_date = datetime(2026, 2, 7, 12, 0, 0)
+
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_1",
+            status="active",
+            created_at=base_date - timedelta(days=5),
+        )
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_2",
+            status="active",
+            created_at=base_date - timedelta(days=1),
+        )
+        async_session.add(conv1)
+        async_session.add(conv2)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter from Feb 5 onwards should return only conv2
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            date_from="2026-02-06",
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+
+    async def test_filter_by_date_range_end_only(self, async_session):
+        """Test date range filtering with only end date."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        from datetime import timedelta
+
+        base_date = datetime(2026, 2, 7, 12, 0, 0)
+
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_1",
+            status="active",
+            created_at=base_date - timedelta(days=5),
+        )
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_2",
+            status="active",
+            created_at=base_date,
+        )
+        async_session.add(conv1)
+        async_session.add(conv2)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter up to Feb 5 should return only conv1
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            date_to="2026-02-05",
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+
+    async def test_filter_by_status_single(self, async_session):
+        """Test filtering by single status."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different statuses
+        for status in ["active", "handoff", "closed"]:
+            conv = Conversation(
+                merchant_id=merchant.id,
+                platform="facebook",
+                platform_sender_id=f"customer_{status}",
+                status=status,
+            )
+            async_session.add(conv)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter by "active" status
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            status=["active"],
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["status"] == "active"
+
+    async def test_filter_by_status_multiple(self, async_session):
+        """Test filtering by multiple statuses."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different statuses
+        statuses = ["active", "handoff", "closed", "active", "handoff"]
+        for i, status in enumerate(statuses):
+            conv = Conversation(
+                merchant_id=merchant.id,
+                platform="facebook",
+                platform_sender_id=f"customer_{i}",
+                status=status,
+            )
+            async_session.add(conv)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter by multiple statuses
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            status=["active", "handoff"],
+        )
+
+        assert total == 4  # 2 active + 2 handoff
+        assert len(conversations) == 4
+
+    async def test_filter_by_sentiment_multiple(self, async_session):
+        """Test filtering by multiple sentiments."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different sentiments
+        # Note: Sentiment is mocked as "neutral" in current implementation
+        # This test will need to be updated when sentiment analysis is implemented
+        for i in range(3):
+            conv = Conversation(
+                merchant_id=merchant.id,
+                platform="facebook",
+                platform_sender_id=f"customer_{i}",
+                status="active",
+            )
+            async_session.add(conv)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter by sentiment (will return all since sentiment is placeholder)
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            sentiment=["positive", "neutral"],
+        )
+
+        # Current implementation uses placeholder sentiment="neutral"
+        # So all conversations match
+        assert total == 3
+        assert len(conversations) == 3
+
+    async def test_filter_by_handoff_status_has_handoff(self, async_session):
+        """Test filtering for conversations with handoff status."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different statuses
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_1",
+            status="active",
+        )
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_2",
+            status="handoff",
+        )
+        conv3 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_3",
+            status="closed",
+        )
+        async_session.add(conv1)
+        async_session.add(conv2)
+        async_session.add(conv3)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter for conversations with handoff
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            has_handoff=True,
+        )
+
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["status"] == "handoff"
+
+    async def test_filter_by_handoff_status_no_handoff(self, async_session):
+        """Test filtering for conversations without handoff."""
+        merchant = Merchant(
+            merchant_key="test-shop-filter",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations
+        conv1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_1",
+            status="active",
+        )
+        conv2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_2",
+            status="handoff",
+        )
+        async_session.add(conv1)
+        async_session.add(conv2)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Filter for conversations without handoff
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            has_handoff=False,
+        )
+
+        # Should return active and closed (not handoff)
+        assert total >= 1
+        assert all(conv["status"] != "handoff" for conv in conversations)
+
+    async def test_combined_filters(self, async_session):
+        """Test combining search with multiple filters."""
+        merchant = Merchant(
+            merchant_key="test-shop-combined",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        from datetime import timedelta
+
+        base_date = datetime(2026, 2, 7, 12, 0, 0)
+
+        # Create matching conversation
+        conv_match = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_shoes_active",
+            status="active",
+            created_at=base_date - timedelta(days=1),
+        )
+        async_session.add(conv_match)
+        await async_session.flush()
+
+        msg = Message(
+            conversation_id=conv_match.id,
+            sender="customer",
+            content="I want running shoes",
+            message_type="text",
+        )
+        msg.set_encrypted_content("I want running shoes")
+        async_session.add(msg)
+
+        # Create non-matching conversations
+        conv_no_match1 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_shirt_active",
+            status="active",
+            created_at=base_date - timedelta(days=1),
+        )
+        async_session.add(conv_no_match1)
+        await async_session.flush()
+
+        msg2 = Message(
+            conversation_id=conv_no_match1.id,
+            sender="customer",
+            content="I want a shirt",
+            message_type="text",
+        )
+        msg2.set_encrypted_content("I want a shirt")
+        async_session.add(msg2)
+
+        conv_no_match2 = Conversation(
+            merchant_id=merchant.id,
+            platform="facebook",
+            platform_sender_id="customer_shoes_closed",
+            status="closed",
+            created_at=base_date - timedelta(days=1),
+        )
+        async_session.add(conv_no_match2)
+        await async_session.flush()
+
+        msg3 = Message(
+            conversation_id=conv_no_match2.id,
+            sender="customer",
+            content="I want running shoes",
+            message_type="text",
+        )
+        msg3.set_encrypted_content("I want running shoes")
+        async_session.add(msg3)
+
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Combine search + status filters
+        conversations, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            search="shoes",
+            status=["active"],
+        )
+
+        # Should only return conv_match (has "shoes" AND is "active")
+        assert total == 1
+        assert len(conversations) == 1
+        assert conversations[0]["id"] == conv_match.id
+
+    async def test_pagination_with_filters(self, async_session):
+        """Test pagination total count reflects filtered results."""
+        merchant = Merchant(
+            merchant_key="test-shop-pagination",
+            platform="facebook",
+            status="active",
+        )
+        async_session.add(merchant)
+        await async_session.commit()
+        await async_session.refresh(merchant)
+
+        # Create conversations with different statuses
+        for i in range(10):
+            status = "active" if i < 7 else "closed"
+            conv = Conversation(
+                merchant_id=merchant.id,
+                platform="facebook",
+                platform_sender_id=f"customer_{i}",
+                status=status,
+            )
+            async_session.add(conv)
+        await async_session.commit()
+
+        service = ConversationService()
+
+        # Get first page with status filter
+        convs_page1, total = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            status=["active"],
+            page=1,
+            per_page=5,
+        )
+
+        # Total should reflect filtered count (7 active), not all 10
+        assert total == 7
+        assert len(convs_page1) == 5
+
+        # Get second page
+        convs_page2, total2 = await service.get_conversations(
+            db=async_session,
+            merchant_id=merchant.id,
+            status=["active"],
+            page=2,
+            per_page=5,
+        )
+
+        assert total2 == 7
+        assert len(convs_page2) == 2  # Remaining 2 active conversations

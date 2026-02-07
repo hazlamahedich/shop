@@ -31,6 +31,14 @@ export const conversationsService = {
     if (params.sortBy) queryParams.append('sort_by', params.sortBy);
     if (params.sortOrder) queryParams.append('sort_order', params.sortOrder);
 
+    // Search and filter parameters
+    if (params.search) queryParams.append('search', params.search);
+    if (params.dateFrom) queryParams.append('date_from', params.dateFrom);
+    if (params.dateTo) queryParams.append('date_to', params.dateTo);
+    if (params.status) params.status.forEach((s) => queryParams.append('status', s));
+    if (params.sentiment) params.sentiment.forEach((s) => queryParams.append('sentiment', s));
+    if (params.hasHandoff !== undefined) queryParams.append('has_handoff', params.hasHandoff.toString());
+
     const url = queryParams.toString() ? `${API_BASE}?${queryParams}` : API_BASE;
 
     const response = await fetch(url, {
