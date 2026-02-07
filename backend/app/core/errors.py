@@ -136,6 +136,11 @@ class ErrorCode(IntEnum):
     CLARIFICATION_STATE_ERROR = 7014  # Invalid clarification state
     CONSTRAINT_EXTRACTION_FAILED = 7015  # Failed to extract constraints
 
+    INVALID_PAGE_NUMBER = 7003  # Page number < 1
+    INVALID_PER_PAGE = 7004  # Items per page out of range
+    INVALID_SORT_COLUMN = 7005  # Invalid sort column
+    MERCHANT_ACCESS_DENIED = 7006  # Merchant cannot access conversation
+
     # 8000-8999: Tutorial (owner: onboarding team)
     TUTORIAL_NOT_STARTED = 8001
     TUTORIAL_ALREADY_COMPLETED = 8002

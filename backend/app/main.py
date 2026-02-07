@@ -25,6 +25,7 @@ from app.api.webhooks.shopify import router as shopify_webhook_router
 from app.api.webhooks.verification import router as verification_router
 from app.api.llm import router as llm_router
 from app.api.tutorial import router as tutorial_router
+from app.api.conversations import router as conversation_router
 from app.api.csrf import router as csrf_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
@@ -68,7 +69,11 @@ def get_error_status_code(error_code: ErrorCode) -> int:
     if 2000 <= error_code < 3000:
         if error_code in (ErrorCode.AUTH_FAILED, ErrorCode.TOKEN_EXPIRED, ErrorCode.UNAUTHORIZED):
             return status.HTTP_401_UNAUTHORIZED
-        if error_code in (ErrorCode.PREREQUISITES_INCOMPLETE, ErrorCode.DEPLOYMENT_IN_PROGRESS, ErrorCode.MERCHANT_ALREADY_EXISTS):
+        if error_code in (
+            ErrorCode.PREREQUISITES_INCOMPLETE,
+            ErrorCode.DEPLOYMENT_IN_PROGRESS,
+            ErrorCode.MERCHANT_ALREADY_EXISTS,
+        ):
             return status.HTTP_400_BAD_REQUEST
         if error_code in (ErrorCode.MERCHANT_NOT_FOUND,):
             return status.HTTP_404_NOT_FOUND
@@ -76,7 +81,11 @@ def get_error_status_code(error_code: ErrorCode) -> int:
 
     # 6xxx: Cart/Checkout errors -> 400 or 404
     if 6000 <= error_code < 7000:
-        if error_code in (ErrorCode.CART_NOT_FOUND, ErrorCode.CHECKOUT_EXPIRED, ErrorCode.CART_SESSION_EXPIRED):
+        if error_code in (
+            ErrorCode.CART_NOT_FOUND,
+            ErrorCode.CHECKOUT_EXPIRED,
+            ErrorCode.CART_SESSION_EXPIRED,
+        ):
             return status.HTTP_404_NOT_FOUND
         return status.HTTP_400_BAD_REQUEST
 
@@ -197,6 +206,7 @@ app.include_router(csrf_router, prefix="/api/v1", tags=["csrf"])
 app.include_router(facebook_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
+app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

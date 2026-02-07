@@ -12,3 +12,5 @@ htmlcov
 *.db
 *.egg-info/
 .venv
+.mypy_cache
+.pytest_cache

@@ -1,136 +1,142 @@
-import React from 'react';
-import { Search, MoreVertical, Paperclip, Smile, Send } from 'lucide-react';
+/**
+ * Conversations Page
+ *
+ * Displays a paginated list of customer conversations.
+ * This is a business dashboard view for monitoring bot activity.
+ *
+ * Story 3-1: Conversation List with Pagination
+ */
 
-const Conversations = () => {
+import React, { useEffect } from 'react';
+import { Search, AlertCircle } from 'lucide-react';
+import { useConversationStore } from '../stores/conversationStore';
+import ConversationCard from '../components/conversations/ConversationCard';
+import Pagination from '../components/ui/Pagination';
+
+const Conversations: React.FC = () => {
+  const {
+    conversations,
+    pagination,
+    loadingState,
+    error,
+    currentPage,
+    perPage,
+    fetchConversations,
+    nextPage,
+    prevPage,
+    setPerPage,
+    clearError,
+  } = useConversationStore();
+
+  // Fetch conversations on mount
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  const handleRetry = () => {
+    clearError();
+    fetchConversations();
+  };
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      {/* Left Pane: Chat List */}
-      <div className="w-1/3 border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <div className="relative">
+    <div className="h-full bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Conversations</h2>
+
+        <div className="flex items-center justify-between">
+          {/* Search placeholder - will be implemented in Story 3-2 */}
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Search chats..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              placeholder="Search conversations..."
+              disabled
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${i === 1 ? 'bg-blue-50' : ''}`}
+
+          {/* Sorting controls */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Sort by:</span>
+            <select
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              disabled={loadingState === 'loading'}
             >
-              <div className="flex justify-between items-start mb-1">
-                <h4
-                  className={`font-medium text-sm ${i === 1 ? 'text-gray-900' : 'text-gray-700'}`}
-                >
-                  John Doe
-                </h4>
-                <span className="text-xs text-gray-400">2m</span>
-              </div>
-              <p className="text-xs text-gray-500 truncate">
-                I'm looking for running shoes under $100.
-              </p>
-              {i === 1 && (
-                <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded-full mt-2">
-                  Active
-                </span>
-              )}
-            </div>
-          ))}
+              <option value="updated_at">Last Updated</option>
+              <option value="created_at">Created Date</option>
+              <option value="status">Status</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Right Pane: Chat Thread */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
-        <div className="h-16 px-6 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
-              JD
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-900">John Doe</h3>
-              <p className="text-xs text-green-500 flex items-center">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></span> Active now
-              </p>
-            </div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Error state */}
+        {error && (
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            <AlertCircle className="text-red-500 mb-4" size={48} />
+            <p className="text-gray-900 font-medium mb-2">Failed to load conversations</p>
+            <p className="text-gray-500 text-sm mb-4">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
           </div>
-          <button className="text-gray-400 hover:text-gray-600">
-            <MoreVertical size={20} />
-          </button>
-        </div>
+        )}
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50">
-          {/* User Message */}
-          <div className="flex items-end justify-end space-x-2">
-            <div className="max-w-md">
-              <div className="bg-primary text-white px-4 py-2 rounded-2xl rounded-tr-sm text-sm">
-                I need running shoes under $100.
-              </div>
-              <span className="text-[10px] text-gray-400 mt-1 block text-right">10:42 AM</span>
-            </div>
+        {/* Loading state */}
+        {loadingState === 'loading' && !error && (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
+        )}
 
-          {/* Bot Message with Product Card */}
-          <div className="flex items-end justify-start space-x-2">
-            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-primary text-xs font-bold">
-              B
-            </div>
-            <div className="max-w-xs">
-              <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm overflow-hidden p-3 space-y-3">
-                <div className="h-32 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                  Product Image
-                </div>
-                <div>
-                  <h4 className="font-medium text-sm text-gray-900">Nike Air Zoom Pegasus</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">Men's Road Running Shoes</p>
-                  <p className="font-bold text-gray-900 mt-2">$89.99</p>
-                </div>
-                <button className="w-full py-2 bg-primary text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
-                  Add to Cart
-                </button>
-              </div>
-              <span className="text-[10px] text-gray-400 mt-1 block">10:42 AM</span>
-            </div>
+        {/* Empty state */}
+        {loadingState === 'success' && conversations.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            <p className="text-gray-900 font-medium mb-2">No conversations yet</p>
+            <p className="text-gray-500 text-sm">
+              Conversations will appear here when customers message your bot
+            </p>
           </div>
-        </div>
+        )}
 
-        {/* Input Area */}
-        <div className="p-4 bg-white border-t border-gray-200">
-          <div className="flex items-center space-x-2 mb-3">
-            {['Check Status', 'Talk to Human'].map((reply) => (
-              <button
-                key={reply}
-                className="px-3 py-1 bg-blue-50 text-primary text-xs font-medium rounded-full hover:bg-blue-100 transition-colors"
-              >
-                {reply}
-              </button>
+        {/* Conversation list */}
+        {loadingState === 'success' && conversations.length > 0 && (
+          <div>
+            {conversations.map((conversation) => (
+              <ConversationCard
+                key={conversation.id}
+                conversation={conversation}
+                // TODO: Add click handler in Story 4-8 (conversation-history-view)
+              />
             ))}
           </div>
-          <div className="flex items-center space-x-2">
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full">
-              <Paperclip size={20} />
-            </button>
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Type a message..."
-                className="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
-              />
-              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <Smile size={20} />
-              </button>
-            </div>
-            <button className="p-2 bg-primary text-white rounded-full hover:bg-blue-700 transition-colors">
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
+        )}
       </div>
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          perPage={pagination.perPage}
+          onPageChange={(page) => {
+            if (page > currentPage) {
+              nextPage();
+            } else if (page < currentPage) {
+              prevPage();
+            }
+          }}
+          onPerPageChange={setPerPage}
+          isLoading={loadingState === 'loading'}
+        />
+      )}
     </div>
   );
 };

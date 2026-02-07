@@ -11,7 +11,7 @@ from typing import Optional
 
 from sqlalchemy import String, Integer, Text, DateTime, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.encryption import (
@@ -70,6 +70,12 @@ class Message(Base):
         default=datetime.utcnow,
         nullable=False,
         index=True,
+    )
+
+    # Relationship to conversation (string reference to avoid circular import)
+    conversation: Mapped[object] = relationship(
+        "Conversation",
+        back_populates="messages",
     )
 
     @property

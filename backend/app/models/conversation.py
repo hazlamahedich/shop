@@ -11,7 +11,7 @@ from typing import Optional
 
 from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.encryption import (
@@ -77,6 +77,13 @@ class Conversation(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         nullable=False,
+    )
+
+    # Relationship to messages - one-to-many from Conversation to Message
+    # Note: Sorting handled in service layer
+    messages: Mapped[list["Message"]] = relationship(
+        "Message",
+        back_populates="conversation",
     )
 
     @property
