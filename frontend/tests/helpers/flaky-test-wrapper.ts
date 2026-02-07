@@ -26,7 +26,7 @@ export const stableTest = base.extend<{
   retryCount: number;
 }>({
   retryCount: async ({}, use) => {
-    let count = 0;
+    const count = 0;
     await use(count);
   },
 });

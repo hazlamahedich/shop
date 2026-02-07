@@ -1,18 +1,20 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E Test Configuration
+ * Playwright Multi-Project Test Configuration
  *
  * Enhanced configuration supporting:
+ * - Multi-level testing: E2E, API, Component
  * - Multi-browser testing (Chromium, Firefox, WebKit)
  * - Mobile viewport testing
  * - CI/CD integration with parallel sharding
  * - Enhanced reporting (HTML, JSON, JUnit)
  * - Performance monitoring
  *
- * Test Strategy: Critical paths only (10% of test pyramid)
+ * Test Strategy: Test pyramid - E2E (10%), API (30%), Component (60%)
  */
 export default defineConfig({
+  /* Default test directory (can be overridden per project) */
   testDir: './tests/e2e',
 
   /* Run tests in files in parallel */
@@ -56,8 +58,10 @@ export default defineConfig({
     navigationTimeout: 30000,
   },
 
-  /* Configure projects for major browsers and mobile */
+  /* Configure projects for different test levels and browsers */
   projects: [
+    // ===== E2E TESTS =====
+    // Critical user journeys with full browser
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -84,15 +88,42 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
 
-    /* Smoke tests - run on Chromium only */
+    /* Smoke tests - run on Chromium only, E2E tests only */
     {
       name: 'smoke-tests',
+      testDir: './tests/e2e',
       testMatch: /.*\.spec\.ts/,
+      testIgnore: /.*\/api\/.*/, // Ignore API tests in smoke-tests project
       use: { ...devices['Desktop Chrome'] },
+    },
+
+    // ===== API TESTS =====
+    // Direct API testing - no browser needed, faster execution
+    {
+      name: 'api',
+      testDir: './tests/api',
+      testMatch: /.*\.spec\.ts/,
+      use: {
+        // API tests use { request } fixture, no browser context needed
+      },
+      // API tests don't need webServer - they make direct HTTP requests
+      fullyParallel: true,
+    },
+
+    // ===== COMPONENT TESTS =====
+    // Isolated component testing with browser
+    {
+      name: 'component',
+      testDir: './tests/component',
+      testMatch: /.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        // Component tests run in isolation
+      },
     },
   ],
 
-  /* Start local dev server before running tests */
+  /* Start local dev server before running E2E tests */
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:5173',

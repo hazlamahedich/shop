@@ -16,10 +16,11 @@ from typing import Any
 from datetime import datetime
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.core.security import encrypt_access_token, decrypt_access_token
@@ -42,6 +43,14 @@ from app.schemas.llm import (
     LLMUpdateResponse,
     LLMClearResponse,
     MinimalLLMEnvelope,
+    # Provider Switching (Story 3.4)
+    SwitchProviderRequest,
+    SwitchProviderResponse,
+    ProviderValidationRequest,
+    ProviderValidationResponse,
+    ProviderListResponse,
+    CurrentProviderInfo,
+    ProviderMetadata,
 )
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.llm.base_llm_service import LLMMessage
@@ -52,9 +61,75 @@ from app.schemas.messaging import FacebookWebhookPayload, FacebookEntry
 router = APIRouter()
 
 
+def _get_merchant_id_from_request(request: Request) -> int:
+    """Extract merchant_id from authenticated request.
+
+    Uses request.state.merchant_id set by authentication middleware.
+    Falls back to X-Merchant-Id header in DEBUG mode or X-Test-Mode for testing.
+    Defaults to merchant_id=1 for development when no auth is present.
+
+    Args:
+        request: FastAPI Request object
+
+    Returns:
+        Merchant ID from authentication or default
+
+    Raises:
+        HTTPException: If not in DEBUG mode and no merchant_id is available
+    """
+    # Try to get from request.state (set by auth middleware)
+    merchant_id = getattr(request.state, "merchant_id", None)
+
+    if merchant_id:
+        return merchant_id
+
+    # Check for IS_TESTING environment variable - allow default merchant 1
+    if settings().get("IS_TESTING"):
+        return 1
+
+    # Check for X-Test-Mode header - requires explicit X-Merchant-Id
+    if request.headers.get("X-Test-Mode", "").lower() == "true":
+        merchant_id_header = request.headers.get("X-Merchant-Id")
+        if merchant_id_header:
+            try:
+                return int(merchant_id_header)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid X-Merchant-Id header format",
+                )
+        # Return 1 as default when X-Test-Mode is set (for API testing)
+        return 1
+
+    # DEBUG mode: Allow X-Merchant-Id header for easier testing
+    if settings()["DEBUG"]:
+        merchant_id_header = request.headers.get("X-Merchant-Id")
+        if merchant_id_header:
+            try:
+                return int(merchant_id_header)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid X-Merchant-Id header format",
+                )
+        # Only default to merchant 1 if explicitly provided via X-Merchant-Id
+        # Otherwise require authentication even in DEBUG mode for security
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Provide X-Merchant-Id header for testing.",
+        )
+
+    # Production: Require authentication
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required",
+    )
+
+
 @router.post("/configure", response_model=MinimalLLMEnvelope)
 async def configure_llm(
-    request: LLMConfigureRequest,
+    request_obj: LLMConfigureRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
     _: None = Depends(check_llm_rate_limit),
 ) -> dict[str, Any]:
@@ -63,8 +138,8 @@ async def configure_llm(
     Validates configuration with test LLM call before saving.
     Rate limited: 1 request per 10 seconds per merchant.
     """
-    # For now, use merchant_id=1 (TODO: get from auth)
-    merchant_id = 1
+    # Get merchant_id from authentication
+    merchant_id = _get_merchant_id_from_request(http_request)
 
     # Check if configuration already exists
     result = await db.execute(
@@ -79,8 +154,8 @@ async def configure_llm(
         )
 
     # Prepare configuration based on provider
-    if request.provider == "ollama":
-        if not request.ollama_config:
+    if request_obj.provider == "ollama":
+        if not request_obj.ollama_config:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="ollama_config required for Ollama provider",
@@ -88,35 +163,35 @@ async def configure_llm(
 
         config = {
             "provider": "ollama",
-            "ollama_url": request.ollama_config.ollama_url,
-            "model": request.ollama_config.ollama_model,
+            "ollama_url": request_obj.ollama_config.ollama_url,
+            "model": request_obj.ollama_config.ollama_model,
         }
         api_key_encrypted = None
         cloud_model = None
-        ollama_url = request.ollama_config.ollama_url
-        ollama_model = request.ollama_config.ollama_model
+        ollama_url = request_obj.ollama_config.ollama_url
+        ollama_model = request_obj.ollama_config.ollama_model
 
     else:
-        if not request.cloud_config:
+        if not request_obj.cloud_config:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="cloud_config required for cloud providers",
             )
 
         config = {
-            "provider": request.cloud_config.provider,
-            "api_key": request.cloud_config.api_key,
-            "model": request.cloud_config.model,
+            "provider": request_obj.cloud_config.provider,
+            "api_key": request_obj.cloud_config.api_key,
+            "model": request_obj.cloud_config.model,
         }
         # Encrypt API key
-        api_key_encrypted = encrypt_access_token(request.cloud_config.api_key)
-        cloud_model = request.cloud_config.model
+        api_key_encrypted = encrypt_access_token(request_obj.cloud_config.api_key)
+        cloud_model = request_obj.cloud_config.model
         ollama_url = None
         ollama_model = None
 
     # Test connection before saving
     try:
-        llm_service = LLMProviderFactory.create_provider(request.provider, config)
+        llm_service = LLMProviderFactory.create_provider(request_obj.provider, config)
         is_connected = await llm_service.test_connection()
 
         if not is_connected:
@@ -124,7 +199,7 @@ async def configure_llm(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "LLM connection test failed",
-                    "troubleshooting": _get_troubleshooting_steps(request.provider),
+                    "troubleshooting": _get_troubleshooting_steps(request_obj.provider),
                 },
             )
 
@@ -133,21 +208,21 @@ async def configure_llm(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": str(e),
-                "troubleshooting": _get_troubleshooting_steps(request.provider),
+                "troubleshooting": _get_troubleshooting_steps(request_obj.provider),
             },
         )
 
     # Create configuration
     llm_config = LLMConfiguration(
         merchant_id=merchant_id,
-        provider=request.provider,
+        provider=request_obj.provider,
         ollama_url=ollama_url,
         ollama_model=ollama_model,
         api_key_encrypted=api_key_encrypted,
         cloud_model=cloud_model,
-        backup_provider=request.backup_provider,
+        backup_provider=request_obj.backup_provider,
         backup_api_key_encrypted=(
-            encrypt_access_token(request.backup_api_key) if request.backup_api_key else None
+            encrypt_access_token(request_obj.backup_api_key) if request_obj.backup_api_key else None
         ),
         status="active",
         configured_at=datetime.utcnow(),
@@ -165,7 +240,7 @@ async def configure_llm(
     return {
         "data": {
             "message": "LLM provider configured successfully",
-            "provider": request.provider,
+            "provider": request_obj.provider,
             "model": model,
             "status": "active",
         },
@@ -178,10 +253,11 @@ async def configure_llm(
 
 @router.get("/status", response_model=MinimalLLMEnvelope)
 async def get_llm_status(
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Get current LLM configuration status."""
-    merchant_id = 1  # TODO: get from auth
+    merchant_id = _get_merchant_id_from_request(http_request)
 
     result = await db.execute(
         select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
@@ -218,14 +294,15 @@ async def get_llm_status(
 
 @router.post("/test", response_model=MinimalLLMEnvelope)
 async def test_llm(
-    request: LLMTestRequest,
+    request_obj: LLMTestRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Test LLM configuration with validation call."""
-    merchant_id = 1  # TODO: get from auth
+    merchant_id = _get_merchant_id_from_request(http_request)
 
     # Validate test prompt for security (NFR-S6)
-    is_safe, error_msg = validate_test_prompt(request.test_prompt)
+    is_safe, error_msg = validate_test_prompt(request_obj.test_prompt)
     if not is_safe:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -263,7 +340,9 @@ async def test_llm(
         llm_service = LLMProviderFactory.create_provider(config.provider, service_config)
 
         start_time = time.time()
-        response = await llm_service.chat([LLMMessage(role="user", content=request.test_prompt)])
+        response = await llm_service.chat(
+            [LLMMessage(role="user", content=request_obj.test_prompt)]
+        )
         latency = (time.time() - start_time) * 1000
 
         # Update test result
@@ -321,11 +400,12 @@ async def test_llm(
 
 @router.put("/update", response_model=MinimalLLMEnvelope)
 async def update_llm(
-    request: LLMUpdateRequest,
+    request_obj: LLMUpdateRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Update existing LLM configuration."""
-    merchant_id = 1  # TODO: get from auth
+    merchant_id = _get_merchant_id_from_request(http_request)
 
     result = await db.execute(
         select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
@@ -341,35 +421,35 @@ async def update_llm(
     updated_fields = []
 
     # Update provider
-    if request.provider:
-        config.provider = request.provider
+    if request_obj.provider:
+        config.provider = request_obj.provider
         updated_fields.append("provider")
 
     # Update Ollama config
-    if request.ollama_url is not None:
-        config.ollama_url = request.ollama_url
+    if request_obj.ollama_url is not None:
+        config.ollama_url = request_obj.ollama_url
         updated_fields.append("ollama_url")
 
-    if request.ollama_model is not None:
-        config.ollama_model = request.ollama_model
+    if request_obj.ollama_model is not None:
+        config.ollama_model = request_obj.ollama_model
         updated_fields.append("ollama_model")
 
     # Update cloud config
-    if request.api_key is not None:
-        config.api_key_encrypted = encrypt_access_token(request.api_key)
+    if request_obj.api_key is not None:
+        config.api_key_encrypted = encrypt_access_token(request_obj.api_key)
         updated_fields.append("api_key")
 
-    if request.model is not None:
-        config.cloud_model = request.model
+    if request_obj.model is not None:
+        config.cloud_model = request_obj.model
         updated_fields.append("model")
 
     # Update backup config
-    if request.backup_provider is not None:
-        config.backup_provider = request.backup_provider
+    if request_obj.backup_provider is not None:
+        config.backup_provider = request_obj.backup_provider
         updated_fields.append("backup_provider")
 
-    if request.backup_api_key is not None:
-        config.backup_api_key_encrypted = encrypt_access_token(request.backup_api_key)
+    if request_obj.backup_api_key is not None:
+        config.backup_api_key_encrypted = encrypt_access_token(request_obj.backup_api_key)
         updated_fields.append("backup_api_key")
 
     if not updated_fields:
@@ -394,10 +474,11 @@ async def update_llm(
 
 @router.delete("/clear", response_model=MinimalLLMEnvelope)
 async def clear_llm(
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Clear LLM configuration."""
-    merchant_id = 1  # TODO: get from auth
+    merchant_id = _get_merchant_id_from_request(http_request)
 
     result = await db.execute(
         select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
@@ -442,10 +523,11 @@ async def get_providers() -> dict[str, Any]:
 
 @router.get("/health", response_model=MinimalLLMEnvelope)
 async def health_check(
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Health check endpoint for monitoring."""
-    merchant_id = 1  # TODO: get from auth
+    merchant_id = _get_merchant_id_from_request(http_request)
 
     result = await db.execute(
         select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
@@ -492,7 +574,8 @@ async def health_check(
 
 @router.post("/chat", response_model=MinimalLLMEnvelope)
 async def chat_with_bot(
-    request: dict[str, str],
+    request_obj: dict[str, str],
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Test chat endpoint for manual verification.
@@ -500,7 +583,7 @@ async def chat_with_bot(
     Simulates a Facebook Messenger message and processes it through
     the full Shopping Assistant Bot flow.
     """
-    message_text = request.get("message", "")
+    message_text = request_obj.get("message", "")
     if not message_text:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -587,3 +670,175 @@ def _get_troubleshooting_steps(provider: str) -> list[str]:
         ],
     }
     return steps.get(provider, ["Check provider configuration and credentials"])
+
+
+# Provider Switching Endpoints (Story 3.4)
+
+
+@router.post("/switch-provider", response_model=MinimalLLMEnvelope)
+async def switch_llm_provider(
+    request_obj: SwitchProviderRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(check_llm_rate_limit),
+) -> dict[str, Any]:
+    """Switch merchant's LLM provider with validation.
+
+    Validates new provider configuration before applying changes.
+    Previous provider remains active if validation fails.
+
+    Rate limited: 1 request per 10 seconds per merchant.
+    """
+    # Get merchant_id from authentication
+    merchant_id = _get_merchant_id_from_request(http_request)
+
+    from app.services.llm.provider_switch_service import (
+        ProviderSwitchService,
+        ProviderValidationError,
+    )
+
+    try:
+        service = ProviderSwitchService(db)
+
+        result = await service.switch_provider(
+            merchant_id=merchant_id,
+            provider_id=request_obj.provider_id,
+            api_key=request_obj.api_key,
+            server_url=request_obj.server_url,
+            model=request_obj.model,
+        )
+
+        return {
+            "data": result,
+            "meta": {
+                "request_id": "switch-provider",
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        }
+
+    except ProviderValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": int(e.error_code),
+                "message": e.message,
+                "details": e.details,
+            },
+        )
+
+
+@router.post("/validate-provider", response_model=MinimalLLMEnvelope)
+async def validate_llm_provider(
+    request_obj: ProviderValidationRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(check_llm_rate_limit),
+) -> dict[str, Any]:
+    """Validate LLM provider configuration without switching.
+
+    Makes a test call to verify provider connectivity and credentials.
+    Use this endpoint to validate configuration before switching.
+
+    Returns validation result with test response and latency.
+    """
+    # Get merchant_id from authentication
+    merchant_id = _get_merchant_id_from_request(http_request)
+
+    from app.services.llm.provider_switch_service import (
+        ProviderSwitchService,
+        ProviderValidationError,
+    )
+
+    try:
+        service = ProviderSwitchService(db)
+
+        result = await service.validate_provider_config(
+            merchant_id=merchant_id,
+            provider_id=request_obj.provider_id,
+            api_key=request_obj.api_key,
+            server_url=request_obj.server_url,
+            model=request_obj.model,
+        )
+
+        return {
+            "data": result,
+            "meta": {
+                "request_id": "validate-provider",
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        }
+
+    except ProviderValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": int(e.error_code),
+                "message": e.message,
+                "details": e.details,
+            },
+        )
+
+
+@router.get("/providers-list", response_model=MinimalLLMEnvelope)
+async def get_providers_list(
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Get list of available providers with current provider indicator.
+
+    Returns all available LLM providers with pricing, features, and models.
+    Includes current provider status and estimated monthly costs.
+    """
+    # Get merchant_id from authentication
+    merchant_id = _get_merchant_id_from_request(http_request)
+
+    from app.services.llm.provider_switch_service import ProviderSwitchService
+
+    service = ProviderSwitchService(db)
+
+    # Get current provider info
+    current_provider_result = await service.get_current_provider(merchant_id)
+
+    # Get available providers from factory
+    available_providers = LLMProviderFactory.get_available_providers()
+
+    # Mark current provider as active
+    current_provider_id = current_provider_result["provider"]["id"]
+
+    providers_with_metadata = []
+    for provider in available_providers:
+        is_active = provider["id"] == current_provider_id
+
+        # Calculate estimated monthly cost (simple placeholder calculation)
+        # TODO: Use actual merchant usage data for accurate estimates
+        estimated_cost = 0.0
+        if provider["pricing"]["inputCost"] > 0:
+            # Estimate based on 100K input + 50K output tokens per month
+            estimated_cost = (100000 / 1000000) * provider["pricing"]["inputCost"] + (
+                50000 / 1000000
+            ) * provider["pricing"]["outputCost"]
+
+        providers_with_metadata.append(
+            {
+                **provider,
+                "isActive": is_active,
+                "estimatedMonthlyCost": round(estimated_cost, 2),
+            }
+        )
+
+    return {
+        "data": {
+            "currentProvider": {
+                **current_provider_result["provider"],
+                "status": current_provider_result["status"],
+                "configuredAt": current_provider_result["configured_at"],
+                "totalTokensUsed": current_provider_result["total_tokens_used"],
+                "totalCostUsd": current_provider_result["total_cost_usd"],
+            },
+            "providers": providers_with_metadata,
+        },
+        "meta": {
+            "request_id": "providers-list",
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+    }

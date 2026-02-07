@@ -250,7 +250,7 @@ test.describe('Regression: Edge Cases', () => {
     await page.evaluate(() => {
       try {
         // Try to fill localStorage
-        let data = 'x'.repeat(1024 * 1024 * 4); // 4MB chunks
+        const data = 'x'.repeat(1024 * 1024 * 4); // 4MB chunks
         let i = 0;
         while (i < 10) {
           try {

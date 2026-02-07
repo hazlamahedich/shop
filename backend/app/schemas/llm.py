@@ -215,14 +215,181 @@ class ClarificationState(BaseModel):
 
     active: bool = Field(False, description="Is clarification flow active?")
     attempt_count: int = Field(0, description="Number of clarification attempts")
-    questions_asked: list[str] = Field(
-        default_factory=list, description="Constraints asked about"
-    )
+    questions_asked: list[str] = Field(default_factory=list, description="Constraints asked about")
     last_question: Optional[str] = Field(None, description="Last question asked")
     original_intent: Optional[dict[str, Any]] = Field(
         None, description="Original intent being clarified"
     )
     started_at: Optional[str] = Field(None, description="When clarification started")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+# Provider Switching Schemas (Story 3.4)
+
+
+class SwitchProviderRequest(BaseModel):
+    """Request schema for switching LLM providers.
+
+    Validates provider switching request with provider-specific configuration.
+    """
+
+    provider_id: str = Field(
+        ..., description="Provider ID (ollama, openai, anthropic, gemini, glm)"
+    )
+    api_key: Optional[str] = Field(None, description="API key for cloud providers")
+    server_url: Optional[str] = Field(None, description="Ollama server URL")
+    model: Optional[str] = Field(None, description="Optional model override")
+
+    @field_validator("provider_id")
+    @classmethod
+    def validate_provider_id(cls, v: str) -> str:
+        """Validate provider ID is in allowed list."""
+        allowed_providers = {"ollama", "openai", "anthropic", "gemini", "glm"}
+        if v not in allowed_providers:
+            raise ValueError(f"Invalid provider_id. Allowed: {', '.join(allowed_providers)}")
+        return v
+
+    @field_validator("api_key")
+    @classmethod
+    def validate_api_key(cls, v: Optional[str], info) -> Optional[str]:
+        """Validate API key is provided for cloud providers."""
+        provider_id = info.data.get("provider_id")
+        if provider_id and provider_id != "ollama" and not v:
+            raise ValueError(f"api_key is required for {provider_id} provider")
+        return v
+
+    @field_validator("server_url")
+    @classmethod
+    def validate_server_url(cls, v: Optional[str], info) -> Optional[str]:
+        """Validate server URL is provided for Ollama."""
+        provider_id = info.data.get("provider_id")
+        if provider_id == "ollama" and not v:
+            raise ValueError("server_url is required for Ollama provider")
+        return v
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class SwitchProviderResponse(BaseModel):
+    """Response schema for successful provider switch."""
+
+    success: bool = Field(True, description="Switch operation status")
+    provider: ProviderInfo = Field(..., description="New provider information")
+    switched_at: str = Field(..., description="ISO-8601 timestamp of switch")
+    previous_provider: Optional[str] = Field(None, description="Previous provider ID")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ProviderInfo(BaseModel):
+    """Provider information in switch response."""
+
+    id: str
+    name: str
+    model: str
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ProviderValidationRequest(BaseModel):
+    """Request schema for validating provider configuration."""
+
+    provider_id: str = Field(..., description="Provider ID to validate")
+    api_key: Optional[str] = Field(None, description="API key for validation")
+    server_url: Optional[str] = Field(None, description="Server URL for validation")
+    model: Optional[str] = Field(None, description="Optional model for validation")
+
+    @field_validator("provider_id")
+    @classmethod
+    def validate_provider_id(cls, v: str) -> str:
+        """Validate provider ID is in allowed list."""
+        allowed_providers = {"ollama", "openai", "anthropic", "gemini", "glm"}
+        if v not in allowed_providers:
+            raise ValueError(f"Invalid provider_id. Allowed: {', '.join(allowed_providers)}")
+        return v
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ProviderValidationResponse(BaseModel):
+    """Response schema for provider validation."""
+
+    valid: bool = Field(..., description="Validation result")
+    provider: ValidatedProvider = Field(..., description="Validated provider info")
+    validated_at: str = Field(..., description="ISO-8601 timestamp of validation")
+
+
+class ValidatedProvider(BaseModel):
+    """Validated provider information."""
+
+    id: str
+    name: str
+    test_response: str = Field(..., description="Test call response message")
+    latency_ms: Optional[float] = Field(None, description="Test call latency in milliseconds")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ProviderListResponse(BaseModel):
+    """Response schema for available providers list."""
+
+    current_provider: CurrentProviderInfo = Field(..., description="Current active provider")
+    providers: List[ProviderMetadata] = Field(..., description="All available providers")
+
+
+class CurrentProviderInfo(BaseModel):
+    """Current provider information."""
+
+    id: str
+    name: str
+    description: str
+    model: str
+    status: str
+    configured_at: str
+    total_tokens_used: int = Field(0, description="Total tokens consumed")
+    total_cost_usd: float = Field(0.0, description="Total cost in USD")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ProviderMetadata(BaseModel):
+    """Provider metadata for listing."""
+
+    id: str
+    name: str
+    description: str
+    pricing: ProviderPricing = Field(..., description="Pricing information")
+    models: List[str] = Field(..., description="Available models")
+    features: List[str] = Field(..., description="Provider features")
+    is_active: bool = Field(False, description="Is this the current provider")
+    estimated_monthly_cost: float = Field(0.0, description="Estimated monthly cost based on usage")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ProviderPricing(BaseModel):
+    """Provider pricing information."""
+
+    input_cost: float = Field(..., alias="inputCost", description="Cost per 1M input tokens")
+    output_cost: float = Field(..., alias="outputCost", description="Cost per 1M output tokens")
+    currency: str = Field("USD", description="Currency code")
 
     class Config:
         alias_generator = to_camel

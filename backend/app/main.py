@@ -27,6 +27,7 @@ from app.api.llm import router as llm_router
 from app.api.tutorial import router as tutorial_router
 from app.api.conversations import router as conversation_router
 from app.api.csrf import router as csrf_router
+from app.api.export import router as export_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
@@ -93,6 +94,12 @@ def get_error_status_code(error_code: ErrorCode) -> int:
     if 7000 <= error_code < 8000:
         if error_code in (ErrorCode.SESSION_EXPIRED, ErrorCode.CONVERSATION_NOT_FOUND):
             return status.HTTP_404_NOT_FOUND
+        return status.HTTP_400_BAD_REQUEST
+
+    # 8xxx: Export errors -> 400 or 408
+    if 8000 <= error_code < 9000:
+        if error_code == ErrorCode.EXPORT_TIMEOUT:
+            return status.HTTP_408_REQUEST_TIMEOUT
         return status.HTTP_400_BAD_REQUEST
 
     # 1xxx: General errors
@@ -207,6 +214,7 @@ app.include_router(facebook_webhook_router, prefix="/api/webhooks", tags=["webho
 app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
+app.include_router(export_router, tags=["export"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

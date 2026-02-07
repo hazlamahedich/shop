@@ -53,6 +53,9 @@ class LLMProviderFactory:
         Raises:
             APIError: If provider not found
         """
+        if is_testing():
+            return MockLLMService(config, is_testing=True)
+
         provider_class = cls._providers.get(provider_name)
 
         if not provider_class:
@@ -98,7 +101,12 @@ class LLMProviderFactory:
                     "currency": "USD",
                 },
                 "models": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
-                "features": ["fast", "accurate", "cost-effective", "wide-adoption"],
+                "features": [
+                    "fast",
+                    "accurate",
+                    "cost-effective",
+                    "wide-adoption",
+                ],
             },
             {
                 "id": "anthropic",

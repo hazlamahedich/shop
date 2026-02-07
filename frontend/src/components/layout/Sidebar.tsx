@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, MessageSquare, DollarSign, Settings } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu } from 'lucide-react';
 
 const Sidebar = () => {
   // Placeholder for navigation logic until routing is fully set up
@@ -10,6 +10,7 @@ const Sidebar = () => {
     { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
     { icon: DollarSign, label: 'Costs', path: '/costs' },
     { icon: Settings, label: 'Settings', path: '/settings' },
+    { icon: Cpu, label: 'LLM Settings', path: '/settings/provider' },
   ];
 
   return (

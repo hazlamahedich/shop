@@ -17,6 +17,7 @@ import { SearchBar } from '../components/conversations/SearchBar';
 import { FilterPanel } from '../components/conversations/FilterPanel';
 import { ActiveFilters } from '../components/conversations/ActiveFilters';
 import { SavedFilters } from '../components/conversations/SavedFilters';
+import { ExportButton, ExportProgress, ExportOptionsModal } from '../components/export';
 
 const Conversations: React.FC = () => {
   const {
@@ -57,15 +58,21 @@ const Conversations: React.FC = () => {
   };
 
   return (
+    <>
     <div className="h-full bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 space-y-4">
+        {/* Export Progress */}
+        <ExportProgress className="mb-4" />
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Conversations</h2>
 
           <div className="flex items-center gap-3">
             {/* Saved Filters */}
             <SavedFilters />
+
+            {/* Export Button */}
+            <ExportButton />
 
             {/* Filter Toggle Button */}
             <button
@@ -193,6 +200,10 @@ const Conversations: React.FC = () => {
         />
       )}
     </div>
+
+    {/* Export Options Modal */}
+    <ExportOptionsModal />
+  </>
   );
 };
 

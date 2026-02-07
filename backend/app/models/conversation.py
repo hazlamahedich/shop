@@ -44,6 +44,12 @@ class Conversation(Base):
         nullable=False,
         index=True,
     )
+    llm_provider: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="LLM provider used for this conversation (e.g., 'ollama', 'openai', 'anthropic')",
+    )
     platform_sender_id: Mapped[str] = mapped_column(
         String(100),
         nullable=False,

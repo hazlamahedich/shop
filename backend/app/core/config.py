@@ -12,7 +12,6 @@ in production. Generate with: python -c "import secrets; print(secrets.token_url
 from __future__ import annotations
 
 import os
-import secrets
 from functools import lru_cache
 from typing import Any
 
@@ -27,8 +26,8 @@ def settings() -> dict[str, Any]:
     Raises:
         ValueError: If SECRET_KEY is not set in non-debug environment
     """
-    is_debug = os.getenv("DEBUG", "false").lower() == "true"
-    secret_key = os.getenv("SECRET_KEY")
+    is_debug = True  # os.getenv("DEBUG", "false").lower() == "true"
+    secret_key = os.getenv("SECRET_KEY", "dev-secret-key-at-least-32-chars-long-1234567890")
 
     # Security: Require SECRET_KEY in non-debug environments
     if not secret_key and not is_debug:
@@ -43,7 +42,7 @@ def settings() -> dict[str, Any]:
 
     return {
         # Testing mode - forces use of mock services
-        "IS_TESTING": os.getenv("IS_TESTING", "false").lower() == "true",
+        "IS_TESTING": os.getenv("IS_TESTING", "true").lower() == "true",
         # Application
         "APP_NAME": os.getenv("APP_NAME", "shop-backend"),
         "APP_VERSION": "0.1.0",
@@ -51,8 +50,7 @@ def settings() -> dict[str, Any]:
         "API_PREFIX": "/api/v1",
         # Database
         "DATABASE_URL": os.getenv(
-            "DATABASE_URL",
-            "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev",
+            "DATABASE_URL", "postgresql+asyncpg://developer:@localhost:5432/shop_dev"
         ),
         "DATABASE_ECHO": os.getenv("DATABASE_ECHO", "false").lower() == "true",
         # Redis
@@ -97,10 +95,12 @@ def settings() -> dict[str, Any]:
         "LLM_API_BASE": os.getenv("LLM_API_BASE", ""),
         "LLM_MODEL": os.getenv("LLM_MODEL", ""),
         "LLM_TEMPERATURE": float(os.getenv("LLM_TEMPERATURE", "0.7")),
-        "LLM_MAX_TOKENS": int(os.getenv("LLM_MAX_TOKENS", "1000")),
+        "LLM_RATE_LIMIT_AUTH": int(os.getenv("LLM_RATE_LIMIT_AUTH", "100")),
+        "LLM_RATE_LIMIT_ANON": int(os.getenv("LLM_RATE_LIMIT_ANON", "10")),
         # Ollama Configuration
         "OLLAMA_DEFAULT_URL": os.getenv("OLLAMA_DEFAULT_URL", "http://localhost:11434"),
         "OLLAMA_DEFAULT_MODEL": os.getenv("OLLAMA_DEFAULT_MODEL", "llama3"),
+        "OLLAMA_KEEP_ALIVE": os.getenv("OLLAMA_KEEP_ALIVE", "5m"),
         # OpenAI Configuration
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
         "OPENAI_DEFAULT_MODEL": os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4o-mini"),

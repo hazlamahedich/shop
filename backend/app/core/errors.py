@@ -54,6 +54,12 @@ class ErrorCode(IntEnum):
     LLM_RATE_LIMITER_ENABLED = 3015  # Rate limiter triggered
     LLM_ROUTER_BOTH_FAILED = 3016  # Both primary and backup providers failed
     LLM_HEALTH_CHECK_FAILED = 3017  # Health check endpoint failed
+    # Story 3-4: Provider switching error codes
+    LLM_INVALID_API_KEY_FORMAT = 3018  # Invalid API key format for provider
+    LLM_API_KEY_VALIDATION_FAILED = 3019  # API key validation failed
+    LLM_PROVIDER_NOT_ACCESSIBLE = 3020  # Provider not accessible
+    LLM_OLLAMA_SERVER_UNREACHABLE = 3021  # Ollama server unreachable
+    LLM_SWITCH_TIMEOUT = 3022  # Provider switch operation timeout
 
     # 4000-4999: Shopify Integration (owner: shopify team)
     SHOPIFY_API_ERROR = 4000
@@ -140,32 +146,39 @@ class ErrorCode(IntEnum):
     INVALID_PER_PAGE = 7004  # Items per page out of range
     INVALID_SORT_COLUMN = 7005  # Invalid sort column
     MERCHANT_ACCESS_DENIED = 7006  # Merchant cannot access conversation
+    INVALID_DATE_FORMAT = 7007  # Invalid date format for filtering
+    INVALID_STATUS_VALUE = 7008  # Invalid status value for filtering
+    INVALID_SENTIMENT_VALUE = 7009  # Invalid sentiment value for filtering
 
-    # 8000-8999: Tutorial (owner: onboarding team)
-    TUTORIAL_NOT_STARTED = 8001
-    TUTORIAL_ALREADY_COMPLETED = 8002
-    TUTORIAL_INVALID_STEP = 8003
-    TUTORIAL_COMPLETION_FAILED = 8004
-    TUTORIAL_STATE_CORRUPT = 8005
-    BOT_PREVIEW_TEST_FAILED = 8006
-    BOT_PREVIEW_RATE_LIMITED = 8007
+    # 8000-8999: Export (owner: export team)
+    EXPORT_TOO_LARGE = 8001
+    EXPORT_TIMEOUT = 8002
 
-    # 9000-9999: Webhook Verification (owner: integration team)
-    WEBHOOK_NOT_CONNECTED = 9001
-    WEBHOOK_TEST_FAILED = 9002
-    WEBHOOK_VERIFICATION_SIGNATURE_INVALID = 9003
-    WEBHOOK_RESUBSCRIBE_FAILED = 9004
-    WEBHOOK_TIMEOUT = 9005
-    WEBHOOK_URL_NOT_ACCESSIBLE = 9006
-    WEBHOOK_MISSING_SUBSCRIPTION = 9007
-    WEBHOOK_EXPIRED_TOKEN = 9008
-    WEBHOOK_RATE_LIMITED = 9009
-    WEBHOOK_UNKNOWN_ERROR = 9010
+    # 9000-9999: Tutorial (owner: onboarding team)
+    TUTORIAL_NOT_STARTED = 9001
+    TUTORIAL_ALREADY_COMPLETED = 9002
+    TUTORIAL_INVALID_STEP = 9003
+    TUTORIAL_COMPLETION_FAILED = 9004
+    TUTORIAL_STATE_CORRUPT = 9005
+    BOT_PREVIEW_TEST_FAILED = 9006
+    BOT_PREVIEW_RATE_LIMITED = 9007
 
-    # 10000-10999: Data Deletion (owner: privacy team)
-    DELETION_REQUEST_NOT_FOUND = 10001
-    DELETION_ALREADY_IN_PROGRESS = 10002
-    DELETION_FAILED = 10003
+    # 10000-10999: Webhook Verification (owner: integration team)
+    WEBHOOK_NOT_CONNECTED = 10001
+    WEBHOOK_TEST_FAILED = 10002
+    WEBHOOK_VERIFICATION_SIGNATURE_INVALID = 10003
+    WEBHOOK_RESUBSCRIBE_FAILED = 10004
+    WEBHOOK_TIMEOUT = 10005
+    WEBHOOK_URL_NOT_ACCESSIBLE = 10006
+    WEBHOOK_MISSING_SUBSCRIPTION = 10007
+    WEBHOOK_EXPIRED_TOKEN = 10008
+    WEBHOOK_RATE_LIMITED = 10009
+    WEBHOOK_UNKNOWN_ERROR = 10010
+
+    # 11000-11999: Data Deletion (owner: privacy team)
+    DELETION_REQUEST_NOT_FOUND = 11001
+    DELETION_ALREADY_IN_PROGRESS = 11002
+    DELETION_FAILED = 11003
 
 
 @dataclass
