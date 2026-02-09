@@ -1,0 +1,111 @@
+# Sprint Status File
+# generated: 2026-02-04
+# project: shop
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-02-04
+project: shop
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # Sprint 0: Pattern Tooling & Foundation (Prerequisite - Not an Epic)
+  sprint-0-pattern-tooling: done # Code review complete: All critical issues fixed
+
+  # Epic 1: Merchant Onboarding & Bot Setup
+  epic-1: in-progress # Updated 2026-02-09: Added authentication stories (1-8, 1-9) - Correct Course workflow
+  1-1-prerequisite-checklist: done # Code review complete: All issues fixed (see story file)
+  1-2-one-click-deployment: done # Code review complete: All HIGH/MEDIUM issues fixed, LOW items deferred with tracking
+  1-3-facebook-page-connection: done # Code review complete: All HIGH/MEDIUM issues fixed, DLQ implemented, state validation added
+  1-4-shopify-store-connection: done # Code review complete: All HIGH/MEDIUM issues fixed, scope validation added
+  1-5-llm-provider-configuration: done # Code review complete: All issues fixed (51 tests passing)
+  1-7-webhook-verification: done
+  1-8-merchant-dashboard-authentication: backlog # NEW: Authentication system for merchant dashboard (login, logout, session management) - Added via Correct Course 2026-02-09
+  1-9-csrf-token-generation: backlog # NEW: CSRF token endpoint for frontend - Added via Correct Course 2026-02-09
+  1-6-interactive-tutorial: backlog # Re-sequenced: moved after authentication (was done, now needs update for auth flow)
+  epic-1-retrospective: backlog # Re-open: needs to include authentication stories
+
+  # Epic 2: Shopping Experience
+  epic-2: done
+  2-1-natural-language-intent-classification: done
+  2-2-product-search-with-constraints: done # QA test automation complete: 22/22 tests passing (9 integration + 13 E2E)
+  2-3-product-result-display: done # QA test automation complete: 17/17 tests passing (7 integration + 10 E2E), implementation committed and pushed
+  2-4-clarification-flow: done # Implementation complete, code review complete, committed and pushed (36 tests passing)
+  2-5-add-to-cart: done # Implementation complete: 30 tests passing (17 unit + 6 integration + 8 E2E), 91% coverage, committed and pushed
+  2-6-view-and-manage-cart: done # Implementation complete: 47 tests passing (10 unit + 9 integration + 12 edge cases + 9 E2E + 7 message processor), committed and pushed with edge case improvements
+  2-7-persistent-cart-sessions: done # Code review complete: All issues fixed, including UX bug and dead code integration (20 tests passing)
+  2-8-checkout-url-generation: done # Implementation complete: 33 tests passing (14 unit + 9 integration + 10 E2E), committed and pushed
+  2-9-order-confirmation: done # Implementation complete: 42 tests passing (18 checkout + 14 order confirmation unit + 5 integration + 5 E2E)
+  epic-2-retrospective: done
+
+  # Epic 3: Business Dashboard & Cost Tracking
+  epic-3: in-progress # Story 3-4 created - LLM provider switching functionality
+  3-1-conversation-list-with-pagination: done # Implementation complete: 31/31 tests passing, all tasks completed, code review resolved
+  3-2-search-and-filter-conversations: done # Implementation complete: 38 backend tests passing, frontend components created, filter state management implemented
+  3-3-csv-data-export: done # Manual verification complete: Backend API, CSV formatting, and frontend UI successfully validated with test data simulation
+  3-4-llm-provider-switching: in-progress # Core implementation complete: Provider switching service, API endpoints, frontend components. Remaining: Tests, navigation, minor features
+  3-5-real-time-cost-tracking: done # Implementation complete: Cost tracking with budget cap persistence. Resolved cost filter bugs. All verification steps passed.
+  3-6-budget-cap-configuration: review # Code review complete: All 6 issues addressed (2 Critical, 2 Medium, 2 Low)
+  3-7-visual-budget-progress: done # QA test automation complete: 75/75 tests passing (41 component + 13 API + 21 E2E), 100% coverage, all code review items addressed
+  3-8-budget-alert-notifications: backlog
+  3-9-cost-comparison-display: backlog
+  3-10-business-hours-configuration: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Order Tracking & Support
+  epic-4: backlog
+  4-1-natural-language-order-tracking: backlog
+  4-2-shopify-webhook-integration: backlog
+  4-3-shipping-notifications: backlog
+  4-4-polling-fallback: backlog
+  4-5-human-assistance-detection: backlog
+  4-6-handoff-notifications: backlog
+  4-7-handoff-queue-with-urgency: backlog
+  4-8-conversation-history-view: backlog
+  4-9-open-in-messenger-reply: backlog
+  4-10-return-to-bot: backlog
+  4-11-offline-follow-up-messages: backlog
+  4-12-business-hours-handling: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Data Privacy & Compliance
+  epic-5: backlog
+  5-1-opt-in-consent-flow: backlog
+  5-2-request-data-deletion: backlog
+  5-3-merchant-csv-export: backlog
+  5-4-data-tier-separation: backlog
+  5-5-30-day-retention-enforcement: backlog
+  5-6-gdpr-deletion-processing: backlog
+  epic-5-retrospective: optional
