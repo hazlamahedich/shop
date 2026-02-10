@@ -9,16 +9,12 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import structlog
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
@@ -27,53 +23,12 @@ from app.schemas.business_info import (
     BusinessInfoResponse,
     BusinessInfoEnvelope,
 )
-from app.schemas.base import MetaData
+from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
-
-
-def _create_meta() -> MetaData:
-    """Create metadata for API response.
-
-    Returns:
-        MetaData object with request_id and timestamp
-    """
-    return MetaData(
-        request_id=str(uuid4()),
-        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-    )
-
-
-def _get_merchant_id(request: Request) -> int:
-    """Get merchant ID from request state with fallback for testing.
-
-    Args:
-        request: FastAPI request
-
-    Returns:
-        Merchant ID
-
-    Raises:
-        APIError: If authentication fails
-    """
-    merchant_id = getattr(request.state, "merchant_id", None)
-    if not merchant_id:
-        # Check X-Merchant-Id header in DEBUG mode for easier testing
-        if settings()["DEBUG"]:
-            merchant_id_header = request.headers.get("X-Merchant-Id")
-            if merchant_id_header:
-                merchant_id = int(merchant_id_header)
-            else:
-                merchant_id = 1  # Default for dev/test
-        else:
-            raise APIError(
-                ErrorCode.AUTH_FAILED,
-                "Authentication required",
-            )
-    return merchant_id
 
 
 @router.get(
@@ -100,16 +55,9 @@ async def get_business_info(
     Raises:
         APIError: If authentication fails or merchant not found
     """
-    merchant_id = _get_merchant_id(request)
+    merchant_id = get_merchant_id(request)
 
-    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-    merchant = result.scalars().first()
-
-    if not merchant:
-        raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Merchant with ID {merchant_id} not found",
-        )
+    merchant = await verify_merchant_exists(merchant_id, db)
 
     return BusinessInfoEnvelope(
         data=BusinessInfoResponse(
@@ -117,7 +65,7 @@ async def get_business_info(
             business_description=merchant.business_description,
             business_hours=merchant.business_hours,
         ),
-        meta=_create_meta(),
+        meta=create_meta(),
     )
 
 
@@ -148,16 +96,9 @@ async def update_business_info(
         APIError: If authentication fails or merchant not found
     """
     try:
-        merchant_id = _get_merchant_id(request)
+        merchant_id = get_merchant_id(request)
 
-        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-        merchant = result.scalars().first()
-
-        if not merchant:
-            raise APIError(
-                ErrorCode.MERCHANT_NOT_FOUND,
-                f"Merchant with ID {merchant_id} not found",
-            )
+        merchant = await verify_merchant_exists(merchant_id, db)
 
         logger.info(
             "updating_business_info",
@@ -177,12 +118,18 @@ async def update_business_info(
         if "business_hours" in provided_fields:
             merchant.business_hours = update.business_hours
 
-        # Commit changes
+        # Commit changes with improved error context
         try:
             await db.commit()
             await db.refresh(merchant)
         except Exception as e:
             await db.rollback()
+            logger.error(
+                "update_business_info_commit_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
             raise APIError(
                 ErrorCode.INTERNAL_ERROR,
                 f"Failed to update business info: {str(e)}",
@@ -200,12 +147,16 @@ async def update_business_info(
                 business_description=merchant.business_description,
                 business_hours=merchant.business_hours,
             ),
-            meta=_create_meta(),
+            meta=create_meta(),
         )
     except APIError:
         raise
     except Exception as e:
-        logger.error("update_business_info_failed", error=str(e))
+        logger.error(
+            "update_business_info_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
         raise APIError(
             ErrorCode.INTERNAL_ERROR,
             f"Failed to update business info: {str(e)}",

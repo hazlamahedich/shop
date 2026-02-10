@@ -12,9 +12,7 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,10 +20,8 @@ from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 import structlog
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.models.merchant import Merchant
 from app.models.faq import Faq
 from app.schemas.faq import (
     FaqRequest,
@@ -35,53 +31,12 @@ from app.schemas.faq import (
     FaqEnvelope,
     FaqReorderRequest,
 )
-from app.schemas.base import MetaData
+from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
-
-
-def _create_meta() -> MetaData:
-    """Create metadata for API response.
-
-    Returns:
-        MetaData object with request_id and timestamp
-    """
-    return MetaData(
-        request_id=str(uuid4()),
-        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-    )
-
-
-def _get_merchant_id(request: Request) -> int:
-    """Get merchant ID from request state with fallback for testing.
-
-    Args:
-        request: FastAPI request
-
-    Returns:
-        Merchant ID
-
-    Raises:
-        APIError: If authentication fails
-    """
-    merchant_id = getattr(request.state, "merchant_id", None)
-    if not merchant_id:
-        # Check X-Merchant-Id header in DEBUG mode for easier testing
-        if settings()["DEBUG"]:
-            merchant_id_header = request.headers.get("X-Merchant-Id")
-            if merchant_id_header:
-                merchant_id = int(merchant_id_header)
-            else:
-                merchant_id = 1  # Default for dev/test
-        else:
-            raise APIError(
-                ErrorCode.AUTH_FAILED,
-                "Authentication required",
-            )
-    return merchant_id
 
 
 def _faq_to_response(faq: Faq) -> FaqResponse:
@@ -127,16 +82,10 @@ async def list_faqs(
     Raises:
         APIError: If authentication fails or merchant not found
     """
-    merchant_id = _get_merchant_id(request)
+    merchant_id = get_merchant_id(request)
 
     # Verify merchant exists
-    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-    merchant = result.scalars().first()
-    if not merchant:
-        raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Merchant with ID {merchant_id} not found",
-        )
+    await verify_merchant_exists(merchant_id, db)
 
     # Get FAQs ordered by order_index
     result = await db.execute(
@@ -154,7 +103,7 @@ async def list_faqs(
 
     return FaqListEnvelope(
         data=[_faq_to_response(faq) for faq in faqs],
-        meta=_create_meta(),
+        meta=create_meta(),
     )
 
 
@@ -186,16 +135,10 @@ async def create_faq(
         APIError: If authentication fails or merchant not found
     """
     try:
-        merchant_id = _get_merchant_id(request)
+        merchant_id = get_merchant_id(request)
 
         # Verify merchant exists
-        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-        merchant = result.scalars().first()
-        if not merchant:
-            raise APIError(
-                ErrorCode.MERCHANT_NOT_FOUND,
-                f"Merchant with ID {merchant_id} not found",
-            )
+        await verify_merchant_exists(merchant_id, db)
 
         # Get the highest order_index for this merchant
         result = await db.execute(
@@ -248,12 +191,17 @@ async def create_faq(
 
         return FaqEnvelope(
             data=_faq_to_response(faq),
-            meta=_create_meta(),
+            meta=create_meta(),
         )
     except APIError:
         raise
     except Exception as e:
-        logger.error("create_faq_failed", error=str(e))
+        logger.error(
+            "create_faq_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            merchant_id=getattr(request.state, "merchant_id", None),
+        )
         await db.rollback()
         raise APIError(
             ErrorCode.INTERNAL_ERROR,
@@ -288,16 +236,10 @@ async def reorder_faqs(
         APIError: If authentication fails, FAQ not found, or access denied
     """
     try:
-        merchant_id = _get_merchant_id(request)
+        merchant_id = get_merchant_id(request)
 
         # Verify merchant exists
-        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-        merchant = result.scalars().first()
-        if not merchant:
-            raise APIError(
-                ErrorCode.MERCHANT_NOT_FOUND,
-                f"Merchant with ID {merchant_id} not found",
-            )
+        await verify_merchant_exists(merchant_id, db)
 
         # Get all FAQs for this merchant
         result = await db.execute(
@@ -354,12 +296,17 @@ async def reorder_faqs(
 
         return FaqListEnvelope(
             data=[_faq_to_response(faq) for faq in reordered_faqs],
-            meta=_create_meta(),
+            meta=create_meta(),
         )
     except APIError:
         raise
     except Exception as e:
-        logger.error("reorder_faqs_failed", error=str(e))
+        logger.error(
+            "reorder_faqs_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            merchant_id=merchant_id,
+        )
         await db.rollback()
         raise APIError(
             ErrorCode.INTERNAL_ERROR,
@@ -396,7 +343,7 @@ async def update_faq(
         APIError: If authentication fails, FAQ not found, or access denied
     """
     try:
-        merchant_id = _get_merchant_id(request)
+        merchant_id = get_merchant_id(request)
 
         # Get FAQ and verify ownership
         result = await db.execute(
@@ -472,12 +419,18 @@ async def update_faq(
 
         return FaqEnvelope(
             data=_faq_to_response(faq),
-            meta=_create_meta(),
+            meta=create_meta(),
         )
     except APIError:
         raise
     except Exception as e:
-        logger.error("update_faq_failed", error=str(e))
+        logger.error(
+            "update_faq_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            merchant_id=merchant_id,
+            faq_id=faq_id,
+        )
         await db.rollback()
         raise APIError(
             ErrorCode.INTERNAL_ERROR,
@@ -508,9 +461,8 @@ async def delete_faq(
     Raises:
         APIError: If authentication fails, FAQ not found, or access denied
     """
+    merchant_id = get_merchant_id(request)
     try:
-        merchant_id = _get_merchant_id(request)
-
         # Get FAQ and verify ownership
         result = await db.execute(
             select(Faq).where(Faq.id == faq_id)
@@ -561,7 +513,13 @@ async def delete_faq(
     except APIError:
         raise
     except Exception as e:
-        logger.error("delete_faq_failed", error=str(e))
+        logger.error(
+            "delete_faq_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            merchant_id=merchant_id,
+            faq_id=faq_id,
+        )
         await db.rollback()
         raise APIError(
             ErrorCode.INTERNAL_ERROR,
