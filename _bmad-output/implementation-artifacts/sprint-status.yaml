@@ -45,17 +45,23 @@ development_status:
   sprint-0-pattern-tooling: done # Code review complete: All critical issues fixed
 
   # Epic 1: Merchant Onboarding & Bot Setup
-  epic-1: in-progress # Updated 2026-02-09: Added authentication stories (1-8, 1-9) - Correct Course workflow
+  epic-1: in-progress # Updated 2026-02-10: Added bot naming (1-12), preview mode (1-13), smart greetings (1-14), product pins (1-15) - Feature expansion
   1-1-prerequisite-checklist: done # Code review complete: All issues fixed (see story file)
   1-2-one-click-deployment: done # Code review complete: All HIGH/MEDIUM issues fixed, LOW items deferred with tracking
   1-3-facebook-page-connection: done # Code review complete: All HIGH/MEDIUM issues fixed, DLQ implemented, state validation added
   1-4-shopify-store-connection: done # Code review complete: All HIGH/MEDIUM issues fixed, scope validation added
   1-5-llm-provider-configuration: done # Code review complete: All issues fixed (51 tests passing)
   1-7-webhook-verification: done
-  1-8-merchant-dashboard-authentication: backlog # NEW: Authentication system for merchant dashboard (login, logout, session management) - Added via Correct Course 2026-02-09
-  1-9-csrf-token-generation: backlog # NEW: CSRF token endpoint for frontend - Added via Correct Course 2026-02-09
-  1-6-interactive-tutorial: backlog # Re-sequenced: moved after authentication (was done, now needs update for auth flow)
-  epic-1-retrospective: backlog # Re-open: needs to include authentication stories
+  1-8-merchant-dashboard-authentication: done # Refactor complete (2026-02-10): All 14 code review issues fixed. Refactored API to use MinimalEnvelope pattern. All unit and integration tests passing.
+  1-9-csrf-token-generation: in-progress # Code review complete (2026-02-10): Found 8 issues - 1 CRITICAL (no git commit), 2 HIGH (typo bugs breaking frontend tests 21/26 failing), 3 MEDIUM, 2 LOW. Backend tests: 44/44 passing (100%). Frontend typo bugs fixed, tests being verified.
+  1-10-bot-personality-configuration: backlog # Bot personality selection (friendly/professional/enthusiastic) with custom prompts
+  1-11-business-info-faq-configuration: backlog # Business info and FAQ item management for quick responses
+  1-12-bot-naming: backlog # NEW: Custom bot name that appears in all bot messages
+  1-13-bot-preview-mode: backlog # NEW: Test bot in preview mode with simulated conversations before going live
+  1-14-smart-greeting-templates: backlog # NEW: Personality-based greeting templates with customization options
+  1-15-product-highlight-pins: backlog # NEW: Pin important products for bot to prioritize in recommendations
+  1-6-interactive-tutorial: backlog # Re-sequenced: moved after personality/FAQ setup (was done, now needs update for new features)
+  epic-1-retrospective: backlog # Re-open: needs to include authentication and bot configuration stories
 
   # Epic 2: Shopping Experience
   epic-2: done
