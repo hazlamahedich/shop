@@ -29,6 +29,7 @@ from app.services.session import SessionService
 from app.services.shopify import ProductSearchService
 from app.services.shopify_storefront import ShopifyStorefrontClient
 from app.services.personality import BotResponseService
+from app.services.faq import match_faq
 
 
 logger = structlog.get_logger(__name__)
@@ -119,6 +120,93 @@ class MessageProcessor:
         # Default fallback error
         return "Sorry, I encountered an error. Please try again."
 
+    async def _check_faq_match(
+        self,
+        message: str,
+    ) -> Optional[MessengerResponse]:
+        """Check if message matches any FAQ (Story 1.11).
+
+        Args:
+            message: Customer's message
+
+        Returns:
+            MessengerResponse with FAQ answer if match found, None otherwise
+        """
+        if not self.merchant_id:
+            return None
+
+        try:
+            from app.core.database import async_session
+            from sqlalchemy import select
+
+            async with async_session() as db:
+                # Get merchant's FAQs
+                result = await db.execute(
+                    select(self._get_faq_model())
+                    .where(self._get_faq_model().merchant_id == self.merchant_id)
+                    .order_by(self._get_faq_model().order_index)
+                )
+                faqs = result.scalars().all()
+
+                if not faqs:
+                    return None
+
+                # Try to match FAQ
+                faq_match = await match_faq(message, list(faqs))
+
+                if faq_match:
+                    self.logger.info(
+                        "faq_matched",
+                        merchant_id=self.merchant_id,
+                        faq_id=faq_match.faq.id,
+                        confidence=faq_match.confidence,
+                    )
+                    # Include business name in response if available
+                    business_name = await self._get_business_name(db)
+                    if business_name:
+                        return MessengerResponse(
+                            text=f"{business_name}\n\n{faq_match.faq.answer}",
+                            recipient_id="",  # Will be set by caller
+                        )
+                    return MessengerResponse(
+                            text=faq_match.faq.answer,
+                            recipient_id="",  # Will be set by caller
+                        )
+        except Exception as e:
+            self.logger.warning("faq_match_failed", error=str(e))
+
+        return None
+
+    def _get_faq_model(self):
+        """Get FAQ model (lazy import to avoid circular dependency)."""
+        from app.models.faq import Faq
+        return Faq
+
+    async def _get_business_name(self, db) -> Optional[str]:
+        """Get business name for merchant (Story 1.11).
+
+        Args:
+            db: Database session
+
+        Returns:
+            Business name if set, None otherwise
+        """
+        if not self.merchant_id:
+            return None
+
+        try:
+            from sqlalchemy import select
+            from app.models.merchant import Merchant
+
+            result = await db.execute(
+                select(Merchant.business_name).where(Merchant.id == self.merchant_id)
+            )
+            business_name = result.scalar_one_or_none()
+            return business_name
+        except Exception as e:
+            self.logger.warning("get_business_name_failed", error=str(e))
+            return None
+
     async def process_message(
         self,
         webhook_payload: FacebookWebhookPayload,
@@ -172,6 +260,17 @@ class MessageProcessor:
 
             # Load conversation context
             context = await self.context_manager.get_context(psid)
+
+            # Story 1.11: Check for FAQ matches before intent classification
+            # If FAQ matches with high confidence, return FAQ answer directly
+            faq_response = await self._check_faq_match(message)
+            if faq_response:
+                self.logger.info(
+                    "faq_match_found",
+                    psid=psid,
+                    message=message[:100],
+                )
+                return faq_response
 
             # Classify intent
             classification = await self.classifier.classify(message, context)

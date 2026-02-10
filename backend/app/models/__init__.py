@@ -14,6 +14,7 @@ from app.models.llm_configuration import LLMConfiguration
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.tutorial import Tutorial
 from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
+from app.models.faq import Faq
 
 __all__ = [
     "Merchant",
@@ -28,4 +29,5 @@ __all__ = [
     "Tutorial",
     "DataDeletionRequest",
     "DeletionStatus",
+    "Faq",
 ]

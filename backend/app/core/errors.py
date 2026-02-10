@@ -21,6 +21,8 @@ class ErrorCode(IntEnum):
     UNKNOWN_ERROR = 1000
     VALIDATION_ERROR = 1001
     INTERNAL_ERROR = 1002
+    NOT_FOUND = 1003  # Generic resource not found
+    FORBIDDEN = 1004  # Access denied to resource
 
     # 2000-2999: Auth/Security (owner: security team)
     AUTH_FAILED = 2000

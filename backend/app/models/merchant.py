@@ -70,6 +70,20 @@ class Merchant(Base):
         nullable=True,
     )
 
+    # Business information (Story 1.11)
+    business_name: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    business_description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    business_hours: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+    )
+
     # Relationships
     llm_configuration: Mapped[Optional["LLMConfiguration"]] = relationship(
         "LLMConfiguration",
@@ -81,6 +95,12 @@ class Merchant(Base):
         back_populates="merchant",
         uselist=False,  # One-to-one relationship
         passive_deletes="all",  # Let DB handle cascade deletes
+    )
+    faqs: Mapped[list["Faq"]] = relationship(
+        "Faq",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="Faq.order_index",
     )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(

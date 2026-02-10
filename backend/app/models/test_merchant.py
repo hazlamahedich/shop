@@ -255,3 +255,223 @@ async def test_merchant_repr_includes_personality(db_session: AsyncSession) -> N
     repr_str = repr(merchant)
     assert "test-merchant-repr-personality" in repr_str
     assert "enthusiastic" in repr_str.lower()
+
+
+# Story 1.11: Business Info & FAQ Configuration Tests
+
+
+@pytest.mark.asyncio
+async def test_merchant_with_business_name(db_session: AsyncSession) -> None:
+    """Test creating a merchant with business name (Story 1.11 AC 1)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-business-name",
+        platform="fly.io",
+        status="active",
+        business_name="Alex's Athletic Gear",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_name == "Alex's Athletic Gear"
+
+
+@pytest.mark.asyncio
+async def test_merchant_with_business_description(db_session: AsyncSession) -> None:
+    """Test creating a merchant with business description (Story 1.11 AC 1)."""
+
+    business_description = "Premium athletic equipment for serious athletes"
+
+    merchant = Merchant(
+        merchant_key="test-merchant-business-description",
+        platform="fly.io",
+        status="active",
+        business_description=business_description,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_description == business_description
+
+
+@pytest.mark.asyncio
+async def test_merchant_with_business_hours(db_session: AsyncSession) -> None:
+    """Test creating a merchant with business hours (Story 1.11 AC 1)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-business-hours",
+        platform="fly.io",
+        status="active",
+        business_hours="9 AM - 6 PM PST, Mon-Fri",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_hours == "9 AM - 6 PM PST, Mon-Fri"
+
+
+@pytest.mark.asyncio
+async def test_merchant_business_info_all_fields(db_session: AsyncSession) -> None:
+    """Test creating a merchant with all business info fields (Story 1.11 AC 1, 5)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-full-business-info",
+        platform="fly.io",
+        status="active",
+        business_name="Alex's Athletic Gear",
+        business_description="Premium athletic equipment for serious athletes",
+        business_hours="9 AM - 6 PM PST, Mon-Fri",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_name == "Alex's Athletic Gear"
+    assert merchant.business_description == "Premium athletic equipment for serious athletes"
+    assert merchant.business_hours == "9 AM - 6 PM PST, Mon-Fri"
+
+
+@pytest.mark.asyncio
+async def test_merchant_business_info_nullable(db_session: AsyncSession) -> None:
+    """Test that business info fields can be null (Story 1.11 AC 1)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-null-business-info",
+        platform="fly.io",
+        status="active",
+        business_name=None,
+        business_description=None,
+        business_hours=None,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_name is None
+    assert merchant.business_description is None
+    assert merchant.business_hours is None
+
+
+@pytest.mark.asyncio
+async def test_merchant_business_name_max_length(db_session: AsyncSession) -> None:
+    """Test that business_name respects 100 character limit (Story 1.11 AC 1)."""
+
+    # Create a business name with exactly 100 characters
+    long_name = "A" * 100
+
+    merchant = Merchant(
+        merchant_key="test-merchant-max-business-name",
+        platform="fly.io",
+        status="active",
+        business_name=long_name,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert len(merchant.business_name) == 100
+    assert merchant.business_name == long_name
+
+
+@pytest.mark.asyncio
+async def test_merchant_business_description_max_length(db_session: AsyncSession) -> None:
+    """Test that business_description respects 500 character limit (Story 1.11 AC 1)."""
+
+    # Create a description with exactly 500 characters
+    long_description = "B" * 500
+
+    merchant = Merchant(
+        merchant_key="test-merchant-max-business-description",
+        platform="fly.io",
+        status="active",
+        business_description=long_description,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert len(merchant.business_description) == 500
+    assert merchant.business_description == long_description
+
+
+@pytest.mark.asyncio
+async def test_merchant_business_hours_max_length(db_session: AsyncSession) -> None:
+    """Test that business_hours respects 200 character limit (Story 1.11 AC 1)."""
+
+    # Create business hours with exactly 200 characters
+    long_hours = "H" * 200
+
+    merchant = Merchant(
+        merchant_key="test-merchant-max-business-hours",
+        platform="fly.io",
+        status="active",
+        business_hours=long_hours,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert len(merchant.business_hours) == 200
+    assert merchant.business_hours == long_hours
+
+
+@pytest.mark.asyncio
+async def test_merchant_update_business_info(db_session: AsyncSession) -> None:
+    """Test updating merchant business info (Story 1.11 AC 4)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-update-business-info",
+        platform="fly.io",
+        status="active",
+        business_name="Original Name",
+        business_description="Original description",
+        business_hours="Original hours",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    # Update business info
+    merchant.business_name = "Updated Business Name"
+    merchant.business_description = "Updated business description"
+    merchant.business_hours = "10 AM - 7 PM EST, Mon-Sat"
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_name == "Updated Business Name"
+    assert merchant.business_description == "Updated business description"
+    assert merchant.business_hours == "10 AM - 7 PM EST, Mon-Sat"
+
+
+@pytest.mark.asyncio
+async def test_merchant_business_name_index_query(db_session: AsyncSession) -> None:
+    """Test efficient lookup of merchants by business name using index (Story 1.11 AC 7)."""
+
+    # Create merchants with different business names
+    merchants = [
+        Merchant(
+            merchant_key=f"test-merchant-business-query-{i}",
+            platform="fly.io",
+            status="active",
+            business_name=business_name,
+        )
+        for i, business_name in enumerate(
+            ["Alex's Athletic Gear", "Betty's Boutique", "Charlie's Cafe", "Alex's Athletic Gear"]
+        )
+    ]
+
+    for merchant in merchants:
+        db_session.add(merchant)
+    await db_session.commit()
+
+    # Query merchants with specific business name
+    result = await db_session.execute(
+        select(Merchant).where(Merchant.business_name == "Alex's Athletic Gear")
+    )
+    matching_merchants = result.scalars().all()
+
+    assert len(matching_merchants) == 2
+    assert all(m.business_name == "Alex's Athletic Gear" for m in matching_merchants)

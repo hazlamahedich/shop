@@ -21,6 +21,8 @@ from app.api.deployment import router as deployment_router
 from app.api.integrations import router as integrations_router
 from app.api.data_deletion import router as data_deletion_router
 from app.api.merchant import router as merchant_router
+from app.api.business_info import router as business_info_router
+from app.api.faqs import router as faqs_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
 from app.api.webhooks.verification import router as verification_router
@@ -106,6 +108,10 @@ def get_error_status_code(error_code: ErrorCode) -> int:
     # 1xxx: General errors
     if error_code == ErrorCode.VALIDATION_ERROR:
         return status.HTTP_422_UNPROCESSABLE_ENTITY
+    if error_code == ErrorCode.NOT_FOUND:
+        return status.HTTP_404_NOT_FOUND
+    if error_code == ErrorCode.FORBIDDEN:
+        return status.HTTP_403_FORBIDDEN
 
     # Default for unknown errors
     return status.HTTP_400_BAD_REQUEST
@@ -207,6 +213,9 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
 app.include_router(merchant_router, prefix="/api/merchant", tags=["merchant"])
+# Story 1.11: Business Info & FAQ Configuration
+app.include_router(business_info_router, prefix="/api/v1/merchant", tags=["business-info"])
+app.include_router(faqs_router, prefix="/api/v1/merchant", tags=["faqs"])
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
 app.include_router(data_deletion_router, prefix="/api", tags=["data-deletion"])
 app.include_router(llm_router, prefix="/api/llm", tags=["llm"])

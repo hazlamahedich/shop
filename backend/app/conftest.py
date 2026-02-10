@@ -86,6 +86,7 @@ async def db_session() -> AsyncGenerator:
         # Using DROP TABLE ... CASCADE to handle foreign key constraints
         for table in [
             "webhook_verification_logs",
+            "faqs",
             "messages",
             "llm_configurations",
             "facebook_integrations",
@@ -232,6 +233,7 @@ async def async_session() -> AsyncGenerator:
         # Using DROP TABLE ... CASCADE to handle foreign key constraints
         for table in [
             "webhook_verification_logs",
+            "faqs",
             "messages",
             "llm_configurations",
             "facebook_integrations",
