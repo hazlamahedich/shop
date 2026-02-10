@@ -9,7 +9,7 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import uuid4
 
@@ -43,7 +43,7 @@ def _create_meta() -> MetaData:
     """
     return MetaData(
         request_id=str(uuid4()),
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     )
 
 

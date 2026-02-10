@@ -12,13 +12,13 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 import structlog
 
@@ -51,7 +51,7 @@ def _create_meta() -> MetaData:
     """
     return MetaData(
         request_id=str(uuid4()),
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     )
 
 
@@ -212,11 +212,7 @@ async def create_faq(
             order_index = (max_order or -1) + 1
         else:
             # If order_index provided, shift existing FAQs down
-            await db.execute(
-                select(Faq)  # noqa: FURB (placeholder for the update below)
-            )
             # Update FAQs with order_index >= new FAQ's order_index
-            from sqlalchemy import update
             await db.execute(
                 update(Faq)
                 .where(Faq.merchant_id == merchant_id)
@@ -439,8 +435,6 @@ async def update_faq(
             faq.keywords = faq_data.keywords
         if faq_data.order_index is not None and faq_data.order_index != faq.order_index:
             # Handle reordering
-            from sqlalchemy import update
-
             old_index = faq.order_index
             new_index = faq_data.order_index
 
@@ -550,7 +544,6 @@ async def delete_faq(
         )
 
         # Shift remaining FAQs down to fill the gap
-        from sqlalchemy import update
         await db.execute(
             update(Faq)
             .where(Faq.merchant_id == merchant_id)
