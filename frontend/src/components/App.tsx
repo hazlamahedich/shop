@@ -5,6 +5,7 @@ import Conversations from '../pages/Conversations';
 import Costs from '../pages/Costs';
 import Settings from '../pages/Settings';
 import { ProviderSettings } from '../pages/ProviderSettings';
+import PersonalityConfig from '../pages/PersonalityConfig';
 import Onboarding from '../pages/Onboarding';
 import OnboardingSuccess from '../pages/OnboardingSuccess';
 
@@ -32,6 +33,8 @@ export function App() {
         return <Settings />;
       case '/settings/provider':
         return <ProviderSettings />;
+      case '/personality':
+        return <PersonalityConfig />;
       case '/onboarding':
         return <Onboarding />;
       case '/onboarding/success':

@@ -20,6 +20,7 @@ from app.api.onboarding import router as onboarding_router
 from app.api.deployment import router as deployment_router
 from app.api.integrations import router as integrations_router
 from app.api.data_deletion import router as data_deletion_router
+from app.api.merchant import router as merchant_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
 from app.api.webhooks.verification import router as verification_router
@@ -205,6 +206,7 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
 # Include API routes
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
+app.include_router(merchant_router, prefix="/api/merchant", tags=["merchant"])
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
 app.include_router(data_deletion_router, prefix="/api", tags=["data-deletion"])
 app.include_router(llm_router, prefix="/api/llm", tags=["llm"])

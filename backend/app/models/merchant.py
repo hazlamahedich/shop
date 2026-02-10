@@ -1,19 +1,21 @@
-"""Merchant ORM model.
-
-Represents a merchant account that has deployed the bot.
-Each merchant has a unique merchant_key and stores deployment configuration.
-"""
-
-from __future__ import annotations
+"""Merchant ORM model - Personality Type Fix."""
 
 from datetime import datetime
 from typing import Optional
+from enum import Enum
 
-from sqlalchemy import String, Integer, DateTime
+from sqlalchemy import String, Integer, DateTime, Text
 from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+
+class PersonalityType(str, Enum):
+    """Personality types for bot responses (Story 1.10)."""
+    FRIENDLY = "friendly"
+    PROFESSIONAL = "professional"
+    ENTHUSIASTIC = "enthusiastic"
 
 
 class Merchant(Base):
@@ -52,6 +54,21 @@ class Merchant(Base):
         JSONB,
         nullable=True,
     )
+    # Bot personality configuration (Story 1.10)
+    personality: Mapped[PersonalityType] = mapped_column(
+        ENUM(
+            PersonalityType,
+            name="personality_type",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in PersonalityType],
+        ),
+        default=PersonalityType.FRIENDLY,
+        nullable=False,
+    )
+    custom_greeting: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
     # Relationships
     llm_configuration: Mapped[Optional["LLMConfiguration"]] = relationship(
@@ -87,4 +104,4 @@ class Merchant(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Merchant(id={self.id}, merchant_key={self.merchant_key}, status={self.status})>"
+        return f"<Merchant(id={self.id}, merchant_key={self.merchant_key}, status={self.status}, personality={self.personality})>"

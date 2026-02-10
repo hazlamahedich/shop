@@ -77,6 +77,13 @@ class FacebookWebhookPayload(BaseModel):
             return postback.get("payload")
         return None
 
+    @property
+    def page_id(self) -> str:
+        """Extract Facebook Page ID from webhook entry (Story 1.10)."""
+        if self.entry:
+            return self.entry[0].id
+        return ""
+
     class Config:
         alias_generator = to_camel
         populate_by_name = True

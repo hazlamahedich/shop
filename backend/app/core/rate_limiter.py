@@ -100,6 +100,11 @@ class RateLimiter:
         return False
 
     @classmethod
+    def reset_all(cls) -> None:
+        """Reset all rate limiter state (for testing)."""
+        cls._requests.clear()
+
+    @classmethod
     def get_client_identifier(cls, request: Request) -> str:
         """Get unique client identifier for rate limiting.
 

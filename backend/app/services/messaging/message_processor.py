@@ -28,6 +28,7 @@ from app.services.messenger import CartFormatter, MessengerProductFormatter, Mes
 from app.services.session import SessionService
 from app.services.shopify import ProductSearchService
 from app.services.shopify_storefront import ShopifyStorefrontClient
+from app.services.personality import BotResponseService
 
 
 logger = structlog.get_logger(__name__)
@@ -42,6 +43,7 @@ class MessageProcessor:
         context_manager: Optional[ConversationContextManager] = None,
         consent_service: Optional[ConsentService] = None,
         session_service: Optional[SessionService] = None,
+        merchant_id: Optional[int] = None,
     ) -> None:
         """Initialize message processor.
 
@@ -50,10 +52,12 @@ class MessageProcessor:
             context_manager: Conversation context manager (uses default if not provided)
             consent_service: Consent service (uses default if not provided)
             session_service: Session service (uses default if not provided)
+            merchant_id: Merchant ID for personality-based responses (Story 1.10)
         """
         self.classifier = classifier or IntentClassifier()
         self.context_manager = context_manager or ConversationContextManager()
         self.logger = structlog.get_logger(__name__)
+        self.merchant_id = merchant_id
 
         # Initialize consent and session services (Story 2.7)
         redis_client = self.context_manager.redis
@@ -72,6 +76,48 @@ class MessageProcessor:
             shopify_client=shopify_client,
             cart_service=cart_service,
         )
+
+        # Personality-based response service (Story 1.10)
+        # Lazily initialized to avoid issues in test environments
+        self._bot_response_service: Optional[BotResponseService] = None
+
+    def _get_bot_response_service(self) -> BotResponseService:
+        """Get or create bot response service (lazy initialization)."""
+        if self._bot_response_service is None:
+            self._bot_response_service = BotResponseService()
+        return self._bot_response_service
+
+    async def _get_personality_greeting(self) -> str:
+        """Get personality-based greeting message (Story 1.10).
+
+        Returns:
+            Greeting message appropriate for merchant's personality type
+        """
+        if self.merchant_id:
+            try:
+                from app.core.database import async_session
+                async with async_session() as db:
+                    return await self._get_bot_response_service().get_greeting(self.merchant_id, db)
+            except Exception as e:
+                self.logger.warning("personality_greeting_failed", merchant_id=self.merchant_id, error=str(e))
+        # Default fallback greeting (when no merchant_id or error occurs)
+        return "Hi! How can I help you today?"
+
+    async def _get_personality_error(self) -> str:
+        """Get personality-based error message (Story 1.10).
+
+        Returns:
+            Error message appropriate for merchant's personality type
+        """
+        if self.merchant_id:
+            try:
+                from app.core.database import async_session
+                async with async_session() as db:
+                    return await self._get_bot_response_service().get_error_response(self.merchant_id, db)
+            except Exception as e:
+                self.logger.warning("personality_error_failed", merchant_id=self.merchant_id, error=str(e))
+        # Default fallback error
+        return "Sorry, I encountered an error. Please try again."
 
     async def process_message(
         self,
@@ -156,9 +202,10 @@ class MessageProcessor:
 
         except Exception as e:
             self.logger.error("message_processing_failed", psid=psid, error=str(e))
-            # Return friendly error message
+            # Return personality-based error message (Story 1.10)
+            error_message = await self._get_personality_error()
             return MessengerResponse(
-                text="Sorry, I encountered an error. Please try again or type 'human' for help.",
+                text=error_message,
                 recipient_id=psid,
             )
 
@@ -291,8 +338,10 @@ class MessageProcessor:
             return await self._proceed_to_search(psid, classification, context)
 
         elif intent == IntentType.GREETING:
+            # Use personality-based greeting (Story 1.10)
+            greeting = await self._get_personality_greeting()
             return MessengerResponse(
-                text="Hi! How can I help you today?",
+                text=greeting,
                 recipient_id=psid,
             )
 
