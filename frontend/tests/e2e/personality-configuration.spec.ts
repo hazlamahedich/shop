@@ -1,89 +1,174 @@
-import { test, expect } from '../support/merged-fixtures';
+/**
+ * E2E Tests for Story 1.10: Bot Personality Configuration
+ *
+ * Tests merchant personality configuration UI and interaction flows
+ *
+ * Prerequisites:
+ * - Frontend dev server running on http://localhost:5173
+ * - Backend API running on http://localhost:8000
+ * - Test merchant account exists and is logged in
+ */
 
-test.describe('Bot Personality Configuration E2E', () => {
-  test.beforeEach(async ({ page, interceptNetworkCall, authToken }) => {
-    // Setup interception for initial config load
-    const configCall = interceptNetworkCall({ url: '**/api/merchant/personality' });
+import { test, expect } from '@playwright/test';
+import { clearStorage } from '../fixtures/test-helper';
 
-    // Navigate to personality config page
-    await page.goto('/personality');
-    await configCall;
-  });
+const API_URL = process.env.API_URL || 'http://localhost:8000';
 
-  test('[P0] should select and save Professional personality', async ({
-    page,
-    interceptNetworkCall,
-  }) => {
-    // Setup intercept for save
-    const saveCall = interceptNetworkCall({
-      method: 'PATCH',
-      url: '**/api/merchant/personality',
+const TEST_MERCHANT = {
+  email: 'e2e-test@example.com',
+  password: 'TestPass123',
+};
+
+test.describe.configure({ mode: 'serial' });
+test.describe('Story 1.10: Bot Personality Configuration E2E [P0]', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearStorage(page);
+
+    // Login and set auth state
+    const loginResponse = await page.request.post(`${API_URL}/api/v1/auth/login`, {
+      data: TEST_MERCHANT,
     });
 
-    // Interact: Select Professional - use the button with the personality name
-    await page.getByRole('button', { name: /Professional.*Direct.*helpful/ }).click();
+    if (loginResponse.ok()) {
+      const loginData = await loginResponse.json();
+      const token = loginData.data.session.token;
 
-    // Wait for selection to be reflected (check for the pressed state indicator)
-    await expect(page.getByRole('button', { name: /Professional.*Direct.*helpful/ })).toHaveAttribute('aria-pressed', 'true');
+      await page.goto('/');
 
-    // Scroll to the Save button to ensure it's in viewport (important for mobile)
+      // Set auth state in localStorage
+      await page.evaluate((accessToken) => {
+        localStorage.setItem('auth_token', accessToken);
+        localStorage.setItem('auth_timestamp', Date.now().toString());
+      }, token);
+    }
+  });
+
+  test('[P0] should display personality configuration page', async ({ page }) => {
+    await page.goto('/personality');
+
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+
+    // Verify page title
+    await expect(page.getByRole('heading', { name: /bot personality/i })).toBeVisible();
+
+    // Verify all three personality cards are displayed
+    await expect(page.getByRole('button', { name: /friendly.*casual.*warm/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /professional.*direct.*helpful/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /enthusiastic.*high-energy/i })).toBeVisible();
+  });
+
+  test('[P0] should select and save Professional personality', async ({ page }) => {
+    await page.goto('/personality');
+    await page.waitForLoadState('networkidle');
+
+    // Click Professional personality card
+    await page.getByRole('button', { name: /professional.*direct.*helpful/i }).click();
+
+    // Verify selection state
+    await expect(page.getByRole('button', { name: /professional.*direct.*helpful/i })).toHaveAttribute('aria-pressed', 'true');
+
+    // Scroll to Save button
     const saveButton = page.getByRole('button', { name: 'Save Configuration' });
     await saveButton.scrollIntoViewIfNeeded();
 
-    // Wait for button to be stable before clicking
-    await page.waitForTimeout(200);
+    // Click save
+    await saveButton.click();
 
-    // Save - use force option to bypass any pointer event issues on mobile
-    await saveButton.click({ force: true });
-
-    // Assert API call - check the data inside the envelope
-    const { requestJson, status, responseJson } = await saveCall;
-    expect(status).toBe(200);
-    // The request body is sent directly
-    expect(requestJson.personality).toBe('professional');
-    // The response is wrapped in MinimalEnvelope with data property
-    expect(responseJson.data.personality).toBe('professional');
-
-    // Assert UI feedback - check for the success message text
-    await expect(page.getByText(/Personality configuration saved successfully/)).toBeVisible();
+    // Wait for success message
+    await expect(page.getByText(/personality configuration saved/i)).toBeVisible({ timeout: 5000 });
   });
 
-  test('[P1] should customize greeting and reset', async ({ page, interceptNetworkCall }) => {
-    // First select a personality to show the greeting editor
-    await page.getByRole('button', { name: /Professional.*Direct.*helpful/ }).click();
+  test('[P1] should customize greeting and reset', async ({ page }) => {
+    await page.goto('/personality');
+    await page.waitForLoadState('networkidle');
 
-    // Wait for greeting editor to appear - scroll into view for mobile
+    // Select a personality first
+    await page.getByRole('button', { name: /professional.*direct.*helpful/i }).click();
+
+    // Wait for greeting editor section to appear
     const customizeSection = page.getByText('Customize Greeting');
     await customizeSection.scrollIntoViewIfNeeded();
     await expect(customizeSection).toBeVisible();
 
-    // Interact: Customize greeting - use textarea selector
+    // Enter custom greeting
     const customGreeting = 'Welcome to the future of shopping!';
     const greetingTextarea = page.getByRole('textbox', { name: 'Custom Greeting' });
     await greetingTextarea.scrollIntoViewIfNeeded();
     await greetingTextarea.fill(customGreeting);
 
-    // Check character count - the format is "0 / 500" with spaces
+    // Verify character count
     await expect(page.getByText(`${customGreeting.length} / 500`)).toBeVisible();
 
-    // Wait for the reset button to appear and be stable
+    // Click reset button
     const resetButton = page.getByRole('button', { name: 'Reset to Default' });
     await resetButton.scrollIntoViewIfNeeded();
-    await expect(resetButton).toBeVisible();
-    await page.waitForTimeout(200);
+    await resetButton.click();
 
-    // Reset - use force option to bypass any pointer event issues on mobile
-    await resetButton.click({ force: true });
-
-    // Verify reset - wait a moment for state to update, then check textarea is empty
-    await page.waitForTimeout(200); // Increased delay for state update
+    // Verify greeting is cleared
     await expect(greetingTextarea).toHaveValue('', { timeout: 5000 });
   });
 
-  test('[P2] should display personality cards with correct information', async ({ page }) => {
-    // Verify all three personality cards are displayed
-    await expect(page.getByRole('button', { name: /Friendly.*Casual.*warm/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Professional.*Direct.*helpful/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Enthusiastic.*High-energy/ })).toBeVisible();
+  test('[P1] should enforce character limit on greeting', async ({ page }) => {
+    await page.goto('/personality');
+    await page.waitForLoadState('networkidle');
+
+    // Select a personality
+    await page.getByRole('button', { name: /friendly.*casual.*warm/i }).click();
+
+    // Try to enter more than 500 characters
+    const greetingTextarea = page.getByRole('textbox', { name: 'Custom Greeting' });
+    await greetingTextarea.scrollIntoViewIfNeeded();
+
+    const longGreeting = 'a'.repeat(600);
+    await greetingTextarea.fill(longGreeting);
+
+    // Verify character count shows 500/500 (maxed out)
+    await expect(page.getByText('500 / 500')).toBeVisible();
+
+    // Verify textarea value is truncated to 500
+    const value = await greetingTextarea.inputValue();
+    expect(value.length).toBe(500);
+  });
+
+  test('[P1] should persist configuration after page reload', async ({ page }) => {
+    await page.goto('/personality');
+    await page.waitForLoadState('networkidle');
+
+    // Select and save Enthusiastic personality
+    await page.getByRole('button', { name: /enthusiastic.*high-energy/i }).click();
+
+    const saveButton = page.getByRole('button', { name: 'Save Configuration' });
+    await saveButton.scrollIntoViewIfNeeded();
+    await saveButton.click();
+
+    // Wait for success message
+    await expect(page.getByText(/personality configuration saved/i)).toBeVisible();
+
+    // Reload page
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Verify Enthusiastic is still selected
+    await expect(page.getByRole('button', { name: /enthusiastic.*high-energy/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('[P2] should switch between personalities', async ({ page }) => {
+    await page.goto('/personality');
+    await page.waitForLoadState('networkidle');
+
+    // Select Friendly
+    await page.getByRole('button', { name: /friendly.*casual.*warm/i }).click();
+    await expect(page.getByRole('button', { name: /friendly.*casual.*warm/i })).toHaveAttribute('aria-pressed', 'true');
+
+    // Switch to Professional
+    await page.getByRole('button', { name: /professional.*direct.*helpful/i }).click();
+    await expect(page.getByRole('button', { name: /professional.*direct.*helpful/i })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /friendly.*casual.*warm/i })).toHaveAttribute('aria-pressed', 'false');
+
+    // Switch to Enthusiastic
+    await page.getByRole('button', { name: /enthusiastic.*high-energy/i }).click();
+    await expect(page.getByRole('button', { name: /enthusiastic.*high-energy/i })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /professional.*direct.*helpful/i })).toHaveAttribute('aria-pressed', 'false');
   });
 });

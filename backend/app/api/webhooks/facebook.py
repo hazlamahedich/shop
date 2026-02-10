@@ -19,6 +19,9 @@ import structlog
 from app.core.config import settings
 from app.schemas.messaging import FacebookWebhookPayload, MessengerResponse
 from app.services.messaging.message_processor import MessageProcessor
+from app.core.database import async_session
+from app.models.facebook_integration import FacebookIntegration
+from sqlalchemy import select
 
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -103,6 +106,28 @@ async def process_webhook_message(
         processor: Message processor instance
         payload: Webhook payload
     """
+    # Look up merchant_id from page_id (Story 1.10)
+    merchant_id = None
+    page_id = payload.page_id
+    if page_id:
+        try:
+            async with async_session() as db:
+                result = await db.execute(
+                    select(FacebookIntegration.merchant_id).where(
+                        FacebookIntegration.page_id == page_id
+                    )
+                )
+                row = result.first()
+                if row:
+                    merchant_id = row[0]
+                    logger.info("merchant_lookup_success", page_id=page_id, merchant_id=merchant_id)
+        except Exception as e:
+            logger.warning("merchant_lookup_failed", page_id=page_id, error=str(e))
+
+    # Create new processor with merchant_id for personality-based responses (Story 1.10)
+    if merchant_id:
+        processor = MessageProcessor(merchant_id=merchant_id)
+
     # Handle postback (button taps like "Add to Cart")
     if payload.postback_payload:
         response = await processor.process_postback(payload)

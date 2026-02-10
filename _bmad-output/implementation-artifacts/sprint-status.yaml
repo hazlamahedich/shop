@@ -54,7 +54,7 @@ development_status:
   1-7-webhook-verification: done
   1-8-merchant-dashboard-authentication: done # Refactor complete (2026-02-10): All 14 code review issues fixed. Refactored API to use MinimalEnvelope pattern. All unit and integration tests passing.
   1-9-csrf-token-generation: review # All code review items addressed (2026-02-10): Commit 0982d5ab, typo bugs fixed, backend 44/44 passing, frontend service 26/26 passing, integration tests verified
-  1-10-bot-personality-configuration: in-progress # Code review complete (2026-02-10): 9 issues found (1 CRITICAL - no commit, 1 HIGH - tests failing, 4 MEDIUM, 3 LOW). Action items added to story.
+  1-10-bot-personality-configuration: done # Code review resolved (2026-02-10): All 9 issues fixed. Commit f1bc0acf, 17/17 backend tests passing, 91/91 frontend tests passing.
   1-11-business-info-faq-configuration: backlog # Business info and FAQ item management for quick responses
   1-12-bot-naming: backlog # NEW: Custom bot name that appears in all bot messages
   1-13-bot-preview-mode: backlog # NEW: Test bot in preview mode with simulated conversations before going live
