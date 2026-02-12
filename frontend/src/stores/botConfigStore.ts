@@ -2,11 +2,13 @@
  * Bot Config Store - Zustand state management for bot configuration
  *
  * Story 1.12: Bot Naming
+ * Story 1.14: Smart Greeting Templates
  *
  * Manages bot configuration state including:
  * - Bot name
  * - Personality type
  * - Custom greeting
+ * - Greeting configuration (template, use_custom_greeting)
  * - Loading and error states
  * - Fetching and updating configuration
  */
@@ -18,6 +20,8 @@ import {
   BotConfigError,
   type BotConfigResponse,
   type BotNameUpdateRequest,
+  type GreetingConfigResponse,
+  type GreetingConfigUpdateRequest,
 } from '../services/botConfig';
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'error';
@@ -31,6 +35,12 @@ export interface BotConfigState {
   personality: string | null;
   customGreeting: string | null;
 
+  // Story 1.14: Greeting config data
+  greetingTemplate: string | null;
+  useCustomGreeting: boolean;
+  defaultTemplate: string | null;
+  availableVariables: string[];
+
   // UI state
   loadingState: LoadingState;
   error: string | null;
@@ -38,7 +48,10 @@ export interface BotConfigState {
 
   // Actions - Bot config management
   fetchBotConfig: () => Promise<void>;
+  fetchGreetingConfig: () => Promise<void>;
   updateBotName: (update: BotNameUpdateRequest) => Promise<void>;
+  updateGreetingConfig: (update: GreetingConfigUpdateRequest) => Promise<void>;
+  resetGreetingToDefault: () => Promise<void>;
   setBotName: (name: string) => void;
 
   // Actions - State checks
@@ -63,6 +76,11 @@ export const useBotConfigStore = create<BotConfigState>()(
       botName: null,
       personality: null,
       customGreeting: null,
+      // Story 1.14: Greeting config initial state
+      greetingTemplate: null,
+      useCustomGreeting: false,
+      defaultTemplate: null,
+      availableVariables: ['bot_name', 'business_name', 'business_hours'],
       loadingState: 'idle',
       error: null,
       isDirty: false,
@@ -155,6 +173,119 @@ export const useBotConfigStore = create<BotConfigState>()(
       },
 
       /**
+       * Fetch greeting configuration from server (Story 1.14)
+       *
+       * Always fetches fresh configuration and clears any unsaved local changes.
+       */
+      fetchGreetingConfig: async () => {
+        set({ loadingState: 'loading', error: null });
+
+        try {
+          const config: GreetingConfigResponse = await botConfigApi.fetchGreetingConfig();
+
+          set({
+            greetingTemplate: config.greetingTemplate,
+            useCustomGreeting: config.useCustomGreeting,
+            defaultTemplate: config.defaultTemplate,
+            availableVariables: config.availableVariables || [],
+            loadingState: 'success',
+            isDirty: false,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof BotConfigError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Failed to fetch greeting configuration';
+
+          set({
+            loadingState: 'error',
+            error: errorMessage,
+          });
+
+          throw error;
+        }
+      },
+
+      /**
+       * Update greeting configuration on server (Story 1.14)
+       *
+       * Sends changes to server and updates local state on success.
+       *
+       * @param update - Configuration update with optional greeting fields
+       */
+      updateGreetingConfig: async (update: GreetingConfigUpdateRequest) => {
+        set({ loadingState: 'loading', error: null });
+
+        try {
+          const config: GreetingConfigResponse = await botConfigApi.updateGreetingConfig(update);
+
+          set({
+            greetingTemplate: config.greetingTemplate,
+            useCustomGreeting: config.useCustomGreeting,
+            defaultTemplate: config.defaultTemplate,
+            availableVariables: config.availableVariables || [],
+            loadingState: 'success',
+            isDirty: false,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof BotConfigError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Failed to update greeting configuration';
+
+          set({
+            loadingState: 'error',
+            error: errorMessage,
+          });
+
+          throw error;
+        }
+      },
+
+      /**
+       * Reset greeting to personality default (Story 1.14)
+       *
+       * Clears custom greeting and disables custom greeting mode.
+       */
+      resetGreetingToDefault: async () => {
+        set({ loadingState: 'loading', error: null });
+
+        try {
+          const config: GreetingConfigResponse = await botConfigApi.updateGreetingConfig({
+            greeting_template: '',
+            use_custom_greeting: false,
+          });
+
+          set({
+            greetingTemplate: config.greetingTemplate,
+            useCustomGreeting: config.useCustomGreeting,
+            defaultTemplate: config.defaultTemplate,
+            availableVariables: config.availableVariables || [],
+            loadingState: 'success',
+            isDirty: false,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof BotConfigError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Failed to reset greeting configuration';
+
+          set({
+            loadingState: 'error',
+            error: errorMessage,
+          });
+
+          throw error;
+        }
+      },
+
+      /**
        * Check if there are unsaved changes
        *
        * @returns true if there are local changes that haven't been saved
@@ -189,6 +320,11 @@ export const useBotConfigStore = create<BotConfigState>()(
           botName: null,
           personality: null,
           customGreeting: null,
+          // Story 1.14: Reset greeting config
+          greetingTemplate: null,
+          useCustomGreeting: false,
+          defaultTemplate: null,
+          availableVariables: ['bot_name', 'business_name', 'business_hours'],
           loadingState: 'idle',
           error: null,
           isDirty: false,
@@ -202,6 +338,11 @@ export const useBotConfigStore = create<BotConfigState>()(
         botName: state.botName,
         personality: state.personality,
         customGreeting: state.customGreeting,
+        // Story 1.14: Persist greeting config
+        greetingTemplate: state.greetingTemplate,
+        useCustomGreeting: state.useCustomGreeting,
+        defaultTemplate: state.defaultTemplate,
+        availableVariables: state.availableVariables,
       }),
     }
   )
@@ -238,6 +379,11 @@ export const initializeBotConfig = async (): Promise<void> => {
 export const selectBotName = (state: BotConfigState) => state.botName;
 export const selectPersonality = (state: BotConfigState) => state.personality;
 export const selectCustomGreeting = (state: BotConfigState) => state.customGreeting;
+// Story 1.14: Greeting config selectors
+export const selectGreetingTemplate = (state: BotConfigState) => state.greetingTemplate;
+export const selectUseCustomGreeting = (state: BotConfigState) => state.useCustomGreeting;
+export const selectDefaultTemplate = (state: BotConfigState) => state.defaultTemplate;
+export const selectAvailableVariables = (state: BotConfigState) => state.availableVariables;
 export const selectBotConfigLoading = (state: BotConfigState) =>
   state.loadingState === 'loading';
 export const selectBotConfigError = (state: BotConfigState) => state.error;

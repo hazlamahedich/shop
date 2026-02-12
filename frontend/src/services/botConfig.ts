@@ -2,14 +2,18 @@
  * Bot Configuration Service
  *
  * Story 1.12: Bot Naming
+ * Story 1.14: Smart Greeting Templates
  *
  * Provides client-side API for bot configuration management:
  * - Get bot configuration (bot_name, personality, custom_greeting)
  * - Update bot name
+ * - Get/Update greeting configuration
  *
  * API Endpoints:
  * - GET /api/v1/merchant/bot-config - Get current bot configuration
  * - PUT /api/v1/merchant/bot-config - Update bot configuration
+ * - GET /api/v1/merchant/greeting-config - Get greeting configuration
+ * - PUT /api/v1/merchant/greeting-config - Update greeting configuration
  */
 
 import { apiClient } from './api';
@@ -24,10 +28,29 @@ export interface BotConfigResponse {
 }
 
 /**
+ * Story 1.14: Response from greeting config endpoints
+ */
+export interface GreetingConfigResponse {
+  greetingTemplate: string | null;
+  useCustomGreeting: boolean;
+  personality: string | null;
+  defaultTemplate: string | null;
+  availableVariables: string[];
+}
+
+/**
  * Request body for updating bot name
  */
 export interface BotNameUpdateRequest {
   bot_name?: string | null;
+}
+
+/**
+ * Story 1.14: Request body for updating greeting config
+ */
+export interface GreetingConfigUpdateRequest {
+  greeting_template?: string | null;
+  use_custom_greeting?: boolean;
 }
 
 /**
@@ -55,13 +78,18 @@ export enum BotConfigErrorCode {
  * Bot Config Service Error
  */
 export class BotConfigError extends Error {
+  public code?: BotConfigErrorCode;
+  public status?: number;
+
   constructor(
     message: string,
-    public code?: BotConfigErrorCode,
-    public status?: number
+    code?: BotConfigErrorCode,
+    status?: number
   ) {
     super(message);
     this.name = 'BotConfigError';
+    this.code = code;
+    this.status = status;
   }
 }
 
@@ -93,7 +121,8 @@ export const botConfigApi = {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to fetch bot configuration';
-      throw new BotConfigError(errorMessage, undefined, (error as any)?.status);
+      const status = (error as any)?.status ?? 500;
+      throw new BotConfigError(errorMessage, undefined, status);
     }
   },
 
@@ -118,18 +147,81 @@ export const botConfigApi = {
     } catch (error) {
       let errorMessage = 'Failed to update bot name';
       let errorCode: BotConfigErrorCode | undefined;
+      let status = 500;
 
       if (error instanceof Error) {
         errorMessage = error.message;
       }
 
-      // Extract error code from response if available
-      const errorData = (error as any)?.details;
-      if (errorData?.error_code) {
-        errorCode = errorData.error_code;
+      // Extract error code from error object
+      const errorObj = error as any;
+      if (errorObj && typeof errorObj.status === 'number') {
+        status = errorObj.status;
+      }
+      if (errorObj && typeof errorObj.code === 'number') {
+        errorCode = errorObj.code;
       }
 
-      throw new BotConfigError(errorMessage, errorCode, (error as any)?.status);
+      throw new BotConfigError(errorMessage, errorCode, status);
+    }
+  },
+
+  /**
+   * Get current merchant's greeting configuration (Story 1.14)
+   *
+   * @returns Greeting configuration with template, use_custom_greeting, etc.
+   * @throws BotConfigError if request fails
+   */
+  async fetchGreetingConfig(): Promise<GreetingConfigResponse> {
+    try {
+      const response = await apiClient.get<GreetingConfigResponse>(
+        '/api/v1/merchant/greeting-config'
+      );
+      return response.data;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to fetch greeting configuration';
+      const status = (error as any)?.status ?? 500;
+      throw new BotConfigError(errorMessage, undefined, status);
+    }
+  },
+
+  /**
+   * Update merchant's greeting configuration (Story 1.14)
+   *
+   * Allows updating greeting template and use_custom_greeting flag.
+   * Empty strings or whitespace-only strings will clear the custom greeting.
+   *
+   * @param update - Greeting configuration update with optional fields
+   * @returns Updated greeting configuration
+   * @throws BotConfigError if request fails
+   */
+  async updateGreetingConfig(update: GreetingConfigUpdateRequest): Promise<GreetingConfigResponse> {
+    try {
+      const response = await apiClient.put<GreetingConfigResponse>(
+        '/api/v1/merchant/greeting-config',
+        update
+      );
+      return response.data;
+    } catch (error) {
+      let errorMessage = 'Failed to update greeting configuration';
+      let errorCode: BotConfigErrorCode | undefined;
+      let status = 500;
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Extract error code from error object
+      const errorObj = error as any;
+      if (errorObj && typeof errorObj.status === 'number') {
+        status = errorObj.status;
+      }
+      if (errorObj && typeof errorObj.code === 'number') {
+        errorCode = errorObj.code;
+      }
+
+      throw new BotConfigError(errorMessage, errorCode, status);
     }
   },
 };

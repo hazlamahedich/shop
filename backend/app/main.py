@@ -22,6 +22,7 @@ from app.api.integrations import router as integrations_router
 from app.api.data_deletion import router as data_deletion_router
 from app.api.merchant import router as merchant_router
 from app.api.business_info import router as business_info_router
+from app.api.bot_config import router as bot_config_router
 from app.api.faqs import router as faqs_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
@@ -31,6 +32,8 @@ from app.api.tutorial import router as tutorial_router
 from app.api.conversations import router as conversation_router
 from app.api.csrf import router as csrf_router
 from app.api.export import router as export_router
+from app.api.preview import router as preview_router
+from app.api.auth import router as auth_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
@@ -210,11 +213,15 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
 
 
 # Include API routes
+# Story 1.8: Authentication
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
 app.include_router(merchant_router, prefix="/api/merchant", tags=["merchant"])
 # Story 1.11: Business Info & FAQ Configuration
 app.include_router(business_info_router, prefix="/api/v1/merchant", tags=["business-info"])
+# Story 1.12: Bot Naming Configuration
+app.include_router(bot_config_router, prefix="/api/v1/merchant", tags=["bot-config"])
 app.include_router(faqs_router, prefix="/api/v1/merchant", tags=["faqs"])
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
 app.include_router(data_deletion_router, prefix="/api", tags=["data-deletion"])
@@ -226,6 +233,8 @@ app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhoo
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(export_router, tags=["export"])
+# Story 1.13: Bot Preview Mode
+app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

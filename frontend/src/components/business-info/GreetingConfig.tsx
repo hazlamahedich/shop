@@ -1,0 +1,311 @@
+/**
+ * Greeting Configuration Component
+ *
+ * Story 1.14: Smart Greeting Templates
+ *
+ * Provides:
+ * - Display of current personality-based default greeting
+ * - Custom greeting textarea with placeholder variable hints
+ * - "Use custom greeting" checkbox/toggle
+ * - Live preview of how greeting will appear to customers
+ * - "Reset to Default" button
+ * - Help text for placeholder variables
+ *
+ * WCAG 2.1 AA accessible.
+ */
+
+import React from 'react';
+import { MessageSquare, Info, RotateCcw } from 'lucide-react';
+
+/**
+ * Greeting configuration state interface
+ */
+interface GreetingConfigProps {
+  personality: string | null;
+  greetingTemplate: string | null;
+  useCustomGreeting: boolean;
+  defaultTemplate: string | null;
+  availableVariables: string[];
+  onUpdate: (data: {
+    greeting_template?: string;
+    use_custom_greeting?: boolean;
+  }) => void;
+  onReset: () => void;
+  disabled?: boolean;
+}
+
+// Add data-testid attribute for container div
+const GREETING_CONTAINER_ID = 'greeting-config-section-container';
+
+/**
+ * Variable badges for available placeholders
+ */
+const VariableBadges: React.FC<{ variables: string[] }> = ({ variables }) => {
+  if (variables.length === 0) return null;
+
+  return (
+    <span className="flex flex-wrap gap-2 mt-2">
+      {variables.map((v) => (
+        <span
+          key={v}
+          className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-xs font-mono rounded-md"
+          dangerouslySetInnerHTML={{ __html: '&quot;' + v + '&quot;' }}
+        />
+      ))}
+    </span>
+  );
+};
+
+/**
+ * GreetingPreview Component
+ *
+ * Shows live preview of how the greeting will appear
+ */
+const GreetingPreview: React.FC<{ message: string }> = ({ message }) => {
+  return (
+    <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <MessageSquare size={16} className="text-gray-500" />
+        <span className="text-sm font-medium text-gray-700">Preview</span>
+      </div>
+      <p className="text-gray-800 italic">&quot;{message || 'Your greeting will appear here...'}&quot;</p>
+    </div>
+  );
+};
+
+/**
+ * GreetingConfig Component
+ *
+ * Main component for greeting configuration with live preview.
+ */
+export const GreetingConfig: React.FC<GreetingConfigProps> = ({
+  personality,
+  greetingTemplate,
+  useCustomGreeting,
+  defaultTemplate,
+  availableVariables,
+  onUpdate,
+  onReset,
+  disabled = false,
+}) => {
+  // Local state for custom greeting input
+  const [customText, setCustomText] = React.useState(greetingTemplate || '');
+  const [useCustom, setUseCustom] = React.useState(useCustomGreeting);
+
+  // Get personality display name
+  const getPersonalityName = (p: string | null): string => {
+    switch (p) {
+      case 'professional':
+        return 'Professional';
+      case 'enthusiastic':
+        return 'Enthusiastic';
+      case 'friendly':
+      default:
+        return 'Friendly';
+    }
+  };
+
+  // Get personality color for display
+  const getPersonalityColor = (p: string | null): string => {
+    switch (p) {
+      case 'professional':
+        return 'text-indigo-700 bg-indigo-50';
+      case 'enthusiastic':
+        return 'text-amber-700 bg-amber-50';
+      case 'friendly':
+      default:
+        return 'text-green-700 bg-green-50';
+    }
+  };
+
+  // Build preview message with variable substitution (client-side)
+  const buildPreviewMessage = (): string => {
+    let message: string;
+
+    if (useCustom && customText.trim().length > 0) {
+      message = customText;
+    } else if (defaultTemplate) {
+      message = defaultTemplate;
+    } else {
+      message = "Hi! I'm your shopping assistant from the store.";
+    }
+
+    // Simple variable substitution for preview
+    // Note: Real substitution happens on backend with actual merchant data
+    return message
+      .replace(/{bot_name}/g, 'GearBot')
+      .replace(/{business_name}/g, "Alex's Athletic Gear")
+      .replace(/{business_hours}/g, '9 AM - 6 PM PST');
+  };
+
+  const previewMessage = buildPreviewMessage();
+
+  // Handle custom text change
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setCustomText(value);
+
+    // Auto-enable custom greeting when user starts typing
+    if (value.trim().length > 0 && !useCustom) {
+      setUseCustom(true);
+    }
+
+    // Update parent
+    onUpdate({
+      greeting_template: value || undefined,
+      use_custom_greeting: useCustom || value.trim().length > 0 ? true : false,
+    });
+  };
+
+  // Handle toggle change
+  const handleToggleChange = (checked: boolean) => {
+    setUseCustom(checked);
+    onUpdate({
+      greeting_template: customText || undefined,
+      use_custom_greeting: checked,
+    });
+  };
+
+  // Handle reset to default
+  const handleReset = () => {
+    setCustomText('');
+    setUseCustom(false);
+    onReset();
+  };
+
+  const personalityColor = getPersonalityColor(personality);
+  const personalityName = getPersonalityName(personality);
+
+  return (
+    <div className="space-y-6">
+      {/* Personality Info */}
+      {personality && (
+        <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              Default Greeting Template
+            </h3>
+            <p className="text-sm text-gray-600">
+              Based on your <span className={`font-medium px-2 py-0.5 rounded ${personalityColor}`}>
+                {personalityName}
+              </span>{' '}personality
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Default Template Display (read-only) */}
+      {defaultTemplate && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-medium text-gray-700">Default Template:</span>
+            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-md ${personalityColor}`}>
+              {personalityName}
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 font-mono bg-white p-3 rounded border border-gray-300">
+            {defaultTemplate}
+          </p>
+        </div>
+      )}
+
+      {/* Custom Greeting Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Customize Your Greeting
+          </h3>
+          <div className="flex items-center gap-3">
+            {/* Use Custom Greeting Toggle */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useCustom}
+                onChange={(e) => handleToggleChange(e.target.checked)}
+                disabled={disabled}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                aria-describedby="use-custom-greeting-desc"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Use custom greeting
+              </span>
+            </label>
+
+            {/* Reset Button */}
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={disabled}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Reset to default greeting template"
+            >
+              <RotateCcw size={16} />
+              Reset to Default
+            </button>
+          </div>
+          <p id="use-custom-greeting-desc" className="text-sm text-gray-500">
+            Enable to use your custom greeting instead of the personality default.
+          </p>
+        </div>
+
+        {/* Custom Greeting Textarea */}
+        <div className="mt-4">
+          <label htmlFor="custom-greeting" className="block text-sm font-medium text-gray-700 mb-2">
+            Custom Greeting Message
+          </label>
+          <textarea
+            id="custom-greeting"
+            value={customText}
+            onChange={handleTextChange}
+            disabled={disabled}
+            rows={4}
+            maxLength={500}
+            placeholder={`Enter your custom greeting. Use variables like {bot_name}, {business_name}, or {business_hours}.`}
+            className="w-full px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+            aria-describedby="greeting-help greeting-counter"
+          />
+          <div className="flex items-center justify-between mt-2">
+            <p id="greeting-help" className="text-xs text-gray-500">
+              <Info size={12} className="inline mr-1" />
+              Available variables:{' '}
+              <VariableBadges variables={availableVariables} />
+            </p>
+            <span id="greeting-counter" className="text-xs text-gray-500">
+              {customText.length}/500
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Preview */}
+      <GreetingPreview message={previewMessage} />
+
+      {/* Help Section */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+          <Info size={16} />
+          About Greeting Variables
+        </h4>
+        <div className="space-y-2 text-sm text-blue-800">
+          <p>
+            <strong dangerouslySetInnerHTML={{ __html: '&quot;{bot_name}&quot;' }} />
+            <span> — The name you&apos;ve given your bot (from Bot Configuration).</span>
+          </p>
+          <p>
+            <strong dangerouslySetInnerHTML={{ __html: '&quot;{business_name}&quot;' }} />
+            <span> — Your business name (from Business Info).</span>
+          </p>
+          <p>
+            <strong dangerouslySetInnerHTML={{ __html: '&quot;{business_hours}&quot;' }} />
+            <span> — Your business hours (from Business Info).</span>
+          </p>
+          <p className="text-blue-700 text-xs mt-2">
+            These variables are automatically replaced with your actual information when the bot sends its greeting.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GreetingConfig;

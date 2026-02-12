@@ -2,10 +2,12 @@
  * BotConfig Page Component
  *
  * Story 1.12: Bot Naming
+ * Story 1.14: Smart Greeting Templates
  *
  * Main page for configuring bot settings including:
  * - Bot name input with live preview
  * - Display of current personality and custom greeting
+ * - Greeting configuration with live preview (Story 1.14)
  * - Save functionality for bot name changes
  * - Loading states and error handling
  * - Navigation breadcrumbs
@@ -13,12 +15,16 @@
  * WCAG 2.1 AA accessible.
  */
 
-import * as React from 'react';
+import React from 'react';
 import { useEffect } from 'react';
 import { Info, CheckCircle2, AlertCircle, MessageSquare, Palette } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useBotConfigStore } from '../stores/botConfigStore';
 import { BotNameInput } from '../components/bot-config/BotNameInput';
+import { GreetingConfig } from '../components/business-info/GreetingConfig';
+
+// Add data-testid constant for greeting section
+const GREETING_CONTAINER_ID = 'greeting-config-section-container';
 
 /**
  * Get personality display name and color
@@ -52,11 +58,19 @@ export const BotConfig: React.FC = () => {
     botName,
     personality,
     customGreeting,
+    // Story 1.14: Greeting config state
+    greetingTemplate,
+    useCustomGreeting,
+    defaultTemplate,
+    availableVariables,
     loadingState,
     error,
     isDirty,
     fetchBotConfig,
+    fetchGreetingConfig,
     updateBotName,
+    updateGreetingConfig,
+    resetGreetingToDefault,
     clearError,
   } = useBotConfigStore();
 
@@ -66,7 +80,7 @@ export const BotConfig: React.FC = () => {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        await fetchBotConfig();
+        await Promise.all([fetchBotConfig(), fetchGreetingConfig()]);
       } catch (err) {
         console.error('Failed to load configuration:', err);
         toast('Failed to load configuration', 'error');
@@ -74,7 +88,7 @@ export const BotConfig: React.FC = () => {
     };
 
     loadConfig();
-  }, [fetchBotConfig, toast]);
+  }, [fetchBotConfig, fetchGreetingConfig, toast]);
 
   // Handle save bot name
   const handleSaveBotName = async () => {
@@ -92,9 +106,39 @@ export const BotConfig: React.FC = () => {
     }
   };
 
+  // Story 1.14: Handle save greeting config
+  const handleSaveGreetingConfig = async () => {
+    clearError();
+
+    try {
+      await updateGreetingConfig({
+        greeting_template: greetingTemplate,
+        use_custom_greeting: useCustomGreeting,
+      });
+
+      toast('Greeting configuration saved successfully!', 'success');
+    } catch (err) {
+      console.error('Failed to save greeting config:', err);
+      toast('Failed to save greeting configuration', 'error');
+    }
+  };
+
+  // Story 1.14: Handle reset greeting to default
+  const handleResetGreeting = async () => {
+    clearError();
+
+    try {
+      await resetGreetingToDefault();
+      toast('Greeting reset to default successfully!', 'success');
+    } catch (err) {
+      console.error('Failed to reset greeting:', err);
+      toast('Failed to reset greeting', 'error');
+    }
+  };
+
   // Is any operation in progress?
   const isLoading = loadingState === 'loading';
-  const hasConfig = botName || personality || customGreeting;
+  const hasConfig = botName || personality || customGreeting || greetingTemplate;
   const personalityInfo = getPersonalityInfo(personality);
 
   return (
@@ -132,7 +176,7 @@ export const BotConfig: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm">
               <Info size={16} />
-              <span>Story 1.12</span>
+              <span>Stories 1.12 & 1.14</span>
             </div>
           </div>
         </div>
@@ -272,29 +316,82 @@ export const BotConfig: React.FC = () => {
           </div>
         </div>
 
+        {/* Story 1.14: Greeting Configuration Section */}
+        {personality && (
+          <div className="max-w-6xl mx-auto px-6" data-testid="greeting-section-container">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Greeting Configuration
+                </h2>
+                {greetingTemplate && useCustomGreeting && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md">
+                    <CheckCircle2 size={12} />
+                    Configured
+                  </span>
+                )}
+              </div>
+
+              <GreetingConfig
+                personality={personality}
+                greetingTemplate={greetingTemplate}
+                useCustomGreeting={useCustomGreeting}
+                defaultTemplate={defaultTemplate}
+                availableVariables={availableVariables}
+                onUpdate={async (data) => {
+                  clearError();
+                  try {
+                    await updateGreetingConfig(data);
+                    toast('Greeting configuration saved successfully!', 'success');
+                  } catch (err) {
+                    console.error('Failed to save greeting config:', err);
+                    toast('Failed to save greeting configuration', 'error');
+                  }
+                }}
+                onReset={async () => {
+                  clearError();
+                  try {
+                    await resetGreetingToDefault();
+                    toast('Greeting reset to default successfully!', 'success');
+                  } catch (err) {
+                    console.error('Failed to reset greeting:', err);
+                    toast('Failed to reset greeting', 'error');
+                  }
+                }}
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Help Section */}
         <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">How Bot Names Work</h3>
-          <div className="grid md:grid-cols-3 gap-6 text-sm text-blue-800">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">How Bot Configuration Works</h3>
+          <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
+            {/* Story 1.12: Bot Names */}
             <div>
-              <h4 className="font-medium mb-2">Branding</h4>
+              <h4 className="font-medium mb-2">Bot Names</h4>
               <p className="text-blue-700">
                 A custom bot name creates a branded experience for your customers. Choose a name
                 that reflects your business identity.
               </p>
-            </div>
-            <div>
-              <h4 className="font-medium mb-2">Greetings</h4>
-              <p className="text-blue-700">
-                The bot name appears in the initial greeting and throughout conversations. For
-                example: &quot;Hi! I'm GearBot, here to help you...&quot;
+              <p className="text-blue-700 text-xs mt-2">
+                Example: &quot;Hi! I'm GearBot, here to help you...&quot;
               </p>
             </div>
+
+            {/* Story 1.14: Smart Greetings */}
             <div>
-              <h4 className="font-medium mb-2">Optional</h4>
+              <h4 className="font-medium mb-2">Smart Greeting Templates</h4>
               <p className="text-blue-700">
-                If you don't set a bot name, the bot will use a generic greeting like &quot;your
-                shopping assistant&quot; instead.
+                Greeting templates automatically match your selected bot personality. You can
+                customize the greeting or use the personality-based default.
+              </p>
+              <p className="text-blue-700 text-xs mt-2">
+                <strong>Variables:</strong>{' '}
+                {'{bot_name} — Your bot name, '}
+                {'{business_name} — Your business name, '}
+                {'{business_hours} — Your business hours'}
               </p>
             </div>
           </div>

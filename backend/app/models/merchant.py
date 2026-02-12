@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from enum import Enum
 
-from sqlalchemy import String, Integer, DateTime, Text
+from sqlalchemy import String, Integer, DateTime, Text, Boolean
 from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -69,6 +69,13 @@ class Merchant(Base):
         Text,
         nullable=True,
     )
+    # Greeting configuration (Story 1.14)
+    use_custom_greeting: Mapped[bool] = mapped_column(
+        Boolean,  # type: ignore
+        default=False,
+        nullable=False,
+        server_default="false",
+    )
 
     # Business information (Story 1.11)
     business_name: Mapped[Optional[str]] = mapped_column(
@@ -81,6 +88,23 @@ class Merchant(Base):
     )
     business_hours: Mapped[Optional[str]] = mapped_column(
         String(200),
+        nullable=True,
+    )
+
+    # Bot naming configuration (Story 1.12)
+    bot_name: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    # Authentication fields (Story 1.8)
+    email: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+    )
+    password_hash: Mapped[Optional[str]] = mapped_column(
+        String(255),
         nullable=True,
     )
 
