@@ -1,0 +1,60 @@
+
+ RUN  v1.6.1 /Users/sherwingorechomante/shop/frontend
+
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should render export button with idle state
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should render loading state when exporting
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should render completed state when export is done
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should be disabled when loading
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should be disabled when disabled prop is true
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should call openOptionsModal when clicked
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should be disabled when preparing
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should show spinner icon when loading
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should show checkmark icon when completed
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should show download icon when idle
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should apply custom className
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should be keyboard accessible
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should not be clickable when disabled via status
+ ✓ tests/component/export/ExportButton.test.tsx > ExportButton Component > should not be clickable when disabled via prop
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should not render when status is idle
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should render preparing state message
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should render exporting state message with progress bar
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should render completed state with metadata
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should render completed state without metadata
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should render error state
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should render default error message when error is null
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should show dismiss button when there is an error
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should not show progress bar when completed
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should show progress bar during preparing state
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should format date correctly in metadata
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should apply custom className
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should have proper ARIA attributes on progress bar
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should dismiss error when close button clicked
+ ✓ tests/component/export/ExportProgress.test.tsx > ExportProgress Component > should not show dismiss button in non-error states
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should not render when modal is closed
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should render dialog when open
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should show no filters message when no filters applied
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should show filter count when filters are applied
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display export limit warning
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display CSV format information
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display search filter
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display date range filter (both dates)
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display date range filter (from date only)
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display date range filter (to date only)
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display multiple status filters
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display sentiment filter
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display handoff filter (true)
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should display handoff filter (false)
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should call setExportOptions and startExport when Export clicked
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should close modal when Cancel clicked
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should show clear all button when filters are active
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should initialize form with current filters
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should count filters correctly
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should have proper ARIA attributes
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should be keyboard accessible
+ ✓ tests/component/export/ExportOptionsModal.test.tsx > ExportOptionsModal Component > should not show clear all button when no filters
+
+ Test Files  3 passed (3)
+      Tests  51 passed (51)
+   Start at  21:49:48
+   Duration  1.74s (transform 257ms, setup 961ms, collect 489ms, tests 1.07s, environment 1.47s, prepare 250ms)
+

@@ -22,6 +22,8 @@ import {
   type FaqUpdateRequest,
 } from '../services/businessInfo';
 
+export type { FaqCreateRequest, FaqUpdateRequest };
+
 type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
 /**
@@ -124,9 +126,9 @@ export const useBusinessInfoStore = create<BusinessInfoState>()(
           const info: BusinessInfoResponse = await businessInfoApi.getBusinessInfo();
 
           set({
-            businessName: info.business_name,
-            businessDescription: info.business_description,
-            businessHours: info.business_hours,
+            businessName: info.businessName,
+            businessDescription: info.businessDescription,
+            businessHours: info.businessHours,
             loadingState: 'success',
             isDirty: false,
           });
@@ -161,9 +163,9 @@ export const useBusinessInfoStore = create<BusinessInfoState>()(
           const info: BusinessInfoResponse = await businessInfoApi.updateBusinessInfo(update);
 
           set({
-            businessName: info.business_name,
-            businessDescription: info.business_description,
-            businessHours: info.business_hours,
+            businessName: info.businessName,
+            businessDescription: info.businessDescription,
+            businessHours: info.businessHours,
             loadingState: 'success',
             isDirty: false,
           });
@@ -311,9 +313,9 @@ export const useBusinessInfoStore = create<BusinessInfoState>()(
           const storeFaq = apiFaqToStoreFaq(updatedFaq);
 
           set({
-            faqs: get().faqs.map((faq) =>
-              faq.id === faqId ? storeFaq : faq
-            ).sort((a, b) => a.orderIndex - b.orderIndex),
+            faqs: get()
+              .faqs.map((faq) => (faq.id === faqId ? storeFaq : faq))
+              .sort((a, b) => a.orderIndex - b.orderIndex),
             faqsLoadingState: 'success',
           });
         } catch (error) {
@@ -488,7 +490,8 @@ export const selectBusinessName = (state: BusinessInfoState) => state.businessNa
 export const selectBusinessDescription = (state: BusinessInfoState) => state.businessDescription;
 export const selectBusinessHours = (state: BusinessInfoState) => state.businessHours;
 export const selectFaqs = (state: BusinessInfoState) => state.faqs;
-export const selectBusinessInfoLoading = (state: BusinessInfoState) => state.loadingState === 'loading';
+export const selectBusinessInfoLoading = (state: BusinessInfoState) =>
+  state.loadingState === 'loading';
 export const selectFaqsLoading = (state: BusinessInfoState) => state.faqsLoadingState === 'loading';
 export const selectBusinessInfoError = (state: BusinessInfoState) => state.error;
 export const selectBusinessInfoIsDirty = (state: BusinessInfoState) => state.isDirty;

@@ -1,19 +1,45 @@
 import React from 'react';
-import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 
 const Sidebar = () => {
-  // Placeholder for navigation logic until routing is fully set up
-  const isActive = (path: string) => path === '/dashboard';
+  const navigate = useNavigate();
+  const { merchant, logout, isAuthenticated } = useAuthStore();
+
+  const isActive = (path: string) => {
+    return window.location.pathname === path;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      navigate('/login');
+    }
+  };
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: TestTube, label: 'Test Your Bot', path: '/bot-preview' },
     { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
     { icon: DollarSign, label: 'Costs', path: '/costs' },
     { icon: Info, label: 'Business Info & FAQ', path: '/business-info-faq' },
     { icon: Smile, label: 'Bot Personality', path: '/personality' },
+    { icon: Bot, label: 'Bot Config', path: '/bot-config' },
     { icon: Settings, label: 'Settings', path: '/settings' },
     { icon: Cpu, label: 'LLM Settings', path: '/settings/provider' },
   ];
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!merchant?.email) return 'MA';
+    const email = merchant.email;
+    const name = email.split('@')[0];
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <aside className="w-64 bg-gray-50 border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col">
@@ -39,14 +65,29 @@ const Sidebar = () => {
       </nav>
 
       <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
-            MA
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
+              {getUserInitials()}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {merchant?.bot_name || 'Merchant'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {merchant?.email || 'Not logged in'}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">Merchant Admin</p>
-            <p className="text-xs text-gray-500">admin@shop.com</p>
-          </div>
+          {isAuthenticated && (
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
+          )}
         </div>
       </div>
     </aside>

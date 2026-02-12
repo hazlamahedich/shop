@@ -13,7 +13,7 @@ import React, { useEffect, useState } from 'react';
 import { Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty, selectEffectiveGreeting } from '../stores/personalityStore';
 import { PersonalityCard } from '../components/personality/PersonalityCard';
-import { GreetingEditor } from '../components/personality/GreetingEditor';
+import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import type { PersonalityType } from '../types/enums';
 import { PersonalityDisplay, PersonalityDefaultGreetings } from '../types/enums';
 
@@ -192,19 +192,20 @@ const PersonalityConfig: React.FC = () => {
             Optionally customize the first message your bot sends. Leave empty to use the default greeting for the {PersonalityDisplay[selectedPersonality].toLowerCase()} personality.
           </p>
 
-          <GreetingEditor
-            value={greetingValue}
-            onChange={handleGreetingChange}
-            defaultGreeting={getDefaultGreeting()}
+          <GreetingConfig
+            personality={selectedPersonality}
+            greetingTemplate={greetingValue || null}
+            useCustomGreeting={!!greetingValue}
+            defaultTemplate={getDefaultGreeting()}
+            availableVariables={['bot_name', 'business_name', 'business_hours']}
+            onUpdate={(data) => {
+              if (data.greeting_template !== undefined) {
+                handleGreetingChange(data.greeting_template);
+              }
+            }}
             onReset={handleResetGreeting}
             disabled={loading}
           />
-
-          {/* Current effective greeting display */}
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 pointer-events-none">
-            <p className="text-xs text-blue-700 font-medium mb-1">Current Greeting:</p>
-            <p className="text-sm text-blue-900">"{effectiveGreeting}"</p>
-          </div>
         </section>
       )}
 

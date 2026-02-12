@@ -475,3 +475,146 @@ async def test_merchant_business_name_index_query(db_session: AsyncSession) -> N
 
     assert len(matching_merchants) == 2
     assert all(m.business_name == "Alex's Athletic Gear" for m in matching_merchants)
+
+
+# Story 1.12: Bot Naming Tests
+
+
+@pytest.mark.asyncio
+async def test_merchant_with_bot_name(db_session: AsyncSession) -> None:
+    """Test creating a merchant with bot name (Story 1.12 AC 2)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-bot-name",
+        platform="fly.io",
+        status="active",
+        bot_name="GearBot",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.bot_name == "GearBot"
+
+
+@pytest.mark.asyncio
+async def test_merchant_bot_name_nullable(db_session: AsyncSession) -> None:
+    """Test that bot_name can be null (Story 1.12 AC 2)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-null-bot-name",
+        platform="fly.io",
+        status="active",
+        bot_name=None,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.bot_name is None
+
+
+@pytest.mark.asyncio
+async def test_merchant_bot_name_max_length(db_session: AsyncSession) -> None:
+    """Test that bot_name respects 50 character limit (Story 1.12 AC 2)."""
+
+    # Create a bot name with exactly 50 characters
+    long_bot_name = "A" * 50
+
+    merchant = Merchant(
+        merchant_key="test-merchant-max-bot-name",
+        platform="fly.io",
+        status="active",
+        bot_name=long_bot_name,
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert len(merchant.bot_name) == 50
+    assert merchant.bot_name == long_bot_name
+
+
+@pytest.mark.asyncio
+async def test_merchant_bot_name_whitespace_stripping(db_session: AsyncSession) -> None:
+    """Test that whitespace is stripped from bot_name when set via API (Story 1.12 AC 2).
+
+    Note: The ORM model itself doesn't strip whitespace - that's done at the schema level.
+    This test verifies that the model can store any string value.
+    """
+
+    merchant = Merchant(
+        merchant_key="test-merchant-whitespace-bot-name",
+        platform="fly.io",
+        status="active",
+        bot_name="  GearBot  ",  # Whitespace should be handled by API layer
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    # The model stores exactly what we set
+    assert merchant.bot_name == "  GearBot  "
+
+
+@pytest.mark.asyncio
+async def test_merchant_update_bot_name(db_session: AsyncSession) -> None:
+    """Test updating merchant bot name (Story 1.12 AC 2)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-update-bot-name",
+        platform="fly.io",
+        status="active",
+        bot_name="GearBot",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    # Update bot name
+    merchant.bot_name = "ShopAssistant"
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.bot_name == "ShopAssistant"
+
+
+@pytest.mark.asyncio
+async def test_merchant_clear_bot_name(db_session: AsyncSession) -> None:
+    """Test clearing bot name by setting to null/empty (Story 1.12 AC 2)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-clear-bot-name",
+        platform="fly.io",
+        status="active",
+        bot_name="GearBot",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    # Clear bot name
+    merchant.bot_name = None
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.bot_name is None
+
+
+@pytest.mark.asyncio
+async def test_merchant_bot_name_with_business_info(db_session: AsyncSession) -> None:
+    """Test merchant with both bot name and business info (Story 1.12 AC 3, 4)."""
+
+    merchant = Merchant(
+        merchant_key="test-merchant-bot-name-business-info",
+        platform="fly.io",
+        status="active",
+        business_name="Alex's Athletic Gear",
+        bot_name="GearBot",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    assert merchant.business_name == "Alex's Athletic Gear"
+    assert merchant.bot_name == "GearBot"

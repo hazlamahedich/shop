@@ -187,7 +187,7 @@
     </check>
   </step>
 
-  <step n="4" goal="Mark story in-progress" tag="sprint-status">
+  <step n="4" goal="Mark story in-progress and sync to Beads" tag="sprint-status">
     <check if="{{sprint_status}} file exists">
       <action>Load the FULL file: {{sprint_status}}</action>
       <action>Read all development_status entries to find {{story_key}}</action>
@@ -214,6 +214,31 @@
 
       <action>Store {{current_sprint_status}} for later use</action>
     </check>
+
+    <!-- ===================================================================== -->
+    <!-- BEADS INTEGRATION - SYNC DEV-START TO BEADS                           -->
+    <!-- ===================================================================== -->
+    <!-- TO DISABLE: Delete from here to END BEADS tag below                    -->
+    <!-- ===================================================================== -->
+
+    <action optional="true">Check if Beads integration hook exists: {project-root}/_bmad/core/beads-integration-hook.md</action>
+    <check if="beads hook exists AND enabled == true">
+      <action>Parse sync_triggers from hook config</action>
+      <check if="dev-story in sync_triggers">
+        <action optional="true">Check if Beads has a task for this story (bd list)</action>
+        <check if="matching Beads task found for {{story_key}}">
+          <action optional="true">Update Beads task status to in-progress: bd update <beads_id> --status in_progress</action>
+          <output>🔄 Beads task updated: in-progress</output>
+        </check>
+        <check if="no matching Beads task found">
+          <note>No Beads task found for this story - skipping Beads sync</note>
+        </check>
+      </check>
+    </check>
+
+    <!-- ===================================================================== -->
+    <!-- END BEADS INTEGRATION                                                   -->
+    <!-- ===================================================================== -->
 
     <check if="{{sprint_status}} file does NOT exist">
       <output>ℹ️ No sprint status file exists - story progress will be tracked in story file only</output>
@@ -362,6 +387,28 @@
         Story status is set to "review" in file, but sprint-status.yaml may be out of sync.
       </output>
     </check>
+
+    <!-- ===================================================================== -->
+    <!-- BEADS INTEGRATION - SYNC DEV-COMPLETE TO BEADS                        -->
+    <!-- ===================================================================== -->
+    <!-- TO DISABLE: Delete from here to END BEADS tag below                    -->
+    <!-- ===================================================================== -->
+
+    <action optional="true">Check if Beads integration hook exists: {project-root}/_bmad/core/beads-integration-hook.md</action>
+    <check if="beads hook exists AND enabled == true">
+      <action>Parse sync_triggers from hook config</action>
+      <check if="dev-story in sync_triggers">
+        <action optional="true">Find Beads task for {{story_key}} (bd list)</action>
+        <check if="matching Beads task found">
+          <action optional="true">Close Beads task: bd close <beads_id></action>
+          <output>✅ Beads task closed: {{story_key}} implementation complete</output>
+        </check>
+      </check>
+    </check>
+
+    <!-- ===================================================================== -->
+    <!-- END BEADS INTEGRATION                                                   -->
+    <!-- ===================================================================== -->
 
     <!-- Final validation gates -->
     <action if="any task is incomplete">HALT - Complete remaining tasks before marking ready for review</action>

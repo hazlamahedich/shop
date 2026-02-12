@@ -3,17 +3,23 @@
  *
  * Story 1.12: Bot Naming
  * Story 1.14: Smart Greeting Templates
+ * Story 1.15: Product Highlight Pins
  *
  * Provides client-side API for bot configuration management:
  * - Get bot configuration (bot_name, personality, custom_greeting)
  * - Update bot name
  * - Get/Update greeting configuration
+ * - Product pin management (Story 1.15)
  *
  * API Endpoints:
  * - GET /api/v1/merchant/bot-config - Get current bot configuration
  * - PUT /api/v1/merchant/bot-config - Update bot configuration
  * - GET /api/v1/merchant/greeting-config - Get greeting configuration
  * - PUT /api/v1/merchant/greeting-config - Update greeting configuration
+ * - GET /api/v1/merchant/product-pins - Get products with pin status
+ * - POST /api/v1/merchant/product-pins - Pin a product
+ * - DELETE /api/v1/merchant/product-pins/{product_id} - Unpin a product
+ * - POST /api/v1/merchant/product-pins/reorder - Reorder pinned products
  */
 
 import { apiClient } from './api';
@@ -72,6 +78,10 @@ export enum BotConfigErrorCode {
   BOT_NAME_TOO_LONG = 4200,
   SAVE_FAILED = 4201,
   BOT_CONFIG_ACCESS_DENIED = 4202,
+  // Product pin errors (4250-4299) - Story 1.15
+  PRODUCT_PIN_LIMIT_REACHED = 4250,
+  PRODUCT_PIN_ALREADY_PINNED = 4251,
+  PRODUCT_PIN_NOT_FOUND = 4252,
 }
 
 /**
@@ -213,6 +223,216 @@ export const botConfigApi = {
       }
 
       // Extract error code from error object
+      const errorObj = error as any;
+      if (errorObj && typeof errorObj.status === 'number') {
+        status = errorObj.status;
+      }
+      if (errorObj && typeof errorObj.code === 'number') {
+        errorCode = errorObj.code;
+      }
+
+      throw new BotConfigError(errorMessage, errorCode, status);
+    }
+  },
+};
+
+/**
+ * Story 1.15: Product Highlight Pins
+ *
+ * Product pin related types and API functions
+ */
+
+/**
+ * Single product item with pin status
+ */
+export interface ProductPinItem {
+  productId: string;
+  title: string;
+  imageUrl?: string;
+  isPinned: boolean;
+  pinnedOrder?: number;
+  pinnedAt?: string;
+}
+
+/**
+ * Pagination metadata
+ */
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+}
+
+/**
+ * Response from product pins endpoints
+ */
+export interface ProductPinsResponse {
+  products: ProductPinItem[];
+  pagination?: PaginationMeta;
+  pinLimit: number;
+  pinnedCount: number;
+}
+
+/**
+ * Request body for pinning a product
+ */
+export interface ProductPinRequest {
+  productId: string;
+}
+
+/**
+ * Response for single product pin operation
+ */
+export interface ProductPinResponse {
+  productId: string;
+  isPinned: boolean;
+  pinnedOrder?: number;
+  pinnedAt?: string;
+}
+
+/**
+ * Request body for reordering pinned products
+ */
+export interface ReorderPinsRequest {
+  productOrders: Array<{ productId: string; order: number }>;
+}
+
+/**
+ * Product Pin API Client
+ *
+ * Story 1.15: Product Highlight Pins
+ *
+ * Handles all product pin operations with automatic error handling
+ * and response parsing.
+ */
+export const productPinApi = {
+  /**
+   * Get products with pin status
+   *
+   * @param search - Optional search query for filtering products
+   * @param pinnedOnly - If true, return only pinned products
+   * @param page - Page number for pagination (default: 1)
+   * @param limit - Items per page (default: 20)
+   * @returns Product list with pin status and pagination info
+   * @throws BotConfigError if request fails
+   */
+  async fetchProductsWithPinStatus(
+    search?: string,
+    pinnedOnly: boolean = false,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<ProductPinsResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (pinnedOnly) params.append('pinned_only', 'true');
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+
+      const response = await apiClient.get<ProductPinsResponse>(
+        `/api/v1/merchant/product-pins?${params.toString()}`
+      );
+      return response.data;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to fetch products';
+      const status = (error as any)?.status ?? 500;
+      throw new BotConfigError(errorMessage, undefined, status);
+    }
+  },
+
+  /**
+   * Pin a product
+   *
+   * @param productId - Shopify product ID to pin
+   * @returns Updated pin status
+   * @throws BotConfigError if request fails or limit reached
+   */
+  async pinProduct(productId: string): Promise<ProductPinResponse> {
+    try {
+      const response = await apiClient.post<ProductPinResponse>(
+        '/api/v1/merchant/product-pins',
+        { productId: productId }
+      );
+      return response.data;
+    } catch (error) {
+      let errorMessage = 'Failed to pin product';
+      let errorCode: BotConfigErrorCode | undefined;
+      let status = 500;
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      const errorObj = error as any;
+      if (errorObj && typeof errorObj.status === 'number') {
+        status = errorObj.status;
+      }
+      if (errorObj && typeof errorObj.code === 'number') {
+        errorCode = errorObj.code;
+      }
+
+      throw new BotConfigError(errorMessage, errorCode, status);
+    }
+  },
+
+  /**
+   * Unpin a product
+   *
+   * @param productId - Shopify product ID to unpin
+   * @returns Updated pin status
+   * @throws BotConfigError if request fails
+   */
+  async unpinProduct(productId: string): Promise<ProductPinResponse> {
+    try {
+      const response = await apiClient.delete<ProductPinResponse>(
+        `/api/v1/merchant/product-pins/${encodeURIComponent(productId)}`
+      );
+      return response.data;
+    } catch (error) {
+      let errorMessage = 'Failed to unpin product';
+      let errorCode: BotConfigErrorCode | undefined;
+      let status = 500;
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      const errorObj = error as any;
+      if (errorObj && typeof errorObj.status === 'number') {
+        status = errorObj.status;
+      }
+      if (errorObj && typeof errorObj.code === 'number') {
+        errorCode = errorObj.code;
+      }
+
+      throw new BotConfigError(errorMessage, errorCode, status);
+    }
+  },
+
+  /**
+   * Reorder pinned products
+   *
+   * @param productOrders - Array of product IDs with their new order values
+   * @returns Success confirmation
+   * @throws BotConfigError if request fails
+   */
+  async reorderPinnedProducts(productOrders: ReorderPinsRequest['product_orders']): Promise<void> {
+    try {
+      await apiClient.post<void>(
+        '/api/v1/merchant/product-pins/reorder',
+        { productOrders: productOrders }
+      );
+    } catch (error) {
+      let errorMessage = 'Failed to reorder products';
+      let errorCode: BotConfigErrorCode | undefined;
+      let status = 500;
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       const errorObj = error as any;
       if (errorObj && typeof errorObj.status === 'number') {
         status = errorObj.status;

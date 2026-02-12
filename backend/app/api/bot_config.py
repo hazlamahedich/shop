@@ -31,6 +31,7 @@ from app.schemas.greeting import (
     GreetingEnvelope,
 )
 from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
+from app.api.product_pins import router as product_pins_router
 from app.services.personality.greeting_service import (
     get_default_greeting,
     substitute_greeting_variables,

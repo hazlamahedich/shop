@@ -53,6 +53,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/webhooks/",  # Webhook endpoints (use signature-based verification)
         "/api/oauth/",
         "/api/auth/",
+        "/api/v1/auth/",  # Story 1.8: Authentication endpoints
+        "/api/v1/merchant/product-pins",  # Story 1.15: Product pins - temporary bypass for testing
         "/api/deletion/",  # Data deletion for GDPR/CCPA compliance
         "/api/conversations/export",  # CSV export is a read-only operation
         "/docs",

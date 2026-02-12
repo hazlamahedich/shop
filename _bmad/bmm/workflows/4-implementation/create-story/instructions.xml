@@ -380,4 +380,76 @@
     </output>
   </step>
 
+  <!-- ===================================================================== -->
+  <!-- BEADS INTEGRATION - AUTOMATIC SYNC TO BEADS TASKS                     -->
+  <!-- ===================================================================== -->
+  <!-- TO DISABLE: Delete from here to END BEADS tag below                    -->
+  <!-- OR delete: {project-root}/_bmad/core/beads-integration-hook.md        -->
+  <!-- ===================================================================== -->
+
+  <step n="7" goal="Sync to Beads (automatic task tracking)" optional="true">
+    <note>This step automatically syncs the newly created story to Beads tasks</note>
+
+    <!-- Check if Beads integration hook exists -->
+    <action>Check if file exists: {project-root}/_bmad/core/beads-integration-hook.md</action>
+    <check if="hook file does not exist">
+      <note>Beads integration not configured - skipping sync</note>
+      <action>Continue to Step 8 (completion)</action>
+    </check>
+
+    <!-- Read and parse hook configuration -->
+    <action>Read hook configuration from {project-root}/_bmad/core/beads-integration-hook.md</action>
+    <action>Parse: enabled, sync_triggers[], sync_mode, sync_command, on_error</action>
+
+    <!-- Check if integration is enabled -->
+    <check if="enabled != true">
+      <note>Beads integration disabled in config - skipping sync</note>
+      <action>Continue to Step 8 (completion)</action>
+    </check>
+
+    <!-- Check if create-story should trigger sync -->
+    <action>Check if "create-story" is in sync_triggers list</action>
+    <check if="create-story not in sync_triggers">
+      <note>Beads sync not configured for create-story workflow - skipping</note>
+      <action>Continue to Step 8 (completion)</action>
+    </check>
+
+    <!-- Execute sync -->
+    <output>🔄 Syncing BMad → Beads tasks for newly created story...</output>
+
+    <action>Build sync command: {sync_command} with sync_mode substituted</action>
+    <action>Execute: ./scripts/bmad-to-beads --create --status ready-for-dev</action>
+
+    <!-- Handle result -->
+    <check if="command succeeded">
+      <output>✅ Beads sync complete! New story task created in Beads.</output>
+      <output>Run 'bd ready' to see available tasks including the new story.</output>
+    </check>
+
+    <check if="command failed">
+      <check if="on_error == warn">
+        <output>⚠️ Beads sync warning: {{error}}</output>
+        <output>Tip: Manually sync with: ./scripts/bmad-to-beads --create</output>
+      </check>
+      <check if="on_error == fail">
+        <output>❌ Beads sync failed: {{error}}</output>
+        <ask>Continue without Beads sync? (y/n):</ask>
+        <check if="n">
+          <action>Exit workflow</action>
+        </check>
+      </check>
+      <check if="on_error == silent">
+        <note>Beads sync failed silently - continuing</note>
+      </check>
+    </check>
+  </step>
+
+  <step n="8" goal="Final workflow completion">
+    <action>Report final workflow completion</action>
+  </step>
+
+  <!-- ===================================================================== -->
+  <!-- END BEADS INTEGRATION - Remove above to disable                       -->
+  <!-- ===================================================================== -->
+
 </workflow>

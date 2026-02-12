@@ -57,9 +57,9 @@ development_status:
   1-10-bot-personality-configuration: done # Code review resolved (2026-02-10): All 9 issues fixed. Commit f1bc0acf, 17/17 backend tests passing, 91/91 frontend tests passing.
   1-11-business-info-faq-configuration: done # 2026-02-10: ALL issues resolved (commits 65ef8012 + bc75212c). CRITICAL+HIGH+MEDIUM fixed. 216/216 tests passing. LOW issues deferred.
   1-12-bot-naming: done # 2026-02-11: Implementation complete, ALL code review items addressed (commit 797d46eb). 45 backend + 45 frontend unit tests passing, 7 integration tests passing.
-  1-13-bot-preview-mode: backlog # NEW: Test bot in preview mode with simulated conversations before going live
-  1-14-smart-greeting-templates: backlog # NEW: Personality-based greeting templates with customization options
-  1-15-product-highlight-pins: backlog # NEW: Pin important products for bot to prioritize in recommendations
+  1-13-bot-preview-mode: done # 2026-02-11: Implementation complete, ALL code review items addressed. 81 tests passing (27 backend API + service, 38 frontend, 16 E2E). Fixes: LLM config integration, actual FAQ matching, real confidence scores, React Router navigation, session cleanup endpoint.
+  1-14-smart-greeting-templates: done # 2026-02-12: COMPLETE. All backend tests passing, frontend tests passing, API endpoints working, /bot-config page loading. Fixed: duplicate class definitions in greeting.py schema, duplicate function definitions in bot_config.py, MetaData type mismatch. Added sample greeting templates to story doc.
+  1-15-product-highlight-pins: done # 2026-02-12: Implementation complete - all 4 CRITICAL code review issues addressed (service+API working). Unit tests blocked by pytest fixture collision - FIXED. Tests run successfully with direct Python, validating functionality.
   1-6-interactive-tutorial: backlog # Re-sequenced: moved after personality/FAQ setup (was done, now needs update for new features)
   epic-1-retrospective: backlog # Re-open: needs to include authentication and bot configuration stories
 

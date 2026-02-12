@@ -92,6 +92,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         if self._should_bypass_path(request):
             return await call_next(request)
 
+        # Always bypass OPTIONS requests for CORS preflight
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Extract and validate JWT from cookie
         # Catch HTTPException and convert to JSONResponse for middleware context
         try:
@@ -100,11 +104,15 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             # Convert HTTPException to JSONResponse for proper API error format
             return JSONResponse(
                 status_code=e.status_code,
-                content=e.detail if isinstance(e.detail, dict) else {
-                    "error_code": ErrorCode.AUTH_FAILED,
-                    "message": str(e.detail),
-                    "details": "Authentication failed"
-                }
+                content=(
+                    e.detail
+                    if isinstance(e.detail, dict)
+                    else {
+                        "error_code": ErrorCode.AUTH_FAILED,
+                        "message": str(e.detail),
+                        "details": "Authentication failed",
+                    }
+                ),
             )
 
         # Populate request state
@@ -202,11 +210,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             # MEDIUM-11: Check if session is revoked in database (AC 3 compliance)
             async with async_session() as db:
                 token_hash = hash_token(token)
-                result = await db.execute(
-                    select(Session).where(
-                        Session.token_hash == token_hash
-                    )
-                )
+                result = await db.execute(select(Session).where(Session.token_hash == token_hash))
                 session = result.scalars().first()
 
                 if not session or session.revoked:

@@ -3,11 +3,13 @@
  *
  * Story 1.12: Bot Naming
  * Story 1.14: Smart Greeting Templates
+ * Story 1.15: Product Highlight Pins
  *
  * Main page for configuring bot settings including:
  * - Bot name input with live preview
  * - Display of current personality and custom greeting
  * - Greeting configuration with live preview (Story 1.14)
+ * - Product highlight pins management (Story 1.15)
  * - Save functionality for bot name changes
  * - Loading states and error handling
  * - Navigation breadcrumbs
@@ -22,6 +24,7 @@ import { useToast } from '../context/ToastContext';
 import { useBotConfigStore } from '../stores/botConfigStore';
 import { BotNameInput } from '../components/bot-config/BotNameInput';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
+import { ProductPinList } from '../components/business-info/ProductPinList';
 
 // Add data-testid constant for greeting section
 const GREETING_CONTAINER_ID = 'greeting-config-section-container';
@@ -176,7 +179,7 @@ export const BotConfig: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm">
               <Info size={16} />
-              <span>Stories 1.12 & 1.14</span>
+              <span>Stories 1.12, 1.14 & 1.15</span>
             </div>
           </div>
         </div>
@@ -364,10 +367,15 @@ export const BotConfig: React.FC = () => {
           </div>
         )}
 
+        {/* Story 1.15: Product Highlight Pins Section */}
+        <div className="max-w-6xl mx-auto px-6">
+          <ProductPinList />
+        </div>
+
         {/* Help Section */}
         <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">How Bot Configuration Works</h3>
-          <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm text-blue-800">
             {/* Story 1.12: Bot Names */}
             <div>
               <h4 className="font-medium mb-2">Bot Names</h4>
@@ -385,13 +393,26 @@ export const BotConfig: React.FC = () => {
               <h4 className="font-medium mb-2">Smart Greeting Templates</h4>
               <p className="text-blue-700">
                 Greeting templates automatically match your selected bot personality. You can
-                customize the greeting or use the personality-based default.
+                customize greeting or use personality-based default.
               </p>
               <p className="text-blue-700 text-xs mt-2">
                 <strong>Variables:</strong>{' '}
                 {'{bot_name} — Your bot name, '}
                 {'{business_name} — Your business name, '}
                 {'{business_hours} — Your business hours'}
+              </p>
+            </div>
+
+            {/* Story 1.15: Product Highlight Pins */}
+            <div>
+              <h4 className="font-medium mb-2">Product Highlight Pins</h4>
+              <p className="text-blue-700">
+                Pin important products to boost their recommendations. Pinned products
+                appear first with a 2x relevance boost.
+              </p>
+              <p className="text-blue-700 text-xs mt-2">
+                <strong>Limit:</strong> Up to 10 products can be pinned.
+                Pinned earlier in list = higher priority.
               </p>
             </div>
           </div>

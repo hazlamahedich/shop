@@ -126,6 +126,12 @@ class Merchant(Base):
         cascade="all, delete-orphan",
         order_by="Faq.order_index",
     )
+    product_pins: Mapped[list["ProductPin"]] = relationship(
+        "ProductPin",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="ProductPin.pinned_order",
+    )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),

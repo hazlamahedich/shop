@@ -3,12 +3,14 @@
  *
  * Story 1.12: Bot Naming
  * Story 1.14: Smart Greeting Templates
+ * Story 1.15: Product Highlight Pins
  *
  * Manages bot configuration state including:
  * - Bot name
  * - Personality type
  * - Custom greeting
  * - Greeting configuration (template, use_custom_greeting)
+ * - Product pin state (products, search, filters)
  * - Loading and error states
  * - Fetching and updating configuration
  */
@@ -17,11 +19,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   botConfigApi,
+  productPinApi,
   BotConfigError,
   type BotConfigResponse,
   type BotNameUpdateRequest,
   type GreetingConfigResponse,
   type GreetingConfigUpdateRequest,
+  type ProductPinItem,
+  type PaginationMeta,
+  type ProductPinsResponse,
 } from '../services/botConfig';
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'error';
@@ -41,6 +47,18 @@ export interface BotConfigState {
   defaultTemplate: string | null;
   availableVariables: string[];
 
+  // Story 1.15: Product pin data
+  productPins: ProductPinItem[];
+  productsLoading: boolean;
+  productsError: string | null;
+  searchQuery: string;
+  pinnedOnly: boolean;
+  pagination?: PaginationMeta;
+  pinLimitInfo: {
+    pinLimit: number;
+    pinnedCount: number;
+  } | null;
+
   // UI state
   loadingState: LoadingState;
   error: string | null;
@@ -53,6 +71,19 @@ export interface BotConfigState {
   updateGreetingConfig: (update: GreetingConfigUpdateRequest) => Promise<void>;
   resetGreetingToDefault: () => Promise<void>;
   setBotName: (name: string) => void;
+
+  // Actions - Story 1.15: Product pin management
+  fetchProductPins: (options?: {
+    search?: string;
+    pinnedOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }) => Promise<void>;
+  pinProduct: (productId: string) => Promise<void>;
+  unpinProduct: (productId: string) => Promise<void>;
+  setSearchQuery: (query: string) => void;
+  togglePinnedOnly: () => void;
+  clearProductsError: () => void;
 
   // Actions - State checks
   hasUnsavedChanges: () => boolean;
@@ -81,6 +112,15 @@ export const useBotConfigStore = create<BotConfigState>()(
       useCustomGreeting: false,
       defaultTemplate: null,
       availableVariables: ['bot_name', 'business_name', 'business_hours'],
+      // Story 1.15: Product pin initial state
+      productPins: [],
+      productsLoading: false,
+      productsError: null,
+      searchQuery: '',
+      pinnedOnly: false,
+      pagination: undefined,
+      pinLimitInfo: null,
+      // General UI state
       loadingState: 'idle',
       error: null,
       isDirty: false,
@@ -325,10 +365,173 @@ export const useBotConfigStore = create<BotConfigState>()(
           useCustomGreeting: false,
           defaultTemplate: null,
           availableVariables: ['bot_name', 'business_name', 'business_hours'],
+          // Story 1.15: Reset product pin state
+          productPins: [],
+          productsLoading: false,
+          productsError: null,
+          searchQuery: '',
+          pinnedOnly: false,
+          pagination: undefined,
+          pinLimitInfo: null,
+          // General UI state
           loadingState: 'idle',
           error: null,
           isDirty: false,
         });
+      },
+
+      // Story 1.15: Product Pin Actions
+
+      /**
+       * Fetch products with pin status
+       *
+       * @param options - Optional search, pinned_only filter, pagination
+       */
+      fetchProductPins: async (options = {}) => {
+        const {
+          search = get().searchQuery,
+          pinnedOnly = get().pinnedOnly,
+          page = 1,
+          limit = 20,
+        } = options;
+
+        set({
+          productsLoading: true,
+          productsError: null,
+          ...(search !== undefined && { searchQuery: search }),
+          ...(pinnedOnly !== undefined && { pinnedOnly }),
+        });
+
+        try {
+          const response: ProductPinsResponse = await productPinApi.fetchProductsWithPinStatus(
+            search,
+            pinnedOnly,
+            page,
+            limit
+          );
+
+          set({
+            productPins: response.products || [],
+            pagination: response.pagination,
+            pinLimitInfo: {
+              pinLimit: response.pinLimit,
+              pinnedCount: response.pinnedCount,
+            },
+            productsLoading: false,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof BotConfigError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Failed to fetch products';
+
+          set({
+            productsLoading: false,
+            productsError: errorMessage,
+          });
+
+          throw error;
+        }
+      },
+
+      /**
+       * Pin a product
+       *
+       * @param productId - Shopify product ID to pin
+       */
+      pinProduct: async (productId: string) => {
+        set({ productsLoading: true, productsError: null });
+
+        try {
+          await productPinApi.pinProduct(productId);
+
+          // Optimistically update the product in the list
+          set({
+            productPins: get().productPins.map(p =>
+              p.productId === productId
+                ? { ...p, isPinned: true }
+                : p
+            ),
+            productsLoading: false,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof BotConfigError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Failed to pin product';
+
+          set({
+            productsLoading: false,
+            productsError: errorMessage,
+          });
+
+          throw error;
+        }
+      },
+
+      /**
+       * Unpin a product
+       *
+       * @param productId - Shopify product ID to unpin
+       */
+      unpinProduct: async (productId: string) => {
+        set({ productsLoading: true, productsError: null });
+
+        try {
+          await productPinApi.unpinProduct(productId);
+
+          // Optimistically update the product in the list
+          set({
+            productPins: get().productPins.map(p =>
+              p.productId === productId
+                ? { ...p, isPinned: false, pinnedOrder: undefined, pinnedAt: undefined }
+                : p
+            ),
+            productsLoading: false,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof BotConfigError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Failed to unpin product';
+
+          set({
+            productsLoading: false,
+            productsError: errorMessage,
+          });
+
+          throw error;
+        }
+      },
+
+      /**
+       * Set search query for products
+       *
+       * @param query - Search query string
+       */
+      setSearchQuery: (query: string) => {
+        set({ searchQuery: query });
+      },
+
+      /**
+       * Toggle between showing all products or only pinned products
+       */
+      togglePinnedOnly: () => {
+        const current = get().pinnedOnly;
+        set({ pinnedOnly: !current });
+      },
+
+      /**
+       * Clear products error state
+       */
+      clearProductsError: () => {
+        set({ productsError: null });
       },
     }),
     {
@@ -343,6 +546,9 @@ export const useBotConfigStore = create<BotConfigState>()(
         useCustomGreeting: state.useCustomGreeting,
         defaultTemplate: state.defaultTemplate,
         availableVariables: state.availableVariables,
+        // Story 1.15: Persist product pin config
+        searchQuery: state.searchQuery,
+        pinnedOnly: state.pinnedOnly,
       }),
     }
   )
@@ -384,6 +590,15 @@ export const selectGreetingTemplate = (state: BotConfigState) => state.greetingT
 export const selectUseCustomGreeting = (state: BotConfigState) => state.useCustomGreeting;
 export const selectDefaultTemplate = (state: BotConfigState) => state.defaultTemplate;
 export const selectAvailableVariables = (state: BotConfigState) => state.availableVariables;
+// Story 1.15: Product pin selectors
+export const selectProductPins = (state: BotConfigState) => state.productPins;
+export const selectProductsLoading = (state: BotConfigState) => state.productsLoading;
+export const selectProductsError = (state: BotConfigState) => state.productsError;
+export const selectSearchQuery = (state: BotConfigState) => state.searchQuery;
+export const selectPinnedOnly = (state: BotConfigState) => state.pinnedOnly;
+export const selectPagination = (state: BotConfigState) => state.pagination;
+export const selectPinLimitInfo = (state: BotConfigState) => state.pinLimitInfo;
+// General selectors
 export const selectBotConfigLoading = (state: BotConfigState) =>
   state.loadingState === 'loading';
 export const selectBotConfigError = (state: BotConfigState) => state.error;

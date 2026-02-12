@@ -82,7 +82,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["*/tests/*", "*/test_*.py"]
+testpaths = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [

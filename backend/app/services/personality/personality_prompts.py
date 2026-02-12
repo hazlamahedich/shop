@@ -60,7 +60,8 @@ Example professional phrases:
 - "Thank you for your patience. Is there anything else you require assistance with?"
 """
 
-ENTHUSIASTIC_SYSTEM_PROMPT = """You are an enthusiastic shopping assistant who brings energetic excitement to shopping.
+ENTHUSIASTIC_SYSTEM_PROMPT = (
+    """You are an enthusiastic shopping assistant who brings energetic excitement to shopping.
 
 Tone guidelines:
 - Use high-energy, expressive language
@@ -74,18 +75,30 @@ Example enthusiastic phrases:
 - "Hey there! 🎉 So excited to help you find something amazing today!!!"
 - "OH WOW, fantastic choice!!! ✨ You're going to LOVE this!"
 - "Here's what I found - get ready, these are AMAZING!!! 🔥"
-- "YAY! So glad I could help! ✨ Let me know if you need anything else! 💫" """""
+- "YAY! So glad I could help! ✨ Let me know if you need anything else! 💫" """
+    ""
+)
 
 
 def get_personality_system_prompt(
     personality: PersonalityType,
     custom_greeting: Optional[str] = None,
+    business_name: Optional[str] = None,
+    business_description: Optional[str] = None,
+    business_hours: Optional[str] = None,
+    bot_name: Optional[str] = None,
 ) -> str:
     """Get system prompt based on merchant's personality type.
+
+    Story 1.12: Added bot_name parameter for bot naming integration.
 
     Args:
         personality: Merchant's selected personality type
         custom_greeting: Optional custom greeting to include
+        business_name: Optional business name
+        business_description: Optional business description
+        business_hours: Optional business hours
+        bot_name: Optional custom bot name (Story 1.12)
 
     Returns:
         System prompt string with personality-appropriate tone
@@ -93,12 +106,6 @@ def get_personality_system_prompt(
     Examples:
         >>> get_personality_system_prompt(PersonalityType.FRIENDLY)
         'You are a friendly shopping assistant...'
-
-        >>> get_personality_system_prompt(
-        ...     PersonalityType.FRIENDLY,
-        ...     custom_greeting="Welcome to Alex's Athletic Gear!"
-        ... )
-        'You are a friendly shopping assistant... GREETING: Welcome to Alex's...'
     """
     # Get base personality prompt
     if personality == PersonalityType.FRIENDLY:
@@ -113,6 +120,22 @@ def get_personality_system_prompt(
 
     # Build full system prompt
     full_prompt = BASE_SYSTEM_PROMPT + "\n\n"
+
+    # Add Bot Name (Story 1.12)
+    if bot_name and bot_name.strip():
+        full_prompt += f"Your name is {bot_name}. When introducing yourself, use phrases like \"I'm {bot_name}\" or \"This is {bot_name}\".\n\n"
+
+    # Add Business Information (Story 1.11)
+    business_info_parts = []
+    if business_name:
+        business_info_parts.append(f"Business Name: {business_name}")
+    if business_description:
+        business_info_parts.append(f"Description: {business_description}")
+    if business_hours:
+        business_info_parts.append(f"Hours: {business_hours}")
+
+    if business_info_parts:
+        full_prompt += "BUSINESS INFORMATION:\n" + "\n".join(business_info_parts) + "\n\n"
 
     # Add custom greeting if provided and non-empty (empty string should not create section)
     if custom_greeting and custom_greeting.strip():
@@ -141,17 +164,27 @@ class PersonalityPromptService:
         self,
         personality: PersonalityType,
         custom_greeting: Optional[str] = None,
+        business_name: Optional[str] = None,
+        business_description: Optional[str] = None,
+        business_hours: Optional[str] = None,
+        bot_name: Optional[str] = None,
     ) -> str:
         """Get system prompt for the given personality.
 
         Args:
             personality: Merchant's personality type
             custom_greeting: Optional custom greeting message
+            business_name: Optional business name
+            business_description: Optional business description
+            business_hours: Optional business hours
+            bot_name: Optional custom bot name (Story 1.12)
 
         Returns:
             System prompt string with personality-appropriate tone
         """
-        return get_personality_system_prompt(personality, custom_greeting)
+        return get_personality_system_prompt(
+            personality, custom_greeting, business_name, business_description, business_hours, bot_name
+        )
 
     def get_prompt_description(self, personality: PersonalityType) -> str:
         """Get human-readable description of a personality type.

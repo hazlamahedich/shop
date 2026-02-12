@@ -46,9 +46,15 @@ export async function waitForApiResponse(page: Page, urlPattern: string | RegExp
 
 /**
  * Clear localStorage between tests
+ *
+ * Uses page.context().clearCookies() and addInitScript for more reliable clearing.
  */
 export async function clearStorage(page: Page) {
-  await page.evaluate(() => {
+  // Clear all cookies (more reliable than localStorage access)
+  await page.context().clearCookies();
+
+  // Also clear localStorage using addInitScript which runs before page load
+  await page.addInitScript(() => {
     localStorage.clear();
     sessionStorage.clear();
   });

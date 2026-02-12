@@ -1,0 +1,4 @@
+Usage: uvicorn [OPTIONS] APP
+Try 'uvicorn --help' for help.
+
+Error: Got unexpected extra arguments (u003e ../backend_new.log 2u00261 u0026)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import DashboardLayout from './layout/DashboardLayout';
 import Dashboard from '../pages/Dashboard';
 import Conversations from '../pages/Conversations';
@@ -8,42 +8,37 @@ import { ProviderSettings } from '../pages/ProviderSettings';
 import PersonalityConfig from '../pages/PersonalityConfig';
 import Onboarding from '../pages/Onboarding';
 import OnboardingSuccess from '../pages/OnboardingSuccess';
+import BusinessInfoFaqConfig from '../pages/BusinessInfoFaqConfig';
+import BotConfig from '../pages/BotConfig';
+import { BotPreview } from '../pages/BotPreview';
+import Login from '../pages/Login';
+
+const DashboardLayoutWrapper = () => (
+  <DashboardLayout>
+    <Outlet />
+  </DashboardLayout>
+);
 
 export function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
 
-  useEffect(() => {
-    const handleLocationChange = () => {
-      setCurrentPath(window.location.pathname);
-    };
+      <Route element={<DashboardLayoutWrapper />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/conversations" element={<Conversations />} />
+        <Route path="/costs" element={<Costs />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/provider" element={<ProviderSettings />} />
+        <Route path="/personality" element={<PersonalityConfig />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/onboarding/success" element={<OnboardingSuccess />} />
+        <Route path="/business-info-faq" element={<BusinessInfoFaqConfig />} />
+        <Route path="/bot-config" element={<BotConfig />} />
+        <Route path="/bot-preview" element={<BotPreview />} />
+      </Route>
 
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
-
-  // Simple routing for demo purposes
-  // In a real app we'd use react-router-dom
-  const renderPage = () => {
-    switch (currentPath) {
-      case '/conversations':
-        return <Conversations />;
-      case '/costs':
-        return <Costs />;
-      case '/settings':
-        return <Settings />;
-      case '/settings/provider':
-        return <ProviderSettings />;
-      case '/personality':
-        return <PersonalityConfig />;
-      case '/onboarding':
-        return <Onboarding />;
-      case '/onboarding/success':
-        return <OnboardingSuccess />;
-      case '/dashboard':
-      default:
-        return <Dashboard />;
-    }
-  };
-
-  return <DashboardLayout>{renderPage()}</DashboardLayout>;
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
 }

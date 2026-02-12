@@ -454,7 +454,7 @@ test.describe('Story 1.11: Cross-Tab Synchronization [P1]', () => {
     await clearStorage(tabB);
     await tabB.evaluate((token) => {
       localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_timestamp', Date.now::toString());
+      localStorage.setItem('auth_timestamp', Date.now().toString());
     }, merchantToken);
     await tabB.goto(`${BASE_URL}/business-info`);
     await tabB.waitForLoadState('networkidle');

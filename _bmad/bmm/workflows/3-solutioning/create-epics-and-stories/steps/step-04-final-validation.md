@@ -147,3 +147,39 @@ When C is selected, the workflow is complete and the epics.md is ready for devel
 Epics and Stories complete. Read fully and follow: `_bmad/core/tasks/bmad-help.md` with argument `Create Epics and Stories`.
 
 Upon Completion of task output: offer to answer any questions about the Epics and Stories.
+
+<!-- ===================================================================== -->
+<!-- BEADS INTEGRATION - AUTOMATIC SYNC                                      -->
+<!-- ===================================================================== -->
+<!-- TO DISABLE: Delete from here to END BEADS tag below                    -->
+<!-- OR delete: {project-root}/_bmad/core/beads-integration-hook.md        -->
+<!-- ===================================================================== -->
+
+## OPTIONAL: Beads Integration Step
+
+**This step automatically syncs the newly created epics and stories to Beads tasks.**
+
+1. **Check if Beads integration is configured:**
+   - Read: `{project-root}/_bmad/core/beads-integration-hook.md`
+   - If missing or `enabled != true`: Skip this step
+   - If enabled: Continue
+
+2. **Check if this workflow should trigger sync:**
+   - Parse `sync_triggers[]` list
+   - Check if "create-epics-and-stories" is in the list
+   - If not: Skip this step
+   - If yes: Continue
+
+3. **Execute sync:**
+   - Output: `🔄 Syncing BMad epics/stories to Beads tasks...`
+   - Execute: `./scripts/bmad-to-beads --create --status backlog`
+   - On success: `✅ Beads sync complete! Run 'bd ready' to see available tasks`
+   - On failure: Show warning (based on `on_error` setting)
+
+**Note:** If the Beads integration causes issues, you can disable it by:
+- Setting `enabled: false` in `_bmad/core/beads-integration-hook.md`
+- Or deleting the hook file entirely
+
+<!-- ===================================================================== -->
+<!-- END BEADS INTEGRATION                                                   -->
+<!-- ===================================================================== -->

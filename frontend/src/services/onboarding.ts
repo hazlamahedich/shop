@@ -11,7 +11,7 @@ Provides functions to:
 All functions use localStorage as fallback for offline scenarios.
 */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 /** Prerequisite state matching backend PrerequisiteStateResponse schema. */
 export interface PrerequisiteStateResponse {

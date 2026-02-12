@@ -92,8 +92,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         const authState = {
           isAuthenticated: true,
-          merchant: response.merchant,
-          sessionExpiresAt: response.session.expiresAt,
+          merchant: response.data.merchant,
+          sessionExpiresAt: response.data.session.expiresAt,
           isLoading: false,
           error: null,
         };
@@ -173,7 +173,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         const authState = {
           isAuthenticated: true,
           merchant: response.merchant,
-          sessionExpiresAt: response.merchant.sessionExpiresAt || null,
+          sessionExpiresAt: null, // /me endpoint doesn't return session info
           isLoading: false,
           error: null,
         };
@@ -217,7 +217,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         const response = await refreshTokenApi();
 
         set({
-          sessionExpiresAt: response.session.expiresAt,
+          sessionExpiresAt: response.data.session.expiresAt,
           error: null,
         });
       } catch (error) {
@@ -296,7 +296,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
  * This runs once on app initialization.
  * Also sets up global BroadcastChannel listener for multi-tab logout sync (MEDIUM-7).
  */
-export const initializeAuth = async (): Promise<void> => {
+export const initializeAuth = async (): Promise<boolean> => {
   const store = useAuthStore.getState();
 
   // Setup global BroadcastChannel listener for multi-tab logout sync (MEDIUM-7: single instance)
@@ -316,16 +316,18 @@ export const initializeAuth = async (): Promise<void> => {
     });
   }
 
-  // Only fetch if not already authenticated
-  if (!store.isAuthenticated && !store.isLoading) {
-    try {
-      await store.fetchMe();
-    } catch (error) {
-      // Not authenticated - that's okay, user will see login page
-      // Clear the error so it doesn't show on the login page
-      store.clearError();
-      console.info('No active session found');
-    }
+  // Always verify session with backend on page load
+  // This ensures we catch expired/invalid sessions even if sessionStorage says we're logged in
+  try {
+    await store.fetchMe();
+    return true; // Auth successful
+  } catch (error) {
+    // Not authenticated - that's okay, user will see login page
+    // Clear the error and any stale auth state
+    store.clearError();
+    sessionStorage.removeItem('auth_state');
+    console.info('No active session found');
+    return false; // Not authenticated
   }
 };
 

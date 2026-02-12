@@ -39,11 +39,12 @@ export const authFixture = base.extend<AuthFixtures>({
   /**
    * Mock authentication helper
    * Simulates OAuth login by setting localStorage state
+   * Uses addInitScript to set localStorage before page loads
    */
-  mockAuth: async ({ page, authState }, use) => {
+  mockAuth: async ({ page, context, authState }, use) => {
     const mockAuthentication = async (merchantKey: string = 'test-merchant-123') => {
-      // Simulate authenticated state via localStorage
-      await page.evaluate((key) => {
+      // Set up auth via init script that runs before page load
+      await context.addInitScript((key) => {
         localStorage.setItem('auth_token', 'mock-jwt-token');
         localStorage.setItem('merchant_key', key);
         localStorage.setItem('user_id', 'mock-user-123');
@@ -55,9 +56,6 @@ export const authFixture = base.extend<AuthFixtures>({
       authState.userId = 'mock-user-123';
       authState.merchantKey = merchantKey;
       authState.token = 'mock-jwt-token';
-
-      // Reload page to apply auth state
-      await page.reload();
     };
 
     await use(mockAuthentication);
@@ -67,13 +65,12 @@ export const authFixture = base.extend<AuthFixtures>({
    * Clear authentication helper
    * Removes auth state from localStorage
    */
-  clearAuth: async ({ page, authState }, use) => {
+  clearAuth: async ({ page, context, authState }, use) => {
     const clearAuthentication = async () => {
+      // Clear existing cookies and storage
+      await context.clearCookies();
       await page.evaluate(() => {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('merchant_key');
-        localStorage.removeItem('user_id');
-        localStorage.removeItem('auth_timestamp');
+        localStorage.clear();
         sessionStorage.clear();
       });
 
@@ -82,8 +79,6 @@ export const authFixture = base.extend<AuthFixtures>({
       authState.userId = null;
       authState.merchantKey = null;
       authState.token = null;
-
-      await page.reload();
     };
 
     await use(clearAuthentication);
@@ -94,6 +89,7 @@ export const authFixture = base.extend<AuthFixtures>({
    * A page that starts with mock authentication
    */
   authenticatedPage: async ({ page, mockAuth }, use) => {
+    // Set up auth before using the page
     await mockAuth();
     await use(page);
   },

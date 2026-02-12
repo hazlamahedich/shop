@@ -44,10 +44,6 @@ class ApiClient {
     return this.tokenFetchPromise;
   }
 
-  private getAuthToken(): string | null {
-    return localStorage.getItem('auth_token');
-  }
-
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiEnvelope<T>> {
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = new Headers(options.headers || {});
@@ -59,14 +55,6 @@ class ApiClient {
 
     if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
-    }
-
-    const authToken = this.getAuthToken();
-    if (authToken) {
-      headers.set('Authorization', `Bearer ${authToken}`);
-    } else {
-      // Fallback for dev/test if no auth token
-      headers.set('X-Merchant-Id', '1');
     }
 
     // Add CSRF Token for state-changing methods
@@ -85,6 +73,7 @@ class ApiClient {
     }
 
     const config: RequestInit = {
+      credentials: 'include', // Ensure cookies are sent (Story 1.8)
       ...options,
       headers,
     };
@@ -126,7 +115,9 @@ class ApiClient {
       throw error;
     }
 
-    return response.json();
+    // Response.json() returns a Promise - await it to get the actual data
+    const jsonResult = await response.json();
+    return jsonResult;
   }
 
   async get<T>(endpoint: string, options: RequestInit = {}) {

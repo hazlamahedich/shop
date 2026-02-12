@@ -214,6 +214,37 @@
       <output>ℹ️ Story status updated (no sprint tracking configured)</output>
     </check>
 
+    <!-- ===================================================================== -->
+    <!-- BEADS INTEGRATION - SYNC CODE-REVIEW RESULTS TO BEADS                  -->
+    <!-- ===================================================================== -->
+    <!-- TO DISABLE: Delete from here to END BEADS tag below                    -->
+    <!-- ===================================================================== -->
+
+    <action optional="true">Check if Beads integration hook exists: {project-root}/_bmad/core/beads-integration-hook.md</action>
+    <check if="beads hook exists AND enabled == true">
+      <action>Parse sync_triggers from hook config</action>
+      <check if="code-review in sync_triggers">
+        <action optional="true">Check story status to determine Beads action</action>
+        <check if="new_status == 'done'">
+          <action optional="true">Find Beads task for {{story_key}} (bd list)</action>
+          <check if="matching Beads task found">
+            <action optional="true">Close Beads task: bd close <beads_id></action>
+            <output>✅ Beads task closed: {{story_key}} approved and complete</output>
+          </check>
+        </check>
+        <check if="new_status == 'in-progress'">
+          <action optional="true">Find Beads task for {{story_key}} (bd list)</action>
+          <check if="matching Beads task found">
+            <output>🔄 Beads task remains in-progress: action items to address</output>
+          </check>
+        </check>
+      </check>
+    </check>
+
+    <!-- ===================================================================== -->
+    <!-- END BEADS INTEGRATION                                                   -->
+    <!-- ===================================================================== -->
+
     <output>**✅ Review Complete!**
 
       **Story Status:** {{new_status}}

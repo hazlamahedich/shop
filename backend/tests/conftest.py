@@ -47,6 +47,7 @@ import app.models.conversation
 import app.models.message
 import app.models.deployment_log
 import app.models.webhook_verification_log
+import app.models.faq  # Story 1.11: FAQ model
 
 
 @pytest.fixture(autouse=True)
@@ -102,6 +103,7 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         "facebook_status",
         "llm_provider",
         "merchant_status",
+        "personality_type",  # Story 1.10: Bot personality types
         "verification_platform",
         "test_type",
         "verification_status",
@@ -121,6 +123,13 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         await conn.execute(text("""
             CREATE TYPE merchant_status AS ENUM (
                 'pending', 'active', 'failed'
+            );
+        """))
+
+        # personality_type enum (Story 1.10)
+        await conn.execute(text("""
+            CREATE TYPE personality_type AS ENUM (
+                'friendly', 'professional', 'enthusiastic'
             );
         """))
 

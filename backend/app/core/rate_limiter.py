@@ -14,9 +14,10 @@ from fastapi import HTTPException, Request
 
 
 class RateLimiter:
-    """Rate limiter for LLM configuration endpoints.
+    """Rate limiter for LLM configuration endpoints and auth endpoints.
 
-    Limits: 1 configuration request per 10 seconds per merchant.
+    LLM Config: 1 configuration request per 10 seconds per merchant.
+    Auth: 5 login attempts per 15 minutes per IP/email.
     Uses in-memory storage for MVP (migrate to Redis for production scale).
     """
 
@@ -27,6 +28,10 @@ class RateLimiter:
     DEFAULT_MAX_REQUESTS = 1
     DEFAULT_PERIOD_SECONDS = 10
     DEFAULT_WINDOW_SECONDS = 60  # Cleanup old entries after 60s
+
+    # Auth-specific configuration (Story 1.8)
+    AUTH_MAX_REQUESTS = 5
+    AUTH_PERIOD_SECONDS = 15 * 60  # 15 minutes
 
     @classmethod
     def _cleanup_old_entries(cls, client_id: str) -> None:
@@ -103,6 +108,52 @@ class RateLimiter:
     def reset_all(cls) -> None:
         """Reset all rate limiter state (for testing)."""
         cls._requests.clear()
+
+    @classmethod
+    def check_auth_rate_limit(
+        cls,
+        request: Request,
+        email: Optional[str] = None,
+    ) -> None:
+        """Check rate limit for authentication endpoints (login attempts).
+
+        Limits: 5 attempts per 15 minutes per IP/email.
+        Uses client IP and email for rate limiting (Story 1.8).
+
+        Args:
+            request: FastAPI request object
+            email: Email address for additional rate limiting
+
+        Raises:
+            HTTPException: If rate limited (429)
+        """
+        # Bypass rate limiting in test mode
+        if os.getenv("IS_TESTING", "false").lower() == "true":
+            return
+        if request.headers.get("X-Test-Mode", "").lower() == "true":
+            return
+
+        # Use IP address as base identifier
+        client_id = cls.get_client_identifier(request)
+
+        # Also track by email if provided (more restrictive)
+        if email:
+            client_id = f"{client_id}:{email}"
+
+        # Check if rate limited
+        if cls.is_rate_limited(
+            client_id,
+            max_requests=cls.AUTH_MAX_REQUESTS,
+            period_seconds=cls.AUTH_PERIOD_SECONDS,
+        ):
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error_code": 2002,  # RATE_LIMITED
+                    "message": "Too many login attempts",
+                    "details": "Maximum 5 attempts per 15 minutes. Please try again later.",
+                },
+            )
 
     @classmethod
     def get_client_identifier(cls, request: Request) -> str:

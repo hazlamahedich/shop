@@ -77,11 +77,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
   }, [faq, isOpen]);
 
   // Handle input changes
-  const handleChange = (
-    field: keyof typeof formData,
-    value: string,
-    maxLength?: number
-  ) => {
+  const handleChange = (field: keyof typeof formData, value: string, maxLength?: number) => {
     setFormData((prev) => ({
       ...prev,
       [field]: maxLength ? value.slice(0, maxLength) : value,
@@ -189,10 +185,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2
-            id="faq-form-title"
-            className="text-xl font-semibold text-gray-900"
-          >
+          <h2 id="faq-form-title" className="text-xl font-semibold text-gray-900">
             {faq ? 'Edit FAQ Item' : 'Add FAQ Item'}
           </h2>
           <button
@@ -331,10 +324,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                     {errors.keywords}
                   </p>
                 )}
-                <p
-                  id="faq-keywords-count"
-                  className="text-xs text-gray-400 ml-auto"
-                >
+                <p id="faq-keywords-count" className="text-xs text-gray-400 ml-auto">
                   {formData.keywords.length} / 500
                 </p>
               </div>
@@ -344,7 +334,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <strong>Tip:</strong> Keywords help the bot match customer questions even when they
-                don't use the exact wording of your FAQ question.
+                don&apos;t use the exact wording of your FAQ question.
               </p>
             </div>
           </div>
@@ -362,7 +352,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
             <button
               type="submit"
               disabled={disabled}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {disabled ? (
                 <span className="flex items-center gap-2">

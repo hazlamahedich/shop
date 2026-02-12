@@ -23,6 +23,7 @@ from app.api.data_deletion import router as data_deletion_router
 from app.api.merchant import router as merchant_router
 from app.api.business_info import router as business_info_router
 from app.api.bot_config import router as bot_config_router
+from app.api.product_pins import router as product_pins_router
 from app.api.faqs import router as faqs_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
@@ -36,6 +37,7 @@ from app.api.preview import router as preview_router
 from app.api.auth import router as auth_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
+from app.middleware.auth import AuthenticationMiddleware
 from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
@@ -165,6 +167,9 @@ setup_security_middleware(app)
 # NFR-S8: CSRF tokens for POST/PUT/DELETE operations
 setup_csrf_middleware(app)
 
+# Authentication middleware (MEDIUM-11: added for cookie validation)
+app.add_middleware(AuthenticationMiddleware)
+
 
 # Root endpoints
 @app.get("/")
@@ -221,7 +226,9 @@ app.include_router(merchant_router, prefix="/api/merchant", tags=["merchant"])
 # Story 1.11: Business Info & FAQ Configuration
 app.include_router(business_info_router, prefix="/api/v1/merchant", tags=["business-info"])
 # Story 1.12: Bot Naming Configuration
+# Story 1.15: Product Highlight Pins
 app.include_router(bot_config_router, prefix="/api/v1/merchant", tags=["bot-config"])
+app.include_router(product_pins_router, prefix="/api/v1/merchant", tags=["product-pins"])
 app.include_router(faqs_router, prefix="/api/v1/merchant", tags=["faqs"])
 app.include_router(integrations_router, prefix="/api", tags=["integrations"])
 app.include_router(data_deletion_router, prefix="/api", tags=["data-deletion"])

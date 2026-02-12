@@ -16,6 +16,7 @@
 import * as React from 'react';
 import { useEffect } from 'react';
 import { Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import { useBusinessInfoStore } from '../stores/businessInfoStore';
 import { BusinessInfoForm } from '../components/business-info/BusinessInfoForm';
 import { FaqList } from '../components/business-info/FaqList';
@@ -45,9 +46,7 @@ export const BusinessInfoFaqConfig: React.FC = () => {
     clearError,
   } = useBusinessInfoStore();
 
-  // Success notification state
-  const [showSuccess, setShowSuccess] = React.useState(false);
-  const [successTimeout, setSuccessTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
 
   // Load configuration on mount
   useEffect(() => {
@@ -59,20 +58,12 @@ export const BusinessInfoFaqConfig: React.FC = () => {
         ]);
       } catch (err) {
         console.error('Failed to load configuration:', err);
+        toast('Failed to load configuration', 'error');
       }
     };
 
     loadConfig();
-  }, [fetchBusinessInfo]);
-
-  // Clear success timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (successTimeout) {
-        clearTimeout(successTimeout);
-      }
-    };
-  }, [successTimeout]);
+  }, [fetchBusinessInfo, toast]);
 
   // Handle save business info
   const handleSaveBusinessInfo = async () => {
@@ -80,22 +71,15 @@ export const BusinessInfoFaqConfig: React.FC = () => {
 
     try {
       await updateBusinessInfo({
-        business_name: businessName,
-        business_description: businessDescription,
-        business_hours: businessHours,
+        businessName: businessName,
+        businessDescription: businessDescription,
+        businessHours: businessHours,
       });
 
-      // Show success notification
-      setShowSuccess(true);
-      if (successTimeout) {
-        clearTimeout(successTimeout);
-      }
-      const timeout = setTimeout(() => {
-        setShowSuccess(false);
-      }, 3000);
-      setSuccessTimeout(timeout);
+      toast('Business info saved successfully!', 'success');
     } catch (err) {
       console.error('Failed to save business info:', err);
+      toast('Failed to save business info', 'error');
     }
   };
 
@@ -110,10 +94,7 @@ export const BusinessInfoFaqConfig: React.FC = () => {
         <div className="max-w-6xl mx-auto px-6 py-3">
           <ol className="flex items-center gap-2 text-sm">
             <li>
-              <a
-                href="/dashboard"
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
+              <a href="/dashboard" className="text-gray-500 hover:text-gray-700 transition-colors">
                 Dashboard
               </a>
             </li>
@@ -125,21 +106,6 @@ export const BusinessInfoFaqConfig: React.FC = () => {
         </div>
       </nav>
 
-      {/* Success Notification */}
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right">
-          <div
-            role="alert"
-            className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg shadow-lg"
-          >
-            <CheckCircle2 size={20} className="text-green-600 flex-shrink-0" />
-            <p className="text-sm font-medium text-green-800">
-              Business info saved successfully!
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Page Header */}
@@ -150,9 +116,9 @@ export const BusinessInfoFaqConfig: React.FC = () => {
                 Business Info & FAQ Configuration
               </h1>
               <p className="text-lg text-gray-600 max-w-3xl">
-                Configure your business information and create FAQ items for automatic
-                customer responses. The bot will use this information to provide accurate
-                answers to common questions.
+                Configure your business information and create FAQ items for automatic customer
+                responses. The bot will use this information to provide accurate answers to common
+                questions.
               </p>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm">
@@ -207,7 +173,7 @@ export const BusinessInfoFaqConfig: React.FC = () => {
                     type="button"
                     onClick={handleSaveBusinessInfo}
                     disabled={isLoading || !isDirty}
-                    className="w-full px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -234,9 +200,7 @@ export const BusinessInfoFaqConfig: React.FC = () => {
                     )}
                   </button>
                   {!isDirty && hasConfig && (
-                    <p className="text-xs text-center text-gray-500 mt-2">
-                      All changes saved
-                    </p>
+                    <p className="text-xs text-center text-gray-500 mt-2">All changes saved</p>
                   )}
                 </div>
               </div>
@@ -253,23 +217,21 @@ export const BusinessInfoFaqConfig: React.FC = () => {
 
         {/* Help Section */}
         <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">
-            How Business Info & FAQ Work
-          </h3>
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">How Business Info & FAQ Work</h3>
           <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
             <div>
               <h4 className="font-medium mb-2">Business Information</h4>
               <p className="text-blue-700">
                 Your business name, description, and hours are automatically included in bot
-                responses. When customers ask about your business, the bot uses this information
-                to provide accurate answers.
+                responses. When customers ask about your business, the bot uses this information to
+                provide accurate answers.
               </p>
             </div>
             <div>
               <h4 className="font-medium mb-2">FAQ Matching</h4>
               <p className="text-blue-700">
-                FAQ items are matched using keyword analysis. When a customer question matches
-                an FAQ keyword or question text, the bot responds instantly with your predefined
+                FAQ items are matched using keyword analysis. When a customer question matches an
+                FAQ keyword or question text, the bot responds instantly with your predefined
                 answer. This saves time and ensures consistency.
               </p>
             </div>

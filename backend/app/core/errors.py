@@ -89,6 +89,14 @@ class ErrorCode(IntEnum):
     PRODUCT_MAPPING_FAILED = 4029  # Entity to filter mapping error
     SHOPIFY_PRODUCT_NOT_FOUND_SEARCH = 4030  # No products found in search
 
+    # 4600-4699: Product Pin Configuration (owner: shopify team)
+    PRODUCT_PIN_ID_REQUIRED = 4600  # Product ID is required
+    PRODUCT_PIN_NOT_FOUND = 4601  # Product not found
+    PRODUCT_PIN_LIMIT_REACHED = 4602  # Pin limit reached (10 products)
+    PRODUCT_PIN_ALREADY_PINNED = 4603  # Product already pinned
+    PRODUCT_PIN_SAVE_FAILED = 4604  # Failed to save pin
+    PRODUCT_PIN_LOAD_FAILED = 4650  # Products load failed
+
     # 5000-5999: Facebook/Messenger (owner: facebook team)
     MESSENGER_WEBHOOK_ERROR = 5000
     MESSAGE_SEND_FAILED = 5001

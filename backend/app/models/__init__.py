@@ -15,6 +15,8 @@ from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.tutorial import Tutorial
 from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
 from app.models.faq import Faq
+from app.models.product_pin import ProductPin
+from app.models.session import Session
 
 __all__ = [
     "Merchant",
@@ -30,4 +32,6 @@ __all__ = [
     "DataDeletionRequest",
     "DeletionStatus",
     "Faq",
+    "ProductPin",
+    "Session",
 ]

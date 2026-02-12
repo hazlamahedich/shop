@@ -24,18 +24,18 @@ import { apiClient } from './api';
  * Response from business info endpoints
  */
 export interface BusinessInfoResponse {
-  business_name: string | null;
-  business_description: string | null;
-  business_hours: string | null;
+  businessName: string | null;
+  businessDescription: string | null;
+  businessHours: string | null;
 }
 
 /**
  * Request body for updating business information
  */
 export interface BusinessInfoUpdateRequest {
-  business_name?: string | null;
-  business_description?: string | null;
-  business_hours?: string | null;
+  businessName?: string | null;
+  businessDescription?: string | null;
+  businessHours?: string | null;
 }
 
 /**
@@ -137,9 +137,7 @@ export const businessInfoApi = {
    */
   async getBusinessInfo(): Promise<BusinessInfoResponse> {
     try {
-      const response = await apiClient.get<BusinessInfoResponse>(
-        '/api/v1/merchant/business-info'
-      );
+      const response = await apiClient.get<BusinessInfoResponse>('/api/v1/merchant/business-info');
       return response.data;
     } catch (error) {
       const errorMessage =
@@ -158,9 +156,7 @@ export const businessInfoApi = {
    * @returns Updated business information
    * @throws BusinessInfoError if request fails
    */
-  async updateBusinessInfo(
-    update: BusinessInfoUpdateRequest
-  ): Promise<BusinessInfoResponse> {
+  async updateBusinessInfo(update: BusinessInfoUpdateRequest): Promise<BusinessInfoResponse> {
     try {
       const response = await apiClient.put<BusinessInfoResponse>(
         '/api/v1/merchant/business-info',
@@ -181,11 +177,7 @@ export const businessInfoApi = {
         errorCode = errorData.error_code;
       }
 
-      throw new BusinessInfoError(
-        errorMessage,
-        errorCode,
-        (error as any)?.status
-      );
+      throw new BusinessInfoError(errorMessage, errorCode, (error as any)?.status);
     }
   },
 
@@ -199,13 +191,10 @@ export const businessInfoApi = {
    */
   async getFaqs(): Promise<FaqResponse[]> {
     try {
-      const response = await apiClient.get<FaqResponse[]>(
-        '/api/v1/merchant/faqs'
-      );
+      const response = await apiClient.get<FaqResponse[]>('/api/v1/merchant/faqs');
       return response.data;
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to fetch FAQ items';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch FAQ items';
       throw new BusinessInfoError(errorMessage, undefined, (error as any)?.status);
     }
   },
@@ -222,10 +211,7 @@ export const businessInfoApi = {
    */
   async createFaq(faq: FaqCreateRequest): Promise<FaqResponse> {
     try {
-      const response = await apiClient.post<FaqResponse>(
-        '/api/v1/merchant/faqs',
-        faq
-      );
+      const response = await apiClient.post<FaqResponse>('/api/v1/merchant/faqs', faq);
       return response.data;
     } catch (error) {
       let errorMessage = 'Failed to create FAQ item';
@@ -240,11 +226,7 @@ export const businessInfoApi = {
         errorCode = errorData.error_code;
       }
 
-      throw new BusinessInfoError(
-        errorMessage,
-        errorCode,
-        (error as any)?.status
-      );
+      throw new BusinessInfoError(errorMessage, errorCode, (error as any)?.status);
     }
   },
 
@@ -261,10 +243,7 @@ export const businessInfoApi = {
    */
   async updateFaq(faqId: number, update: FaqUpdateRequest): Promise<FaqResponse> {
     try {
-      const response = await apiClient.put<FaqResponse>(
-        `/api/v1/merchant/faqs/${faqId}`,
-        update
-      );
+      const response = await apiClient.put<FaqResponse>(`/api/v1/merchant/faqs/${faqId}`, update);
       return response.data;
     } catch (error) {
       let errorMessage = 'Failed to update FAQ item';
@@ -279,11 +258,7 @@ export const businessInfoApi = {
         errorCode = errorData.error_code;
       }
 
-      throw new BusinessInfoError(
-        errorMessage,
-        errorCode,
-        (error as any)?.status
-      );
+      throw new BusinessInfoError(errorMessage, errorCode, (error as any)?.status);
     }
   },
 
@@ -298,27 +273,26 @@ export const businessInfoApi = {
    */
   async deleteFaq(faqId: number): Promise<void> {
     try {
-      await apiClient.delete<{ success: true }>(
-        `/api/v1/merchant/faqs/${faqId}`
-      );
+      await apiClient.delete<void>(`/api/v1/merchant/faqs/${faqId}`);
     } catch (error) {
+      // Ignore JSON parse errors for 204 responses if they happen
+      if (error instanceof SyntaxError && (error as any).message.includes('end of JSON input')) {
+        return;
+      }
+
       let errorMessage = 'Failed to delete FAQ item';
       let errorCode: BusinessInfoErrorCode | undefined;
 
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-
+      // ... rest of error handling
       const errorData = (error as any)?.details;
       if (errorData?.error_code) {
         errorCode = errorData.error_code;
       }
 
-      throw new BusinessInfoError(
-        errorMessage,
-        errorCode,
-        (error as any)?.status
-      );
+      throw new BusinessInfoError(errorMessage, errorCode, (error as any)?.status);
     }
   },
 
@@ -334,10 +308,9 @@ export const businessInfoApi = {
    */
   async reorderFaqs(faqIds: number[]): Promise<FaqResponse[]> {
     try {
-      const response = await apiClient.put<FaqResponse[]>(
-        '/api/v1/merchant/faqs/reorder',
-        { faq_ids: faqIds } as FaqReorderRequest
-      );
+      const response = await apiClient.put<FaqResponse[]>('/api/v1/merchant/faqs/reorder', {
+        faq_ids: faqIds,
+      } as FaqReorderRequest);
       return response.data;
     } catch (error) {
       let errorMessage = 'Failed to reorder FAQ items';
@@ -352,11 +325,7 @@ export const businessInfoApi = {
         errorCode = errorData.error_code;
       }
 
-      throw new BusinessInfoError(
-        errorMessage,
-        errorCode,
-        (error as any)?.status
-      );
+      throw new BusinessInfoError(errorMessage, errorCode, (error as any)?.status);
     }
   },
 };

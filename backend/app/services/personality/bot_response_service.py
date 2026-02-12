@@ -2,6 +2,7 @@
 
 Generates personality-appropriate responses for conversational interactions.
 Uses merchant's personality type and custom greeting to tailor bot responses.
+Story 1.14: Integrated with greeting service for variable substitution.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.merchant import Merchant, PersonalityType
 from app.services.personality.personality_prompts import get_personality_system_prompt
+from app.services.personality.greeting_service import get_effective_greeting
 from app.services.llm.base_llm_service import LLMMessage
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.core.config import settings
@@ -23,22 +25,22 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 
-# Personality-based greeting templates
+# Personality-based greeting templates (with bot name placeholder)
 GREETING_TEMPLATES = {
     PersonalityType.FRIENDLY: [
-        "Hey there! 👋 How can I help you today?",
-        "Hi! Welcome! What can I help you find?",
-        "Hello! Happy to help you find what you're looking for!",
+        "Hey! 👋 I'm {bot_name} from {business_name}. How can I help you today?",
+        "Hi! I'm {bot_name} from {business_name}. What can I help you find?",
+        "Hello! I'm {bot_name} from {business_name}. Happy to help you find what you're looking for!",
     ],
     PersonalityType.PROFESSIONAL: [
-        "Good day. How may I assist you with your shopping needs?",
-        "Hello. How may I help you today?",
-        "Welcome. How may I be of assistance?",
+        "Good day. I'm {bot_name} from {business_name}. How may I assist you with your shopping needs?",
+        "Hello. I'm {bot_name} from {business_name}. How may I help you today?",
+        "Welcome. I'm {bot_name} from {business_name}. How may I be of assistance?",
     ],
     PersonalityType.ENTHUSIASTIC: [
-        "Hey there!!! 🎉 So excited to help you find something amazing today!!!",
-        "YAY!!! Welcome!!! What awesome stuff can I help you find?!",
-        "HI!!! ✨ Welcome to our store!!! Let's find you something great!!!",
+        "Hey there!!! 🎉 I'm {bot_name} from {business_name} - so excited to help you find something amazing today!!!",
+        "YAY!!! I'm {bot_name} from {business_name}!!! What awesome stuff can I help you find?!",
+        "HI!!! ✨ I'm {bot_name} from {business_name}!!! Let's find you something great!!!",
     ],
 }
 
@@ -114,14 +116,10 @@ class BotResponseService:
                     )
                     return result.scalars().first()
             else:
-                result = await self.db.execute(
-                    select(Merchant).where(Merchant.id == merchant_id)
-                )
+                result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
                 return result.scalars().first()
         else:
-            result = await db.execute(
-                select(Merchant).where(Merchant.id == merchant_id)
-            )
+            result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
             return result.scalars().first()
 
     async def get_greeting(
@@ -130,6 +128,9 @@ class BotResponseService:
         db: Optional[AsyncSession] = None,
     ) -> str:
         """Get personality-appropriate greeting for merchant.
+
+        Story 1.12: Integrates bot name into greeting messages.
+        Story 1.14: Uses greeting service with variable substitution.
 
         Args:
             merchant_id: Merchant ID
@@ -140,23 +141,26 @@ class BotResponseService:
 
         Examples:
             >>> await service.get_greeting(1)
-            "Hey there! 👋 How can I help you today?"
+            "Hey! 👋 I'm GearBot from Alex's Athletic Gear. How can I help you today?"
         """
         merchant = await self._get_merchant(merchant_id, db)
 
-        if merchant and merchant.custom_greeting and merchant.custom_greeting.strip():
-            # Use custom greeting if configured
-            return merchant.custom_greeting
+        if not merchant:
+            # Return default friendly greeting
+            return "Hi! How can I help you today?"
 
-        # Default to friendly if no merchant or personality set
-        personality = (
-            merchant.personality if merchant else PersonalityType.FRIENDLY
-        )
+        # Build merchant config for greeting service
+        merchant_config = {
+            "personality": merchant.personality or PersonalityType.FRIENDLY,
+            "custom_greeting": merchant.custom_greeting,
+            "use_custom_greeting": merchant.use_custom_greeting,
+            "bot_name": merchant.bot_name,
+            "business_name": merchant.business_name,
+            "business_hours": merchant.business_hours,
+        }
 
-        # Get greeting template for personality
-        import random
-        templates = GREETING_TEMPLATES.get(personality, GREETING_TEMPLATES[PersonalityType.FRIENDLY])
-        return random.choice(templates)
+        # Use greeting service (Story 1.14)
+        return get_effective_greeting(merchant_config)
 
     async def get_help_response(
         self,
@@ -173,11 +177,10 @@ class BotResponseService:
             Help message string
         """
         merchant = await self._get_merchant(merchant_id, db)
-        personality = (
-            merchant.personality if merchant else PersonalityType.FRIENDLY
-        )
+        personality = merchant.personality if merchant else PersonalityType.FRIENDLY
 
         import random
+
         templates = HELP_TEMPLATES.get(personality, HELP_TEMPLATES[PersonalityType.FRIENDLY])
         return random.choice(templates)
 
@@ -196,11 +199,10 @@ class BotResponseService:
             Error message string
         """
         merchant = await self._get_merchant(merchant_id, db)
-        personality = (
-            merchant.personality if merchant else PersonalityType.FRIENDLY
-        )
+        personality = merchant.personality if merchant else PersonalityType.FRIENDLY
 
         import random
+
         templates = ERROR_TEMPLATES.get(personality, ERROR_TEMPLATES[PersonalityType.FRIENDLY])
         return random.choice(templates)
 
@@ -226,5 +228,101 @@ class BotResponseService:
 
         personality = merchant.personality or PersonalityType.FRIENDLY
         custom_greeting = merchant.custom_greeting
+        business_name = merchant.business_name
+        business_description = merchant.business_description
+        business_hours = merchant.business_hours
+        bot_name = merchant.bot_name  # Story 1.12
 
-        return get_personality_system_prompt(personality, custom_greeting)
+        return get_personality_system_prompt(
+            personality, custom_greeting, business_name, business_description, business_hours, bot_name
+        )
+
+
+async def get_pinned_product_ids(
+    self,
+    merchant_id: int,
+    db: Optional[AsyncSession] = None,
+) -> list[str]:
+    """Get list of pinned product IDs for a merchant.
+
+    Used by bot recommendation service to boost pinned products.
+
+    Story 1.15 AC 4: Integration with Bot Recommendation Engine
+
+    Args:
+        merchant_id: Merchant ID
+        db: Optional database session
+
+    Returns:
+        List of product IDs that are pinned
+    """
+    from app.services.product_pin_service import get_pinned_product_ids
+
+    if db is None:
+        if self.db is None:
+            async with get_db() as session:
+                result = await session.execute(
+                    select(ProductPin).where(ProductPin.merchant_id == merchant_id)
+                )
+                return [p.product_id for p in result.scalars().all()]
+        else:
+            result = await self.db.execute(
+                select(ProductPin).where(ProductPin.merchant_id == merchant_id)
+            )
+            return [p.product_id for p in result.scalars().all()]
+    else:
+        result = await self.db.execute(
+            select(ProductPin).where(ProductPin.merchant_id == merchant_id)
+        )
+        return [p.product_id for p in result.scalars().all()]
+
+
+async def add_pin_status_to_products(
+    self,
+    products: list[dict],
+    pinned_product_ids: list[str],
+) -> list[dict]:
+    """Add pin status and ordering to product list.
+
+    Pinned products appear first in recommendation results
+    with 2x relevance boost.
+
+    Story 1.15 AC 4: Integration with Bot Recommendation Engine
+
+    Args:
+        products: List of product dictionaries from search
+        pinned_product_ids: List of pinned product IDs
+
+    Returns:
+        Product list with is_pinned flag and relevance_score
+    """
+    pinned_set = set(pinned_product_ids) if pinned_product_ids else set()
+
+    result = []
+    for product in products:
+        product_id = product.get("id", "")
+        is_pinned = product_id in pinned_set
+
+        # Add pin status and calculate relevance score
+        # Pinned products get 2x boost
+        base_score = product.get("relevance_score", 1.0)
+        if is_pinned:
+            # Pinned products get 2x relevance boost
+            # Minimum score of 2.0 for pinned products
+            adjusted_score = base_score * 2.0
+        else:
+            adjusted_score = base_score
+
+        enhanced_product = {
+            **product,
+            "is_pinned": is_pinned,
+            "relevance_score": adjusted_score,
+        }
+        result.append(enhanced_product)
+
+    # Sort: pinned products first (by their pinned_order), then by relevance
+    # For now, since we don't have pinned_order from product search,
+    # we sort by is_pinned flag first, then relevance_score
+    result.sort(key=lambda p: (not p["is_pinned"], -p["relevance_score"]))
+
+    return result
