@@ -1,10 +1,17 @@
 # Shopping Assistant Bot
 
-AI-powered shopping assistant for Facebook Messenger with Shopify integration.
+AI-powered shopping assistant for Facebook Messenger with optional e-commerce integration.
 
 ## Project Overview
 
 This is a monorepo containing backend (Python/FastAPI) and frontend (React/TypeScript) applications.
+
+### Key Features
+
+- **Optional E-Commerce** - Works with or without a store connected (Shopify optional)
+- **FAQ & Business Info** - Configure FAQs and business information for automated responses
+- **Human Handoff** - Route conversations to human support when needed
+- **Pluggable Providers** - Extensible architecture for future integrations (WooCommerce, BigCommerce)
 
 ## Quick Start
 
@@ -122,14 +129,15 @@ DATABASE_URL=postgresql+asyncpg://developer:developer@localhost:5432/shop_dev
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
-# Testing
+# Testing (optional - for development without real services)
 IS_TESTING=false
+MOCK_STORE_ENABLED=false
 
-# Shopify
+# Shopify (OPTIONAL - only if using e-commerce features)
 SHOPIFY_STORE_URL=https://your-store.myshopify.com
 SHOPIFY_STOREFRONT_TOKEN=your_token
 
-# Facebook Messenger
+# Facebook Messenger (required)
 FACEBOOK_PAGE_ID=your_page_id
 FACEBOOK_PAGE_ACCESS_TOKEN=your_token
 FACEBOOK_APP_SECRET=your_secret
@@ -140,8 +148,21 @@ LLM_PROVIDER=ollama  # ollama, openai, anthropic, gemini
 LLM_API_KEY=your_api_key
 ```
 
+### Running Without Shopify
+
+The bot works fully without a connected e-commerce store. To test locally without Shopify:
+
+```bash
+# Enable mock store for development
+export IS_TESTING=true
+export MOCK_STORE_ENABLED=true
+```
+
 ## Documentation
 
+- [Architecture: E-Commerce Abstraction](docs/architecture/ecommerce-abstraction.md)
+- [API: E-Commerce Provider](backend/docs/api/ecommerce-provider.md)
+- [API: Business Info & FAQ](backend/docs/api/business-info-faq.md)
 - [Error Code Governance](docs/error-code-governance.md)
 - [Testing Patterns](docs/testing-patterns.md)
 - [Pre-commit Hooks](docs/pre-commit-hooks.md)

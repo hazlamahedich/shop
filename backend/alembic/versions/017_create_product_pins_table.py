@@ -4,7 +4,7 @@ Story 1.15: Product Highlight Pins
 
 Revision ID: 017_create_product_pins_table
 Create Date: 2026-02-12
-Revises: 015_add_use_custom_greeting
+Revises: 016_add_store_provider
 
 Adds:
 - product_pins table with merchant's pinned products
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic
 revision = "017_create_product_pins_table"
-down_revision = "015_add_use_custom_greeting"
+down_revision = "016_add_store_provider"
 branch_labels = None
 depends_on = None
 

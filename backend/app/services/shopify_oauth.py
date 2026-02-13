@@ -299,6 +299,14 @@ class ShopifyService:
             status="active",
         )
 
+        # Sprint Change 2026-02-13: Update merchant's store_provider
+        merchant_result = await self.db.execute(
+            select(Merchant).where(Merchant.id == merchant_id)
+        )
+        merchant = merchant_result.scalars().first()
+        if merchant:
+            merchant.store_provider = "shopify"
+
         self.db.add(integration)
         await self.db.commit()
         await self.db.refresh(integration)
@@ -391,6 +399,15 @@ class ShopifyService:
             raise APIError(ErrorCode.SHOPIFY_NOT_CONNECTED, "Shopify store not connected")
 
         await self.db.delete(integration)
+
+        # Sprint Change 2026-02-13: Reset merchant's store_provider to none
+        merchant_result = await self.db.execute(
+            select(Merchant).where(Merchant.id == merchant_id)
+        )
+        merchant = merchant_result.scalars().first()
+        if merchant:
+            merchant.store_provider = "none"
+
         await self.db.commit()
 
     async def save_shopify_credentials(self, merchant_id: int, api_key: str, api_secret: str):
