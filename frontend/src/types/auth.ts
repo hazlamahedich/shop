@@ -6,12 +6,20 @@
  */
 
 /**
+ * E-commerce store provider types.
+ * Sprint Change 2026-02-13: Make Shopify Optional Integration
+ */
+export type StoreProvider = 'none' | 'shopify' | 'woocommerce' | 'bigcommerce';
+
+/**
  * Merchant information from backend.
  */
 export interface Merchant {
   id: number;
   email: string;
   merchant_key: string;
+  store_provider: StoreProvider;  // Sprint Change 2026-02-13
+  has_store_connected: boolean;   // Sprint Change 2026-02-13: Convenience flag
 }
 
 /**
@@ -70,6 +78,14 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
 }
+
+/**
+ * Helper function to check if merchant has a store connected.
+ * Sprint Change 2026-02-13: Make Shopify Optional Integration
+ */
+export const hasStoreConnected = (merchant: Merchant | null): boolean => {
+  return merchant?.has_store_connected ?? false;
+};
 
 /**
  * Auth error codes from backend.

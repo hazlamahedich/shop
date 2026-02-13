@@ -18,6 +18,17 @@ class PersonalityType(str, Enum):
     ENTHUSIASTIC = "enthusiastic"
 
 
+class StoreProvider(str, Enum):
+    """E-commerce store provider types (Sprint Change Proposal 2026-02-13).
+
+    Indicates which e-commerce platform (if any) the merchant has connected.
+    """
+    NONE = "none"  # No store connected - Facebook-only mode
+    SHOPIFY = "shopify"  # Shopify store connected
+    WOOCOMMERCE = "woocommerce"  # Future: WooCommerce integration
+    BIGCOMMERCE = "bigcommerce"  # Future: BigCommerce integration
+
+
 class Merchant(Base):
     """Merchant account model.
 
@@ -106,6 +117,15 @@ class Merchant(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True,
+    )
+
+    # E-commerce store provider (Sprint Change Proposal 2026-02-13)
+    store_provider: Mapped[str] = mapped_column(
+        String(20),
+        default=StoreProvider.NONE.value,
+        nullable=False,
+        server_default="none",
+        index=True,  # Index for common query pattern
     )
 
     # Relationships

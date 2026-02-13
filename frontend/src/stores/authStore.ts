@@ -28,7 +28,11 @@ import type {
   Merchant,
   AuthState,
   LoginRequest,
+  StoreProvider,
 } from '../types/auth';
+import { hasStoreConnected as checkStoreConnected } from '../types/auth';
+import { useOnboardingPhaseStore } from './onboardingPhaseStore';
+import { useTutorialStore } from './tutorialStore';
 
 // Session duration is 24 hours from backend
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -48,6 +52,9 @@ export interface AuthStore extends AuthState {
   refreshSession: () => Promise<void>;
   clearError: () => void;
   reset: () => void;
+  // Computed - Sprint Change 2026-02-13
+  hasStoreConnected: () => boolean;
+  storeProvider: () => StoreProvider;
   // Internal
   _startRefreshTimer: () => void;
   _stopRefreshTimer: () => void;
@@ -90,6 +97,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       try {
         const response = await loginApi(credentials);
 
+        const previousMerchantId = get().merchant?.id;
+        const newMerchantId = response.data.merchant.id;
+        const isNewUser = previousMerchantId !== newMerchantId;
+
         const authState = {
           isAuthenticated: true,
           merchant: response.data.merchant,
@@ -102,6 +113,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         // Save to sessionStorage for session persistence (LOW-14: updated comment)
         sessionStorage.setItem('auth_state', JSON.stringify(authState));
+
+        // Only reset onboarding and tutorial state when logging in as a DIFFERENT user
+        // This preserves tutorial progress when the same user re-authenticates
+        if (isNewUser) {
+          console.log('[authStore] Resetting onboarding stores for new user login');
+          useOnboardingPhaseStore.getState().resetOnboarding();
+          useTutorialStore.getState().reset();
+        }
 
         // Start auto-refresh timer
         get()._startRefreshTimer();
@@ -251,6 +270,24 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     },
 
     /**
+     * Check if merchant has a store connected.
+     * Sprint Change 2026-02-13: Make Shopify Optional Integration
+     */
+    hasStoreConnected: () => {
+      const { merchant } = get();
+      return checkStoreConnected(merchant);
+    },
+
+    /**
+     * Get the current store provider.
+     * Sprint Change 2026-02-13: Make Shopify Optional Integration
+     */
+    storeProvider: () => {
+      const { merchant } = get();
+      return merchant?.store_provider ?? 'none';
+    },
+
+    /**
      * Start automatic token refresh timer.
      *
      * Checks every 5 minutes if token needs refresh.
@@ -344,4 +381,24 @@ export const cleanupAuth = (): void => {
     globalBroadcastChannel.close();
     globalBroadcastChannel = null;
   }
+};
+
+/**
+ * Selector hook for checking if store is connected.
+ * Sprint Change 2026-02-13: Make Shopify Optional Integration
+ *
+ * @returns boolean indicating if merchant has a store connected
+ */
+export const useHasStoreConnected = (): boolean => {
+  return useAuthStore((state) => checkStoreConnected(state.merchant));
+};
+
+/**
+ * Selector hook for getting store provider.
+ * Sprint Change 2026-02-13: Make Shopify Optional Integration
+ *
+ * @returns Current store provider type
+ */
+export const useStoreProvider = (): StoreProvider => {
+  return useAuthStore((state) => state.merchant?.store_provider ?? 'none');
 };

@@ -45,7 +45,7 @@ development_status:
   sprint-0-pattern-tooling: done # Code review complete: All critical issues fixed
 
   # Epic 1: Merchant Onboarding & Bot Setup
-  epic-1: in-progress # Updated 2026-02-10: Added bot naming (1-12), preview mode (1-13), smart greetings (1-14), product pins (1-15) - Feature expansion
+  epic-1: in-progress # Updated 2026-02-13: Sprint Change Proposal approved - Shopify now optional, pluggable e-commerce architecture. See sprint-change-proposal-2026-02-13.md. E2E tests for conditional store UI complete (26/26 passing with full API mocking).
   1-1-prerequisite-checklist: done # Code review complete: All issues fixed (see story file)
   1-2-one-click-deployment: done # Code review complete: All HIGH/MEDIUM issues fixed, LOW items deferred with tracking
   1-3-facebook-page-connection: done # Code review complete: All HIGH/MEDIUM issues fixed, DLQ implemented, state validation added
@@ -60,10 +60,10 @@ development_status:
   1-13-bot-preview-mode: done # 2026-02-11: Implementation complete, ALL code review items addressed. 81 tests passing (27 backend API + service, 38 frontend, 16 E2E). Fixes: LLM config integration, actual FAQ matching, real confidence scores, React Router navigation, session cleanup endpoint.
   1-14-smart-greeting-templates: done # 2026-02-12: COMPLETE. All backend tests passing, frontend tests passing, API endpoints working, /bot-config page loading. Fixed: duplicate class definitions in greeting.py schema, duplicate function definitions in bot_config.py, MetaData type mismatch. Added sample greeting templates to story doc.
   1-15-product-highlight-pins: done # 2026-02-12: Implementation complete - all 4 CRITICAL code review issues addressed (service+API working). Unit tests blocked by pytest fixture collision - FIXED. Tests run successfully with direct Python, validating functionality.
-  1-6-interactive-tutorial: backlog # Re-sequenced: moved after personality/FAQ setup (was done, now needs update for new features)
+  1-6-interactive-tutorial: done # 2026-02-12: COMPLETE. All 8 steps implemented, keyboard navigation, screen reader support, onboarding store, route guards, tutorial prompt. Backend 7/7 tests passing. Frontend tests created (store, component, keyboard). Fixed duplicate callback definitions. Story ready for code review.
   epic-1-retrospective: backlog # Re-open: needs to include authentication and bot configuration stories
 
-  # Epic 2: Shopping Experience
+  # Epic 2: Shopping Experience (CONDITIONAL - requires store connection per sprint-change-proposal-2026-02-13)
   epic-2: done
   2-1-natural-language-intent-classification: done
   2-2-product-search-with-constraints: done # QA test automation complete: 22/22 tests passing (9 integration + 13 E2E)
@@ -90,7 +90,7 @@ development_status:
   3-10-business-hours-configuration: backlog
   epic-3-retrospective: optional
 
-  # Epic 4: Order Tracking & Support
+  # Epic 4: Order Tracking & Support (Stories 4-1 to 4-5 CONDITIONAL - requires store connection per sprint-change-proposal-2026-02-13)
   epic-4: backlog
   4-1-natural-language-order-tracking: backlog
   4-2-shopify-webhook-integration: backlog
