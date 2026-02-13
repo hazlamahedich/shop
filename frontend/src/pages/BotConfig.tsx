@@ -22,6 +22,7 @@ import { useEffect } from 'react';
 import { Info, CheckCircle2, AlertCircle, MessageSquare, Palette } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useBotConfigStore } from '../stores/botConfigStore';
+import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { BotNameInput } from '../components/bot-config/BotNameInput';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import { ProductPinList } from '../components/business-info/ProductPinList';
@@ -78,6 +79,8 @@ export const BotConfig: React.FC = () => {
     clearError,
   } = useBotConfigStore();
 
+  const markBotConfigComplete = useOnboardingPhaseStore((state) => state.markBotConfigComplete);
+
   const { toast } = useToast();
 
   // Load configuration on mount
@@ -103,6 +106,7 @@ export const BotConfig: React.FC = () => {
         bot_name: botName,
       });
 
+      markBotConfigComplete('botName');
       toast('Bot name saved successfully!', 'success');
     } catch (err) {
       console.error('Failed to save bot name:', err);
@@ -120,6 +124,7 @@ export const BotConfig: React.FC = () => {
         use_custom_greeting: useCustomGreeting,
       });
 
+      markBotConfigComplete('greetings');
       toast('Greeting configuration saved successfully!', 'success');
     } catch (err) {
       console.error('Failed to save greeting config:', err);

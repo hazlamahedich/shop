@@ -17,6 +17,7 @@ from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
 from app.models.faq import Faq
 from app.models.product_pin import ProductPin
 from app.models.session import Session
+from app.models.budget_alert import BudgetAlert
 
 __all__ = [
     "Merchant",
@@ -34,4 +35,5 @@ __all__ = [
     "Faq",
     "ProductPin",
     "Session",
+    "BudgetAlert",
 ]

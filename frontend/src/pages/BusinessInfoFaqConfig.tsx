@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import { Info, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useBusinessInfoStore } from '../stores/businessInfoStore';
+import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { BusinessInfoForm } from '../components/business-info/BusinessInfoForm';
 import { FaqList } from '../components/business-info/FaqList';
 
@@ -45,6 +46,8 @@ export const BusinessInfoFaqConfig: React.FC = () => {
     updateBusinessInfo,
     clearError,
   } = useBusinessInfoStore();
+
+  const markBotConfigComplete = useOnboardingPhaseStore((state) => state.markBotConfigComplete);
 
   const { toast } = useToast();
 
@@ -76,6 +79,7 @@ export const BusinessInfoFaqConfig: React.FC = () => {
         businessHours: businessHours,
       });
 
+      markBotConfigComplete('businessInfo');
       toast('Business info saved successfully!', 'success');
     } catch (err) {
       console.error('Failed to save business info:', err);

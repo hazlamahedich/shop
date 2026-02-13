@@ -8,6 +8,7 @@ import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTutorialStore } from "../../stores/tutorialStore";
 import { useOnboardingPhaseStore } from "../../stores/onboardingPhaseStore";
+import { useHasStoreConnected } from "../../stores/authStore";
 import { TutorialProgress } from "./TutorialProgress";
 import { TutorialStep } from "./TutorialStep";
 import { TutorialCompletion } from "./TutorialCompletion";
@@ -230,21 +231,24 @@ export function InteractiveTutorial({ onComplete, className = "" }: InteractiveT
     completeStep,
     skipTutorial,
     completeTutorial,
+    acknowledgeCompletion,
   } = useTutorialStore();
 
   // Track onboarding phases to detect when user completes actual configuration
   const {
-    personality,
-    businessName,
-    businessDescription,
-    businessHours,
-    botName,
-    greetingConfigured,
+    personalityConfigured,
+    businessInfoConfigured,
+    botNamed,
+    greetingsConfigured,
     pinsConfigured,
   } = useOnboardingPhaseStore();
 
+  // Check if store is connected (pins only required with store)
+  const hasStoreConnected = useHasStoreConnected();
+
   const [isCompleteModalOpen, setIsCompleteModalOpen] = React.useState(false);
   const [isMinimized, setIsMinimized] = React.useState(false);
+  const [hasShownCompletion, setHasShownCompletion] = React.useState(false);
 
   // Auto-start tutorial if not started
   React.useEffect(() => {
@@ -257,43 +261,55 @@ export function InteractiveTutorial({ onComplete, className = "" }: InteractiveT
     }
   }, [isStarted]);
 
-  // Auto-open modal when tutorial is completed
+  // Auto-open modal when tutorial is completed (only once)
   React.useEffect(() => {
-    if (isCompleted && !isCompleteModalOpen) {
+    if (isCompleted && !isCompleteModalOpen && !hasShownCompletion) {
       setIsCompleteModalOpen(true);
+      setHasShownCompletion(true);
     }
-  }, [isCompleted, isCompleteModalOpen]);
+  }, [isCompleted, isCompleteModalOpen, hasShownCompletion]);
 
   // Auto-navigate to the correct route when step changes
   React.useEffect(() => {
-    if (!isStarted) return;
+    // Don't auto-navigate if tutorial is completed or modal is open
+    if (!isStarted || isCompleted || isCompleteModalOpen) return;
 
     const targetRoute = STEP_ROUTES[currentStep];
     if (targetRoute && location.pathname !== targetRoute) {
       console.log(`[InteractiveTutorial] Navigating to step ${currentStep}: ${targetRoute}`);
       navigate(targetRoute, { replace: true });
     }
-  }, [currentStep, isStarted]);
+  }, [currentStep, isStarted, isCompleted, isCompleteModalOpen]);
 
   // Check if current step's onboarding is complete
+  // Note: We allow proceeding even if configuration isn't complete
+  // The hint below will guide users, but won't block them
   const isStepOnboardingComplete = React.useMemo(() => {
     switch (currentStep) {
       case 5: // Personality
-        return !!personality;
+        return !!personalityConfigured;
       case 6: // Business Info
-        return !!(businessName && businessDescription && businessHours);
+        return !!businessInfoConfigured;
       case 7: // Bot Name
-        return !!botName;
+        return !!botNamed;
       case 8: // Greetings & Pins
-        return !!(greetingConfigured && pinsConfigured);
+        if (hasStoreConnected) {
+          return !!(greetingsConfigured && pinsConfigured);
+        }
+        return !!greetingsConfigured;
       default:
         return true;
     }
-  }, [currentStep, personality, businessName, businessName, businessDescription, businessHours, botName, greetingConfigured, pinsConfigured]);
+  }, [currentStep, personalityConfigured, businessInfoConfigured, botNamed, greetingsConfigured, pinsConfigured, hasStoreConnected]);
 
   // Handle completion
   const handleComplete = React.useCallback(async () => {
-    await completeTutorial();
+    try {
+      await completeTutorial();
+    } catch (error) {
+      console.error('[InteractiveTutorial] Failed to complete tutorial:', error);
+    }
+    setHasShownCompletion(true);
     setIsCompleteModalOpen(true);
     onComplete?.();
   }, [completeTutorial, onComplete]);
@@ -488,26 +504,48 @@ export function InteractiveTutorial({ onComplete, className = "" }: InteractiveT
             onSkip={skipTutorial}
             hasNextStep={currentStep < stepsTotal}
             hasPreviousStep={currentStep > 1}
-            canGoNext={isStepOnboardingComplete}
+            canGoNext={true}
           />
         )}
 
         {/* Onboarding completion hint for steps 5-8 */}
         {!isMinimized && currentStep >= 5 && currentStep <= 8 && !isStepOnboardingComplete && (
-          <div className="tutorial-onboarding-hint mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-800">
-              <strong>Complete this step to continue:</strong> Configure the settings on this page, then click "Next" to continue the tutorial.
+          <div className="tutorial-onboarding-hint mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Recommended:</strong>{' '}
+              {currentStep === 5 && 'Select and save a personality to customize your bot\'s tone.'}
+              {currentStep === 6 && 'Add your business info to help the bot answer customer questions.'}
+              {currentStep === 7 && 'Give your bot a name to personalize customer interactions.'}
+              {currentStep === 8 && (
+                <>
+                  Configure your greeting template
+                  {hasStoreConnected && ' and pin featured products'}
+                  .
+                </>
+              )}
+              {' '}You can configure this later from the Settings menu.
             </p>
           </div>
         )}
 
-        {/* Completion modal */}
-        {isCompleted && (
+        {/* Completion modal - render regardless of isCompleted for error recovery */}
+        {(isCompleted || isCompleteModalOpen) && (
           <TutorialCompletion
             isOpen={isCompleteModalOpen}
-            onClose={() => setIsCompleteModalOpen(false)}
+            onClose={() => {
+              setIsCompleteModalOpen(false);
+              setHasShownCompletion(true);
+              acknowledgeCompletion();
+              navigate('/dashboard', { replace: true });
+            }}
             completedSteps={completedSteps}
-            onNextStep={onComplete}
+            onNextStep={() => {
+              setIsCompleteModalOpen(false);
+              setHasShownCompletion(true);
+              acknowledgeCompletion();
+              onComplete?.();
+              navigate('/dashboard', { replace: true });
+            }}
             nextStepLabel="Go to Dashboard"
           />
         )}

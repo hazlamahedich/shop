@@ -13,6 +13,7 @@ from app.core.database import Base
 
 class PersonalityType(str, Enum):
     """Personality types for bot responses (Story 1.10)."""
+
     FRIENDLY = "friendly"
     PROFESSIONAL = "professional"
     ENTHUSIASTIC = "enthusiastic"
@@ -23,6 +24,7 @@ class StoreProvider(str, Enum):
 
     Indicates which e-commerce platform (if any) the merchant has connected.
     """
+
     NONE = "none"  # No store connected - Facebook-only mode
     SHOPIFY = "shopify"  # Shopify store connected
     WOOCOMMERCE = "woocommerce"  # Future: WooCommerce integration
@@ -151,6 +153,12 @@ class Merchant(Base):
         back_populates="merchant",
         cascade="all, delete-orphan",
         order_by="ProductPin.pinned_order",
+    )
+    budget_alerts: Mapped[list["BudgetAlert"]] = relationship(
+        "BudgetAlert",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="BudgetAlert.created_at.desc()",
     )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(

@@ -43,9 +43,7 @@ async def get_tutorial(
         Tutorial record
     """
     # Get or create tutorial
-    result = await db.execute(
-        select(Tutorial).where(Tutorial.merchant_id == merchant_id)
-    )
+    result = await db.execute(select(Tutorial).where(Tutorial.merchant_id == merchant_id))
     tutorial = result.scalar_one_or_none()
 
     if not tutorial:
@@ -154,11 +152,18 @@ async def complete_tutorial(
     try:
         tutorial = await get_tutorial(db, merchant_id)
 
+        # Idempotent: if already completed, return existing state
         if tutorial.completed_at:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Tutorial has already been completed",
-            )
+            return {
+                "data": {
+                    "completedAt": tutorial.completed_at.isoformat(),
+                    "completedSteps": tutorial.completed_steps,
+                },
+                "meta": {
+                    "requestId": "complete",
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            }
 
         # Mark all steps as completed
         all_steps = [f"step-{i}" for i in range(1, tutorial.steps_total + 1)]

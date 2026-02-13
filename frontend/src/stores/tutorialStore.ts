@@ -8,6 +8,7 @@ export interface TutorialState {
   isStarted: boolean;
   isCompleted: boolean;
   isSkipped: boolean;
+  completionAcknowledged: boolean;
   startedAt: Date | null;
   completedAt: Date | null;
   stepsTotal: number;
@@ -21,6 +22,7 @@ export interface TutorialState {
   completeStep: (step: number) => void;
   skipTutorial: () => Promise<void>;
   completeTutorial: () => Promise<void>;
+  acknowledgeCompletion: () => void;
   resetTutorial: () => Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export const useTutorialStore = create<TutorialState>()(
       isStarted: false,
       isCompleted: false,
       isSkipped: false,
+      completionAcknowledged: false,
       startedAt: null,
       completedAt: null,
       stepsTotal: 8,
@@ -47,6 +50,7 @@ export const useTutorialStore = create<TutorialState>()(
           isStarted: false,
           isCompleted: false,
           isSkipped: false,
+          completionAcknowledged: false,
           startedAt: null,
           completedAt: null,
         }),
@@ -167,6 +171,10 @@ export const useTutorialStore = create<TutorialState>()(
         }
       },
 
+      acknowledgeCompletion: () => {
+        set({ completionAcknowledged: true });
+      },
+
       resetTutorial: async () => {
         try {
           const response = await fetch(`${API_BASE}/reset`, {
@@ -185,6 +193,7 @@ export const useTutorialStore = create<TutorialState>()(
             isStarted: false,
             isCompleted: false,
             isSkipped: false,
+            completionAcknowledged: false,
             startedAt: null,
             completedAt: null,
           });
@@ -197,6 +206,7 @@ export const useTutorialStore = create<TutorialState>()(
             isStarted: false,
             isCompleted: false,
             isSkipped: false,
+            completionAcknowledged: false,
             startedAt: null,
             completedAt: null,
           });
@@ -209,6 +219,7 @@ export const useTutorialStore = create<TutorialState>()(
         isStarted: state.isStarted,
         isCompleted: state.isCompleted,
         isSkipped: state.isSkipped,
+        completionAcknowledged: state.completionAcknowledged,
         completedSteps: state.completedSteps,
         currentStep: state.currentStep,
         startedAt: state.startedAt,

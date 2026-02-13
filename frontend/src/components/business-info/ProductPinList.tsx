@@ -17,6 +17,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Search, Pin, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useBotConfigStore } from '../../stores/botConfigStore';
+import { useOnboardingPhaseStore } from '../../stores/onboardingPhaseStore';
 import { useToast } from '../../context/ToastContext';
 
 type ProductPinItem = {
@@ -146,6 +147,7 @@ export function ProductPinList() {
   const unpinProduct = useBotConfigStore((state) => state.unpinProduct);
   const togglePinnedOnly = useBotConfigStore((state) => state.togglePinnedOnly);
   const clearProductsError = useBotConfigStore((state) => state.clearProductsError);
+  const markBotConfigComplete = useOnboardingPhaseStore((state) => state.markBotConfigComplete);
 
   // Track local search query for display purposes (not used for input control)
   const [currentSearchQuery, setCurrentSearchQuery] = useState('');
@@ -181,6 +183,7 @@ export function ProductPinList() {
     } else {
       try {
         await pinProduct(productId);
+        markBotConfigComplete('pins');
         toast('Product pinned successfully!', 'success');
       } catch (err) {
         console.error('Failed to pin product:', err);

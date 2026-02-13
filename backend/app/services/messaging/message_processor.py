@@ -30,6 +30,7 @@ from app.services.shopify import ProductSearchService
 from app.services.shopify_storefront import ShopifyStorefrontClient
 from app.services.personality import BotResponseService
 from app.services.faq import match_faq
+from app.services.cost_tracking.budget_alert_service import BudgetAlertService
 
 
 logger = structlog.get_logger(__name__)
@@ -64,8 +65,7 @@ class MessageProcessor:
         redis_client = self.context_manager.redis
         self.consent_service = consent_service or ConsentService(redis_client=redis_client)
         self.session_service = session_service or SessionService(
-            redis_client=redis_client,
-            consent_service=self.consent_service
+            redis_client=redis_client, consent_service=self.consent_service
         )
 
         # Initialize checkout service (Story 2.8)
@@ -97,10 +97,13 @@ class MessageProcessor:
         if self.merchant_id:
             try:
                 from app.core.database import async_session
+
                 async with async_session() as db:
                     return await self._get_bot_response_service().get_greeting(self.merchant_id, db)
             except Exception as e:
-                self.logger.warning("personality_greeting_failed", merchant_id=self.merchant_id, error=str(e))
+                self.logger.warning(
+                    "personality_greeting_failed", merchant_id=self.merchant_id, error=str(e)
+                )
         # Default fallback greeting (when no merchant_id or error occurs)
         return "Hi! How can I help you today?"
 
@@ -113,10 +116,15 @@ class MessageProcessor:
         if self.merchant_id:
             try:
                 from app.core.database import async_session
+
                 async with async_session() as db:
-                    return await self._get_bot_response_service().get_error_response(self.merchant_id, db)
+                    return await self._get_bot_response_service().get_error_response(
+                        self.merchant_id, db
+                    )
             except Exception as e:
-                self.logger.warning("personality_error_failed", merchant_id=self.merchant_id, error=str(e))
+                self.logger.warning(
+                    "personality_error_failed", merchant_id=self.merchant_id, error=str(e)
+                )
         # Default fallback error
         return "Sorry, I encountered an error. Please try again."
 
@@ -169,9 +177,9 @@ class MessageProcessor:
                             recipient_id="",  # Will be set by caller
                         )
                     return MessengerResponse(
-                            text=faq_match.faq.answer,
-                            recipient_id="",  # Will be set by caller
-                        )
+                        text=faq_match.faq.answer,
+                        recipient_id="",  # Will be set by caller
+                    )
         except Exception as e:
             self.logger.warning("faq_match_failed", error=str(e))
 
@@ -180,6 +188,7 @@ class MessageProcessor:
     def _get_faq_model(self):
         """Get FAQ model (lazy import to avoid circular dependency)."""
         from app.models.faq import Faq
+
         return Faq
 
     async def _get_business_name(self, db) -> Optional[str]:
@@ -225,6 +234,27 @@ class MessageProcessor:
         self.logger.info("message_processing_start", psid=psid, message=message)
 
         try:
+            # Story 3-8: Check if bot is paused due to budget limit
+            if self.merchant_id:
+                budget_service = BudgetAlertService(
+                    db=None,
+                    redis_client=self.context_manager.redis,
+                )
+                is_paused, pause_reason = await budget_service.get_bot_paused_state(
+                    self.merchant_id
+                )
+                if is_paused:
+                    self.logger.info(
+                        "bot_paused_budget_exceeded",
+                        psid=psid,
+                        merchant_id=self.merchant_id,
+                        pause_reason=pause_reason,
+                    )
+                    return MessengerResponse(
+                        text="I'm currently unavailable. Please contact support or try again later.",
+                        recipient_id=psid,
+                    )
+
             # Check for returning shopper and welcome them if inactive (Story 2.7)
             # We get last activity BEFORE updating it to see if it's a "return"
             last_activity = await self.session_service.get_last_activity(psid)
@@ -238,17 +268,14 @@ class MessageProcessor:
                 should_welcome = True
                 if last_activity:
                     from datetime import datetime, timezone
+
                     diff = datetime.now(timezone.utc) - last_activity
                     if diff.total_seconds() < 1800:  # 30 minutes
                         should_welcome = False
 
                 if should_welcome:
                     item_count = await self.session_service.get_cart_item_count(psid)
-                    self.logger.info(
-                        "returning_shopper_welcome",
-                        psid=psid,
-                        item_count=item_count
-                    )
+                    self.logger.info("returning_shopper_welcome", psid=psid, item_count=item_count)
                     welcome_back = (
                         f"Welcome back! You have {item_count} "
                         f"item{'s' if item_count != 1 else ''} in your cart. "
@@ -286,9 +313,7 @@ class MessageProcessor:
             await self.context_manager.update_classification(psid, classification_dict)
 
             # Route to appropriate handler based on intent
-            response = await self._route_response(
-                psid, classification, context
-            )
+            response = await self._route_response(psid, classification, context)
 
             self.logger.info(
                 "message_processing_complete",
@@ -340,15 +365,11 @@ class MessageProcessor:
 
             elif action == "increase_quantity" and len(parts) == 2:
                 variant_id = parts[1]
-                return await self._handle_adjust_quantity(
-                    psid, variant_id, "increase", context
-                )
+                return await self._handle_adjust_quantity(psid, variant_id, "increase", context)
 
             elif action == "decrease_quantity" and len(parts) == 2:
                 variant_id = parts[1]
-                return await self._handle_adjust_quantity(
-                    psid, variant_id, "decrease", context
-                )
+                return await self._handle_adjust_quantity(psid, variant_id, "decrease", context)
 
             # Continue shopping action
             elif action == "continue_shopping":
@@ -364,10 +385,7 @@ class MessageProcessor:
 
                 # Use unified add-to-cart helper
                 return await self._perform_add_to_cart(
-                    psid=psid,
-                    product_id=product_id,
-                    variant_id=variant_id,
-                    context=context
+                    psid=psid, product_id=product_id, variant_id=variant_id, context=context
                 )
 
             # Consent response handling (Story 2.7)
@@ -502,14 +520,9 @@ class MessageProcessor:
 
         if is_clarification_response:
             # FIRST: Check if confidence improved after clarification response
-            if (
-                classification.confidence
-                >= ClarificationService.CONFIDENCE_THRESHOLD
-            ):
+            if classification.confidence >= ClarificationService.CONFIDENCE_THRESHOLD:
                 # Confidence improved, proceed to search
-                await self.context_manager.update_clarification_state(
-                    psid, {"active": False}
-                )
+                await self.context_manager.update_clarification_state(psid, {"active": False})
                 return await self._proceed_to_search(psid, classification, context)
             # SECOND: If still low confidence, check if we should fallback to assumptions
             elif await clarification_service.should_fallback_to_assumptions(context):
@@ -724,10 +737,7 @@ class MessageProcessor:
         # Check availability
         if not variant_data.get("available_for_sale", False):
             self.logger.info(
-                "cart_add_out_of_stock",
-                psid=psid,
-                product_id=product_id,
-                variant_id=variant_id
+                "cart_add_out_of_stock", psid=psid, product_id=product_id, variant_id=variant_id
             )
             return MessengerResponse(
                 text=f"Sorry, '{product_data.get('title')}' is currently out of stock.",
@@ -744,7 +754,7 @@ class MessageProcessor:
                 price=variant_data.get("price"),
                 image_url=product_data.get("images", [{}])[0].get("url", ""),
                 currency_code=variant_data.get("currency_code", "USD"),
-                quantity=1
+                quantity=1,
             )
 
             self.logger.info(
@@ -752,7 +762,7 @@ class MessageProcessor:
                 psid=psid,
                 product_id=product_id,
                 variant_id=variant_id,
-                item_count=cart.item_count
+                item_count=cart.item_count,
             )
 
             return MessengerResponse(
@@ -800,10 +810,7 @@ class MessageProcessor:
 
         # Use unified add-to-cart helper
         return await self._perform_add_to_cart(
-            psid=psid,
-            product_id=product_id,
-            variant_id=variant_id,
-            context=context
+            psid=psid, product_id=product_id, variant_id=variant_id, context=context
         )
 
     async def _handle_view_cart(
@@ -829,8 +836,13 @@ class MessageProcessor:
 
             # Format cart for display
             from app.core.config import settings
+
             config = settings()
-            shop_domain = config.get("STORE_URL", "https://shop.example.com").replace("https://", "").replace("http://", "")
+            shop_domain = (
+                config.get("STORE_URL", "https://shop.example.com")
+                .replace("https://", "")
+                .replace("http://", "")
+            )
             formatter = CartFormatter(shop_domain=shop_domain)
             message_payload = formatter.format_cart(cart, psid)
 
@@ -881,8 +893,13 @@ class MessageProcessor:
 
             # Format updated cart for display
             from app.core.config import settings
+
             config = settings()
-            shop_domain = config.get("STORE_URL", "https://shop.example.com").replace("https://", "").replace("http://", "")
+            shop_domain = (
+                config.get("STORE_URL", "https://shop.example.com")
+                .replace("https://", "")
+                .replace("http://", "")
+            )
             formatter = CartFormatter(shop_domain=shop_domain)
             message_payload = formatter.format_cart(cart, psid)
 
@@ -896,7 +913,7 @@ class MessageProcessor:
                 "cart_item_removed",
                 psid=psid,
                 variant_id=variant_id,
-                item_title=removed_item.title if removed_item else "unknown"
+                item_title=removed_item.title if removed_item else "unknown",
             )
 
             # Return text message with confirmation
@@ -955,8 +972,13 @@ class MessageProcessor:
 
             # Format updated cart for display
             from app.core.config import settings
+
             config = settings()
-            shop_domain = config.get("STORE_URL", "https://shop.example.com").replace("https://", "").replace("http://", "")
+            shop_domain = (
+                config.get("STORE_URL", "https://shop.example.com")
+                .replace("https://", "")
+                .replace("http://", "")
+            )
             formatter = CartFormatter(shop_domain=shop_domain)
             message_payload = formatter.format_cart(cart, psid)
 
@@ -971,7 +993,7 @@ class MessageProcessor:
                 psid=psid,
                 variant_id=variant_id,
                 adjustment=adjustment,
-                new_quantity=new_quantity
+                new_quantity=new_quantity,
             )
 
             # Return empty response (attachment sent)
@@ -983,7 +1005,7 @@ class MessageProcessor:
                 psid=psid,
                 variant_id=variant_id,
                 adjustment=adjustment,
-                error=str(e)
+                error=str(e),
             )
             return MessengerResponse(
                 text="Sorry, I couldn't update the quantity. Please try again.",
@@ -1006,11 +1028,7 @@ class MessageProcessor:
             # Clear voluntary session data (cart, consent, context, activity)
             await self.session_service.clear_session(psid)
 
-            self.logger.info(
-                "forget_preferences_success",
-                psid=psid,
-                voluntary_data_cleared=True
-            )
+            self.logger.info("forget_preferences_success", psid=psid, voluntary_data_cleared=True)
 
             # Send confirmation with data tier explanation
             return MessengerResponse(
@@ -1022,11 +1040,7 @@ class MessageProcessor:
             )
 
         except Exception as e:
-            self.logger.error(
-                "forget_preferences_failed",
-                psid=psid,
-                error=str(e)
-            )
+            self.logger.error("forget_preferences_failed", psid=psid, error=str(e))
             return MessengerResponse(
                 text="Sorry, I couldn't clear your data. Please try again.",
                 recipient_id=psid,
@@ -1069,7 +1083,9 @@ class MessageProcessor:
                 break
 
         if not product_data or not variant_data:
-            self.logger.warning("consent_request_product_not_found", psid=psid, product_id=product_id)
+            self.logger.warning(
+                "consent_request_product_not_found", psid=psid, product_id=product_id
+            )
             return MessengerResponse(
                 text="Sorry, I couldn't find that product. Please search again.",
                 recipient_id=psid,
@@ -1086,17 +1102,15 @@ class MessageProcessor:
             "currency_code": variant_data.get("currency_code", "USD"),
         }
         import json
+
         self.context_manager.redis.setex(
             pending_key,
             300,  # 5 minutes
-            json.dumps(pending_data)
+            json.dumps(pending_data),
         )
 
         self.logger.info(
-            "consent_request_sent",
-            psid=psid,
-            product_id=product_id,
-            variant_id=variant_id
+            "consent_request_sent", psid=psid, product_id=product_id, variant_id=variant_id
         )
 
         # Send consent request with quick reply buttons via MessengerSendService
@@ -1107,14 +1121,14 @@ class MessageProcessor:
                 {
                     "content_type": "text",
                     "title": "Yes, save my cart",
-                    "payload": f"CONSENT:YES:{product_id}:{variant_id}"
+                    "payload": f"CONSENT:YES:{product_id}:{variant_id}",
                 },
                 {
                     "content_type": "text",
                     "title": "No, don't save",
-                    "payload": f"CONSENT:NO:{product_id}:{variant_id}"
-                }
-            ]
+                    "payload": f"CONSENT:NO:{product_id}:{variant_id}",
+                },
+            ],
         }
         await send_service.send_message(psid, consent_message)
         await send_service.close()
@@ -1151,7 +1165,7 @@ class MessageProcessor:
             psid=psid,
             consent_granted=consent_granted,
             product_id=product_id,
-            variant_id=variant_id
+            variant_id=variant_id,
         )
 
         # If user opted in and we have pending product, add to cart
@@ -1159,6 +1173,7 @@ class MessageProcessor:
             # Retrieve pending product from temp storage
             pending_key = f"pending_cart:{psid}"
             import json
+
             pending_data = self.context_manager.redis.get(pending_key)
 
             if pending_data:
@@ -1178,14 +1193,14 @@ class MessageProcessor:
                         price=pending["price"],
                         image_url=pending["image_url"],
                         currency_code=pending.get("currency_code", "USD"),
-                        quantity=1
+                        quantity=1,
                     )
 
                     self.logger.info(
                         "cart_add_after_consent",
                         psid=psid,
                         product_id=pending["product_id"],
-                        item_count=cart.item_count
+                        item_count=cart.item_count,
                     )
 
                     return MessengerResponse(

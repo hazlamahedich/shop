@@ -34,7 +34,9 @@ os.environ["FACEBOOK_APP_ID"] = "test_app_id"
 os.environ["FACEBOOK_REDIRECT_URI"] = "https://example.com/callback"
 os.environ["FACEBOOK_APP_SECRET"] = "test_secret"
 os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"
-os.environ["FACEBOOK_ENCRYPTION_KEY"] = "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm9yLXRlc3Rpbmc="  # Valid Fernet key (base64)
+os.environ["FACEBOOK_ENCRYPTION_KEY"] = (
+    "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm9yLXRlc3Rpbmc="  # Valid Fernet key (base64)
+)
 os.environ["SHOPIFY_API_SECRET"] = "test_shopify_secret_for_testing"
 os.environ["FACEBOOK_APP_SECRET"] = "test_facebook_app_secret"
 os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"
@@ -49,8 +51,7 @@ os.environ["MOCK_STORE_ENABLED"] = "true"
 
 # Database connection string for testing - use environment variable or default
 TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
+    "TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
 )
 
 # Create async engine for testing
@@ -97,141 +98,50 @@ import app.models.faq  # Story 1.11: FAQ model
 # FIXTURE: Database Setup (Session Scope, Autouse)
 # =============================================================================
 
+
+async def _setup_enums():
+    """Internal async helper to set up ENUM types."""
+    from sqlalchemy import text
+
+    async with test_engine.begin() as conn:
+        enums = [
+            ("merchant_status", "('pending', 'active', 'failed')"),
+            ("personality_type", "('friendly', 'professional', 'enthusiastic')"),
+            ("llm_provider", "('ollama', 'openai', 'anthropic', 'gemini', 'glm')"),
+            ("facebook_status", "('pending', 'active', 'error')"),
+            ("shopify_status", "('pending', 'active', 'error')"),
+            ("conversation_status", "('with', 'handoff', 'closed')"),
+            ("message_sender", "('customer', 'bot')"),
+            ("message_type", "('text', 'attachment', 'postback')"),
+            ("verification_platform", "('facebook', 'shopify')"),
+            ("test_type", "('status_check', 'test_webhook', 'resubscribe')"),
+            ("verification_status", "('pending', 'success', 'failed')"),
+        ]
+        for enum_name, enum_values in enums:
+            try:
+                await conn.execute(text(f"CREATE TYPE {enum_name} AS ENUM {enum_values};"))
+            except Exception:
+                pass
+
+
 @pytest.fixture(scope="session", autouse=True)
-async def setup_test_database():
+def setup_test_database():
     """Set up clean test database with fresh schema for entire test session.
 
     This fixture runs ONCE per test session (before any function-scoped fixtures).
     It handles:
     1. Setting environment variables (done above)
     2. Creating custom PostgreSQL ENUM types
-    3. Truncating all tables to ensure clean state
-    4. Resetting sequences to ensure IDs start at 1
 
-    Using TRUNCATE instead of DROP/CREATE to:
-    - Preserve sequences for autoincrement columns
-    - Properly reset foreign key relationships
-    - Faster than drop+create
+    Using synchronous wrapper to avoid scope mismatch with pytest-asyncio.
     """
-    from sqlalchemy import text
-    from app.core.database import Base
-
-    async with test_engine.begin() as conn:
-        # Create custom ENUM types (if not exists)
-        # merchant_status
-        try:
-            await conn.execute(text("""
-                CREATE TYPE merchant_status AS ENUM (
-                    'pending', 'active', 'failed'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # personality_type (Story 1.10)
-        try:
-            await conn.execute(text("""
-                CREATE TYPE personality_type AS ENUM (
-                    'friendly', 'professional', 'enthusiastic'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # llm_provider
-        try:
-            await conn.execute(text("""
-                CREATE TYPE llm_provider AS ENUM (
-                    'ollama', 'openai', 'anthropic', 'gemini', 'glm'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # facebook_status
-        try:
-            await conn.execute(text("""
-                CREATE TYPE facebook_status AS ENUM (
-                    'pending', 'active', 'error'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # shopify_status
-        try:
-            await conn.execute(text("""
-                CREATE TYPE shopify_status AS ENUM (
-                    'pending', 'active', 'error'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # conversation_status
-        try:
-            await conn.execute(text("""
-                CREATE TYPE conversation_status AS ENUM (
-                    'with', 'handoff', 'closed'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # message_sender
-        try:
-            await conn.execute(text("""
-                CREATE TYPE message_sender AS ENUM (
-                    'customer', 'bot'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # message_type
-        try:
-            await conn.execute(text("""
-                CREATE TYPE message_type AS ENUM (
-                    'text', 'attachment', 'postback'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # verification_platform
-        try:
-            await conn.execute(text("""
-                CREATE TYPE verification_platform AS ENUM (
-                    'facebook', 'shopify'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # test_type
-        try:
-            await conn.execute(text("""
-                CREATE TYPE test_type AS ENUM (
-                    'status_check', 'test_webhook', 'resubscribe'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
-
-        # verification_status
-        try:
-            await conn.execute(text("""
-                CREATE TYPE verification_status AS ENUM (
-                    'pending', 'success', 'failed'
-                );
-            """))
-        except Exception:
-            pass  # Type may already exist
+    asyncio.run(_setup_enums())
 
 
 # =============================================================================
 # FIXTURE: Database Reset Helper (Function Scope)
 # =============================================================================
+
 
 async def _reset_database():
     """Internal helper to reset database tables and sequences.
@@ -254,6 +164,7 @@ async def _reset_database():
 # =============================================================================
 # FIXTURE: Async Session (Function Scope)
 # =============================================================================
+
 
 @pytest.fixture(scope="function")
 async def async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -284,6 +195,7 @@ db_session = async_session
 # =============================================================================
 # FIXTURE: Async HTTP Client (Function Scope)
 # =============================================================================
+
 
 @pytest.fixture(scope="function")
 async def async_client(async_session):

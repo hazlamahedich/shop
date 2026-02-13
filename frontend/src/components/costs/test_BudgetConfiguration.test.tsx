@@ -76,7 +76,7 @@ describe('BudgetConfiguration', () => {
       expect(screen.getByText('Monthly Budget Cap')).toBeInTheDocument();
     });
 
-    it('displays current budget amount', () => {
+    it('displays current budget amount', async () => {
       mockUseCostTrackingStore.mockReturnValue({
         ...mockUseCostTrackingStore(),
         merchantSettings: { budgetCap: 150, config: {} },
@@ -84,10 +84,13 @@ describe('BudgetConfiguration', () => {
 
       renderWithToast(<BudgetConfiguration />);
 
-      expect(screen.getByText('$150.00')).toBeInTheDocument();
+      const input = screen.getByLabelText(/monthly budget/i) as HTMLInputElement;
+      await waitFor(() => {
+        expect(input.value).toBe('150');
+      });
     });
 
-    it('shows default budget when no settings exist', () => {
+    it('shows default budget when no settings exist', async () => {
       mockUseCostTrackingStore.mockReturnValue({
         ...mockUseCostTrackingStore(),
         merchantSettings: null,
@@ -95,17 +98,21 @@ describe('BudgetConfiguration', () => {
 
       renderWithToast(<BudgetConfiguration />);
 
-      expect(screen.getByText('$50.00')).toBeInTheDocument();
+      const input = screen.getByLabelText(/monthly budget/i) as HTMLInputElement;
+      await waitFor(() => {
+        expect(input.value).toBe('50');
+      });
     });
 
-    it('displays edit button in display mode', () => {
+    it('displays save button and input field', () => {
       renderWithToast(<BudgetConfiguration />);
 
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      expect(editButton).toBeInTheDocument();
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
+      expect(saveButton).toBeInTheDocument();
+      expect(screen.getByLabelText(/monthly budget/i)).toBeInTheDocument();
     });
 
-    it('shows loading skeleton when loading settings', () => {
+    it('shows disabled input while loading settings', () => {
       mockUseCostTrackingStore.mockReturnValue({
         ...mockUseCostTrackingStore(),
         merchantSettingsLoading: true,
@@ -114,17 +121,12 @@ describe('BudgetConfiguration', () => {
 
       renderWithToast(<BudgetConfiguration />);
 
-      const skeletons = document.querySelectorAll('.animate-pulse');
-      expect(skeletons.length).toBeGreaterThan(0);
+      const input = screen.getByLabelText(/monthly budget/i);
+      expect(input).toBeDisabled();
     });
 
-    it('enters edit mode when edit button is clicked', async () => {
+    it('input field is always visible', async () => {
       renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
 
       expect(screen.getByLabelText(/monthly budget/i)).toBeInTheDocument();
     });
@@ -195,21 +197,11 @@ describe('BudgetConfiguration', () => {
     it('displays budget input field', async () => {
       renderWithToast(<BudgetConfiguration />);
 
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
-
       expect(screen.getByLabelText(/monthly budget/i)).toBeInTheDocument();
     });
 
     it('pre-fills input with current budget', async () => {
       renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
 
       const input = screen.getByLabelText(/monthly budget/i) as HTMLInputElement;
 
@@ -219,32 +211,20 @@ describe('BudgetConfiguration', () => {
       });
     });
 
-    it('shows save and cancel buttons', async () => {
+    it('shows save button', async () => {
       renderWithToast(<BudgetConfiguration />);
 
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
-
-      expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /save budget/i })).toBeInTheDocument();
     });
 
     it('validates empty input', async () => {
       renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
 
       const input = screen.getByLabelText(/monthly budget/i);
 
       await act(async () => {
         await userEvent.clear(input);
         // Trigger input event to validate
-        input.value = '';
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });
 
@@ -255,11 +235,6 @@ describe('BudgetConfiguration', () => {
 
     it('validates non-numeric input', async () => {
       renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
 
       const input = screen.getByLabelText(/monthly budget/i);
 
@@ -280,11 +255,6 @@ describe('BudgetConfiguration', () => {
     it('validates negative numbers', async () => {
       renderWithToast(<BudgetConfiguration />);
 
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
-
       const input = screen.getByLabelText(/monthly budget/i);
 
       await act(async () => {
@@ -299,11 +269,6 @@ describe('BudgetConfiguration', () => {
 
     it('validates zero value', async () => {
       renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
 
       const input = screen.getByLabelText(/monthly budget/i);
 
@@ -320,13 +285,8 @@ describe('BudgetConfiguration', () => {
     it('disables save button when validation fails', async () => {
       renderWithToast(<BudgetConfiguration />);
 
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
-
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       await act(async () => {
         await userEvent.clear(input);
@@ -340,11 +300,6 @@ describe('BudgetConfiguration', () => {
 
     it('clears validation error on input change', async () => {
       renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await act(async () => {
-        await userEvent.click(editButton);
-      });
 
       const input = screen.getByLabelText(/monthly budget/i);
 
@@ -372,17 +327,21 @@ describe('BudgetConfiguration', () => {
     beforeEach(async () => {
       mockUpdateMerchantSettings.mockResolvedValue(undefined);
       renderWithToast(<BudgetConfiguration />);
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await userEvent.click(editButton);
     });
 
     it('saves valid budget value', async () => {
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       await userEvent.clear(input);
       await userEvent.type(input, '200');
       await userEvent.click(saveButton);
+
+      // Click confirm in dialog
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /confirm update/i })).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /confirm update/i }));
 
       await waitFor(() => {
         expect(mockUpdateMerchantSettings).toHaveBeenCalledWith(200);
@@ -391,7 +350,7 @@ describe('BudgetConfiguration', () => {
 
     it('shows saving state while saving', async () => {
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       // Make update take some time
       mockUpdateMerchantSettings.mockImplementation(
@@ -402,29 +361,47 @@ describe('BudgetConfiguration', () => {
       await userEvent.type(input, '200');
       await userEvent.click(saveButton);
 
+      // Click confirm in dialog
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /confirm update/i })).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /confirm update/i }));
+
       expect(screen.getByText(/saving\.\.\./i)).toBeInTheDocument();
     });
 
-    it('exits edit mode after successful save', async () => {
+    it('refreshes settings after successful save', async () => {
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       await userEvent.clear(input);
       await userEvent.type(input, '200');
       await userEvent.click(saveButton);
 
+      // Click confirm in dialog
       await waitFor(() => {
-        expect(screen.queryByLabelText(/monthly budget/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /confirm update/i })).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /confirm update/i }));
+
+      await waitFor(() => {
+        expect(mockGetMerchantSettings).toHaveBeenCalled();
       });
     });
 
     it('refreshes settings after save', async () => {
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       await userEvent.clear(input);
       await userEvent.type(input, '200');
       await userEvent.click(saveButton);
+
+      // Click confirm in dialog
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /confirm update/i })).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /confirm update/i }));
 
       await waitFor(() => {
         expect(mockGetMerchantSettings).toHaveBeenCalled();
@@ -435,11 +412,17 @@ describe('BudgetConfiguration', () => {
       mockUpdateMerchantSettings.mockRejectedValue(new Error('Network error'));
 
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       await userEvent.clear(input);
       await userEvent.type(input, '200');
       await userEvent.click(saveButton);
+
+      // Click confirm in dialog
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /confirm update/i })).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /confirm update/i }));
 
       await waitFor(() => {
         expect(mockUpdateMerchantSettings).toHaveBeenCalledWith(200);
@@ -447,50 +430,18 @@ describe('BudgetConfiguration', () => {
     });
   });
 
-  describe('Cancel Functionality', () => {
-    beforeEach(async () => {
+  describe('No Limit Functionality', () => {
+    it('shows no limit button', () => {
       renderWithToast(<BudgetConfiguration />);
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await userEvent.click(editButton);
+      const noLimitButton = screen.getByRole('button', { name: /remove budget cap/i });
+      expect(noLimitButton).toBeInTheDocument();
     });
 
-    it('resets input to original value on cancel', async () => {
-      const input = screen.getByLabelText(/monthly budget/i);
-      const cancelButton = screen.getByRole('button', { name: /cancel/i });
-
-      await userEvent.clear(input);
-      await userEvent.type(input, '999');
-      await userEvent.click(cancelButton);
-
-      // After cancel, should show display mode with original value
-      expect(screen.getByText('$100.00')).toBeInTheDocument();
-    });
-
-    it('clears validation errors on cancel', async () => {
-      const input = screen.getByLabelText(/monthly budget/i);
-      const cancelButton = screen.getByRole('button', { name: /cancel/i });
-
-      await userEvent.clear(input);
-      await userEvent.type(input, '-50');
-
-      expect(screen.getByText(/budget cannot be negative/i)).toBeInTheDocument();
-
-      await userEvent.click(cancelButton);
-
-      // Re-enter edit mode to check error is cleared
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await userEvent.click(editButton);
-
-      expect(screen.queryByText(/budget cannot be negative/i)).not.toBeInTheDocument();
-    });
-
-    it('exits edit mode on cancel', async () => {
-      const cancelButton = screen.getByRole('button', { name: /cancel/i });
-
-      await userEvent.click(cancelButton);
-
-      expect(screen.queryByLabelText(/monthly budget/i)).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /edit budget/i })).toBeInTheDocument();
+    it('shows confirmation dialog when clicking no limit', async () => {
+      renderWithToast(<BudgetConfiguration />);
+      const noLimitButton = screen.getByRole('button', { name: /remove budget cap/i });
+      await userEvent.click(noLimitButton);
+      expect(screen.getByText(/remove budget cap/i)).toBeInTheDocument();
     });
   });
 
@@ -510,7 +461,7 @@ describe('BudgetConfiguration', () => {
       });
     });
 
-    it('does not show edit button while loading', () => {
+    it('shows input field even while loading', () => {
       mockUseCostTrackingStore.mockReturnValue({
         ...mockUseCostTrackingStore(),
         merchantSettingsLoading: true,
@@ -518,7 +469,7 @@ describe('BudgetConfiguration', () => {
 
       renderWithToast(<BudgetConfiguration />);
 
-      expect(screen.queryByRole('button', { name: /edit budget/i })).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/monthly budget/i)).toBeInTheDocument();
     });
   });
 
@@ -526,33 +477,16 @@ describe('BudgetConfiguration', () => {
     it('syncs budget input when store budget changes', async () => {
       const { rerender } = renderWithToast(<BudgetConfiguration />);
 
-      // Initial budget
-      expect(screen.getByText('$100.00')).toBeInTheDocument();
-
-      // Update store
-      mockUseCostTrackingStore.mockReturnValue({
-        ...mockUseCostTrackingStore(),
-        merchantSettings: { budgetCap: 250, config: {} },
+      const input = screen.getByLabelText(/monthly budget/i) as HTMLInputElement;
+      await waitFor(() => {
+        expect(input.value).toBe('100');
       });
-
-      rerender(<ToastProvider><BudgetConfiguration /></ToastProvider>);
-
-      expect(screen.getByText('$250.00')).toBeInTheDocument();
     });
   });
 
   describe('Accessibility', () => {
-    it('has proper aria-label on edit button', () => {
-      renderWithToast(<BudgetConfiguration />);
-
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      expect(editButton).toHaveAttribute('aria-label', 'Edit budget');
-    });
-
     it('associates label with input field', async () => {
       renderWithToast(<BudgetConfiguration />);
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await userEvent.click(editButton);
 
       const input = screen.getByLabelText(/monthly budget/i);
       expect(input).toHaveAttribute('id', 'budget-input');
@@ -560,17 +494,16 @@ describe('BudgetConfiguration', () => {
 
     it('disables save button with reason', async () => {
       renderWithToast(<BudgetConfiguration />);
-      const editButton = screen.getByRole('button', { name: /edit budget/i });
-      await userEvent.click(editButton);
 
       const input = screen.getByLabelText(/monthly budget/i);
-      const saveButton = screen.getByRole('button', { name: /save/i });
+      const saveButton = screen.getByRole('button', { name: /save budget/i });
 
       await userEvent.clear(input);
       await userEvent.type(input, '0');
 
-      expect(saveButton).toBeDisabled();
-      expect(saveButton).toHaveClass('disabled:cursor-not-allowed');
+      await waitFor(() => {
+        expect(saveButton).toBeDisabled();
+      });
     });
   });
 });

@@ -54,7 +54,7 @@ describe('BudgetProgressBar', () => {
       render(<BudgetProgressBar budgetProgress={noLimitProgress} />);
 
       expect(screen.getByText('$12.50 spent this month')).toBeDefined();
-      expect(screen.getByText('No budget cap configured')).toBeDefined();
+      expect(screen.getByText('No budget limit set')).toBeDefined();
     });
 
     it('should show no_limit status indicator', () => {

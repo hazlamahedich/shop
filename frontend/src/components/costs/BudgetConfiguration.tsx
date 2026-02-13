@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { DollarSign, Save, AlertCircle } from 'lucide-react';
+import { DollarSign, Save, AlertCircle, Infinity } from 'lucide-react';
 import { useCostTrackingStore } from '../../stores/costTrackingStore';
 import { formatCost } from '../../types/cost';
 import { useToast } from '../../context/ToastContext';
@@ -50,6 +50,7 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
   const [validationError, setValidationError] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showNoLimitConfirmation, setShowNoLimitConfirmation] = useState(false);
   // Track errors we've already shown to prevent repetitive toasts
   const [shownErrors, setShownErrors] = useState<Set<string>>(new Set());
 
@@ -139,10 +140,26 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
     }
   };
 
-  // Calculate budget percentage
-  const parsedBudget = parseFloat(budgetInput) || DEFAULT_BUDGET_CAP;
-  const budgetPercentage =
-    parsedBudget > 0 ? Math.min((currentSpend / parsedBudget) * 100, 100) : 0;
+  // Handle remove budget cap (no limit)
+  const handleRemoveBudgetCap = async () => {
+    setIsSaving(true);
+    try {
+      await updateMerchantSettings(null);
+      toast('Budget cap removed. No limit set.', 'success');
+      // Refresh settings to ensure UI is in sync
+      getMerchantSettings();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to remove budget cap';
+      toast(errorMessage, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Check if new budget is below current spend
+  const newBudgetValue = parseFloat(budgetInput) || 0;
+  const isBelowCurrentSpend = currentSpend > 0 && newBudgetValue > 0 && newBudgetValue < currentSpend;
+  const budgetPercentage = newBudgetValue > 0 ? Math.min((currentSpend / newBudgetValue) * 100, 100) : 0;
 
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
@@ -184,23 +201,34 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
             )}
           </div>
 
-          <button
-            onClick={() => setShowConfirmation(true)}
-            disabled={!!validationError || isSaving || merchantSettingsLoading}
-            className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
-          >
-            {isSaving ? (
-              <>
-                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save size={16} className="mr-2" />
-                Save Budget
-              </>
-            )}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowConfirmation(true)}
+              disabled={!!validationError || isSaving || merchantSettingsLoading}
+              className="flex-1 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
+            >
+              {isSaving ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} className="mr-2" />
+                  Save Budget
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => setShowNoLimitConfirmation(true)}
+              disabled={isSaving || merchantSettingsLoading}
+              className="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              title="Remove budget cap (no limit)"
+            >
+              <Infinity size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Budget usage progress (Display only if there's spend) */}
@@ -231,7 +259,7 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-2">
                   <span>{formatCost(currentSpend, 2)} spent</span>
-                  <span>of {formatCost(parsedBudget, 2)} budget</span>
+                  <span>of {formatCost(newBudgetValue, 2)} budget</span>
                 </div>
               </>
             )}
@@ -252,6 +280,21 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
               ? This will be used to monitor your spending and send alerts if exceeded.
             </DialogDescription>
           </DialogHeader>
+          {isBelowCurrentSpend && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-800">Warning: Budget below current spend</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    Your current monthly spend is <strong>{formatCost(currentSpend, 2)}</strong>, which 
+                    exceeds your new budget cap. Your bot will be <strong>paused immediately</strong> after 
+                    saving.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <DialogFooter className="mt-6 flex space-x-2">
             <button
               onClick={() => {
@@ -265,6 +308,38 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
             </button>
             <button
               onClick={() => setShowConfirmation(false)}
+              disabled={isSaving}
+              className="flex-1 py-1.5 px-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* No Limit Confirmation Dialog */}
+      <Dialog open={showNoLimitConfirmation} onOpenChange={setShowNoLimitConfirmation}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Budget Cap</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove your budget cap? This means there will be no limit on
+              your monthly spending and you won't receive budget alerts.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6 flex space-x-2">
+            <button
+              onClick={() => {
+                setShowNoLimitConfirmation(false);
+                handleRemoveBudgetCap();
+              }}
+              disabled={isSaving}
+              className="flex-1 py-1.5 px-3 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              {isSaving ? 'Removing...' : 'Remove Cap'}
+            </button>
+            <button
+              onClick={() => setShowNoLimitConfirmation(false)}
               disabled={isSaving}
               className="flex-1 py-1.5 px-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >

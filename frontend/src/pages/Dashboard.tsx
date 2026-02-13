@@ -2,24 +2,18 @@ import React from 'react';
 import { DollarSign, MessageSquare, TrendingUp, ArrowRight, Store } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
-import { InteractiveTutorial } from '../components/onboarding/InteractiveTutorial';
-import { useTutorialStore } from '../stores/tutorialStore';
 import { useHasStoreConnected, useStoreProvider } from '../stores/authStore';
 
 const Dashboard = () => {
-  const { isStarted: isTutorialStarted } = useTutorialStore();
   const hasStoreConnected = useHasStoreConnected();
   const storeProvider = useStoreProvider();
 
   return (
     <>
-      {/* Interactive Tutorial Modal - shown when tutorial is active */}
-      {isTutorialStarted && <InteractiveTutorial />}
+      {/* Tutorial Prompt Banner */}
+      <TutorialPrompt />
 
       <div className="space-y-8">
-        {/* Tutorial Prompt Banner */}
-        <TutorialPrompt />
-
         {/* Welcome Card with Tutorial Entry */}
         <Card>
           <div style={{ padding: 'var(--card-padding)' }}>

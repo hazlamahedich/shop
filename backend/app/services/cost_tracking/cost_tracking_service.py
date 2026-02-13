@@ -380,6 +380,35 @@ class CostTrackingService:
             for row in daily_rows
         ]
 
+    async def get_monthly_spend(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+    ) -> float:
+        """Get total spend for the current billing month.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID for isolation
+
+        Returns:
+            Total spend in USD for current month
+        """
+        now = datetime.utcnow()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        query = select(func.sum(LLMConversationCost.total_cost_usd)).where(
+            and_(
+                LLMConversationCost.merchant_id == merchant_id,
+                LLMConversationCost.request_timestamp >= month_start,
+            )
+        )
+
+        result = await db.execute(query)
+        total = result.scalar()
+
+        return float(total or 0)
+
 
 # Standalone helper function for automatic LLM request tracking
 async def track_llm_request(

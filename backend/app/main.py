@@ -35,6 +35,7 @@ from app.api.csrf import router as csrf_router
 from app.api.export import router as export_router
 from app.api.preview import router as preview_router
 from app.api.auth import router as auth_router
+from app.api.cost_tracking import router as cost_tracking_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
@@ -240,6 +241,7 @@ app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhoo
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(export_router, tags=["export"])
+app.include_router(cost_tracking_router, tags=["costs"])
 # Story 1.13: Bot Preview Mode
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # These will be added as features are implemented:

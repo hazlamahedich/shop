@@ -12,6 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty, selectEffectiveGreeting } from '../stores/personalityStore';
+import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { PersonalityCard } from '../components/personality/PersonalityCard';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import type { PersonalityType } from '../types/enums';
@@ -24,6 +25,7 @@ const PersonalityConfig: React.FC = () => {
   const loading = usePersonalityStore(selectPersonalityLoading);
   const error = usePersonalityStore(selectPersonalityError);
   const isDirty = usePersonalityStore(selectPersonalityIsDirty);
+  const markBotConfigComplete = useOnboardingPhaseStore((state) => state.markBotConfigComplete);
 
   // Local state for UI
   const [selectedPersonality, setSelectedPersonality] = useState<PersonalityType | null>(null);
@@ -103,6 +105,7 @@ const PersonalityConfig: React.FC = () => {
         personality: selectedPersonality,
         custom_greeting: greetingValue || null,
       });
+      markBotConfigComplete('personality');
       setSaveStatus('success');
 
       // Clear success message after 3 seconds

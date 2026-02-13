@@ -140,6 +140,14 @@ export interface CostTrackingState {
   // Actions - Utility
   clearErrors: () => void;
   reset: () => void;
+
+  // Actions - Budget (Story 3-6, 3-8)
+  getBudgetRecommendation: () => Promise<{
+    recommendedBudget: number;
+    rationale: string;
+    currentAvgDailyCost: number;
+    projectedMonthlySpend: number;
+  }>;
 }
 
 /**

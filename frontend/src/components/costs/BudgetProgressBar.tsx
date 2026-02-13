@@ -193,11 +193,15 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
       {/* Spend Display */}
       <div className="mb-4">
         {budgetCap === null ? (
-          <div className="text-center py-4">
-            <p className="text-lg font-bold text-gray-700">
+          <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-lg font-bold text-gray-900">
               {formatCost(monthlySpend, 2)} spent this month
             </p>
-            <p className="text-sm text-gray-500 mt-1">No budget cap configured</p>
+            <div className="flex items-center justify-center mt-2 text-gray-600">
+              <span className="text-sm">No budget limit</span>
+              <span className="mx-2 text-gray-300">|</span>
+              <span className="text-sm text-gray-500">Unlimited spending</span>
+            </div>
           </div>
         ) : (
           <div className="flex justify-between items-end">

@@ -12,10 +12,14 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { AlertCircle, Calendar, RefreshCw, BarChart3 } from 'lucide-react';
+import { AlertCircle, Calendar, RefreshCw, BarChart3, Infinity } from 'lucide-react';
 import { CostSummaryCards } from '../components/costs/CostSummaryCards';
 import { BudgetConfiguration } from '../components/costs/BudgetConfiguration';
 import { BudgetRecommendationDisplay } from '../components/costs/BudgetRecommendationDisplay';
+import { BudgetWarningBanner } from '../components/costs/BudgetWarningBanner';
+import { BotPausedBanner } from '../components/costs/BotPausedBanner';
+import { BudgetHardStopModal } from '../components/costs/BudgetHardStopModal';
+import { BudgetAlertConfig } from '../components/costs/BudgetAlertConfig';
 import { useCostTrackingStore } from '../stores/costTrackingStore';
 import { useToast } from '../context/ToastContext';
 import { formatCost } from '../types/cost';
@@ -75,7 +79,18 @@ const Costs = () => {
     getMerchantSettings,
     merchantSettings,
     merchantSettingsError,
+    fetchBotStatus,
+    botStatus,
+    resumeBot,
   } = useCostTrackingStore();
+
+  const [showHardStopModal, setShowHardStopModal] = useState(false);
+
+  useEffect(() => {
+    if (botStatus?.isPaused) {
+      setShowHardStopModal(true);
+    }
+  }, [botStatus?.isPaused]);
 
   // Local state for date range inputs and budget cap
   const [dateFrom, setDateFrom] = useState<string>(getDateDaysAgo(30));
@@ -93,7 +108,8 @@ const Costs = () => {
   // Load merchant settings (budget cap) on mount
   useEffect(() => {
     getMerchantSettings();
-  }, [getMerchantSettings]);
+    fetchBotStatus();
+  }, [getMerchantSettings, fetchBotStatus]);
 
   // Start real-time polling on mount
   useEffect(() => {
@@ -186,12 +202,102 @@ const Costs = () => {
     return manyChatEstimated - costSummary.totalCostUsd;
   }, [manyChatEstimated, costSummary]);
 
+  // Check if budget cap is null/undefined (no limit set)
+  const hasNoBudgetLimit = merchantSettings !== null && 
+    merchantSettings !== undefined && 
+    (merchantSettings?.budgetCap === null || merchantSettings?.budgetCap === undefined);
+
   return (
     <div className="space-y-6">
+      {/* Hard Stop Modal (Story 3-8) - Shows when bot is paused at 100% */}
+      <BudgetHardStopModal
+        onIncreaseBudget={() => {
+          const budgetSection = document.getElementById('budget-input');
+          if (budgetSection) {
+            budgetSection.focus();
+            budgetSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }}
+        onResumeBot={async () => {
+          await resumeBot();
+        }}
+        onClose={() => setShowHardStopModal(false)}
+      />
+
+      {/* Bot Paused Banner (Story 3-8) - Show first if bot is paused */}
+      <BotPausedBanner
+        onIncreaseBudget={() => {
+          const budgetSection = document.getElementById('budget-input');
+          if (budgetSection) {
+            budgetSection.focus();
+            budgetSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }}
+        onViewSpending={() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+
+      {/* Budget Warning Banner (Story 3-8) - Show at 80%+ */}
+      <BudgetWarningBanner
+        onIncreaseBudget={() => {
+          const budgetSection = document.getElementById('budget-input');
+          if (budgetSection) {
+            budgetSection.focus();
+            budgetSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }}
+        onViewDetails={() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+
+      {/* No Budget Limit Banner - Show when budget cap is null */}
+      {hasNoBudgetLimit && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center border-2 border-amber-200">
+              <Infinity size={28} className="text-amber-600" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-amber-900">Unlimited Spending Active</h3>
+                <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-semibold rounded-full uppercase tracking-wide">
+                  No Cap
+                </span>
+              </div>
+              <p className="text-sm text-amber-700 mt-1">
+                Your bot has no spending limit. Set a budget cap to receive alerts and prevent overspending.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const budgetSection = document.getElementById('budget-input');
+                if (budgetSection) {
+                  budgetSection.focus();
+                  budgetSection.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="px-5 py-2.5 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+            >
+              Set Budget Cap
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Costs & Budget</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Costs & Budget</h2>
+            {hasNoBudgetLimit && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 text-sm font-bold rounded-full border border-amber-300 shadow-sm">
+                <Infinity size={16} className="text-amber-600" />
+                Unlimited
+              </span>
+            )}
+          </div>
           {lastUpdate && (
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
               Last updated: {new Date(lastUpdate).toLocaleTimeString()}
@@ -364,6 +470,9 @@ const Costs = () => {
         <div className="space-y-6">
           {/* Budget Configuration (Story 3-6) */}
           <BudgetConfiguration currentSpend={costSummary?.totalCostUsd} />
+
+          {/* Alert Configuration (Story 3-8) */}
+          <BudgetAlertConfig />
 
           {/* Cost Comparison */}
           {manyChatEstimated !== null && savings !== null && (
