@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Bell, LogOut, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { HelpMenu } from './HelpMenu';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -48,6 +49,9 @@ const Header = () => {
           <Bell size={20} />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
+
+        {/* Help Menu */}
+        <HelpMenu />
 
         {/* Logout Button */}
         {isAuthenticated && (

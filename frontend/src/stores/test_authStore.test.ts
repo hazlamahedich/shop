@@ -25,10 +25,13 @@ vi.mock('../services/auth', () => ({
 import { login as loginApi, logout as logoutApi, getMe as getMeApi, refreshToken as refreshTokenApi } from '../services/auth';
 
 describe('authStore', () => {
+  // Sprint Change 2026-02-13: Include store_provider and has_store_connected
   const mockMerchant: Merchant = {
     id: 1,
     email: 'test@example.com',
     merchant_key: 'abc123',
+    store_provider: 'none',
+    has_store_connected: false,
   };
 
   const mockSessionExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -57,12 +60,16 @@ describe('authStore', () => {
 
   describe('login', () => {
     it('should successfully login and set auth state', async () => {
+      // Mock response wrapped in envelope structure (matches backend API)
       const mockLoginResponse = {
-        merchant: mockMerchant,
-        session: { expiresAt: mockSessionExpiresAt },
+        data: {
+          merchant: mockMerchant,
+          session: { expiresAt: mockSessionExpiresAt },
+        },
+        meta: { request_id: 'test', timestamp: new Date().toISOString() },
       };
 
-      vi.mocked(loginApi).mockResolvedValueOnce(mockLoginResponse);
+      vi.mocked(loginApi).mockResolvedValueOnce(mockLoginResponse as any);
 
       const credentials: LoginRequest = {
         email: 'test@example.com',
@@ -117,10 +124,13 @@ describe('authStore', () => {
       // Check loading state
       expect(useAuthStore.getState().isLoading).toBe(true);
 
-      // Resolve login
+      // Resolve login with envelope-wrapped response
       resolveLogin!({
-        merchant: mockMerchant,
-        session: { expiresAt: mockSessionExpiresAt },
+        data: {
+          merchant: mockMerchant,
+          session: { expiresAt: mockSessionExpiresAt },
+        },
+        meta: { request_id: 'test', timestamp: new Date().toISOString() },
       });
 
       // Wait for async to complete
@@ -200,7 +210,9 @@ describe('authStore', () => {
       expect(state.isAuthenticated).toBe(false);
       expect(state.merchant).toBeNull();
       expect(state.sessionExpiresAt).toBeNull();
-      expect(state.error).toBe('Session invalid');
+      // Note: fetchMe deliberately clears error instead of setting it
+      // (it's expected to fail during initial load)
+      expect(state.error).toBeNull();
     });
   });
 
@@ -215,9 +227,13 @@ describe('authStore', () => {
         sessionExpiresAt: mockSessionExpiresAt,
       });
 
+      // Mock response wrapped in envelope structure (matches backend API)
       vi.mocked(refreshTokenApi).mockResolvedValueOnce({
-        session: { expiresAt: newExpiresAt },
-      });
+        data: {
+          session: { expiresAt: newExpiresAt },
+        },
+        meta: { request_id: 'test', timestamp: new Date().toISOString() },
+      } as any);
 
       await useAuthStore.getState().refreshSession();
 
@@ -241,9 +257,13 @@ describe('authStore', () => {
     });
 
     it('should not refresh if not authenticated', async () => {
+      // Mock response (shouldn't be called but needs to be set up)
       vi.mocked(refreshTokenApi).mockResolvedValueOnce({
-        session: { expiresAt: mockSessionExpiresAt },
-      });
+        data: {
+          session: { expiresAt: mockSessionExpiresAt },
+        },
+        meta: { request_id: 'test', timestamp: new Date().toISOString() },
+      } as any);
 
       await useAuthStore.getState().refreshSession();
 
@@ -278,6 +298,80 @@ describe('authStore', () => {
       expect(state.merchant).toBeNull();
       expect(state.sessionExpiresAt).toBeNull();
       expect(state.error).toBeNull();
+    });
+  });
+
+  // Sprint Change 2026-02-13: Store Provider Tests
+  describe('store connection helpers', () => {
+    describe('hasStoreConnected', () => {
+      it('should return false when merchant is null', () => {
+        useAuthStore.setState({ merchant: null });
+
+        expect(useAuthStore.getState().hasStoreConnected()).toBe(false);
+      });
+
+      it('should return false when store_provider is none', () => {
+        const merchantNoStore: Merchant = {
+          ...mockMerchant,
+          store_provider: 'none',
+          has_store_connected: false,
+        };
+        useAuthStore.setState({ merchant: merchantNoStore });
+
+        expect(useAuthStore.getState().hasStoreConnected()).toBe(false);
+      });
+
+      it('should return true when store_provider is shopify', () => {
+        const merchantWithStore: Merchant = {
+          ...mockMerchant,
+          store_provider: 'shopify',
+          has_store_connected: true,
+        };
+        useAuthStore.setState({ merchant: merchantWithStore });
+
+        expect(useAuthStore.getState().hasStoreConnected()).toBe(true);
+      });
+
+      it('should return true when store_provider is woocommerce', () => {
+        const merchantWithStore: Merchant = {
+          ...mockMerchant,
+          store_provider: 'woocommerce',
+          has_store_connected: true,
+        };
+        useAuthStore.setState({ merchant: merchantWithStore });
+
+        expect(useAuthStore.getState().hasStoreConnected()).toBe(true);
+      });
+    });
+
+    describe('storeProvider', () => {
+      it('should return "none" when merchant is null', () => {
+        useAuthStore.setState({ merchant: null });
+
+        expect(useAuthStore.getState().storeProvider()).toBe('none');
+      });
+
+      it('should return "none" when store_provider is none', () => {
+        const merchantNoStore: Merchant = {
+          ...mockMerchant,
+          store_provider: 'none',
+          has_store_connected: false,
+        };
+        useAuthStore.setState({ merchant: merchantNoStore });
+
+        expect(useAuthStore.getState().storeProvider()).toBe('none');
+      });
+
+      it('should return "shopify" when store_provider is shopify', () => {
+        const merchantWithStore: Merchant = {
+          ...mockMerchant,
+          store_provider: 'shopify',
+          has_store_connected: true,
+        };
+        useAuthStore.setState({ merchant: merchantWithStore });
+
+        expect(useAuthStore.getState().storeProvider()).toBe('shopify');
+      });
     });
   });
 });

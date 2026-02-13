@@ -77,7 +77,7 @@ class Tutorial(Base):
     )
     steps_total: Mapped[int] = mapped_column(
         Integer,
-        default=4,
+        default=8,
         nullable=False,
     )
 

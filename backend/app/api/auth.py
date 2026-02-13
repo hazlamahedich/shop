@@ -81,6 +81,8 @@ class MerchantResponse(BaseModel):
     id: int
     email: str
     merchant_key: str
+    store_provider: str = "none"  # Sprint Change 2026-02-13: E-commerce provider type
+    has_store_connected: bool = False  # Sprint Change 2026-02-13: Convenience flag
 
 
 class SessionResponse(BaseModel):
@@ -260,12 +262,18 @@ async def login(
         samesite="strict",  # Prevent CSRF
     )
 
+    # Sprint Change 2026-02-13: Include store provider info
+    store_provider = getattr(merchant, "store_provider", "none") or "none"
+    has_store_connected = store_provider != "none"
+
     return MinimalEnvelope(
         data=LoginResponse(
             merchant=MerchantResponse(
                 id=merchant.id,
                 email=merchant.email or "",
                 merchant_key=merchant.merchant_key,
+                store_provider=store_provider,
+                has_store_connected=has_store_connected,
             ),
             session=SessionResponse(expiresAt=expires_at.isoformat() + "Z"),
         ),
@@ -397,12 +405,18 @@ async def get_current_merchant(
             },
         )
 
+    # Sprint Change 2026-02-13: Include store provider info
+    store_provider = getattr(merchant, "store_provider", "none") or "none"
+    has_store_connected = store_provider != "none"
+
     return MinimalEnvelope(
         data=MeResponse(
             merchant=MerchantResponse(
                 id=merchant.id,
                 email=merchant.email or "",
                 merchant_key=merchant.merchant_key,
+                store_provider=store_provider,
+                has_store_connected=has_store_connected,
             )
         ),
         meta=_create_meta(),

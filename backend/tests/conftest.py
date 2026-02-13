@@ -12,29 +12,72 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import JSONB, ENUM
 
 import httpx
 from httpx import ASGITransport
 from fastapi import FastAPI
 
-
 # Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+
 # Set testing environment before any imports
 os.environ["IS_TESTING"] = "true"
-os.environ["DEBUG"] = "true"  # Allow development settings in tests
+os.environ["DEBUG"] = "true"
 os.environ["SECRET_KEY"] = "dev-secret-key-for-testing"
 os.environ["FACEBOOK_APP_ID"] = "test_app_id"
 os.environ["FACEBOOK_REDIRECT_URI"] = "https://example.com/callback"
 os.environ["FACEBOOK_APP_SECRET"] = "test_secret"
 os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"
 os.environ["FACEBOOK_ENCRYPTION_KEY"] = "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm9yLXRlc3Rpbmc="  # Valid Fernet key (base64)
-os.environ["SHOPIFY_API_SECRET"] = "test_shopify_secret_for_testing"  # Shopify webhook secret
-os.environ["FACEBOOK_APP_SECRET"] = "test_facebook_app_secret"  # Facebook app secret for webhook verification
-os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"  # Facebook webhook verification token
+os.environ["SHOPIFY_API_SECRET"] = "test_shopify_secret_for_testing"
+os.environ["FACEBOOK_APP_SECRET"] = "test_facebook_app_secret"
+os.environ["FACEBOOK_WEBHOOK_VERIFY_TOKEN"] = "test_token"
 
+# Sprint Change 2026-02-13: Mock store for testing without real Shopify
+os.environ["MOCK_STORE_ENABLED"] = "true"
+
+
+# =============================================================================
+# DATABASE ENGINE & FIXTURES
+# =============================================================================
+
+# Database connection string for testing - use environment variable or default
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
+)
+
+# Create async engine for testing
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    echo=False,
+    poolclass=NullPool,  # Use NullPool for tests - no connection pooling needed
+    future=True,
+    connect_args={
+        "prepared_statement_cache_size": 0,  # Disable statement cache to avoid OID issues
+        "statement_cache_size": 0,
+    },
+)
+
+# Create async session factory
+TestingSessionLocal = async_sessionmaker(
+    bind=test_engine,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+    class_=AsyncSession,
+)
+
+
+# =============================================================================
+# MODELS IMPORT
+# =============================================================================
 
 # Import all models to ensure they're registered with Base.metadata
 # This must happen before Base.metadata.create_all() is called
@@ -50,156 +93,183 @@ import app.models.webhook_verification_log
 import app.models.faq  # Story 1.11: FAQ model
 
 
-@pytest.fixture(autouse=True)
-def set_testing_env(monkeypatch):
-    """Ensure IS_TESTING and DEBUG are set for all tests."""
-    monkeypatch.setenv("IS_TESTING", "true")
-    monkeypatch.setenv("DEBUG", "true")
+# =============================================================================
+# FIXTURE: Database Setup (Session Scope, Autouse)
+# =============================================================================
+
+@pytest.fixture(scope="session", autouse=True)
+async def setup_test_database():
+    """Set up clean test database with fresh schema for entire test session.
+
+    This fixture runs ONCE per test session (before any function-scoped fixtures).
+    It handles:
+    1. Setting environment variables (done above)
+    2. Creating custom PostgreSQL ENUM types
+    3. Truncating all tables to ensure clean state
+    4. Resetting sequences to ensure IDs start at 1
+
+    Using TRUNCATE instead of DROP/CREATE to:
+    - Preserve sequences for autoincrement columns
+    - Properly reset foreign key relationships
+    - Faster than drop+create
+    """
+    from sqlalchemy import text
+    from app.core.database import Base
+
+    async with test_engine.begin() as conn:
+        # Create custom ENUM types (if not exists)
+        # merchant_status
+        try:
+            await conn.execute(text("""
+                CREATE TYPE merchant_status AS ENUM (
+                    'pending', 'active', 'failed'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # personality_type (Story 1.10)
+        try:
+            await conn.execute(text("""
+                CREATE TYPE personality_type AS ENUM (
+                    'friendly', 'professional', 'enthusiastic'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # llm_provider
+        try:
+            await conn.execute(text("""
+                CREATE TYPE llm_provider AS ENUM (
+                    'ollama', 'openai', 'anthropic', 'gemini', 'glm'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # facebook_status
+        try:
+            await conn.execute(text("""
+                CREATE TYPE facebook_status AS ENUM (
+                    'pending', 'active', 'error'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # shopify_status
+        try:
+            await conn.execute(text("""
+                CREATE TYPE shopify_status AS ENUM (
+                    'pending', 'active', 'error'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # conversation_status
+        try:
+            await conn.execute(text("""
+                CREATE TYPE conversation_status AS ENUM (
+                    'with', 'handoff', 'closed'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # message_sender
+        try:
+            await conn.execute(text("""
+                CREATE TYPE message_sender AS ENUM (
+                    'customer', 'bot'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # message_type
+        try:
+            await conn.execute(text("""
+                CREATE TYPE message_type AS ENUM (
+                    'text', 'attachment', 'postback'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # verification_platform
+        try:
+            await conn.execute(text("""
+                CREATE TYPE verification_platform AS ENUM (
+                    'facebook', 'shopify'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # test_type
+        try:
+            await conn.execute(text("""
+                CREATE TYPE test_type AS ENUM (
+                    'status_check', 'test_webhook', 'resubscribe'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
+
+        # verification_status
+        try:
+            await conn.execute(text("""
+                CREATE TYPE verification_status AS ENUM (
+                    'pending', 'success', 'failed'
+                );
+            """))
+        except Exception:
+            pass  # Type may already exist
 
 
-# Database connection string for testing - use environment variable or default
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
-)
+# =============================================================================
+# FIXTURE: Database Reset Helper (Function Scope)
+# =============================================================================
 
-# Create async engine for testing
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-    poolclass=NullPool,  # Use NullPool for tests - no connection pooling needed
-    future=True,
-    connect_args={
-        "prepared_statement_cache_size": 0,  # Disable statement cache to avoid OID issues when types are recreated
-        "statement_cache_size": 0,
-    },
-)
+async def _reset_database():
+    """Internal helper to reset database tables and sequences.
 
-# Create async session factory
-TestingSessionLocal = async_sessionmaker(
-    bind=test_engine,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-    class_=AsyncSession,
-)
+    This is called by async_session before each test.
+    """
+    from sqlalchemy import text
 
+    async with test_engine.begin() as conn:
+        # Truncate tables in correct order
+        await conn.execute(text("TRUNCATE TABLE merchants CASCADE;"))
+        await conn.execute(text("TRUNCATE TABLE tutorials CASCADE;"))
+
+        # Reset sequences
+        await conn.execute(text("SELECT setval('merchants_id_seq', 1, false);"))
+        await conn.execute(text("SELECT setval('tutorials_id_seq'), 1, false);"))
+        print(f"DEBUG: Database reset completed")
+
+
+# =============================================================================
+# FIXTURE: Async Session (Function Scope)
+# =============================================================================
 
 @pytest.fixture(scope="function")
 async def async_session() -> AsyncGenerator[AsyncSession, None]:
-    """Create a new database session for testing.
+    """Create a new database session for testing with auto-reset.
 
-    This fixture creates a fresh async session for each test function.
-    Tables are dropped and recreated before each test for complete isolation.
+    This fixture:
+    1. Resets database before each test
+    2. Creates a fresh async session
+    3. Yields session for use
+    4. Closes session after test
+
+    The database reset happens automatically before each test.
     """
-    from app.core.database import Base
+    # Reset database BEFORE creating session
+    await _reset_database()
 
-    # List of custom enum types
-    enum_types = [
-        "message_sender",
-        "message_type",
-        "conversation_status",
-        "shopify_status",
-        "facebook_status",
-        "llm_provider",
-        "merchant_status",
-        "personality_type",  # Story 1.10: Bot personality types
-        "verification_platform",
-        "test_type",
-        "verification_status",
-    ]
-
-    # Clean up and recreate schema in a single transaction
-    async with test_engine.begin() as conn:
-        # First, drop all custom enum types (they may block table drops)
-        for enum_type in enum_types:
-            await conn.execute(text(f"DROP TYPE IF EXISTS {enum_type} CASCADE;"))
-
-        # Drop all tables using metadata (handles foreign keys correctly)
-        await conn.run_sync(Base.metadata.drop_all)
-
-        # Recreate enum types (required before creating tables)
-        # merchant_status enum
-        await conn.execute(text("""
-            CREATE TYPE merchant_status AS ENUM (
-                'pending', 'active', 'failed'
-            );
-        """))
-
-        # personality_type enum (Story 1.10)
-        await conn.execute(text("""
-            CREATE TYPE personality_type AS ENUM (
-                'friendly', 'professional', 'enthusiastic'
-            );
-        """))
-
-        # llm_provider enum
-        await conn.execute(text("""
-            CREATE TYPE llm_provider AS ENUM (
-                'ollama', 'openai', 'anthropic', 'gemini', 'glm'
-            );
-        """))
-
-        # facebook_status enum
-        await conn.execute(text("""
-            CREATE TYPE facebook_status AS ENUM (
-                'pending', 'active', 'error'
-            );
-        """))
-
-        # shopify_status enum
-        await conn.execute(text("""
-            CREATE TYPE shopify_status AS ENUM (
-                'pending', 'active', 'error'
-            );
-        """))
-
-        # conversation_status enum
-        await conn.execute(text("""
-            CREATE TYPE conversation_status AS ENUM (
-                'active', 'handoff', 'closed'
-            );
-        """))
-
-        # message_sender enum
-        await conn.execute(text("""
-            CREATE TYPE message_sender AS ENUM (
-                'customer', 'bot'
-            );
-        """))
-
-        # message_type enum
-        await conn.execute(text("""
-            CREATE TYPE message_type AS ENUM (
-                'text', 'attachment', 'postback'
-            );
-        """))
-
-        # verification_platform enum
-        await conn.execute(text("""
-            CREATE TYPE verification_platform AS ENUM (
-                'facebook', 'shopify'
-            );
-        """))
-
-        # test_type enum
-        await conn.execute(text("""
-            CREATE TYPE test_type AS ENUM (
-                'status_check', 'test_webhook', 'resubscribe'
-            );
-        """))
-
-        # verification_status enum
-        await conn.execute(text("""
-            CREATE TYPE verification_status AS ENUM (
-                'pending', 'success', 'failed'
-            );
-        """))
-
-        # Create all tables fresh
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Create session
     session = TestingSessionLocal()
     try:
         yield session
@@ -210,6 +280,10 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
 # Alias for backward compatibility with existing tests
 db_session = async_session
 
+
+# =============================================================================
+# FIXTURE: Async HTTP Client (Function Scope)
+# =============================================================================
 
 @pytest.fixture(scope="function")
 async def async_client(async_session):
@@ -236,87 +310,3 @@ async def async_client(async_session):
     finally:
         # Clean up override
         app.dependency_overrides.clear()
-
-
-@pytest.fixture(scope="function")
-async def authenticated_conversation_client(async_session):
-    """Create an async HTTP client with authentication setup for conversations endpoint testing.
-
-    Returns a tuple of (client, merchant_id) for testing protected endpoints.
-    """
-    from app.main import app
-    from app.models.merchant import Merchant
-    from app.core.errors import ErrorCode, APIError
-
-    # Create test merchant
-    merchant = Merchant(
-        merchant_key="test-conversations-auth",
-        platform="facebook",
-        status="active",
-    )
-    async_session.add(merchant)
-    await async_session.commit()
-    await async_session.refresh(merchant)
-
-    # Create a custom transport that injects authentication
-    from httpx import Request as HttpxRequest, Response as HttpxResponse
-    from httpx import ASGITransport
-
-    class AuthenticatedTransport(ASGITransport):
-        """Custom transport that injects authentication into requests."""
-
-        async def handle(
-            self, request: HttpxRequest, handler
-        ) -> HttpxResponse:
-            # Inject merchant_id into request state via a custom header
-            # The app will extract this from request.state
-            request.headers["X-Merchant-ID"] = str(merchant.id)
-            return await handler(request)
-
-    transport = AuthenticatedTransport(app=app)
-
-    # Also override the app's dependency to set merchant_id from our custom header
-    # We need to modify the request processing to extract from header
-    from fastapi import Request
-    from unittest.mock import AsyncMock, patch
-
-    original_get_db = app.dependency_overrides.get(get_db)
-
-    async def override_get_db_with_auth():
-        yield async_session
-
-    async def override_list_conversations(request: Request, *args, **kwargs):
-        # Extract merchant_id from header and set in request.state
-        merchant_id_header = request.headers.get("X-Merchant-ID")
-        if merchant_id_header:
-            try:
-                request.state.merchant_id = int(merchant_id_header)
-            except ValueError:
-                raise APIError(ErrorCode.AUTH_FAILED, "Invalid merchant ID")
-        else:
-            raise APIError(ErrorCode.AUTH_FAILED, "Authentication required")
-
-        # Call the original endpoint function
-        from app.api.conversations import list_conversations
-        # Re-import to get fresh reference
-        import importlib
-        import app.api.conversations
-        importlib.reload(app.api.conversations)
-        return await app.api.conversations.list_conversations(request, *args, **kwargs)
-
-    app.dependency_overrides[get_db] = override_get_db_with_auth
-
-    # Patch the conversations endpoint to use our auth override
-    with patch.object(app.api.conversations, "list_conversations", override_list_conversations):
-        try:
-            async with httpx.AsyncClient(
-                transport=transport,
-                base_url="http://test",
-            ) as client:
-                yield client, merchant.id
-        finally:
-            app.dependency_overrides.clear()
-
-
-# Note: pytest-asyncio handles event loop management automatically
-# No custom event_loop fixture needed

@@ -3,6 +3,25 @@
 @import 'tailwindcss';
 
 @layer base {
+  /* Screen reader only utility class */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Focus visible utility for keyboard navigation */
+  *:focus-visible {
+    outline: 2px solid var(--shop-primary-600);
+    outline-offset: 2px;
+  }
+
   :root {
     /* Brand Colors - Primary: Trust Blue */
     --shop-primary-50: #eff6ff;
@@ -64,5 +83,67 @@
 
   body {
     @apply font-sans antialiased text-gray-700;
+  }
+
+  /* Interactive Tutorial Modal Overlay */
+  .interactive-tutorial {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1.5rem !important;
+    background: rgba(15, 23, 42, 0.75) !important;
+    overflow-y: auto !important;
+  }
+
+  /* Inner content container - this is what gets sized */
+  .interactive-tutorial-content {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUp 0.3s ease-out;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Tutorial step cards within modal */
+  .interactive-tutorial .tutorial-step {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Tutorial progress and navigation */
+  .interactive-tutorial button[role="tab"] {
+    @apply transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  }
+
+  /* Tutorial onboarding hint banner */
+  .tutorial-onboarding-hint {
+    animation: fadeIn 0.3s ease-out;
+    border-left: 4px solid #f59e0b; /* amber-500 */
+  }
+
+  /* Slide up animation for tutorial modal */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }

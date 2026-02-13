@@ -7,6 +7,7 @@ Accessible with keyboard navigation and screen reader support.
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { ArrowRight } from "lucide-react";
 
 export interface TutorialStepData {
   step: number;
@@ -15,6 +16,7 @@ export interface TutorialStepData {
   content?: React.ReactNode;
   actionLabel?: string;
   onAction?: () => void;
+  route?: string; // New: route for navigation
 }
 
 export interface TutorialStepProps {
@@ -26,6 +28,7 @@ export interface TutorialStepProps {
   onSkip?: () => void;
   hasNextStep: boolean;
   hasPreviousStep: boolean;
+  canGoNext?: boolean;
   className?: string;
 }
 
@@ -38,6 +41,7 @@ export function TutorialStep({
   onSkip,
   hasNextStep,
   hasPreviousStep,
+  canGoNext,
   className = "",
 }: TutorialStepProps) {
   const stepRef = React.useRef<HTMLDivElement>(null);
@@ -84,14 +88,17 @@ export function TutorialStep({
             </div>
           )}
 
-          {/* Step action button */}
-          {step.onAction && step.actionLabel && (
+          {/* Step action button with navigation */}
+          {step.onAction && step.actionLabel && step.route && (
             <Button
               onClick={step.onAction}
               variant="outline"
-              className="w-full"
+              className="w-full group"
             >
-              {step.actionLabel}
+              <span className="flex items-center justify-center gap-2">
+                {step.actionLabel}
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </span>
             </Button>
           )}
 
@@ -127,6 +134,7 @@ export function TutorialStep({
                 <Button
                   onClick={onNext}
                   size="sm"
+                  disabled={!canGoNext}
                   aria-label="Go to next step"
                 >
                   Next

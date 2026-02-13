@@ -6,30 +6,27 @@ API endpoints for managing tutorial progress:
 - POST /api/tutorial/complete - Mark tutorial as complete
 - POST /api/tutorial/skip - Mark tutorial as skipped
 - POST /api/tutorial/reset - Reset tutorial progress (for replay)
+
+SECURITY: All endpoints extract merchant_id from authenticated session (JWT)
+instead of accepting it as a query parameter to prevent IDOR.
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.errors import APIError, ErrorCode
-from app.models.merchant import Merchant
+from app.middleware.auth import get_request_merchant_id
 from app.models.tutorial import Tutorial
-from app.schemas.tutorial import (
-    TutorialStatusResponse,
-    TutorialStartResponse,
-    TutorialCompleteResponse,
-    TutorialSkipResponse,
-    TutorialResetResponse,
-)
 
-router = APIRouter(prefix="/tutorial", tags=["tutorial"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["tutorial"])
 
 
 async def get_tutorial(
@@ -40,23 +37,11 @@ async def get_tutorial(
 
     Args:
         db: Database session
-        merchant_id: Merchant ID
+        merchant_id: Merchant ID (extracted from authenticated session)
 
     Returns:
         Tutorial record
-
-    Raises:
-        APIError: If merchant not found
     """
-    # Verify merchant exists
-    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-    merchant = result.scalar_one_or_none()
-    if not merchant:
-        raise APIError(
-            ErrorCode.MERCHANT_NOT_FOUND,
-            f"Merchant with ID {merchant_id} not found",
-        )
-
     # Get or create tutorial
     result = await db.execute(
         select(Tutorial).where(Tutorial.merchant_id == merchant_id)
@@ -77,20 +62,13 @@ async def get_tutorial(
     return tutorial
 
 
-@router.get("/status", response_model=dict)
+@router.get("/status")
 async def get_tutorial_status(
-    merchant_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Get tutorial completion status.
-
-    Args:
-        merchant_id: Merchant ID
-        db: Database session
-
-    Returns:
-        Tutorial status with isStarted, isCompleted, currentStep, etc.
-    """
+    """Get tutorial completion status."""
+    merchant_id = get_request_merchant_id(request)
     try:
         tutorial = await get_tutorial(db, merchant_id)
 
@@ -101,36 +79,30 @@ async def get_tutorial_status(
                 "isSkipped": tutorial.skipped,
                 "currentStep": tutorial.current_step,
                 "completedSteps": tutorial.completed_steps,
-                "stepsTotal": tutorial.steps_total,
+                "stepsTotal": 8,
             },
             "meta": {
                 "requestId": "status",
                 "timestamp": datetime.utcnow().isoformat(),
             },
         }
-    except APIError as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise APIError(
-            ErrorCode.UNKNOWN_ERROR,
-            f"Failed to get tutorial status: {str(e)}",
-        ) from e
+        logger.error(f"Failed to get tutorial status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get tutorial status: {str(e)}",
+        )
 
 
-@router.post("/start", response_model=dict)
+@router.post("/start")
 async def start_tutorial(
-    merchant_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Mark tutorial as started.
-
-    Args:
-        merchant_id: Merchant ID
-        db: Database session
-
-    Returns:
-        Started timestamp and current step
-    """
+    """Mark tutorial as started."""
+    merchant_id = get_request_merchant_id(request)
     try:
         tutorial = await get_tutorial(db, merchant_id)
 
@@ -150,6 +122,7 @@ async def start_tutorial(
         tutorial.started_at = datetime.utcnow()
         tutorial.current_step = 1
         await db.commit()
+        await db.refresh(tutorial)
 
         return {
             "data": {
@@ -161,37 +134,30 @@ async def start_tutorial(
                 "timestamp": datetime.utcnow().isoformat(),
             },
         }
-    except APIError as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise APIError(
-            ErrorCode.UNKNOWN_ERROR,
-            f"Failed to start tutorial: {str(e)}",
-        ) from e
+        logger.error(f"Failed to start tutorial: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start tutorial: {str(e)}",
+        )
 
 
-@router.post("/complete", response_model=dict)
+@router.post("/complete")
 async def complete_tutorial(
-    merchant_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Mark tutorial as complete.
-
-    Args:
-        merchant_id: Merchant ID
-        db: Database session
-
-    Returns:
-        Completed timestamp and all completed steps
-    """
+    """Mark tutorial as complete."""
+    merchant_id = get_request_merchant_id(request)
     try:
         tutorial = await get_tutorial(db, merchant_id)
 
         if tutorial.completed_at:
-            # Tutorial already completed
-            raise APIError(
-                ErrorCode.TUTORIAL_ALREADY_COMPLETED,
-                "Tutorial has already been completed",
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tutorial has already been completed",
             )
 
         # Mark all steps as completed
@@ -200,6 +166,7 @@ async def complete_tutorial(
         tutorial.current_step = tutorial.steps_total
         tutorial.completed_at = datetime.utcnow()
         await db.commit()
+        await db.refresh(tutorial)
 
         return {
             "data": {
@@ -211,35 +178,30 @@ async def complete_tutorial(
                 "timestamp": datetime.utcnow().isoformat(),
             },
         }
-    except APIError as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise APIError(
-            ErrorCode.TUTORIAL_COMPLETION_FAILED,
-            f"Failed to complete tutorial: {str(e)}",
-        ) from e
+        logger.error(f"Failed to complete tutorial: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to complete tutorial: {str(e)}",
+        )
 
 
-@router.post("/skip", response_model=dict)
+@router.post("/skip")
 async def skip_tutorial(
-    merchant_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Mark tutorial as skipped.
-
-    Args:
-        merchant_id: Merchant ID
-        db: Database session
-
-    Returns:
-        Skip status and timestamp
-    """
+    """Mark tutorial as skipped."""
+    merchant_id = get_request_merchant_id(request)
     try:
         tutorial = await get_tutorial(db, merchant_id)
 
         tutorial.skipped = True
         tutorial.completed_at = datetime.utcnow()
         await db.commit()
+        await db.refresh(tutorial)
 
         return {
             "data": {
@@ -251,29 +213,23 @@ async def skip_tutorial(
                 "timestamp": datetime.utcnow().isoformat(),
             },
         }
-    except APIError as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise APIError(
-            ErrorCode.UNKNOWN_ERROR,
-            f"Failed to skip tutorial: {str(e)}",
-        ) from e
+        logger.error(f"Failed to skip tutorial: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to skip tutorial: {str(e)}",
+        )
 
 
-@router.post("/reset", response_model=dict)
+@router.post("/reset")
 async def reset_tutorial(
-    merchant_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Reset tutorial progress for replay.
-
-    Args:
-        merchant_id: Merchant ID
-        db: Database session
-
-    Returns:
-        Reset confirmation
-    """
+    """Reset tutorial progress for replay."""
+    merchant_id = get_request_merchant_id(request)
     try:
         tutorial = await get_tutorial(db, merchant_id)
 
@@ -284,6 +240,7 @@ async def reset_tutorial(
         tutorial.completed_at = None
         tutorial.skipped = False
         await db.commit()
+        await db.refresh(tutorial)
 
         return {
             "data": {
@@ -295,10 +252,11 @@ async def reset_tutorial(
                 "timestamp": datetime.utcnow().isoformat(),
             },
         }
-    except APIError as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        raise APIError(
-            ErrorCode.TUTORIAL_STATE_CORRUPT,
-            f"Failed to reset tutorial: {str(e)}",
-        ) from e
+        logger.error(f"Failed to reset tutorial: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset tutorial: {str(e)}",
+        )

@@ -25,6 +25,7 @@ import { useBotConfigStore } from '../stores/botConfigStore';
 import { BotNameInput } from '../components/bot-config/BotNameInput';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import { ProductPinList } from '../components/business-info/ProductPinList';
+import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
 
 // Add data-testid constant for greeting section
 const GREETING_CONTAINER_ID = 'greeting-config-section-container';
@@ -184,7 +185,10 @@ export const BotConfig: React.FC = () => {
           </div>
         </div>
 
-        {/* Error Display (page-level) */}
+        {/* Tutorial Prompt Banner - Post-configuration */}
+      <TutorialPrompt />
+
+      {/* Error Display (page-level) */}
         {error && (
           <div
             role="alert"

@@ -92,7 +92,8 @@ export default function Login() {
       // Priority order (MEDIUM-10: standardized):
       // 1. location.state.from.pathname - React Router state from ProtectedRoute (most recent)
       // 2. sessionStorage.getItem('intendedDestination') - Fallback from ProtectedRoute (persists across reload)
-      // 3. '/dashboard' - Default destination
+      // 3. Check onboarding status - Fresh users go to bot-config, onboarded users go to dashboard
+      // 4. '/dashboard' - Default destination
       const from = (location.state as any)?.from?.pathname
         || sessionStorage.getItem('intendedDestination')
         || '/dashboard';

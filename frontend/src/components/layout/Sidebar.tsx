@@ -1,11 +1,12 @@
 import React from 'react';
-import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut, Package, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore, useHasStoreConnected } from '../../stores/authStore';
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const { merchant, logout, isAuthenticated } = useAuthStore();
+  const hasStoreConnected = useHasStoreConnected();
 
   const isActive = (path: string) => {
     return window.location.pathname === path;
@@ -21,17 +22,34 @@ const Sidebar = () => {
     }
   };
 
-  const navItems = [
+  // Navigation items - Sprint Change 2026-02-13: Support store-dependent items
+  interface NavItem {
+    icon: React.ComponentType<{ size?: number }>;
+    label: string;
+    path: string;
+    requiresStore?: boolean; // If true, only shown when store is connected
+  }
+
+  const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TestTube, label: 'Test Your Bot', path: '/bot-preview' },
     { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
     { icon: DollarSign, label: 'Costs', path: '/costs' },
+    // Sprint Change 2026-02-13: Store-dependent navigation items
+    // Uncomment when Products and Orders pages are implemented:
+    // { icon: Package, label: 'Products', path: '/products', requiresStore: true },
+    // { icon: ShoppingCart, label: 'Orders', path: '/orders', requiresStore: true },
     { icon: Info, label: 'Business Info & FAQ', path: '/business-info-faq' },
     { icon: Smile, label: 'Bot Personality', path: '/personality' },
     { icon: Bot, label: 'Bot Config', path: '/bot-config' },
     { icon: Settings, label: 'Settings', path: '/settings' },
     { icon: Cpu, label: 'LLM Settings', path: '/settings/provider' },
   ];
+
+  // Filter nav items based on store connection
+  const visibleNavItems = navItems.filter((item) =>
+    item.requiresStore ? hasStoreConnected : true
+  );
 
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -48,7 +66,7 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex-1 px-4 space-y-2">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <a
             key={item.path}
             href={item.path}

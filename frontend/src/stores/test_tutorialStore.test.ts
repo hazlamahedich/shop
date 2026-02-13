@@ -58,9 +58,9 @@ describe("tutorialStore", () => {
       expect(state.completedAt).toBe(null);
     });
 
-    it("should have stepsTotal set to 4", () => {
+    it("should have stepsTotal set to 8", () => {
       const state = tutorialStore.getState();
-      expect(state.stepsTotal).toBe(4);
+      expect(state.stepsTotal).toBe(8);
     });
   });
 
@@ -84,7 +84,7 @@ describe("tutorialStore", () => {
       expect(mockFetch).toHaveBeenCalledWith("/api/tutorial/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        credentials: "include",
       });
     });
 
@@ -115,18 +115,18 @@ describe("tutorialStore", () => {
       expect(tutorialStore.getState().currentStep).toBe(3);
     });
 
-    it("should not exceed stepsTotal (4)", () => {
+    it("should not exceed stepsTotal (8)", () => {
       const { nextStep, jumpToStep } = tutorialStore.getState();
 
-      // Jump to step 4
-      jumpToStep(4);
+      // Jump to step 8
+      jumpToStep(8);
 
       // Try to go beyond
       nextStep();
-      expect(tutorialStore.getState().currentStep).toBe(4);
+      expect(tutorialStore.getState().currentStep).toBe(8);
 
       nextStep();
-      expect(tutorialStore.getState().currentStep).toBe(4);
+      expect(tutorialStore.getState().currentStep).toBe(8);
     });
 
     it("should persist step change to localStorage", () => {
@@ -177,8 +177,8 @@ describe("tutorialStore", () => {
     it("should handle jumping to last step", () => {
       const { jumpToStep } = tutorialStore.getState();
 
-      jumpToStep(4);
-      expect(tutorialStore.getState().currentStep).toBe(4);
+      jumpToStep(8);
+      expect(tutorialStore.getState().currentStep).toBe(8);
     });
   });
 
@@ -225,7 +225,7 @@ describe("tutorialStore", () => {
       expect(mockFetch).toHaveBeenCalledWith("/api/tutorial/skip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        credentials: "include",
       });
     });
 
@@ -250,12 +250,16 @@ describe("tutorialStore", () => {
       const state = tutorialStore.getState();
       expect(state.isCompleted).toBe(true);
       expect(state.completedAt).toBeInstanceOf(Date);
-      expect(state.currentStep).toBe(4);
+      expect(state.currentStep).toBe(8);
       expect(state.completedSteps).toEqual([
         "step-1",
         "step-2",
         "step-3",
         "step-4",
+        "step-5",
+        "step-6",
+        "step-7",
+        "step-8",
       ]);
     });
 
@@ -267,7 +271,7 @@ describe("tutorialStore", () => {
       expect(mockFetch).toHaveBeenCalledWith("/api/tutorial/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        credentials: "include",
       });
     });
   });
@@ -302,7 +306,7 @@ describe("tutorialStore", () => {
       expect(mockFetch).toHaveBeenCalledWith("/api/tutorial/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        credentials: "include",
       });
     });
 

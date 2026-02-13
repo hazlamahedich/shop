@@ -4,11 +4,65 @@ Ensures environment variables are set before any imports.
 """
 
 import os
-import sys
 from typing import AsyncGenerator
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+
+# Import ALL models to ensure they're registered with Base.metadata
+# This must happen before Base.metadata.create_all() is called
+import app.models.merchant
+import app.models.tutorial
+import app.models.onboarding
+import app.models.facebook_integration
+import app.models.shopify_integration
+import app.models.llm_configuration
+import app.models.conversation
+import app.models.message
+import app.models.deployment_log
+import app.models.webhook_verification_log
+import app.models.faq
+
+# Create shared test engine for all fixtures to use
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+_shared_test_engine = None
+_shared_session_factory = None
+
+def get_shared_test_engine():
+    """Get or create shared test engine for app-level tests."""
+    global _shared_test_engine
+    if _shared_test_engine is None:
+        TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
+        _shared_test_engine = create_async_engine(
+            TEST_DATABASE_URL,
+            echo=False,
+            poolclass=NullPool,
+            future=True,
+            connect_args={
+                "prepared_statement_cache_size": 0,
+                "statement_cache_size": 0,
+            },
+        )
+    return _shared_test_engine
+
+def get_shared_session_factory():
+    """Get or create shared session factory."""
+    global _shared_session_factory
+    if _shared_session_factory is None:
+        from app.core.database import Base
+
+        _shared_session_factory = async_sessionmaker(
+            bind=get_shared_test_engine(),
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+            class_=AsyncSession,
+        )
+    return _shared_session_factory
+
 
 # Set critical environment variables before any imports
 os.environ.setdefault("IS_TESTING", "true")
@@ -31,302 +85,75 @@ os.environ.setdefault("FACEBOOK_ENCRYPTION_KEY", "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm
 # Database config for tests
 os.environ.setdefault("TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
 
+# Sprint Change 2026-02-13: Mock store for testing without real Shopify
+os.environ.setdefault("MOCK_STORE_ENABLED", "true")
 
-# Database fixtures for app-level tests - reuse from tests/conftest
+
+# =============================================================================
+# DATABASE FIXTURES
+# =============================================================================
+
 @pytest.fixture(scope="function")
-async def db_session() -> AsyncGenerator:
-    """Create a database session for testing.
+async def _setup_app_database():
+    """Setup and reset database for app-level tests."""
+    from sqlalchemy import text
+
+    engine = get_shared_test_engine()
+
+    async with engine.begin() as conn:
+        # Truncate tables to ensure clean state
+        await conn.execute(text("TRUNCATE TABLE merchants CASCADE;"))
+        await conn.execute(text("TRUNCATE TABLE tutorials CASCADE;"))
+
+        # Reset sequences
+        await conn.execute(text("SELECT setval('merchants_id_seq', 1, false);"))
+        await conn.execute(text("SELECT setval('tutorials_id_seq', 1, false);"))
+
+        # Create foreign key constraints with CASCADE explicitly
+        # (SQLAlchemy's ondelete doesn't always create the FK constraint)
+        try:
+            await conn.execute(text("""
+                ALTER TABLE tutorials
+                DROP CONSTRAINT IF EXISTS tutorials_merchant_id_fkey;
+            """))
+        except Exception:
+            pass  # Ignore if doesn't exist
+
+        try:
+            await conn.execute(text("""
+                ALTER TABLE tutorials
+                ADD CONSTRAINT tutorials_merchant_id_fkey
+                FOREIGN KEY (merchant_id)
+                REFERENCES merchants(id)
+                ON DELETE CASCADE;
+            """))
+        except Exception as e:
+            print(f"FK constraint setup error: {e}")
+
+
+@pytest.fixture(scope="function")
+async def db_session(_setup_app_database) -> AsyncGenerator:
+    """Create a database session for testing using shared engine.
 
     Reuses the PostgreSQL test database for JSONB support.
     """
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-    from sqlalchemy.pool import NullPool
-    from app.core.database import Base
+    print("DEBUG: app/db_session fixture called")
 
-    TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
+    TestingSessionLocal = get_shared_session_factory()
 
-    # Create engine
-    test_engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        poolclass=NullPool,
-        future=True,
-        connect_args={
-            "prepared_statement_cache_size": 0,
-            "statement_cache_size": 0,
-        },
-    )
-
-    # Create session factory
-    TestingSessionLocal = async_sessionmaker(
-        bind=test_engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-        class_=AsyncSession,
-    )
-
-    # List of custom enum types
-    enum_types = [
-        "message_sender",
-        "message_type",
-        "conversation_status",
-        "shopify_status",
-        "facebook_status",
-        "llm_provider",
-        "merchant_status",
-        "verification_platform",
-        "test_type",
-        "verification_status",
-    ]
-
-    # Clean up and recreate schema in a single transaction
-    async with test_engine.begin() as conn:
-        # Drop tables manually in reverse dependency order (children before parents)
-        # Using DROP TABLE ... CASCADE to handle foreign key constraints
-        for table in [
-            "webhook_verification_logs",
-            "faqs",
-            "messages",
-            "llm_configurations",
-            "facebook_integrations",
-            "shopify_integrations",
-            "deployment_logs",
-            "onboarding_checklists",
-            "conversations",
-            "merchants",
-        ]:
-            await conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
-
-        # Now drop all custom enum types (they may block table drops)
-        for enum_type in enum_types:
-            await conn.execute(text(f"DROP TYPE IF EXISTS {enum_type} CASCADE;"))
-
-        # Recreate enum types (required before creating tables)
-        # merchant_status enum
-        await conn.execute(text("""
-            CREATE TYPE merchant_status AS ENUM (
-                'pending', 'active', 'failed'
-            );
-        """))
-
-        # llm_provider enum
-        await conn.execute(text("""
-            CREATE TYPE llm_provider AS ENUM (
-                'ollama', 'openai', 'anthropic', 'gemini', 'glm'
-            );
-        """))
-
-        # facebook_status enum
-        await conn.execute(text("""
-            CREATE TYPE facebook_status AS ENUM (
-                'pending', 'active', 'error'
-            );
-        """))
-
-        # shopify_status enum
-        await conn.execute(text("""
-            CREATE TYPE shopify_status AS ENUM (
-                'pending', 'active', 'error'
-            );
-        """))
-
-        # conversation_status enum
-        await conn.execute(text("""
-            CREATE TYPE conversation_status AS ENUM (
-                'active', 'handoff', 'closed'
-            );
-        """))
-
-        # message_sender enum
-        await conn.execute(text("""
-            CREATE TYPE message_sender AS ENUM (
-                'customer', 'bot'
-            );
-        """))
-
-        # message_type enum
-        await conn.execute(text("""
-            CREATE TYPE message_type AS ENUM (
-                'text', 'attachment', 'postback'
-            );
-        """))
-
-        # verification_platform enum
-        await conn.execute(text("""
-            CREATE TYPE verification_platform AS ENUM (
-                'facebook', 'shopify'
-            );
-        """))
-
-        # test_type enum
-        await conn.execute(text("""
-            CREATE TYPE test_type AS ENUM (
-                'status_check', 'test_webhook', 'resubscribe'
-            );
-        """))
-
-        # verification_status enum
-        await conn.execute(text("""
-            CREATE TYPE verification_status AS ENUM (
-                'pending', 'success', 'failed'
-            );
-        """))
-
-        # Create all tables fresh
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Create and yield session
     async with TestingSessionLocal() as session:
         yield session
 
-    # Cleanup
-    await test_engine.dispose()
 
-
-# Also provide async_session alias
 @pytest.fixture(scope="function")
 async def async_session() -> AsyncGenerator:
-    """Alias for db_session for consistency."""
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-    from sqlalchemy.pool import NullPool
-    from app.core.database import Base
+    """Alias for db_session for consistency using shared engine."""
+    print("DEBUG: app/async_session fixture called")
 
-    TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
-
-    test_engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        poolclass=NullPool,
-        future=True,
-        connect_args={
-            "prepared_statement_cache_size": 0,
-            "statement_cache_size": 0,
-        },
-    )
-
-    TestingSessionLocal = async_sessionmaker(
-        bind=test_engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-        class_=AsyncSession,
-    )
-
-    # List of custom enum types
-    enum_types = [
-        "message_sender",
-        "message_type",
-        "conversation_status",
-        "shopify_status",
-        "facebook_status",
-        "llm_provider",
-        "merchant_status",
-        "verification_platform",
-        "test_type",
-        "verification_status",
-    ]
-
-    # Clean up and recreate schema in a single transaction
-    async with test_engine.begin() as conn:
-        # Drop tables manually in reverse dependency order (children before parents)
-        # Using DROP TABLE ... CASCADE to handle foreign key constraints
-        for table in [
-            "webhook_verification_logs",
-            "faqs",
-            "messages",
-            "llm_configurations",
-            "facebook_integrations",
-            "shopify_integrations",
-            "deployment_logs",
-            "onboarding_checklists",
-            "conversations",
-            "merchants",
-        ]:
-            await conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
-
-        # Now drop all custom enum types (they may block table drops)
-        for enum_type in enum_types:
-            await conn.execute(text(f"DROP TYPE IF EXISTS {enum_type} CASCADE;"))
-
-        # Recreate enum types (required before creating tables)
-        # merchant_status enum
-        await conn.execute(text("""
-            CREATE TYPE merchant_status AS ENUM (
-                'pending', 'active', 'failed'
-            );
-        """))
-
-        # llm_provider enum
-        await conn.execute(text("""
-            CREATE TYPE llm_provider AS ENUM (
-                'ollama', 'openai', 'anthropic', 'gemini', 'glm'
-            );
-        """))
-
-        # facebook_status enum
-        await conn.execute(text("""
-            CREATE TYPE facebook_status AS ENUM (
-                'pending', 'active', 'error'
-            );
-        """))
-
-        # shopify_status enum
-        await conn.execute(text("""
-            CREATE TYPE shopify_status AS ENUM (
-                'pending', 'active', 'error'
-            );
-        """))
-
-        # conversation_status enum
-        await conn.execute(text("""
-            CREATE TYPE conversation_status AS ENUM (
-                'active', 'handoff', 'closed'
-            );
-        """))
-
-        # message_sender enum
-        await conn.execute(text("""
-            CREATE TYPE message_sender AS ENUM (
-                'customer', 'bot'
-            );
-        """))
-
-        # message_type enum
-        await conn.execute(text("""
-            CREATE TYPE message_type AS ENUM (
-                'text', 'attachment', 'postback'
-            );
-        """))
-
-        # verification_platform enum
-        await conn.execute(text("""
-            CREATE TYPE verification_platform AS ENUM (
-                'facebook', 'shopify'
-            );
-        """))
-
-        # test_type enum
-        await conn.execute(text("""
-            CREATE TYPE test_type AS ENUM (
-                'status_check', 'test_webhook', 'resubscribe'
-            );
-        """))
-
-        # verification_status enum
-        await conn.execute(text("""
-            CREATE TYPE verification_status AS ENUM (
-                'pending', 'success', 'failed'
-            );
-        """))
-
-        # Create all tables fresh
-        await conn.run_sync(Base.metadata.create_all)
+    TestingSessionLocal = get_shared_session_factory()
 
     async with TestingSessionLocal() as session:
         yield session
-
-    await test_engine.dispose()
 
 
 @pytest.fixture(scope="function")
@@ -346,6 +173,73 @@ async def merchant(db_session: AsyncSession):
         merchant_key="test_merchant_key",
         platform="facebook"
     )
+
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    return merchant
+
+
+# =============================================================================
+# SPRINT CHANGE 2026-02-13: Store Provider Fixtures
+# =============================================================================
+
+@pytest.fixture(scope="function")
+async def merchant_no_store(db_session: AsyncSession):
+    """Create a test merchant WITHOUT an e-commerce store connected.
+
+    Sprint Change 2026-02-13: For testing no-store scenarios.
+
+    Args:
+        db_session: Database session
+
+    Returns:
+        Merchant instance with store_provider='none'
+    """
+    from app.models.merchant import Merchant
+
+    merchant = Merchant(
+        id=10,
+        merchant_key="test_merchant_no_store",
+        platform="facebook",
+        # Sprint Change 2026-02-13: Explicit no-store state
+        store_provider="none",
+        facebook_page_id="test_facebook_page_123",
+    )
+
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+
+    return merchant
+
+
+@pytest.fixture(scope="function")
+async def merchant_with_shopify(db_session: AsyncSession):
+    """Create a test merchant WITH Shopify store connected.
+
+    Sprint Change 2026-02-13: For testing Shopify integration scenarios.
+
+    Args:
+        db_session: Database session
+
+    Returns:
+        Merchant instance with store_provider='shopify'
+    """
+    from app.models.merchant import Merchant
+
+    merchant = Merchant(
+        id=20,
+        merchant_key="test_merchant_shopify",
+        platform="facebook",
+        # Sprint Change 2026-02-13: Shopify connected state
+        store_provider="shopify",
+        shopify_domain="test-store.myshopify.com",
+        shopify_access_token="test_token_encrypted",
+        facebook_page_id="test_facebook_page_456",
+    )
+
     db_session.add(merchant)
     await db_session.commit()
     await db_session.refresh(merchant)

@@ -315,5 +315,70 @@ def authenticate_merchant(
     return True
 
 
+async def get_current_merchant(
+    db: AsyncSession,
+) -> Optional[Merchant]:
+    """Get authenticated merchant from JWT token in request state.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Merchant object if authenticated, None otherwise
+
+    Raises:
+        HTTPException: If not authenticated or merchant not found
+    """
+    # Import Request to access request.state for JWT extraction
+    from fastapi import Request
+
+    # Get request object (set by FastAPI for each request)
+    # This will fail if called outside request context, which is expected
+    request: Request = Request.object()
+
+    try:
+        # Extract merchant_id from JWT payload (set by auth dependency)
+        merchant_id = request.state.merchant_id
+
+        if not merchant_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": ErrorCode.MERCHANT_NOT_FOUND,
+                    "message": "Authentication required",
+                    "details": "Merchant ID not found in authenticated session",
+                },
+            )
+
+        # Fetch and return the full Merchant object
+        from app.models.merchant import Merchant
+        result = await db.execute(
+            select(Merchant).where(Merchant.id == merchant_id)
+        )
+        merchant = result.scalar_one_or_none()
+
+        if not merchant:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": ErrorCode.MERCHANT_NOT_FOUND,
+                    "message": "Merchant not found",
+                },
+            )
+
+        return merchant
+    except HTTPException:
+        # Re-raise HTTP exceptions (authentication failures)
+        raise
+    except Exception:
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": ErrorCode.AUTH_FAILED,
+                    "message": "Invalid authentication token",
+                },
+            )
+
+
 # Initialize: Validate SECRET_KEY on import
 validate_secret_key()

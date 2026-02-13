@@ -31,4 +31,5 @@ __all__ = [
     "decrypt_metadata",
     "get_conversation_fernet",
     "is_encrypted",
+    "get_current_merchant",
 ]
