@@ -20,6 +20,7 @@ import { BudgetWarningBanner } from '../components/costs/BudgetWarningBanner';
 import { BotPausedBanner } from '../components/costs/BotPausedBanner';
 import { BudgetHardStopModal } from '../components/costs/BudgetHardStopModal';
 import { BudgetAlertConfig } from '../components/costs/BudgetAlertConfig';
+import { CostComparisonCard } from '../components/costs/CostComparisonCard';
 import { useCostTrackingStore } from '../stores/costTrackingStore';
 import { useToast } from '../context/ToastContext';
 import { formatCost } from '../types/cost';
@@ -187,20 +188,6 @@ const Costs = () => {
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.costUsd - a.costUsd);
   }, [costSummary]);
-
-  // Daily spend data calculation
-
-  // Comparison with ManyChat (estimated)
-  const manyChatEstimated = useMemo(() => {
-    if (!costSummary) return null;
-    // ManyChat is estimated to be ~3.5x more expensive based on industry benchmarks
-    return costSummary.totalCostUsd * 3.5;
-  }, [costSummary]);
-
-  const savings = useMemo(() => {
-    if (!manyChatEstimated || !costSummary) return null;
-    return manyChatEstimated - costSummary.totalCostUsd;
-  }, [manyChatEstimated, costSummary]);
 
   // Check if budget cap is null/undefined (no limit set)
   const hasNoBudgetLimit = merchantSettings !== null && 
@@ -474,58 +461,8 @@ const Costs = () => {
           {/* Alert Configuration (Story 3-8) */}
           <BudgetAlertConfig />
 
-          {/* Cost Comparison */}
-          {manyChatEstimated !== null && savings !== null && (
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-900">Cost Comparison</h3>
-                <div className="group relative">
-                  <button className="text-gray-400 hover:text-gray-600">
-                    <AlertCircle size={16} />
-                  </button>
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-gray-900 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                    Estimated based on industry benchmarks. Actual costs may vary.
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-gray-700">Shop (You)</span>
-                    <span className="font-bold text-green-600">
-                      {formatCost(costSummary?.totalCostUsd || 0, 2)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-4">
-                    <div
-                      className="bg-green-500 h-4 rounded-full"
-                      style={{
-                        width: `${Math.min(((costSummary?.totalCostUsd || 0) / manyChatEstimated) * 100, 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-gray-700">ManyChat (Est.)</span>
-                    <span className="font-bold text-red-600">
-                      {formatCost(manyChatEstimated, 2)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-4">
-                    <div className="bg-red-500 h-4 rounded-full" style={{ width: '100%' }} />
-                  </div>
-                </div>
-              </div>
-              {savings > 0 && (
-                <div className="mt-6 p-3 bg-green-50 rounded-lg border border-green-100">
-                  <p className="text-sm text-green-800 font-medium text-center">
-                    You saved {formatCost(savings, 2)} this period!
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Cost Comparison (Story 3-9) */}
+          <CostComparisonCard />
         </div>
       </div>
 

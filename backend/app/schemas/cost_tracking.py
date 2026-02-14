@@ -74,6 +74,18 @@ class DailyCostBreakdown(BaseModel):
     request_count: int
 
 
+class CostComparisonResponse(BaseModel):
+    """Cost comparison vs competitor (ManyChat)."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    many_chat_estimate: float = Field(..., description="Estimated ManyChat monthly cost")
+    savings_amount: float = Field(..., description="Amount saved with shop vs ManyChat")
+    savings_percentage: float = Field(..., description="Percentage saved (0-100)")
+    merchant_spend: float = Field(..., description="Merchant's actual shop spend")
+    methodology: str = Field(..., description="Explanation of comparison methodology")
+
+
 class CostSummaryResponse(BaseModel):
     """Cost summary response with period aggregates."""
 
@@ -94,6 +106,9 @@ class CostSummaryResponse(BaseModel):
     )
     previous_period_summary: Optional[dict] = Field(
         None, description="Aggregated data for the previous equivalent period"
+    )
+    cost_comparison: Optional[CostComparisonResponse] = Field(
+        None, description="Cost comparison vs competitor pricing"
     )
 
 

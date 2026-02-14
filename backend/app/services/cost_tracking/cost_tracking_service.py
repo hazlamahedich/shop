@@ -16,6 +16,7 @@ from app.models.llm_conversation_cost import LLMConversationCost
 from app.services.export.cost_calculator import CostCalculator
 from app.services.llm.base_llm_service import LLMResponse
 from app.services.cost_tracking.pricing import LLM_PRICING
+from app.services.cost_tracking.competitor_pricing import calculate_cost_comparison
 
 
 logger = structlog.get_logger(__name__)
@@ -214,8 +215,10 @@ class CostTrackingService:
 
         Calculates current period summary and previous equivalent period
         summary to enable percentage change comparisons (trends).
+        Includes cost comparison vs competitor (ManyChat).
         """
-        # 1. Determine date ranges
+        from decimal import Decimal
+
         now = datetime.utcnow()
         if date_from:
             current_from = datetime.fromisoformat(date_from)
@@ -229,25 +232,29 @@ class CostTrackingService:
         else:
             current_to = now
 
-        # Calculate previous period range
         duration = current_to - current_from
         prev_to = current_from - timedelta(microseconds=1)
         prev_from = prev_to - duration
 
-        # 2. Get summaries for both periods
         current_summary = await self._calculate_period_summary(
             db, merchant_id, current_from, current_to
         )
         previous_summary = await self._calculate_period_summary(db, merchant_id, prev_from, prev_to)
 
-        # 3. Generate daily breakdown (only for current period)
         daily_breakdown = await self._calculate_daily_costs(db, merchant_id, date_from, date_to)
 
-        # 4. Merge and return
+        message_count = await self.get_message_count(db, merchant_id, current_from, current_to)
+
+        merchant_spend = Decimal(str(current_summary.get("totalCostUsd", 0)))
+        cost_comparison = calculate_cost_comparison(
+            merchant_spend=merchant_spend, message_count=message_count
+        )
+
         return {
             **current_summary,
             "dailyBreakdown": daily_breakdown,
             "previousPeriodSummary": previous_summary,
+            "costComparison": cost_comparison,
         }
 
     async def _calculate_period_summary(
@@ -408,6 +415,37 @@ class CostTrackingService:
         total = result.scalar()
 
         return float(total or 0)
+
+    async def get_message_count(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> int:
+        """Get total message count for a period.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID for isolation
+            start_date: Period start date
+            end_date: Period end date
+
+        Returns:
+            Total number of LLM requests (messages) in the period
+        """
+        query = select(func.count(LLMConversationCost.id)).where(
+            and_(
+                LLMConversationCost.merchant_id == merchant_id,
+                LLMConversationCost.request_timestamp >= start_date,
+                LLMConversationCost.request_timestamp <= end_date,
+            )
+        )
+
+        result = await db.execute(query)
+        count = result.scalar()
+
+        return int(count or 0)
 
 
 # Standalone helper function for automatic LLM request tracking

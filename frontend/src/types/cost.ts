@@ -62,9 +62,14 @@ export interface DailyCostBreakdown {
   requestCount: number;
 }
 
-/**
- * Cost summary response with period aggregates
- */
+export interface CostComparison {
+  manyChatEstimate: number;
+  savingsAmount: number;
+  savingsPercentage: number;
+  merchantSpend: number;
+  methodology: string;
+}
+
 export interface CostSummary {
   totalCostUsd: number;
   totalTokens: number;
@@ -74,6 +79,7 @@ export interface CostSummary {
   costsByProvider: Record<string, ProviderCostSummary>;
   dailyBreakdown: DailyCostBreakdown[];
   previousPeriodSummary?: CostSummary;
+  costComparison?: CostComparison;
 }
 
 /**

@@ -45,7 +45,7 @@ development_status:
   sprint-0-pattern-tooling: done # Code review complete: All critical issues fixed
 
   # Epic 1: Merchant Onboarding & Bot Setup
-  epic-1: in-progress # Updated 2026-02-13: Sprint Change Proposal approved - Shopify now optional, pluggable e-commerce architecture. See sprint-change-proposal-2026-02-13.md. E2E tests for conditional store UI complete (26/26 passing with full API mocking).
+  epic-1: done # 2026-02-13: ALL 15 STORIES COMPLETE. Sprint Change Proposal approved - Shopify now optional, pluggable e-commerce architecture. See sprint-change-proposal-2026-02-13.md.
   1-1-prerequisite-checklist: done # Code review complete: All issues fixed (see story file)
   1-2-one-click-deployment: done # Code review complete: All HIGH/MEDIUM issues fixed, LOW items deferred with tracking
   1-3-facebook-page-connection: done # Code review complete: All HIGH/MEDIUM issues fixed, DLQ implemented, state validation added
@@ -53,7 +53,7 @@ development_status:
   1-5-llm-provider-configuration: done # Code review complete: All issues fixed (51 tests passing)
   1-7-webhook-verification: done
   1-8-merchant-dashboard-authentication: done # Refactor complete (2026-02-10): All 14 code review issues fixed. Refactored API to use MinimalEnvelope pattern. All unit and integration tests passing.
-  1-9-csrf-token-generation: review # All code review items addressed (2026-02-10): Commit 0982d5ab, typo bugs fixed, backend 44/44 passing, frontend service 26/26 passing, integration tests verified
+  1-9-csrf-token-generation: done # All code review items addressed (2026-02-10): Commit 0982d5ab, typo bugs fixed, backend 44/44 passing, frontend service 26/26 passing, integration tests verified
   1-10-bot-personality-configuration: done # Code review resolved (2026-02-10): All 9 issues fixed. Commit f1bc0acf, 17/17 backend tests passing, 91/91 frontend tests passing.
   1-11-business-info-faq-configuration: done # 2026-02-10: ALL issues resolved (commits 65ef8012 + bc75212c). CRITICAL+HIGH+MEDIUM fixed. 216/216 tests passing. LOW issues deferred.
   1-12-bot-naming: done # 2026-02-11: Implementation complete, ALL code review items addressed (commit 797d46eb). 45 backend + 45 frontend unit tests passing, 7 integration tests passing.
@@ -61,7 +61,7 @@ development_status:
   1-14-smart-greeting-templates: done # 2026-02-12: COMPLETE. All backend tests passing, frontend tests passing, API endpoints working, /bot-config page loading. Fixed: duplicate class definitions in greeting.py schema, duplicate function definitions in bot_config.py, MetaData type mismatch. Added sample greeting templates to story doc.
   1-15-product-highlight-pins: done # 2026-02-12: Implementation complete - all 4 CRITICAL code review issues addressed (service+API working). Unit tests blocked by pytest fixture collision - FIXED. Tests run successfully with direct Python, validating functionality.
   1-6-interactive-tutorial: done # 2026-02-12: COMPLETE. All 8 steps implemented, keyboard navigation, screen reader support, onboarding store, route guards, tutorial prompt. Backend 7/7 tests passing. Frontend tests created (store, component, keyboard). Fixed duplicate callback definitions. Story ready for code review.
-  epic-1-retrospective: backlog # Re-open: needs to include authentication and bot configuration stories
+  epic-1-retrospective: done # 2026-02-13: Complete retrospective for all 15 stories saved to docs/epic-1-retrospective-v2.md
 
   # Epic 2: Shopping Experience (CONDITIONAL - requires store connection per sprint-change-proposal-2026-02-13)
   epic-2: done
@@ -85,8 +85,8 @@ development_status:
   3-5-real-time-cost-tracking: done # Implementation complete: Cost tracking with budget cap persistence. Resolved cost filter bugs. All verification steps passed.
   3-6-budget-cap-configuration: review # Code review complete: All 6 issues addressed (2 Critical, 2 Medium, 2 Low)
   3-7-visual-budget-progress: done # QA test automation complete: 75/75 tests passing (41 component + 13 API + 21 E2E), 100% coverage, all code review items addressed
-  3-8-budget-alert-notifications: backlog
-  3-9-cost-comparison-display: backlog
+  3-8-budget-alert-notifications: done # 2026-02-13: Manual verification COMPLETE. All 5 ACs verified: 80%/100% alerts, bot pausing, resume flow, $0 budget blocking. All code review items addressed.
+  3-9-cost-comparison-display: done # 2026-02-14: Code review complete (8 issues fixed), manual verification PASSED (7/7 test cases). 27/27 automated tests passing.
   3-10-business-hours-configuration: backlog
   epic-3-retrospective: optional
 
