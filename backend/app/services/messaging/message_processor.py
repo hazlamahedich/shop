@@ -22,6 +22,7 @@ from app.services.checkout.checkout_schema import CheckoutStatus
 from app.services.clarification import ClarificationService
 from app.services.clarification.question_generator import QuestionGenerator
 from app.services.consent import ConsentService, ConsentStatus
+from app.services.handoff import HandoffDetector
 from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
 from app.services.messenger import CartFormatter, MessengerProductFormatter, MessengerSendService
@@ -32,6 +33,7 @@ from app.services.personality import BotResponseService
 from app.services.faq import match_faq
 from app.services.cost_tracking.budget_alert_service import BudgetAlertService
 from app.services.business_hours import is_within_business_hours, get_formatted_hours
+from app.schemas.handoff import DEFAULT_HANDOFF_MESSAGE
 
 
 logger = structlog.get_logger(__name__)
@@ -83,11 +85,20 @@ class MessageProcessor:
         # Lazily initialized to avoid issues in test environments
         self._bot_response_service: Optional[BotResponseService] = None
 
+        # Handoff detection service (Story 4-5)
+        self._handoff_detector: Optional[HandoffDetector] = None
+
     def _get_bot_response_service(self) -> BotResponseService:
         """Get or create bot response service (lazy initialization)."""
         if self._bot_response_service is None:
             self._bot_response_service = BotResponseService()
         return self._bot_response_service
+
+    def _get_handoff_detector(self) -> HandoffDetector:
+        """Get or create handoff detector (lazy initialization)."""
+        if self._handoff_detector is None:
+            self._handoff_detector = HandoffDetector(redis_client=self.context_manager.redis)
+        return self._handoff_detector
 
     async def _get_personality_greeting(self) -> str:
         """Get personality-based greeting message (Story 1.10).
@@ -170,6 +181,166 @@ class MessageProcessor:
                 "handoff_message_failed", merchant_id=self.merchant_id, error=str(e)
             )
             return default_online
+
+    async def _check_handoff(
+        self,
+        message: str,
+        psid: str,
+        classification: Any,
+        context: dict[str, Any],
+    ) -> Optional[MessengerResponse]:
+        """Check if handoff should be triggered (Story 4-5).
+
+        Checks for:
+        1. Keyword detection (human, agent, etc.)
+        2. Low confidence scores (3 consecutive < 0.50)
+        3. Clarification loops (3 same-type questions)
+
+        Args:
+            message: Customer message
+            psid: Facebook Page-Scoped ID
+            classification: Intent classification result
+            context: Conversation context
+
+        Returns:
+            MessengerResponse with handoff message if triggered, None otherwise
+        """
+        if not self.merchant_id:
+            return None
+
+        conversation = await self._get_conversation(psid)
+        conversation_id = conversation.id if conversation else self.merchant_id
+
+        detector = self._get_handoff_detector()
+        clarification_type = None
+        clarification_state = context.get("clarification", {})
+        if clarification_state.get("active"):
+            clarification_type = clarification_state.get("last_type")
+
+        result = await detector.detect(
+            message=message,
+            conversation_id=conversation_id,
+            confidence_score=getattr(classification, "confidence", None),
+            clarification_type=clarification_type,
+        )
+
+        if result.should_handoff:
+            self.logger.info(
+                "handoff_triggered",
+                psid=psid,
+                conversation_id=conversation_id,
+                reason=result.reason.value if result.reason else None,
+                confidence_count=result.confidence_count,
+                matched_keyword=result.matched_keyword,
+                loop_count=result.loop_count,
+            )
+
+            await self._update_conversation_handoff_status(
+                psid=psid,
+                reason=result.reason.value if result.reason else "unknown",
+                confidence_count=result.confidence_count,
+            )
+
+            handoff_msg = await self._get_handoff_message()
+            return MessengerResponse(
+                text=handoff_msg,
+                recipient_id=psid,
+            )
+
+        if result.confidence_count == 0 and result.reason is None:
+            await detector.reset_state(conversation_id)
+
+        return None
+
+    async def _get_conversation(self, psid: str) -> Optional[Any]:
+        """Get conversation for a PSID.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+
+        Returns:
+            Conversation model or None
+        """
+        if not self.merchant_id:
+            return None
+
+        try:
+            from app.core.database import async_session
+            from sqlalchemy import select
+            from app.models.conversation import Conversation
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Conversation)
+                    .where(
+                        Conversation.merchant_id == self.merchant_id,
+                        Conversation.platform_sender_id == psid,
+                    )
+                    .order_by(Conversation.updated_at.desc())
+                    .limit(1)
+                )
+                return result.scalars().first()
+        except Exception as e:
+            self.logger.warning("get_conversation_failed", psid=psid, error=str(e))
+            return None
+
+    async def _update_conversation_handoff_status(
+        self,
+        psid: str,
+        reason: str,
+        confidence_count: int = 0,
+    ) -> None:
+        """Update conversation status in database when handoff triggers.
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            reason: Handoff trigger reason
+            confidence_count: Consecutive low confidence count at time of handoff
+        """
+        if not self.merchant_id:
+            return
+
+        try:
+            from app.core.database import async_session
+            from sqlalchemy import select, update
+            from datetime import datetime, timezone
+            from app.models.conversation import Conversation
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Conversation)
+                    .where(
+                        Conversation.merchant_id == self.merchant_id,
+                        Conversation.platform_sender_id == psid,
+                    )
+                    .order_by(Conversation.updated_at.desc())
+                    .limit(1)
+                )
+                conversation = result.scalars().first()
+
+                if conversation:
+                    conversation.status = "handoff"
+                    conversation.handoff_status = "pending"
+                    conversation.handoff_triggered_at = datetime.now(timezone.utc)
+                    conversation.handoff_reason = reason
+                    conversation.consecutive_low_confidence_count = confidence_count
+                    await db.commit()
+
+                    self.logger.info(
+                        "handoff_status_updated",
+                        conversation_id=conversation.id,
+                        psid=psid,
+                        reason=reason,
+                        confidence_count=confidence_count,
+                    )
+
+        except Exception as e:
+            self.logger.error(
+                "handoff_status_update_failed",
+                psid=psid,
+                reason=reason,
+                error=str(e),
+            )
 
     async def _check_faq_match(
         self,
@@ -344,6 +515,16 @@ class MessageProcessor:
 
             # Classify intent
             classification = await self.classifier.classify(message, context)
+
+            # Story 4-5: Check for handoff triggers
+            handoff_result = await self._check_handoff(
+                message=message,
+                psid=psid,
+                classification=classification,
+                context=context,
+            )
+            if handoff_result:
+                return handoff_result
 
             # Update context with classification
             classification_dict = {

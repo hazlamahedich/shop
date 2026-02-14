@@ -77,33 +77,41 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: Business Dashboard & Cost Tracking
-  epic-3: in-progress # Story 3-4 created - LLM provider switching functionality
+  epic-3: done # 2026-02-14: ALL 10 STORIES COMPLETE
   3-1-conversation-list-with-pagination: done # Implementation complete: 31/31 tests passing, all tasks completed, code review resolved
   3-2-search-and-filter-conversations: done # Implementation complete: 38 backend tests passing, frontend components created, filter state management implemented
   3-3-csv-data-export: done # Manual verification complete: Backend API, CSV formatting, and frontend UI successfully validated with test data simulation
-  3-4-llm-provider-switching: in-progress # Core implementation complete: Provider switching service, API endpoints, frontend components. Remaining: Tests, navigation, minor features
+  3-4-llm-provider-switching: done # 2026-02-14: Status verified complete - all tasks done, code review fixed, API tests passing
   3-5-real-time-cost-tracking: done # Implementation complete: Cost tracking with budget cap persistence. Resolved cost filter bugs. All verification steps passed.
-  3-6-budget-cap-configuration: review # Code review complete: All 6 issues addressed (2 Critical, 2 Medium, 2 Low)
+  3-6-budget-cap-configuration: done # 2026-02-14: Code review complete (6 issues fixed), QA 108/108 tests passing (100%), all ACs verified
   3-7-visual-budget-progress: done # QA test automation complete: 75/75 tests passing (41 component + 13 API + 21 E2E), 100% coverage, all code review items addressed
   3-8-budget-alert-notifications: done # 2026-02-13: Manual verification COMPLETE. All 5 ACs verified: 80%/100% alerts, bot pausing, resume flow, $0 budget blocking. All code review items addressed.
   3-9-cost-comparison-display: done # 2026-02-14: Code review complete (8 issues fixed), manual verification PASSED (7/7 test cases). 27/27 automated tests passing.
-  3-10-business-hours-configuration: backlog
-  epic-3-retrospective: optional
+  3-10-business-hours-configuration: done # Manual verification PASSED 2026-02-14 - All 5 ACs verified. 50 backend + 11 frontend tests passing. CSRF fix applied.
+  epic-3-retrospective: done # 2026-02-14: Retrospective complete. Key outcomes: Privacy checklist added, auth DX improvements planned, session persistence bug fixed, Epic 4 mock strategy defined.
 
-  # Epic 4: Order Tracking & Support (Stories 4-1 to 4-5 CONDITIONAL - requires store connection per sprint-change-proposal-2026-02-13)
-  epic-4: backlog
-  4-1-natural-language-order-tracking: backlog
-  4-2-shopify-webhook-integration: backlog
-  4-3-shipping-notifications: backlog
-  4-4-polling-fallback: backlog
-  4-5-human-assistance-detection: backlog
-  4-6-handoff-notifications: backlog
-  4-7-handoff-queue-with-urgency: backlog
-  4-8-conversation-history-view: backlog
-  4-9-open-in-messenger-reply: backlog
-  4-10-return-to-bot: backlog
-  4-11-offline-follow-up-messages: backlog
-  4-12-business-hours-handling: backlog
+  # Epic 4: Order Tracking & Support
+  # PHASE 1: Human Handoff (Shopify-independent - Priority Order)
+  # PHASE 2: Order Tracking (Shopify-dependent - Requires MockShopifyProvider or real store)
+  # See epic-3-retrospective.md for phasing rationale
+  epic-4: in-progress # 2026-02-14: Started with Phase 1 (Shopify-independent stories)
+  
+  # PHASE 1: Human Handoff Flow (No Shopify dependency)
+  4-5-human-assistance-detection: done # ⭐ FOUNDATION - Detect when shopper needs human help (61 tests, migration applied, QA automate complete: 47/54 E2E passing)
+  4-6-handoff-notifications: backlog # Notify merchant of handoff (depends: 4-5)
+  4-7-handoff-queue-with-urgency: backlog # Dashboard queue sorted by urgency (depends: 4-5, 4-6)
+  4-8-conversation-history-view: backlog # Full conversation context for merchant (depends: 4-5, 4-7)
+  4-9-open-in-messenger-reply: backlog # Merchant replies via Messenger (depends: 4-7, 4-8)
+  4-10-return-to-bot: backlog # Merchant returns control to bot (depends: 4-9)
+  4-11-offline-follow-up-messages: backlog # Auto follow-up if merchant offline (depends: 4-5, 3-10)
+  4-12-business-hours-handling: backlog # Check business hours for handoff (depends: 4-5, 3-10)
+  
+  # PHASE 2: Order Tracking (Shopify-dependent - blocked without store or mock)
+  4-1-natural-language-order-tracking: backlog # ⚠️ Mock orders needed for testing
+  4-2-shopify-webhook-integration: backlog # 🔴 BLOCKED - Requires Shopify store
+  4-3-shipping-notifications: backlog # 🔴 BLOCKED - Requires 4-2 + Shopify
+  4-4-polling-fallback: backlog # 🔴 BLOCKED - Requires Shopify Admin API
+  
   epic-4-retrospective: optional
 
   # Epic 5: Data Privacy & Compliance

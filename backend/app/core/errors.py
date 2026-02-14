@@ -160,6 +160,13 @@ class ErrorCode(IntEnum):
     INVALID_STATUS_VALUE = 7008  # Invalid status value for filtering
     INVALID_SENTIMENT_VALUE = 7009  # Invalid sentiment value for filtering
 
+    # Handoff detection error codes (Story 4-5)
+    HANDOFF_DETECTION_ERROR = 7020  # Detection logic failed
+    HANDOFF_STATUS_UPDATE_FAILED = 7021  # Database update failed
+    HANDOFF_KEYWORD_TRIGGERED = 7022  # Keyword detection triggered
+    HANDOFF_LOW_CONFIDENCE_TRIGGERED = 7023  # Low confidence triggered
+    HANDOFF_LOOP_DETECTED = 7024  # Clarification loop detected
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

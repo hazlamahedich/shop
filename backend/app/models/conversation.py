@@ -12,8 +12,11 @@ from typing import Optional
 from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing_extensions import Literal
 
 from app.core.database import Base
+
+HandoffStatusType = Literal["none", "pending", "active", "resolved"]
 from app.core.encryption import (
     encrypt_metadata,
     decrypt_metadata,
@@ -64,6 +67,31 @@ class Conversation(Base):
             create_type=False,
         ),
         default="active",
+        nullable=True,
+    )
+    handoff_status: Mapped[str] = mapped_column(
+        Enum(
+            "none",
+            "pending",
+            "active",
+            "resolved",
+            name="handoff_status",
+            create_type=False,
+        ),
+        default="none",
+        nullable=True,
+    )
+    handoff_triggered_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+    handoff_reason: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    consecutive_low_confidence_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
         nullable=True,
     )
     # Encrypted conversation_data for storing sensitive conversation data

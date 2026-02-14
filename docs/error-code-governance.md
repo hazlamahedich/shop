@@ -164,7 +164,7 @@ Error codes that have been removed:
 | 5030 | MESSENGER_FORMATTING_FAILED        | Product formatting error                         | 2026-02-04 |
 | 5031 | IMAGE_VALIDATION_FAILED            | Invalid image URL                                | 2026-02-04 |
 
-| 5031 | IMAGE_VALIDATION_FAILED | Invalid image URL | 2026-02-04 |
+| 5031 | IMAGE_VALIDATION_FAILED            | Invalid image URL                                | 2026-02-04 |
 
 ### 6000-6999: Cart/Checkout
 
@@ -177,15 +177,29 @@ Error codes that have been removed:
 
 ### 7000-7999: Conversation/Session
 
-| Code | Name                   | Description                         | Added      |
-| ---- | ---------------------- | ----------------------------------- | ---------- |
-| 7000 | SESSION_EXPIRED        | Session expired                     | 2024-02-03 |
-| 7001 | CONVERSATION_NOT_FOUND | Conversation not found              | 2024-02-03 |
-| 7002 | INVALID_CONTEXT        | Invalid conversation context        | 2024-02-03 |
-| 7003 | INVALID_PAGE_NUMBER    | Page number < 1                     | 2026-02-07 |
-| 7004 | INVALID_PER_PAGE       | Items per page out of range         | 2026-02-07 |
-| 7005 | INVALID_SORT_COLUMN    | Invalid sort column                 | 2026-02-07 |
-| 7006 | MERCHANT_ACCESS_DENIED | Merchant cannot access conversation | 2026-02-07 |
+| Code | Name                             | Description                                      | Added      |
+| ---- | -------------------------------- | ------------------------------------------------ | ---------- |
+| 7000 | SESSION_EXPIRED                  | Session expired                                  | 2024-02-03 |
+| 7001 | CONVERSATION_NOT_FOUND           | Conversation not found                           | 2024-02-03 |
+| 7002 | INVALID_CONTEXT                  | Invalid conversation context                     | 2024-02-03 |
+| 7003 | INVALID_PAGE_NUMBER              | Page number < 1                                  | 2026-02-07 |
+| 7004 | INVALID_PER_PAGE                 | Items per page out of range                      | 2026-02-07 |
+| 7005 | INVALID_SORT_COLUMN              | Invalid sort column                              | 2026-02-07 |
+| 7006 | MERCHANT_ACCESS_DENIED           | Merchant cannot access conversation              | 2026-02-07 |
+| 7007 | INVALID_DATE_FORMAT              | Invalid date format for filtering                | 2026-02-07 |
+| 7008 | INVALID_STATUS_VALUE             | Invalid status value for filtering               | 2026-02-07 |
+| 7009 | INVALID_SENTIMENT_VALUE          | Invalid sentiment value for filtering            | 2026-02-07 |
+| 7010 | CLARIFICATION_FLOW_FAILED        | Generic clarification error                      | 2026-02-04 |
+| 7011 | CLARIFICATION_TIMEOUT            | User didn't respond to question                  | 2026-02-04 |
+| 7012 | CLARIFICATION_MAX_ATTEMPTS       | Max 3 questions exceeded                         | 2026-02-04 |
+| 7013 | QUESTION_GENERATION_FAILED       | Failed to generate question                      | 2026-02-04 |
+| 7014 | CLARIFICATION_STATE_ERROR        | Invalid clarification state                      | 2026-02-04 |
+| 7015 | CONSTRAINT_EXTRACTION_FAILED     | Failed to extract constraints                    | 2026-02-04 |
+| 7020 | HANDOFF_DETECTION_ERROR          | Detection logic failed                           | 2026-02-14 |
+| 7021 | HANDOFF_STATUS_UPDATE_FAILED     | Database update failed                           | 2026-02-14 |
+| 7022 | HANDOFF_KEYWORD_TRIGGERED        | Keyword detection triggered handoff              | 2026-02-14 |
+| 7023 | HANDOFF_LOW_CONFIDENCE_TRIGGERED | Low confidence triggered handoff                 | 2026-02-14 |
+| 7024 | HANDOFF_LOOP_DETECTED            | Clarification loop triggered handoff             | 2026-02-14 |
 
 ## Examples
 
