@@ -2,10 +2,12 @@
  * BusinessInfoFaqConfig Page Component
  *
  * Story 1.11: Business Info & FAQ Configuration
+ * Story 3.10: Business Hours Configuration (moved from Settings)
  *
- * Main page for configuring business information and FAQ items.
- * Integrates BusinessInfoForm and FaqList components with:
+ * Main page for configuring business information, hours, and FAQ items.
+ * Integrates BusinessInfoForm, BusinessHoursConfig, and FaqList components with:
  * - Save Configuration button for business info
+ * - Auto-save for business hours (via BusinessHoursConfig)
  * - Automatic persistence for FAQ operations
  * - Loading states and error handling
  * - Navigation breadcrumbs
@@ -21,14 +23,16 @@ import { useBusinessInfoStore } from '../stores/businessInfoStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { BusinessInfoForm } from '../components/business-info/BusinessInfoForm';
 import { FaqList } from '../components/business-info/FaqList';
+import { BusinessHoursConfig } from '../components/settings/BusinessHoursConfig';
 
 /**
  * BusinessInfoFaqConfig Component
  *
- * Main configuration page for business information and FAQ items.
+ * Main configuration page for business information, hours, and FAQ items.
  *
  * Features:
  * - Business information form with save functionality
+ * - Business hours configuration with auto-save
  * - FAQ list with add/edit/delete operations
  * - Automatic loading of existing configuration
  * - Success and error notifications
@@ -120,14 +124,14 @@ export const BusinessInfoFaqConfig: React.FC = () => {
                 Business Info & FAQ Configuration
               </h1>
               <p className="text-lg text-gray-600 max-w-3xl">
-                Configure your business information and create FAQ items for automatic customer
+                Configure your business information, hours, and FAQ items for automatic customer
                 responses. The bot will use this information to provide accurate answers to common
                 questions.
               </p>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm">
               <Info size={16} />
-              <span>Story 1.11</span>
+              <span>Story 1.11, 3.10</span>
             </div>
           </div>
         </div>
@@ -155,8 +159,9 @@ export const BusinessInfoFaqConfig: React.FC = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Business Info Form */}
-          <div className="lg:col-span-1">
+          {/* Left Column: Business Info + Hours */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Business Info Form */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Business Information</h2>
@@ -209,6 +214,9 @@ export const BusinessInfoFaqConfig: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Business Hours Config (Story 3.10) */}
+            <BusinessHoursConfig />
           </div>
 
           {/* FAQ List */}
@@ -222,13 +230,19 @@ export const BusinessInfoFaqConfig: React.FC = () => {
         {/* Help Section */}
         <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">How Business Info & FAQ Work</h3>
-          <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
+          <div className="grid md:grid-cols-3 gap-6 text-sm text-blue-800">
             <div>
               <h4 className="font-medium mb-2">Business Information</h4>
               <p className="text-blue-700">
-                Your business name, description, and hours are automatically included in bot
-                responses. When customers ask about your business, the bot uses this information to
-                provide accurate answers.
+                Your business name and description are automatically included in bot
+                responses. When customers ask about your business, the bot uses this information.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Business Hours</h4>
+              <p className="text-blue-700">
+                Configure your operating hours and timezone. The bot uses this for human handoff
+                messages, showing the out-of-office message when you're closed.
               </p>
             </div>
             <div>
@@ -236,7 +250,7 @@ export const BusinessInfoFaqConfig: React.FC = () => {
               <p className="text-blue-700">
                 FAQ items are matched using keyword analysis. When a customer question matches an
                 FAQ keyword or question text, the bot responds instantly with your predefined
-                answer. This saves time and ensures consistency.
+                answer.
               </p>
             </div>
           </div>

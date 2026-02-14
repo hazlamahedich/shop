@@ -103,6 +103,10 @@ class Merchant(Base):
         String(200),
         nullable=True,
     )
+    business_hours_config: Mapped[Optional[dict]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
 
     # Bot naming configuration (Story 1.12)
     bot_name: Mapped[Optional[str]] = mapped_column(

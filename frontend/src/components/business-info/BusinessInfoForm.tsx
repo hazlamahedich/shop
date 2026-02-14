@@ -6,14 +6,15 @@
  * Displays a form for entering and editing business information including:
  * - Business Name (max 100 characters)
  * - Business Description (max 500 characters with character count)
- * - Business Hours (text input with placeholder)
+ *
+ * Note: Business Hours moved to BusinessHoursConfig component (Story 3.10)
  *
  * Provides form validation, character counts, and help text.
  * WCAG 2.1 AA accessible.
  */
 
 import * as React from 'react';
-import { Building2, Clock, FileText } from 'lucide-react';
+import { Building2, FileText } from 'lucide-react';
 import { useBusinessInfoStore } from '../../stores/businessInfoStore';
 
 export interface BusinessInfoFormProps {
@@ -29,7 +30,6 @@ export interface BusinessInfoFormProps {
  * A form component for managing business information with:
  * - Text input for business name (max 100 chars)
  * - Textarea for business description (max 500 chars with character count)
- * - Text input for business hours (with placeholder example)
  * - Validation and error display
  * - Loading states
  */
@@ -40,10 +40,8 @@ export const BusinessInfoForm = React.forwardRef<
   const {
     businessName,
     businessDescription,
-    businessHours,
     setBusinessName,
     setBusinessDescription,
-    setBusinessHours,
     error,
   } = useBusinessInfoStore();
 
@@ -65,11 +63,6 @@ export const BusinessInfoForm = React.forwardRef<
   const handleBusinessDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value.slice(0, 500); // Enforce max length
     setBusinessDescription(value);
-  };
-
-  // Handle business hours change
-  const handleBusinessHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setBusinessHours(e.target.value);
   };
 
   // Character count color based on remaining characters
@@ -169,30 +162,6 @@ export const BusinessInfoForm = React.forwardRef<
             {descriptionLength} / 500
           </p>
         </div>
-      </div>
-
-      {/* Business Hours Field */}
-      <div className="space-y-2">
-        <label
-          htmlFor="business-hours"
-          className="flex items-center gap-2 text-sm font-medium text-gray-700"
-        >
-          <Clock size={16} className="text-gray-500" />
-          Business Hours
-        </label>
-        <input
-          id="business-hours"
-          type="text"
-          value={businessHours || ''}
-          onChange={handleBusinessHoursChange}
-          disabled={disabled}
-          placeholder="e.g., 9 AM - 6 PM PST, Mon-Fri"
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-          aria-describedby="business-hours-description"
-        />
-        <p id="business-hours-description" className="text-xs text-gray-500">
-          Your business operating hours. This helps the bot respond to questions about availability.
-        </p>
       </div>
 
       {/* Help Note */}

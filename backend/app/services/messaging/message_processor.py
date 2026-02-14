@@ -31,6 +31,7 @@ from app.services.shopify_storefront import ShopifyStorefrontClient
 from app.services.personality import BotResponseService
 from app.services.faq import match_faq
 from app.services.cost_tracking.budget_alert_service import BudgetAlertService
+from app.services.business_hours import is_within_business_hours, get_formatted_hours
 
 
 logger = structlog.get_logger(__name__)
@@ -127,6 +128,48 @@ class MessageProcessor:
                 )
         # Default fallback error
         return "Sorry, I encountered an error. Please try again."
+
+    async def _get_handoff_message(self) -> str:
+        """Get business hours-aware handoff message (Story 3.10).
+
+        Returns:
+            Handoff message with business hours info if configured
+        """
+        default_online = "Connecting you to a human agent..."
+        default_offline = "Our team is offline. We'll respond during business hours."
+
+        if not self.merchant_id:
+            return default_online
+
+        try:
+            from app.core.database import async_session
+            from sqlalchemy import select
+            from app.models.merchant import Merchant
+
+            async with async_session() as db:
+                result = await db.execute(select(Merchant).where(Merchant.id == self.merchant_id))
+                merchant = result.scalars().first()
+
+                if not merchant or not merchant.business_hours_config:
+                    return default_online
+
+                config = merchant.business_hours_config
+
+                if is_within_business_hours(config):
+                    return default_online
+
+                formatted_hours = get_formatted_hours(config)
+                custom_message = config.get("out_of_office_message", default_offline)
+
+                if formatted_hours:
+                    return f"{custom_message} ({formatted_hours})."
+                return custom_message
+
+        except Exception as e:
+            self.logger.warning(
+                "handoff_message_failed", merchant_id=self.merchant_id, error=str(e)
+            )
+            return default_online
 
     async def _check_faq_match(
         self,
@@ -478,8 +521,9 @@ class MessageProcessor:
             )
 
         elif intent == IntentType.HUMAN_HANDOFF:
+            handoff_msg = await self._get_handoff_message()
             return MessengerResponse(
-                text="Connecting you to a human agent...",
+                text=handoff_msg,
                 recipient_id=psid,
             )
 
