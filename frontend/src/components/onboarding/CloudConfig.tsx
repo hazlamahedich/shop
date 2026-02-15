@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/Label';
 import { Alert } from '@/components/ui/Alert';
+import { getProviderModels, DiscoveredModel } from '@/services/llmProvider';
 
 interface CloudConfigProps {
   onConfigure: (config: { provider: string; api_key: string; model: string }) => Promise<void>;
@@ -11,13 +12,20 @@ interface CloudConfigProps {
 }
 
 const PROVIDERS = [
-  { id: 'openai', name: 'OpenAI', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'] },
-  { id: 'anthropic', name: 'Anthropic', models: ['claude-3-haiku', 'claude-3-sonnet'] },
-  { id: 'gemini', name: 'Google Gemini', models: ['gemini-1.5-flash', 'gemini-pro'] },
-  { id: 'glm', name: 'GLM-4.7 (Zhipu AI)', models: ['glm-4-flash', 'glm-4-plus'] },
+  { id: 'openai', name: 'OpenAI' },
+  { id: 'anthropic', name: 'Anthropic' },
+  { id: 'gemini', name: 'Google Gemini' },
+  { id: 'glm', name: 'GLM-4.7 (Zhipu AI)' },
 ];
 
-const PRICING: Record<string, { input: number; output: number; currency: string }> = {
+const FALLBACK_MODELS: Record<string, string[]> = {
+  openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+  anthropic: ['claude-3-haiku', 'claude-3-sonnet'],
+  gemini: ['gemini-1.5-flash', 'gemini-pro'],
+  glm: ['glm-4-flash', 'glm-4-plus'],
+};
+
+const FALLBACK_PRICING: Record<string, { input: number; output: number; currency: string }> = {
   openai: { input: 0.15, output: 0.60, currency: 'USD' },
   anthropic: { input: 0.25, output: 1.25, currency: 'USD' },
   gemini: { input: 0.075, output: 0.30, currency: 'USD' },
@@ -29,10 +37,47 @@ export function CloudConfig({ onConfigure, isConfiguring = false }: CloudConfigP
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o-mini');
   const [error, setError] = useState<string>();
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   const selectedProvider = PROVIDERS.find((p) => p.id === provider);
-  const selectedModels = selectedProvider?.models || [];
-  const pricing = PRICING[provider];
+
+  useEffect(() => {
+    async function fetchModels() {
+      setLoadingModels(true);
+      try {
+        const response = await getProviderModels(provider);
+        setModels(response.data.models.filter(m => !m.isLocal));
+        if (response.data.models.length > 0) {
+          setModel(response.data.models[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch models:', err);
+        const fallback = FALLBACK_MODELS[provider] || [];
+        setModels(fallback.map(id => ({
+          id,
+          name: id,
+          provider,
+          description: '',
+          contextLength: 4096,
+          pricing: { inputCostPerMillion: 0, outputCostPerMillion: 0, currency: 'USD' },
+          isLocal: false,
+          isDownloaded: false,
+          features: [],
+        })));
+        if (fallback.length > 0) {
+          setModel(fallback[0]);
+        }
+      } finally {
+        setLoadingModels(false);
+      }
+    }
+    fetchModels();
+  }, [provider]);
+
+  const selectedModelInfo = models.find(m => m.id === model);
+  const pricing = selectedModelInfo?.pricing || 
+    { inputCostPerMillion: FALLBACK_PRICING[provider]?.input || 0, outputCostPerMillion: FALLBACK_PRICING[provider]?.output || 0, currency: FALLBACK_PRICING[provider]?.currency || 'USD' };
 
   const handleConfigure = async () => {
     setError('');
@@ -70,13 +115,7 @@ export function CloudConfig({ onConfigure, isConfiguring = false }: CloudConfigP
           <select
             id="provider"
             value={provider}
-            onChange={(e) => {
-              setProvider(e.target.value);
-              const newProvider = PROVIDERS.find((p) => p.id === e.target.value);
-              if (newProvider) {
-                setModel(newProvider.models[0]);
-              }
-            }}
+            onChange={(e) => setProvider(e.target.value)}
             disabled={isConfiguring}
             className="flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
           >
@@ -109,12 +148,15 @@ export function CloudConfig({ onConfigure, isConfiguring = false }: CloudConfigP
             id="model"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            disabled={isConfiguring}
+            disabled={isConfiguring || loadingModels}
             className="flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
           >
-            {selectedModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
+            {loadingModels && (
+              <option value="">Loading models...</option>
+            )}
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} {m.pricing.inputCostPerMillion > 0 && `($${m.pricing.inputCostPerMillion.toFixed(2)}/1M)`}
               </option>
             ))}
           </select>
@@ -124,7 +166,7 @@ export function CloudConfig({ onConfigure, isConfiguring = false }: CloudConfigP
           <div className="flex-1">
             <p className="text-sm font-medium text-slate-900">Estimated Cost</p>
             <p className="text-xs text-slate-500">
-              Input: {pricing?.input} / Output: {pricing?.output} {pricing?.currency} per 1M tokens
+              Input: {pricing.inputCostPerMillion} / Output: {pricing.outputCostPerMillion} {pricing.currency} per 1M tokens
             </p>
           </div>
         </div>

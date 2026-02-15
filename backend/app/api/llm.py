@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 from datetime import datetime
 import time
+import structlog
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -51,6 +52,10 @@ from app.schemas.llm import (
     ProviderListResponse,
     CurrentProviderInfo,
     ProviderMetadata,
+    # Model Discovery
+    DiscoveredModel,
+    ModelDiscoveryResponse,
+    ModelPricing,
 )
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.llm.base_llm_service import LLMMessage
@@ -58,6 +63,7 @@ from app.services.messaging.message_processor import MessageProcessor
 from app.schemas.messaging import FacebookWebhookPayload, FacebookEntry
 
 
+logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
@@ -516,6 +522,118 @@ async def get_providers() -> dict[str, Any]:
         },
         "meta": {
             "request_id": "get-providers",
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+    }
+
+
+@router.get("/models/{provider_id}", response_model=MinimalLLMEnvelope)
+async def get_provider_models(
+    provider_id: str,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Get available models for a specific provider.
+
+    Fetches models from:
+    - OpenRouter API for cloud providers (OpenAI, Anthropic, Gemini, GLM)
+    - Local Ollama instance + Ollama library for Ollama provider
+
+    Results are cached for 24 hours to avoid repeated API calls.
+    """
+    from app.services.llm.model_discovery_service import get_model_discovery_service
+
+    valid_providers = {"ollama", "openai", "anthropic", "gemini", "glm"}
+    if provider_id not in valid_providers:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid provider_id. Allowed: {', '.join(valid_providers)}",
+        )
+
+    ollama_url = None
+    if provider_id == "ollama":
+        merchant_id = _get_merchant_id_from_request(http_request)
+        result = await db.execute(
+            select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
+        )
+        config = result.scalar_one_or_none()
+        ollama_url = config.ollama_url if config else "http://localhost:11434"
+
+    discovery_service = get_model_discovery_service()
+    cache_info_before = discovery_service.get_cache_info()
+
+    models = await discovery_service.get_models_for_provider(provider_id, ollama_url)
+
+    cache_info_after = discovery_service.get_cache_info()
+    cached = cache_info_before.get("keys", []) == cache_info_after.get("keys", [])
+
+    discovered_models = []
+    for model_data in models:
+        try:
+            pricing = model_data.get("pricing", {})
+            discovered_models.append(
+                DiscoveredModel(
+                    id=model_data.get("id", ""),
+                    name=model_data.get("name", model_data.get("id", "")),
+                    provider=model_data.get("provider", provider_id),
+                    description=model_data.get("description", ""),
+                    context_length=model_data.get(
+                        "contextLength", model_data.get("context_length", 4096)
+                    ),
+                    pricing=ModelPricing(
+                        input_cost_per_million=pricing.get(
+                            "inputCostPerMillion", pricing.get("input_cost_per_million", 0.0)
+                        ),
+                        output_cost_per_million=pricing.get(
+                            "outputCostPerMillion", pricing.get("output_cost_per_million", 0.0)
+                        ),
+                        currency=pricing.get("currency", "USD"),
+                    ),
+                    is_local=model_data.get("isLocal", model_data.get("is_local", False)),
+                    is_downloaded=model_data.get(
+                        "isDownloaded", model_data.get("is_downloaded", False)
+                    ),
+                    features=model_data.get("features", []),
+                )
+            )
+        except Exception as e:
+            logger.warning("model_parse_failed", model_id=model_data.get("id"), error=str(e))
+            continue
+
+    return {
+        "data": {
+            "provider": provider_id,
+            "models": [m.model_dump(by_alias=True) for m in discovered_models],
+            "cached": cached,
+            "cacheInfo": discovery_service.get_cache_info() if not cached else None,
+        },
+        "meta": {
+            "request_id": "get-provider-models",
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+    }
+
+
+@router.post("/models/refresh", response_model=MinimalLLMEnvelope)
+async def refresh_models_cache(
+    http_request: Request,
+) -> dict[str, Any]:
+    """Clear model cache and fetch fresh data.
+
+    Use this to force refresh of model data from OpenRouter and Ollama.
+    """
+    from app.services.llm.model_discovery_service import get_model_discovery_service
+
+    discovery_service = get_model_discovery_service()
+    discovery_service.clear_cache()
+
+    return {
+        "data": {
+            "message": "Model cache cleared. Next requests will fetch fresh data.",
+            "cacheInfo": discovery_service.get_cache_info(),
+        },
+        "meta": {
+            "request_id": "refresh-models-cache",
             "timestamp": datetime.utcnow().isoformat(),
         },
     }

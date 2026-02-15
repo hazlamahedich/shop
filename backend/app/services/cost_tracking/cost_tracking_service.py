@@ -15,7 +15,7 @@ import structlog
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.services.export.cost_calculator import CostCalculator
 from app.services.llm.base_llm_service import LLMResponse
-from app.services.cost_tracking.pricing import LLM_PRICING
+from app.services.cost_tracking.pricing import calculate_cost, get_pricing
 from app.services.cost_tracking.competitor_pricing import calculate_cost_comparison
 
 
@@ -497,25 +497,11 @@ async def track_llm_request(
         provider = llm_response.provider
         model = llm_response.model
 
-        # Get pricing for provider/model (with fallbacks)
-        # LLM_PRICING is imported from pricing.py for centralized configuration
-        if provider in LLM_PRICING:
-            provider_pricing = LLM_PRICING[provider]
-            if isinstance(provider_pricing, dict) and model in provider_pricing:
-                pricing = provider_pricing[model]
-            elif isinstance(provider_pricing, dict) and "input" in provider_pricing:
-                pricing = provider_pricing  # Direct pricing dict
-            else:
-                # Fallback to Ollama (free)
-                pricing = LLM_PRICING["ollama"]
-        else:
-            # Unknown provider, treat as free
-            pricing = LLM_PRICING["ollama"]
-
-        # Calculate input and output costs
+        # Get pricing for provider/model using centralized pricing module
+        pricing = get_pricing(provider, model)
+        total_cost_usd = calculate_cost(provider, model, input_tokens, output_tokens)
         input_cost_usd = (input_tokens / 1_000_000) * pricing.get("input", 0.0)
         output_cost_usd = (output_tokens / 1_000_000) * pricing.get("output", 0.0)
-        total_cost_usd = input_cost_usd + output_cost_usd
 
         # Create cost record
         service = CostTrackingService()

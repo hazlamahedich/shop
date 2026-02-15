@@ -9,32 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLLMStore } from '@/stores/llmStore';
 import { LLMStatus } from '../onboarding/LLMStatus';
 import { TestConnection } from '../onboarding/TestConnection';
-
-const PROVIDER_MODELS = {
-  ollama: [
-    { value: 'llama3', label: 'Llama 3 (Recommended)' },
-    { value: 'mistral', label: 'Mistral 7B' },
-    { value: 'codellama', label: 'Code Llama' },
-    { value: 'qwen2', label: 'Qwen 2' },
-  ],
-  openai: [
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Recommended)' },
-    { value: 'gpt-4o', label: 'GPT-4O' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  ],
-  anthropic: [
-    { value: 'claude-3-haiku', label: 'Claude 3 Haiku (Recommended)' },
-    { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
-  ],
-  gemini: [
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Recommended)' },
-    { value: 'gemini-pro', label: 'Gemini Pro' },
-  ],
-  glm: [
-    { value: 'glm-4-flash', label: 'GLM-4 Flash (Recommended)' },
-    { value: 'glm-4-plus', label: 'GLM-4 Plus' },
-  ],
-};
+import { getProviderModels, refreshModelsCache, DiscoveredModel } from '@/services/llmProvider';
 
 export function LLMSettings() {
   const {
@@ -48,14 +23,50 @@ export function LLMSettings() {
   const [updating, setUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [error, setError] = useState<string>();
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelsCached, setModelsCached] = useState(false);
 
   const currentProvider = configuration.provider || 'ollama';
-  const currentModels = PROVIDER_MODELS[currentProvider as keyof typeof PROVIDER_MODELS] || [];
   const currentModel = configuration.ollamaModel || configuration.cloudModel || '';
 
   useEffect(() => {
     getLLMStatus();
   }, [getLLMStatus]);
+
+  useEffect(() => {
+    async function fetchModels() {
+      if (!currentProvider) return;
+      setLoadingModels(true);
+      try {
+        const response = await getProviderModels(currentProvider);
+        setModels(response.data.models);
+        setModelsCached(response.data.cached);
+      } catch (err) {
+        console.error('Failed to fetch models:', err);
+        setModels([]);
+      } finally {
+        setLoadingModels(false);
+      }
+    }
+    fetchModels();
+  }, [currentProvider]);
+
+  const handleRefreshModels = async () => {
+    setLoadingModels(true);
+    try {
+      await refreshModelsCache();
+      const response = await getProviderModels(currentProvider);
+      setModels(response.data.models);
+      setModelsCached(response.data.cached);
+      setSuccessMsg('Models refreshed successfully');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   const handleModelChange = async (newModel: string) => {
     setError('');
@@ -128,19 +139,75 @@ export function LLMSettings() {
 
         {/* Model Selection */}
         <div>
-          <Label>Model</Label>
-          <Select value={currentModel} onValueChange={handleModelChange} disabled={updating}>
-            <SelectTrigger disabled={updating}>
-              <SelectValue placeholder="Select model" />
+          <div className="flex items-center justify-between mb-2">
+            <Label>Model</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefreshModels}
+              disabled={loadingModels}
+              className="text-xs text-slate-500 hover:text-slate-700"
+            >
+              {loadingModels ? 'Refreshing...' : 'Refresh Models'}
+            </Button>
+          </div>
+          {modelsCached && (
+            <p className="text-xs text-slate-400 mb-2">Models cached (24h TTL)</p>
+          )}
+          <Select value={currentModel} onValueChange={handleModelChange} disabled={updating || loadingModels}>
+            <SelectTrigger disabled={updating || loadingModels}>
+              <SelectValue placeholder={loadingModels ? "Loading models..." : "Select model"} />
             </SelectTrigger>
             <SelectContent>
-              {currentModels.map((model) => (
-                <SelectItem key={model.value} value={model.value}>
-                  {model.label}
+              {models.length === 0 && !loadingModels && (
+                <SelectItem value="_none" disabled>No models available</SelectItem>
+              )}
+              {models.filter(m => m.isDownloaded).length > 0 && (
+                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Downloaded</div>
+              )}
+              {models.filter(m => m.isDownloaded).map((model) => (
+                <SelectItem key={model.id} value={model.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{model.name}</span>
+                    {model.pricing.inputCostPerMillion === 0 && (
+                      <Badge variant="secondary" className="text-xs">Free</Badge>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+              {models.filter(m => m.isLocal && !m.isDownloaded).length > 0 && (
+                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-2">Available to Pull</div>
+              )}
+              {models.filter(m => m.isLocal && !m.isDownloaded).map((model) => (
+                <SelectItem key={model.id} value={model.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{model.name}</span>
+                    <Badge variant="outline" className="text-xs">Pull required</Badge>
+                  </div>
+                </SelectItem>
+              ))}
+              {models.filter(m => !m.isLocal).length > 0 && (
+                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-2">Cloud Models</div>
+              )}
+              {models.filter(m => !m.isLocal).map((model) => (
+                <SelectItem key={model.id} value={model.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{model.name}</span>
+                    {model.pricing.inputCostPerMillion > 0 && (
+                      <span className="text-xs text-slate-400">
+                        ${model.pricing.inputCostPerMillion.toFixed(2)}/1M in
+                      </span>
+                    )}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {models.find(m => m.id === currentModel)?.description && (
+            <p className="text-xs text-slate-500 mt-1">
+              {models.find(m => m.id === currentModel)?.description}
+            </p>
+          )}
         </div>
 
         {/* Test Connection */}

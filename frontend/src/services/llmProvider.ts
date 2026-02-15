@@ -164,3 +164,51 @@ export async function validateProviderConfig(
     }),
   });
 }
+
+/** Model pricing information */
+export interface ModelPricing {
+  inputCostPerMillion: number;
+  outputCostPerMillion: number;
+  currency: string;
+}
+
+/** Discovered model information */
+export interface DiscoveredModel {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  contextLength: number;
+  pricing: ModelPricing;
+  isLocal: boolean;
+  isDownloaded: boolean;
+  features: string[];
+}
+
+/** Models discovery response */
+export interface ModelsDiscoveryResponse {
+  provider: string;
+  models: DiscoveredModel[];
+  cached: boolean;
+  cacheInfo?: {
+    keys: string[];
+    entries: Record<string, { cachedAt: string; expiresIn: number }>;
+  };
+}
+
+/** Get available models for a provider */
+export async function getProviderModels(
+  providerId: string
+): Promise<ApiEnvelope<ModelsDiscoveryResponse>> {
+  return apiRequest<ModelsDiscoveryResponse>(`/api/llm/models/${providerId}`);
+}
+
+/** Refresh models cache */
+export async function refreshModelsCache(): Promise<
+  ApiEnvelope<{ message: string; cacheInfo: unknown }>
+> {
+  return apiRequest<{ message: string; cacheInfo: unknown }>(
+    '/api/llm/models/refresh',
+    { method: 'POST' }
+  );
+}

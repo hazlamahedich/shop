@@ -8,9 +8,10 @@
  * Follows WCAG AA accessibility with focus trap and proper ARIA attributes.
  */
 
-import React, { useEffect, useRef } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Loader2, RefreshCw } from 'lucide-react';
 import { useLLMProviderStore } from '../../stores/llmProviderStore';
+import { getProviderModels, refreshModelsCache, DiscoveredModel } from '../../services/llmProvider';
 
 export const ProviderConfigModal: React.FC = () => {
   const {
@@ -23,9 +24,53 @@ export const ProviderConfigModal: React.FC = () => {
   } = useLLMProviderStore();
 
   const [apiKey, setApiKey] = React.useState('');
-  const [serverUrl, setServerUrl] = React.useState('');
+  const [serverUrl, setServerUrl] = React.useState('http://localhost:11434');
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+  const loadModels = async (providerId: string) => {
+    setLoadingModels(true);
+    setModelsError(null);
+    try {
+      const response = await getProviderModels(providerId);
+      setModels(response.data.models);
+      const downloadableModels = response.data.models.filter(m => !m.isLocal || m.isDownloaded);
+      if (downloadableModels.length > 0) {
+        setSelectedModel(downloadableModels[0].id);
+      } else if (response.data.models.length > 0) {
+        setSelectedModel(response.data.models[0].id);
+      }
+    } catch (err) {
+      setModelsError('Failed to load models');
+      console.error('Failed to load models:', err);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  const handleRefreshModels = async () => {
+    if (!selectedProvider) return;
+    setLoadingModels(true);
+    try {
+      await refreshModelsCache();
+      await loadModels(selectedProvider.id);
+    } catch (err) {
+      setModelsError('Failed to refresh models');
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  // Load models when provider changes
+  useEffect(() => {
+    if (selectedProvider) {
+      loadModels(selectedProvider.id);
+    }
+  }, [selectedProvider?.id]);
 
   // Focus trap for accessibility
   useEffect(() => {
@@ -65,10 +110,12 @@ export const ProviderConfigModal: React.FC = () => {
         providerId: selectedProvider.id,
         apiKey: isCloudProvider ? apiKey : undefined,
         serverUrl: isOllama ? serverUrl : undefined,
+        model: selectedModel || undefined,
       });
       // Reset form on success
       setApiKey('');
       setServerUrl('');
+      setSelectedModel('');
     } catch (error) {
       // Error is handled by store
     }
@@ -77,13 +124,20 @@ export const ProviderConfigModal: React.FC = () => {
   const handleCancel = () => {
     setApiKey('');
     setServerUrl('');
+    setSelectedModel('');
     closeConfigModal();
   };
 
   const isDisabled = isSwitching || validationInProgress;
   const canSubmit =
-    (isCloudProvider && apiKey.length > 0) ||
-    (isOllama && serverUrl.length > 0);
+    ((isCloudProvider && apiKey.length > 0) ||
+    (isOllama && serverUrl.length > 0)) &&
+    selectedModel.length > 0;
+
+  // Group models for display
+  const downloadedModels = models.filter(m => m.isDownloaded);
+  const libraryModels = models.filter(m => m.isLocal && !m.isDownloaded);
+  const cloudModels = models.filter(m => !m.isLocal);
 
   return (
     <div
@@ -176,6 +230,76 @@ export const ProviderConfigModal: React.FC = () => {
               </p>
             </div>
           )}
+
+          {/* Model Selection */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="model" className="block text-sm font-medium">
+                Model
+              </label>
+              <button
+                type="button"
+                onClick={handleRefreshModels}
+                disabled={loadingModels || isDisabled}
+                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={loadingModels ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+            </div>
+            {loadingModels ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                <Loader2 size={14} className="animate-spin" />
+                Loading models...
+              </div>
+            ) : modelsError ? (
+              <p className="text-sm text-red-600">{modelsError}</p>
+            ) : (
+              <select
+                id="model"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isDisabled}
+              >
+                {models.length === 0 && (
+                  <option value="">No models available</option>
+                )}
+                {downloadedModels.length > 0 && (
+                  <optgroup label="Downloaded (Ready)">
+                    {downloadedModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {libraryModels.length > 0 && (
+                  <optgroup label="Available to Pull">
+                    {libraryModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {cloudModels.length > 0 && (
+                  <optgroup label="Cloud Models">
+                    {cloudModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} {m.pricing.inputCostPerMillion > 0 && `($${m.pricing.inputCostPerMillion.toFixed(2)}/1M in)`}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
+            {selectedModel && (
+              <p className="text-xs text-gray-500 mt-1">
+                {models.find(m => m.id === selectedModel)?.description || ''}
+              </p>
+            )}
+          </div>
 
           {/* Error Display */}
           {switchError && (

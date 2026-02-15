@@ -394,3 +394,69 @@ class ProviderPricing(BaseModel):
     class Config:
         alias_generator = to_camel
         populate_by_name = True
+
+
+class ModelDiscoveryRequest(BaseModel):
+    """Request schema for fetching available models."""
+
+    provider_id: str = Field(
+        ..., description="Provider ID (ollama, openai, anthropic, gemini, glm)"
+    )
+    ollama_url: Optional[str] = Field(
+        None, description="Ollama server URL (required for ollama provider)"
+    )
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ModelPricing(BaseModel):
+    """Model pricing information."""
+
+    input_cost_per_million: float = Field(
+        ..., alias="inputCostPerMillion", description="Cost per 1M input tokens"
+    )
+    output_cost_per_million: float = Field(
+        ..., alias="outputCostPerMillion", description="Cost per 1M output tokens"
+    )
+    currency: str = Field("USD", description="Currency code")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class DiscoveredModel(BaseModel):
+    """Discovered model information."""
+
+    id: str = Field(..., description="Model ID")
+    name: str = Field(..., description="Model display name")
+    provider: str = Field(..., description="Provider ID")
+    description: str = Field("", description="Model description")
+    context_length: int = Field(4096, alias="contextLength", description="Maximum context length")
+    pricing: ModelPricing = Field(..., description="Pricing information")
+    is_local: bool = Field(False, alias="isLocal", description="Is this a local model")
+    is_downloaded: bool = Field(
+        False, alias="isDownloaded", description="Is model downloaded (Ollama only)"
+    )
+    features: List[str] = Field(default_factory=list, description="Model features")
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
+class ModelDiscoveryResponse(BaseModel):
+    """Response schema for model discovery."""
+
+    provider: str = Field(..., description="Provider ID")
+    models: List[DiscoveredModel] = Field(..., description="Available models")
+    cached: bool = Field(False, description="Is response from cache")
+    cache_info: Optional[Dict[str, Any]] = Field(
+        None, alias="cacheInfo", description="Cache information"
+    )
+
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
