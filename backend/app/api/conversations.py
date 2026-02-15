@@ -1,12 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional, List
 from uuid import uuid4
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode, ValidationError
+from app.schemas.base import MinimalEnvelope
 from app.schemas.conversation import (
     ConversationListResponse,
     ConversationFilterParams,
@@ -18,6 +20,9 @@ from app.schemas.conversation import (
     CustomerInfo,
     VALID_STATUS_VALUES,
     VALID_SENTIMENT_VALUES,
+    HybridModeRequest,
+    HybridModeResponse,
+    FacebookPageInfo,
 )
 from app.services.conversation import ConversationService
 from pydantic import BaseModel
@@ -232,6 +237,7 @@ async def get_conversation_history(
 
     data = ConversationHistoryData(
         conversation_id=history_data["conversation_id"],
+        platform_sender_id=history_data["platform_sender_id"],
         messages=history_data["messages"],
         context=context,
         handoff=handoff,
@@ -244,3 +250,120 @@ async def get_conversation_history(
     )
 
     return ConversationHistoryResponse(data=data, meta=meta)
+
+
+@router.patch(
+    "/{conversation_id}/hybrid-mode",
+    response_model=MinimalEnvelope,
+)
+async def set_hybrid_mode(
+    request: Request,
+    conversation_id: int,
+    hybrid_mode_request: HybridModeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """
+    Enable or disable hybrid mode for a conversation.
+
+    Hybrid mode allows merchants to take control of a conversation from the bot.
+    When enabled, the bot will only respond to @bot mentions.
+
+    Args:
+        conversation_id: ID of the conversation
+        hybrid_mode_request: Request body with 'enabled' and optional 'reason'
+
+    Returns:
+        Updated hybrid mode state with remaining time
+
+    Raises:
+        APIError: If authentication fails or conversation not found
+    """
+    from app.models.conversation import Conversation
+    from app.models.facebook_integration import FacebookIntegration
+
+    merchant_id = getattr(request.state, "merchant_id", None)
+    if not merchant_id:
+        if settings()["DEBUG"]:
+            merchant_id_header = request.headers.get("X-Merchant-Id")
+            if merchant_id_header:
+                merchant_id = int(merchant_id_header)
+            else:
+                merchant_id = 1
+        else:
+            raise APIError(
+                ErrorCode.AUTH_FAILED,
+                "Authentication required",
+            )
+
+    # Check Facebook page connection
+    fb_result = await db.execute(
+        select(FacebookIntegration).where(FacebookIntegration.merchant_id == merchant_id)
+    )
+    fb_integration = fb_result.scalars().first()
+
+    if not fb_integration:
+        raise APIError(
+            ErrorCode.NO_FACEBOOK_PAGE_CONNECTION,
+            "Merchant has not connected a Facebook page",
+        )
+
+    # Get the conversation
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.merchant_id == merchant_id,
+        )
+    )
+    conversation = result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    # Update hybrid mode state
+    now = datetime.now(timezone.utc)
+    conversation_data = conversation.conversation_data or {}
+    expires_at: datetime | None = None
+
+    if hybrid_mode_request.enabled:
+        expires_at = now + timedelta(hours=2)
+        conversation_data["hybrid_mode"] = {
+            "enabled": True,
+            "activated_at": now.isoformat(),
+            "activated_by": "merchant",
+            "expires_at": expires_at.isoformat(),
+        }
+        remaining_seconds = 7200  # 2 hours when just enabled
+    else:
+        conversation_data["hybrid_mode"] = {
+            "enabled": False,
+            "activated_at": None,
+            "activated_by": None,
+            "expires_at": None,
+        }
+        remaining_seconds = 0
+
+    # Update conversation
+    conversation.conversation_data = conversation_data
+    await db.commit()
+
+    response_data = {
+        "conversationId": conversation_id,
+        "hybridMode": {
+            "enabled": hybrid_mode_request.enabled,
+            "activatedAt": now.isoformat() if hybrid_mode_request.enabled else None,
+            "activatedBy": "merchant" if hybrid_mode_request.enabled else None,
+            "expiresAt": expires_at.isoformat() if expires_at else None,
+            "remainingSeconds": remaining_seconds,
+        },
+    }
+
+    return {
+        "data": response_data,
+        "meta": {
+            "requestId": str(uuid4()),
+            "timestamp": now.isoformat(),
+        },
+    }

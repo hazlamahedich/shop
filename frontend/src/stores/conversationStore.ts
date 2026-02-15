@@ -23,6 +23,10 @@ export interface ConversationsState {
   conversations: Conversation[];
   pagination: PaginationMeta | null;
 
+  // Active count for sidebar badge
+  activeCount: number;
+  activeCountPollingInterval: ReturnType<typeof setInterval> | null;
+
   // UI state
   loadingState: LoadingState;
   error: string | null;
@@ -43,6 +47,11 @@ export interface ConversationsState {
   prevPage: () => Promise<void>;
   setPerPage: (perPage: number) => Promise<void>;
   setSorting: (sortBy: ConversationsState['sortBy'], sortOrder: ConversationsState['sortOrder']) => Promise<void>;
+
+  // Actions - Active Count Badge
+  fetchActiveCount: () => Promise<void>;
+  startActiveCountPolling: (intervalMs?: number) => void;
+  stopActiveCountPolling: () => void;
 
   // Actions - Filters
   setSearchQuery: (query: string) => Promise<void>;
@@ -78,6 +87,8 @@ const initialFilterState: ConversationsFilterState = {
 const initialState = {
   conversations: [],
   pagination: null,
+  activeCount: 0,
+  activeCountPollingInterval: null as ReturnType<typeof setInterval> | null,
   loadingState: 'idle' as LoadingState,
   error: null as string | null,
   currentPage: 1,
@@ -87,6 +98,8 @@ const initialState = {
   filters: initialFilterState,
   savedFilters: [],
 };
+
+const DEBUG = import.meta.env.DEV;
 
 // Helper to build request params from current state
 const buildRequestParams = (
@@ -231,6 +244,49 @@ export const useConversationStore = create<ConversationsState>()(
        */
       setSorting: async (sortBy, sortOrder) => {
         await get().fetchConversations({ page: 1, sortBy, sortOrder });
+      },
+
+      /**
+       * Fetch active conversation count for sidebar badge
+       */
+      fetchActiveCount: async () => {
+        try {
+          const response = await conversationsService.getActiveCount();
+          if (DEBUG) console.log('[ConversationStore] Active count:', response.activeCount);
+          set({ activeCount: response.activeCount });
+        } catch (error) {
+          if (DEBUG) console.error('[ConversationStore] Failed to fetch active count:', error);
+        }
+      },
+
+      /**
+       * Start polling for active count
+       */
+      startActiveCountPolling: (intervalMs = 30000) => {
+        const state = get();
+
+        if (state.activeCountPollingInterval) {
+          clearInterval(state.activeCountPollingInterval);
+        }
+
+        const interval = setInterval(() => {
+          get().fetchActiveCount();
+        }, intervalMs);
+
+        set({ activeCountPollingInterval: interval });
+
+        state.fetchActiveCount();
+      },
+
+      /**
+       * Stop polling for active count
+       */
+      stopActiveCountPolling: () => {
+        const state = get();
+        if (state.activeCountPollingInterval) {
+          clearInterval(state.activeCountPollingInterval);
+          set({ activeCountPollingInterval: null });
+        }
       },
 
       /**
@@ -387,6 +443,10 @@ export const useConversationStore = create<ConversationsState>()(
        * Reset store to initial state
        */
       reset: () => {
+        const state = get();
+        if (state.activeCountPollingInterval) {
+          clearInterval(state.activeCountPollingInterval);
+        }
         set(initialState);
       },
 

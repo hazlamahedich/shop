@@ -8,7 +8,12 @@ import type {
   ConversationsListParams,
   ConversationsResponse,
   ConversationHistoryResponse,
+  HybridModeRequest,
+  HybridModeResponse,
+  FacebookPageInfo,
 } from '../types/conversation';
+
+import { getCsrfToken } from '../stores/csrfStore';
 
 const API_BASE = '/api/conversations';
 
@@ -100,5 +105,49 @@ export const conversationsService = {
     }
 
     return response.json();
+  },
+
+  async setHybridMode(
+    conversationId: number,
+    request: HybridModeRequest
+  ): Promise<HybridModeResponse> {
+    const csrfToken = await getCsrfToken();
+    const response = await fetch(`${API_BASE}/${conversationId}/hybrid-mode`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update hybrid mode');
+    }
+
+    return response.json();
+  },
+
+  async getFacebookPageInfo(): Promise<{ data: FacebookPageInfo }> {
+    const response = await fetch('/api/integrations/facebook/status', {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch Facebook page info');
+    }
+
+    const json = await response.json();
+    return {
+      data: {
+        pageId: json.data.pageId || null,
+        pageName: json.data.pageName || null,
+        isConnected: json.data.connected === true,
+      },
+    };
   },
 };

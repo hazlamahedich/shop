@@ -114,6 +114,7 @@ export interface CustomerInfo {
 
 export interface ConversationHistoryData {
   conversationId: number;
+  platformSenderId: string;
   messages: MessageHistoryItem[];
   context: ConversationContext;
   handoff: HandoffContext;
@@ -128,4 +129,34 @@ export interface ConversationHistoryMeta {
 export interface ConversationHistoryResponse {
   data: ConversationHistoryData;
   meta: ConversationHistoryMeta;
+}
+
+// ============================================
+// Story 4-9: Hybrid Mode Types
+// ============================================
+
+export interface HybridModeState {
+  enabled: boolean;
+  activatedAt: string | null;
+  activatedBy: 'merchant' | null;
+  expiresAt: string | null;
+  remainingSeconds?: number;
+}
+
+export interface HybridModeRequest {
+  enabled: boolean;
+  reason?: 'merchant_responding' | 'merchant_returning';
+}
+
+export interface HybridModeResponse {
+  conversationId: number;
+  hybridMode: HybridModeState & {
+    remainingSeconds: number;
+  };
+}
+
+export interface FacebookPageInfo {
+  pageId: string | null;
+  pageName: string | null;
+  isConnected: boolean;
 }

@@ -273,3 +273,42 @@ class TestConversationHistoryAPI:
         if len(messages) > 1:
             timestamps = [m["createdAt"] for m in messages]
             assert timestamps == sorted(timestamps)
+
+
+@pytest.mark.asyncio
+class TestHybridModeAPI:
+    """Test hybrid mode API endpoint - Story 4-9."""
+
+    async def test_hybrid_mode_requires_auth(self, async_client):
+        """Test that hybrid mode endpoint requires authentication."""
+        response = await async_client.patch(
+            "/api/conversations/1/hybrid-mode",
+            json={"enabled": True},
+        )
+        assert response.status_code in [401, 403, 400]
+
+    async def test_hybrid_mode_returns_7030_without_facebook_connection(
+        self, async_client, db_session, test_merchant, test_conversation_with_messages
+    ):
+        """Test that hybrid mode returns error 7030 when no Facebook page connected."""
+        conv = test_conversation_with_messages
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": True, "reason": "merchant_responding"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert data.get("error_code") == 7030  # NO_FACEBOOK_PAGE_CONNECTION
+
+    async def test_hybrid_mode_returns_404_for_nonexistent_conversation(self, async_client):
+        """Test that hybrid mode returns 404 for nonexistent conversation."""
+        response = await async_client.patch(
+            "/api/conversations/99999/hybrid-mode",
+            json={"enabled": True},
+            headers={"X-Merchant-Id": "1"},
+        )
+        assert response.status_code in [400, 404]
+        if response.status_code == 404:
+            data = response.json()
+            assert data.get("error_code") == 7001  # CONVERSATION_NOT_FOUND

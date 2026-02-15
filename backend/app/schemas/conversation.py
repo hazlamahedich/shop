@@ -193,6 +193,7 @@ class ConversationHistoryData(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     conversation_id: int
+    platform_sender_id: str = Field(..., description="Customer's platform sender ID (PSID)")
     messages: List[MessageHistoryItem]
     context: ConversationContext
     handoff: HandoffContext
@@ -215,3 +216,48 @@ class ConversationHistoryResponse(BaseModel):
 
     data: ConversationHistoryData
     meta: ConversationHistoryMeta
+
+
+# ============================================
+# Story 4-9: Hybrid Mode Schemas
+# ============================================
+
+
+class HybridModeRequest(BaseModel):
+    """Request to enable/disable hybrid mode for a conversation."""
+
+    enabled: bool = Field(..., description="Whether to enable or disable hybrid mode")
+    reason: Optional[str] = Field(
+        None,
+        description="Reason for change: 'merchant_responding' or 'merchant_returning'",
+    )
+
+
+class HybridModeState(BaseModel):
+    """Hybrid mode state in conversation."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    enabled: bool
+    activated_at: Optional[datetime] = None
+    activated_by: Optional[str] = None
+    expires_at: Optional[datetime] = None
+
+
+class HybridModeResponse(BaseModel):
+    """Response for hybrid mode update."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    conversation_id: int
+    hybrid_mode: dict  # Contains enabled, activatedAt, activatedBy, expiresAt, remainingSeconds
+
+
+class FacebookPageInfo(BaseModel):
+    """Facebook page connection info for merchant."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    page_id: Optional[str] = None
+    page_name: Optional[str] = None
+    is_connected: bool = False

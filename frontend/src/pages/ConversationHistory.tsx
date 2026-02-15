@@ -2,14 +2,20 @@
  * ConversationHistory Page - Story 4-8: Conversation History View
  *
  * Displays full conversation history including bot context for handoff conversations.
+ * Story 4-9: Added StickyActionBar for Open in Messenger / Return to Bot functionality.
  */
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Bot, User, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Bot, User, AlertCircle, CheckCircle } from 'lucide-react';
 import { conversationsService } from '../services/conversations';
 import ContextSidebar from '../components/conversations/ContextSidebar';
-import type { ConversationHistoryResponse } from '../types/conversation';
+import StickyActionBar from '../components/conversations/StickyActionBar';
+import type { 
+  ConversationHistoryResponse, 
+  HybridModeState, 
+  FacebookPageInfo 
+} from '../types/conversation';
 
 function formatConfidence(score: number | null | undefined): string {
   if (score === null || score === undefined) return '';
@@ -23,19 +29,34 @@ export default function ConversationHistory() {
   const [history, setHistory] = useState<ConversationHistoryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hybridMode, setHybridMode] = useState<HybridModeState | null>(null);
+  const [facebookPage, setFacebookPage] = useState<FacebookPageInfo | null>(null);
+  const [isHybridModeLoading, setIsHybridModeLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const backDestination = (location.state as { from?: string })?.from || '/conversations';
 
   useEffect(() => {
-    const fetchHistory = async () => {
+    const fetchData = async () => {
       if (!conversationId) return;
 
       setIsLoading(true);
       setError(null);
 
       try {
-        const response = await conversationsService.getConversationHistory(parseInt(conversationId, 10));
-        setHistory(response);
+        const [historyResponse, pageResponse] = await Promise.all([
+          conversationsService.getConversationHistory(parseInt(conversationId, 10)),
+          conversationsService.getFacebookPageInfo().catch(() => ({ data: { pageId: null, pageName: null, isConnected: false } })),
+        ]);
+        setHistory(historyResponse);
+        setFacebookPage(pageResponse.data);
+        
+        const conversationData = historyResponse.data as ConversationHistoryResponse['data'] & {
+          hybridMode?: HybridModeState;
+        };
+        if (conversationData.hybridMode) {
+          setHybridMode(conversationData.hybridMode);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load conversation history');
       } finally {
@@ -43,8 +64,41 @@ export default function ConversationHistory() {
       }
     };
 
-    fetchHistory();
+    fetchData();
   }, [conversationId]);
+
+  const handleHybridModeChange = async (enabled: boolean) => {
+    if (!conversationId) return;
+    
+    setIsHybridModeLoading(true);
+    setSuccessMessage(null);
+    try {
+      const response = await conversationsService.setHybridMode(
+        parseInt(conversationId, 10),
+        { enabled, reason: enabled ? 'merchant_responding' : 'merchant_returning' }
+      );
+      
+      setHybridMode({
+        enabled: response.hybridMode.enabled,
+        activatedAt: response.hybridMode.activatedAt,
+        activatedBy: response.hybridMode.activatedBy,
+        expiresAt: response.hybridMode.expiresAt,
+        remainingSeconds: response.hybridMode.remainingSeconds,
+      });
+      
+      if (enabled) {
+        setSuccessMessage("You're now in control! The bot will wait until you return control.");
+      } else {
+        setSuccessMessage("Bot has resumed normal operation.");
+      }
+      
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update hybrid mode');
+    } finally {
+      setIsHybridModeLoading(false);
+    }
+  };
 
   const handleBack = () => {
     navigate(backDestination);
@@ -96,7 +150,7 @@ export default function ConversationHistory() {
   return (
     <div data-testid="conversation-history-page" className="flex h-screen bg-gray-100">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden pb-20">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-4">
@@ -115,6 +169,14 @@ export default function ConversationHistory() {
             </div>
           </div>
         </header>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+            <CheckCircle className="text-green-600" size={20} />
+            <span className="text-green-800 text-sm">{successMessage}</span>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6">
@@ -175,6 +237,16 @@ export default function ConversationHistory() {
         customer={history.data.customer}
         handoff={history.data.handoff}
         context={history.data.context}
+      />
+
+      {/* Sticky Action Bar - Story 4-9 */}
+      <StickyActionBar
+        conversationId={history.data.conversationId}
+        platformSenderId={history.data.platformSenderId}
+        hybridMode={hybridMode}
+        facebookPage={facebookPage}
+        isLoading={isHybridModeLoading}
+        onHybridModeChange={handleHybridModeChange}
       />
     </div>
   );
