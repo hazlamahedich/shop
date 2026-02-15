@@ -98,8 +98,8 @@ development_status:
   
   # PHASE 1: Human Handoff Flow (No Shopify dependency)
   4-5-human-assistance-detection: done # ⭐ FOUNDATION - Detect when shopper needs human help (61 tests, migration applied, QA automate complete: 47/54 E2E passing)
-  4-6-handoff-notifications: backlog # Notify merchant of handoff (depends: 4-5)
-  4-7-handoff-queue-with-urgency: backlog # Dashboard queue sorted by urgency (depends: 4-5, 4-6)
+  4-6-handoff-notifications: done # 2026-02-14: Code review COMPLETE - All HIGH/MEDIUM issues fixed (HandoffFlowService created, push stub added, docs corrected)
+  4-7-handoff-queue-with-urgency: done # 2026-02-15: Code review COMPLETE + QA automation COMPLETE - Component tests added (37 tests), 145 total tests passing (100%)
   4-8-conversation-history-view: backlog # Full conversation context for merchant (depends: 4-5, 4-7)
   4-9-open-in-messenger-reply: backlog # Merchant replies via Messenger (depends: 4-7, 4-8)
   4-10-return-to-bot: backlog # Merchant returns control to bot (depends: 4-9)
