@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.handoff_alert import HandoffAlert
 
 
 class ConversationService:
@@ -184,3 +185,135 @@ class ConversationService:
             )
 
         return formatted_conversations, total
+
+    async def get_active_count(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+    ) -> int:
+        """Get count of active conversations for a merchant.
+
+        Active conversations are those where status='active' (not in handoff or closed).
+
+        Args:
+            db: Database session
+            merchant_id: ID of the authenticated merchant
+
+        Returns:
+            Count of active conversations
+        """
+        query = select(func.count()).where(
+            Conversation.merchant_id == merchant_id,
+            Conversation.status == "active",
+        )
+        result = await db.execute(query)
+        return result.scalar() or 0
+
+    async def get_conversation_history(
+        self,
+        db: AsyncSession,
+        conversation_id: int,
+        merchant_id: int,
+    ) -> Optional[dict]:
+        """
+        Get full conversation history with context for handoff.
+
+        Args:
+            db: Database session
+            conversation_id: ID of the conversation
+            merchant_id: ID of the authenticated merchant
+
+        Returns:
+            Dictionary with conversation history data, or None if not found
+        """
+        query = (
+            select(Conversation)
+            .options(
+                selectinload(Conversation.messages),
+                selectinload(Conversation.handoff_alert),
+            )
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.merchant_id == merchant_id,
+            )
+        )
+
+        result = await db.execute(query)
+        conversation = result.scalars().first()
+
+        if not conversation:
+            return None
+
+        messages = []
+        for msg in sorted(conversation.messages, key=lambda m: m.created_at):
+            confidence_score = None
+            if msg.sender == "bot" and msg.message_metadata:
+                confidence_score = msg.message_metadata.get("confidence_score")
+
+            messages.append(
+                {
+                    "id": msg.id,
+                    "sender": msg.sender,
+                    "content": msg.decrypted_content,
+                    "created_at": msg.created_at,
+                    "confidence_score": confidence_score,
+                }
+            )
+
+        context_data = conversation.decrypted_metadata or {}
+        cart_state = None
+        extracted_constraints = None
+
+        if context_data:
+            cart_data = context_data.get("cart", {})
+            if cart_data:
+                cart_state = {
+                    "items": cart_data.get("items", []),
+                }
+
+            constraints_data = context_data.get("constraints", {})
+            if constraints_data:
+                extracted_constraints = {
+                    "budget": constraints_data.get("budget"),
+                    "size": constraints_data.get("size"),
+                    "category": constraints_data.get("category"),
+                }
+
+        urgency_level = "low"
+        if conversation.handoff_alert:
+            urgency_level = conversation.handoff_alert.urgency_level
+
+        wait_time_seconds = 0
+        if conversation.handoff_triggered_at:
+            wait_time_seconds = int(
+                (datetime.utcnow() - conversation.handoff_triggered_at).total_seconds()
+            )
+
+        handoff = {
+            "trigger_reason": conversation.handoff_reason or "unknown",
+            "triggered_at": conversation.handoff_triggered_at or datetime.utcnow(),
+            "urgency_level": urgency_level,
+            "wait_time_seconds": wait_time_seconds,
+        }
+
+        masked_id = (
+            f"{conversation.platform_sender_id[:4]}****"
+            if len(conversation.platform_sender_id) > 4
+            else "****"
+        )
+
+        customer = {
+            "masked_id": masked_id,
+            "order_count": 0,
+        }
+
+        return {
+            "conversation_id": conversation.id,
+            "messages": messages,
+            "context": {
+                "cart_state": cart_state,
+                "extracted_constraints": extracted_constraints,
+            },
+            "handoff": handoff,
+            "customer": customer,
+        }

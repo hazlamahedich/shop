@@ -120,6 +120,13 @@ class Conversation(Base):
         back_populates="conversation",
     )
 
+    # Relationship to handoff alert - one-to-one
+    handoff_alert: Mapped[Optional["HandoffAlert"]] = relationship(
+        "HandoffAlert",
+        back_populates="conversation",
+        uselist=False,
+    )
+
     @property
     def decrypted_metadata(self) -> Optional[dict]:
         """Get decrypted conversation metadata.

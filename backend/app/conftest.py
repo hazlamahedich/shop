@@ -4,8 +4,10 @@ Ensures environment variables are set before any imports.
 """
 
 import os
+from datetime import datetime, timedelta
 from typing import AsyncGenerator
 import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
@@ -31,11 +33,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 _shared_test_engine = None
 _shared_session_factory = None
 
+
 def get_shared_test_engine():
     """Get or create shared test engine for app-level tests."""
     global _shared_test_engine
     if _shared_test_engine is None:
-        TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
+        TEST_DATABASE_URL = os.getenv(
+            "TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
+        )
         _shared_test_engine = create_async_engine(
             TEST_DATABASE_URL,
             echo=False,
@@ -47,6 +52,7 @@ def get_shared_test_engine():
             },
         )
     return _shared_test_engine
+
 
 def get_shared_session_factory():
     """Get or create shared session factory."""
@@ -72,7 +78,9 @@ os.environ.setdefault("SECRET_KEY", "dev-secret-key-for-testing")
 # Shopify config
 os.environ.setdefault("SHOPIFY_API_KEY", "test_api_key")
 os.environ.setdefault("SHOPIFY_API_SECRET", "test_secret")
-os.environ.setdefault("SHOPIFY_REDIRECT_URI", "https://example.com/api/integrations/shopify/callback")
+os.environ.setdefault(
+    "SHOPIFY_REDIRECT_URI", "https://example.com/api/integrations/shopify/callback"
+)
 os.environ.setdefault("SHOPIFY_ENCRYPTION_KEY", "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm9yLXRlc3Rpbmc=")
 
 # Facebook config
@@ -83,7 +91,9 @@ os.environ.setdefault("FACEBOOK_WEBHOOK_VERIFY_TOKEN", "test_token")
 os.environ.setdefault("FACEBOOK_ENCRYPTION_KEY", "ZWZlbmV0LWdlbmVyYXRlZC1rZXktZm9yLXRlc3Rpbmc=")
 
 # Database config for tests
-os.environ.setdefault("TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
+os.environ.setdefault(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
+)
 
 # Sprint Change 2026-02-13: Mock store for testing without real Shopify
 os.environ.setdefault("MOCK_STORE_ENABLED", "true")
@@ -92,6 +102,7 @@ os.environ.setdefault("MOCK_STORE_ENABLED", "true")
 # =============================================================================
 # DATABASE FIXTURES
 # =============================================================================
+
 
 @pytest.fixture(scope="function")
 async def _setup_app_database():
@@ -112,21 +123,25 @@ async def _setup_app_database():
         # Create foreign key constraints with CASCADE explicitly
         # (SQLAlchemy's ondelete doesn't always create the FK constraint)
         try:
-            await conn.execute(text("""
+            await conn.execute(
+                text("""
                 ALTER TABLE tutorials
                 DROP CONSTRAINT IF EXISTS tutorials_merchant_id_fkey;
-            """))
+            """)
+            )
         except Exception:
             pass  # Ignore if doesn't exist
 
         try:
-            await conn.execute(text("""
+            await conn.execute(
+                text("""
                 ALTER TABLE tutorials
                 ADD CONSTRAINT tutorials_merchant_id_fkey
                 FOREIGN KEY (merchant_id)
                 REFERENCES merchants(id)
                 ON DELETE CASCADE;
-            """))
+            """)
+            )
         except Exception as e:
             print(f"FK constraint setup error: {e}")
 
@@ -168,11 +183,7 @@ async def merchant(db_session: AsyncSession):
     """
     from app.models.merchant import Merchant
 
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_key",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_key", platform="facebook")
 
     db_session.add(merchant)
     await db_session.commit()
@@ -184,6 +195,7 @@ async def merchant(db_session: AsyncSession):
 # =============================================================================
 # SPRINT CHANGE 2026-02-13: Store Provider Fixtures
 # =============================================================================
+
 
 @pytest.fixture(scope="function")
 async def merchant_no_store(db_session: AsyncSession):
@@ -203,7 +215,6 @@ async def merchant_no_store(db_session: AsyncSession):
         id=10,
         merchant_key="test_merchant_no_store",
         platform="facebook",
-        # Sprint Change 2026-02-13: Explicit no-store state
         store_provider="none",
         facebook_page_id="test_facebook_page_123",
     )
@@ -233,7 +244,6 @@ async def merchant_with_shopify(db_session: AsyncSession):
         id=20,
         merchant_key="test_merchant_shopify",
         platform="facebook",
-        # Sprint Change 2026-02-13: Shopify connected state
         store_provider="shopify",
         shopify_domain="test-store.myshopify.com",
         shopify_access_token="test_token_encrypted",
@@ -274,3 +284,229 @@ async def async_client(async_session):
     finally:
         # Clean up override
         app.dependency_overrides.clear()
+
+
+# =============================================================================
+# CONVERSATION HISTORY FIXTURES (Story 4-8)
+# =============================================================================
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_merchant(db_session: AsyncSession):
+    """Create a test merchant for conversation history tests."""
+    from app.models.merchant import Merchant
+
+    merchant = Merchant(
+        id=1,
+        merchant_key="test_merchant_key",
+        platform="facebook",
+        email="test@example.com",
+        business_name="Test Shop",
+        status="active",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+    return merchant
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_merchant2(db_session: AsyncSession):
+    """Create a second test merchant for access control tests."""
+    from app.models.merchant import Merchant
+
+    merchant = Merchant(
+        id=2,
+        merchant_key="test_merchant2_key",
+        platform="facebook",
+        email="test2@example.com",
+        business_name="Test Shop 2",
+        status="active",
+    )
+    db_session.add(merchant)
+    await db_session.commit()
+    await db_session.refresh(merchant)
+    return merchant
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_conversation_with_messages(db_session: AsyncSession, test_merchant):
+    """Create a test conversation with messages."""
+    from app.models.conversation import Conversation
+    from app.models.message import Message
+
+    conv = Conversation(
+        merchant_id=test_merchant.id,
+        platform="messenger",
+        platform_sender_id="123456789012345",
+        status="handoff",
+        handoff_status="active",
+        handoff_triggered_at=datetime.utcnow(),
+        handoff_reason="keyword",
+    )
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    msg = Message(
+        conversation_id=conv.id,
+        sender="customer",
+        content="I need help with my order",
+        message_type="text",
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(msg)
+    await db_session.commit()
+    await db_session.refresh(conv)
+    return conv
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_conversation_with_bot_messages(db_session: AsyncSession, test_merchant):
+    """Create a test conversation with bot messages that have confidence scores."""
+    from app.models.conversation import Conversation
+    from app.models.message import Message
+
+    conv = Conversation(
+        merchant_id=test_merchant.id,
+        platform="messenger",
+        platform_sender_id="bot_test_customer",
+        status="handoff",
+        handoff_status="active",
+        handoff_triggered_at=datetime.utcnow(),
+        handoff_reason="low_confidence",
+    )
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    bot_msg = Message(
+        conversation_id=conv.id,
+        sender="bot",
+        content="I found some shoes for you!",
+        message_type="text",
+        message_metadata={"confidence_score": 0.85, "intent": "product_search"},
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(bot_msg)
+    await db_session.commit()
+    await db_session.refresh(conv)
+    return conv
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_handoff_conversation(db_session: AsyncSession, test_merchant):
+    """Create a test conversation in handoff with a handoff alert."""
+    from app.models.conversation import Conversation
+    from app.models.handoff_alert import HandoffAlert
+
+    conv = Conversation(
+        merchant_id=test_merchant.id,
+        platform="messenger",
+        platform_sender_id="handoff_customer",
+        status="handoff",
+        handoff_status="active",
+        handoff_triggered_at=datetime.utcnow() - timedelta(minutes=15),
+        handoff_reason="low_confidence",
+    )
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    alert = HandoffAlert(
+        merchant_id=test_merchant.id,
+        conversation_id=conv.id,
+        urgency_level="medium",
+        customer_name="Test Customer",
+        customer_id="handoff_customer",
+        conversation_preview="I need help",
+        wait_time_seconds=900,
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(alert)
+    await db_session.commit()
+    await db_session.refresh(conv)
+    return conv
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_conversation_with_context(db_session: AsyncSession, test_merchant):
+    """Create a test conversation with cart state and constraints."""
+    from app.models.conversation import Conversation
+
+    conv = Conversation(
+        merchant_id=test_merchant.id,
+        platform="messenger",
+        platform_sender_id="context_customer",
+        status="handoff",
+        handoff_status="active",
+        handoff_triggered_at=datetime.utcnow(),
+        handoff_reason="clarification_loop",
+        conversation_data={
+            "cart": {
+                "items": [{"product_id": "prod_123", "name": "Nike Air Max", "quantity": 1}],
+                "total": 129.99,
+            },
+            "constraints": {
+                "budget": "$100-150",
+                "size": "10",
+                "category": "running",
+            },
+            "last_intent": "product_search",
+        },
+    )
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+    return conv
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_conversation_with_multiple_messages(db_session: AsyncSession, test_merchant):
+    """Create a test conversation with multiple messages for ordering tests."""
+    from app.models.conversation import Conversation
+    from app.models.message import Message
+
+    conv = Conversation(
+        merchant_id=test_merchant.id,
+        platform="messenger",
+        platform_sender_id="multi_msg_customer",
+        status="handoff",
+        handoff_status="active",
+        handoff_triggered_at=datetime.utcnow(),
+        handoff_reason="keyword",
+    )
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    base_time = datetime.utcnow() - timedelta(minutes=10)
+    messages = [
+        Message(
+            conversation_id=conv.id,
+            sender="customer",
+            content="Hello",
+            message_type="text",
+            created_at=base_time,
+        ),
+        Message(
+            conversation_id=conv.id,
+            sender="bot",
+            content="Hi there!",
+            message_type="text",
+            message_metadata={"confidence_score": 0.95},
+            created_at=base_time + timedelta(seconds=5),
+        ),
+        Message(
+            conversation_id=conv.id,
+            sender="customer",
+            content="I need shoes",
+            message_type="text",
+            created_at=base_time + timedelta(seconds=30),
+        ),
+    ]
+    for msg in messages:
+        db_session.add(msg)
+    await db_session.commit()
+    await db_session.refresh(conv)
+    return conv

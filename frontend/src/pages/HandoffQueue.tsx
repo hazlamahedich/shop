@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useHandoffAlertsStore, type QueueUrgencyFilter } from '../stores/handoffAlertStore';
 import type { HandoffAlert } from '../services/handoffAlerts';
@@ -41,9 +42,10 @@ function formatWaitTime(seconds: number): string {
 interface HandoffQueueItemProps {
   alert: HandoffAlert;
   onMarkAsRead: (id: number) => void;
+  onViewHistory: (conversationId: number) => void;
 }
 
-function HandoffQueueItem({ alert, onMarkAsRead }: HandoffQueueItemProps) {
+function HandoffQueueItem({ alert, onMarkAsRead, onViewHistory }: HandoffQueueItemProps) {
   const urgencyConfig = URGENCY_CONFIG[alert.urgencyLevel];
 
   return (
@@ -51,7 +53,8 @@ function HandoffQueueItem({ alert, onMarkAsRead }: HandoffQueueItemProps) {
       data-testid="queue-item"
       data-alert-id={alert.id}
       data-urgency={alert.urgencyLevel}
-      className={`p-4 rounded-lg border ${
+      onClick={() => onViewHistory(alert.conversationId)}
+      className={`p-4 rounded-lg border cursor-pointer ${
         alert.isRead ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-300'
       } hover:shadow-md transition-shadow`}
     >
@@ -109,7 +112,10 @@ function HandoffQueueItem({ alert, onMarkAsRead }: HandoffQueueItemProps) {
           {!alert.isRead && (
             <button
               data-testid="item-mark-read"
-              onClick={() => onMarkAsRead(alert.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkAsRead(alert.id);
+              }}
               className="text-xs text-blue-600 hover:text-blue-800"
             >
               Mark as read
@@ -197,6 +203,7 @@ function Pagination({ currentPage, total, limit, onPageChange }: PaginationProps
 }
 
 export default function HandoffQueue() {
+  const navigate = useNavigate();
   const {
     queue,
     fetchQueue,
@@ -218,6 +225,10 @@ export default function HandoffQueue() {
 
   const handleMarkAsRead = async (alertId: number) => {
     await markAsRead(alertId);
+  };
+
+  const handleViewHistory = (conversationId: number) => {
+    navigate(`/conversations/${conversationId}/history`, { state: { from: '/handoff-queue' } });
   };
 
   return (
@@ -281,6 +292,7 @@ export default function HandoffQueue() {
                 key={alert.id}
                 alert={alert}
                 onMarkAsRead={handleMarkAsRead}
+                onViewHistory={handleViewHistory}
               />
             ))}
 

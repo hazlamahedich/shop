@@ -9,6 +9,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, SlidersHorizontal } from 'lucide-react';
 import { useConversationStore } from '../stores/conversationStore';
 import ConversationCard from '../components/conversations/ConversationCard';
@@ -20,6 +21,8 @@ import { SavedFilters } from '../components/conversations/SavedFilters';
 import { ExportButton, ExportProgress, ExportOptionsModal } from '../components/export';
 
 const Conversations: React.FC = () => {
+  const navigate = useNavigate();
+
   const {
     conversations,
     pagination,
@@ -174,7 +177,7 @@ const Conversations: React.FC = () => {
               <ConversationCard
                 key={conversation.id}
                 conversation={conversation}
-                // TODO: Add click handler in Story 4-8 (conversation-history-view)
+                onClick={() => navigate(`/conversations/${conversation.id}/history`, { state: { from: '/conversations' } })}
               />
             ))}
           </div>

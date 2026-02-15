@@ -66,3 +66,66 @@ export interface SavedFilter {
   filters: ConversationsFilterState;
   createdAt: string;
 }
+
+// ============================================
+// Story 4-8: Conversation History Types
+// ============================================
+
+export interface MessageHistoryItem {
+  id: number;
+  sender: 'customer' | 'bot';
+  content: string;
+  createdAt: string;
+  confidenceScore?: number | null;
+}
+
+export interface CartStateItem {
+  productId: string;
+  name: string;
+  quantity: number;
+}
+
+export interface CartState {
+  items: CartStateItem[];
+}
+
+export interface ExtractedConstraints {
+  budget?: string | null;
+  size?: string | null;
+  category?: string | null;
+}
+
+export interface ConversationContext {
+  cartState: CartState | null;
+  extractedConstraints: ExtractedConstraints | null;
+}
+
+export interface HandoffContext {
+  triggerReason: string;
+  triggeredAt: string;
+  urgencyLevel: 'high' | 'medium' | 'low';
+  waitTimeSeconds: number;
+}
+
+export interface CustomerInfo {
+  maskedId: string;
+  orderCount: number;
+}
+
+export interface ConversationHistoryData {
+  conversationId: number;
+  messages: MessageHistoryItem[];
+  context: ConversationContext;
+  handoff: HandoffContext;
+  customer: CustomerInfo;
+}
+
+export interface ConversationHistoryMeta {
+  requestId: string;
+  timestamp: string;
+}
+
+export interface ConversationHistoryResponse {
+  data: ConversationHistoryData;
+  meta: ConversationHistoryMeta;
+}

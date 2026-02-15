@@ -7,6 +7,7 @@
 import type {
   ConversationsListParams,
   ConversationsResponse,
+  ConversationHistoryResponse,
 } from '../types/conversation';
 
 const API_BASE = '/api/conversations';
@@ -50,6 +51,52 @@ export const conversationsService = {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Failed to fetch conversations');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Get count of active conversations
+   *
+   * Used for displaying badge on Conversations navigation.
+   *
+   * @returns Promise with active conversation count
+   */
+  async getActiveCount(): Promise<{ activeCount: number }> {
+    const response = await fetch(`${API_BASE}/active-count`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch active count');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Get conversation history with context
+   *
+   * Story 4-8: Returns full conversation history including messages,
+   * bot context, handoff info, and customer info.
+   *
+   * @param conversationId - ID of the conversation
+   * @returns Promise with conversation history data
+   */
+  async getConversationHistory(conversationId: number): Promise<ConversationHistoryResponse> {
+    const response = await fetch(`${API_BASE}/${conversationId}/history`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch conversation history');
     }
 
     return response.json();

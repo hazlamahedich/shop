@@ -180,7 +180,7 @@ Error codes that have been removed:
 | Code | Name                             | Description                                      | Added      |
 | ---- | -------------------------------- | ------------------------------------------------ | ---------- |
 | 7000 | SESSION_EXPIRED                  | Session expired                                  | 2024-02-03 |
-| 7001 | CONVERSATION_NOT_FOUND           | Conversation not found                           | 2024-02-03 |
+| 7001 | CONVERSATION_NOT_FOUND           | Conversation does not exist or merchant lacks access | 2026-02-15 |
 | 7002 | INVALID_CONTEXT                  | Invalid conversation context                     | 2024-02-03 |
 | 7003 | INVALID_PAGE_NUMBER              | Page number < 1                                  | 2026-02-07 |
 | 7004 | INVALID_PER_PAGE                 | Items per page out of range                      | 2026-02-07 |
@@ -200,6 +200,11 @@ Error codes that have been removed:
 | 7022 | HANDOFF_KEYWORD_TRIGGERED        | Keyword detection triggered handoff              | 2026-02-14 |
 | 7023 | HANDOFF_LOW_CONFIDENCE_TRIGGERED | Low confidence triggered handoff                 | 2026-02-14 |
 | 7024 | HANDOFF_LOOP_DETECTED            | Clarification loop triggered handoff             | 2026-02-14 |
+| 7025 | HANDOFF_NOTIFICATION_FAILED      | General notification failure                     | 2026-02-14 |
+| 7026 | HANDOFF_EMAIL_FAILED             | Email send failed                                | 2026-02-14 |
+| 7027 | HANDOFF_ALERT_CREATE_FAILED      | Database alert creation failed                   | 2026-02-14 |
+| 7028 | HANDOFF_URGENCY_DETECTION_FAILED | Urgency detection error                          | 2026-02-14 |
+| 7029 | HANDOFF_RATE_LIMITED             | Email rate limited (info, not error)             | 2026-02-14 |
 
 ## Examples
 

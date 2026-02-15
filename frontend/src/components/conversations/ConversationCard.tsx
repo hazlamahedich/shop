@@ -53,6 +53,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation
   return (
     <div
       onClick={onClick}
+      data-testid="conversation-card"
       className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
     >
       {/* Header: Customer ID and time */}

@@ -18,6 +18,7 @@ from app.models.faq import Faq
 from app.models.product_pin import ProductPin
 from app.models.session import Session
 from app.models.budget_alert import BudgetAlert
+from app.models.handoff_alert import HandoffAlert
 
 __all__ = [
     "Merchant",
@@ -36,4 +37,5 @@ __all__ = [
     "ProductPin",
     "Session",
     "BudgetAlert",
+    "HandoffAlert",
 ]

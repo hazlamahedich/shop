@@ -167,6 +167,13 @@ class ErrorCode(IntEnum):
     HANDOFF_LOW_CONFIDENCE_TRIGGERED = 7023  # Low confidence triggered
     HANDOFF_LOOP_DETECTED = 7024  # Clarification loop detected
 
+    # Handoff notification error codes (Story 4-6)
+    HANDOFF_NOTIFICATION_FAILED = 7025  # General notification failure
+    HANDOFF_EMAIL_FAILED = 7026  # Email send failed
+    HANDOFF_ALERT_CREATE_FAILED = 7027  # Database alert creation failed
+    HANDOFF_URGENCY_DETECTION_FAILED = 7028  # Urgency detection error
+    HANDOFF_RATE_LIMITED = 7029  # Email rate limited (info, not error)
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

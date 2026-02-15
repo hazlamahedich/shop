@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
@@ -99,8 +99,7 @@ class ConversationFilterParams(BaseModel):
         invalid = [s for s in v if s not in VALID_STATUS_VALUES]
         if invalid:
             raise ValueError(
-                f"Invalid status values: {invalid}. "
-                f"Valid values: {', '.join(VALID_STATUS_VALUES)}"
+                f"Invalid status values: {invalid}. Valid values: {', '.join(VALID_STATUS_VALUES)}"
             )
         return v
 
@@ -117,3 +116,102 @@ class ConversationFilterParams(BaseModel):
                 f"Valid values: {', '.join(VALID_SENTIMENT_VALUES)}"
             )
         return v
+
+
+class MessageHistoryItem(BaseModel):
+    """Single message in conversation history."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: int
+    sender: str
+    content: str
+    created_at: datetime
+    confidence_score: Optional[float] = None
+
+
+class CartStateItem(BaseModel):
+    """Item in cart state."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    product_id: str
+    name: str
+    quantity: int
+
+
+class CartState(BaseModel):
+    """Cart state from conversation context."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    items: List[CartStateItem] = Field(default_factory=list)
+
+
+class ExtractedConstraints(BaseModel):
+    """Extracted constraints from conversation."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    budget: Optional[str] = None
+    size: Optional[str] = None
+    category: Optional[str] = None
+
+
+class ConversationContext(BaseModel):
+    """Conversation context including cart and constraints."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    cart_state: Optional[CartState] = None
+    extracted_constraints: Optional[ExtractedConstraints] = None
+
+
+class HandoffContext(BaseModel):
+    """Handoff context for conversation history."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    trigger_reason: str
+    triggered_at: datetime
+    urgency_level: str
+    wait_time_seconds: int
+
+
+class CustomerInfo(BaseModel):
+    """Customer information for conversation history."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    masked_id: str
+    order_count: int = 0
+
+
+class ConversationHistoryData(BaseModel):
+    """Conversation history response data."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    conversation_id: int
+    messages: List[MessageHistoryItem]
+    context: ConversationContext
+    handoff: HandoffContext
+    customer: CustomerInfo
+
+
+class ConversationHistoryMeta(BaseModel):
+    """Meta information for conversation history response."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    request_id: str
+    timestamp: str
+
+
+class ConversationHistoryResponse(BaseModel):
+    """Full conversation history response."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    data: ConversationHistoryData
+    meta: ConversationHistoryMeta

@@ -1,4 +1,6 @@
+from datetime import datetime, timezone
 from typing import Annotated, Optional, List
+from uuid import uuid4
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,13 +10,24 @@ from app.core.errors import APIError, ErrorCode, ValidationError
 from app.schemas.conversation import (
     ConversationListResponse,
     ConversationFilterParams,
+    ConversationHistoryResponse,
+    ConversationHistoryData,
+    ConversationHistoryMeta,
+    ConversationContext,
+    HandoffContext,
+    CustomerInfo,
     VALID_STATUS_VALUES,
     VALID_SENTIMENT_VALUES,
 )
 from app.services.conversation import ConversationService
+from pydantic import BaseModel
 
 router = APIRouter()
 conversation_service = ConversationService()
+
+
+class ActiveCountResponse(BaseModel):
+    activeCount: int
 
 
 @router.get("", response_model=ConversationListResponse)
@@ -125,3 +138,109 @@ async def list_conversations(
             # request_id handled by middleware usually, but can be added here if needed in body
         },
     )
+
+
+@router.get("/active-count", response_model=ActiveCountResponse)
+async def get_active_conversation_count(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ActiveCountResponse:
+    """
+    Get count of active conversations for the authenticated merchant.
+
+    Active conversations are those where status='active' (not in handoff or closed).
+    Used for displaying a badge on the Conversations navigation item.
+
+    Returns:
+        Count of active conversations
+    """
+    merchant_id = getattr(request.state, "merchant_id", None)
+    if not merchant_id:
+        if settings()["DEBUG"]:
+            merchant_id_header = request.headers.get("X-Merchant-Id")
+            if merchant_id_header:
+                merchant_id = int(merchant_id_header)
+            else:
+                merchant_id = 1
+        else:
+            raise APIError(
+                ErrorCode.AUTH_FAILED,
+                "Authentication required",
+            )
+
+    active_count = await conversation_service.get_active_count(db, merchant_id)
+    return ActiveCountResponse(activeCount=active_count)
+
+
+@router.get("/{conversation_id}/history", response_model=ConversationHistoryResponse)
+async def get_conversation_history(
+    request: Request,
+    conversation_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ConversationHistoryResponse:
+    """
+    Get full conversation history with context for a handoff conversation.
+
+    Returns:
+        Conversation history with messages, bot context, handoff info, and customer info.
+
+    Raises:
+        APIError: If authentication fails or conversation not found
+    """
+    merchant_id = getattr(request.state, "merchant_id", None)
+    if not merchant_id:
+        if settings()["DEBUG"]:
+            merchant_id_header = request.headers.get("X-Merchant-Id")
+            if merchant_id_header:
+                merchant_id = int(merchant_id_header)
+            else:
+                merchant_id = 1
+        else:
+            raise APIError(
+                ErrorCode.AUTH_FAILED,
+                "Authentication required",
+            )
+
+    history_data = await conversation_service.get_conversation_history(
+        db=db,
+        conversation_id=conversation_id,
+        merchant_id=merchant_id,
+    )
+
+    if not history_data:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    context = ConversationContext(
+        cart_state=history_data["context"]["cart_state"],
+        extracted_constraints=history_data["context"]["extracted_constraints"],
+    )
+
+    handoff = HandoffContext(
+        trigger_reason=history_data["handoff"]["trigger_reason"],
+        triggered_at=history_data["handoff"]["triggered_at"],
+        urgency_level=history_data["handoff"]["urgency_level"],
+        wait_time_seconds=history_data["handoff"]["wait_time_seconds"],
+    )
+
+    customer = CustomerInfo(
+        masked_id=history_data["customer"]["masked_id"],
+        order_count=history_data["customer"]["order_count"],
+    )
+
+    data = ConversationHistoryData(
+        conversation_id=history_data["conversation_id"],
+        messages=history_data["messages"],
+        context=context,
+        handoff=handoff,
+        customer=customer,
+    )
+
+    meta = ConversationHistoryMeta(
+        request_id=str(uuid4()),
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+    return ConversationHistoryResponse(data=data, meta=meta)

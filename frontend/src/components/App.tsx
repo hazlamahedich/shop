@@ -2,6 +2,8 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import DashboardLayout from './layout/DashboardLayout';
 import Dashboard from '../pages/Dashboard';
 import Conversations from '../pages/Conversations';
+import HandoffQueue from '../pages/HandoffQueue';
+import ConversationHistory from '../pages/ConversationHistory';
 import Costs from '../pages/Costs';
 import Settings from '../pages/Settings';
 import { ProviderSettings } from '../pages/ProviderSettings';
@@ -40,6 +42,8 @@ export function App() {
       <Route element={<OnboardingGuard isAuthenticated={isAuthenticated}><DashboardLayoutWrapper /></OnboardingGuard>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/conversations" element={<Conversations />} />
+        <Route path="/conversations/:conversationId/history" element={<ConversationHistory />} />
+        <Route path="/handoff-queue" element={<HandoffQueue />} />
         <Route path="/costs" element={<Costs />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/provider" element={<ProviderSettings />} />
