@@ -1,12 +1,26 @@
-import React from 'react';
-import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut, Package, ShoppingCart } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut, Package, ShoppingCart, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useHasStoreConnected } from '../../stores/authStore';
+import { useHandoffAlertsStore } from '../../stores/handoffAlertStore';
+import { useConversationStore } from '../../stores/conversationStore';
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const { merchant, logout, isAuthenticated } = useAuthStore();
   const hasStoreConnected = useHasStoreConnected();
+  const { unreadCount, startPolling: startHandoffPolling, stopPolling: stopHandoffPolling } = useHandoffAlertsStore();
+  const { activeCount, startActiveCountPolling, stopActiveCountPolling } = useConversationStore();
+
+  // Start polling for unread count on mount
+  useEffect(() => {
+    startHandoffPolling(30000); // Poll every 30 seconds
+    startActiveCountPolling(30000); // Poll every 30 seconds
+    return () => {
+      stopHandoffPolling();
+      stopActiveCountPolling();
+    };
+  }, [startHandoffPolling, stopHandoffPolling, startActiveCountPolling, stopActiveCountPolling]);
 
   const isActive = (path: string) => {
     return window.location.pathname === path;
@@ -28,12 +42,14 @@ const Sidebar = () => {
     label: string;
     path: string;
     requiresStore?: boolean; // If true, only shown when store is connected
+    badgeType?: 'conversations' | 'handoff'; // Which badge to show
   }
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TestTube, label: 'Test Your Bot', path: '/bot-preview' },
-    { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
+    { icon: MessageSquare, label: 'Conversations', path: '/conversations', badgeType: 'conversations' },
+    { icon: Users, label: 'Handoff Queue', path: '/handoff-queue', badgeType: 'handoff' },
     { icon: DollarSign, label: 'Costs', path: '/costs' },
     // Sprint Change 2026-02-13: Store-dependent navigation items
     // Uncomment when Products and Orders pages are implemented:
@@ -70,14 +86,33 @@ const Sidebar = () => {
           <a
             key={item.path}
             href={item.path}
-            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+            data-testid={item.path === '/conversations' ? 'nav-conversations' : undefined}
+            className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
               isActive(item.path)
                 ? 'bg-blue-50 text-primary font-medium'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <item.icon size={20} />
-            <span>{item.label}</span>
+            <div className="flex items-center space-x-3">
+              <item.icon size={20} />
+              <span>{item.label}</span>
+            </div>
+            {item.badgeType === 'conversations' && activeCount > 0 && (
+              <span
+                data-testid="conversations-active-badge"
+                className="bg-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded-full min-w-[20px] text-center"
+              >
+                {activeCount > 99 ? '99+' : activeCount}
+              </span>
+            )}
+            {item.badgeType === 'handoff' && unreadCount > 0 && (
+              <span
+                data-testid="handoff-unread-badge"
+                className="bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full min-w-[20px] text-center"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </a>
         ))}
       </nav>

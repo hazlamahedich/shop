@@ -100,9 +100,9 @@ development_status:
   4-5-human-assistance-detection: done # ⭐ FOUNDATION - Detect when shopper needs human help (61 tests, migration applied, QA automate complete: 47/54 E2E passing)
   4-6-handoff-notifications: done # 2026-02-14: Code review COMPLETE - All HIGH/MEDIUM issues fixed (HandoffFlowService created, push stub added, docs corrected)
   4-7-handoff-queue-with-urgency: done # 2026-02-15: Code review COMPLETE + QA automation COMPLETE - Component tests added (37 tests), 145 total tests passing (100%)
-  4-8-conversation-history-view: backlog # Full conversation context for merchant (depends: 4-5, 4-7)
-  4-9-open-in-messenger-reply: backlog # Merchant replies via Messenger (depends: 4-7, 4-8)
-  4-10-return-to-bot: backlog # Merchant returns control to bot (depends: 4-9)
+  4-8-conversation-history-view: review # 2026-02-15: Implementation complete - 9 backend tests, 10 E2E tests, all tasks done
+  4-9-open-in-messenger-reply: done # 2026-02-15: Code review complete - All HIGH/MEDIUM issues fixed, fail-safe behavior implemented, 10 frontend + 8 backend unit tests passing
+  4-10-return-to-bot: done # Code review complete - All CRITICAL/HIGH issues fixed (closed status error, resolved handoff_status reset, toast error handling), 14 backend tests passing
   4-11-offline-follow-up-messages: backlog # Auto follow-up if merchant offline (depends: 4-5, 3-10)
   4-12-business-hours-handling: backlog # Check business hours for handoff (depends: 4-5, 3-10)
   

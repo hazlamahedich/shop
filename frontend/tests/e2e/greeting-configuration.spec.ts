@@ -277,7 +277,7 @@ test.describe('Story 1.14: Smart Greeting Templates - Greeting Configuration [P0
     // Verify badge has correct text based on personality
     const botConfigStore = await page.evaluate(async () => {
       // @ts-ignore
-      return (window as any).botConfigStore?.getState?.() || {});
+      return (window as any).botConfigStore?.getState?.() || {};
     });
 
     const personality = botConfigStore?.personality || 'friendly';

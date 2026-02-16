@@ -1,13 +1,14 @@
 /**
  * OpenInMessengerButton Component - Story 4-9: Open in Messenger Reply
+ * Story 4-10: Return to Bot - Added toast notification
  *
  * Button that opens Facebook Messenger at a specific conversation.
  * Supports smart state: shows "Open in Messenger" or "Return to Bot"
  * depending on hybrid mode status.
  */
 
-import React, { useState } from 'react';
-import { MessageCircle, Bot, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MessageCircle, Bot, Loader2, Check } from 'lucide-react';
 import type { HybridModeState, FacebookPageInfo } from '../../types/conversation';
 
 interface OpenInMessengerButtonProps {
@@ -17,6 +18,7 @@ interface OpenInMessengerButtonProps {
   facebookPage: FacebookPageInfo | null;
   isLoading?: boolean;
   onHybridModeChange?: (enabled: boolean) => Promise<void>;
+  onConversationRefresh?: () => Promise<void>;
 }
 
 export default function OpenInMessengerButton({
@@ -26,13 +28,22 @@ export default function OpenInMessengerButton({
   facebookPage,
   isLoading = false,
   onHybridModeChange,
+  onConversationRefresh,
 }: OpenInMessengerButtonProps) {
   const [isToggling, setIsToggling] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const isHybridModeActive = hybridMode?.enabled === true;
   const hasFacebookConnection = facebookPage?.isConnected === true && facebookPage.pageId;
   const isDisabled = !hasFacebookConnection || isLoading || isToggling;
+
+  useEffect(() => {
+    if (showToast) {
+      const timer = setTimeout(() => setShowToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]);
 
   const handleClick = async () => {
     if (isDisabled) return;
@@ -41,6 +52,8 @@ export default function OpenInMessengerButton({
       setIsToggling(true);
       try {
         await onHybridModeChange?.(false);
+        setShowToast(true);
+        await onConversationRefresh?.();
       } finally {
         setIsToggling(false);
       }
@@ -109,6 +122,23 @@ export default function OpenInMessengerButton({
         >
           Connect a Facebook page to enable Messenger replies
           <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+        </div>
+      )}
+
+      {showToast && (
+        <div
+          data-testid="return-to-bot-toast"
+          role="status"
+          aria-live="polite"
+          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 
+                     bg-green-600 text-white text-sm rounded-lg shadow-lg whitespace-nowrap z-20
+                     animate-fade-in"
+        >
+          <div className="flex items-center gap-2">
+            <Check size={16} />
+            <span>Bot is back in control</span>
+          </div>
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-green-600" />
         </div>
       )}
     </div>

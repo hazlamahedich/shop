@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import structlog
@@ -297,7 +297,7 @@ class HandoffDetector:
             state = {
                 "type": clarification_type,
                 "count": count,
-                "last_asked": datetime.now(UTC).isoformat(),
+                "last_asked": datetime.now(timezone.utc).isoformat(),
             }
             await self.redis_client.setex(key, CLARIFICATION_STATE_TTL, json.dumps(state))
         except Exception as e:

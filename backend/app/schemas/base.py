@@ -37,6 +37,7 @@ class BaseSchema(BaseModel):
     Provides:
     - Automatic camelCase alias generation for JSON serialization
     - populate_by_name enabled for both camelCase and snake_case input
+    - serialize_by_alias enabled for automatic camelCase output
     - Consistent behavior across all schema classes
 
     All request/response schemas should extend this class to maintain
@@ -46,6 +47,7 @@ class BaseSchema(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
+        serialize_by_alias=True,
     )
 
 

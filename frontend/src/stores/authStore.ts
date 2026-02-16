@@ -11,8 +11,8 @@
  * - Multi-tab sync via BroadcastChannel (single instance)
  * - Auto-refresh token before expiration
  *
- * Note: Uses httpOnly cookies for session storage (no sessionStorage tokens needed).
- * sessionStorage is only used for page refresh persistence within same tab.
+ * Note: Uses httpOnly cookies for session storage (no localStorage tokens needed).
+ * localStorage is used for auth state persistence across page refreshes and browser restarts.
  */
 
 import { create } from 'zustand';
@@ -71,14 +71,14 @@ const initialState: AuthState = {
 
 /**
  * Create auth store with Zustand.
- * Uses in-memory state only (no persistence for security).
+ * Uses localStorage for auth state persistence (survives page refreshes and browser restarts).
  */
 export const useAuthStore = create<AuthStore>((set, get) => {
   let refreshTimerId: ReturnType<typeof setInterval> | null = null;
 
-  // Initialize from sessionStorage if available (for session persistence within tab)
-  // Using sessionStorage instead of localStorage to avoid cross-tab state conflicts
-  const storedAuth = sessionStorage.getItem('auth_state');
+  // Initialize from localStorage if available (for session persistence)
+  // Using localStorage instead of sessionStorage for persistent sessions
+  const storedAuth = localStorage.getItem('shop_auth_state');
   const initialStateWithStorage = storedAuth ? JSON.parse(storedAuth) : initialState;
 
   return {
@@ -111,8 +111,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         set(authState);
 
-        // Save to sessionStorage for session persistence (LOW-14: updated comment)
-        sessionStorage.setItem('auth_state', JSON.stringify(authState));
+        // Save to localStorage for session persistence
+        localStorage.setItem('shop_auth_state', JSON.stringify(authState));
 
         // Only reset onboarding and tutorial state when logging in as a DIFFERENT user
         // This preserves tutorial progress when the same user re-authenticates
@@ -163,16 +163,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         };
         set(authState);
 
-        // Clear sessionStorage (LOW-14: updated comment)
-        sessionStorage.removeItem('auth_state');
+        // Clear localStorage
+        localStorage.removeItem('shop_auth_state');
 
         // Notify other tabs via global BroadcastChannel
         broadcastLogout();
       } catch (error) {
         set({ isLoading: false, error: 'Logout failed' });
         // Continue with client-side logout even if API fails
-        // Clear sessionStorage on error too (LOW-14: updated comment)
-        sessionStorage.removeItem('auth_state');
+        // Clear localStorage on error too
+        localStorage.removeItem('shop_auth_state');
       }
     },
 
@@ -199,8 +199,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         set(authState);
 
-        // Save to sessionStorage for session persistence (LOW-14: updated comment)
-        sessionStorage.setItem('auth_state', JSON.stringify(authState));
+        // Save to localStorage for session persistence
+        localStorage.setItem('shop_auth_state', JSON.stringify(authState));
 
         // Start refresh timer if not already running
         if (!refreshTimerId) {
@@ -216,8 +216,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           isLoading: false,
           error: null, // Clear error instead of showing "Session invalid"
         });
-        // Clear sessionStorage on fetchMe failure (LOW-14: updated comment)
-        sessionStorage.removeItem('auth_state');
+        // Clear localStorage on fetchMe failure
+        localStorage.removeItem('shop_auth_state');
         get()._stopRefreshTimer();
       }
     },
@@ -345,8 +345,8 @@ export const initializeAuth = async (): Promise<boolean> => {
       if (event.data.type === 'LOGOUT') {
         // Clear auth state when logout is broadcast from another tab
         store.reset();
-        // Clear sessionStorage
-        sessionStorage.removeItem('auth_state');
+        // Clear localStorage
+        localStorage.removeItem('shop_auth_state');
         // Use window.location for a full page reload to ensure clean state
         window.location.href = '/login';
       }
@@ -354,7 +354,7 @@ export const initializeAuth = async (): Promise<boolean> => {
   }
 
   // Always verify session with backend on page load
-  // This ensures we catch expired/invalid sessions even if sessionStorage says we're logged in
+  // This ensures we catch expired/invalid sessions even if localStorage says we're logged in
   try {
     await store.fetchMe();
     return true; // Auth successful
@@ -362,7 +362,7 @@ export const initializeAuth = async (): Promise<boolean> => {
     // Not authenticated - that's okay, user will see login page
     // Clear the error and any stale auth state
     store.clearError();
-    sessionStorage.removeItem('auth_state');
+    localStorage.removeItem('shop_auth_state');
     console.info('No active session found');
     return false; // Not authenticated
   }

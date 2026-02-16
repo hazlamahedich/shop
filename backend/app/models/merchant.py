@@ -164,6 +164,11 @@ class Merchant(Base):
         cascade="all, delete-orphan",
         order_by="BudgetAlert.created_at.desc()",
     )
+    handoff_alerts: Mapped[list["HandoffAlert"]] = relationship(
+        "HandoffAlert",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+    )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),

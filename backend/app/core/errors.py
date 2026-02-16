@@ -174,6 +174,12 @@ class ErrorCode(IntEnum):
     HANDOFF_URGENCY_DETECTION_FAILED = 7028  # Urgency detection error
     HANDOFF_RATE_LIMITED = 7029  # Email rate limited (info, not error)
 
+    # Story 4-9: Hybrid mode error codes
+    NO_FACEBOOK_PAGE_CONNECTION = 7030  # Merchant has not connected a Facebook page
+
+    # Story 4-10: Return to bot error codes
+    INVALID_STATUS_TRANSITION = 7031  # Cannot change conversation status (e.g., closed)
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

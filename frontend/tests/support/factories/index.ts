@@ -11,3 +11,4 @@
  */
 
 export * from './costFactory';
+export * from './handoffAlertFactory';

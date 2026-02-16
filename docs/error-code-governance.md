@@ -205,6 +205,7 @@ Error codes that have been removed:
 | 7027 | HANDOFF_ALERT_CREATE_FAILED      | Database alert creation failed                   | 2026-02-14 |
 | 7028 | HANDOFF_URGENCY_DETECTION_FAILED | Urgency detection error                          | 2026-02-14 |
 | 7029 | HANDOFF_RATE_LIMITED             | Email rate limited (info, not error)             | 2026-02-14 |
+| 7030 | NO_FACEBOOK_PAGE_CONNECTION      | Merchant has not connected a Facebook page       | 2026-02-15 |
 
 ## Examples
 

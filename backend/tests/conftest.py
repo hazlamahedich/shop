@@ -158,7 +158,7 @@ async def _reset_database():
 
         # Reset sequences
         await conn.execute(text("SELECT setval('merchants_id_seq', 1, false);"))
-        await conn.execute(text("SELECT setval('tutorials_id_seq'), 1, false);"))
+        await conn.execute(text("SELECT setval('tutorials_id_seq', 1, false);"))
         print(f"DEBUG: Database reset completed")
 
 

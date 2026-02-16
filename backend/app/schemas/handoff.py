@@ -40,6 +40,27 @@ class HandoffReason(str, Enum):
     CLARIFICATION_LOOP = "clarification_loop"
 
 
+class UrgencyLevel(str, Enum):
+    """Urgency level for handoff notifications.
+
+    Used to prioritize handoff alerts and determine notification behavior.
+    - HIGH: Checkout blocking or shopper mentioned "checkout" before handoff
+    - MEDIUM: Bot confused after clarifications (low_confidence, clarification_loop)
+    - LOW: Routine question (keyword trigger)
+    """
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+URGENCY_EMOJI = {
+    UrgencyLevel.HIGH: "🔴",
+    UrgencyLevel.MEDIUM: "🟡",
+    UrgencyLevel.LOW: "🟢",
+}
+
+
 class HandoffResult(BaseSchema):
     """Result of handoff detection check.
 
@@ -96,6 +117,8 @@ DEFAULT_HANDOFF_MESSAGE = (
 __all__ = [
     "HandoffStatus",
     "HandoffReason",
+    "UrgencyLevel",
+    "URGENCY_EMOJI",
     "HandoffResult",
     "HandoffResponse",
     "HandoffDetectionRequest",

@@ -3,13 +3,16 @@
  *
  * Displays active handoff conversations sorted by urgency and wait time.
  * Allows merchants to filter by urgency level and paginate through results.
+ * Story 4-9: Added Open in Messenger quick action button.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useHandoffAlertsStore, type QueueUrgencyFilter } from '../stores/handoffAlertStore';
 import type { HandoffAlert } from '../services/handoffAlerts';
+import { conversationsService } from '../services/conversations';
+import type { FacebookPageInfo, HybridModeState } from '../types/conversation';
 
 const URGENCY_CONFIG = {
   high: { emoji: '🔴', label: 'High', color: 'text-red-600', bg: 'bg-red-50' },
@@ -43,10 +46,23 @@ interface HandoffQueueItemProps {
   alert: HandoffAlert;
   onMarkAsRead: (id: number) => void;
   onViewHistory: (conversationId: number) => void;
+  facebookPage: FacebookPageInfo | null;
+  onOpenMessenger: (conversationId: number, platformSenderId: string) => Promise<void>;
+  hybridModes: Record<number, HybridModeState>;
 }
 
-function HandoffQueueItem({ alert, onMarkAsRead, onViewHistory }: HandoffQueueItemProps) {
+function HandoffQueueItem({ 
+  alert, 
+  onMarkAsRead, 
+  onViewHistory, 
+  facebookPage, 
+  onOpenMessenger,
+  hybridModes,
+}: HandoffQueueItemProps) {
   const urgencyConfig = URGENCY_CONFIG[alert.urgencyLevel];
+  const hybridMode = hybridModes[alert.conversationId] || null;
+  const hasFacebookConnection = facebookPage?.isConnected && facebookPage.pageId && alert.platformSenderId;
+  const isHybridModeActive = hybridMode?.enabled === true;
 
   return (
     <div
@@ -109,6 +125,22 @@ function HandoffQueueItem({ alert, onMarkAsRead, onViewHistory }: HandoffQueueIt
 
         {/* Actions */}
         <div className="ml-4 flex flex-col items-end gap-2">
+          {hasFacebookConnection && (
+            <button
+              data-testid="item-open-messenger"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await onOpenMessenger(alert.conversationId, alert.platformSenderId!);
+              }}
+              className={`text-xs px-3 py-1.5 rounded-md flex items-center gap-1 ${
+                isHybridModeActive 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              <span>{isHybridModeActive ? 'Bot Paused' : 'Open in Messenger'}</span>
+            </button>
+          )}
           {!alert.isRead && (
             <button
               data-testid="item-mark-read"
@@ -215,11 +247,19 @@ export default function HandoffQueue() {
     error,
     clearError,
   } = useHandoffAlertsStore();
+  
+  const [facebookPage, setFacebookPage] = useState<FacebookPageInfo | null>(null);
+  const [hybridModes, setHybridModes] = useState<Record<number, HybridModeState>>({});
 
-  // Fetch queue on mount and start polling
+  // Fetch queue and Facebook page on mount and start polling
   useEffect(() => {
     fetchQueue();
-    startQueuePolling(30000); // Refresh every 30 seconds
+    startQueuePolling(30000);
+    
+    conversationsService.getFacebookPageInfo()
+      .then((res) => setFacebookPage(res.data))
+      .catch(() => setFacebookPage({ pageId: null, pageName: null, isConnected: false }));
+    
     return () => stopQueuePolling();
   }, [fetchQueue, startQueuePolling, stopQueuePolling]);
 
@@ -229,6 +269,33 @@ export default function HandoffQueue() {
 
   const handleViewHistory = (conversationId: number) => {
     navigate(`/conversations/${conversationId}/history`, { state: { from: '/handoff-queue' } });
+  };
+  
+  const handleOpenMessenger = async (conversationId: number, platformSenderId: string) => {
+    if (!facebookPage?.pageId) return;
+    
+    const messengerUrl = `https://m.me/${facebookPage.pageId}?thread_id=${platformSenderId}`;
+    window.open(messengerUrl, '_blank');
+    
+    try {
+      const response = await conversationsService.setHybridMode(conversationId, {
+        enabled: true,
+        reason: 'merchant_responding',
+      });
+      
+      setHybridModes((prev) => ({
+        ...prev,
+        [conversationId]: {
+          enabled: response.hybridMode.enabled,
+          activatedAt: response.hybridMode.activatedAt,
+          activatedBy: response.hybridMode.activatedBy,
+          expiresAt: response.hybridMode.expiresAt,
+          remainingSeconds: response.hybridMode.remainingSeconds,
+        },
+      }));
+    } catch (err) {
+      console.error('Failed to enable hybrid mode:', err);
+    }
   };
 
   return (
@@ -293,6 +360,9 @@ export default function HandoffQueue() {
                 alert={alert}
                 onMarkAsRead={handleMarkAsRead}
                 onViewHistory={handleViewHistory}
+                facebookPage={facebookPage}
+                onOpenMessenger={handleOpenMessenger}
+                hybridModes={hybridModes}
               />
             ))}
 

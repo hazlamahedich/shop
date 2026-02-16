@@ -1,6 +1,8 @@
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional, List
 from uuid import uuid4
+
+import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -268,18 +270,28 @@ async def set_hybrid_mode(
     Hybrid mode allows merchants to take control of a conversation from the bot.
     When enabled, the bot will only respond to @bot mentions.
 
+    Story 4-10: When disabling hybrid mode:
+    - Status transitions from "handoff" to "active"
+    - handoff_status resets to "none"
+    - Welcome message sent to shopper (if within 24h window)
+
     Args:
         conversation_id: ID of the conversation
         hybrid_mode_request: Request body with 'enabled' and optional 'reason'
 
     Returns:
-        Updated hybrid mode state with remaining time
+        Updated hybrid mode state with remaining time and status
 
     Raises:
         APIError: If authentication fails or conversation not found
     """
     from app.models.conversation import Conversation
     from app.models.facebook_integration import FacebookIntegration
+    from app.core.security import decrypt_access_token
+    from app.services.handoff.return_to_bot_service import ReturnToBotService
+    from app.services.messenger.send_service import MessengerSendService
+
+    logger = structlog.get_logger(__name__)
 
     merchant_id = getattr(request.state, "merchant_id", None)
     if not merchant_id:
@@ -295,7 +307,6 @@ async def set_hybrid_mode(
                 "Authentication required",
             )
 
-    # Check Facebook page connection
     fb_result = await db.execute(
         select(FacebookIntegration).where(FacebookIntegration.merchant_id == merchant_id)
     )
@@ -307,7 +318,6 @@ async def set_hybrid_mode(
             "Merchant has not connected a Facebook page",
         )
 
-    # Get the conversation
     result = await db.execute(
         select(Conversation).where(
             Conversation.id == conversation_id,
@@ -322,10 +332,10 @@ async def set_hybrid_mode(
             "Conversation not found or access denied",
         )
 
-    # Update hybrid mode state
     now = datetime.now(timezone.utc)
     conversation_data = conversation.conversation_data or {}
     expires_at: datetime | None = None
+    previous_status = conversation.status
 
     if hybrid_mode_request.enabled:
         expires_at = now + timedelta(hours=2)
@@ -335,7 +345,7 @@ async def set_hybrid_mode(
             "activated_by": "merchant",
             "expires_at": expires_at.isoformat(),
         }
-        remaining_seconds = 7200  # 2 hours when just enabled
+        remaining_seconds = 7200
     else:
         conversation_data["hybrid_mode"] = {
             "enabled": False,
@@ -345,9 +355,56 @@ async def set_hybrid_mode(
         }
         remaining_seconds = 0
 
-    # Update conversation
+        # CRITICAL: Cannot auto-reopen closed conversations
+        if conversation.status == "closed":
+            raise APIError(
+                ErrorCode.INVALID_STATUS_TRANSITION,
+                "Cannot reopen closed conversation via return-to-bot",
+            )
+
+        if conversation.status == "handoff":
+            conversation.status = "active"
+            logger.info(
+                "handoff_resolved",
+                conversation_id=conversation_id,
+                previous_status=previous_status,
+                new_status="active",
+                merchant_id=merchant_id,
+            )
+
+        # Reset handoff_status for all non-"none" states (pending, active, resolved)
+        if conversation.handoff_status in ("pending", "active", "resolved"):
+            previous_handoff_status = conversation.handoff_status
+            conversation.handoff_status = "none"
+            logger.info(
+                "handoff_status_reset",
+                conversation_id=conversation_id,
+                previous_handoff_status=previous_handoff_status,
+                handoff_status="none",
+            )
+
+        if fb_integration.access_token_encrypted:
+            try:
+                access_token = decrypt_access_token(fb_integration.access_token_encrypted)
+                return_service = ReturnToBotService(db)
+                fb_service = MessengerSendService(access_token=access_token)
+                welcome_result = await return_service.send_welcome_message(conversation, fb_service)
+                logger.info(
+                    "return_to_bot_welcome",
+                    conversation_id=conversation_id,
+                    sent=welcome_result.get("sent"),
+                    reason=welcome_result.get("reason"),
+                )
+            except Exception as e:
+                logger.error(
+                    "return_to_bot_welcome_failed",
+                    conversation_id=conversation_id,
+                    error=str(e),
+                )
+
     conversation.conversation_data = conversation_data
     await db.commit()
+    await db.refresh(conversation)
 
     response_data = {
         "conversationId": conversation_id,
@@ -358,6 +415,8 @@ async def set_hybrid_mode(
             "expiresAt": expires_at.isoformat() if expires_at else None,
             "remainingSeconds": remaining_seconds,
         },
+        "conversationStatus": conversation.status,
+        "handoffStatus": conversation.handoff_status or "none",
     }
 
     return {

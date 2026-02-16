@@ -11,7 +11,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: true,
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '**/tutorial*.test.ts', '**/tutorial*.test.tsx', '**/test_tutorial*.ts'],
-    exclude: ['**/tests/e2e/**', 'node_modules/**', 'dist/**', 'build/**', '**/*.d.ts'],
+    exclude: ['**/tests/e2e/**', '**/tests/api/**', 'node_modules/**', 'dist/**', 'build/**', '**/*.d.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

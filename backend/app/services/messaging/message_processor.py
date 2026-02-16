@@ -430,6 +430,59 @@ class MessageProcessor:
             self.logger.warning("get_business_name_failed", error=str(e))
             return None
 
+    def should_bot_respond(self, conversation, message: str) -> bool:
+        """Determine if bot should respond based on hybrid mode state.
+
+        Story 4-9: When hybrid mode is active, the bot only responds to
+        @bot mentions. Otherwise, it responds normally.
+
+        Args:
+            conversation: Conversation model with conversation_data field
+            message: Customer message text
+
+        Returns:
+            True if bot should respond, False to stay silent
+        """
+        from datetime import datetime, timezone
+
+        conversation_data = conversation.conversation_data if conversation else {}
+        hybrid_mode = conversation_data.get("hybrid_mode", {}) if conversation_data else {}
+
+        if hybrid_mode.get("enabled"):
+            expires_at = hybrid_mode.get("expires_at")
+            if expires_at:
+                try:
+                    expires_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                    if datetime.now(timezone.utc) > expires_dt:
+                        self.logger.info(
+                            "hybrid_mode_expired",
+                            conversation_id=conversation.id if conversation else None,
+                        )
+                        return True
+                except (ValueError, TypeError) as e:
+                    self.logger.warning(
+                        "hybrid_mode_malformed_expiry",
+                        conversation_id=conversation.id if conversation else None,
+                        expires_at=expires_at,
+                        error=str(e),
+                    )
+                    return True
+
+            if "@bot" in message.lower():
+                self.logger.info(
+                    "hybrid_mode_bot_mention",
+                    conversation_id=conversation.id if conversation else None,
+                )
+                return True
+
+            self.logger.info(
+                "hybrid_mode_active_silent",
+                conversation_id=conversation.id if conversation else None,
+            )
+            return False
+
+        return True
+
     async def process_message(
         self,
         webhook_payload: FacebookWebhookPayload,
@@ -501,6 +554,21 @@ class MessageProcessor:
 
             # Load conversation context
             context = await self.context_manager.get_context(psid)
+
+            # Story 4-9: Check hybrid mode - if active, only respond to @bot mentions
+            conversation = await self._get_conversation(psid)
+            if conversation:
+                should_respond = self.should_bot_respond(conversation, message)
+                if not should_respond:
+                    self.logger.info(
+                        "hybrid_mode_silent",
+                        psid=psid,
+                        conversation_id=conversation.id,
+                    )
+                    return MessengerResponse(
+                        text="",
+                        recipient_id=psid,
+                    )
 
             # Story 1.11: Check for FAQ matches before intent classification
             # If FAQ matches with high confidence, return FAQ answer directly

@@ -312,3 +312,354 @@ class TestHybridModeAPI:
         if response.status_code == 404:
             data = response.json()
             assert data.get("error_code") == 7001  # CONVERSATION_NOT_FOUND
+
+
+@pytest.mark.asyncio
+class TestReturnToBotAPI:
+    """Test return-to-bot flow - Story 4-10."""
+
+    async def test_disable_hybrid_mode_changes_status_to_active(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_handoff_conversation,
+    ):
+        """Test that disabling hybrid mode changes status from handoff to active."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_handoff_conversation
+        conv.status = "handoff"
+        conv.handoff_status = "active"
+        conv.conversation_data = {"hybrid_mode": {"enabled": True}}
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["conversationStatus"] == "active"
+        assert data["data"]["handoffStatus"] == "none"
+
+    async def test_disable_hybrid_mode_resets_handoff_status(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_handoff_conversation,
+    ):
+        """Test that disabling hybrid mode resets handoff_status to none."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_handoff_conversation
+        conv.status = "handoff"
+        conv.handoff_status = "pending"
+        conv.conversation_data = {"hybrid_mode": {"enabled": True}}
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["handoffStatus"] == "none"
+
+    async def test_disable_hybrid_mode_idempotent_if_already_active(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_conversation_with_messages,
+    ):
+        """Test that disabling hybrid mode is idempotent if status is already active."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_conversation_with_messages
+        conv.status = "active"
+        conv.handoff_status = "none"
+        conv.conversation_data = {"hybrid_mode": {"enabled": True}}
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["conversationStatus"] == "active"
+        assert data["data"]["handoffStatus"] == "none"
+
+    async def test_response_includes_status_fields(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_handoff_conversation,
+    ):
+        """Test that response includes conversationStatus and handoffStatus fields."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_handoff_conversation
+        conv.status = "handoff"
+        conv.handoff_status = "active"
+        conv.conversation_data = {"hybrid_mode": {"enabled": True}}
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "conversationStatus" in data["data"]
+        assert "handoffStatus" in data["data"]
+
+    async def test_disable_hybrid_mode_returns_error_for_closed_conversation(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_conversation_with_messages,
+    ):
+        """Test that disabling hybrid mode returns 400 for closed conversations (Story 4-10 Task 1)."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_conversation_with_messages
+        conv.status = "closed"
+        conv.handoff_status = "resolved"
+        conv.conversation_data = {"hybrid_mode": {"enabled": True}}
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert data.get("error_code") == 7031  # INVALID_STATUS_TRANSITION
+
+    async def test_disable_hybrid_mode_resets_resolved_handoff_status(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_handoff_conversation,
+    ):
+        """Test that disabling hybrid mode resets handoff_status 'resolved' to 'none'."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_handoff_conversation
+        conv.status = "handoff"
+        conv.handoff_status = "resolved"
+        conv.conversation_data = {"hybrid_mode": {"enabled": True}}
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["handoffStatus"] == "none"
+
+
+@pytest.mark.asyncio
+class TestConversationHistoryPreservation:
+    """Test conversation history preservation - Story 4-10 Task 3."""
+
+    async def test_history_includes_all_senders(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_conversation_with_multiple_messages,
+    ):
+        """Test that history includes messages from all senders."""
+        conv = test_conversation_with_multiple_messages
+        response = await async_client.get(
+            f"/api/conversations/{conv.id}/history",
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+        assert response.status_code == 200
+        data = response.json()
+
+        messages = data["data"]["messages"]
+        senders = {msg["sender"] for msg in messages}
+        assert "customer" in senders
+        assert "bot" in senders
+
+    async def test_messages_ordered_chronologically_after_return_to_bot(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_conversation_with_multiple_messages,
+    ):
+        """Test that messages are ordered chronologically after return to bot."""
+        conv = test_conversation_with_multiple_messages
+        response = await async_client.get(
+            f"/api/conversations/{conv.id}/history",
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+        assert response.status_code == 200
+        data = response.json()
+
+        messages = data["data"]["messages"]
+        if len(messages) > 1:
+            timestamps = [msg["createdAt"] for msg in messages]
+            assert timestamps == sorted(timestamps)
+
+    async def test_return_to_bot_preserves_conversation_context(
+        self,
+        async_client,
+        db_session,
+        test_merchant,
+        test_handoff_conversation,
+    ):
+        """Test that return-to-bot preserves conversation context."""
+        from app.models.facebook_integration import FacebookIntegration
+        from app.core.security import encrypt_access_token
+        from app.models.message import Message
+        from datetime import datetime
+
+        fb = FacebookIntegration(
+            merchant_id=test_merchant.id,
+            page_id="test_page_id",
+            page_name="Test Page",
+            access_token_encrypted=encrypt_access_token("test_token"),
+            scopes=["pages_messaging"],
+            status="active",
+        )
+        db_session.add(fb)
+        await db_session.commit()
+
+        conv = test_handoff_conversation
+        conv.status = "handoff"
+        conv.handoff_status = "active"
+        conv.conversation_data = {
+            "hybrid_mode": {"enabled": True},
+        }
+        await db_session.commit()
+        await db_session.refresh(conv)
+
+        extra_msg = Message(
+            conversation_id=conv.id,
+            sender="customer",
+            content="Additional question during handoff",
+            message_type="text",
+            created_at=datetime.utcnow(),
+        )
+        db_session.add(extra_msg)
+        await db_session.commit()
+
+        response = await async_client.patch(
+            f"/api/conversations/{conv.id}/hybrid-mode",
+            json={"enabled": False, "reason": "merchant_returning"},
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+
+        assert response.status_code == 200
+
+        history_response = await async_client.get(
+            f"/api/conversations/{conv.id}/history",
+            headers={"X-Merchant-Id": str(test_merchant.id)},
+        )
+        assert history_response.status_code == 200
+        history_data = history_response.json()
+
+        messages = history_data["data"]["messages"]
+        message_contents = [msg["content"] for msg in messages]
+        assert any("Additional question" in c for c in message_contents)

@@ -309,6 +309,7 @@ class ConversationService:
 
         return {
             "conversation_id": conversation.id,
+            "platform_sender_id": conversation.platform_sender_id,
             "messages": messages,
             "context": {
                 "cart_state": cart_state,
