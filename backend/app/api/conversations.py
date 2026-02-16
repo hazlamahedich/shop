@@ -1,16 +1,18 @@
 from datetime import datetime, timezone, timedelta
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, List, Literal
 from uuid import uuid4
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode, ValidationError
-from app.schemas.base import MinimalEnvelope
+from app.models.conversation import Conversation
+from app.schemas.base import MinimalEnvelope, MetaData
 from app.schemas.conversation import (
     ConversationListResponse,
     ConversationFilterParams,
@@ -27,10 +29,10 @@ from app.schemas.conversation import (
     FacebookPageInfo,
 )
 from app.services.conversation import ConversationService
-from pydantic import BaseModel
 
 router = APIRouter()
 conversation_service = ConversationService()
+logger = structlog.get_logger(__name__)
 
 
 class ActiveCountResponse(BaseModel):
@@ -426,3 +428,335 @@ async def set_hybrid_mode(
             "timestamp": now.isoformat(),
         },
     }
+
+
+class HandoffContextResponse(BaseModel):
+    """Response schema for handoff context."""
+
+    isWithinBusinessHours: bool
+    businessHoursConfigured: bool
+    formattedBusinessHours: str | None = None
+    expectedResponseTime: str | None = None
+
+
+class HandoffContextEnvelope(MinimalEnvelope):
+    """Envelope for handoff context response."""
+
+    data: HandoffContextResponse
+
+
+class HandoffNotificationRequest(BaseModel):
+    """Request schema for handoff notification."""
+
+    urgencyLevel: Literal["high", "medium", "low"] = "medium"
+    currentTime: str | None = None
+
+
+class HandoffNotificationResponse(BaseModel):
+    """Response schema for handoff notification."""
+
+    queued: bool
+    scheduledFor: str | None = None
+    sentImmediately: bool = False
+    businessHoursConfigured: bool
+    isWithinBusinessHours: bool
+    urgencyLevel: str
+    queueId: str | None = None
+
+
+class HandoffNotificationEnvelope(MinimalEnvelope):
+    """Envelope for handoff notification response."""
+
+    data: HandoffNotificationResponse
+
+
+class NotificationQueueStatusResponse(BaseModel):
+    """Response schema for notification queue status."""
+
+    queued: bool
+    scheduledFor: str | None = None
+    queueId: str | None = None
+
+
+class NotificationQueueStatusEnvelope(MinimalEnvelope):
+    """Envelope for notification queue status response."""
+
+    data: NotificationQueueStatusResponse
+
+
+def _get_merchant_id(request: Request) -> int:
+    """Extract merchant ID from request state or headers."""
+    merchant_id = getattr(request.state, "merchant_id", None)
+    if not merchant_id:
+        if settings()["DEBUG"]:
+            merchant_id_header = request.headers.get("X-Merchant-Id")
+            if merchant_id_header:
+                return int(merchant_id_header)
+            return 1
+        raise APIError(
+            ErrorCode.AUTH_FAILED,
+            "Authentication required",
+        )
+    return merchant_id
+
+
+@router.get(
+    "/{conversation_id}/handoff-context",
+    response_model=HandoffContextEnvelope,
+)
+async def get_handoff_context(
+    request: Request,
+    conversation_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    currentTime: str | None = Query(None, description="Time to check (ISO 8601)"),
+) -> HandoffContextEnvelope:
+    """Get business hours context for handoff message.
+
+    Story 4-12: Business Hours Handling
+    AC1: Business Hours in Handoff Message
+    AC2: Expected Response Time
+
+    Returns whether the merchant is within business hours and
+    the expected response time if outside business hours.
+
+    Args:
+        request: FastAPI request
+        conversation_id: Conversation ID
+        db: Database session
+        currentTime: Optional time override for testing
+
+    Returns:
+        HandoffContextEnvelope with business hours context
+    """
+    from app.models.merchant import Merchant
+    from app.services.handoff.business_hours_handoff_service import (
+        BusinessHoursHandoffService,
+    )
+
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            "Merchant not found",
+        )
+
+    conv_result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.merchant_id == merchant_id,
+        )
+    )
+    conversation = conv_result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    check_time = None
+    if currentTime:
+        try:
+            check_time = datetime.fromisoformat(currentTime.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+
+    if check_time is None:
+        check_time = datetime.now(timezone.utc)
+
+    business_hours_config = merchant.business_hours_config
+    business_hours_configured = bool(business_hours_config and business_hours_config.get("hours"))
+
+    handoff_service = BusinessHoursHandoffService()
+    context = handoff_service.get_handoff_message_context(business_hours_config, check_time)
+
+    return HandoffContextEnvelope(
+        data=HandoffContextResponse(
+            isWithinBusinessHours=not context.is_offline,
+            businessHoursConfigured=business_hours_configured,
+            formattedBusinessHours=context.business_hours_str if context.is_offline else None,
+            expectedResponseTime=context.expected_response_time if context.is_offline else None,
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+
+
+@router.post(
+    "/{conversation_id}/handoff-notification",
+    response_model=HandoffNotificationEnvelope,
+)
+async def create_handoff_notification(
+    request: Request,
+    conversation_id: int,
+    notification_request: HandoffNotificationRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> HandoffNotificationEnvelope:
+    """Create or queue a handoff notification.
+
+    Story 4-12: Business Hours Handling
+    AC3: Notification Queue Behavior
+
+    If outside business hours, queues the notification for the next
+    business hour opening. Otherwise, sends immediately.
+
+    Args:
+        request: FastAPI request
+        conversation_id: Conversation ID
+        notification_request: Notification request with urgency level
+        db: Database session
+
+    Returns:
+        HandoffNotificationEnvelope with queue status
+    """
+    from app.models.merchant import Merchant
+    from app.services.handoff.business_hours_handoff_service import (
+        BusinessHoursHandoffService,
+    )
+
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            "Merchant not found",
+        )
+
+    conv_result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.merchant_id == merchant_id,
+        )
+    )
+    conversation = conv_result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    check_time = None
+    if notification_request.currentTime:
+        try:
+            check_time = datetime.fromisoformat(
+                notification_request.currentTime.replace("Z", "+00:00")
+            )
+        except ValueError:
+            pass
+
+    if check_time is None:
+        check_time = datetime.now(timezone.utc)
+
+    business_hours_config = merchant.business_hours_config
+    business_hours_configured = bool(business_hours_config and business_hours_config.get("hours"))
+
+    handoff_service = BusinessHoursHandoffService()
+    context = handoff_service.get_handoff_message_context(business_hours_config, check_time)
+
+    queue_id = str(uuid4())
+
+    if context.is_offline and context.next_business_hour:
+        scheduled_for = context.next_business_hour.isoformat()
+        queued = True
+        sent_immediately = False
+
+        logger.info(
+            "handoff_notification_queued",
+            conversation_id=conversation_id,
+            merchant_id=merchant_id,
+            scheduled_for=scheduled_for,
+            urgency_level=notification_request.urgencyLevel,
+        )
+    else:
+        scheduled_for = None
+        queued = False
+        sent_immediately = True
+
+        logger.info(
+            "handoff_notification_sent_immediately",
+            conversation_id=conversation_id,
+            merchant_id=merchant_id,
+            urgency_level=notification_request.urgencyLevel,
+        )
+
+    return HandoffNotificationEnvelope(
+        data=HandoffNotificationResponse(
+            queued=queued,
+            scheduledFor=scheduled_for,
+            sentImmediately=sent_immediately,
+            businessHoursConfigured=business_hours_configured,
+            isWithinBusinessHours=not context.is_offline,
+            urgencyLevel=notification_request.urgencyLevel,
+            queueId=queue_id if queued else None,
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+
+
+@router.get(
+    "/{conversation_id}/notification-queue-status",
+    response_model=NotificationQueueStatusEnvelope,
+)
+async def get_notification_queue_status(
+    request: Request,
+    conversation_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> NotificationQueueStatusEnvelope:
+    """Get notification queue status for a conversation.
+
+    Story 4-12: Business Hours Handling
+    AC3: Notification Queue Behavior
+
+    Returns whether a notification is queued for this conversation.
+
+    Args:
+        request: FastAPI request
+        conversation_id: Conversation ID
+        db: Database session
+
+    Returns:
+        NotificationQueueStatusEnvelope with queue status
+    """
+    merchant_id = _get_merchant_id(request)
+
+    conv_result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.merchant_id == merchant_id,
+        )
+    )
+    conversation = conv_result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    conversation_data = conversation.conversation_data or {}
+    queue_info = conversation_data.get("notification_queue", {})
+
+    return NotificationQueueStatusEnvelope(
+        data=NotificationQueueStatusResponse(
+            queued=queue_info.get("queued", False),
+            scheduledFor=queue_info.get("scheduledFor"),
+            queueId=queue_info.get("queueId"),
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        ),
+    )

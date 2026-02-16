@@ -58,6 +58,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/tutorial/",  # Story 1.16: Tutorial endpoints (authenticated via JWT, no CSRF needed)
         "/api/deletion/",  # Data deletion for GDPR/CCPA compliance
         "/api/conversations/export",  # CSV export is a read-only operation
+        "/api/conversations/",  # Story 4-12: Handoff notification endpoints (Bearer token auth)
         "/docs",
         "/redoc",
         "/openapi.json",

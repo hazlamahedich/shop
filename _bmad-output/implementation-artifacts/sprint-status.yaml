@@ -103,8 +103,8 @@ development_status:
   4-8-conversation-history-view: review # 2026-02-15: Implementation complete - 9 backend tests, 10 E2E tests, all tasks done
   4-9-open-in-messenger-reply: done # 2026-02-15: Code review complete - All HIGH/MEDIUM issues fixed, fail-safe behavior implemented, 10 frontend + 8 backend unit tests passing
   4-10-return-to-bot: done # Code review complete - All CRITICAL/HIGH issues fixed (closed status error, resolved handoff_status reset, toast error handling), 14 backend tests passing
-  4-11-offline-follow-up-messages: backlog # Auto follow-up if merchant offline (depends: 4-5, 3-10)
-  4-12-business-hours-handling: backlog # Check business hours for handoff (depends: 4-5, 3-10)
+  4-11-offline-follow-up-messages: done # 2026-02-16: Code review COMPLETE - All HIGH/MEDIUM/LOW issues fixed (7 total). Added: Conversation helper methods, scheduler integration, error codes 7032/7033, atomic transactions, test warnings resolved. 20 unit + 7 integration + 96 E2E tests passing.
+  4-12-business-hours-handling: done # 2026-02-16: COMPLETE - Backend API endpoints implemented (handoff-context, handoff-notification, notification-queue-status, settings/business-hours). Bearer token auth added for API tests. 114 E2E + 26/27 API tests passing. Code review fixes: Error codes (7034/7035), graceful config fallback, 10 unit tests, customer_name fix.
   
   # PHASE 2: Order Tracking (Shopify-dependent - blocked without store or mock)
   4-1-natural-language-order-tracking: backlog # ⚠️ Mock orders needed for testing

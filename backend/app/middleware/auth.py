@@ -180,6 +180,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         """Authenticate request and extract merchant_id.
 
         MEDIUM-11: Now checks session.revoked flag in database for logout enforcement.
+        Story 4-12: Also supports Bearer token via Authorization header for API tests.
 
         Args:
             request: The incoming HTTP request
@@ -190,8 +191,12 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         Raises:
             HTTPException: If authentication fails
         """
-        # Extract token from cookie
         token = request.cookies.get(SESSION_COOKIE_NAME)
+
+        if not token:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
 
         if not token:
             raise HTTPException(
