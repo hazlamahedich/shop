@@ -33,7 +33,9 @@ from app.services.personality import BotResponseService
 from app.services.faq import match_faq
 from app.services.cost_tracking.budget_alert_service import BudgetAlertService
 from app.services.business_hours import is_within_business_hours, get_formatted_hours
+from app.services.handoff.business_hours_handoff_service import BusinessHoursHandoffService
 from app.schemas.handoff import DEFAULT_HANDOFF_MESSAGE
+from app.services.order_tracking import OrderTrackingService, OrderLookupType
 
 
 logger = structlog.get_logger(__name__)
@@ -88,6 +90,9 @@ class MessageProcessor:
         # Handoff detection service (Story 4-5)
         self._handoff_detector: Optional[HandoffDetector] = None
 
+        # Order tracking service (Story 4-1)
+        self._order_tracking_service: Optional[OrderTrackingService] = None
+
     def _get_bot_response_service(self) -> BotResponseService:
         """Get or create bot response service (lazy initialization)."""
         if self._bot_response_service is None:
@@ -99,6 +104,12 @@ class MessageProcessor:
         if self._handoff_detector is None:
             self._handoff_detector = HandoffDetector(redis_client=self.context_manager.redis)
         return self._handoff_detector
+
+    def _get_order_tracking_service(self) -> OrderTrackingService:
+        """Get or create order tracking service (lazy initialization)."""
+        if self._order_tracking_service is None:
+            self._order_tracking_service = OrderTrackingService()
+        return self._order_tracking_service
 
     async def _get_personality_greeting(self) -> str:
         """Get personality-based greeting message (Story 1.10).
@@ -141,16 +152,13 @@ class MessageProcessor:
         return "Sorry, I encountered an error. Please try again."
 
     async def _get_handoff_message(self) -> str:
-        """Get business hours-aware handoff message (Story 3.10).
+        """Get business hours-aware handoff message (Stories 3.10, 4-12).
 
         Returns:
-            Handoff message with business hours info if configured
+            Handoff message with business hours info and expected response time
         """
-        default_online = "Connecting you to a human agent..."
-        default_offline = "Our team is offline. We'll respond during business hours."
-
         if not self.merchant_id:
-            return default_online
+            return "Connecting you to a human agent..."
 
         try:
             from app.core.database import async_session
@@ -161,26 +169,17 @@ class MessageProcessor:
                 result = await db.execute(select(Merchant).where(Merchant.id == self.merchant_id))
                 merchant = result.scalars().first()
 
-                if not merchant or not merchant.business_hours_config:
-                    return default_online
+                if not merchant:
+                    return "Connecting you to a human agent..."
 
-                config = merchant.business_hours_config
-
-                if is_within_business_hours(config):
-                    return default_online
-
-                formatted_hours = get_formatted_hours(config)
-                custom_message = config.get("out_of_office_message", default_offline)
-
-                if formatted_hours:
-                    return f"{custom_message} ({formatted_hours})."
-                return custom_message
+                service = BusinessHoursHandoffService()
+                return service.build_handoff_message(merchant.business_hours_config)
 
         except Exception as e:
             self.logger.warning(
                 "handoff_message_failed", merchant_id=self.merchant_id, error=str(e)
             )
-            return default_online
+            return "Connecting you to a human agent..."
 
     async def _check_handoff(
         self,
@@ -764,10 +763,7 @@ class MessageProcessor:
             return await self._handle_checkout(psid)
 
         elif intent == IntentType.ORDER_TRACKING:
-            return MessengerResponse(
-                text="Order tracking feature will be implemented in Story 4.1.",
-                recipient_id=psid,
-            )
+            return await self._handle_order_tracking(psid, classification, context)
 
         elif intent == IntentType.HUMAN_HANDOFF:
             handoff_msg = await self._get_handoff_message()
@@ -1585,5 +1581,135 @@ class MessageProcessor:
             )
             return MessengerResponse(
                 text="Sorry, I encountered an error during checkout. Please try again.",
+                recipient_id=psid,
+            )
+
+    async def _handle_order_tracking(
+        self,
+        psid: str,
+        classification: Any,
+        context: dict[str, Any],
+    ) -> MessengerResponse:
+        """Handle order tracking intent (Story 4-1).
+
+        Tracks orders by customer (platform_sender_id) or order number.
+        Uses conversation_data to manage pending order number input state.
+
+        Flow:
+        1. Check for pending state (waiting for order number)
+        2. If pending: extract order number from message, lookup by number
+        3. If not pending: lookup by customer (platform_sender_id)
+        4. If found: return order status
+        5. If not found by customer: set pending state, ask for order number
+        6. If not found by number: keep pending state, suggest retry
+
+        Args:
+            psid: Facebook Page-Scoped ID
+            classification: Intent classification result
+            context: Conversation context
+
+        Returns:
+            Messenger response with order status or prompt for order number
+        """
+        if not self.merchant_id:
+            return MessengerResponse(
+                text="Order tracking is not available. Please contact support.",
+                recipient_id=psid,
+            )
+
+        try:
+            from app.core.database import async_session
+            from sqlalchemy import select, update
+            from app.models.conversation import Conversation
+
+            order_tracking = self._get_order_tracking_service()
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Conversation).where(
+                        Conversation.merchant_id == self.merchant_id,
+                        Conversation.platform_sender_id == psid,
+                    )
+                )
+                conversation = result.scalars().first()
+
+                conversation_data = None
+                if conversation:
+                    conversation_data = conversation.conversation_data
+
+                pending_state = order_tracking.get_pending_state(conversation_data)
+
+                if pending_state:
+                    message_text = classification.get("raw_message", "")
+                    order_number = message_text.strip()
+
+                    tracking_result = await order_tracking.track_order_by_number(
+                        db, self.merchant_id, order_number
+                    )
+
+                    if tracking_result.found and tracking_result.order:
+                        updated_data = order_tracking.clear_pending_state(conversation_data)
+                        if conversation:
+                            conversation.conversation_data = updated_data
+                            await db.commit()
+
+                        response_text = order_tracking.format_order_response(tracking_result.order)
+                        self.logger.info(
+                            "order_tracking_success",
+                            psid=psid,
+                            order_number=tracking_result.order.order_number,
+                            lookup_type="by_order_number",
+                        )
+                        return MessengerResponse(text=response_text, recipient_id=psid)
+
+                    response_text = order_tracking.format_order_not_found_response(
+                        OrderLookupType.BY_ORDER_NUMBER, order_number
+                    )
+                    self.logger.info(
+                        "order_tracking_not_found",
+                        psid=psid,
+                        order_number=order_number,
+                        lookup_type="by_order_number",
+                    )
+                    return MessengerResponse(text=response_text, recipient_id=psid)
+
+                tracking_result = await order_tracking.track_order_by_customer(
+                    db, self.merchant_id, psid
+                )
+
+                if tracking_result.found and tracking_result.order:
+                    response_text = order_tracking.format_order_response(tracking_result.order)
+                    self.logger.info(
+                        "order_tracking_success",
+                        psid=psid,
+                        order_number=tracking_result.order.order_number,
+                        lookup_type="by_customer",
+                    )
+                    return MessengerResponse(text=response_text, recipient_id=psid)
+
+                updated_data = order_tracking.set_pending_state(conversation_data)
+                if conversation:
+                    conversation.conversation_data = updated_data
+                    await db.commit()
+
+                response_text = order_tracking.format_order_not_found_response(
+                    OrderLookupType.BY_CUSTOMER
+                )
+                self.logger.info(
+                    "order_tracking_not_found",
+                    psid=psid,
+                    lookup_type="by_customer",
+                    pending_state_set=True,
+                )
+                return MessengerResponse(text=response_text, recipient_id=psid)
+
+        except Exception as e:
+            self.logger.error(
+                "order_tracking_handler_error",
+                psid=psid,
+                error=str(e),
+            )
+            return MessengerResponse(
+                text="Sorry, I couldn't look up your order right now. Please try again.",
                 recipient_id=psid,
             )

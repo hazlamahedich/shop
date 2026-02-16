@@ -169,6 +169,12 @@ class Merchant(Base):
         back_populates="merchant",
         cascade="all, delete-orphan",
     )
+    orders: Mapped[list["Order"]] = relationship(
+        "Order",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="Order.created_at.desc()",
+    )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),

@@ -184,6 +184,14 @@ class ErrorCode(IntEnum):
     FOLLOWUP_SEND_FAILED = 7032  # Follow-up message send failed
     FACEBOOK_WINDOW_EXPIRED = 7033  # Outside Facebook 24h messaging window
 
+    # Story 4-12: Business hours handoff error codes
+    BUSINESS_HOURS_CHECK_FAILED = 7034  # Business hours lookup failed
+    NOTIFICATION_QUEUE_ERROR = 7035  # Notification queue operation failed
+
+    # Story 4-1: Order tracking error codes
+    ORDER_NOT_FOUND = 7036  # Order lookup returns no results
+    ORDER_LOOKUP_FAILED = 7037  # Database error during order lookup
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

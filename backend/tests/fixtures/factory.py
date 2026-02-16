@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, TypeVar, Type
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class BaseFactory:
@@ -44,6 +44,7 @@ class BaseFactory:
         """
         params = {**self.defaults, **kwargs}
         return self.model(**params)
+
 
 import random
 import string
@@ -227,3 +228,89 @@ def random_email() -> str:
 def random_phone() -> str:
     """Generate random phone number (US format)."""
     return f"+1{random.randint(200, 999)}{random.randint(200, 999)}{random.randint(1000, 9999)}"
+
+
+_order_counter = 0
+
+
+def order_number() -> str:
+    """Generate sequential order number for testing."""
+    global _order_counter
+    _order_counter += 1
+    return f"ORD-TEST-{_order_counter:05d}"
+
+
+@dataclass
+class OrderFactory:
+    """Factory for creating test order data (Story 4-1)."""
+
+    order_number: str = field(default_factory=order_number)
+    merchant_id: int = 1
+    platform_sender_id: str = field(default_factory=lambda: f"psid_{uuid4().hex[:8]}")
+    status: str = "pending"
+    items: list[dict[str, Any]] = field(
+        default_factory=lambda: [
+            {"product_id": "prod_001", "title": "Test Product", "price": 29.99, "quantity": 1}
+        ]
+    )
+    subtotal: float = 29.99
+    total: float = 34.99
+    currency_code: str = "USD"
+    customer_email: str = field(default_factory=random_email)
+    shipping_address: dict[str, Any] = field(
+        default_factory=lambda: {
+            "name": "Test Customer",
+            "street": "123 Test St",
+            "city": "San Francisco",
+            "state": "CA",
+            "zip": "94102",
+            "country": "US",
+        }
+    )
+    tracking_number: str | None = None
+    tracking_url: str | None = None
+    estimated_delivery: datetime | None = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "order_number": self.order_number,
+            "merchant_id": self.merchant_id,
+            "platform_sender_id": self.platform_sender_id,
+            "status": self.status,
+            "items": self.items,
+            "subtotal": self.subtotal,
+            "total": self.total,
+            "currency_code": self.currency_code,
+            "customer_email": self.customer_email,
+            "shipping_address": self.shipping_address,
+            "tracking_number": self.tracking_number,
+            "tracking_url": self.tracking_url,
+            "estimated_delivery": self.estimated_delivery.isoformat()
+            if self.estimated_delivery
+            else None,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    def with_status(self, status: str) -> "OrderFactory":
+        """Create a copy with different status."""
+        return OrderFactory(
+            order_number=self.order_number,
+            merchant_id=self.merchant_id,
+            platform_sender_id=self.platform_sender_id,
+            status=status,
+            items=self.items,
+            subtotal=self.subtotal,
+            total=self.total,
+            currency_code=self.currency_code,
+            customer_email=self.customer_email,
+            shipping_address=self.shipping_address,
+            tracking_number=self.tracking_number,
+            tracking_url=self.tracking_url,
+            estimated_delivery=self.estimated_delivery,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
