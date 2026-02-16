@@ -157,6 +157,38 @@ class Conversation(Base):
         else:
             self.conversation_data = encrypt_metadata(metadata)
 
+    # Story 4-11: Follow-up state helper methods
+    def get_followup_12h_sent_at(self) -> Optional[str]:
+        """Get the timestamp when 12-hour follow-up was sent.
+
+        Returns:
+            ISO format timestamp string or None if not sent.
+        """
+        if not self.conversation_data:
+            return None
+        return self.conversation_data.get("followup_12h_sent_at")
+
+    def get_followup_24h_sent_at(self) -> Optional[str]:
+        """Get the timestamp when 24-hour follow-up was sent.
+
+        Returns:
+            ISO format timestamp string or None if not sent.
+        """
+        if not self.conversation_data:
+            return None
+        return self.conversation_data.get("followup_24h_sent_at")
+
+    def set_followup_sent(self, followup_type: str, timestamp: str) -> None:
+        """Set follow-up sent timestamp in conversation_data.
+
+        Args:
+            followup_type: Either "12h" or "24h"
+            timestamp: ISO format timestamp string
+        """
+        if self.conversation_data is None:
+            self.conversation_data = {}
+        self.conversation_data[f"followup_{followup_type}_sent_at"] = timestamp
+
     def __repr__(self) -> str:
         return (
             f"<Conversation("

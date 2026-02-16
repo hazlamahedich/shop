@@ -180,6 +180,10 @@ class ErrorCode(IntEnum):
     # Story 4-10: Return to bot error codes
     INVALID_STATUS_TRANSITION = 7031  # Cannot change conversation status (e.g., closed)
 
+    # Story 4-11: Offline follow-up error codes
+    FOLLOWUP_SEND_FAILED = 7032  # Follow-up message send failed
+    FACEBOOK_WINDOW_EXPIRED = 7033  # Outside Facebook 24h messaging window
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

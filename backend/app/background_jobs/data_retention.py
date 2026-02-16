@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime
 from typing import Optional
 
@@ -19,6 +20,7 @@ import structlog
 from app.core.database import async_session
 from app.services.data_retention import DataRetentionService
 from app.services.cart.cart_retention import run_cart_retention_cleanup
+from app.tasks.handoff_followup_task import process_handoff_followups
 
 logger = structlog.get_logger(__name__)
 
@@ -59,16 +61,9 @@ async def run_retention_cleanup() -> dict:
             session_result = await retention_service.cleanup_expired_sessions(db)
             results["sessions"] = session_result
 
-            logger.info(
-                "data_retention_job_completed",
-                **results
-            )
+            logger.info("data_retention_job_completed", **results)
         except Exception as e:
-            logger.error(
-                "data_retention_job_failed",
-                error=str(e),
-                error_type=type(e).__name__
-            )
+            logger.error("data_retention_job_failed", error=str(e), error_type=type(e).__name__)
             results["error"] = str(e)
             raise
 
@@ -77,14 +72,22 @@ async def run_retention_cleanup() -> dict:
         cart_result = await run_cart_retention_cleanup()
         results["cart_retention"] = cart_result
     except Exception as e:
-        logger.error(
-            "cart_retention_job_failed",
-            error=str(e),
-            error_type=type(e).__name__
-        )
+        logger.error("cart_retention_job_failed", error=str(e), error_type=type(e).__name__)
         results["cart_retention"] = {"error": str(e)}
 
     return results
+
+
+async def _run_handoff_followup() -> dict:
+    """Run handoff follow-up task wrapper.
+
+    Story 4-11: Processes pending handoff follow-ups every 30 minutes.
+
+    Returns:
+        Dictionary with follow-up processing results
+    """
+    async with async_session() as db:
+        return await process_handoff_followups(db)
 
 
 def start_scheduler() -> None:
@@ -110,12 +113,21 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # Story 4-11: Schedule handoff follow-up task every 30 minutes
+    scheduler.add_job(
+        lambda: _run_handoff_followup(),
+        trigger=IntervalTrigger(minutes=30),
+        id="handoff_followup_task",
+        name="Process Handoff Follow-Ups",
+        replace_existing=True,
+    )
+
     scheduler.start()
 
     logger.info(
         "data_retention_scheduler_started",
         job_id="data_retention_cleanup",
-        schedule="0 0 * * * (daily at midnight UTC)"
+        schedule="0 0 * * * (daily at midnight UTC)",
     )
 
 
@@ -155,10 +167,12 @@ def get_scheduler_status() -> dict:
         status["job_count"] = len(scheduler.get_jobs())
 
         for job in scheduler.get_jobs():
-            status["jobs"].append({
-                "id": job.id,
-                "name": job.name,
-                "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
-            })
+            status["jobs"].append(
+                {
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+                }
+            )
 
     return status
