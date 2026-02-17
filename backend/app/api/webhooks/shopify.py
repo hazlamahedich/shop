@@ -7,18 +7,15 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Request, Response, Header, HTTPException, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, Response
+from sqlalchemy import select
 
-from app.core.database import get_db
-from app.core.errors import APIError, ErrorCode
-from app.core.security import verify_shopify_webhook_hmac
 from app.core.config import settings
-
+from app.core.database import async_session
+from app.core.security import verify_shopify_webhook_hmac
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -54,9 +51,7 @@ async def shopify_webhook_receive(
     """
     request_id = str(uuid4())
     log = logger.bind(
-        request_id=request_id,
-        topic=x_shopify_topic,
-        shop_domain=x_shopify_shop_domain
+        request_id=request_id, topic=x_shopify_topic, shop_domain=x_shopify_shop_domain
     )
 
     # Read raw payload for signature verification
@@ -68,10 +63,7 @@ async def shopify_webhook_receive(
 
     if not api_secret:
         log.error("shopify_webhook_no_secret")
-        raise HTTPException(
-            status_code=500,
-            detail="Shopify API secret not configured"
-        )
+        raise HTTPException(status_code=500, detail="Shopify API secret not configured")
 
     if not verify_shopify_webhook_hmac(raw_payload, x_shopify_hmac_sha256, api_secret):
         log.warning("shopify_webhook_invalid_signature")
@@ -87,22 +79,14 @@ async def shopify_webhook_receive(
     # Process webhook asynchronously (don't block response)
     if background_tasks:
         background_tasks.add_task(
-            process_shopify_webhook,
-            payload,
-            x_shopify_topic,
-            x_shopify_shop_domain,
-            request_id
+            process_shopify_webhook, payload, x_shopify_topic, x_shopify_shop_domain, request_id
         )
     else:
         # Fallback: create task directly
         import asyncio
+
         asyncio.create_task(
-            process_shopify_webhook(
-                payload,
-                x_shopify_topic,
-                x_shopify_shop_domain,
-                request_id
-            )
+            process_shopify_webhook(payload, x_shopify_topic, x_shopify_shop_domain, request_id)
         )
 
     log.info("shopify_webhook_received", topic=x_shopify_topic)
@@ -125,11 +109,7 @@ async def process_shopify_webhook(
         shop_domain: Shopify shop domain
         request_id: Request ID for logging
     """
-    log = logger.bind(
-        request_id=request_id,
-        topic=topic,
-        shop_domain=shop_domain
-    )
+    log = logger.bind(request_id=request_id, topic=topic, shop_domain=shop_domain)
 
     try:
         # Handle different webhook topics
@@ -152,12 +132,16 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
     """Handle orders/create webhook.
 
     Story 2.9: Process order confirmation, send message to shopper, clear cart.
+    Story 4-2: Store order in database for tracking.
 
     Args:
         payload: Order payload
         shop_domain: Shopify shop domain
         log: Structlog logger
     """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify import ShopifyOrderProcessor
+
     order_id = payload.get("id")
     email = payload.get("email")
     financial_status = payload.get("financial_status")
@@ -169,14 +153,36 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
         financial_status=financial_status,
     )
 
-    # Story 2.9: Process order confirmation
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if integration:
+                merchant_id = integration
+                processor = ShopifyOrderProcessor()
+                order = await processor.process_order_webhook(payload, shop_domain, merchant_id, db)
+                log.info(
+                    "shopify_order_created_stored",
+                    order_id=order_id,
+                    db_order_id=order.id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_order_storage_failed",
+            order_id=order_id,
+            error=str(e),
+        )
+
     try:
         from app.services.order_confirmation import OrderConfirmationService
 
-        # Create order confirmation service
         confirmation_service = OrderConfirmationService()
-
-        # Process the order confirmation
         result = await confirmation_service.process_order_confirmation(payload)
 
         log.info(
@@ -186,7 +192,6 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
             psid=result.psid,
         )
 
-        # Close the service's HTTP client
         await confirmation_service.send_service.close()
 
     except Exception as e:
@@ -195,42 +200,117 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
             order_id=order_id,
             error=str(e),
         )
-        # Re-raise to enqueue to DLQ
         raise
 
 
 async def handle_order_updated(payload: dict, shop_domain: str, log) -> None:
     """Handle orders/updated webhook.
 
+    Story 4-2: Process order updates with PSID resolution and database storage.
+
     Args:
         payload: Order payload
         shop_domain: Shopify shop domain
         log: Structlog logger
     """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify import ShopifyOrderProcessor
+
     order_id = payload.get("id")
     financial_status = payload.get("financial_status")
 
     log.info("shopify_order_updated", order_id=order_id, financial_status=financial_status)
 
-    # TODO: Implement order update logic
-    # This will be implemented in Epic 4 (Order Tracking & Support)
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_order_update_no_merchant",
+                    shop_domain=shop_domain,
+                    order_id=order_id,
+                )
+                return
+
+            merchant_id = integration
+            processor = ShopifyOrderProcessor()
+            order = await processor.process_order_webhook(payload, shop_domain, merchant_id, db)
+
+            log.info(
+                "shopify_order_updated_stored",
+                order_id=order_id,
+                db_order_id=order.id,
+                status=order.status,
+            )
+
+    except Exception as e:
+        log.error(
+            "shopify_order_update_failed",
+            order_id=order_id,
+            error=str(e),
+        )
+        raise
 
 
 async def handle_order_fulfilled(payload: dict, shop_domain: str, log) -> None:
     """Handle orders/fulfilled webhook.
+
+    Story 4-2: Process fulfillment with tracking info and database storage.
 
     Args:
         payload: Order payload
         shop_domain: Shopify shop domain
         log: Structlog logger
     """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify import ShopifyOrderProcessor
+
     order_id = payload.get("id")
     tracking_numbers = payload.get("tracking_numbers", [])
 
     log.info("shopify_order_fulfilled", order_id=order_id, tracking_numbers=tracking_numbers)
 
-    # TODO: Implement fulfillment logic
-    # This will be implemented in Epic 4 (Order Tracking & Support)
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_order_fulfillment_no_merchant",
+                    shop_domain=shop_domain,
+                    order_id=order_id,
+                )
+                return
+
+            merchant_id = integration
+            processor = ShopifyOrderProcessor()
+            order = await processor.process_order_webhook(payload, shop_domain, merchant_id, db)
+
+            log.info(
+                "shopify_order_fulfilled_stored",
+                order_id=order_id,
+                db_order_id=order.id,
+                tracking_number=order.tracking_number,
+            )
+
+    except Exception as e:
+        log.error(
+            "shopify_order_fulfillment_failed",
+            order_id=order_id,
+            error=str(e),
+        )
+        raise
 
 
 async def enqueue_failed_shopify_webhook(
@@ -253,8 +333,9 @@ async def enqueue_failed_shopify_webhook(
         log: Structlog logger
     """
     try:
-        import redis
         from datetime import datetime
+
+        import redis
 
         redis_url = os.getenv("REDIS_URL")
         if not redis_url:
@@ -268,7 +349,7 @@ async def enqueue_failed_shopify_webhook(
             "error": error,
             "attempts": 0,
             "max_attempts": 3,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         redis_client.rpush("webhook:dlq:shopify", json.dumps(retry_data))
         log.info("shopify_webhook_enqueued_dlq", topic=topic)

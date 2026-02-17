@@ -88,6 +88,7 @@ class ErrorCode(IntEnum):
     SHOPIFY_RATE_LIMITED = 4028  # Admin API rate limit (not Storefront)
     PRODUCT_MAPPING_FAILED = 4029  # Entity to filter mapping error
     SHOPIFY_PRODUCT_NOT_FOUND_SEARCH = 4030  # No products found in search
+    SHOPIFY_ORDER_PARSE_FAILED = 4031  # Malformed Shopify order payload
 
     # 4600-4699: Product Pin Configuration (owner: shopify team)
     PRODUCT_PIN_ID_REQUIRED = 4600  # Product ID is required
@@ -191,6 +192,8 @@ class ErrorCode(IntEnum):
     # Story 4-1: Order tracking error codes
     ORDER_NOT_FOUND = 7036  # Order lookup returns no results
     ORDER_LOOKUP_FAILED = 7037  # Database error during order lookup
+    ORDER_CUSTOMER_RESOLUTION_FAILED = 7038  # Could not resolve PSID from webhook
+    ORDER_OUT_OF_ORDER_UPDATE = 7039  # Webhook timestamp older than existing
 
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001

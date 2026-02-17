@@ -9,9 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Numeric, Index
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,7 +68,7 @@ class Order(Base):
         nullable=False,
         default=OrderStatus.PENDING.value,
     )
-    items: Mapped[Optional[dict[str, Any]]] = mapped_column(
+    items: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Order items as JSON array",
@@ -86,26 +86,48 @@ class Order(Base):
         nullable=False,
         default="USD",
     )
-    customer_email: Mapped[Optional[str]] = mapped_column(
+    customer_email: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    shipping_address: Mapped[Optional[dict[str, Any]]] = mapped_column(
+    shipping_address: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Shipping address as JSON object",
     )
-    tracking_number: Mapped[Optional[str]] = mapped_column(
+    tracking_number: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    tracking_url: Mapped[Optional[str]] = mapped_column(
+    tracking_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
-    estimated_delivery: Mapped[Optional[datetime]] = mapped_column(
+    estimated_delivery: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
+    )
+    shopify_order_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="Shopify GID (gid://shopify/Order/123)",
+    )
+    shopify_order_key: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Human-readable order number (#1001)",
+    )
+    fulfillment_status: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Shopify fulfillment status (null, fulfilled, partial, restocked)",
+    )
+    shopify_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        comment="Last update timestamp from Shopify (for out-of-order handling)",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -132,7 +154,7 @@ class Order(Base):
         ),
     )
 
-    merchant: Mapped["Merchant"] = relationship(
+    merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="orders",
     )
