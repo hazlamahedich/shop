@@ -55,10 +55,8 @@ def store_oauth_state(state: str, merchant_id: int, ttl: int = 600) -> None:
     else:
         # Fallback to in-memory storage
         import time
-        _oauth_state_store[state] = {
-            "merchant_id": merchant_id,
-            "expires_at": time.time() + ttl
-        }
+
+        _oauth_state_store[state] = {"merchant_id": merchant_id, "expires_at": time.time() + ttl}
 
 
 def validate_oauth_state(state: str) -> Optional[int]:
@@ -80,6 +78,7 @@ def validate_oauth_state(state: str) -> Optional[int]:
     else:
         # Fallback to in-memory storage
         import time
+
         if state in _oauth_state_store:
             data = _oauth_state_store[state]
             if time.time() < data["expires_at"]:
@@ -180,6 +179,7 @@ def generate_oauth_state(merchant_id: int) -> str:
         URL-safe base64 encoded random string
     """
     import secrets
+
     state = secrets.token_urlsafe(32)
     store_oauth_state(state, merchant_id)
     return state
@@ -192,12 +192,13 @@ def generate_webhook_verify_token() -> str:
         URL-safe base64 encoded random string
     """
     import secrets
+
     return secrets.token_urlsafe(32)
 
 
 def verify_shopify_webhook_hmac(
     raw_payload: bytes,
-    hmac_header: str,
+    hmac_header: str | None,
     api_secret: str,
 ) -> bool:
     """Verify Shopify webhook HMAC signature.
@@ -208,22 +209,21 @@ def verify_shopify_webhook_hmac(
         api_secret: Shopify API secret
 
     Returns:
-        True if signature is valid
+        True if signature is valid, False if header missing or invalid
     """
     import hmac
     import hashlib
     import base64
     from secrets import compare_digest
 
+    if not hmac_header:
+        return False
+
     # Decode HMAC header (base64 encoded)
     expected_hmac = base64.b64decode(hmac_header)
 
     # Compute HMAC of payload
-    computed_hmac = hmac.new(
-        api_secret.encode(),
-        raw_payload,
-        hashlib.sha256
-    ).digest()
+    computed_hmac = hmac.new(api_secret.encode(), raw_payload, hashlib.sha256).digest()
 
     # Use constant-time comparison to prevent timing attacks
     return compare_digest(computed_hmac, expected_hmac)

@@ -195,6 +195,13 @@ class ErrorCode(IntEnum):
     ORDER_CUSTOMER_RESOLUTION_FAILED = 7038  # Could not resolve PSID from webhook
     ORDER_OUT_OF_ORDER_UPDATE = 7039  # Webhook timestamp older than existing
 
+    # Story 4-3: Shipping notification error codes
+    SHIPPING_NOTIFICATION_FAILED = 7040  # Failed to send shipping notification
+    SHIPPING_RATE_LIMITED = 7041  # Daily notification limit reached for user
+    SHIPPING_NO_TRACKING_INFO = 7042  # Order has no tracking information
+    SHIPPING_CONSENT_DISABLED = 7043  # User has opted out of notifications
+    SHIPPING_DUPLICATE_WEBHOOK = 7044  # Duplicate fulfillment webhook (idempotent)
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

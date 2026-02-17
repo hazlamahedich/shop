@@ -1,11 +1,13 @@
 """Handoff notification service for multi-channel notifications.
 
 Story 4-6: Handoff Notifications
+Story 4-12: Business Hours Handling (notification queue)
 
 Sends notifications when conversations need human attention:
 - Dashboard badge (in-app notification)
 - Email notification (rate-limited)
 - Future: Push notification (stubbed)
+- Queues notifications when outside business hours (Story 4-12)
 
 Implements IS_TESTING pattern for deterministic test responses.
 """
@@ -13,11 +15,12 @@ Implements IS_TESTING pattern for deterministic test responses.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import structlog
 
 from app.core.config import settings
+from app.core.errors import APIError, ErrorCode
 from app.schemas.handoff import (
     HandoffReason,
     UrgencyLevel,
@@ -26,6 +29,8 @@ from app.schemas.handoff import (
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+    from app.models.conversation import Conversation
+    from app.models.merchant import Merchant
 
 logger = structlog.get_logger(__name__)
 
@@ -217,6 +222,148 @@ class HandoffNotificationService:
         )
 
         return results
+
+    async def send_notifications_with_queue(
+        self,
+        merchant: Merchant,
+        conversation: Conversation,
+        urgency: UrgencyLevel,
+        notification_content: dict[str, Any],
+        email_provider: Any | None = None,
+    ) -> dict[str, Any]:
+        """Send notifications with business hours queue support.
+
+        Story 4-12: Checks business hours before sending. If outside
+        business hours, queues notification for next business hour.
+
+        Args:
+            merchant: Merchant ORM model
+            conversation: Conversation ORM model
+            urgency: Urgency level for notification
+            notification_content: Formatted content dict
+            email_provider: Optional email provider for sending emails
+
+        Returns:
+            Dict with results: {"dashboard": bool, "email": bool, "queued": bool}
+        """
+        if settings().get("IS_TESTING", False):
+            return {"dashboard": True, "email": True, "queued": False}
+
+        business_hours_config = getattr(merchant, "business_hours_config", None)
+
+        if business_hours_config:
+            from app.services.business_hours.business_hours_service import (
+                is_within_business_hours,
+                get_next_business_hour,
+            )
+
+            if not is_within_business_hours(business_hours_config):
+                queued = await self._queue_notification_for_business_hours(
+                    conversation=conversation,
+                    urgency=urgency,
+                    business_hours_config=business_hours_config,
+                )
+                if queued:
+                    logger.info(
+                        "notification_queued_for_business_hours",
+                        merchant_id=merchant.id,
+                        conversation_id=conversation.id,
+                        urgency=urgency.value,
+                    )
+                    return {"dashboard": False, "email": False, "queued": True}
+
+        result = await self.send_notifications(
+            merchant_id=merchant.id,
+            conversation_id=conversation.id,
+            urgency=urgency,
+            notification_content=notification_content,
+            email_provider=email_provider,
+        )
+        result["queued"] = False
+        return result
+
+    async def _queue_notification_for_business_hours(
+        self,
+        conversation: Conversation,
+        urgency: UrgencyLevel,
+        business_hours_config: dict[str, Any],
+    ) -> bool:
+        """Queue notification for delivery at next business hour.
+
+        Stores queue state in conversation.conversation_data JSONB.
+        The queued_notification_task processes these at business hour opening.
+
+        Args:
+            conversation: Conversation to queue notification for
+            urgency: Urgency level of the notification
+            business_hours_config: Merchant's business hours config
+
+        Returns:
+            True if queued successfully, False if already queued
+
+        Raises:
+            APIError: If notification queue operation fails (ErrorCode.NOTIFICATION_QUEUE_ERROR)
+        """
+        from app.services.business_hours.business_hours_service import (
+            get_next_business_hour,
+        )
+
+        conversation_data = conversation.conversation_data or {}
+
+        if conversation_data.get("offline_handoff_notification_queued"):
+            logger.debug(
+                "notification_already_queued",
+                conversation_id=conversation.id,
+            )
+            return False
+
+        try:
+            next_hour = get_next_business_hour(business_hours_config)
+        except Exception as e:
+            logger.error(
+                "next_business_hour_lookup_failed",
+                conversation_id=conversation.id,
+                error=str(e),
+            )
+            raise APIError(
+                code=ErrorCode.NOTIFICATION_QUEUE_ERROR,
+                message=f"Failed to get next business hour: {str(e)}",
+            )
+
+        if not next_hour:
+            logger.warning(
+                "cannot_queue_no_next_business_hour",
+                conversation_id=conversation.id,
+            )
+            return False
+
+        try:
+            conversation_data["offline_handoff_notification_queued"] = True
+            conversation_data["offline_handoff_notification_scheduled_for"] = next_hour.isoformat()
+            conversation_data["offline_handoff_notification_urgency"] = urgency.value
+
+            conversation.conversation_data = conversation_data
+            await self.db.commit()
+            await self.db.refresh(conversation)
+        except Exception as e:
+            logger.error(
+                "notification_queue_persist_failed",
+                conversation_id=conversation.id,
+                error=str(e),
+            )
+            raise APIError(
+                code=ErrorCode.NOTIFICATION_QUEUE_ERROR,
+                message=f"Failed to queue notification: {str(e)}",
+            )
+
+        logger.info(
+            "notification_queued_for_business_hours",
+            conversation_id=conversation.id,
+            scheduled_for=next_hour.isoformat(),
+            urgency=urgency.value,
+        )
+
+        return True
 
     async def _send_email(
         self,

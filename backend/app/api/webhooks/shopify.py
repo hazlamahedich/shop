@@ -262,6 +262,7 @@ async def handle_order_fulfilled(payload: dict, shop_domain: str, log) -> None:
     """Handle orders/fulfilled webhook.
 
     Story 4-2: Process fulfillment with tracking info and database storage.
+    Story 4-3: Send shipping notification to shopper.
 
     Args:
         payload: Order payload
@@ -273,6 +274,11 @@ async def handle_order_fulfilled(payload: dict, shop_domain: str, log) -> None:
 
     order_id = payload.get("id")
     tracking_numbers = payload.get("tracking_numbers", [])
+    fulfillments = payload.get("fulfillments", [])
+
+    fulfillment_id = None
+    if fulfillments:
+        fulfillment_id = fulfillments[0].get("id")
 
     log.info("shopify_order_fulfilled", order_id=order_id, tracking_numbers=tracking_numbers)
 
@@ -303,6 +309,32 @@ async def handle_order_fulfilled(payload: dict, shop_domain: str, log) -> None:
                 db_order_id=order.id,
                 tracking_number=order.tracking_number,
             )
+
+            try:
+                from app.services.shipping_notification import ShippingNotificationService
+
+                notification_service = ShippingNotificationService()
+                notification_result = await notification_service.send_shipping_notification(
+                    order=order,
+                    db=db,
+                    fulfillment_id=str(fulfillment_id) if fulfillment_id else None,
+                )
+
+                log.info(
+                    "shipping_notification_result",
+                    order_id=order_id,
+                    status=notification_result.status.value,
+                    error_code=notification_result.error_code,
+                )
+
+                await notification_service.close()
+
+            except Exception as notification_error:
+                log.error(
+                    "shipping_notification_error",
+                    order_id=order_id,
+                    error=str(notification_error),
+                )
 
     except Exception as e:
         log.error(

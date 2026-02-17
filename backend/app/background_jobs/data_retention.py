@@ -21,6 +21,7 @@ from app.core.database import async_session
 from app.services.data_retention import DataRetentionService
 from app.services.cart.cart_retention import run_cart_retention_cleanup
 from app.tasks.handoff_followup_task import process_handoff_followups
+from app.tasks.queued_notification_task import process_queued_notifications
 
 logger = structlog.get_logger(__name__)
 
@@ -90,6 +91,18 @@ async def _run_handoff_followup() -> dict:
         return await process_handoff_followups(db)
 
 
+async def _run_queued_notifications() -> dict:
+    """Run queued notification task wrapper.
+
+    Story 4-12: Processes queued offline handoff notifications every 30 minutes.
+
+    Returns:
+        Dictionary with notification processing results
+    """
+    async with async_session() as db:
+        return await process_queued_notifications(db)
+
+
 def start_scheduler() -> None:
     """Start the data retention scheduler.
 
@@ -119,6 +132,15 @@ def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=30),
         id="handoff_followup_task",
         name="Process Handoff Follow-Ups",
+        replace_existing=True,
+    )
+
+    # Story 4-12: Schedule queued notification task every 30 minutes
+    scheduler.add_job(
+        lambda: _run_queued_notifications(),
+        trigger=IntervalTrigger(minutes=30),
+        id="queued_notification_task",
+        name="Process Queued Notifications",
         replace_existing=True,
     )
 

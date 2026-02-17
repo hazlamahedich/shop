@@ -108,8 +108,8 @@ development_status:
   
   # PHASE 2: Order Tracking (Shopify-dependent - blocked without store or mock)
   4-1-natural-language-order-tracking: done # 2026-02-16: Code review COMPLETE - All HIGH/MEDIUM issues fixed. E2E tests rewritten (8 runnable), 3 response time tests added, CONFIRMED factory method added. 49 unit + 25 integration tests passing.
-  4-2-shopify-webhook-integration: review # 🔄 Code review in progress (2026-02-17) - Fixes applied for CRITICAL/HIGH issues, 21 tests passing
-  4-3-shipping-notifications: backlog # 🔴 BLOCKED - Requires 4-2 + Shopify
+  4-2-shopify-webhook-integration: done # Task 6 & 7 complete: DLQ retry worker + 34 unit tests for order_processor. All tasks done.
+  4-3-shipping-notifications: done # 2026-02-17: Code review complete - 30 unit tests passing (all HIGH/MEDIUM issues fixed: Redis import, AC3 24h rule)
   4-4-polling-fallback: backlog # 🔴 BLOCKED - Requires Shopify Admin API
   
   epic-4-retrospective: optional
