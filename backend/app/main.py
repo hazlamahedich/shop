@@ -43,6 +43,7 @@ from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
 from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
+from app.api import health as health_router
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
     MinimalEnvelope,
@@ -136,8 +137,30 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     await init_db()
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
+
+    # Story 4-4: Start Shopify order polling scheduler
+    try:
+        from app.tasks.polling_scheduler import start_polling_scheduler
+
+        await start_polling_scheduler()
+    except Exception as e:
+        # Log but don't fail startup if polling scheduler fails
+        import structlog
+
+        structlog.get_logger().warning("polling_scheduler_startup_failed", error=str(e))
+
     yield
     # Shutdown
+    # Story 4-4: Shutdown Shopify order polling scheduler
+    try:
+        from app.tasks.polling_scheduler import shutdown_polling_scheduler
+
+        await shutdown_polling_scheduler()
+    except Exception as e:
+        import structlog
+
+        structlog.get_logger().warning("polling_scheduler_shutdown_failed", error=str(e))
+
     shutdown_scheduler()  # Story 2-7: Shutdown scheduler gracefully
     await close_db()
 
@@ -248,6 +271,8 @@ app.include_router(cost_tracking_router, tags=["costs"])
 app.include_router(business_hours_router, prefix="/api/v1/merchant", tags=["business-hours"])
 app.include_router(handoff_alerts_router, prefix="/api/handoff-alerts", tags=["handoff-alerts"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
+# Story 4-4: Polling health endpoint
+app.include_router(health_router.router, prefix="/api/health", tags=["health"])
 # Story 1.13: Bot Preview Mode
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # These will be added as features are implemented:

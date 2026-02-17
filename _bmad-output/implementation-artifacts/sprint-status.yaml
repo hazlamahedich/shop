@@ -110,16 +110,30 @@ development_status:
   4-1-natural-language-order-tracking: done # 2026-02-16: Code review COMPLETE - All HIGH/MEDIUM issues fixed. E2E tests rewritten (8 runnable), 3 response time tests added, CONFIRMED factory method added. 49 unit + 25 integration tests passing.
   4-2-shopify-webhook-integration: done # Task 6 & 7 complete: DLQ retry worker + 34 unit tests for order_processor. All tasks done.
   4-3-shipping-notifications: done # 2026-02-17: Code review complete - 30 unit tests passing (all HIGH/MEDIUM issues fixed: Redis import, AC3 24h rule)
-  4-4-polling-fallback: backlog # 🔴 BLOCKED - Requires Shopify Admin API
+  4-4-polling-fallback: done # 2026-02-17: QA automation complete - 62 tests passing (49 unit + 5 API + 8 integration). Fixed datetime timezone handling bugs.
   
   epic-4-retrospective: optional
 
-  # Epic 5: Data Privacy & Compliance
+  # Epic 5: Embeddable Widget (NEW - approved 2026-02-17)
+  # See: sprint-change-proposal-2026-02-17.md, docs/embeddable-widget-plan.md
   epic-5: backlog
-  5-1-opt-in-consent-flow: backlog
-  5-2-request-data-deletion: backlog
-  5-3-merchant-csv-export: backlog
-  5-4-data-tier-separation: backlog
-  5-5-30-day-retention-enforcement: backlog
-  5-6-gdpr-deletion-processing: backlog
+  5-1-backend-widget-api: backlog
+  5-2-widget-session-management: backlog
+  5-3-widget-frontend-components: backlog
+  5-4-build-system-loader-script: backlog
+  5-5-theme-customization-system: backlog
+  5-6-merchant-widget-settings-ui: backlog
+  5-7-security-rate-limiting: backlog
+  5-8-performance-optimization: backlog
+  5-9-cdn-setup-documentation: backlog
   epic-5-retrospective: optional
+
+  # Epic 6: Data Privacy & Compliance (Renumbered from Epic 5 - approved 2026-02-17)
+  epic-6: backlog
+  6-1-opt-in-consent-flow: backlog
+  6-2-request-data-deletion: backlog
+  6-3-merchant-csv-export: backlog
+  6-4-data-tier-separation: backlog
+  6-5-30-day-retention-enforcement: backlog
+  6-6-gdpr-deletion-processing: backlog
+  epic-6-retrospective: optional

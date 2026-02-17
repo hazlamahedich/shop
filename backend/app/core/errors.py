@@ -202,6 +202,13 @@ class ErrorCode(IntEnum):
     SHIPPING_CONSENT_DISABLED = 7043  # User has opted out of notifications
     SHIPPING_DUPLICATE_WEBHOOK = 7044  # Duplicate fulfillment webhook (idempotent)
 
+    # Story 4-4: Polling fallback error codes
+    POLLING_SHOPIFY_API_ERROR = 7050  # Shopify Admin API error during polling
+    POLLING_RATE_LIMITED = 7051  # Shopify rate limit exceeded
+    POLLING_AUTH_FAILED = 7052  # Shopify Admin API authentication failed
+    POLLING_NO_MERCHANTS_CONFIGURED = 7053  # No merchants with Shopify configured
+    POLLING_DATABASE_ERROR = 7054  # Database error during polling
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

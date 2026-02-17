@@ -149,7 +149,9 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
         try:
             if updated_at_str.endswith("Z"):
                 updated_at_str = updated_at_str[:-1] + "+00:00"
-            shopify_updated_at = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+            shopify_updated_at = datetime.fromisoformat(
+                updated_at_str.replace("Z", "+00:00")
+            ).replace(tzinfo=None)
         except Exception:
             pass
 

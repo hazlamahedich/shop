@@ -194,6 +194,32 @@ db_session = async_session
 
 
 # =============================================================================
+# FIXTURE: Test Merchant (Function Scope)
+# =============================================================================
+
+
+@pytest.fixture(scope="function")
+async def test_merchant(async_session: AsyncSession):
+    """Create a test merchant for integration tests.
+
+    Returns:
+        Merchant instance with test data
+    """
+    from app.models.merchant import Merchant
+
+    merchant = Merchant(
+        merchant_key="test-merchant-key",
+        platform="messenger",
+        email="test@example.com",
+        status="active",
+    )
+    async_session.add(merchant)
+    await async_session.commit()
+    await async_session.refresh(merchant)
+    return merchant
+
+
+# =============================================================================
 # FIXTURE: Async HTTP Client (Function Scope)
 # =============================================================================
 

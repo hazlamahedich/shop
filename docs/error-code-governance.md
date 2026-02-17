@@ -15,6 +15,7 @@ Error codes are divided into 1000-number ranges, each owned by a specific team:
 | 5000-5999 | facebook team     | Integrations    | Messenger webhooks, messaging              |
 | 6000-6999 | checkout team     | Cart            | Cart operations, checkout flow             |
 | 7000-7999 | conversation team | Session         | Conversations, context, sessions           |
+| 8000-8999 | widget team       | Widget          | Embeddable widget, anonymous sessions      |
 
 ## Adding New Error Codes
 
@@ -206,6 +207,18 @@ Error codes that have been removed:
 | 7028 | HANDOFF_URGENCY_DETECTION_FAILED | Urgency detection error                          | 2026-02-14 |
 | 7029 | HANDOFF_RATE_LIMITED             | Email rate limited (info, not error)             | 2026-02-14 |
 | 7030 | NO_FACEBOOK_PAGE_CONNECTION      | Merchant has not connected a Facebook page       | 2026-02-15 |
+
+### 8000-8999: Widget System
+
+| Code | Name                       | Description                                | Added      |
+| ---- | -------------------------- | ------------------------------------------ | ---------- |
+| 8001 | WIDGET_SESSION_NOT_FOUND   | Session ID invalid or expired              | 2026-02-17 |
+| 8002 | WIDGET_RATE_LIMITED        | Too many requests from IP or merchant      | 2026-02-17 |
+| 8003 | WIDGET_DOMAIN_NOT_ALLOWED  | Origin domain not in merchant whitelist    | 2026-02-17 |
+| 8004 | WIDGET_MERCHANT_DISABLED   | Widget feature disabled for merchant       | 2026-02-17 |
+| 8005 | WIDGET_INVALID_CONFIG      | Invalid theme configuration provided       | 2026-02-17 |
+| 8006 | WIDGET_SESSION_CREATE_FAILED | Failed to create widget session          | 2026-02-17 |
+| 8007 | WIDGET_MERCHANT_NOT_FOUND  | Merchant ID not found in widget config     | 2026-02-17 |
 
 ## Examples
 

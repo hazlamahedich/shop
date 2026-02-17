@@ -18,6 +18,19 @@ from app.services.shopify.order_processor import (
     map_shopify_status_to_order_status,
 )
 
+# Admin API and polling services (Story 4-4)
+from app.services.shopify.admin_client import (
+    ShopifyAdminClient,
+    ShopifyAPIError,
+    ShopifyAuthError,
+    ShopifyRateLimitError,
+)
+from app.services.shopify.order_polling_service import (
+    OrderPollingService,
+    PollingResult,
+    PollingStatus,
+)
+
 # Legacy OAuth and service components (from original shopify.py → shopify_oauth.py)
 # These are imported to maintain backward compatibility with integrations API
 from app.services.shopify_oauth import (
@@ -38,6 +51,14 @@ __all__ = [
     "resolve_customer_psid",
     "upsert_order",
     "map_shopify_status_to_order_status",
+    # Admin API and polling services (Story 4-4)
+    "ShopifyAdminClient",
+    "ShopifyAPIError",
+    "ShopifyAuthError",
+    "ShopifyRateLimitError",
+    "OrderPollingService",
+    "PollingResult",
+    "PollingStatus",
     # Legacy OAuth and service components
     "ShopifyService",
     "get_shopify_service",
