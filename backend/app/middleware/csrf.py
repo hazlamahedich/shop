@@ -59,6 +59,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/deletion/",  # Data deletion for GDPR/CCPA compliance
         "/api/conversations/export",  # CSV export is a read-only operation
         "/api/conversations/",  # Story 4-12: Handoff notification endpoints (Bearer token auth)
+        "/api/v1/widget/",  # Story 5-1: Public widget API (no CSRF for anonymous sessions)
         "/docs",
         "/redoc",
         "/openapi.json",

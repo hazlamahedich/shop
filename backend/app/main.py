@@ -39,6 +39,7 @@ from app.api.cost_tracking import router as cost_tracking_router
 from app.api.business_hours import router as business_hours_router
 from app.api.handoff_alerts import router as handoff_alerts_router
 from app.api.settings import router as settings_router
+from app.api.widget import router as widget_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
@@ -113,6 +114,18 @@ def get_error_status_code(error_code: ErrorCode) -> int:
     if 8000 <= error_code < 9000:
         if error_code == ErrorCode.EXPORT_TIMEOUT:
             return status.HTTP_408_REQUEST_TIMEOUT
+        return status.HTTP_400_BAD_REQUEST
+
+    # 12xxx: Widget errors -> 400, 401, 403, 404, or 429
+    if 12000 <= error_code < 13000:
+        if error_code == ErrorCode.WIDGET_SESSION_NOT_FOUND:
+            return status.HTTP_404_NOT_FOUND
+        if error_code == ErrorCode.WIDGET_SESSION_EXPIRED:
+            return status.HTTP_401_UNAUTHORIZED
+        if error_code in (ErrorCode.WIDGET_MERCHANT_DISABLED, ErrorCode.WIDGET_DOMAIN_NOT_ALLOWED):
+            return status.HTTP_403_FORBIDDEN
+        if error_code == ErrorCode.WIDGET_RATE_LIMITED:
+            return status.HTTP_429_TOO_MANY_REQUESTS
         return status.HTTP_400_BAD_REQUEST
 
     # 1xxx: General errors
@@ -275,6 +288,8 @@ app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(health_router.router, prefix="/api/health", tags=["health"])
 # Story 1.13: Bot Preview Mode
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
+# Story 5-1: Widget API
+app.include_router(widget_router, prefix="/api/v1", tags=["widget"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

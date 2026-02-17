@@ -134,6 +134,12 @@ class Merchant(Base):
         index=True,  # Index for common query pattern
     )
 
+    # Widget configuration (Story 5-1)
+    widget_config: Mapped[Optional[dict]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     # Relationships
     llm_configuration: Mapped[Optional["LLMConfiguration"]] = relationship(
         "LLMConfiguration",

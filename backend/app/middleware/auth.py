@@ -60,6 +60,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/redoc",
         "/openapi.json",
         "/api/oauth/",
+        "/api/v1/widget/",  # Story 5-1: Public widget API
     ]
 
     def __init__(self, app) -> None:

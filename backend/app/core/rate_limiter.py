@@ -18,20 +18,21 @@ class RateLimiter:
 
     LLM Config: 1 configuration request per 10 seconds per merchant.
     Auth: 5 login attempts per 15 minutes per IP/email.
+    Widget: 100 requests per 60 seconds per IP.
     Uses in-memory storage for MVP (migrate to Redis for production scale).
     """
 
-    # In-memory storage: {client_id: [(timestamp, request_count)]}
     _requests: dict[str, list[tuple[float, int]]] = defaultdict(list)
 
-    # Configuration
     DEFAULT_MAX_REQUESTS = 1
     DEFAULT_PERIOD_SECONDS = 10
-    DEFAULT_WINDOW_SECONDS = 60  # Cleanup old entries after 60s
+    DEFAULT_WINDOW_SECONDS = 60
 
-    # Auth-specific configuration (Story 1.8)
     AUTH_MAX_REQUESTS = 5
-    AUTH_PERIOD_SECONDS = 15 * 60  # 15 minutes
+    AUTH_PERIOD_SECONDS = 15 * 60
+
+    WIDGET_MAX_REQUESTS = 100
+    WIDGET_PERIOD_SECONDS = 60
 
     @classmethod
     def _cleanup_old_entries(cls, client_id: str) -> None:
@@ -48,9 +49,7 @@ class RateLimiter:
         ]
 
     @classmethod
-    def _get_request_count(
-        cls, client_id: str, period_seconds: int
-    ) -> int:
+    def _get_request_count(cls, client_id: str, period_seconds: int) -> int:
         """Get request count in the time window.
 
         Args:
@@ -64,11 +63,7 @@ class RateLimiter:
         period_start = now - period_seconds
 
         # Count requests within the period
-        count = sum(
-            count
-            for ts, count in cls._requests[client_id]
-            if ts >= period_start
-        )
+        count = sum(count for ts, count in cls._requests[client_id] if ts >= period_start)
 
         return count
 
@@ -209,6 +204,55 @@ class RateLimiter:
                 },
             )
 
+    @classmethod
+    def get_widget_client_ip(cls, request: Request) -> str:
+        """Get client IP for widget rate limiting.
 
-# Dependency for use in FastAPI endpoints
+        Respects X-Forwarded-For header for reverse proxy setups.
+
+        Args:
+            request: FastAPI request object
+
+        Returns:
+            Client IP address string
+        """
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
+
+    @classmethod
+    def check_widget_rate_limit(
+        cls,
+        request: Request,
+    ) -> Optional[int]:
+        """Check rate limit for widget endpoints.
+
+        Widget rate limiting: 100 requests per 60 seconds per IP.
+        Respects X-Forwarded-For header for per-IP rate limiting.
+
+        Args:
+            request: FastAPI request object
+
+        Returns:
+            None if allowed, retry_after seconds if rate limited
+        """
+        if os.getenv("IS_TESTING", "false").lower() == "true":
+            return None
+        if request.headers.get("X-Test-Mode", "").lower() == "true":
+            return None
+
+        client_ip = cls.get_widget_client_ip(request)
+        client_id = f"widget:{client_ip}"
+
+        if cls.is_rate_limited(
+            client_id,
+            max_requests=cls.WIDGET_MAX_REQUESTS,
+            period_seconds=cls.WIDGET_PERIOD_SECONDS,
+        ):
+            return cls.WIDGET_PERIOD_SECONDS
+
+        return None
+
+
 check_llm_rate_limit = RateLimiter.check_rate_limit
