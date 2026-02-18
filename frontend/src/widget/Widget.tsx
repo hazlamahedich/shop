@@ -6,6 +6,7 @@ import { ChatWindow } from './components/ChatWindow';
 import { WidgetErrorBoundary } from './components/WidgetErrorBoundary';
 import type { WidgetTheme } from './types/widget';
 import { createShadowContainer, injectStyles, injectTheme } from './utils/shadowDom';
+import { mergeThemes } from './utils/themeMerge';
 // @ts-expect-error Vite raw import
 import widgetCss from './styles/widget.css?raw';
 
@@ -13,23 +14,13 @@ interface WidgetInnerProps {
   theme?: Partial<WidgetTheme>;
 }
 
-const defaultTheme: WidgetTheme = {
-  primaryColor: '#6366f1',
-  backgroundColor: '#ffffff',
-  textColor: '#1f2937',
-  botBubbleColor: '#f3f4f6',
-  userBubbleColor: '#6366f1',
-  position: 'bottom-right',
-  borderRadius: 16,
-  width: 380,
-  height: 600,
-  fontFamily: 'Inter, sans-serif',
-  fontSize: 14,
-};
-
 function WidgetInner({ theme }: WidgetInnerProps) {
   const { state, toggleChat, initWidget, sendMessage, merchantId } = useWidgetContext();
-  const mergedTheme = { ...defaultTheme, ...theme };
+  const merchantTheme = state.config?.theme;
+  const mergedTheme = React.useMemo(
+    () => mergeThemes(merchantTheme, theme),
+    [merchantTheme, theme]
+  );
   const containerRef = React.useRef<HTMLDivElement>(null);
   const shadowRef = React.useRef<ShadowRoot | null>(null);
   const portalContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -45,6 +36,12 @@ function WidgetInner({ theme }: WidgetInnerProps) {
       setShadowReady(true);
     }
   }, []);
+
+  React.useEffect(() => {
+    if (shadowRef.current) {
+      injectTheme(shadowRef.current, mergedTheme);
+    }
+  }, [mergedTheme]);
 
   React.useEffect(() => {
     initWidget(merchantId);

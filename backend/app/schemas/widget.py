@@ -4,15 +4,17 @@ Provides request/response schemas for widget session management,
 messaging, and configuration endpoints.
 
 Story 5.1: Backend Widget API
+Story 5.5: Theme Customization System
 """
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
 
@@ -24,15 +26,32 @@ class WidgetTheme(BaseSchema):
         primary_color: Primary brand color (hex)
         background_color: Widget background color (hex)
         text_color: Text color (hex)
+        bot_bubble_color: Bot message bubble color (hex)
+        user_bubble_color: User message bubble color (hex)
         position: Widget position on page
-        border_radius: Border radius in pixels
+        border_radius: Border radius in pixels (0-24)
+        width: Widget width in pixels (280-600)
+        height: Widget height in pixels (400-900)
+        font_family: CSS font-family value
+        font_size: Base font size in pixels (12-20)
     """
 
     primary_color: str = Field(default="#6366f1", pattern=r"^#[0-9a-fA-F]{6}$")
     background_color: str = Field(default="#ffffff", pattern=r"^#[0-9a-fA-F]{6}$")
     text_color: str = Field(default="#1f2937", pattern=r"^#[0-9a-fA-F]{6}$")
+    bot_bubble_color: str = Field(default="#f3f4f6", pattern=r"^#[0-9a-fA-F]{6}$")
+    user_bubble_color: str = Field(default="#6366f1", pattern=r"^#[0-9a-fA-F]{6}$")
     position: str = Field(default="bottom-right", pattern=r"^(bottom-right|bottom-left)$")
-    border_radius: int = Field(default=16, ge=0, le=32)
+    border_radius: int = Field(default=16, ge=0, le=24)
+    width: int = Field(default=380, ge=280, le=600)
+    height: int = Field(default=600, ge=400, le=900)
+    font_family: str = Field(default="Inter, sans-serif", max_length=200)
+    font_size: int = Field(default=14, ge=12, le=20)
+
+    @field_validator("font_family")
+    @classmethod
+    def sanitize_font_family(cls, v: str) -> str:
+        return re.sub(r'[<>"\']', "", v)
 
 
 class WidgetConfig(BaseSchema):

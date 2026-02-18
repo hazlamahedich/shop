@@ -1,22 +1,9 @@
 import type { WidgetTheme } from '../types/widget';
+import { DEFAULT_THEME } from '../utils/themeDefaults';
 
 export function useWidgetTheme(initialTheme?: WidgetTheme) {
-  const defaultTheme: WidgetTheme = {
-    primaryColor: '#6366f1',
-    backgroundColor: '#ffffff',
-    textColor: '#1f2937',
-    botBubbleColor: '#f3f4f6',
-    userBubbleColor: '#6366f1',
-    position: 'bottom-right',
-    borderRadius: 16,
-    width: 380,
-    height: 600,
-    fontFamily: 'Inter, sans-serif',
-    fontSize: 14,
-  };
-
   const getTheme = (): WidgetTheme => {
-    return initialTheme ?? defaultTheme;
+    return initialTheme ?? DEFAULT_THEME;
   };
 
   const applyTheme = (theme: WidgetTheme): React.CSSProperties => {
@@ -29,12 +16,14 @@ export function useWidgetTheme(initialTheme?: WidgetTheme) {
       '--widget-radius': `${theme.borderRadius}px`,
       '--widget-font': theme.fontFamily,
       '--widget-font-size': `${theme.fontSize}px`,
+      '--widget-width': `${theme.width}px`,
+      '--widget-height': `${theme.height}px`,
     } as React.CSSProperties;
   };
 
   return {
     getTheme,
     applyTheme,
-    defaultTheme,
+    defaultTheme: DEFAULT_THEME,
   };
 }
