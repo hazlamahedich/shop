@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Manual Test - ShopBot</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; background: white; border-radius: 8px; }
+    h1 { color: #333; }
+    .status { margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>ShopBot Widget Manual Test</h1>
+  
+  <div class="test-section">
+    <h2>Test 1: window.ShopBotConfig</h2>
+    <p>Widget should load using global config object with theme customization.</p>
+    <p><strong>Expected:</strong> Widget appears in bottom-right corner with green (#10b981) primary color.</p>
+    <div class="status" id="status">Loading widget...</div>
+  </div>
+
+  <!-- Configure widget via global object -->
+  <script>
+    window.ShopBotConfig = {
+      merchantId: 'test-merchant-123',
+      theme: {
+        primaryColor: '#10b981',
+        position: 'bottom-right'
+      }
+    };
+    
+    // Log when widget is expected to load
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('status').textContent = 'DOM ready - widget should be loading...';
+    });
+  </script>
+
+  <!-- Load React from CDN (required since external) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+  <!-- Load widget bundle -->
+  <script src="./dist/widget/widget.umd.js" async></script>
+</body>
+</html>

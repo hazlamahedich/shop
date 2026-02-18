@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Bundle Test - data-merchant-id</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; background: white; border-radius: 8px; }
+    h1 { color: #333; }
+  </style>
+</head>
+<body>
+  <h1>ShopBot Widget Bundle Test - Data Attributes</h1>
+  
+  <div class="test-section">
+    <h2>Test: data-merchant-id attribute</h2>
+    <p>Widget loads using data-merchant-id and data-theme attributes on script tag.</p>
+    <p><strong>Expected:</strong> Widget appears with purple (#6366f1) primary color.</p>
+  </div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script 
+    src="/dist/widget/widget.umd.js" 
+    data-merchant-id="test-merchant-456"
+    data-theme='{"primaryColor":"#6366f1","position":"bottom-right"}'
+  ></script>
+</body>
+</html>

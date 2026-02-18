@@ -120,7 +120,7 @@ development_status:
   5-1-backend-widget-api: done # 2026-02-17: Code review COMPLETE - 4 issues fixed (LLM timeout, domain whitelist, sanitization, test endpoint), 35 tests passing
   5-2-widget-session-management: review # 2026-02-18: Implementation complete - 13 tests passing (7 unit + 6 integration)
   5-3-widget-frontend-components: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (Shadow DOM, merchantId, typing animation, aria-busy, session persistence), 44 tests passing
-  5-4-build-system-loader-script: ready-for-dev
+  5-4-build-system-loader-script: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (unmount, validation, container test, localhost URLs), 19 unit + 144 E2E tests passing
   5-5-theme-customization-system: backlog
   5-6-merchant-widget-settings-ui: backlog
   5-7-security-rate-limiting: backlog
