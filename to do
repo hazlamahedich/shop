@@ -1,3 +1,4 @@
 to do
-1. onboarding flow
+1. onboarding flow - links to config pages not workong no mention as well of how to set up fb,shopify and llm doesnt mention shopify integration as optional
 2 /costs page allow 0 value if provider is ollama; remove no limit hutton and functionality
+3. Product wallet and pinning for fb bot only setups

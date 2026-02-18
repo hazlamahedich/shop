@@ -578,12 +578,12 @@ async def generate_checkout_url(cart_items: list, merchant_id: int) -> str:
 
 **Gap Analysis:**
 The application has no implementation for:
-- "Forget my preferences" command (Epic 5, Story 5.2)
-- GDPR/CCPA deletion request processing (Epic 5, Story 5.6)
+- "Forget my preferences" command (Epic 6, Story 6.2)
+- GDPR/CCPA deletion request processing (Epic 6, Story 6.6)
 - Deletion request tracking and audit logging
 - 30-day processing deadline enforcement
 
-**Epic 5 Status:** DEFERRED (Data Privacy & Compliance epic not yet started)
+**Epic 6 Status:** DEFERRED (Data Privacy & Compliance epic not yet started)
 
 **Recommendation:**
 
@@ -610,7 +610,7 @@ class DeletionRequest(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 async def process_deletion_request(customer_id: str, merchant_id: int) -> None:
-    """Process user data deletion request (Epic 5, Story 5.2)."""
+    """Process user data deletion request (Epic 6, Story 6.2)."""
 
     # 1. Delete voluntary data immediately
     await delete_conversation_history(customer_id, merchant_id)
@@ -660,14 +660,14 @@ async def process_message(...):
 **What's Missing:**
 ❌ No automatic cleanup job for 30-day retention
 ❌ No retention policy enforcement
-❌ No data tier separation (Epic 5, Story 5.4)
+❌ No data tier separation (Epic 6, Story 6.4)
 ❌ No distinction between voluntary and operational data
 
 **Gap Analysis:**
 The application stores conversation data indefinitely, violating:
 - GDPR minimization principle
 - NFR-S11 30-day retention requirement
-- Epic 5, Story 5.5 (automatic deletion)
+- Epic 6, Story 6.5 (automatic deletion)
 
 **Recommendation:**
 
@@ -774,7 +774,7 @@ async def cleanup_old_conversations() -> dict:
 
 3. **NFR-S10: User Data Deletion**
    - **Risk:** GDPR/CCPA non-compliance, legal liability
-   - **Action:** Implement deletion workflow (Epic 5)
+   - **Action:** Implement deletion workflow (Epic 6)
    - **Effort:** 12 hours
 
 ### High Priority (P1)
@@ -837,7 +837,7 @@ async def cleanup_old_conversations() -> dict:
    - Update dashboard API endpoints to validate tokens
    - **Time:** 6 hours
 
-### Medium-Term (Epic 5)
+### Medium-Term (Epic 6)
 
 6. **Implement Data Deletion Workflow**
    - File: `backend/app/api/privacy.py` (new)
@@ -928,7 +928,7 @@ The Shopping Assistant Bot has a solid security foundation with strong webhook v
 | Risk Category | Level | Mitigation Priority |
 |---------------|-------|---------------------|
 | Data Exposure | HIGH | Implement conversation encryption |
-| Compliance Violation | HIGH | Implement deletion workflow (Epic 5) |
+| Compliance Violation | HIGH | Implement deletion workflow (Epic 6) |
 | Transport Security | HIGH | Add HTTPS enforcement |
 | CSRF Attacks | MEDIUM | Add CSRF middleware |
 | Data Retention | MEDIUM | Implement cleanup job |
@@ -937,14 +937,14 @@ The Shopping Assistant Bot has a solid security foundation with strong webhook v
 
 1. **Immediate:** Add HTTPS and security headers middleware
 2. **Short-term:** Implement conversation encryption and CSRF protection
-3. **Epic 5:** Complete data privacy compliance implementation
+3. **Epic 6:** Complete data privacy compliance implementation
 4. **Ongoing:** Security testing and penetration testing
 
 ### Security Score
 
 **Current Score:** 5/11 (45%)
 **Target Score:** 9/11 (82%)
-**With Epic 5:** 11/11 (100%)
+**With Epic 6:** 11/11 (100%)
 
 ---
 
@@ -976,4 +976,4 @@ The Shopping Assistant Bot has a solid security foundation with strong webhook v
 ---
 
 **Report Generated:** February 4, 2026
-**Next Review:** After Epic 5 implementation or Q2 2026 (whichever is earlier)
+**Next Review:** After Epic 6 implementation or Q2 2026 (whichever is earlier)

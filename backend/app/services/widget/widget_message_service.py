@@ -99,19 +99,19 @@ class WidgetMessageService:
         Raises:
             APIError: If message processing fails
         """
+        # Validate message length BEFORE sanitization (so user gets error, not silent truncation)
+        if len(message) > MAX_MESSAGE_LENGTH:
+            raise APIError(
+                ErrorCode.WIDGET_MESSAGE_TOO_LONG,
+                f"Message exceeds maximum length of {MAX_MESSAGE_LENGTH} characters",
+            )
+
         sanitized_message = self.sanitize_message(message)
 
         if not sanitized_message:
             raise APIError(
                 ErrorCode.VALIDATION_ERROR,
                 "Message cannot be empty",
-            )
-
-        # Validate message length
-        if len(sanitized_message) > MAX_MESSAGE_LENGTH:
-            raise APIError(
-                ErrorCode.WIDGET_MESSAGE_TOO_LONG,
-                f"Message exceeds maximum length of {MAX_MESSAGE_LENGTH} characters",
             )
 
         # Add user message to history

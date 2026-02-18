@@ -44,6 +44,10 @@ from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
 from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
+from app.background_jobs.widget_cleanup import (
+    start_widget_cleanup_scheduler,
+    shutdown_widget_cleanup_scheduler,
+)
 from app.api import health as health_router
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
@@ -150,6 +154,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     await init_db()
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
+    await start_widget_cleanup_scheduler()  # Story 5-2: Start widget session cleanup scheduler
 
     # Story 4-4: Start Shopify order polling scheduler
     try:
@@ -174,6 +179,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         structlog.get_logger().warning("polling_scheduler_shutdown_failed", error=str(e))
 
+    await shutdown_widget_cleanup_scheduler()  # Story 5-2: Shutdown widget cleanup scheduler
     shutdown_scheduler()  # Story 2-7: Shutdown scheduler gracefully
     await close_db()
 

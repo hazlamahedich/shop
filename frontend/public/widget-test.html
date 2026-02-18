@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Test Page</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin: 0 0 20px 0;
+      color: #1f2937;
+    }
+    p {
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    #widget-container {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Widget Test Page</h1>
+    <p>This page is used for E2E testing of the chat widget. The widget should appear in the bottom-right corner.</p>
+    <p>You can customize the widget by adding URL parameters:</p>
+    <ul>
+      <li><code>?theme[primaryColor]=%23ff0000</code> - Custom primary color</li>
+      <li><code>?theme[position]=bottom-left</code> - Position on bottom-left</li>
+      <li><code>?theme[borderRadius]=24</code> - Custom border radius</li>
+      <li><code>?merchantId=2</code> - Different merchant ID</li>
+    </ul>
+  </div>
+
+  <div id="widget-container"></div>
+
+  <script>
+    // Parse URL parameters for theme configuration
+    function parseThemeFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const theme = {};
+
+      for (const [key, value] of params) {
+        if (key.startsWith('theme[')) {
+          const themeKey = key.match(/theme\[(.+)\]/)?.[1];
+          if (themeKey) {
+            // Handle color values
+            if (value.startsWith('%23')) {
+              theme[themeKey] = decodeURIComponent(value);
+            } else if (!isNaN(value)) {
+              theme[themeKey] = parseInt(value, 10);
+            } else {
+              theme[themeKey] = value;
+            }
+          }
+        }
+      }
+
+      return Object.keys(theme).length > 0 ? theme : undefined;
+    }
+
+    // Get merchant ID from URL or use default
+    function getMerchantId() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('merchantId') || '1';
+    }
+
+    // Initialize widget when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      const theme = parseThemeFromUrl();
+      const merchantId = getMerchantId();
+
+      // For development, we'll create a mock widget that simulates the real behavior
+      // In production, this would load the actual widget bundle
+      const container = document.getElementById('widget-container');
+
+      // Create widget iframe for isolation
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;bottom:0;right:0;width:100%;height:100%;border:none;pointer-events:none;';
+      iframe.srcdoc = createWidgetHtml(theme, merchantId);
+      container.appendChild(iframe);
+
+      // Make iframe interactive
+      setTimeout(() => {
+        iframe.style.pointerEvents = 'auto';
+      }, 100);
+    });
+
+    function createWidgetHtml(theme, merchantId) {
+      const mergedTheme = {
+        primaryColor: '#6366f1',
+        backgroundColor: '#ffffff',
+        textColor: '#1f2937',
+        botBubbleColor: '#f3f4f6',
+        userBubbleColor: '#6366f1',
+        position: 'bottom-right',
+        borderRadius: 16,
+        width: 380,
+        height: 600,
+        fontFamily: 'Inter, sans-serif',
+        fontSize: 14,
+        ...theme
+      };
+
+      return `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: ${mergedTheme.fontFamily}; }
+  </style>
+  <script src="http://localhost:8000/api/v1/widget/embed/${merchantId}"><\/script>
+</head>
+<body>
+  <div id="chat-widget"></div>
+  <script>
+    if (window.ShopChatWidget) {
+      new window.ShopChatWidget({
+        merchantId: '${merchantId}',
+        container: '#chat-widget',
+        theme: ${JSON.stringify(mergedTheme)}
+      });
+    }
+  <\/script>
+</body>
+</html>`;
+    }
+  </script>
+</body>
+</html>

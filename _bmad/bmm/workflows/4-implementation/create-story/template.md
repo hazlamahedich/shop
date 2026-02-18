@@ -27,6 +27,14 @@ so that {{benefit}}.
 - Source tree components to touch
 - Testing standards summary
 
+### Pre-Development Checklist
+
+Before starting implementation, verify:
+- [ ] **CSRF Token**: If story adds/modifies PATCH/POST/PUT/DELETE endpoints, include `X-CSRF-Token` header in frontend API calls
+- [ ] **Python Version**: Use `datetime.timezone.utc` (NOT `datetime.UTC`) for Python 3.9/3.11 compatibility
+- [ ] **Message Encryption**: Always use `message.decrypted_content` for display, never raw `message.content`
+- [ ] **External Integration**: If story depends on Facebook/Shopify/Email, mark as "needs manual verification" and note mock status
+
 ### Project Structure Notes
 
 - Alignment with unified project structure (paths, modules, naming)

@@ -94,13 +94,13 @@ development_status:
   # PHASE 1: Human Handoff (Shopify-independent - Priority Order)
   # PHASE 2: Order Tracking (Shopify-dependent - Requires MockShopifyProvider or real store)
   # See epic-3-retrospective.md for phasing rationale
-  epic-4: in-progress # 2026-02-14: Started with Phase 1 (Shopify-independent stories)
+  epic-4: done # 2026-02-17: ALL 12 STORIES COMPLETE (Phase 1: Human Handoff + Phase 2: Order Tracking)
   
   # PHASE 1: Human Handoff Flow (No Shopify dependency)
   4-5-human-assistance-detection: done # ⭐ FOUNDATION - Detect when shopper needs human help (61 tests, migration applied, QA automate complete: 47/54 E2E passing)
   4-6-handoff-notifications: done # 2026-02-14: Code review COMPLETE - All HIGH/MEDIUM issues fixed (HandoffFlowService created, push stub added, docs corrected)
   4-7-handoff-queue-with-urgency: done # 2026-02-15: Code review COMPLETE + QA automation COMPLETE - Component tests added (37 tests), 145 total tests passing (100%)
-  4-8-conversation-history-view: review # 2026-02-15: Implementation complete - 9 backend tests, 10 E2E tests, all tasks done
+  4-8-conversation-history-view: done # 2026-02-17: Code review complete - 9 backend tests, 10 E2E tests, all tasks done
   4-9-open-in-messenger-reply: done # 2026-02-15: Code review complete - All HIGH/MEDIUM issues fixed, fail-safe behavior implemented, 10 frontend + 8 backend unit tests passing
   4-10-return-to-bot: done # Code review complete - All CRITICAL/HIGH issues fixed (closed status error, resolved handoff_status reset, toast error handling), 14 backend tests passing
   4-11-offline-follow-up-messages: done # 2026-02-16: Code review COMPLETE - All HIGH/MEDIUM/LOW issues fixed (7 total). Added: Conversation helper methods, scheduler integration, error codes 7032/7033, atomic transactions, test warnings resolved. 20 unit + 7 integration + 96 E2E tests passing.
@@ -112,15 +112,15 @@ development_status:
   4-3-shipping-notifications: done # 2026-02-17: Code review complete - 30 unit tests passing (all HIGH/MEDIUM issues fixed: Redis import, AC3 24h rule)
   4-4-polling-fallback: done # 2026-02-17: QA automation complete - 62 tests passing (49 unit + 5 API + 8 integration). Fixed datetime timezone handling bugs.
   
-  epic-4-retrospective: optional
+  epic-4-retrospective: done # 2026-02-17: Retrospective complete. Key outcomes: CSRF checklist for stories, Python 3.11 venv documentation, integration verification checklist, Facebook → optional for Epic 5.
 
   # Epic 5: Embeddable Widget (NEW - approved 2026-02-17)
   # See: sprint-change-proposal-2026-02-17.md, docs/embeddable-widget-plan.md
-  epic-5: backlog
-  5-1-backend-widget-api: backlog
-  5-2-widget-session-management: backlog
-  5-3-widget-frontend-components: backlog
-  5-4-build-system-loader-script: backlog
+  epic-5: in-progress # 2026-02-17: Started with Story 5-1
+  5-1-backend-widget-api: done # 2026-02-17: Code review COMPLETE - 4 issues fixed (LLM timeout, domain whitelist, sanitization, test endpoint), 35 tests passing
+  5-2-widget-session-management: review # 2026-02-18: Implementation complete - 13 tests passing (7 unit + 6 integration)
+  5-3-widget-frontend-components: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (Shadow DOM, merchantId, typing animation, aria-busy, session persistence), 44 tests passing
+  5-4-build-system-loader-script: ready-for-dev
   5-5-theme-customization-system: backlog
   5-6-merchant-widget-settings-ui: backlog
   5-7-security-rate-limiting: backlog

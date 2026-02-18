@@ -317,3 +317,42 @@ class WidgetSessionService:
                 continue
 
         return result
+
+    async def update_last_activity(self, session_id: str) -> bool:
+        """Update only the last_activity_at timestamp without extending expiry.
+
+        Story 5-2: Lightweight activity tracking for analytics.
+
+        Args:
+            session_id: Widget session identifier
+
+        Returns:
+            True if session was updated, False if not found
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            return False
+
+        session.last_activity_at = datetime.now(timezone.utc)
+
+        key = self._get_session_key(session_id)
+        ttl = await self.redis.ttl(key)
+        if ttl > 0:
+            await self.redis.setex(
+                key,
+                ttl,
+                session.model_dump_json(),
+            )
+        else:
+            await self.redis.setex(
+                key,
+                self.SESSION_TTL_SECONDS,
+                session.model_dump_json(),
+            )
+
+        self.logger.debug(
+            "widget_activity_updated",
+            session_id=session_id,
+        )
+
+        return True

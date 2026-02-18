@@ -210,6 +210,38 @@ bd sync && git push
 
 ---
 
+## 🐍 Python Development Guidelines
+
+### Version Requirement
+
+**Always use Python 3.11 from the virtual environment:**
+
+```bash
+# Activate venv before any Python work
+source backend/venv/bin/activate  # macOS/Linux
+# OR
+backend\venv\Scripts\activate     # Windows
+
+# Verify version (should be 3.11.x)
+python --version
+```
+
+**Why:** System Python may be 3.12+, but the venv is 3.11. Using the wrong version causes datetime compatibility issues.
+
+### Datetime Compatibility (Python 3.9/3.11)
+
+```python
+# ✅ CORRECT - Works in Python 3.9+
+from datetime import datetime, timezone
+now = datetime.now(timezone.utc)
+
+# ❌ WRONG - Only works in Python 3.11+
+from datetime import datetime, UTC
+now = datetime.now(UTC)  # AttributeError in Python 3.9/3.10
+```
+
+---
+
 ## 📁 Project Structure
 
 ```

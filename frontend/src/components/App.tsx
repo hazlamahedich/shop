@@ -14,6 +14,7 @@ import BusinessInfoFaqConfig from '../pages/BusinessInfoFaqConfig';
 import BotConfig from '../pages/BotConfig';
 import { BotPreview } from '../pages/BotPreview';
 import Login from '../pages/Login';
+import WidgetTestPage from '../pages/WidgetTestPage';
 import { OnboardingGuard, AuthGuard } from './RouteGuards';
 import { useAuthStore } from '../stores/authStore';
 
@@ -28,6 +29,9 @@ export function App() {
 
   return (
     <Routes>
+      {/* Public routes - no auth required */}
+      <Route path="/widget-test" element={<WidgetTestPage />} />
+
       {/* Auth-wrapped login route - redirects to dashboard if already logged in */}
       <Route
         path="/login"

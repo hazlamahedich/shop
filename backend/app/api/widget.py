@@ -99,6 +99,23 @@ def _check_rate_limit(request: Request) -> Optional[int]:
     return RateLimiter.check_widget_rate_limit(request)
 
 
+def _check_merchant_rate_limit(merchant_id: int, rate_limit: Optional[int]) -> Optional[int]:
+    """Check per-merchant rate limit.
+
+    Story 5-2 AC5: Per-merchant configurable rate limiting.
+
+    Args:
+        merchant_id: Merchant ID
+        rate_limit: Per-merchant rate limit from widget_config
+
+    Returns:
+        None if allowed, retry_after seconds if rate limited
+    """
+    if rate_limit is None:
+        return None
+    return RateLimiter.check_merchant_rate_limit(merchant_id, rate_limit)
+
+
 @router.post(
     "/widget/session",
     response_model=WidgetSessionEnvelope,
@@ -151,6 +168,16 @@ async def create_widget_session(
         raise APIError(
             ErrorCode.WIDGET_MERCHANT_DISABLED,
             "Widget is disabled for this merchant",
+        )
+
+    # Check per-merchant rate limit (Story 5-2 AC5)
+    merchant_rate_limit = widget_config.get("rate_limit")
+    retry_after = _check_merchant_rate_limit(merchant.id, merchant_rate_limit)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Merchant rate limit exceeded",
+            {"retry_after": retry_after},
         )
 
     # Validate domain whitelist (AC7)
@@ -293,6 +320,16 @@ async def send_widget_message(
         raise APIError(
             ErrorCode.WIDGET_MERCHANT_DISABLED,
             "Widget is disabled for this merchant",
+        )
+
+    # Check per-merchant rate limit (Story 5-2 AC5)
+    merchant_rate_limit = widget_config.get("rate_limit")
+    retry_after = _check_merchant_rate_limit(merchant.id, merchant_rate_limit)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Merchant rate limit exceeded",
+            {"retry_after": retry_after},
         )
 
     # Validate domain whitelist (AC7)

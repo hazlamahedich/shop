@@ -254,5 +254,39 @@ class RateLimiter:
 
         return None
 
+    @classmethod
+    def check_merchant_rate_limit(
+        cls,
+        merchant_id: int,
+        limit: Optional[int],
+    ) -> Optional[int]:
+        """Check per-merchant rate limit for widget endpoints.
+
+        Story 5-2 AC5: Per-merchant configurable rate limiting.
+
+        Args:
+            merchant_id: Merchant ID
+            limit: Max requests per minute (from widget_config.rate_limit)
+
+        Returns:
+            None if allowed, retry_after seconds (60) if rate limited
+        """
+        if os.getenv("IS_TESTING", "false").lower() == "true":
+            return None
+
+        if limit is None or limit <= 0:
+            return None
+
+        client_id = f"widget:merchant:{merchant_id}"
+
+        if cls.is_rate_limited(
+            client_id,
+            max_requests=limit,
+            period_seconds=cls.WIDGET_PERIOD_SECONDS,
+        ):
+            return cls.WIDGET_PERIOD_SECONDS
+
+        return None
+
 
 check_llm_rate_limit = RateLimiter.check_rate_limit

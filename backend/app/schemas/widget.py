@@ -44,6 +44,7 @@ class WidgetConfig(BaseSchema):
         welcome_message: Initial greeting message
         theme: Visual theme configuration
         allowed_domains: Optional domain whitelist for CORS
+        rate_limit: Optional per-merchant rate limit (requests per minute)
     """
 
     enabled: bool = Field(default=True)
@@ -54,6 +55,7 @@ class WidgetConfig(BaseSchema):
     )
     theme: WidgetTheme = Field(default_factory=WidgetTheme)
     allowed_domains: list[str] = Field(default_factory=list)
+    rate_limit: Optional[int] = Field(default=None, ge=1, le=1000)
 
 
 class WidgetSessionData(BaseSchema):
