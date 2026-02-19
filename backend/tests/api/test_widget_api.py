@@ -196,8 +196,9 @@ class TestWidgetSessionAPI:
         mock_result.scalars.return_value.first.return_value = mock_merchant
         mock_db.execute.return_value = mock_result
 
+        valid_uuid = "550e8400-e29b-41d4-a716-446655440000"
         mock_session = MagicMock()
-        mock_session.session_id = "valid-session-id"
+        mock_session.session_id = valid_uuid
         mock_session.merchant_id = 1
         mock_session.expires_at = datetime.now(timezone.utc)
 
@@ -228,7 +229,7 @@ class TestWidgetSessionAPI:
             mock_request.client.host = "192.168.1.1"
 
             message_request = SendMessageRequest(
-                session_id="valid-session-id",
+                session_id=valid_uuid,
                 message="Hello",
             )
 
@@ -243,8 +244,10 @@ class TestWidgetSessionAPI:
 
     @pytest.mark.asyncio
     async def test_p0_send_message_returns_401_for_invalid_session(self, mock_redis, mock_db):
-        """[P0] POST /widget/message - Returns 401 for invalid/expired session."""
+        """[P0] POST /widget/message - Returns 404 for non-existent session."""
         from app.core.errors import APIError, ErrorCode
+
+        valid_uuid = "550e8400-e29b-41d4-a716-446655440000"
 
         with patch("app.api.widget.WidgetSessionService") as mock_service_class:
             mock_service = AsyncMock()
@@ -264,7 +267,7 @@ class TestWidgetSessionAPI:
             mock_request.client.host = "192.168.1.1"
 
             message_request = SendMessageRequest(
-                session_id="invalid-session-id",
+                session_id=valid_uuid,
                 message="Hello",
             )
 
@@ -310,6 +313,8 @@ class TestWidgetSessionAPI:
     @pytest.mark.asyncio
     async def test_p1_delete_session_ends_session_successfully(self, mock_redis):
         """[P1] DELETE /widget/session/{session_id} - Ends session successfully."""
+        valid_uuid = "550e8400-e29b-41d4-a716-446655440000"
+
         with patch("app.api.widget.WidgetSessionService") as mock_service_class:
             mock_service = AsyncMock()
             mock_service.end_session.return_value = True
@@ -325,15 +330,17 @@ class TestWidgetSessionAPI:
 
             result = await end_widget_session(
                 request=mock_request,
-                session_id="valid-session-id",
+                session_id=valid_uuid,
             )
 
             assert result.data.success is True
 
     @pytest.mark.asyncio
     async def test_p1_delete_session_returns_404_for_invalid_session(self, mock_redis):
-        """[P1] DELETE /widget/session/{session_id} - Returns 404 for invalid session."""
+        """[P1] DELETE /widget/session/{session_id} - Returns 404 for non-existent session."""
         from app.core.errors import APIError, ErrorCode
+
+        valid_uuid = "550e8400-e29b-41d4-a716-446655440000"
 
         with patch("app.api.widget.WidgetSessionService") as mock_service_class:
             mock_service = AsyncMock()
@@ -351,7 +358,7 @@ class TestWidgetSessionAPI:
             with pytest.raises(APIError) as exc_info:
                 await end_widget_session(
                     request=mock_request,
-                    session_id="invalid-session-id",
+                    session_id=valid_uuid,
                 )
 
             assert exc_info.value.code == ErrorCode.WIDGET_SESSION_NOT_FOUND
@@ -481,3 +488,161 @@ class TestWidgetRateLimiting:
         result = _check_merchant_rate_limit(merchant_id=1, rate_limit=0)
 
         assert result is None
+
+
+class TestWidgetSessionIdValidation:
+    """Unit tests for session_id UUID validation (Story 5-7 AC3)."""
+
+    @pytest.fixture
+    def mock_request(self):
+        """Create mock request."""
+        from fastapi import Request
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {"X-Test-Mode": "true"}
+        mock_request.client = MagicMock()
+        mock_request.client.host = "192.168.1.1"
+        return mock_request
+
+    @pytest.mark.asyncio
+    async def test_get_session_rejects_invalid_uuid_format(self, mock_request):
+        """Invalid UUID format returns 400 VALIDATION_ERROR."""
+        from app.api.widget import get_widget_session
+        from app.core.errors import APIError, ErrorCode
+
+        with pytest.raises(APIError) as exc_info:
+            await get_widget_session(
+                request=mock_request,
+                session_id="not-a-valid-uuid",
+            )
+
+        assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
+
+    @pytest.mark.asyncio
+    async def test_get_session_rejects_empty_string(self, mock_request):
+        """Empty session_id returns 400 VALIDATION_ERROR."""
+        from app.api.widget import get_widget_session
+        from app.core.errors import APIError, ErrorCode
+
+        with pytest.raises(APIError) as exc_info:
+            await get_widget_session(
+                request=mock_request,
+                session_id="",
+            )
+
+        assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
+
+    @pytest.mark.asyncio
+    async def test_get_session_rejects_sql_injection(self, mock_request):
+        """SQL injection attempt returns 400 VALIDATION_ERROR."""
+        from app.api.widget import get_widget_session
+        from app.core.errors import APIError, ErrorCode
+
+        with pytest.raises(APIError) as exc_info:
+            await get_widget_session(
+                request=mock_request,
+                session_id="'; DROP TABLE sessions;--",
+            )
+
+        assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
+
+    @pytest.mark.asyncio
+    async def test_end_session_rejects_invalid_uuid_format(self, mock_request):
+        """Invalid UUID format in DELETE returns 400 VALIDATION_ERROR."""
+        from app.api.widget import end_widget_session
+        from app.core.errors import APIError, ErrorCode
+
+        with pytest.raises(APIError) as exc_info:
+            await end_widget_session(
+                request=mock_request,
+                session_id="invalid-uuid",
+            )
+
+        assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
+
+
+class TestWidgetMessageValidation:
+    """Unit tests for message validation and sanitization (Story 5-7 AC5)."""
+
+    @pytest.fixture
+    def mock_request(self):
+        """Create mock request."""
+        from fastapi import Request
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {"X-Test-Mode": "true"}
+        mock_request.client = MagicMock()
+        mock_request.client.host = "192.168.1.1"
+        return mock_request
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database session."""
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        db = MagicMock(spec=AsyncSession)
+        db.execute = AsyncMock()
+        return db
+
+    @pytest.mark.asyncio
+    async def test_send_message_rejects_invalid_session_id(self, mock_request, mock_db):
+        """Invalid session_id format returns 400 VALIDATION_ERROR."""
+        from app.api.widget import send_widget_message
+        from app.core.errors import APIError, ErrorCode
+        from app.schemas.widget import SendMessageRequest
+
+        message_request = SendMessageRequest(
+            session_id="invalid-uuid",
+            message="Hello",
+        )
+
+        with pytest.raises(APIError) as exc_info:
+            await send_widget_message(
+                request=mock_request,
+                message_request=message_request,
+                db=mock_db,
+            )
+
+        assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
+
+    @pytest.mark.asyncio
+    async def test_send_message_rejects_empty_message(self, mock_request, mock_db):
+        """Empty/whitespace-only message returns 400 VALIDATION_ERROR."""
+        from app.api.widget import send_widget_message
+        from app.core.errors import APIError, ErrorCode
+        from app.schemas.widget import SendMessageRequest
+
+        message_request = SendMessageRequest(
+            session_id="550e8400-e29b-41d4-a716-446655440000",
+            message="   ",
+        )
+
+        with pytest.raises(APIError) as exc_info:
+            await send_widget_message(
+                request=mock_request,
+                message_request=message_request,
+                db=mock_db,
+            )
+
+        assert exc_info.value.code == ErrorCode.VALIDATION_ERROR
+
+    @pytest.mark.asyncio
+    async def test_send_message_rejects_too_long_message(self, mock_request, mock_db):
+        """Message exceeding 2000 chars returns 400 WIDGET_MESSAGE_TOO_LONG."""
+        from app.api.widget import send_widget_message
+        from app.core.errors import APIError, ErrorCode
+        from app.schemas.widget import SendMessageRequest
+
+        message_request = SendMessageRequest(
+            session_id="550e8400-e29b-41d4-a716-446655440000",
+            message="x" * 2001,
+        )
+
+        with pytest.raises(APIError) as exc_info:
+            await send_widget_message(
+                request=mock_request,
+                message_request=message_request,
+                db=mock_db,
+            )
+
+        assert exc_info.value.code == ErrorCode.WIDGET_MESSAGE_TOO_LONG

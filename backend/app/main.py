@@ -40,6 +40,7 @@ from app.api.business_hours import router as business_hours_router
 from app.api.handoff_alerts import router as handoff_alerts_router
 from app.api.settings import router as settings_router
 from app.api.widget import router as widget_router
+from app.api.widget_settings import router as widget_settings_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
@@ -122,7 +123,7 @@ def get_error_status_code(error_code: ErrorCode) -> int:
 
     # 12xxx: Widget errors -> 400, 401, 403, 404, or 429
     if 12000 <= error_code < 13000:
-        if error_code == ErrorCode.WIDGET_SESSION_NOT_FOUND:
+        if error_code in (ErrorCode.WIDGET_SESSION_NOT_FOUND, ErrorCode.WIDGET_SETTINGS_NOT_FOUND):
             return status.HTTP_404_NOT_FOUND
         if error_code == ErrorCode.WIDGET_SESSION_EXPIRED:
             return status.HTTP_401_UNAUTHORIZED
@@ -254,12 +255,18 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
         exc: The APIError exception
 
     Returns:
-        JSONResponse with error details
+        JSONResponse with error details and optional Retry-After header
     """
     status_code = get_error_status_code(exc.code)
+    headers = {}
+
+    if exc.code == ErrorCode.WIDGET_RATE_LIMITED and "retry_after" in exc.details:
+        headers["Retry-After"] = str(exc.details["retry_after"])
+
     return JSONResponse(
         status_code=status_code,
         content=exc.to_dict(),
+        headers=headers if headers else None,
     )
 
 
@@ -296,6 +303,8 @@ app.include_router(health_router.router, prefix="/api/health", tags=["health"])
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # Story 5-1: Widget API
 app.include_router(widget_router, prefix="/api/v1", tags=["widget"])
+# Story 5-6: Widget Settings API
+app.include_router(widget_settings_router, prefix="/api/v1/merchants", tags=["widget-settings"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

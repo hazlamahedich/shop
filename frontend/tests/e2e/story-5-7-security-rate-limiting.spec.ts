@@ -287,4 +287,95 @@ test.describe("Story 5-7: Security & Rate Limiting", () => {
       expect(data.error_code).toBe(1001);
     });
   });
+
+  test.describe("Retry-After Header (AC1 P1 Gap)", () => {
+    test("[P1] should include Retry-After header in rate limit response", async ({
+      request,
+    }) => {
+      test.skip(
+        !process.env.TEST_RATE_LIMITING,
+        "Set TEST_RATE_LIMITING=true to run this test"
+      );
+
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+      const requests = [];
+
+      for (let i = 0; i < 105; i++) {
+        requests.push(
+          request.get(`${BASE_URL}/api/v1/widget/session/${validUuid}`)
+        );
+      }
+
+      const responses = await Promise.all(requests);
+      const rateLimitedResponse = responses.find((r) => r.status() === 429);
+
+      if (rateLimitedResponse) {
+        const retryAfter = rateLimitedResponse.headers()["retry-after"];
+        expect(retryAfter).toBeDefined();
+        expect(parseInt(retryAfter, 10)).toBe(60);
+
+        const data = await rateLimitedResponse.json();
+        expect(data.error_code).toBe(12003);
+        expect(data.details?.retry_after).toBe(60);
+      }
+    });
+
+    test("[P1] should include retry_after in error response body", async ({
+      request,
+    }) => {
+      test.skip(
+        !process.env.TEST_RATE_LIMITING,
+        "Set TEST_RATE_LIMITING=true to run this test"
+      );
+
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+      const requests = [];
+
+      for (let i = 0; i < 105; i++) {
+        requests.push(
+          request.get(`${BASE_URL}/api/v1/widget/session/${validUuid}`)
+        );
+      }
+
+      const responses = await Promise.all(requests);
+      const rateLimitedResponse = responses.find((r) => r.status() === 429);
+
+      if (rateLimitedResponse) {
+        const data = await rateLimitedResponse.json();
+        expect(data.details).toBeDefined();
+        expect(data.details.retry_after).toBeDefined();
+        expect(typeof data.details.retry_after).toBe("number");
+        expect(data.details.retry_after).toBe(60);
+      }
+    });
+  });
+
+  test.describe("Rate Limit Enforcement Without Bypass (AC1 P1 Gap)", () => {
+    test("[P1] should enforce rate limiting without X-Test-Mode header", async ({
+      request,
+    }) => {
+      test.skip(
+        !process.env.TEST_RATE_LIMITING,
+        "Set TEST_RATE_LIMITING=true to run this test"
+      );
+
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+      const requests = [];
+
+      for (let i = 0; i < 105; i++) {
+        requests.push(
+          request.get(`${BASE_URL}/api/v1/widget/session/${validUuid}`)
+        );
+      }
+
+      const responses = await Promise.all(requests);
+      const rateLimitedResponses = responses.filter((r) => r.status() === 429);
+
+      expect(rateLimitedResponses.length).toBeGreaterThan(0);
+
+      const rateLimitedData = await rateLimitedResponses[0].json();
+      expect(rateLimitedData.error_code).toBe(12003);
+      expect(rateLimitedData.message).toMatch(/rate/i);
+    });
+  });
 });

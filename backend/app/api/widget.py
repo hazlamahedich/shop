@@ -22,6 +22,8 @@ import structlog
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.core.rate_limiter import RateLimiter
+from app.core.validators import is_valid_session_id
+from app.core.sanitization import sanitize_message, validate_message_length, MAX_MESSAGE_LENGTH
 from app.schemas.base import MetaData
 from app.schemas.widget import (
     CreateSessionRequest,
@@ -236,6 +238,13 @@ async def get_widget_session(
     Raises:
         APIError: If session not found or expired
     """
+    # Validate UUID format (Story 5-7 AC3)
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
     session_service = WidgetSessionService()
     session = await session_service.get_session_or_error(session_id)
 
@@ -284,6 +293,13 @@ async def send_widget_message(
     Raises:
         APIError: If session invalid, expired, or processing fails
     """
+    # Validate UUID format (Story 5-7 AC3)
+    if not is_valid_session_id(message_request.session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
     # Check rate limit
     retry_after = _check_rate_limit(request)
     if retry_after:
@@ -293,12 +309,23 @@ async def send_widget_message(
             {"retry_after": retry_after},
         )
 
-    # Validate message
-    if not message_request.message or not message_request.message.strip():
-        raise APIError(
-            ErrorCode.VALIDATION_ERROR,
-            "Message cannot be empty",
-        )
+    # Validate message length (Story 5-7 AC5)
+    is_valid, error_msg = validate_message_length(message_request.message)
+    if not is_valid:
+        assert error_msg is not None
+        if "empty" in error_msg.lower():
+            raise APIError(
+                ErrorCode.VALIDATION_ERROR,
+                error_msg,
+            )
+        else:
+            raise APIError(
+                ErrorCode.WIDGET_MESSAGE_TOO_LONG,
+                error_msg,
+            )
+
+    # Sanitize message (Story 5-7 AC5)
+    sanitized_message = sanitize_message(message_request.message)
 
     # Get and validate session
     session_service = WidgetSessionService()
@@ -340,7 +367,7 @@ async def send_widget_message(
     message_service = WidgetMessageService(db=db, session_service=session_service)
     response = await message_service.process_message(
         session=session,
-        message=message_request.message,
+        message=sanitized_message,
         merchant=merchant,
     )
 
@@ -348,7 +375,7 @@ async def send_widget_message(
         "widget_message_sent",
         session_id=session.session_id,
         merchant_id=merchant.id,
-        message_length=len(message_request.message),
+        message_length=len(sanitized_message),
     )
 
     return WidgetMessageEnvelope(
@@ -445,6 +472,13 @@ async def end_widget_session(
     Raises:
         APIError: If session not found
     """
+    # Validate UUID format (Story 5-7 AC3)
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
     # Check rate limit
     retry_after = _check_rate_limit(request)
     if retry_after:
