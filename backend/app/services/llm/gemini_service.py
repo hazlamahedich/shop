@@ -96,11 +96,17 @@ class GeminiService(BaseLLMService):
                 "Gemini API key not configured",
             )
 
-        model_name = model or self.config.get("model", self.DEFAULT_MODEL)
+        model_name = model or self.config.get("model") or self.DEFAULT_MODEL
+
+        # Ensure model_name is not empty
+        if not model_name or not model_name.strip():
+            model_name = self.DEFAULT_MODEL
 
         # Strip OpenRouter prefix if present (e.g., "google/gemini-2.0-flash" -> "gemini-2.0-flash")
         if model_name.startswith("google/"):
             model_name = model_name[7:]  # Remove "google/" prefix
+
+        logger.debug("gemini_chat_model", model=model_name, original=self.config.get("model"))
 
         # Convert LLMMessage to Gemini format
         gemini_contents = [{"role": msg.role, "parts": [{"text": msg.content}]} for msg in messages]

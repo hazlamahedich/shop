@@ -50,6 +50,7 @@ interface LLMState {
   clearLLM: () => Promise<void>;
   getProviders: () => Promise<void>;
   getHealth: () => Promise<void>;
+  switchProvider: (providerId: string, apiKey: string, model?: string) => Promise<void>;
 }
 
 const API_BASE = '/api/llm';
@@ -195,6 +196,34 @@ export const useLLMStore = create<LLMState>()(
         } catch (error) {
           console.error('Error getting health:', error);
           return { router: 'error' };
+        }
+      },
+
+      switchProvider: async (providerId: string, apiKey: string, model?: string) => {
+        set({ isConfiguring: true });
+        try {
+          const response = await fetch(`${API_BASE}/switch-provider`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider_id: providerId,
+              api_key: apiKey,
+              model: model,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.detail || data.message || 'Failed to switch provider');
+          }
+
+          await get().getLLMStatus();
+        } catch (error) {
+          set({ error: (error as Error).message });
+          throw error;
+        } finally {
+          set({ isConfiguring: false });
         }
       },
     }),

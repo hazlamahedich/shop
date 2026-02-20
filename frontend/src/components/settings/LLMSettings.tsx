@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Select } from '@/components/ui/Select';
 import { useLLMStore } from '@/stores/llmStore';
 import { LLMStatus } from '../onboarding/LLMStatus';
 import { TestConnection } from '../onboarding/TestConnection';
 import { getProviderModels, refreshModelsCache, DiscoveredModel } from '@/services/llmProvider';
+import { Eye, EyeOff, Key, RefreshCw } from 'lucide-react';
 
 export function LLMSettings() {
   const {
@@ -18,6 +18,7 @@ export function LLMSettings() {
     updateLLM,
     clearLLM,
     getLLMStatus,
+    switchProvider,
   } = useLLMStore();
 
   const [updating, setUpdating] = useState(false);
@@ -26,6 +27,8 @@ export function LLMSettings() {
   const [models, setModels] = useState<DiscoveredModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsCached, setModelsCached] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const currentProvider = configuration.provider || 'ollama';
   const currentModel = configuration.ollamaModel || configuration.cloudModel || '';
@@ -137,6 +140,61 @@ export function LLMSettings() {
         {/* Current Status */}
         <LLMStatus configuration={configuration} />
 
+        {/* API Key Update (for cloud providers) */}
+        {currentProvider !== 'ollama' && (
+          <div>
+            <Label className="flex items-center gap-2 mb-2">
+              <Key className="w-4 h-4" />
+              API Key
+            </Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter new API key to update"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <Button
+                onClick={async () => {
+                  if (!apiKey.trim()) {
+                    setError('Please enter an API key');
+                    return;
+                  }
+                  setError('');
+                  setSuccessMsg('');
+                  setUpdating(true);
+                  try {
+                    await switchProvider(currentProvider, apiKey.trim(), currentModel);
+                    setApiKey('');
+                    setSuccessMsg('API key updated successfully');
+                    setTimeout(() => setSuccessMsg(''), 3000);
+                  } catch (err) {
+                    setError((err as Error).message);
+                  } finally {
+                    setUpdating(false);
+                  }
+                }}
+                disabled={updating || !apiKey.trim()}
+              >
+                {updating ? 'Updating...' : 'Update Key'}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Your API key is encrypted and stored securely. Enter a new key above to update it.
+            </p>
+          </div>
+        )}
+
         {/* Model Selection */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -148,61 +206,28 @@ export function LLMSettings() {
               disabled={loadingModels}
               className="text-xs text-slate-500 hover:text-slate-700"
             >
+              <RefreshCw className={`w-3 h-3 mr-1 ${loadingModels ? 'animate-spin' : ''}`} />
               {loadingModels ? 'Refreshing...' : 'Refresh Models'}
             </Button>
           </div>
           {modelsCached && (
             <p className="text-xs text-slate-400 mb-2">Models cached (24h TTL)</p>
           )}
-          <Select value={currentModel} onValueChange={handleModelChange} disabled={updating || loadingModels}>
-            <SelectTrigger disabled={updating || loadingModels}>
-              <SelectValue placeholder={loadingModels ? "Loading models..." : "Select model"} />
-            </SelectTrigger>
-            <SelectContent>
-              {models.length === 0 && !loadingModels && (
-                <SelectItem value="_none" disabled>No models available</SelectItem>
-              )}
-              {models.filter(m => m.isDownloaded).length > 0 && (
-                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">Downloaded</div>
-              )}
-              {models.filter(m => m.isDownloaded).map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{model.name}</span>
-                    {model.pricing.inputCostPerMillion === 0 && (
-                      <Badge variant="secondary" className="text-xs">Free</Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-              {models.filter(m => m.isLocal && !m.isDownloaded).length > 0 && (
-                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-2">Available to Pull</div>
-              )}
-              {models.filter(m => m.isLocal && !m.isDownloaded).map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{model.name}</span>
-                    <Badge variant="outline" className="text-xs">Pull required</Badge>
-                  </div>
-                </SelectItem>
-              ))}
-              {models.filter(m => !m.isLocal).length > 0 && (
-                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 mt-2">Cloud Models</div>
-              )}
-              {models.filter(m => !m.isLocal).map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{model.name}</span>
-                    {model.pricing.inputCostPerMillion > 0 && (
-                      <span className="text-xs text-slate-400">
-                        ${model.pricing.inputCostPerMillion.toFixed(2)}/1M in
-                      </span>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Select
+            label=""
+            value={currentModel}
+            onChange={(e) => handleModelChange(e.target.value)}
+            disabled={updating || loadingModels}
+            options={[
+              ...(models.length === 0 && !loadingModels
+                ? [{ value: '_none', label: 'No models available', disabled: true }]
+                : []),
+              ...models.map((model) => ({
+                value: model.id,
+                label: `${model.name}${model.pricing.inputCostPerMillion === 0 ? ' (Free)' : model.pricing.inputCostPerMillion > 0 ? ` ($${model.pricing.inputCostPerMillion.toFixed(2)}/1M)` : ''}`,
+              })),
+            ]}
+          />
           {models.find(m => m.id === currentModel)?.description && (
             <p className="text-xs text-slate-500 mt-1">
               {models.find(m => m.id === currentModel)?.description}
