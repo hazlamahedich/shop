@@ -60,6 +60,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/redoc",
         "/openapi.json",
         "/api/oauth/",
+        "/api/integrations/shopify/callback",  # Shopify OAuth callback
+        "/api/integrations/shopify/authorize",  # Shopify OAuth initiation
         "/api/v1/widget/",  # Story 5-1: Public widget API
     ]
 

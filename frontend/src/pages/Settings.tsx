@@ -1,20 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, ShoppingBag, Bot, Eye, EyeOff, ChevronDown, ChevronUp, ExternalLink, MessageSquare } from 'lucide-react';
+import { Facebook, ShoppingBag, ChevronDown, ChevronUp, ExternalLink, MessageSquare } from 'lucide-react';
 import { useIntegrationsStore } from '../stores/integrationsStore';
+import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { Alert } from '../components/ui/Alert';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('integrations');
-  const [showApiKey, setShowApiKey] = useState(false);
   const [showFacebookConfig, setShowFacebookConfig] = useState(false);
   const [facebookAppId, setFacebookAppId] = useState('');
   const [facebookAppSecret, setFacebookAppSecret] = useState('');
   const [isSavingFacebook, setIsSavingFacebook] = useState(false);
+  const [shopDomain, setShopDomain] = useState('');
+  const [showShopifyConfig, setShowShopifyConfig] = useState(false);
+  const [shopifyApiKey, setShopifyApiKey] = useState('');
+  const [shopifyApiSecret, setShopifyApiSecret] = useState('');
+  const [isSavingShopify, setIsSavingShopify] = useState(false);
+  const [shopifyCredentialsStatus, setShopifyCredentialsStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [shopifyCredentialsMessage, setShopifyCredentialsMessage] = useState('');
+
+  const merchant = useAuthStore((state) => state.merchant);
 
   const {
     facebookStatus,
@@ -25,11 +33,27 @@ const Settings = () => {
     disconnectFacebook,
     saveFacebookCredentials,
     clearError,
+    shopifyStatus,
+    shopifyConnection,
+    shopifyError,
+    initiateShopifyOAuth,
+    checkShopifyStatus,
+    disconnectShopify,
+    saveShopifyCredentials,
+    clearShopifyError,
+    setMerchantId,
   } = useIntegrationsStore();
+
+  useEffect(() => {
+    if (merchant?.id) {
+      setMerchantId(merchant.id);
+    }
+  }, [merchant?.id, setMerchantId]);
 
   React.useEffect(() => {
     checkFacebookStatus();
-  }, [checkFacebookStatus]);
+    checkShopifyStatus();
+  }, [checkFacebookStatus, checkShopifyStatus]);
 
   const handleFacebookConnect = () => {
     clearError();
@@ -48,6 +72,37 @@ const Settings = () => {
     await saveFacebookCredentials(facebookAppId, facebookAppSecret);
     setIsSavingFacebook(false);
     handleFacebookConnect();
+  };
+
+  const handleShopifyConnect = () => {
+    clearShopifyError();
+    if (!shopDomain.trim()) return;
+    initiateShopifyOAuth(shopDomain.trim());
+  };
+
+  const handleShopifyDisconnect = async () => {
+    clearShopifyError();
+    await disconnectShopify();
+    setShopDomain('');
+  };
+
+  const handleSaveShopifyCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shopifyApiKey || !shopifyApiSecret) return;
+    setIsSavingShopify(true);
+    setShopifyCredentialsStatus('idle');
+    setShopifyCredentialsMessage('');
+    
+    try {
+      await saveShopifyCredentials(shopifyApiKey, shopifyApiSecret);
+      setShopifyCredentialsStatus('success');
+      setShopifyCredentialsMessage('Credentials saved successfully! You can now connect your store.');
+    } catch (error) {
+      setShopifyCredentialsStatus('error');
+      setShopifyCredentialsMessage(error instanceof Error ? error.message : 'Failed to save credentials. Please check your inputs and try again.');
+    } finally {
+      setIsSavingShopify(false);
+    }
   };
 
   return (
@@ -91,7 +146,7 @@ const Settings = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={facebookConnection.connected ? 'default' : 'secondary'}>
+                <Badge variant={facebookConnection.connected ? 'success' : 'outline'}>
                   {facebookConnection.connected ? 'Connected' : 'Not Connected'}
                 </Badge>
               </div>
@@ -181,11 +236,11 @@ const Settings = () => {
                             <li>
                               <strong>Add Messenger product</strong>:
                               <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li>Click "Add Product" → Find "Messenger" → Click "Set Up"</li>
+                                <li>Click "Add Product" - Find "Messenger" - Click "Set Up"</li>
                               </ul>
                             </li>
                             <li>
-                              <strong>Get your credentials</strong> from Settings → Basic:
+                              <strong>Get your credentials</strong> from Settings - Basic:
                               <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
                                 <li><strong>App ID</strong>: Copy the numeric ID at the top</li>
                                 <li><strong>App Secret</strong>: Click "Show" to reveal</li>
@@ -194,18 +249,34 @@ const Settings = () => {
                             <li>
                               <strong>Configure OAuth Redirect</strong>:
                               <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li>In Settings → Basic, add this to "Valid OAuth Redirect URIs":</li>
+                                <li>In Settings - Basic, add this to "Valid OAuth Redirect URIs":</li>
                                 <li className="font-mono text-xs bg-blue-100 p-1 rounded mt-1 inline-block">
                                   {window.location.origin}/api/integrations/facebook/callback
                                 </li>
                               </ul>
                             </li>
                             <li>
-                              <strong>Required Permissions</strong> (will be requested during OAuth):
-                              <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li><code className="bg-blue-100 px-1 rounded">pages_messaging</code></li>
-                                <li><code className="bg-blue-100 px-1 rounded">pages_manage_metadata</code></li>
+                              <strong>Configure Access Scopes</strong> (in Configuration - API credentials):
+                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
+                                <li><code className="bg-green-100 px-1 rounded">read_products</code> - View products and collections</li>
+                                <li><code className="bg-green-100 px-1 rounded">write_products</code> - Required for checkout integration</li>
+                                <li><code className="bg-green-100 px-1 rounded">read_inventory</code> - Check stock levels</li>
+                                <li><code className="bg-green-100 px-1 rounded">read_orders</code> - View orders, checkouts, transactions</li>
+                                <li><code className="bg-green-100 px-1 rounded">read_fulfillments</code> - Check shipping/tracking status</li>
+                                <li><code className="bg-green-100 px-1 rounded">read_customers</code> - Look up customer info</li>
                               </ul>
+                              <p className="text-xs text-green-600 mt-2 ml-4">
+                                <code className="bg-green-100 px-1 rounded">read_all_orders</code> is optional (requires Shopify approval for orders older than 60 days). See{' '}
+                                <a 
+                                  href="https://shopify.dev/docs/api/usage/access-scopes" 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="underline"
+                                >
+                                  Shopify Access Scopes Docs
+                                </a>
+                                .
+                              </p>
                             </li>
                           </ol>
                         </div>
@@ -254,23 +325,211 @@ const Settings = () => {
                 <div className="p-3 bg-green-50 rounded-lg text-success">
                   <ShoppingBag size={24} />
                 </div>
-                <div className="flex-1">
+                <div>
                   <h3 className="text-lg font-medium text-gray-900">Shopify Integration</h3>
-                  <p className="text-sm text-gray-500 mt-1">Connect your product catalog.</p>
-
-                  <div className="mt-4 flex max-w-md">
-                    <input
-                      type="text"
-                      placeholder="your-store.myshopify.com"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                    <button className="px-4 py-2 bg-success text-white text-sm font-medium rounded-r-lg hover:bg-green-600 transition-colors">
-                      Connect
-                    </button>
-                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Connect your Shopify store to sync products and orders.
+                  </p>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={shopifyConnection.connected ? 'success' : 'outline'}>
+                  {shopifyConnection.connected ? 'Connected' : 'Not Connected'}
+                </Badge>
+              </div>
             </div>
+
+            {shopifyError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm font-medium text-red-800">Connection Error</p>
+                <p className="text-sm text-red-600">{shopifyError}</p>
+              </div>
+            )}
+
+            {shopifyConnection.connected ? (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <ShoppingBag size={20} className="text-success" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{shopifyConnection.shopName || 'Shopify Store'}</p>
+                      <p className="text-sm text-gray-500">{shopifyConnection.shopDomain}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleShopifyDisconnect}
+                    disabled={shopifyStatus === 'connecting'}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex max-w-md">
+                  <input
+                    type="text"
+                    placeholder="your-store.myshopify.com"
+                    value={shopDomain}
+                    onChange={(e) => setShopDomain(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <button
+                    onClick={handleShopifyConnect}
+                    disabled={shopifyStatus === 'connecting' || !shopDomain.trim()}
+                    className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-r-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {shopifyStatus === 'connecting' ? 'Connecting...' : 'Connect'}
+                  </button>
+                </div>
+
+                <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setShowShopifyConfig(!showShopifyConfig)}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-700">
+                      Advanced: Configure Shopify App Credentials
+                    </span>
+                    {showShopifyConfig ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+
+                  {showShopifyConfig && (
+                    <div className="p-4 border-t border-gray-200">
+                      <form onSubmit={handleSaveShopifyCredentials} className="space-y-4">
+                        <div className="p-4 bg-green-50 rounded-lg space-y-3">
+                          <h4 className="font-medium text-green-900">How to create a Shopify App</h4>
+                          <ol className="text-sm text-green-800 space-y-2 list-decimal list-inside">
+                            <li>
+                              Go to{' '}
+                              <a
+                                href="https://partners.shopify.com/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline inline-flex items-center gap-1"
+                              >
+                                Shopify Partners Dashboard
+                                <ExternalLink size={12} />
+                              </a>
+                              {' '}(sign up for a free Partner account if needed)
+                            </li>
+                            <li>
+                              <strong>Navigate to Apps</strong>:
+                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
+                                <li>Click "Apps" in the left sidebar</li>
+                                <li>Click "Create app" button</li>
+                                <li>Enter an App name (e.g., "My Shop Bot")</li>
+                                <li>Click "Create app"</li>
+                              </ul>
+                            </li>
+                            <li>
+                              <strong>Configure App URLs</strong>:
+                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
+                                <li>Go to "Configuration" → "App setup"</li>
+                                <li>Set App URL to:</li>
+                                <li className="font-mono text-xs bg-green-100 p-1 rounded">{window.location.origin}</li>
+                                <li className="mt-1">Under "Allowed redirection URL(s)", add:</li>
+                                <li className="font-mono text-xs bg-green-100 p-1 rounded mt-1 inline-block">
+                                  {window.location.origin}/api/integrations/shopify/callback
+                                </li>
+                              </ul>
+                            </li>
+                            <li>
+                              <strong>Configure API Access Scopes (IMPORTANT!)</strong>:
+                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
+                                <li>Go to "Configuration" → "API credentials"</li>
+                                <li>Under "Admin API access scopes", select ALL of these:</li>
+                              </ul>
+                              <div className="bg-green-100 p-2 rounded mt-2 ml-4">
+                                <p className="font-medium text-green-900 mb-1">Required scopes:</p>
+                                <ul className="text-green-800 text-xs space-y-0.5">
+                                  <li>✓ read_products</li>
+                                  <li>✓ write_products</li>
+                                  <li>✓ read_inventory</li>
+                                  <li>✓ read_orders</li>
+                                  <li>✓ read_fulfillments</li>
+                                  <li>✓ read_customers</li>
+                                </ul>
+                              </div>
+                            </li>
+                            <li>
+                              <strong>Save and Install</strong>:
+                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
+                                <li>Click "Save" at the bottom</li>
+                                <li>Go to "Configuration" → "API credentials"</li>
+                                <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                              </ul>
+                            </li>
+                          </ol>
+                          <p className="text-xs text-green-700 mt-2">
+                            <strong>Note:</strong> Save credentials below, then enter your store domain (e.g., mystore.myshopify.com) and click Connect.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="shopify-api-key">API Key (Client ID)</Label>
+                            <Input
+                              id="shopify-api-key"
+                              value={shopifyApiKey}
+                              onChange={(e) => {
+                                setShopifyApiKey(e.target.value);
+                                if (shopifyCredentialsStatus !== 'idle') {
+                                  setShopifyCredentialsStatus('idle');
+                                  setShopifyCredentialsMessage('');
+                                }
+                              }}
+                              placeholder="e.g., abc123def456..."
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="shopify-api-secret">API Secret (Client Secret)</Label>
+                            <Input
+                              id="shopify-api-secret"
+                              type="password"
+                              value={shopifyApiSecret}
+                              onChange={(e) => {
+                                setShopifyApiSecret(e.target.value);
+                                if (shopifyCredentialsStatus !== 'idle') {
+                                  setShopifyCredentialsStatus('idle');
+                                  setShopifyCredentialsMessage('');
+                                }
+                              }}
+                              placeholder="e.g., shpss_xxx..."
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          type="submit"
+                          disabled={isSavingShopify || !shopifyApiKey || !shopifyApiSecret}
+                          variant="default"
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isSavingShopify ? 'Saving...' : 'Save Credentials'}
+                        </Button>
+
+                        {shopifyCredentialsStatus === 'success' && (
+                          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm text-green-800 font-medium">{shopifyCredentialsMessage}</p>
+                          </div>
+                        )}
+
+                        {shopifyCredentialsStatus === 'error' && (
+                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-sm text-red-800 font-medium">Error</p>
+                            <p className="text-sm text-red-600 mt-1">{shopifyCredentialsMessage}</p>
+                          </div>
+                        )}
+                      </form>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

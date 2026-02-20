@@ -447,13 +447,16 @@ export const useBotConfigStore = create<BotConfigState>()(
         try {
           await productPinApi.pinProduct(productId);
 
-          // Optimistically update the product in the list
+          const currentPinLimitInfo = get().pinLimitInfo;
           set({
             productPins: get().productPins.map(p =>
               p.productId === productId
                 ? { ...p, isPinned: true }
                 : p
             ),
+            pinLimitInfo: currentPinLimitInfo
+              ? { ...currentPinLimitInfo, pinnedCount: currentPinLimitInfo.pinnedCount + 1 }
+              : null,
             productsLoading: false,
           });
         } catch (error) {
@@ -484,13 +487,16 @@ export const useBotConfigStore = create<BotConfigState>()(
         try {
           await productPinApi.unpinProduct(productId);
 
-          // Optimistically update the product in the list
+          const currentPinLimitInfo = get().pinLimitInfo;
           set({
             productPins: get().productPins.map(p =>
               p.productId === productId
                 ? { ...p, isPinned: false, pinnedOrder: undefined, pinnedAt: undefined }
                 : p
             ),
+            pinLimitInfo: currentPinLimitInfo
+              ? { ...currentPinLimitInfo, pinnedCount: Math.max(0, currentPinLimitInfo.pinnedCount - 1) }
+              : null,
             productsLoading: false,
           });
         } catch (error) {

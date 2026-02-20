@@ -11,7 +11,7 @@ import structlog
 from app.services.shopify_base import ShopifyBaseClient
 from app.core.errors import APIError, ErrorCode
 
-SHOPIFY_STOREFRONT_API_URL = "https://{shop}.myshopify.com/api/2024-01/graphql"
+SHOPIFY_STOREFRONT_API_URL = "https://{shop}/api/2024-01/graphql"
 
 logger = structlog.get_logger(__name__)
 
@@ -40,7 +40,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             response = await self.async_client.post(
                 SHOPIFY_STOREFRONT_API_URL.format(shop=self.shop_domain),
                 json={"query": query},
-                headers={"X-Shopify-Storefront-Access-Token": self.access_token}
+                headers={"X-Shopify-Storefront-Access-Token": self.access_token},
             )
             response.raise_for_status()
             data = response.json()
@@ -54,11 +54,119 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
         except Exception:
             return False
 
+    async def list_products(
+        self, first: int = 100, after: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List all products via Storefront API.
+
+        Args:
+            first: Number of results to return (max 250)
+            after: Cursor for pagination
+
+        Returns:
+            List of products with id, title, description, images, price_range
+
+        Raises:
+            APIError: If product fetch fails
+        """
+        graphql_query = """
+        query ($first: Int!, $after: String) {
+            products(first: $first, after: $after) {
+                edges {
+                    cursor
+                    node {
+                        id
+                        title
+                        description
+                        descriptionHtml
+                        priceRangeV2 {
+                            minVariantPrice {
+                                amount
+                                currencyCode
+                            }
+                            maxVariantPrice {
+                                amount
+                                currencyCode
+                            }
+                        }
+                        images(first: 1) {
+                            edges {
+                                node {
+                                    url
+                                    altText
+                                }
+                            }
+                        }
+                        variants(first: 1) {
+                            edges {
+                                node {
+                                    id
+                                    availableForSale
+                                }
+                            }
+                        }
+                    }
+                }
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
+            }
+        }
+        """
+
+        variables = {"first": first, "after": after}
+
+        try:
+            if self.is_testing:
+                return self._get_mock_products()
+
+            response = await self.async_client.post(
+                SHOPIFY_STOREFRONT_API_URL.format(shop=self.shop_domain),
+                json={"query": graphql_query, "variables": variables},
+                headers={"X-Shopify-Storefront-Access-Token": self.access_token},
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if "errors" in data:
+                raise APIError(
+                    ErrorCode.SHOPIFY_API_ERROR, f"Storefront API error: {data['errors']}"
+                )
+
+            edges = data.get("data", {}).get("products", {}).get("edges", [])
+            products = []
+            for edge in edges:
+                product = edge.get("node", {})
+                images = product.get("images", {}).get("edges", [])
+                variants = product.get("variants", {}).get("edges", [])
+
+                products.append(
+                    {
+                        "id": product.get("id"),
+                        "title": product.get("title"),
+                        "description": product.get("description"),
+                        "priceRange": product.get("priceRangeV2"),
+                        "imageUrl": images[0].get("node", {}).get("url") if images else None,
+                        "availableForSale": variants[0]
+                        .get("node", {})
+                        .get("availableForSale", False)
+                        if variants
+                        else False,
+                    }
+                )
+
+            return products
+
+        except Exception as e:
+            if isinstance(e, APIError):
+                raise
+            raise APIError(
+                ErrorCode.SHOPIFY_PRODUCT_SEARCH_FAILED, f"Failed to list products: {str(e)}"
+            )
+
     async def search_products(
-        self,
-        query: str = "",
-        first: int = 10,
-        filters: Optional[Dict[str, Any]] = None
+        self, query: str = "", first: int = 10, filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Search products via Storefront API.
 
@@ -127,7 +235,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             response = await self.async_client.post(
                 SHOPIFY_STOREFRONT_API_URL.format(shop=self.shop_domain),
                 json={"query": graphql_query, "variables": variables},
-                headers={"X-Shopify-Storefront-Access-Token": self.access_token}
+                headers={"X-Shopify-Storefront-Access-Token": self.access_token},
             )
             response.raise_for_status()
             data = response.json()
@@ -135,8 +243,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             # Check for errors
             if "errors" in data:
                 raise APIError(
-                    ErrorCode.SHOPIFY_API_ERROR,
-                    f"Storefront API error: {data['errors']}"
+                    ErrorCode.SHOPIFY_API_ERROR, f"Storefront API error: {data['errors']}"
                 )
 
             # Extract products
@@ -147,14 +254,20 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
                 images = product.get("images", {}).get("edges", [])
                 variants = product.get("variants", {}).get("edges", [])
 
-                products.append({
-                    "id": product.get("id"),
-                    "title": product.get("title"),
-                    "description": product.get("description"),
-                    "priceRange": product.get("priceRangeV2"),
-                    "imageUrl": images[0].get("node", {}).get("url") if images else None,
-                    "availableForSale": variants[0].get("node", {}).get("availableForSale", False) if variants else False
-                })
+                products.append(
+                    {
+                        "id": product.get("id"),
+                        "title": product.get("title"),
+                        "description": product.get("description"),
+                        "priceRange": product.get("priceRangeV2"),
+                        "imageUrl": images[0].get("node", {}).get("url") if images else None,
+                        "availableForSale": variants[0]
+                        .get("node", {})
+                        .get("availableForSale", False)
+                        if variants
+                        else False,
+                    }
+                )
 
             return products
 
@@ -162,14 +275,11 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             if isinstance(e, APIError):
                 raise
             raise APIError(
-                ErrorCode.SHOPIFY_PRODUCT_SEARCH_FAILED,
-                f"Failed to search products: {str(e)}"
+                ErrorCode.SHOPIFY_PRODUCT_SEARCH_FAILED, f"Failed to search products: {str(e)}"
             )
 
     async def create_checkout_url(
-        self,
-        items: List[Dict[str, Any]],
-        custom_attributes: Optional[List[Dict[str, str]]] = None
+        self, items: List[Dict[str, Any]], custom_attributes: Optional[List[Dict[str, str]]] = None
     ) -> str:
         """Generate Shopify checkout URL.
 
@@ -186,10 +296,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
         # Build line items from cart items
         line_items = []
         for item in items:
-            line_items.append({
-                "quantity": item["quantity"],
-                "variantId": item["variant_id"]
-            })
+            line_items.append({"quantity": item["quantity"], "variantId": item["variant_id"]})
 
         mutation = """
         mutation ($checkoutInput: CheckoutCreateInput!) {
@@ -207,17 +314,12 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
         }
         """
 
-        variables = {
-            "checkoutInput": {
-                "lineItems": line_items
-            }
-        }
+        variables = {"checkoutInput": {"lineItems": line_items}}
 
         # Add custom attributes if provided (Story 2.9: PSID tracking)
         if custom_attributes:
             variables["checkoutInput"]["customAttributes"] = [
-                {"key": attr["key"], "value": attr["value"]}
-                for attr in custom_attributes
+                {"key": attr["key"], "value": attr["value"]} for attr in custom_attributes
             ]
 
         try:
@@ -228,7 +330,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             response = await self.async_client.post(
                 SHOPIFY_STOREFRONT_API_URL.format(shop=self.shop_domain),
                 json={"query": mutation, "variables": variables},
-                headers={"X-Shopify-Storefront-Access-Token": self.access_token}
+                headers={"X-Shopify-Storefront-Access-Token": self.access_token},
             )
             response.raise_for_status()
             data = response.json()
@@ -237,31 +339,34 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             if "errors" in data:
                 raise APIError(
                     ErrorCode.SHOPIFY_CHECKOUT_CREATE_FAILED,
-                    f"Checkout creation error: {data['errors']}"
+                    f"Checkout creation error: {data['errors']}",
                 )
 
             # Check for user errors
-            user_errors = data.get("data", {}).get("checkoutCreate", {}).get("checkoutUserErrors", [])
+            user_errors = (
+                data.get("data", {}).get("checkoutCreate", {}).get("checkoutUserErrors", [])
+            )
             if user_errors:
                 raise APIError(
                     ErrorCode.SHOPIFY_CHECKOUT_CREATE_FAILED,
-                    f"Checkout user errors: {[e['message'] for e in user_errors]}"
+                    f"Checkout user errors: {[e['message'] for e in user_errors]}",
                 )
 
             # Extract checkout URL
-            checkout_url = data.get("data", {}).get("checkoutCreate", {}).get("checkout", {}).get("webUrl")
+            checkout_url = (
+                data.get("data", {}).get("checkoutCreate", {}).get("checkout", {}).get("webUrl")
+            )
 
             if not checkout_url:
                 raise APIError(
                     ErrorCode.SHOPIFY_CHECKOUT_CREATE_FAILED,
-                    "Failed to create checkout - no URL returned"
+                    "Failed to create checkout - no URL returned",
                 )
 
             # Validate checkout URL via HTTP HEAD before returning
             if not await self._validate_checkout_url(checkout_url):
                 raise APIError(
-                    ErrorCode.SHOPIFY_CHECKOUT_URL_INVALID,
-                    "Generated checkout URL is invalid"
+                    ErrorCode.SHOPIFY_CHECKOUT_URL_INVALID, "Generated checkout URL is invalid"
                 )
 
             return checkout_url
@@ -270,8 +375,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             if isinstance(e, APIError):
                 raise
             raise APIError(
-                ErrorCode.SHOPIFY_CHECKOUT_CREATE_FAILED,
-                f"Failed to create checkout: {str(e)}"
+                ErrorCode.SHOPIFY_CHECKOUT_CREATE_FAILED, f"Failed to create checkout: {str(e)}"
             )
 
     async def _validate_checkout_url(self, checkout_url: str) -> bool:
@@ -286,9 +390,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
         try:
             # Issue #2: Follow redirects (302/307) and set timeout
             response = await self.async_client.head(
-                checkout_url,
-                follow_redirects=True,
-                timeout=5.0
+                checkout_url, follow_redirects=True, timeout=5.0
             )
             return response.status_code == 200
         except Exception:
@@ -307,9 +409,9 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
                 "description": "Test description",
                 "priceRange": {
                     "minVariantPrice": {"amount": "100.00", "currencyCode": "USD"},
-                    "maxVariantPrice": {"amount": "100.00", "currencyCode": "USD"}
+                    "maxVariantPrice": {"amount": "100.00", "currencyCode": "USD"},
                 },
                 "imageUrl": "https://example.com/product1.jpg",
-                "availableForSale": True
+                "availableForSale": True,
             }
         ]

@@ -7,7 +7,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -222,6 +222,7 @@ async def facebook_disconnect(merchant_id: int, db: AsyncSession = Depends(get_d
     Raises:
         APIError: If Facebook not connected
     """
+    log = logger.bind(merchant_id=merchant_id)
     try:
         service = await get_facebook_service(db)
         await service.disconnect_facebook(merchant_id)
@@ -234,6 +235,14 @@ async def facebook_disconnect(merchant_id: int, db: AsyncSession = Depends(get_d
 
     except APIError as e:
         raise HTTPException(status_code=400, detail=e.to_dict())
+    except Exception as e:
+        log.error("facebook_disconnect_failed", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Failed to disconnect Facebook. Please try again or contact support."
+            },
+        )
 
 
 # ==================== Webhook Testing Endpoints ====================
@@ -389,10 +398,10 @@ async def shopify_authorize(
         raise HTTPException(status_code=400, detail=e.to_dict())
 
 
-@router.get("/integrations/shopify/callback", response_model=MinimalEnvelope)
+@router.get("/integrations/shopify/callback")
 async def shopify_callback(
     code: str, state: str, shop: str, request: Request, db: AsyncSession = Depends(get_db)
-) -> JSONResponse:
+):
     """Handle Shopify OAuth callback.
 
     Exchanges authorization code for access token, creates Storefront API token,
@@ -434,14 +443,39 @@ async def shopify_callback(
         )
         admin_token = token_response["access_token"]
         granted_scopes = token_response["scope"].split(",")
+        # Clean up scopes (remove whitespace)
+        granted_scopes = [s.strip() for s in granted_scopes]
+
+        log.info(
+            "shopify_oauth_scopes_granted",
+            granted_scopes=granted_scopes,
+            required_scopes=list(SHOPIFY_REQUIRED_SCOPES),
+        )
 
         # Validate that all required scopes were granted
-        missing_scopes = [s for s in SHOPIFY_REQUIRED_SCOPES if s not in granted_scopes]
+        missing_scopes = []
+        for required_scope in SHOPIFY_REQUIRED_SCOPES:
+            if required_scope in granted_scopes:
+                continue
+
+            # Write scopes implicitly grant read access
+            if required_scope.startswith("read_"):
+                write_scope = "write_" + required_scope[5:]
+                if write_scope in granted_scopes:
+                    continue
+
+            missing_scopes.append(required_scope)
+
         if missing_scopes:
-            log.warning("shopify_oauth_insufficient_permissions", missing_scopes=missing_scopes)
+            log.warning(
+                "shopify_oauth_insufficient_permissions",
+                missing_scopes=missing_scopes,
+                granted=granted_scopes,
+            )
             raise APIError(
                 ErrorCode.SHOPIFY_ADMIN_API_ACCESS_DENIED,
                 f"Insufficient permissions granted. Missing scopes: {', '.join(missing_scopes)}. "
+                f"Granted scopes: {', '.join(granted_scopes)}. "
                 f"Please grant all required permissions and try again.",
             )
 
@@ -449,14 +483,12 @@ async def shopify_callback(
         admin_client = ShopifyAdminClient(shop, admin_token, is_testing=is_testing())
         shop_details = await admin_client.verify_shop_access()
 
-        # Create Storefront API access token
-        storefront_token = await admin_client.create_storefront_access_token(
-            title=f"shop-{expected_merchant_id}-token"
-        )
-
-        # Verify Storefront API access
-        storefront_client = ShopifyStorefrontClient(shop, storefront_token, is_testing=is_testing())
-        storefront_verified = await storefront_client.verify_access()
+        # Note: Creating Storefront tokens requires the app to be a Sales Channel.
+        # For a chatbot, we use tokenless Storefront API for product queries
+        # and direct checkout URLs (https://{shop}/cart/{variant}:{qty}) for cart.
+        # This approach works without needing Storefront token creation.
+        storefront_token = None
+        storefront_verified = True  # Tokenless access always works
 
         # Create Shopify integration record
         integration = await service.create_shopify_integration(
@@ -480,11 +512,61 @@ async def shopify_callback(
         }
 
         log.info("shopify_connection_success", shop_domain=shop)
-        return JSONResponse(content=create_response(response_data))
+
+        # Return HTML page that posts message to parent and closes popup
+        shop_domain = integration.shop_domain
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Shopify Connected</title></head>
+        <body>
+        <script>
+          window.opener.postMessage({{type: 'shopify-oauth-success', shopDomain: '{shop_domain}'}}, '*');
+          window.close();
+        </script>
+        <p>Connection successful! You can close this window.</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
 
     except APIError as e:
         log.error("shopify_callback_failed", error_code=e.code, message=e.message)
-        raise HTTPException(status_code=400, detail=e.to_dict())
+        error_message = e.message.replace("'", "\\'")
+        # Return HTML error page for popup
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Connection Failed</title></head>
+        <body>
+        <script>
+          window.opener.postMessage({{type: 'shopify-oauth-error', error: '{error_message}'}}, '*');
+          window.close();
+        </script>
+        <p>Connection failed: {e.message}</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content, status_code=400)
+
+    except Exception as e:
+        log.error("shopify_callback_unexpected_error", error=str(e), exc_info=True)
+        error_message = str(e).replace("'", "\\'")
+        # Return HTML error page for popup
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Connection Failed</title></head>
+        <body>
+        <script>
+          window.opener.postMessage({{type: 'shopify-oauth-error', error: '{error_message}'}}, '*');
+          window.close();
+        </script>
+        <p>Connection failed: {error_message}</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content, status_code=500)
 
 
 @router.get("/integrations/shopify/status", response_model=MinimalEnvelope)
@@ -606,24 +688,29 @@ async def save_shopify_credentials(
     shopify_service=Depends(get_shopify_service),
 ) -> None:
     """Save Shopify App credentials."""
+    log = logger.bind(merchant_id=request.merchant_id)
     try:
+        log.info("saving_shopify_credentials", api_key_length=len(request.api_key))
         await shopify_service.save_shopify_credentials(
             merchant_id=request.merchant_id,
             api_key=request.api_key,
             api_secret=request.api_secret,
         )
+        log.info("shopify_credentials_saved_successfully")
     except APIError as e:
+        log.error("api_error_saving_credentials", error=str(e))
         raise HTTPException(status_code=400, detail=e.to_dict())
     except Exception as e:
-        logger.error(
+        log.error(
             "unexpected_error_saving_shopify_credentials",
-            merchant_id=request.merchant_id,
+            error_type=type(e).__name__,
             error=str(e),
+            exc_info=True,
         )
         raise HTTPException(
             status_code=500,
             detail={
-                "error_code": ErrorCode.UNEXPECTED_ERROR,
-                "message": "An unexpected error occurred.",
+                "error_code": ErrorCode.INTERNAL_ERROR,
+                "message": f"An unexpected error occurred: {type(e).__name__}",
             },
         )

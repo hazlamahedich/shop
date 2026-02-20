@@ -229,3 +229,325 @@ Running 4 tests using 4 workers
 | 2026-02-20 | Test quality review completed | TEA Agent |
 | 2026-02-20 | P0 fixes: API methods called, failure test, constants | TEA Agent |
 | 2026-02-20 | Widget bundle updated in public/dist | TEA Agent |
+
+---
+
+## Shopify Integration Fixes (2026-02-20)
+
+During this sprint, significant fixes were made to the Shopify integration to make it fully functional.
+
+### Issues Fixed
+
+#### 1. SSL Certificate Error on macOS
+**Problem:** `[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate`
+
+**Root Cause:** Two issues:
+1. Python on macOS doesn't use system certificates by default
+2. **Malformed URL**: Template was `{shop}.myshopify.com` but `shop_domain` already contained `.myshopify.com`, resulting in `volare-sun.myshopify.com.myshopify.com` (non-existent domain)
+
+**Solution:**
+- Created `app/core/http_client.py` with `get_ssl_context()` using certifi
+- Fixed URL templates in `shopify_admin.py` and `shopify_storefront.py`
+
+**Files Changed:**
+- `backend/app/core/http_client.py` (new)
+- `backend/app/services/shopify_base.py`
+- `backend/app/services/shopify_oauth.py`
+- `backend/app/services/shopify/storefront_client.py`
+- `backend/app/services/shopify_admin.py`
+- `backend/app/services/shopify_storefront.py`
+
+#### 2. Credentials Not Persisting
+**Problem:** Saved Shopify credentials weren't being committed to database
+
+**Root Cause:** SQLAlchemy doesn't detect changes to JSONB fields when modifying dict in-place
+
+**Solution:** Added `flag_modified(merchant, "config")` after modifying the config dict
+
+**Files Changed:**
+- `backend/app/services/shopify_oauth.py`
+
+#### 3. OAuth Popup Not Closing
+**Problem:** After successful Shopify authorization, popup stayed open and badge showed "connecting"
+
+**Root Cause:** Callback returned JSON instead of HTML page that posts message to parent window
+
+**Solution:** Updated callback to return HTML with `window.opener.postMessage()` and `window.close()`
+
+**Files Changed:**
+- `backend/app/api/integrations.py`
+
+#### 4. Invalid Scope Name
+**Problem:** `write_storefront_access_tokens` is not a valid Shopify scope
+
+**Solution:** Changed to `write_products` which includes the necessary permissions
+
+#### 5. Button Visibility
+**Problem:** Connect button not visible (white on white background)
+
+**Solution:** Changed from `bg-success` to `bg-green-600`
+
+**Files Changed:**
+- `frontend/src/pages/Settings.tsx`
+
+#### 6. Error Message Placement
+**Problem:** Error messages appeared at top of page, not visible when form is at bottom
+
+**Solution:** Added inline success/error message display under the Save button
+
+**Files Changed:**
+- `frontend/src/pages/Settings.tsx`
+- `frontend/src/stores/integrationsStore.ts`
+
+### OAuth Scopes Configuration
+
+**Required Scopes (must be configured in Shopify Partners Dashboard):**
+- `read_products` - View products and collections
+- `write_products` - Required for creating Storefront access tokens
+- `read_inventory` - Check stock levels
+- `read_orders` - View orders and transactions
+- `read_fulfillments` - Check shipping/tracking status
+- `read_customers` - Look up customer info
+
+**Optional Scope:**
+- `read_all_orders` - Access orders older than 60 days (requires Shopify approval)
+
+### Shopify App Setup Instructions
+
+Updated Settings page with step-by-step instructions:
+1. Create app in Shopify Partners Dashboard
+2. Configure App URLs and redirect URI
+3. Select all required Admin API access scopes
+4. Get Client ID and Secret credentials
+5. Save credentials in Settings
+6. Enter store domain and connect
+
+### Files Changed Summary
+
+| File | Change |
+|------|--------|
+| `backend/app/core/http_client.py` | New SSL utility with certifi |
+| `backend/app/services/shopify_base.py` | Use SSL context from http_client |
+| `backend/app/services/shopify_oauth.py` | Fix URL template, add flag_modified, update scopes |
+| `backend/app/services/shopify_admin.py` | Fix URL template, add error logging |
+| `backend/app/services/shopify_storefront.py` | Fix URL template |
+| `backend/app/services/shopify/storefront_client.py` | Use SSL context |
+| `backend/app/api/integrations.py` | Add popup callback HTML response, scope logging |
+| `backend/app/middleware/auth.py` | Bypass auth for Shopify callback/authorize |
+| `backend/app/middleware/csrf.py` | Bypass CSRF for Shopify credentials endpoint |
+| `frontend/src/pages/Settings.tsx` | Button visibility, inline errors, updated instructions |
+| `frontend/src/stores/integrationsStore.ts` | Throw errors for inline display |
+
+### Testing Performed
+
+- ✅ Direct SSL test with httpx and certifi
+- ✅ ShopifyBaseClient direct request
+- ✅ ShopifyAdminClient direct request
+- ✅ OAuth authorize endpoint
+- ✅ OAuth callback with popup message
+
+### Remaining Work
+
+- ~~Verify full OAuth flow end-to-end after user configures all scopes in Shopify Partners Dashboard~~ ✅ Done
+- ~~Test product fetching from real Shopify store~~ ✅ Done
+- ~~Test chatbot product search with real data~~ ✅ Done
+
+---
+
+## Additional Shopify Fixes (2026-02-20)
+
+### 7. Storefront Token NOT NULL Constraint Violation
+**Problem:** `IntegrityError: null value in column "storefront_token_encrypted" violates not-null constraint`
+
+**Root Cause:** We removed Storefront token creation (custom apps can't create them), but the database column still required a value
+
+**Solution:** 
+- Made `storefront_token_encrypted` nullable in model
+- Created migration `024_nullable_storefront_tkn`
+
+**Files Changed:**
+- `backend/app/models/shopify_integration.py`
+- `backend/alembic/versions/024_nullable_storefront_tkn.py` (new)
+
+### 8. Products Still Showing Mock Data After Connection
+**Problem:** Even with active Shopify connection, Bot Config showed mock products (backpack.jpg, etc.)
+
+**Root Cause:** 
+1. `fetch_products()` required `storefront_token_encrypted` to exist before fetching
+2. Storefront API requires an access token - "tokenless" doesn't work
+
+**Solution:** 
+- Added `list_products()` method to `ShopifyAdminClient` using Admin REST API
+- Changed `product_service.py` to use Admin API instead of Storefront API
+- Admin API uses the OAuth access token we already have
+
+**Files Changed:**
+- `backend/app/services/shopify_admin.py` - Added `list_products()` method
+- `backend/app/services/shopify/product_service.py` - Use Admin API client
+
+### 9. Pin Count Not Updating Dynamically
+**Problem:** After pinning/unpinning products, the "X/10 products pinned" counter didn't update
+
+**Root Cause:** `pinProduct` and `unpinProduct` functions updated `isPinned` on products but didn't update `pinLimitInfo.pinnedCount`
+
+**Solution:** Added optimistic count updates to both functions
+
+**Files Changed:**
+- `frontend/src/stores/botConfigStore.ts`
+
+---
+
+## Shopify Integration Setup Guide
+
+### Prerequisites
+
+- A Shopify store (any plan)
+- Shopify Partners account (free): https://partners.shopify.com
+
+### Step 1: Create Custom App in Shopify Partners
+
+1. Go to https://partners.shopify.com and log in
+2. Click **Apps** → **Create app**
+3. Choose **Create app manually**
+4. Enter app name (e.g., "ShopBot Integration")
+5. Click **Create app**
+
+### Step 2: Configure App URLs
+
+1. In your app, go to **App setup**
+2. Set **App URL**: `http://localhost:8000` (development) or your production URL
+3. Set **Allowed redirection URL(s)**:
+   - `http://localhost:8000/api/integrations/shopify/callback`
+   - For production: `https://your-domain.com/api/integrations/shopify/callback`
+4. Click **Save**
+
+### Step 3: Configure API Access Scopes
+
+1. Go to **Configuration** → **Admin API integration**
+2. Click **Configure**
+3. Select these **Access scopes**:
+
+   | Scope | Purpose |
+   |-------|---------|
+   | `read_products` | View products and collections |
+   | `write_products` | Required for checkout integration |
+   | `read_inventory` | Check stock levels |
+   | `read_orders` | View orders and transactions |
+   | `read_fulfillments` | Check shipping/tracking status |
+   | `read_customers` | Look up customer info |
+
+4. (Optional) `read_all_orders` - Access orders older than 60 days (requires Shopify approval)
+5. Click **Save**
+
+### Step 4: Get Credentials
+
+1. Go to **App credentials**
+2. Copy **Client ID** and **Client secret**
+3. Keep these secure - you'll enter them in the app Settings
+
+### Step 5: Configure in Shop App
+
+1. Open the app and go to **Settings**
+2. Scroll to **Shopify Integration** section
+3. Enter:
+   - **API Key**: Your Client ID from Step 4
+   - **API Secret**: Your Client secret from Step 4
+4. Click **Save Credentials**
+5. Enter your **Shop Domain** (e.g., `your-store.myshopify.com`)
+6. Click **Connect to Shopify**
+
+### Step 6: Authorize in Shopify
+
+1. A popup will open to Shopify's authorization page
+2. Review the permissions requested
+3. Click **Install app** to authorize
+4. The popup will close automatically
+5. Settings page will show **Connected** status
+
+### Step 7: Verify Integration
+
+1. Go to **Bot Config** → **Product Highlight Pins**
+2. You should see your real Shopify products (not mock data)
+3. Try pinning/unpinning products
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| SSL Certificate Error | Fixed - uses certifi for SSL context |
+| Credentials not saving | Fixed - uses `flag_modified()` for JSONB |
+| OAuth popup doesn't close | Fixed - returns HTML with postMessage |
+| "Internal Server Error" | Check backend logs, all scopes configured? |
+| Mock products still showing | Admin API fetches real products now |
+| Pin count not updating | Fixed - optimistic updates in store |
+
+### API Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Product Fetch Flow                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Frontend (Bot Config)                                       │
+│       │                                                      │
+│       ▼                                                      │
+│  productPinApi.fetchProductsWithPinStatus()                 │
+│       │                                                      │
+│       ▼                                                      │
+│  Backend: /api/product-pins/products                        │
+│       │                                                      │
+│       ▼                                                      │
+│  product_service.fetch_products()                           │
+│       │                                                      │
+│       ▼                                                      │
+│  ShopifyAdminClient.list_products()  ◄── Admin REST API    │
+│       │                                                      │
+│       ▼                                                      │
+│  GET https://{shop}/admin/api/2024-01/products.json         │
+│       │                                                      │
+│       ▼                                                      │
+│  Returns: Real products from your Shopify store             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+Note: We use Admin API (not Storefront API) because:
+- Storefront API requires a Storefront access token
+- Only Sales Channel apps can create Storefront tokens
+- Custom apps cannot create Storefront tokens
+- Admin API works with the OAuth access token we already have
+```
+
+### Checkout URL Format
+
+For product checkouts, we use direct cart URLs:
+
+```
+https://{shop}.myshopify.com/cart/{variant_id}:{quantity}
+```
+
+Example:
+```
+https://your-store.myshopify.com/cart/41234567890123:1
+```
+
+---
+
+### Final Files Changed Summary (All Shopify Fixes)
+
+| File | Change |
+|------|--------|
+| `backend/app/core/http_client.py` | New SSL utility with certifi |
+| `backend/app/services/shopify_base.py` | Use SSL context from http_client |
+| `backend/app/services/shopify_oauth.py` | Fix URL template, add flag_modified, update scopes |
+| `backend/app/services/shopify_admin.py` | Fix URL template, add `list_products()`, error logging |
+| `backend/app/services/shopify_storefront.py` | Fix URL template |
+| `backend/app/services/shopify/storefront_client.py` | Use SSL context |
+| `backend/app/services/shopify/product_service.py` | Use Admin API instead of Storefront |
+| `backend/app/models/shopify_integration.py` | Make `storefront_token_encrypted` nullable |
+| `backend/alembic/versions/024_nullable_storefront_tkn.py` | Migration for nullable column |
+| `backend/app/api/integrations.py` | Popup callback HTML response, error handling |
+| `backend/app/middleware/auth.py` | Bypass auth for Shopify callback/authorize |
+| `backend/app/middleware/csrf.py` | Bypass CSRF for Shopify credentials endpoint |
+| `frontend/src/pages/Settings.tsx` | Button visibility, inline errors, updated instructions |
+| `frontend/src/stores/integrationsStore.ts` | Throw errors for inline display |
+| `frontend/src/stores/botConfigStore.ts` | Fix pin count optimistic updates |

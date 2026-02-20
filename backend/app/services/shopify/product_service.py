@@ -2,7 +2,7 @@
 
 Story 1.15: Product Highlight Pins
 
-Fetches product data from Shopify Storefront API with caching.
+Fetches product data from Shopify Admin API with caching.
 Integrates with product pin service to provide product titles and images.
 """
 
@@ -16,18 +16,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
 from app.models.product_pin import ProductPin
+from app.models.shopify_integration import ShopifyIntegration
+from app.models.merchant import Merchant
+from app.core.security import decrypt_access_token
+from app.services.shopify_admin import ShopifyAdminClient
+from app.core.config import is_testing
 from app.services.product_pin_service import get_pinned_products
 import structlog
 
 
 logger = structlog.get_logger(__name__)
 
-# Cache TTL: 5 minutes
 PRODUCT_CACHE_TTL = int(os.getenv("PRODUCT_CACHE_TTL", "300"))
 
 
-# Mock product data for development (Shopify integration deferred per Story 1.15)
-# This provides realistic product data for testing and development
 MOCK_PRODUCTS = [
     {
         "id": "shopify_prod_001",
@@ -217,11 +219,11 @@ async def fetch_products(
     merchant_id: str,
     db: AsyncSession,
 ) -> list[dict]:
-    """Fetch products from Shopify Storefront API.
+    """Fetch products from Shopify Admin API.
 
     Args:
-        access_token: Shopify Storefront access token
-        merchant_id: Merchant ID for caching
+        access_token: Unused (kept for compatibility)
+        merchant_id: Merchant ID for database lookup
         db: Database session
 
     Returns:
@@ -229,14 +231,42 @@ async def fetch_products(
 
     Raises:
         APIError: If fetch fails
-
-    AC 6: Shopify Integration for Product Data
     """
-    # NOTE: Shopify Storefront API integration deferred per Story 1.15
-    # Using mock product data for development and testing
-    # This allows merchants to see products they can pin
+    try:
+        result = await db.execute(
+            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
+        )
+        integration = result.scalars().first()
+
+        if integration and integration.status == "active" and integration.admin_token_encrypted:
+            admin_token = decrypt_access_token(integration.admin_token_encrypted)
+
+            client = ShopifyAdminClient(
+                shop_domain=integration.shop_domain,
+                access_token=admin_token,
+                is_testing=is_testing(),
+            )
+
+            shopify_products = await client.list_products(limit=100)
+
+            logger.info(
+                "shopify_products_fetched",
+                merchant_id=merchant_id,
+                shop_domain=integration.shop_domain,
+                product_count=len(shopify_products),
+            )
+
+            return shopify_products
+
+    except Exception as e:
+        logger.warning(
+            "shopify_products_fetch_failed_using_mock",
+            merchant_id=merchant_id,
+            error=str(e),
+        )
+
     logger.info(
-        "shopify_products_fetch",
+        "using_mock_products",
         merchant_id=merchant_id,
         product_count=len(MOCK_PRODUCTS),
     )
@@ -253,23 +283,19 @@ async def get_product_by_id(
     """Get a specific product by ID from Shopify.
 
     Args:
-        access_token: Shopify Storefront access token
+        access_token: Unused (kept for compatibility)
         product_id: Shopify product ID
         merchant_id: Merchant ID
         db: Database session
 
     Returns:
         Product dictionary or None if not found
-
-    AC 6: Shopify Integration for Product Data
     """
-    # TODO: Implement actual Shopify Storefront API call
-    # For now, return None as placeholder
-    logger.info(
-        "shopify_product_fetch",
-        merchant_id=merchant_id,
-        product_id=product_id,
-    )
+    products = await fetch_products(access_token, merchant_id, db)
+
+    for product in products:
+        if product["id"] == product_id:
+            return product
 
     return None
 
@@ -284,11 +310,7 @@ async def invalidate_product_cache(
 
     Args:
         merchant_id: Merchant ID
-
-    AC 6: Shopify Integration for Product Data
     """
-    # TODO: Implement actual cache invalidation
-    # For now, just log
     logger.info(
         "product_cache_invalidated",
         merchant_id=merchant_id,

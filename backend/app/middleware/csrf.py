@@ -55,6 +55,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/auth/",
         "/api/v1/auth/",  # Story 1.8: Authentication endpoints
         "/api/v1/merchant/product-pins",  # Story 1.15: Product pins - temporary bypass for testing
+        "/api/integrations/shopify/credentials",  # Shopify credentials save
+        "/api/integrations/facebook/credentials",  # Facebook credentials save
         "/api/tutorial/",  # Story 1.16: Tutorial endpoints (authenticated via JWT, no CSRF needed)
         "/api/deletion/",  # Data deletion for GDPR/CCPA compliance
         "/api/conversations/export",  # CSV export is a read-only operation

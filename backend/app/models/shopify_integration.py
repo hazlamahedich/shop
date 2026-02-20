@@ -42,9 +42,9 @@ class ShopifyIntegration(Base):
         String(255),
         nullable=False,
     )
-    storefront_token_encrypted: Mapped[str] = mapped_column(
+    storefront_token_encrypted: Mapped[Optional[str]] = mapped_column(
         String(500),
-        nullable=False,
+        nullable=True,
     )
     admin_token_encrypted: Mapped[str] = mapped_column(
         String(500),

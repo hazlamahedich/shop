@@ -28,14 +28,19 @@ from app.core.config import settings
 SHOPIFY_OAUTH_DIALOG_URL = "https://{shop}/admin/oauth/authorize"
 SHOPIFY_TOKEN_EXCHANGE_URL = "https://{shop}/admin/oauth/access_token"
 
-# Required OAuth scopes for Shopify
+# Required OAuth scopes for Shopify (read-only for chatbot)
 REQUIRED_SCOPES = [
     "read_products",
+    "write_products",  # Required for creating Storefront access tokens
     "read_inventory",
-    "write_orders",
     "read_orders",
-    "write_checkouts",
-    "read_checkouts",
+    "read_fulfillments",
+    "read_customers",
+]
+
+# Optional scopes that enhance functionality but aren't required
+OPTIONAL_SCOPES = [
+    "read_all_orders",  # Access orders older than 60 days (requires Shopify approval)
 ]
 
 logger = structlog.get_logger(__name__)
@@ -90,7 +95,11 @@ class ShopifyService:
                     transport=ASGITransport(app=app), base_url="http://test"
                 )
             else:
-                self._async_client = httpx.AsyncClient()
+                # Use SSL context with certifi for macOS compatibility
+                from app.core.http_client import get_ssl_context
+
+                ssl_context = get_ssl_context()
+                self._async_client = httpx.AsyncClient(verify=ssl_context, timeout=30.0)
         return self._async_client
 
     async def close(self) -> None:
@@ -119,40 +128,55 @@ class ShopifyService:
                 "Shop domain format invalid. Expected: mystore.myshopify.com",
             )
 
-        config = settings()
-        api_key = config.get("SHOPIFY_API_KEY")
-        redirect_uri = config.get("SHOPIFY_REDIRECT_URI")
+        # First try to get merchant-specific credentials
+        result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = result.scalars().first()
+
+        api_key = None
+        if merchant and merchant.config:
+            api_key = merchant.config.get("shopify_api_key")
+            if api_key:
+                logger.info("using_merchant_shopify_api_key", merchant_id=merchant_id)
+
+        # Fall back to global config if merchant credentials not found
+        if not api_key:
+            config = settings()
+            api_key = config.get("SHOPIFY_API_KEY")
 
         if not api_key:
             raise APIError(
                 ErrorCode.SHOPIFY_ENCRYPTION_KEY_MISSING,
-                "Shopify API Key not configured",
+                "Shopify API Key not configured. Please save your Shopify App credentials first.",
             )
+
+        # Get redirect URI - try merchant config first, then global
+        redirect_uri = None
+        if merchant and merchant.config:
+            redirect_uri = merchant.config.get("shopify_redirect_uri")
 
         if not redirect_uri:
-            raise APIError(
-                ErrorCode.SHOPIFY_ENCRYPTION_KEY_MISSING,
-                "Shopify redirect URI not configured",
-            )
+            config = settings()
+            redirect_uri = config.get("SHOPIFY_REDIRECT_URI")
 
-        # Use merchant-specific credentials if available in config
-        result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
-        merchant = result.scalars().first()
+        if not redirect_uri:
+            # Default redirect URI - backend callback endpoint
+            from app.core.config import is_testing
 
-        if merchant and merchant.config:
-            merchant_api_key = merchant.config.get("shopify_api_key")
-            if merchant_api_key:
-                api_key = merchant_api_key
-                logger.debug("using_merchant_shopify_api_key", merchant_id=merchant_id)
+            if is_testing():
+                redirect_uri = "http://localhost:8000/api/integrations/shopify/callback"
+            else:
+                redirect_uri = "http://localhost:8000/api/integrations/shopify/callback"
+            logger.info("using_default_redirect_uri", redirect_uri=redirect_uri)
 
         # Generate state token for CSRF protection (stores merchant_id)
         state = generate_oauth_state(merchant_id)
 
-        # Build OAuth URL
+        # Build OAuth URL - request both required and optional scopes
+        all_scopes = REQUIRED_SCOPES + OPTIONAL_SCOPES
         params = {
             "client_id": api_key,
             "redirect_uri": redirect_uri,
-            "scope": ",".join(REQUIRED_SCOPES),
+            "scope": ",".join(all_scopes),
             "response_type": "code",
             "state": state,
             "grant_options[]": "per-user",
@@ -253,7 +277,7 @@ class ShopifyService:
         shop_domain: str,
         shop_name: str,
         admin_token: str,
-        storefront_token: str,
+        storefront_token: Optional[str],
         scopes: list[str],
     ) -> ShopifyIntegration:
         """Create Shopify integration record.
@@ -263,7 +287,7 @@ class ShopifyService:
             shop_domain: Shopify shop domain
             shop_name: Shopify shop name
             admin_token: Admin API access token (will be encrypted)
-            storefront_token: Storefront API access token (will be encrypted)
+            storefront_token: Storefront API access token (will be encrypted, optional)
             scopes: Granted OAuth scopes
 
         Returns:
@@ -286,7 +310,9 @@ class ShopifyService:
 
         # Encrypt access tokens
         encrypted_admin_token = encrypt_access_token(admin_token)
-        encrypted_storefront_token = encrypt_access_token(storefront_token)
+        encrypted_storefront_token = (
+            encrypt_access_token(storefront_token) if storefront_token else None
+        )
 
         # Create integration record
         integration = ShopifyIntegration(
@@ -300,9 +326,7 @@ class ShopifyService:
         )
 
         # Sprint Change 2026-02-13: Update merchant's store_provider
-        merchant_result = await self.db.execute(
-            select(Merchant).where(Merchant.id == merchant_id)
-        )
+        merchant_result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = merchant_result.scalars().first()
         if merchant:
             merchant.store_provider = "shopify"
@@ -401,9 +425,7 @@ class ShopifyService:
         await self.db.delete(integration)
 
         # Sprint Change 2026-02-13: Reset merchant's store_provider to none
-        merchant_result = await self.db.execute(
-            select(Merchant).where(Merchant.id == merchant_id)
-        )
+        merchant_result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = merchant_result.scalars().first()
         if merchant:
             merchant.store_provider = "none"
@@ -412,6 +434,8 @@ class ShopifyService:
 
     async def save_shopify_credentials(self, merchant_id: int, api_key: str, api_secret: str):
         """Save Shopify API Key and Secret for a merchant."""
+        from sqlalchemy.orm.attributes import flag_modified
+
         result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = result.scalars().first()
 
@@ -422,11 +446,13 @@ class ShopifyService:
 
         encrypted_secret = encrypt_access_token(api_secret)
 
-        if merchant.config is None:
-            merchant.config = {}
+        config = merchant.config or {}
+        config["shopify_api_key"] = api_key
+        config["shopify_api_secret_encrypted"] = encrypted_secret
+        merchant.config = config
 
-        merchant.config["shopify_api_key"] = api_key
-        merchant.config["shopify_api_secret_encrypted"] = encrypted_secret
+        # Mark config as modified so SQLAlchemy detects the change
+        flag_modified(merchant, "config")
 
         await self.db.commit()
         await self.db.refresh(merchant)

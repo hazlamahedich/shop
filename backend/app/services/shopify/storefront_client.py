@@ -13,6 +13,7 @@ import structlog
 
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
+from app.core.http_client import get_ssl_context
 
 
 class ShopifyStorefrontClient:
@@ -22,7 +23,7 @@ class ShopifyStorefrontClient:
 
     Attributes:
         access_token: Storefront API access token
-        store_url: Shopify store URL
+        shop_domain: Shopify shop domain (e.g., mystore.myshopify.com)
         base_url: Full GraphQL API endpoint URL
         client: httpx async HTTP client
     """
@@ -33,30 +34,45 @@ class ShopifyStorefrontClient:
     def __init__(
         self,
         access_token: Optional[str] = None,
-        store_url: Optional[str] = None,
+        shop_domain: Optional[str] = None,
+        is_testing: Optional[bool] = None,
     ) -> None:
         """Initialize Storefront API client.
 
         Args:
             access_token: Storefront API access token (from settings if not provided)
-            store_url: Shopify store URL (from settings if not provided)
+            shop_domain: Shopify shop domain like mystore.myshopify.com (from settings if not provided)
+            is_testing: Override testing mode (from settings if not provided)
         """
         app_settings = settings()
         self.access_token = access_token or app_settings.get("SHOPIFY_STOREFRONT_ACCESS_TOKEN", "")
-        self.store_url = store_url or app_settings.get("SHOPIFY_STORE_URL", "")
-        self.base_url = f"{self.store_url}/api/{self.API_VERSION}/graphql.json"
+        self.shop_domain = shop_domain or app_settings.get("SHOPIFY_STORE_URL", "")
 
-        # Check testing mode
-        self.is_testing = app_settings.get("IS_TESTING", False)
+        if self.shop_domain and not self.shop_domain.startswith("http"):
+            self.base_url = f"https://{self.shop_domain}/api/{self.API_VERSION}/graphql.json"
+        else:
+            self.base_url = (
+                f"{self.shop_domain}/api/{self.API_VERSION}/graphql.json"
+                if self.shop_domain
+                else ""
+            )
+
+        if is_testing is not None:
+            self.is_testing = is_testing
+        else:
+            self.is_testing = app_settings.get("IS_TESTING", False)
 
         self.logger = structlog.get_logger(__name__)
 
+        # Use SSL context with certifi for macOS compatibility
+        ssl_context = get_ssl_context()
         self.client = httpx.AsyncClient(
             headers={
                 "X-Shopify-Storefront-Access-Token": self.access_token,
                 "Content-Type": "application/json",
             },
             timeout=self.DEFAULT_TIMEOUT,
+            verify=ssl_context,
         )
 
     async def search_products(
@@ -153,7 +169,7 @@ class ShopifyStorefrontClient:
         filter_str = ",".join(filters) if filters else ""
 
         query = f"""{{
-            products(first: {first}{', query:"' + filter_str + '"' if filter_str else ''}) {{
+            products(first: {first}{', query:"' + filter_str + '"' if filter_str else ""}) {{
                 edges {{
                     node {{
                         id

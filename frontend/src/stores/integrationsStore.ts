@@ -296,10 +296,12 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     try {
       // Get OAuth URL from backend
       const response = await fetch(
-        `/api/integrations/shopify/authorize?merchant_id=${merchantId}&shop_domain=${shopDomain}`
+        `/api/integrations/shopify/authorize?merchant_id=${merchantId}&shop_domain=${shopDomain}`,
+        { credentials: 'include' }
       );
       if (!response.ok) {
-        throw new Error('Failed to initiate OAuth');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.message || 'Failed to initiate OAuth');
       }
 
       const { data } = await response.json();
@@ -449,7 +451,9 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save credentials');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.detail?.message || errorData?.message || 'Failed to save credentials';
+        throw new Error(errorMessage);
       }
 
       // After saving, reset status to idle so they can enter domain and click Connect
@@ -459,6 +463,7 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
         shopifyStatus: 'error',
         shopifyError: error instanceof Error ? error.message : 'Failed to save credentials',
       });
+      throw error;
     }
   },
 

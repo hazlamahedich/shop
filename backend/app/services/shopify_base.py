@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import Optional
 import httpx
 
+from app.core.http_client import get_ssl_context
+
 
 class ShopifyBaseClient:
     """Base class for Shopify API clients with common patterns."""
@@ -55,7 +57,9 @@ class ShopifyBaseClient:
                     transport=ASGITransport(app=app), base_url="http://test"
                 )
             else:
-                self._async_client = httpx.AsyncClient()
+                # Use SSL context with certifi for macOS compatibility
+                ssl_context = get_ssl_context()
+                self._async_client = httpx.AsyncClient(verify=ssl_context, timeout=30.0)
         return self._async_client
 
     async def close(self) -> None:
