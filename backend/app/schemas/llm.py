@@ -255,19 +255,22 @@ class SwitchProviderRequest(BaseModel):
     @field_validator("api_key")
     @classmethod
     def validate_api_key(cls, v: Optional[str], info) -> Optional[str]:
-        """Validate API key is provided for cloud providers."""
-        provider_id = info.data.get("provider_id")
-        if provider_id and provider_id != "ollama" and not v:
-            raise ValueError(f"api_key is required for {provider_id} provider")
+        """Validate API key is provided for cloud providers.
+
+        Note: api_key is optional for updates to existing providers.
+        The service layer handles using the existing key when none is provided.
+        """
+        # Allow None/empty for updates - service will use existing key
         return v
 
     @field_validator("server_url")
     @classmethod
     def validate_server_url(cls, v: Optional[str], info) -> Optional[str]:
-        """Validate server URL is provided for Ollama."""
-        provider_id = info.data.get("provider_id")
-        if provider_id == "ollama" and not v:
-            raise ValueError("server_url is required for Ollama provider")
+        """Validate server URL is provided for Ollama.
+
+        Note: server_url is optional for updates to existing providers.
+        The service layer handles using the existing URL when none is provided.
+        """
         return v
 
     class Config:
