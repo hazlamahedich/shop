@@ -2,13 +2,11 @@
  * BotConfig Page Component
  *
  * Story 1.12: Bot Naming
- * Story 1.14: Smart Greeting Templates
  * Story 1.15: Product Highlight Pins
  *
  * Main page for configuring bot settings including:
  * - Bot name input with live preview
- * - Display of current personality and custom greeting
- * - Greeting configuration with live preview (Story 1.14)
+ * - Display of current personality
  * - Product highlight pins management (Story 1.15)
  * - Save functionality for bot name changes
  * - Loading states and error handling
@@ -19,17 +17,13 @@
 
 import React from 'react';
 import { useEffect } from 'react';
-import { Info, CheckCircle2, AlertCircle, MessageSquare, Palette } from 'lucide-react';
+import { Info, CheckCircle2, AlertCircle, Palette } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useBotConfigStore } from '../stores/botConfigStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { BotNameInput } from '../components/bot-config/BotNameInput';
-import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import { ProductPinList } from '../components/business-info/ProductPinList';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
-
-// Add data-testid constant for greeting section
-const GREETING_CONTAINER_ID = 'greeting-config-section-container';
 
 /**
  * Get personality display name and color
@@ -53,7 +47,7 @@ function getPersonalityInfo(personality: string | null) {
  *
  * Features:
  * - Bot name input with live preview
- * - Display of current personality and custom greeting
+ * - Display of current personality
  * - Save functionality for bot name
  * - Automatic loading of existing configuration
  * - Success and error notifications
@@ -62,20 +56,11 @@ export const BotConfig: React.FC = () => {
   const {
     botName,
     personality,
-    customGreeting,
-    // Story 1.14: Greeting config state
-    greetingTemplate,
-    useCustomGreeting,
-    defaultTemplate,
-    availableVariables,
     loadingState,
     error,
     isDirty,
     fetchBotConfig,
-    fetchGreetingConfig,
     updateBotName,
-    updateGreetingConfig,
-    resetGreetingToDefault,
     clearError,
   } = useBotConfigStore();
 
@@ -87,7 +72,7 @@ export const BotConfig: React.FC = () => {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        await Promise.all([fetchBotConfig(), fetchGreetingConfig()]);
+        await fetchBotConfig();
       } catch (err) {
         console.error('Failed to load configuration:', err);
         toast('Failed to load configuration', 'error');
@@ -95,7 +80,7 @@ export const BotConfig: React.FC = () => {
     };
 
     loadConfig();
-  }, [fetchBotConfig, fetchGreetingConfig, toast]);
+  }, [fetchBotConfig, toast]);
 
   // Handle save bot name
   const handleSaveBotName = async () => {
@@ -114,40 +99,9 @@ export const BotConfig: React.FC = () => {
     }
   };
 
-  // Story 1.14: Handle save greeting config
-  const handleSaveGreetingConfig = async () => {
-    clearError();
-
-    try {
-      await updateGreetingConfig({
-        greeting_template: greetingTemplate,
-        use_custom_greeting: useCustomGreeting,
-      });
-
-      markBotConfigComplete('greetings');
-      toast('Greeting configuration saved successfully!', 'success');
-    } catch (err) {
-      console.error('Failed to save greeting config:', err);
-      toast('Failed to save greeting configuration', 'error');
-    }
-  };
-
-  // Story 1.14: Handle reset greeting to default
-  const handleResetGreeting = async () => {
-    clearError();
-
-    try {
-      await resetGreetingToDefault();
-      toast('Greeting reset to default successfully!', 'success');
-    } catch (err) {
-      console.error('Failed to reset greeting:', err);
-      toast('Failed to reset greeting', 'error');
-    }
-  };
-
   // Is any operation in progress?
   const isLoading = loadingState === 'loading';
-  const hasConfig = botName || personality || customGreeting || greetingTemplate;
+  const hasConfig = botName || personality;
   const personalityInfo = getPersonalityInfo(personality);
 
   return (
@@ -179,13 +133,14 @@ export const BotConfig: React.FC = () => {
                 Bot Configuration
               </h1>
               <p className="text-lg text-gray-600 max-w-3xl">
-                Customize how your bot introduces itself and interacts with customers. Set a
-                memorable bot name to create a branded experience.
+                Customize how your bot introduces itself. Set a memorable bot name 
+                and configure product highlights. For greeting customization, visit 
+                the <a href="/personality" className="text-blue-600 hover:underline">Bot Personality</a> page.
               </p>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm">
               <Info size={16} />
-              <span>Stories 1.12, 1.14 & 1.15</span>
+              <span>Stories 1.12 & 1.15</span>
             </div>
           </div>
         </div>
@@ -293,23 +248,11 @@ export const BotConfig: React.FC = () => {
                   </div>
                 )}
 
-                {/* Custom Greeting Display */}
-                {customGreeting && (
-                  <div className="p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <MessageSquare size={16} className="text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">Custom Greeting</span>
-                    </div>
-                    <p className="text-sm text-gray-600 italic">&quot;{customGreeting}&quot;</p>
-                  </div>
-                )}
-
                 {/* No Settings Message */}
-                {!personality && !customGreeting && (
+                {!personality && (
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <p className="text-sm text-gray-600">
-                      No additional personality settings configured. The bot will use default
-                      settings.
+                      No personality configured yet. Visit the Bot Personality page to set up your bot's tone and greeting.
                     </p>
                   </div>
                 )}
@@ -320,61 +263,13 @@ export const BotConfig: React.FC = () => {
                     href="/personality"
                     className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    Configure personality →
+                    Configure personality & greeting →
                   </a>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Story 1.14: Greeting Configuration Section */}
-        {personality && (
-          <div className="max-w-6xl mx-auto px-6" data-testid="greeting-section-container">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Greeting Configuration
-                </h2>
-                {greetingTemplate && useCustomGreeting && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md">
-                    <CheckCircle2 size={12} />
-                    Configured
-                  </span>
-                )}
-              </div>
-
-              <GreetingConfig
-                personality={personality}
-                greetingTemplate={greetingTemplate}
-                useCustomGreeting={useCustomGreeting}
-                defaultTemplate={defaultTemplate}
-                availableVariables={availableVariables}
-                onUpdate={async (data) => {
-                  clearError();
-                  try {
-                    await updateGreetingConfig(data);
-                    toast('Greeting configuration saved successfully!', 'success');
-                  } catch (err) {
-                    console.error('Failed to save greeting config:', err);
-                    toast('Failed to save greeting configuration', 'error');
-                  }
-                }}
-                onReset={async () => {
-                  clearError();
-                  try {
-                    await resetGreetingToDefault();
-                    toast('Greeting reset to default successfully!', 'success');
-                  } catch (err) {
-                    console.error('Failed to reset greeting:', err);
-                    toast('Failed to reset greeting', 'error');
-                  }
-                }}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Story 1.15: Product Highlight Pins Section */}
         <div className="max-w-6xl mx-auto px-6">
@@ -384,7 +279,7 @@ export const BotConfig: React.FC = () => {
         {/* Help Section */}
         <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">How Bot Configuration Works</h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm text-blue-800">
+          <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
             {/* Story 1.12: Bot Names */}
             <div>
               <h4 className="font-medium mb-2">Bot Names</h4>
@@ -394,21 +289,6 @@ export const BotConfig: React.FC = () => {
               </p>
               <p className="text-blue-700 text-xs mt-2">
                 Example: &quot;Hi! I'm GearBot, here to help you...&quot;
-              </p>
-            </div>
-
-            {/* Story 1.14: Smart Greetings */}
-            <div>
-              <h4 className="font-medium mb-2">Smart Greeting Templates</h4>
-              <p className="text-blue-700">
-                Greeting templates automatically match your selected bot personality. You can
-                customize greeting or use personality-based default.
-              </p>
-              <p className="text-blue-700 text-xs mt-2">
-                <strong>Variables:</strong>{' '}
-                {'{bot_name} — Your bot name, '}
-                {'{business_name} — Your business name, '}
-                {'{business_hours} — Your business hours'}
               </p>
             </div>
 

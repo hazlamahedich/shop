@@ -184,6 +184,43 @@ class PreviewService:
         # Build conversation history for context
         history = session.get_history()
 
+        # Check if this is a greeting (must be actual greeting word AND first message)
+        greeting_words = {
+            "hi",
+            "hello",
+            "hey",
+            "greetings",
+            "howdy",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "hi there",
+            "hello there",
+        }
+        normalized_message = message.lower().strip()
+        is_first_message = len(history) <= 2  # Only user message so far
+        is_greeting = normalized_message in greeting_words
+
+        # Only return configured greeting for actual greeting words on first message
+        if is_first_message and is_greeting:
+            try:
+                greeting = await bot_service.get_greeting(merchant.id, self.db)
+                if greeting:
+                    session.add_message("bot", greeting)
+                    return PreviewMessageResponse(
+                        response=greeting,
+                        confidence=95,
+                        confidence_level="high",
+                        metadata=PreviewMessageMetadata(
+                            intent="greeting",
+                            faq_matched=False,
+                            products_found=0,
+                            llm_provider=None,
+                        ),
+                    )
+            except Exception:
+                pass  # Fall through to normal flow
+
         # Get system prompt with merchant's personality and config
         system_prompt = await bot_service.get_system_prompt(
             merchant_id=merchant.id,

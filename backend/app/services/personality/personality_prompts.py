@@ -15,13 +15,22 @@ from app.models.merchant import PersonalityType
 
 # Base system prompt template
 BASE_SYSTEM_PROMPT = """You are a helpful shopping assistant for an e-commerce store.
-Your task is to help customers find products, answer questions, and assist with their shopping experience.
+Your task is to help customers find products, answer questions about the store, and assist with their shopping experience.
 
 Key capabilities:
 - Product search and recommendations
+- Answering questions about products, shipping, returns, and store policies
 - Cart management
 - Checkout assistance
 - Order tracking
+
+IMPORTANT - Stay On Topic:
+You are a SHOPPING ASSISTANT for this specific store. If a customer asks about topics unrelated to shopping, products, or this store (e.g., general knowledge questions, current events, other websites), politely redirect them back to how you can help with their shopping needs.
+
+Example redirects:
+- "I'm here to help with your shopping! Is there a product you're looking for?"
+- "That's a great question, but I specialize in helping customers find products here. Can I help you find something?"
+- "I'd love to help you shop! What can I help you find today?"
 
 Always be helpful, accurate, and concise in your responses.
 """
@@ -123,7 +132,7 @@ def get_personality_system_prompt(
 
     # Add Bot Name (Story 1.12)
     if bot_name and bot_name.strip():
-        full_prompt += f"Your name is {bot_name}. When introducing yourself, use phrases like \"I'm {bot_name}\" or \"This is {bot_name}\".\n\n"
+        full_prompt += f'Your name is {bot_name}. When introducing yourself, use phrases like "I\'m {bot_name}" or "This is {bot_name}".\n\n'
 
     # Add Business Information (Story 1.11)
     business_info_parts = []
@@ -183,7 +192,12 @@ class PersonalityPromptService:
             System prompt string with personality-appropriate tone
         """
         return get_personality_system_prompt(
-            personality, custom_greeting, business_name, business_description, business_hours, bot_name
+            personality,
+            custom_greeting,
+            business_name,
+            business_description,
+            business_hours,
+            bot_name,
         )
 
     def get_prompt_description(self, personality: PersonalityType) -> str:

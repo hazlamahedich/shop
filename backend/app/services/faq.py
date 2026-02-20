@@ -179,13 +179,30 @@ class FaqMatcher:
         """
         normalized_question = self.normalize_text(faq.question)
 
-        # Check if message contains the FAQ question (case-insensitive)
-        if normalized_question in normalized_message or normalized_message in normalized_question:
+        # Check if the full FAQ question is contained in the message
+        if normalized_question in normalized_message:
             return FaqMatch(
                 faq=faq,
                 confidence=self.CONTAINS_QUESTION_MATCH_CONFIDENCE,
                 match_type="contains_question",
             )
+
+        # Check if message is contained in question (for short queries)
+        # Only match if message is at least 4 chars to avoid false positives
+        # like "hi" matching "shipping"
+        if len(normalized_message) >= 4 and normalized_message in normalized_question:
+            # Use word boundary check to avoid partial word matches
+            # e.g., "ship" should match "ship" but not "relationship"
+            import re
+
+            pattern = r"\b" + re.escape(normalized_message) + r"\b"
+            if re.search(pattern, normalized_question):
+                return FaqMatch(
+                    faq=faq,
+                    confidence=self.CONTAINS_QUESTION_MATCH_CONFIDENCE
+                    * 0.9,  # Slightly lower confidence
+                    match_type="contains_question",
+                )
 
         return None
 
@@ -207,11 +224,7 @@ class FaqMatcher:
             return None
 
         # Parse keywords (comma-separated)
-        keywords = [
-            self.normalize_text(kw)
-            for kw in faq.keywords.split(",")
-            if kw.strip()
-        ]
+        keywords = [self.normalize_text(kw) for kw in faq.keywords.split(",") if kw.strip()]
 
         if not keywords:
             return None
