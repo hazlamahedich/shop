@@ -76,7 +76,7 @@ class ProviderSwitchService:
         Args:
             merchant_id: Merchant ID for authorization check
             provider_id: Provider to validate (ollama, openai, anthropic, gemini, glm)
-            api_key: API key for cloud providers (required for non-Ollama)
+            api_key: API key for cloud providers (optional if updating same provider)
             server_url: Ollama server URL (required for Ollama)
             model: Optional model override
 
@@ -107,9 +107,18 @@ class ProviderSwitchService:
             await self._validate_ollama_config(server_url)
             provider_config = {"server_url": server_url, "model": model or "llama3"}
         else:
-            await self._validate_cloud_provider_config(provider_id, api_key)
+            # If no API key provided, try to use existing one (for updates)
+            effective_api_key = api_key
+            if not effective_api_key:
+                current_config = await self._get_llm_config(merchant_id)
+                if current_config.provider == provider_id and current_config.api_key_encrypted:
+                    from app.core.security import decrypt_access_token
+
+                    effective_api_key = decrypt_access_token(current_config.api_key_encrypted)
+
+            await self._validate_cloud_provider_config(provider_id, effective_api_key)
             provider_config = {
-                "api_key": api_key,
+                "api_key": effective_api_key,
                 "model": model or self._get_default_model(provider_id),
             }
 
@@ -179,6 +188,9 @@ class ProviderSwitchService:
             # Validation succeeded - now apply changes
             is_ollama = provider_id == "ollama"
 
+            # Check if this is an update to the same provider
+            is_update = previous_provider == provider_id
+
             if is_ollama:
                 current_config.provider = provider_id
                 current_config.ollama_url = server_url
@@ -188,8 +200,15 @@ class ProviderSwitchService:
                 current_config.cloud_model = None
             else:
                 current_config.provider = provider_id
-                # TODO: Encrypt API key before storing (requires encryption service)
-                current_config.api_key_encrypted = api_key
+                # Keep existing API key if updating same provider and no new key provided
+                if is_update and not api_key:
+                    # Keep the existing encrypted API key
+                    pass
+                elif api_key:
+                    # New API key provided - encrypt and store
+                    from app.core.security import encrypt_access_token
+
+                    current_config.api_key_encrypted = encrypt_access_token(api_key)
                 current_config.cloud_model = model or self._get_default_model(provider_id)
                 # Clear Ollama configuration
                 current_config.ollama_url = None

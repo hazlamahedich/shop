@@ -104,11 +104,18 @@ export const ProviderConfigModal: React.FC = () => {
   );
   const isOllama = selectedProvider.id === 'ollama';
 
+  // Check if this is the currently active provider (for update vs switch)
+  const { currentProvider } = useLLMProviderStore();
+  const isUpdating = currentProvider?.id === selectedProvider.id;
+
   const handleSwitch = async () => {
     try {
+      // For updates, only pass API key if a new one was provided
+      const apiKeyToSend = isUpdating && !apiKey.trim() ? undefined : (isCloudProvider ? apiKey : undefined);
+      
       await switchProvider({
         providerId: selectedProvider.id,
-        apiKey: isCloudProvider ? apiKey : undefined,
+        apiKey: apiKeyToSend,
         serverUrl: isOllama ? serverUrl : undefined,
         model: selectedModel || undefined,
       });
@@ -129,10 +136,18 @@ export const ProviderConfigModal: React.FC = () => {
   };
 
   const isDisabled = isSwitching || validationInProgress;
-  const canSubmit =
-    ((isCloudProvider && apiKey.length > 0) ||
-    (isOllama && serverUrl.length > 0)) &&
-    selectedModel.length > 0;
+  
+  // Validation logic:
+  // - Ollama: always need server URL
+  // - Cloud provider (new): need API key
+  // - Cloud provider (updating): can update with just model (no new API key required)
+  const canSubmit = selectedModel.length > 0 && (
+    isOllama 
+      ? serverUrl.length > 0
+      : isUpdating 
+        ? true // Can update existing provider with just model change
+        : apiKey.length > 0 // New provider requires API key
+  );
 
   // Group models for display
   const downloadedModels = models.filter(m => m.isDownloaded);
@@ -157,7 +172,7 @@ export const ProviderConfigModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 id="modal-title" className="text-lg font-semibold">
-            Configure {selectedProvider.name}
+            {isUpdating ? `Update ${selectedProvider.name}` : `Configure ${selectedProvider.name}`}
           </h2>
           <button
             ref={cancelButtonRef}
@@ -172,6 +187,11 @@ export const ProviderConfigModal: React.FC = () => {
 
         {/* Provider Info */}
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          {isUpdating && (
+            <p className="text-sm text-blue-600 font-medium mb-2">
+              This is your current provider. Update your API key or model selection below.
+            </p>
+          )}
           <p className="text-sm text-gray-600">{selectedProvider.description}</p>
           <p className="text-sm font-medium mt-2">
             Pricing: ${selectedProvider.pricing.inputCost.toFixed(2)} / ${selectedProvider.pricing.outputCost.toFixed(2)} per 1M tokens
@@ -200,13 +220,15 @@ export const ProviderConfigModal: React.FC = () => {
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your API key"
+                placeholder={isUpdating ? "Enter new API key to update" : "Enter your API key"}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 disabled={isDisabled}
                 autoComplete="off"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Your API key is encrypted and stored securely
+                {isUpdating 
+                  ? "Leave empty to keep your current API key, or enter a new one to update"
+                  : "Your API key is encrypted and stored securely"}
               </p>
             </div>
           )}
@@ -331,9 +353,11 @@ export const ProviderConfigModal: React.FC = () => {
               <Loader2 size={16} className="animate-spin" aria-hidden="true" />
             )}
             {isSwitching
-              ? 'Switching...'
+              ? (isUpdating ? 'Updating...' : 'Switching...')
               : validationInProgress
               ? 'Validating...'
+              : isUpdating
+              ? 'Update Configuration'
               : 'Switch Provider'}
           </button>
         </div>

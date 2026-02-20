@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Check, Zap, DollarSign, Server } from 'lucide-react';
+import { Check, Zap, DollarSign, Server, Settings } from 'lucide-react';
 import { useLLMProviderStore } from '../../stores/llmProviderStore';
 import type { Provider } from '../../stores/llmProviderStore';
 
@@ -101,18 +101,24 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, isActive }
         </div>
       )}
 
-      {/* Select Button */}
+      {/* Select/Configure Button */}
       <button
         onClick={handleSelect}
-        disabled={isActive}
-        className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+        className={`w-full py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
           isActive
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
             : 'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
         }`}
-        aria-label={`Select ${provider.name} provider`}
+        aria-label={isActive ? `Update ${provider.name} configuration` : `Select ${provider.name} provider`}
       >
-        {isActive ? 'Current Provider' : 'Select Provider'}
+        {isActive ? (
+          <>
+            <Settings size={16} aria-hidden="true" />
+            Update Configuration
+          </>
+        ) : (
+          'Select Provider'
+        )}
       </button>
     </div>
   );
