@@ -119,11 +119,11 @@ export const useLLMProviderStore = create<LLMProviderState>((set, get) => ({
 
   /** Select a provider for configuration (opens modal) */
   selectProvider: (providerId: string) => {
-    const { availableProviders, currentProvider } = get();
+    const { availableProviders } = get();
     const provider = availableProviders.find((p) => p.id === providerId);
 
-    // Only allow selection if different from current
-    if (provider && provider.id !== currentProvider?.id) {
+    // Allow selection for both new providers and updates to current provider
+    if (provider) {
       set({ selectedProvider: provider, switchError: null });
     }
   },
