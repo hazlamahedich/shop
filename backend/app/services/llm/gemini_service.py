@@ -98,6 +98,10 @@ class GeminiService(BaseLLMService):
 
         model_name = model or self.config.get("model", self.DEFAULT_MODEL)
 
+        # Strip OpenRouter prefix if present (e.g., "google/gemini-2.0-flash" -> "gemini-2.0-flash")
+        if model_name.startswith("google/"):
+            model_name = model_name[7:]  # Remove "google/" prefix
+
         # Convert LLMMessage to Gemini format
         gemini_contents = [{"role": msg.role, "parts": [{"text": msg.content}]} for msg in messages]
 
