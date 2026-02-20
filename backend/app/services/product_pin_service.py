@@ -65,15 +65,12 @@ async def pin_product(
 
     # Check pin limit
     pinned_count = await db.execute(
-        select(func.count(ProductPin.id)).where(
-            ProductPin.merchant_id == merchant_id
-        )
+        select(func.count(ProductPin.id)).where(ProductPin.merchant_id == merchant_id)
     )
     if pinned_count.scalars().one() >= MAX_PINNED_PRODUCTS:
         raise APIError(
             ErrorCode.PRODUCT_PIN_LIMIT_REACHED,
-            f"Maximum pinned products reached ({MAX_PINNED_PRODUCTS}). "
-            f"Unpin a product first.",
+            f"Maximum pinned products reached ({MAX_PINNED_PRODUCTS}). Unpin a product first.",
         )
 
     # Fetch product details from Shopify to populate title and image
@@ -170,7 +167,7 @@ async def unpin_product(
 
 async def get_pinned_products(
     db: AsyncSession,
-    merchant_id: str,
+    merchant_id: int | str,
     page: int = 1,
     limit: int = 20,
     pinned_only: bool = False,
@@ -180,7 +177,7 @@ async def get_pinned_products(
 
     Args:
         db: Database session
-        merchant_id: Merchant ID
+        merchant_id: Merchant ID (int or str)
         page: Page number (1-indexed)
         limit: Items per page (default 20)
         pinned_only: If True, return only pinned products
@@ -198,10 +195,10 @@ async def get_pinned_products(
     from app.services.shopify.product_service import fetch_products, get_product_by_id
     from app.models.merchant import Merchant
 
+    merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
+
     # Fetch merchant to get access token
-    merchant_result = await db.execute(
-        select(Merchant).where(Merchant.id == merchant_id)
-    )
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == merchant_id_int))
     merchant = merchant_result.scalars().first()
 
     # Check if merchant has Shopify connection (stored in config JSONB)
@@ -212,7 +209,7 @@ async def get_pinned_products(
     # Fetch all products from Shopify (mock data for now)
     # NOTE: Shopify integration deferred per Story 1.15 AC 6
     # Always use mock products for development/testing
-    all_products = await fetch_products(shopify_access_token or "", merchant_id, db)
+    all_products = await fetch_products(shopify_access_token or "", merchant_id_int, db)
 
     # Store original product count for pagination (before search filter)
     original_product_count = len(all_products)
@@ -220,20 +217,17 @@ async def get_pinned_products(
     # Apply search filter if provided (case-insensitive title search)
     if search and search.strip():
         search_lower = search.lower().strip()
-        all_products = [
-            p for p in all_products
-            if search_lower in p["title"].lower()
-        ]
+        all_products = [p for p in all_products if search_lower in p["title"].lower()]
         logger.info(
             "search_filter_applied",
-            merchant_id=merchant_id,
+            merchant_id=merchant_id_int,
             search_query=search,
             filtered_count=len(all_products),
         )
 
     # Fetch pinned products from database
     pinned_result = await db.execute(
-        select(ProductPin).where(ProductPin.merchant_id == merchant_id)
+        select(ProductPin).where(ProductPin.merchant_id == merchant_id_int)
     )
     pinned_pins = pinned_result.scalars().all()
 
@@ -247,14 +241,16 @@ async def get_pinned_products(
         is_pinned = product_id in pinned_map
         pin_data = pinned_map.get(product_id)
 
-        merged_products.append({
-            "product_id": product_id,
-            "title": product["title"],
-            "image_url": product.get("image_url"),
-            "is_pinned": is_pinned,
-            "pinned_order": pin_data.pinned_order if is_pinned else None,
-            "pinned_at": pin_data.pinned_at.isoformat() if is_pinned else None,
-        })
+        merged_products.append(
+            {
+                "product_id": product_id,
+                "title": product["title"],
+                "image_url": product.get("image_url"),
+                "is_pinned": is_pinned,
+                "pinned_order": pin_data.pinned_order if is_pinned else None,
+                "pinned_at": pin_data.pinned_at.isoformat() if is_pinned else None,
+            }
+        )
 
     # If pinned_only filter, show only pinned products
     if pinned_only:
@@ -271,7 +267,7 @@ async def get_pinned_products(
 
     # Apply pagination
     offset = (page - 1) * limit
-    paginated = filtered_products[offset:offset + limit]
+    paginated = filtered_products[offset : offset + limit]
 
     logger.info(
         "products_retrieved",
@@ -347,9 +343,7 @@ async def check_pin_limit(
     """
     # Get current pinned count
     result = await db.execute(
-        select(func.count(ProductPin.id)).where(
-            ProductPin.merchant_id == merchant_id
-        )
+        select(func.count(ProductPin.id)).where(ProductPin.merchant_id == merchant_id)
     )
     count = result.scalars().one()
 

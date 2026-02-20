@@ -54,6 +54,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/logout",  # Idempotent - handles revoked sessions
         "/api/v1/csrf-token",
         "/health",
+        "/api/webhooks/",  # Webhook endpoints (signature-based auth)
         "/api/v1/webhooks/",
         "/webhooks/",
         "/docs",

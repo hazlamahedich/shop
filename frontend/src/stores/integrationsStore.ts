@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { useCsrfStore } from './csrfStore';
 
 // Types
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error';
@@ -194,11 +195,15 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     set({ facebookStatus: 'connecting', facebookError: undefined });
 
     try {
+      const csrfToken = await useCsrfStore.getState().getToken();
       const response = await fetch(
         `/api/integrations/facebook/disconnect?merchant_id=${merchantId}`,
         {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
         }
       );
 
@@ -396,11 +401,15 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     set({ shopifyStatus: 'connecting', shopifyError: undefined });
 
     try {
+      const csrfToken = await useCsrfStore.getState().getToken();
       const response = await fetch(
         `/api/integrations/shopify/disconnect?merchant_id=${merchantId}`,
         {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
         }
       );
 

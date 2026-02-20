@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.core.errors import APIError
@@ -51,6 +52,7 @@ class MessageProcessor:
         consent_service: Optional[ConsentService] = None,
         session_service: Optional[SessionService] = None,
         merchant_id: Optional[int] = None,
+        db: Optional[AsyncSession] = None,
     ) -> None:
         """Initialize message processor.
 
@@ -60,38 +62,82 @@ class MessageProcessor:
             consent_service: Consent service (uses default if not provided)
             session_service: Session service (uses default if not provided)
             merchant_id: Merchant ID for personality-based responses (Story 1.10)
+            db: Database session for Shopify credential lookup
         """
         self.classifier = classifier or IntentClassifier()
         self.context_manager = context_manager or ConversationContextManager()
         self.logger = structlog.get_logger(__name__)
         self.merchant_id = merchant_id
+        self.db = db
 
-        # Initialize consent and session services (Story 2.7)
         redis_client = self.context_manager.redis
         self.consent_service = consent_service or ConsentService(redis_client=redis_client)
         self.session_service = session_service or SessionService(
             redis_client=redis_client, consent_service=self.consent_service
         )
 
-        # Initialize checkout service (Story 2.8)
-        # Pass shared Redis client, shopify client, and cart service
-        shopify_client = ShopifyStorefrontClient()
-        cart_service = CartService(redis_client=redis_client)
-        self.checkout_service = CheckoutService(
-            redis_client=redis_client,
+        self._redis_client = redis_client
+        self._checkout_service: Optional[CheckoutService] = None
+        self._shopify_client: Optional[ShopifyStorefrontClient] = None
+
+        self._bot_response_service: Optional[BotResponseService] = None
+
+        self._handoff_detector: Optional[HandoffDetector] = None
+
+        self._order_tracking_service: Optional[OrderTrackingService] = None
+
+    async def _get_shopify_client(self) -> ShopifyStorefrontClient:
+        """Get or create a Shopify client for the merchant.
+
+        Returns:
+            ShopifyStorefrontClient configured for the merchant's store
+        """
+        if self._shopify_client:
+            return self._shopify_client
+
+        if self.merchant_id and self.db:
+            from app.models.shopify_integration import ShopifyIntegration
+            from app.core.security import decrypt_access_token
+            from sqlalchemy import select
+
+            result = await self.db.execute(
+                select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == self.merchant_id)
+            )
+            integration = result.scalars().first()
+
+            if (
+                integration
+                and integration.status == "active"
+                and integration.storefront_token_encrypted
+            ):
+                storefront_token = decrypt_access_token(integration.storefront_token_encrypted)
+                self._shopify_client = ShopifyStorefrontClient(
+                    shop_domain=integration.shop_domain,
+                    access_token=storefront_token,
+                )
+                self.logger.info(
+                    "shopify_client_created_for_merchant",
+                    merchant_id=self.merchant_id,
+                    shop_domain=integration.shop_domain,
+                )
+                return self._shopify_client
+
+        self._shopify_client = ShopifyStorefrontClient()
+        return self._shopify_client
+
+    async def _get_checkout_service(self) -> CheckoutService:
+        """Get or create a checkout service with merchant-specific Shopify client."""
+        if self._checkout_service:
+            return self._checkout_service
+
+        shopify_client = await self._get_shopify_client()
+        cart_service = CartService(redis_client=self._redis_client)
+        self._checkout_service = CheckoutService(
+            redis_client=self._redis_client,
             shopify_client=shopify_client,
             cart_service=cart_service,
         )
-
-        # Personality-based response service (Story 1.10)
-        # Lazily initialized to avoid issues in test environments
-        self._bot_response_service: Optional[BotResponseService] = None
-
-        # Handoff detection service (Story 4-5)
-        self._handoff_detector: Optional[HandoffDetector] = None
-
-        # Order tracking service (Story 4-1)
-        self._order_tracking_service: Optional[OrderTrackingService] = None
+        return self._checkout_service
 
     def _get_bot_response_service(self) -> BotResponseService:
         """Get or create bot response service (lazy initialization)."""
@@ -918,8 +964,11 @@ class MessageProcessor:
             await self.context_manager.update_clarification_state(psid, {"active": False})
 
         # Search for products
-        search_service = ProductSearchService()
-        search_result = await search_service.search_products(classification.entities)
+        search_service = ProductSearchService(db=self.db)
+        search_result = await search_service.search_products(
+            entities=classification.entities,
+            merchant_id=self.merchant_id,
+        )
 
         # Update context
         await self.context_manager.update_search_results(
@@ -1536,8 +1585,8 @@ class MessageProcessor:
             Messenger response with checkout URL or error message
         """
         try:
-            # Generate checkout URL
-            result = await self.checkout_service.generate_checkout_url(psid)
+            checkout_service = await self._get_checkout_service()
+            result = await checkout_service.generate_checkout_url(psid)
 
             # Handle different checkout statuses
             if result["status"] == CheckoutStatus.EMPTY_CART:

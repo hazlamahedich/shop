@@ -4,12 +4,16 @@
  *
  * Main chat interface for preview mode testing.
  * Integrates message list, input, quick-try buttons, and reset functionality.
+ * Supports product cards with detail modal and shopping cart.
  */
 
 import * as React from 'react';
 import { MessageList } from './MessageList';
 import { QuickTryButtons } from './QuickTryButtons';
+import { ProductDetailModal } from './ProductDetailModal';
+import { MiniCart } from './MiniCart';
 import { usePreviewStore } from '../../stores/previewStore';
+import { useCartStore } from '../../stores/cartStore';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 
@@ -18,9 +22,11 @@ export interface PreviewChatProps {
   className?: string;
   /** Optional bot name override */
   botName?: string;
+  /** Merchant ID for product API calls */
+  merchantId?: number;
 }
 
-export function PreviewChat({ className = '', botName }: PreviewChatProps) {
+export function PreviewChat({ className = '', botName, merchantId }: PreviewChatProps) {
   const {
     messages,
     isLoading,
@@ -31,18 +37,22 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
     setBotName,
   } = usePreviewStore();
 
+  const itemCount = useCartStore((state) => state.getItemCount());
+  const openCart = useCartStore((state) => state.openCart);
+
   const [inputValue, setInputValue] = React.useState('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Update bot name if provided
+  const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = React.useState(false);
+
   React.useEffect(() => {
     if (botName) {
       setBotName(botName);
     }
   }, [botName, setBotName]);
 
-  // Auto-scroll to bottom when new messages arrive
   React.useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -56,7 +66,6 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
     setInputValue('');
     await sendMessage(message);
 
-    // Focus input after sending
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -74,7 +83,6 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
     setInputValue(prompt);
     await sendMessage(prompt);
 
-    // Focus input after sending
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -84,10 +92,23 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
     if (isLoading) return;
     await resetConversation();
 
-    // Focus input after reset
     if (inputRef.current) {
       inputRef.current.focus();
     }
+  };
+
+  const handleProductClick = (productId: string) => {
+    setSelectedProductId(productId);
+    setIsProductModalOpen(true);
+  };
+
+  const handleProductModalClose = () => {
+    setIsProductModalOpen(false);
+    setSelectedProductId(null);
+  };
+
+  const handleCartClick = () => {
+    openCart();
   };
 
   const { botName: currentBotName } = usePreviewStore();
@@ -104,17 +125,40 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
             Sandbox environment - No real customers will see these messages
           </span>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={handleReset}
-          disabled={isLoading || messages.length === 0}
-          aria-label="Reset conversation"
-          data-testid="reset-button"
-        >
-          Reset Conversation
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Cart button */}
+          <button
+            onClick={handleCartClick}
+            className="relative p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label={`Shopping cart with ${itemCount} items`}
+            data-testid="cart-button"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold text-white bg-blue-600 rounded-full min-w-[18px] text-center">
+                {itemCount > 99 ? '99+' : itemCount}
+              </span>
+            )}
+          </button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleReset}
+            disabled={isLoading || messages.length === 0}
+            aria-label="Reset conversation"
+            data-testid="reset-button"
+          >
+            Reset Conversation
+          </Button>
+        </div>
       </div>
 
       {/* Error alert */}
@@ -130,6 +174,8 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
       <MessageList
         messages={messages}
         botName={currentBotName}
+        merchantId={merchantId}
+        onProductClick={handleProductClick}
         messagesEndRef={messagesEndRef}
         className="flex-1"
         data-testid="preview-messages"
@@ -213,6 +259,19 @@ export function PreviewChat({ className = '', botName }: PreviewChatProps) {
           Messages are limited to 1000 characters. This is a sandbox environment.
         </p>
       </div>
+
+      {/* Product detail modal */}
+      {merchantId && (
+        <ProductDetailModal
+          productId={selectedProductId}
+          merchantId={merchantId}
+          isOpen={isProductModalOpen}
+          onClose={handleProductModalClose}
+        />
+      )}
+
+      {/* Mini cart sidebar */}
+      <MiniCart merchantId={merchantId} />
     </div>
   );
 }

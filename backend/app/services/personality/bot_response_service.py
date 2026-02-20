@@ -223,7 +223,6 @@ class BotResponseService:
         merchant = await self._get_merchant(merchant_id, db)
 
         if not merchant:
-            # Return default friendly prompt
             return get_personality_system_prompt(PersonalityType.FRIENDLY)
 
         personality = merchant.personality or PersonalityType.FRIENDLY
@@ -231,10 +230,45 @@ class BotResponseService:
         business_name = merchant.business_name
         business_description = merchant.business_description
         business_hours = merchant.business_hours
-        bot_name = merchant.bot_name  # Story 1.12
+        bot_name = merchant.bot_name
+
+        product_context = ""
+        order_context = ""
+        if db:
+            try:
+                from app.services.product_context_service import (
+                    get_product_context_prompt_section,
+                    get_order_context_prompt_section,
+                )
+
+                product_context = await get_product_context_prompt_section(db, merchant_id)
+            except Exception as e:
+                self.logger.warning(
+                    "product_context_fetch_failed",
+                    merchant_id=merchant_id,
+                    error=str(e),
+                )
+
+            try:
+                from app.services.product_context_service import get_order_context_prompt_section
+
+                order_context = await get_order_context_prompt_section(db, merchant_id)
+            except Exception as e:
+                self.logger.warning(
+                    "order_context_fetch_failed",
+                    merchant_id=merchant_id,
+                    error=str(e),
+                )
 
         return get_personality_system_prompt(
-            personality, custom_greeting, business_name, business_description, business_hours, bot_name
+            personality,
+            custom_greeting,
+            business_name,
+            business_description,
+            business_hours,
+            bot_name,
+            product_context,
+            order_context,
         )
 
 

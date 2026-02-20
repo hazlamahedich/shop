@@ -253,8 +253,18 @@ class ShopifyAdminClient(ShopifyBaseClient):
                 variants = p.get("variants", [])
 
                 price = None
+                inventory_quantity = 0
+                available = True
                 if variants:
-                    price = variants[0].get("price")
+                    first_variant = variants[0]
+                    price = first_variant.get("price")
+                    inventory_qty = first_variant.get("inventory_quantity")
+                    if inventory_qty is not None:
+                        inventory_quantity = int(inventory_qty)
+                        available = inventory_quantity > 0
+                    else:
+                        inventory_quantity = 0
+                        available = True
 
                 image_url = None
                 if images:
@@ -262,7 +272,7 @@ class ShopifyAdminClient(ShopifyBaseClient):
 
                 variant_id = None
                 if variants:
-                    variant_id = variants[0].get("id")
+                    variant_id = str(variants[0].get("id"))
 
                 products.append(
                     {
@@ -271,7 +281,8 @@ class ShopifyAdminClient(ShopifyBaseClient):
                         "description": p.get("body_html", ""),
                         "image_url": image_url,
                         "price": price,
-                        "available": any(v.get("available", False) for v in variants),
+                        "available": available,
+                        "inventory_quantity": inventory_quantity,
                         "variant_id": variant_id,
                         "vendor": p.get("vendor"),
                         "product_type": p.get("product_type"),

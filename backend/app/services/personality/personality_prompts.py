@@ -96,10 +96,14 @@ def get_personality_system_prompt(
     business_description: Optional[str] = None,
     business_hours: Optional[str] = None,
     bot_name: Optional[str] = None,
+    product_context: Optional[str] = None,
+    order_context: Optional[str] = None,
 ) -> str:
     """Get system prompt based on merchant's personality type.
 
     Story 1.12: Added bot_name parameter for bot naming integration.
+    Added product_context for Shopify product/category awareness.
+    Added order_context for order tracking capabilities.
 
     Args:
         personality: Merchant's selected personality type
@@ -108,6 +112,8 @@ def get_personality_system_prompt(
         business_description: Optional business description
         business_hours: Optional business hours
         bot_name: Optional custom bot name (Story 1.12)
+        product_context: Optional product context (categories, pinned products)
+        order_context: Optional order context (recent orders, tracking info)
 
     Returns:
         System prompt string with personality-appropriate tone
@@ -116,7 +122,6 @@ def get_personality_system_prompt(
         >>> get_personality_system_prompt(PersonalityType.FRIENDLY)
         'You are a friendly shopping assistant...'
     """
-    # Get base personality prompt
     if personality == PersonalityType.FRIENDLY:
         personality_prompt = FRIENDLY_SYSTEM_PROMPT
     elif personality == PersonalityType.PROFESSIONAL:
@@ -124,17 +129,13 @@ def get_personality_system_prompt(
     elif personality == PersonalityType.ENTHUSIASTIC:
         personality_prompt = ENTHUSIASTIC_SYSTEM_PROMPT
     else:
-        # Default to friendly if unknown
         personality_prompt = FRIENDLY_SYSTEM_PROMPT
 
-    # Build full system prompt
     full_prompt = BASE_SYSTEM_PROMPT + "\n\n"
 
-    # Add Bot Name (Story 1.12)
     if bot_name and bot_name.strip():
         full_prompt += f'Your name is {bot_name}. When introducing yourself, use phrases like "I\'m {bot_name}" or "This is {bot_name}".\n\n'
 
-    # Add Business Information (Story 1.11)
     business_info_parts = []
     if business_name:
         business_info_parts.append(f"Business Name: {business_name}")
@@ -146,11 +147,15 @@ def get_personality_system_prompt(
     if business_info_parts:
         full_prompt += "BUSINESS INFORMATION:\n" + "\n".join(business_info_parts) + "\n\n"
 
-    # Add custom greeting if provided and non-empty (empty string should not create section)
+    if product_context and product_context.strip():
+        full_prompt += "STORE PRODUCTS:\n" + product_context + "\n\n"
+
+    if order_context and order_context.strip():
+        full_prompt += "ORDER TRACKING:\n" + order_context + "\n\n"
+
     if custom_greeting and custom_greeting.strip():
         full_prompt += f"STORE GREETING: {custom_greeting}\n\n"
 
-    # Add personality-specific tone guidelines
     full_prompt += f"COMMUNICATION STYLE:\n{personality_prompt}"
 
     return full_prompt
@@ -177,6 +182,8 @@ class PersonalityPromptService:
         business_description: Optional[str] = None,
         business_hours: Optional[str] = None,
         bot_name: Optional[str] = None,
+        product_context: Optional[str] = None,
+        order_context: Optional[str] = None,
     ) -> str:
         """Get system prompt for the given personality.
 
@@ -187,6 +194,8 @@ class PersonalityPromptService:
             business_description: Optional business description
             business_hours: Optional business hours
             bot_name: Optional custom bot name (Story 1.12)
+            product_context: Optional product context (categories, pinned products)
+            order_context: Optional order context (recent orders, tracking info)
 
         Returns:
             System prompt string with personality-appropriate tone
@@ -198,6 +207,8 @@ class PersonalityPromptService:
             business_description,
             business_hours,
             bot_name,
+            product_context,
+            order_context,
         )
 
     def get_prompt_description(self, personality: PersonalityType) -> str:

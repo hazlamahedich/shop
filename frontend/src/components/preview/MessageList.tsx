@@ -4,6 +4,7 @@
  *
  * Displays the list of messages in the preview conversation.
  * Auto-scrolls to show the latest message.
+ * Supports product card rendering in bot responses.
  */
 
 import * as React from 'react';
@@ -15,6 +16,10 @@ export interface MessageListProps {
   messages: PreviewMessage[];
   /** Bot name to display */
   botName: string;
+  /** Merchant ID for product API calls */
+  merchantId?: number;
+  /** Callback when a product is clicked */
+  onProductClick?: (productId: string) => void;
   /** Optional className for styling */
   className?: string;
   /** Reference to the messages container for auto-scrolling */
@@ -26,6 +31,8 @@ export interface MessageListProps {
 export function MessageList({
   messages,
   botName,
+  merchantId,
+  onProductClick,
   className = '',
   messagesEndRef,
   'data-testid': dataTestId = 'message-list',
@@ -63,6 +70,8 @@ export function MessageList({
             key={message.id}
             message={message}
             botName={botName}
+            merchantId={merchantId}
+            onProductClick={onProductClick}
           />
         ))}
       </div>

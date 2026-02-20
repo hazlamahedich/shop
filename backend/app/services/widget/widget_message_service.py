@@ -279,6 +279,21 @@ class WidgetMessageService:
         if business_description:
             prompt_parts.append(f"\nAbout the business: {business_description}")
 
+        # Add product context (categories, pinned products, price range)
+        if self.db:
+            try:
+                from app.services.product_context_service import get_product_context_prompt_section
+
+                product_context = await get_product_context_prompt_section(self.db, merchant.id)
+                if product_context:
+                    prompt_parts.append(f"\nStore Products:\n{product_context}")
+            except Exception as e:
+                self.logger.warning(
+                    "widget_product_context_failed",
+                    merchant_id=merchant.id,
+                    error=str(e),
+                )
+
         # Add FAQ context if available
         if self.db:
             try:

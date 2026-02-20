@@ -211,7 +211,6 @@ class FacebookService:
     async def _get_long_lived_token_impl(
         self, short_lived_token: str, merchant_id: Optional[int]
     ) -> str:
-
         app_id = None
         app_secret = None
 
@@ -456,7 +455,10 @@ class FacebookService:
         Raises:
             APIError: If Facebook not connected
         """
-        integration = await self.get_facebook_integration(merchant_id)
+        result = await self.db.execute(
+            select(FacebookIntegration).where(FacebookIntegration.merchant_id == merchant_id)
+        )
+        integration = result.scalars().first()
 
         if not integration:
             raise APIError(ErrorCode.FACEBOOK_NOT_CONNECTED, "Facebook Page not connected")

@@ -216,14 +216,14 @@ MOCK_PRODUCTS = [
 
 async def fetch_products(
     access_token: str,
-    merchant_id: str,
+    merchant_id: int | str,
     db: AsyncSession,
 ) -> list[dict]:
     """Fetch products from Shopify Admin API.
 
     Args:
         access_token: Unused (kept for compatibility)
-        merchant_id: Merchant ID for database lookup
+        merchant_id: Merchant ID for database lookup (int or str)
         db: Database session
 
     Returns:
@@ -232,9 +232,11 @@ async def fetch_products(
     Raises:
         APIError: If fetch fails
     """
+    merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
+
     try:
         result = await db.execute(
-            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
+            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id_int)
         )
         integration = result.scalars().first()
 
@@ -277,7 +279,7 @@ async def fetch_products(
 async def get_product_by_id(
     access_token: str,
     product_id: str,
-    merchant_id: str,
+    merchant_id: int | str,
     db: AsyncSession,
 ) -> Optional[dict]:
     """Get a specific product by ID from Shopify.
@@ -285,13 +287,15 @@ async def get_product_by_id(
     Args:
         access_token: Unused (kept for compatibility)
         product_id: Shopify product ID
-        merchant_id: Merchant ID
+        merchant_id: Merchant ID (int or str)
         db: Database session
 
     Returns:
         Product dictionary or None if not found
     """
-    products = await fetch_products(access_token, merchant_id, db)
+    products = await fetch_products(
+        access_token, int(merchant_id) if isinstance(merchant_id, str) else merchant_id, db
+    )
 
     for product in products:
         if product["id"] == product_id:

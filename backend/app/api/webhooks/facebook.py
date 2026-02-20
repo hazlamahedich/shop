@@ -106,7 +106,6 @@ async def process_webhook_message(
         processor: Message processor instance
         payload: Webhook payload
     """
-    # Look up merchant_id from page_id (Story 1.10)
     merchant_id = None
     page_id = payload.page_id
     if page_id:
@@ -121,24 +120,26 @@ async def process_webhook_message(
                 if row:
                     merchant_id = row[0]
                     logger.info("merchant_lookup_success", page_id=page_id, merchant_id=merchant_id)
+
+                    processor = MessageProcessor(merchant_id=merchant_id, db=db)
+
+                    if payload.postback_payload:
+                        response = await processor.process_postback(payload)
+                        if response:
+                            await send_messenger_response(response)
+                    elif payload.message_text:
+                        response = await processor.process_message(payload)
+                        await send_messenger_response(response)
+                    return
         except Exception as e:
             logger.warning("merchant_lookup_failed", page_id=page_id, error=str(e))
 
-    # Create new processor with merchant_id for personality-based responses (Story 1.10)
-    if merchant_id:
-        processor = MessageProcessor(merchant_id=merchant_id)
-
-    # Handle postback (button taps like "Add to Cart")
     if payload.postback_payload:
         response = await processor.process_postback(payload)
         if response:
             await send_messenger_response(response)
-    # Handle text messages
     elif payload.message_text:
         response = await processor.process_message(payload)
-
-        # Send response back to Facebook via Messenger API
-        # (Implemented in Story 2.3: Product Result Display)
         await send_messenger_response(response)
 
 
@@ -156,34 +157,22 @@ async def send_messenger_response(response: MessengerResponse) -> None:
 
     if not page_access_token:
         logger.error("facebook_page_access_token_missing")
-        raise HTTPException(
-            status_code=500,
-            detail="Facebook Page Access Token not configured"
-        )
+        raise HTTPException(status_code=500, detail="Facebook Page Access Token not configured")
 
     url = f"{FACEBOOK_API_BASE}/{api_version}/me/messages"
 
-    payload = {
-        "recipient": {"id": response.recipient_id},
-        "message": {"text": response.text}
-    }
+    payload = {"recipient": {"id": response.recipient_id}, "message": {"text": response.text}}
 
     headers = {
         "Content-Type": "application/json",
     }
 
-    params = {
-        "access_token": page_access_token
-    }
+    params = {"access_token": page_access_token}
 
     try:
         async with httpx.AsyncClient() as client:
             fb_response = await client.post(
-                url,
-                json=payload,
-                headers=headers,
-                params=params,
-                timeout=10.0
+                url, json=payload, headers=headers, params=params, timeout=10.0
             )
 
             if fb_response.status_code == 200:
@@ -191,7 +180,7 @@ async def send_messenger_response(response: MessengerResponse) -> None:
                     "messenger_response_sent",
                     recipient_id=response.recipient_id,
                     message_id=fb_response.json().get("message_id"),
-                    text=response.text
+                    text=response.text,
                 )
             else:
                 error_data = fb_response.json()
@@ -203,7 +192,7 @@ async def send_messenger_response(response: MessengerResponse) -> None:
                     status_code=fb_response.status_code,
                     error_code=error_code,
                     error_message=error_message,
-                    recipient_id=response.recipient_id
+                    recipient_id=response.recipient_id,
                 )
 
                 # Don't raise for rate limiting - log and continue
@@ -211,8 +200,7 @@ async def send_messenger_response(response: MessengerResponse) -> None:
                     logger.warning("messenger_rate_limited", recipient_id=response.recipient_id)
                 else:
                     raise HTTPException(
-                        status_code=502,
-                        detail=f"Failed to send message: {error_message}"
+                        status_code=502, detail=f"Failed to send message: {error_message}"
                     )
 
     except httpx.TimeoutException:
@@ -220,7 +208,9 @@ async def send_messenger_response(response: MessengerResponse) -> None:
         raise HTTPException(status_code=504, detail="Facebook API timeout")
 
     except httpx.RequestError as e:
-        logger.error("messenger_send_network_error", error=str(e), recipient_id=response.recipient_id)
+        logger.error(
+            "messenger_send_network_error", error=str(e), recipient_id=response.recipient_id
+        )
         raise HTTPException(status_code=503, detail="Failed to connect to Facebook API")
 
 

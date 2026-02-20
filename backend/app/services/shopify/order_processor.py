@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
 from app.models.order import Order, OrderStatus
+from app.models.conversation import Conversation
 
 logger = structlog.get_logger(__name__)
 
@@ -93,6 +94,8 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
         shopify_order_id = f"gid://shopify/Order/{shopify_order_id}"
 
     order_number = payload.get("order_number") or payload.get("name", "")
+    if order_number:
+        order_number = str(order_number).lstrip("#")
 
     financial_status = payload.get("financial_status")
     fulfillment_status = payload.get("fulfillment_status")
@@ -134,11 +137,24 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
     tracking_number = tracking_numbers[0] if tracking_numbers else payload.get("tracking_number")
 
     tracking_url = payload.get("tracking_url")
+
+    fulfillments = payload.get("fulfillments", [])
+    if not tracking_number and fulfillments:
+        for fulfillment in fulfillments:
+            fulfillment_tracking = fulfillment.get("tracking_number")
+            if fulfillment_tracking:
+                tracking_number = fulfillment_tracking
+                tracking_url = fulfillment.get("tracking_url") or fulfillment.get(
+                    "tracking_company_url"
+                )
+                break
+
     if not tracking_url and tracking_number:
-        fulfillments = payload.get("fulfillments", [])
         for fulfillment in fulfillments:
             if fulfillment.get("tracking_number") == tracking_number:
-                tracking_url = fulfillment.get("tracking_url")
+                tracking_url = fulfillment.get("tracking_url") or fulfillment.get(
+                    "tracking_company_url"
+                )
                 break
 
     shipping_address = payload.get("shipping_address")
@@ -157,8 +173,8 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "shopify_order_id": shopify_order_id,
-        "shopify_order_key": order_number,
-        "order_number": order_number or f"#{shopify_order_id}",
+        "shopify_order_key": str(order_number) if order_number else None,
+        "order_number": str(order_number) if order_number else f"#{shopify_order_id}",
         "financial_status": financial_status,
         "fulfillment_status": fulfillment_status,
         "status": status.value,
@@ -226,13 +242,11 @@ async def resolve_customer_psid(
 
     if customer_email:
         try:
-            from app.models.conversation import Conversation
-
             result = await db.execute(
                 select(Conversation.platform_sender_id)
                 .where(
                     Conversation.merchant_id == merchant_id,
-                    Conversation.customer_email == customer_email,
+                    Conversation.conversation_data["customer_email"].astext == customer_email,
                 )
                 .limit(1)
             )

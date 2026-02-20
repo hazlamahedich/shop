@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
@@ -288,5 +289,347 @@ async def cleanup_old_preview_sessions(
 
     return {
         "removed_count": removed_count,
-        "message": f"Cleaned up {removed_count} old preview session(s)"
+        "message": f"Cleaned up {removed_count} old preview session(s)",
+    }
+
+
+@router.get(
+    "/preview/products",
+)
+async def search_preview_products(
+    request: Request,
+    query: str = "",
+    max_price: float | None = None,
+    category: str | None = None,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Search products for preview chat with images and details.
+
+    Used by the preview chat to display product cards with images,
+    prices, and inventory when the bot mentions products.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        query: Optional search query (searches product titles)
+        max_price: Optional maximum price filter
+        category: Optional category filter
+        limit: Maximum number of products to return (default 10)
+        db: Database session
+
+    Returns:
+        Dictionary with products list including images, prices, inventory
+    """
+    from app.services.shopify.product_service import fetch_products
+    from app.models.shopify_integration import ShopifyIntegration
+
+    merchant_id = get_merchant_id(request)
+    merchant = await verify_merchant_exists(merchant_id, db)
+
+    all_products = await fetch_products("", merchant_id, db)
+
+    filtered = all_products
+
+    if query and query.strip():
+        query_lower = query.lower().strip()
+        filtered = [
+            p
+            for p in filtered
+            if query_lower in (p.get("title") or "").lower()
+            or query_lower in (p.get("description") or "").lower()
+        ]
+
+    if max_price is not None:
+        try:
+            max_price_float = float(max_price)
+            filtered = [
+                p
+                for p in filtered
+                if p.get("price") and float(p.get("price", 0)) <= max_price_float
+            ]
+        except (ValueError, TypeError):
+            pass
+
+    if category and category.strip():
+        category_lower = category.lower().strip()
+        filtered = [p for p in filtered if category_lower in (p.get("product_type") or "").lower()]
+
+    filtered.sort(key=lambda p: float(p.get("price") or 0))
+
+    products = filtered[:limit]
+
+    formatted_products = []
+    for p in products:
+        formatted_products.append(
+            {
+                "id": p.get("id"),
+                "title": p.get("title"),
+                "description": p.get("description", "")[:200] if p.get("description") else "",
+                "image_url": p.get("image_url"),
+                "price": p.get("price"),
+                "available": p.get("available", True),
+                "inventory_quantity": p.get("inventory_quantity", 0),
+                "product_type": p.get("product_type"),
+                "vendor": p.get("vendor"),
+                "variant_id": p.get("variant_id"),
+            }
+        )
+
+    shop_domain = None
+    result = await db.execute(
+        select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
+    )
+    integration = result.scalars().first()
+    if integration:
+        shop_domain = integration.shop_domain
+
+    return {
+        "data": {
+            "products": formatted_products,
+            "total": len(filtered),
+            "query": query,
+            "filters": {
+                "max_price": max_price,
+                "category": category,
+            },
+            "shop_domain": shop_domain,
+        },
+        "meta": create_meta(),
+    }
+
+
+@router.get(
+    "/preview/products/{product_id}",
+)
+async def get_preview_product(
+    request: Request,
+    product_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Get single product details for preview chat.
+
+    Returns full product information including image, description,
+    price, and inventory for the product detail modal.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        product_id: The product ID to fetch
+        db: Database session
+
+    Returns:
+        Product details with image, price, inventory
+    """
+    from app.services.shopify.product_service import fetch_products
+    from app.models.shopify_integration import ShopifyIntegration
+
+    merchant_id = get_merchant_id(request)
+    await verify_merchant_exists(merchant_id, db)
+
+    all_products = await fetch_products("", merchant_id, db)
+
+    product = None
+    for p in all_products:
+        if str(p.get("id")) == str(product_id):
+            product = p
+            break
+
+    if not product:
+        raise APIError(
+            ErrorCode.NOT_FOUND,
+            f"Product {product_id} not found",
+        )
+
+    shop_domain = None
+    result = await db.execute(
+        select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
+    )
+    integration = result.scalars().first()
+    if integration:
+        shop_domain = integration.shop_domain
+
+    return {
+        "data": {
+            "id": product.get("id"),
+            "title": product.get("title"),
+            "description": product.get("description", ""),
+            "image_url": product.get("image_url"),
+            "price": product.get("price"),
+            "available": product.get("available", True),
+            "inventory_quantity": product.get("inventory_quantity", 0),
+            "product_type": product.get("product_type"),
+            "vendor": product.get("vendor"),
+            "variant_id": product.get("variant_id"),
+            "shop_domain": shop_domain,
+        },
+        "meta": create_meta(),
+    }
+
+
+@router.get(
+    "/preview/shop-domain",
+)
+async def get_preview_shop_domain(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Get the Shopify shop domain for checkout redirect.
+
+    Returns the shop domain needed to build cart permalinks for checkout.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        db: Database session
+
+    Returns:
+        Shop domain for checkout
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+
+    merchant_id = get_merchant_id(request)
+    await verify_merchant_exists(merchant_id, db)
+
+    result = await db.execute(
+        select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
+    )
+    integration = result.scalars().first()
+
+    if not integration:
+        raise APIError(
+            ErrorCode.NOT_FOUND,
+            "No Shopify store connected",
+        )
+
+    return {
+        "data": {
+            "shop_domain": integration.shop_domain,
+        },
+        "meta": create_meta(),
+    }
+
+
+@router.get(
+    "/preview/orders/{order_number}",
+)
+async def track_preview_order(
+    request: Request,
+    order_number: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Track an order by order number for preview chat.
+
+    Used by the preview chat bot to look up order status and tracking info.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        order_number: The order number to look up (e.g., "1001" or "#1001")
+        db: Database session
+
+    Returns:
+        Order details including status, tracking, and formatted response
+    """
+    from app.services.order_tracking.order_tracking_service import OrderTrackingService
+
+    merchant_id = get_merchant_id(request)
+    await verify_merchant_exists(merchant_id, db)
+
+    tracking_service = OrderTrackingService()
+    result = await tracking_service.track_order_by_number(db, merchant_id, order_number)
+
+    if not result.found or not result.order:
+        return {
+            "data": {
+                "found": False,
+                "order_number": order_number,
+                "message": f"I couldn't find order #{order_number}. Please double-check the number and try again.",
+            },
+            "meta": create_meta(),
+        }
+
+    order = result.order
+    return {
+        "data": {
+            "found": True,
+            "order_number": order.order_number,
+            "status": order.status,
+            "fulfillment_status": order.fulfillment_status,
+            "tracking_number": order.tracking_number,
+            "tracking_url": order.tracking_url,
+            "customer_email": order.customer_email,
+            "total": str(order.total),
+            "currency": order.currency_code,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "estimated_delivery": order.estimated_delivery.isoformat()
+            if order.estimated_delivery
+            else None,
+            "formatted_response": tracking_service.format_order_response(order),
+        },
+        "meta": create_meta(),
+    }
+
+
+@router.get(
+    "/preview/orders",
+)
+async def list_preview_orders(
+    request: Request,
+    email: str | None = None,
+    limit: int = 5,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    List recent orders for preview chat.
+
+    Used by the preview chat bot to show order history.
+    Can filter by customer email.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        email: Optional customer email to filter by
+        limit: Maximum number of orders to return (default 5)
+        db: Database session
+
+    Returns:
+        List of recent orders with basic details
+    """
+    from app.models.order import Order
+
+    merchant_id = get_merchant_id(request)
+    await verify_merchant_exists(merchant_id, db)
+
+    stmt = (
+        select(Order)
+        .where(Order.merchant_id == merchant_id)
+        .order_by(Order.created_at.desc())
+        .limit(limit)
+    )
+
+    if email:
+        stmt = stmt.where(Order.customer_email == email.lower().strip())
+
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
+
+    formatted_orders = []
+    for order in orders:
+        formatted_orders.append(
+            {
+                "order_number": order.order_number,
+                "status": order.status,
+                "tracking_number": order.tracking_number,
+                "total": str(order.total),
+                "currency": order.currency_code,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+            }
+        )
+
+    return {
+        "data": {
+            "orders": formatted_orders,
+            "total": len(formatted_orders),
+        },
+        "meta": create_meta(),
     }

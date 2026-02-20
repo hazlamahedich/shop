@@ -48,7 +48,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     # Paths that bypass CSRF validation
     BYPASS_PATHS = [
-        "/api/llm/chat",  # For mock verification
+        "/api/v1/webhooks/",  # Webhook endpoints (v1 API)
         "/api/webhooks/",
         "/webhooks/",  # Webhook endpoints (use signature-based verification)
         "/api/oauth/",

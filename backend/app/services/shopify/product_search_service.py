@@ -8,12 +8,17 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.schemas.shopify import Product, ProductSearchResult
 from app.services.intent.classification_schema import ExtractedEntities
 from app.services.shopify.product_mapper import ProductMapper
 from app.services.shopify.storefront_client import ShopifyStorefrontClient
+from app.models.shopify_integration import ShopifyIntegration
+from app.core.security import decrypt_access_token
+from app.core.config import is_testing
 
 
 class ProductSearchService:
@@ -25,42 +30,91 @@ class ProductSearchService:
     Attributes:
         client: Shopify Storefront API client
         mapper: Product data mapper
+        db: Optional database session for fetching merchant credentials
     """
 
-    # Relevance scoring weights
     CATEGORY_MATCH_WEIGHT: float = 50.0
     PRICE_PROXIMITY_WEIGHT: float = 30.0
     BASE_SCORE: float = 20.0
 
-    # Search constraints
-    # Increased from 5 to 20 to prevent false negatives when top results
-    # are filtered out by size/availability constraints in post-processing
     MAX_RESULTS: int = 20
-    MAX_DISPLAY_RESULTS: int = 5  # Limit final displayed results
+    MAX_DISPLAY_RESULTS: int = 5
 
     def __init__(
         self,
         storefront_client: Optional[ShopifyStorefrontClient] = None,
         product_mapper: Optional[ProductMapper] = None,
+        db: Optional[AsyncSession] = None,
     ) -> None:
         """Initialize product search service.
 
         Args:
-            storefront_client: Shopify Storefront API client
+            storefront_client: Shopify Storefront API client (optional, will be created per merchant)
             product_mapper: Product data mapper
+            db: Database session for fetching merchant credentials
         """
-        self.client = storefront_client or ShopifyStorefrontClient()
+        self.client = storefront_client
         self.mapper = product_mapper or ProductMapper()
+        self.db = db
         self.logger = structlog.get_logger(__name__)
+
+    async def _get_client_for_merchant(self, merchant_id: int) -> ShopifyStorefrontClient:
+        """Get or create a Storefront client for a specific merchant.
+
+        Args:
+            merchant_id: Merchant ID to fetch credentials for
+
+        Returns:
+            ShopifyStorefrontClient configured for the merchant's store
+        """
+        if self.client:
+            return self.client
+
+        if not self.db:
+            self.logger.warning("no_db_session_using_mock_products", merchant_id=merchant_id)
+            return ShopifyStorefrontClient(is_testing=True)
+
+        result = await self.db.execute(
+            select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
+        )
+        integration = result.scalars().first()
+
+        if (
+            not integration
+            or integration.status != "active"
+            or not integration.storefront_token_encrypted
+        ):
+            self.logger.info(
+                "no_shopify_integration_using_mock",
+                merchant_id=merchant_id,
+                has_integration=integration is not None,
+            )
+            return ShopifyStorefrontClient(is_testing=True)
+
+        storefront_token = decrypt_access_token(integration.storefront_token_encrypted)
+
+        self.logger.info(
+            "using_merchant_shopify_store",
+            merchant_id=merchant_id,
+            shop_domain=integration.shop_domain,
+        )
+
+        return ShopifyStorefrontClient(
+            access_token=storefront_token,
+            shop_domain=integration.shop_domain,
+            is_testing=is_testing(),
+        )
 
     async def search_products(
         self,
         entities: ExtractedEntities,
+        merchant_id: Optional[int] = None,
     ) -> ProductSearchResult:
         """Search for products matching the extracted entities.
 
         Args:
             entities: Extracted entities from intent classification
+            merchant_id: Merchant ID for fetching Shopify credentials
 
         Returns:
             Product search result with ranked products
@@ -72,45 +126,48 @@ class ProductSearchService:
 
         start_time = time.time()
 
-        # Map entities to search parameters
         search_params = self.mapper.map_entities_to_search_params(entities)
 
         self.logger.info(
             "product_search_start",
+            merchant_id=merchant_id,
             category=search_params.get("category"),
             max_price=search_params.get("max_price"),
             size=search_params.get("size"),
         )
 
-        # Query Shopify
-        raw_products = await self.client.search_products(
+        client: Optional[ShopifyStorefrontClient]
+        if merchant_id:
+            client = await self._get_client_for_merchant(merchant_id)
+        elif self.client:
+            client = self.client
+        else:
+            client = ShopifyStorefrontClient(is_testing=True)
+
+        raw_products = await client.search_products(
             category=search_params.get("category"),
             max_price=search_params.get("max_price"),
             size=search_params.get("size"),
             first=self.MAX_RESULTS,
         )
 
-        # Map to Product schema
         products = self.mapper.map_products(raw_products)
 
-        # Apply filters
         products = self._apply_filters(products, search_params)
 
-        # Rank by relevance
         ranked_products = self._rank_products(products, entities)
 
-        # Calculate alternatives flag
         has_alternatives = self._check_alternatives(ranked_products, entities)
 
         search_time_ms = (time.time() - start_time) * 1000
 
         self.logger.info(
             "product_search_complete",
+            merchant_id=merchant_id,
             result_count=len(ranked_products),
             search_time_ms=search_time_ms,
         )
 
-        # Limit displayed results to MAX_DISPLAY_RESULTS but keep total_count accurate
         displayed_products = ranked_products[: self.MAX_DISPLAY_RESULTS]
 
         return ProductSearchResult(
@@ -226,9 +283,7 @@ class ProductSearchService:
         if len(products) == 0:
             return True
 
-        if len(products) < 3 and (
-            entities.budget or entities.size or entities.color
-        ):
+        if len(products) < 3 and (entities.budget or entities.size or entities.color):
             return True
 
         return False

@@ -171,13 +171,30 @@ class PreviewService:
         if not session:
             raise ValueError(f"Preview session {session_id} not found")
 
-        # Add user message to conversation
         session.add_message("user", message)
 
-        # Get bot response using existing bot response service
         from app.services.personality.bot_response_service import BotResponseService
         from app.services.llm.llm_factory import LLMProviderFactory
         from app.services.llm.base_llm_service import LLMMessage
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from app.models.merchant import Merchant as MerchantModel
+
+        merchant_id = merchant.id
+        if self.db:
+            result = await self.db.execute(
+                select(MerchantModel)
+                .where(MerchantModel.id == merchant_id)
+                .options(selectinload(MerchantModel.llm_configuration))
+            )
+            fresh_merchant = result.scalars().first()
+            if fresh_merchant:
+                merchant = fresh_merchant
+                logger.debug(
+                    "preview_merchant_reloaded",
+                    merchant_id=merchant_id,
+                    has_llm_config=merchant.llm_configuration is not None,
+                )
 
         bot_service = BotResponseService(db=self.db)
 
@@ -266,38 +283,47 @@ class PreviewService:
             else:
                 # Initialize llm_provider for the else branch
                 llm_provider = None
-                # No FAQ match - use LLM
-                # Get merchant's LLM configuration
                 llm_config = {}
-                provider_name = "ollama"  # Default provider
+                provider_name = "ollama"
 
-                # Safely try to access llm_configuration
-                # In test environments, the relationship may not be loaded or may not exist
-                # We catch any exception to avoid triggering lazy load in async context
                 try:
-                    if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                        llm_config_obj = merchant.llm_configuration
-                        provider_name = llm_config_obj.provider or "ollama"
+                    if hasattr(merchant, "llm_configuration"):
+                        logger.debug(
+                            "preview_llm_config_check",
+                            has_attr=True,
+                            llm_config_exists=merchant.llm_configuration is not None,
+                        )
+                        if merchant.llm_configuration:
+                            llm_config_obj = merchant.llm_configuration
+                            provider_name = llm_config_obj.provider or "ollama"
 
-                        # Build config dict from LLMConfiguration model
-                        llm_config = {
-                            "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
-                        }
+                            llm_config = {
+                                "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+                            }
 
-                        if provider_name == "ollama":
-                            llm_config["ollama_url"] = llm_config_obj.ollama_url
-                        else:
-                            # Decrypt API key for cloud providers
-                            if llm_config_obj.api_key_encrypted:
-                                from app.core.security import decrypt_access_token
+                            if provider_name == "ollama":
+                                llm_config["ollama_url"] = llm_config_obj.ollama_url
+                            else:
+                                if llm_config_obj.api_key_encrypted:
+                                    from app.core.security import decrypt_access_token
 
-                                llm_config["api_key"] = decrypt_access_token(
-                                    llm_config_obj.api_key_encrypted
-                                )
-                except Exception:
-                    # If accessing llm_configuration fails (e.g., lazy load in async context),
-                    # use default ollama provider with empty config
-                    pass
+                                    llm_config["api_key"] = decrypt_access_token(
+                                        llm_config_obj.api_key_encrypted
+                                    )
+
+                            logger.info(
+                                "preview_llm_config_loaded",
+                                provider=provider_name,
+                                model=llm_config.get("model"),
+                                has_api_key=bool(llm_config.get("api_key")),
+                            )
+                    else:
+                        logger.warning("preview_llm_config_no_attr")
+                except Exception as e:
+                    logger.warning(
+                        "preview_llm_config_failed",
+                        error=str(e),
+                    )
 
                 # Set llm_provider for metadata
                 llm_provider = provider_name
@@ -312,16 +338,12 @@ class PreviewService:
                 llm_response = await llm_service.chat(messages=llm_messages)
                 response_text = llm_response.content
 
-                # Calculate confidence for LLM response
-                # Use logprob if available, otherwise default to medium confidence
-                if hasattr(llm_response, "logprobs") and llm_response.logprobs:
-                    # Average logprob as confidence indicator (simplified)
-                    avg_logprob = sum(llm_response.logprobs) / len(llm_response.logprobs)
-                    # Convert logprob (-inf to 0) to confidence (0 to 100)
-                    confidence = int(max(0, min(100, (avg_logprob + 1) * 50)))
-                else:
-                    # Default to medium confidence for LLM responses without logprobs
-                    confidence = 70
+                # Calculate confidence for LLM response based on response quality
+                confidence = self._calculate_llm_confidence(
+                    response_text,
+                    message,
+                    merchant,
+                )
 
                 faq_matched = False
                 intent = "llm_response"
@@ -421,6 +443,83 @@ class PreviewService:
             )
             return True
         return False
+
+    def _calculate_llm_confidence(
+        self,
+        response_text: str,
+        user_message: str,
+        merchant: Merchant,
+    ) -> int:
+        """Calculate confidence score for LLM response based on quality indicators.
+
+        Args:
+            response_text: The LLM's response
+            user_message: The user's original message
+            merchant: The merchant for context
+
+        Returns:
+            Confidence score (0-100)
+        """
+        import re
+
+        score = 50  # Base score
+
+        response_lower = response_text.lower()
+        message_lower = user_message.lower()
+
+        # Positive indicators (increase confidence)
+
+        # Response mentions specific prices (strong indicator)
+        if re.search(r"\$\d+\.?\d*", response_text):
+            score += 15
+
+        # Response mentions product categories from store
+        business_desc = (merchant.business_description or "").lower()
+        biz_name = (merchant.business_name or "").lower()
+        if business_desc and any(word in response_lower for word in business_desc.split()[:5]):
+            score += 10
+
+        # Response is appropriate length (not too short, not too long)
+        if 20 <= len(response_text) <= 500:
+            score += 10
+        elif len(response_text) > 500:
+            score -= 5  # Penalize very long responses
+
+        # Response asks clarifying question (shows understanding)
+        if "?" in response_text:
+            score += 5
+
+        # Response mentions specific product terms
+        product_terms = ["available", "option", "selection", "choose", "recommend"]
+        if any(term in response_lower for term in product_terms):
+            score += 5
+
+        # Response addresses the user's query topic
+        user_keywords = [w for w in message_lower.split() if len(w) > 3]
+        if any(kw in response_lower for kw in user_keywords[:3]):
+            score += 10
+
+        # Negative indicators (decrease confidence)
+
+        # Response is very short (likely incomplete)
+        if len(response_text) < 20:
+            score -= 20
+
+        # Response contains uncertainty markers
+        uncertainty_phrases = ["i'm not sure", "i don't know", "i cannot", "unable to"]
+        if any(phrase in response_lower for phrase in uncertainty_phrases):
+            score -= 15
+
+        # Response redirects to human/support (indicates limitation)
+        if "contact support" in response_lower or "speak to someone" in response_lower:
+            score -= 10
+
+        # Apologetic response (may indicate inability to help)
+        if response_lower.count("sorry") > 1 or "apologize" in response_lower:
+            score -= 10
+
+        # Clamp to valid range
+        return max(0, min(100, score))
 
     @staticmethod
     def get_confidence_level(confidence: int) -> str:

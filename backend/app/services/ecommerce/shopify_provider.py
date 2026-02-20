@@ -96,11 +96,10 @@ class ShopifyStoreProvider(ECommerceProvider):
             return
 
         try:
-            # Get database session if not provided
             if self._db_session is None:
-                from app.core.database import async_session_factory
+                from app.core.database import async_session
 
-                async with async_session_factory() as session:
+                async with async_session() as session:
                     await self._init_with_session(session)
             else:
                 await self._init_with_session(self._db_session)
@@ -136,11 +135,9 @@ class ShopifyStoreProvider(ECommerceProvider):
         self._shop_domain = integration.shop_domain
         self._access_token = await shopify_service.get_storefront_token(self._merchant_id)
 
-        # Create storefront client
-        store_url = f"https://{self._shop_domain}"
         self._storefront_client = ShopifyStorefrontClient(
             access_token=self._access_token,
-            store_url=store_url,
+            shop_domain=self._shop_domain,
         )
 
         self._initialized = True

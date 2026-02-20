@@ -16,6 +16,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import async_session
 from app.core.security import verify_shopify_webhook_hmac
+from app.models.order import Order
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -24,11 +25,11 @@ logger = structlog.get_logger(__name__)
 @router.post("/shopify")
 async def shopify_webhook_receive(
     request: Request,
-    x_shopify_hmac_sha256: str = Header(None),
-    x_shopify_topic: str = Header(None),
-    x_shopify_shop_domain: str = Header(None),
-    x_shopify_api_version: str = Header(None),
-    background_tasks: BackgroundTasks = None,
+    background_tasks: BackgroundTasks,
+    x_shopify_hmac_sha256: str = Header(None, alias="X-Shopify-Hmac-Sha256"),
+    x_shopify_topic: str = Header(None, alias="X-Shopify-Topic"),
+    x_shopify_shop_domain: str = Header(None, alias="X-Shopify-Shop-Domain"),
+    x_shopify_api_version: str = Header(None, alias="X-Shopify-Api-Version"),
 ) -> Response:
     """Receive Shopify webhook.
 
@@ -41,7 +42,6 @@ async def shopify_webhook_receive(
         x_shopify_shop_domain: Shopify shop domain
         x_shopify_api_version: API version
         background_tasks: FastAPI background tasks
-        db: Database session
 
     Returns:
         200 OK response
@@ -49,25 +49,59 @@ async def shopify_webhook_receive(
     Raises:
         HTTPException: If signature verification fails
     """
+    from app.core.security import decrypt_access_token
+    from app.models.merchant import Merchant
+    from app.models.shopify_integration import ShopifyIntegration
+
     request_id = str(uuid4())
     log = logger.bind(
         request_id=request_id, topic=x_shopify_topic, shop_domain=x_shopify_shop_domain
     )
 
-    # Read raw payload for signature verification
     raw_payload = await request.body()
 
-    # Verify webhook signature (HMAC)
     config = settings()
     api_secret = config.get("SHOPIFY_API_SECRET")
 
     if not api_secret:
-        log.error("shopify_webhook_no_secret")
-        raise HTTPException(status_code=500, detail="Shopify API secret not configured")
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration).where(
+                    ShopifyIntegration.shop_domain == x_shopify_shop_domain
+                )
+            )
+            integration = result.scalars().first()
 
-    if not verify_shopify_webhook_hmac(raw_payload, x_shopify_hmac_sha256, api_secret):
-        log.warning("shopify_webhook_invalid_signature")
-        raise HTTPException(status_code=403, detail="Invalid webhook signature")
+            if integration:
+                merchant_result = await db.execute(
+                    select(Merchant).where(Merchant.id == integration.merchant_id)
+                )
+                merchant = merchant_result.scalars().first()
+
+                if merchant and merchant.config:
+                    encrypted_secret = merchant.config.get("shopify_api_secret_encrypted")
+                    if encrypted_secret:
+                        try:
+                            api_secret = decrypt_access_token(encrypted_secret)
+                        except Exception as e:
+                            log.warning("shopify_webhook_decrypt_secret_failed", error=str(e))
+
+    if api_secret:
+        if not verify_shopify_webhook_hmac(raw_payload, x_shopify_hmac_sha256, api_secret):
+            log.warning(
+                "shopify_webhook_invalid_signature",
+                hmac_header=x_shopify_hmac_sha256[:20] + "..." if x_shopify_hmac_sha256 else None,
+            )
+            debug_mode = config.get("DEBUG", False)
+            if not debug_mode:
+                raise HTTPException(status_code=403, detail="Invalid webhook signature")
+            log.warning("shopify_webhook_skipping_invalid_signature_debug_mode")
+    else:
+        debug_mode = config.get("DEBUG", False)
+        if not debug_mode:
+            log.error("shopify_webhook_no_secret")
+            raise HTTPException(status_code=500, detail="Shopify API secret not configured")
+        log.warning("shopify_webhook_skipping_hmac_no_secret_debug_mode")
 
     # Parse webhook payload
     try:
@@ -112,15 +146,18 @@ async def process_shopify_webhook(
     log = logger.bind(request_id=request_id, topic=topic, shop_domain=shop_domain)
 
     try:
-        # Handle different webhook topics
         if topic == "orders/create":
             await handle_order_created(payload, shop_domain, log)
         elif topic == "orders/updated":
             await handle_order_updated(payload, shop_domain, log)
         elif topic == "orders/fulfilled":
             await handle_order_fulfilled(payload, shop_domain, log)
+        elif topic == "fulfillments/create" or topic == "fulfillments/update":
+            await handle_fulfillment_event(payload, shop_domain, log, topic)
+        elif topic == "refunds/create":
+            await handle_refund_created(payload, shop_domain, log)
         else:
-            log.warning("shopify_webhook_unknown_topic")
+            log.warning("shopify_webhook_unknown_topic", topic=topic)
 
     except Exception as e:
         # Enqueue failed webhook to Dead Letter Queue
@@ -339,6 +376,178 @@ async def handle_order_fulfilled(payload: dict, shop_domain: str, log) -> None:
     except Exception as e:
         log.error(
             "shopify_order_fulfillment_failed",
+            order_id=order_id,
+            error=str(e),
+        )
+        raise
+
+
+async def handle_fulfillment_event(payload: dict, shop_domain: str, log, topic: str) -> None:
+    """Handle fulfillments/create and fulfillments/update webhooks.
+
+    These events are triggered when a fulfillment is created or updated,
+    including when tracking info is added/modified.
+
+    Args:
+        payload: Fulfillment payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+        topic: Webhook topic (fulfillments/create or fulfillments/update)
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify import ShopifyOrderProcessor
+
+    fulfillment_id = payload.get("id")
+    order_id = payload.get("order_id")
+    tracking_number = payload.get("tracking_number")
+    tracking_url = payload.get("tracking_url")
+    tracking_company = payload.get("tracking_company")
+
+    log.info(
+        "shopify_fulfillment_event",
+        fulfillment_id=fulfillment_id,
+        order_id=order_id,
+        tracking_number=tracking_number,
+        topic=topic,
+    )
+
+    if not order_id:
+        log.warning("shopify_fulfillment_no_order_id", fulfillment_id=fulfillment_id)
+        return
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_fulfillment_no_merchant",
+                    shop_domain=shop_domain,
+                    order_id=order_id,
+                )
+                return
+
+            merchant_id = integration
+
+            shopify_order_id = f"gid://shopify/Order/{order_id}"
+
+            order_result = await db.execute(
+                select(Order).where(
+                    Order.merchant_id == merchant_id,
+                    Order.shopify_order_id == shopify_order_id,
+                )
+            )
+            order = order_result.scalars().first()
+
+            if order:
+                order.tracking_number = tracking_number
+                order.tracking_url = tracking_url
+                if tracking_number:
+                    order.status = "shipped"
+                    order.fulfillment_status = "fulfilled"
+                await db.commit()
+
+                log.info(
+                    "shopify_fulfillment_tracking_updated",
+                    order_id=order.id,
+                    order_number=order.order_number,
+                    tracking_number=tracking_number,
+                    tracking_url=tracking_url,
+                )
+            else:
+                log.warning(
+                    "shopify_fulfillment_order_not_found",
+                    shopify_order_id=shopify_order_id,
+                    merchant_id=merchant_id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_fulfillment_event_failed",
+            fulfillment_id=fulfillment_id,
+            order_id=order_id,
+            error=str(e),
+        )
+        raise
+
+
+async def handle_refund_created(payload: dict, shop_domain: str, log) -> None:
+    """Handle refunds/create webhook.
+
+    Args:
+        payload: Refund payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+
+    refund_id = payload.get("id")
+    order_id = payload.get("order_id")
+
+    log.info(
+        "shopify_refund_created",
+        refund_id=refund_id,
+        order_id=order_id,
+    )
+
+    if not order_id:
+        log.warning("shopify_refund_no_order_id", refund_id=refund_id)
+        return
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_refund_no_merchant",
+                    shop_domain=shop_domain,
+                    order_id=order_id,
+                )
+                return
+
+            merchant_id = integration
+            shopify_order_id = f"gid://shopify/Order/{order_id}"
+
+            order_result = await db.execute(
+                select(Order).where(
+                    Order.merchant_id == merchant_id,
+                    Order.shopify_order_id == shopify_order_id,
+                )
+            )
+            order = order_result.scalars().first()
+
+            if order:
+                order.status = "refunded"
+                order.fulfillment_status = "restocked"
+                await db.commit()
+
+                log.info(
+                    "shopify_refund_order_updated",
+                    order_id=order.id,
+                    order_number=order.order_number,
+                )
+            else:
+                log.warning(
+                    "shopify_refund_order_not_found",
+                    shopify_order_id=shopify_order_id,
+                    merchant_id=merchant_id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_refund_event_failed",
+            refund_id=refund_id,
             order_id=order_id,
             error=str(e),
         )

@@ -10,10 +10,13 @@ import { useEffect } from 'react';
 import { PreviewChat } from '../components/preview/PreviewChat';
 import { usePreviewStore } from '../stores/previewStore';
 import { useBotConfigStore } from '../stores/botConfigStore';
+import { useAuthStore } from '../stores/authStore';
 import { Card } from '../components/ui/Card';
 export function BotPreview() {
   const { botName } = useBotConfigStore();
   const { startSession, sessionId, isLoading: isPreviewLoading } = usePreviewStore();
+  const merchant = useAuthStore((state) => state.merchant);
+  const merchantId = merchant?.id;
 
   // Start preview session on mount
   useEffect(() => {
@@ -137,7 +140,7 @@ export function BotPreview() {
         {/* Chat interface */}
         {sessionId && (
           <Card className="h-[600px]">
-            <PreviewChat botName={botName || 'Bot'} />
+            <PreviewChat botName={botName || 'Bot'} merchantId={merchantId} />
           </Card>
         )}
 
