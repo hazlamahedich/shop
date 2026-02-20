@@ -82,7 +82,7 @@ async def verify_merchant_exists(
         db: Database session
 
     Returns:
-        The Merchant object if found
+        The Merchant object if found (with llm_configuration loaded)
 
     Raises:
         APIError: If merchant is not found (ErrorCode.MERCHANT_NOT_FOUND)
@@ -92,9 +92,14 @@ async def verify_merchant_exists(
         existence across multiple endpoints.
     """
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
     from app.models.merchant import Merchant
 
-    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    result = await db.execute(
+        select(Merchant)
+        .where(Merchant.id == merchant_id)
+        .options(selectinload(Merchant.llm_configuration))
+    )
     merchant = result.scalars().first()
 
     if not merchant:

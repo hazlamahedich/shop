@@ -60,10 +60,12 @@ class PreviewConversation:
             role: Either "user" or "bot"
             content: Message content
         """
-        self.messages.append({
-            "role": role,
-            "content": content,
-        })
+        self.messages.append(
+            {
+                "role": role,
+                "content": content,
+            }
+        )
         self.message_count += 1
 
     def reset(self) -> None:
@@ -207,18 +209,13 @@ class PreviewService:
             from sqlalchemy import select
 
             # Get merchant's FAQs
-            faq_result = await self.db.execute(
-                select(Faq).where(Faq.merchant_id == merchant.id)
-            )
+            faq_result = await self.db.execute(select(Faq).where(Faq.merchant_id == merchant.id))
             merchant_faqs = list(faq_result.scalars().all())
 
             # Try FAQ match
             faq_match = None
             if merchant_faqs:
-                faq_match = match_faq(
-                    customer_message=message,
-                    merchant_faqs=merchant_faqs
-                )
+                faq_match = await match_faq(customer_message=message, merchant_faqs=merchant_faqs)
 
             # Determine response source and calculate confidence
             if faq_match:
@@ -241,9 +238,25 @@ class PreviewService:
                 # In test environments, the relationship may not be loaded or may not exist
                 # We catch any exception to avoid triggering lazy load in async context
                 try:
-                    if hasattr(merchant, 'llm_configuration') and merchant.llm_configuration:
-                        provider_name = merchant.llm_configuration.provider_name or "ollama"
-                        llm_config = merchant.llm_configuration.config or {}
+                    if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                        llm_config_obj = merchant.llm_configuration
+                        provider_name = llm_config_obj.provider or "ollama"
+
+                        # Build config dict from LLMConfiguration model
+                        llm_config = {
+                            "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+                        }
+
+                        if provider_name == "ollama":
+                            llm_config["ollama_url"] = llm_config_obj.ollama_url
+                        else:
+                            # Decrypt API key for cloud providers
+                            if llm_config_obj.api_key_encrypted:
+                                from app.core.security import decrypt_access_token
+
+                                llm_config["api_key"] = decrypt_access_token(
+                                    llm_config_obj.api_key_encrypted
+                                )
                 except Exception:
                     # If accessing llm_configuration fails (e.g., lazy load in async context),
                     # use default ollama provider with empty config
@@ -264,7 +277,7 @@ class PreviewService:
 
                 # Calculate confidence for LLM response
                 # Use logprob if available, otherwise default to medium confidence
-                if hasattr(llm_response, 'logprobs') and llm_response.logprobs:
+                if hasattr(llm_response, "logprobs") and llm_response.logprobs:
                     # Average logprob as confidence indicator (simplified)
                     avg_logprob = sum(llm_response.logprobs) / len(llm_response.logprobs)
                     # Convert logprob (-inf to 0) to confidence (0 to 100)
@@ -279,10 +292,11 @@ class PreviewService:
 
                 # Try to extract product count from response (basic pattern matching)
                 import re
+
                 product_patterns = [
-                    r'(\d+)\s+product',
-                    r'found\s+(\d+)',
-                    r'showing\s+(\d+)',
+                    r"(\d+)\s+product",
+                    r"found\s+(\d+)",
+                    r"showing\s+(\d+)",
                 ]
                 for pattern in product_patterns:
                     match = re.search(pattern, response_text.lower())

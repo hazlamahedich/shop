@@ -138,8 +138,24 @@ class WidgetMessageService:
 
             try:
                 if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                    provider_name = merchant.llm_configuration.provider_name or "ollama"
-                    llm_config = merchant.llm_configuration.config or {}
+                    llm_config_obj = merchant.llm_configuration
+                    provider_name = llm_config_obj.provider or "ollama"
+
+                    # Build config dict from LLMConfiguration model
+                    llm_config = {
+                        "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+                    }
+
+                    if provider_name == "ollama":
+                        llm_config["ollama_url"] = llm_config_obj.ollama_url
+                    else:
+                        # Decrypt API key for cloud providers
+                        if llm_config_obj.api_key_encrypted:
+                            from app.core.security import decrypt_access_token
+
+                            llm_config["api_key"] = decrypt_access_token(
+                                llm_config_obj.api_key_encrypted
+                            )
             except Exception:
                 pass
 
