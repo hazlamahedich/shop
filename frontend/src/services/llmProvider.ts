@@ -5,6 +5,8 @@
  * Provides API client functions for provider switching operations.
  */
 
+import { getCsrfToken } from '../stores/csrfStore';
+
 /** Provider pricing information */
 interface ProviderPricing {
   inputCost: number;
@@ -96,20 +98,35 @@ function getAuthToken(): string | null {
   return localStorage.getItem('auth_token');
 }
 
-/** Make API request with authentication */
+/** Make API request with authentication and CSRF */
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiEnvelope<T>> {
   const token = getAuthToken();
+  const method = options.method?.toUpperCase() || 'GET';
+  const requiresCsrf = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
+
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(options.headers as Record<string, string>),
+  });
+
+  // Add CSRF token for state-changing operations
+  if (requiresCsrf) {
+    try {
+      const csrfToken = await getCsrfToken();
+      headers.set('X-CSRF-Token', csrfToken);
+    } catch (error) {
+      console.error('Failed to get CSRF token:', error);
+      throw new Error('Failed to get CSRF token. Please refresh the page.');
+    }
+  }
 
   const response = await fetch(endpoint, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -142,9 +159,9 @@ export async function switchProvider(
   return apiRequest<SwitchProviderResponse>('/api/llm/switch-provider', {
     method: 'POST',
     body: JSON.stringify({
-      providerId: config.providerId,
-      apiKey: config.apiKey,
-      serverUrl: config.serverUrl,
+      provider_id: config.providerId,
+      api_key: config.apiKey,
+      server_url: config.serverUrl,
       model: config.model,
     }),
   });
@@ -157,9 +174,9 @@ export async function validateProviderConfig(
   return apiRequest<ValidateProviderResponse>('/api/llm/validate-provider', {
     method: 'POST',
     body: JSON.stringify({
-      providerId: config.providerId,
-      apiKey: config.apiKey,
-      serverUrl: config.serverUrl,
+      provider_id: config.providerId,
+      api_key: config.apiKey,
+      server_url: config.serverUrl,
       model: config.model,
     }),
   });
