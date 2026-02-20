@@ -1,7 +1,7 @@
 """OpenAI provider implementation.
 
 Uses OpenAI API for GPT models.
-Pricing: gpt-4o-mini - $0.15/1M input, $0.60/1M output
+Pricing fetched dynamically from OpenRouter via ModelDiscoveryService.
 """
 
 from __future__ import annotations
@@ -25,21 +25,11 @@ class OpenAIService(BaseLLMService):
     """OpenAI provider implementation.
 
     Uses OpenAI API for GPT models.
-    Pricing: gpt-4o-mini - $0.15/1M input, $0.60/1M output
+    Pricing fetched dynamically from config (via ModelDiscoveryService).
     """
 
-    # OpenAI API endpoints
     OPENAI_API_URL = "https://api.openai.com/v1"
-
-    # Default model
     DEFAULT_MODEL = "gpt-4o-mini"
-
-    # Pricing per 1M tokens (as of 2026-02)
-    PRICING = {
-        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        "gpt-4o": {"input": 2.50, "output": 10.0},
-        "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-    }
 
     @property
     def provider_name(self) -> str:
@@ -115,10 +105,7 @@ class OpenAIService(BaseLLMService):
         model_name = model or self.config.get("model", self.DEFAULT_MODEL)
 
         # Convert LLMMessage to OpenAI format
-        openai_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in messages
-        ]
+        openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
         payload = {
             "model": model_name,
@@ -181,13 +168,3 @@ class OpenAIService(BaseLLMService):
         Approximately 4 characters per token.
         """
         return len(text) // 4
-
-    def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
-        """Estimate cost in USD for OpenAI."""
-        model = self.config.get("model", self.DEFAULT_MODEL)
-        pricing = self.PRICING.get(model, self.PRICING[self.DEFAULT_MODEL])
-
-        input_cost = (input_tokens / 1_000_000) * pricing["input"]
-        output_cost = (output_tokens / 1_000_000) * pricing["output"]
-
-        return input_cost + output_cost

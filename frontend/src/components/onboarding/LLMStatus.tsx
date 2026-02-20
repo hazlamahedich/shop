@@ -19,6 +19,14 @@ interface LLMStatusProps {
   };
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  ollama: 'Ollama (Local)',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Google Gemini',
+  glm: 'GLM-4 (Zhipu AI)',
+};
+
 export function LLMStatus({ configuration }: LLMStatusProps) {
   if (!configuration.provider) {
     return (
@@ -38,6 +46,7 @@ export function LLMStatus({ configuration }: LLMStatusProps) {
   const model = configuration.ollamaModel || configuration.cloudModel || 'unknown';
   const isSuccess = configuration.status === 'active';
   const testSuccess = configuration.testResult?.success;
+  const providerLabel = PROVIDER_LABELS[configuration.provider] || configuration.provider;
 
   return (
     <Card>
@@ -51,11 +60,23 @@ export function LLMStatus({ configuration }: LLMStatusProps) {
             </Badge>
           </div>
 
-          {/* Provider and Model */}
-          <div>
-            <p className="text-sm font-medium text-slate-900">Provider</p>
-            <p className="text-lg font-semibold text-slate-700 capitalize">{configuration.provider}</p>
-            <p className="text-sm text-slate-600">Model: {model}</p>
+          {/* Provider Card */}
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-900">Provider</p>
+              {isSuccess && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  Connected
+                </Badge>
+              )}
+            </div>
+            <p className="text-lg font-semibold text-slate-700 mt-1">{providerLabel}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-slate-500">Model:</span>
+              <Badge variant="secondary" className="font-mono text-xs">
+                {model}
+              </Badge>
+            </div>
           </div>
 
           {/* Configuration Date */}
@@ -97,7 +118,7 @@ export function LLMStatus({ configuration }: LLMStatusProps) {
               </p>
               {configuration.totalCostUsd !== undefined && configuration.totalCostUsd > 0 && (
                 <p className="text-xs text-slate-500">
-                  Total cost: ${configuration.totalCostUsd.toFixed(2)}
+                  Total cost: ${configuration.totalCostUsd.toFixed(4)}
                 </p>
               )}
             </div>

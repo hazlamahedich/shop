@@ -46,11 +46,12 @@ class ProviderSwitchService:
     """
 
     # API key format patterns for validation
+    # Note: Some providers (glm) skip format validation and rely on API test
     API_KEY_PATTERNS = {
         "openai": re.compile(r"^sk-[a-zA-Z0-9]{32,}$"),  # OpenAI API key format
         "anthropic": re.compile(r"^sk-ant-[a-zA-Z0-9\-]{20,}$"),  # Anthropic API key
-        "gemini": re.compile(r"^[a-zA-Z0-9\-]{30,}$"),  # Google API key
-        "glm": re.compile(r"^[a-zA-Z0-9\-]{20,}$"),  # GLM API key pattern
+        "gemini": re.compile(r"^AIza[a-zA-Z0-9_\-]{33,}$"),  # Google API key (starts with AIza)
+        # GLM keys vary in format - validation done via API test only
     }
 
     def __init__(self, db: AsyncSession) -> None:

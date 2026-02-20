@@ -41,6 +41,9 @@ class BaseLLMService(ABC):
 
         Args:
             config: Provider-specific configuration
+                - api_key: API key for cloud providers
+                - model: Model ID to use
+                - pricing: Dict with 'input' and 'output' prices per million tokens
             is_testing: Force mock responses (IS_TESTING pattern)
         """
         self.config = config
@@ -95,9 +98,11 @@ class BaseLLMService(ABC):
         """
         pass
 
-    @abstractmethod
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Estimate cost in USD for token usage.
+
+        Uses pricing from config (passed during provider creation).
+        Falls back to 0 if pricing not available.
 
         Args:
             input_tokens: Input prompt tokens
@@ -106,7 +111,14 @@ class BaseLLMService(ABC):
         Returns:
             Estimated cost in USD
         """
-        pass
+        pricing = self.config.get("pricing", {})
+        input_price = pricing.get("input", 0.0)
+        output_price = pricing.get("output", 0.0)
+
+        input_cost = (input_tokens / 1_000_000) * input_price
+        output_cost = (output_tokens / 1_000_000) * output_price
+
+        return input_cost + output_cost
 
     async def health_check(self) -> Dict[str, Any]:
         """Perform health check and return status.

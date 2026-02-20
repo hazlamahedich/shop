@@ -458,7 +458,37 @@ class ModelDiscoveryService:
             ],
             "gemini": [
                 {
-                    "id": "gemini-1.5-flash",
+                    "id": "google/gemini-2.0-flash",
+                    "name": "Gemini 2.0 Flash",
+                    "provider": "gemini",
+                    "description": "Fast and efficient (latest)",
+                    "contextLength": 1000000,
+                    "pricing": {
+                        "inputCostPerMillion": 0.10,
+                        "outputCostPerMillion": 0.40,
+                        "currency": "USD",
+                    },
+                    "isLocal": False,
+                    "isDownloaded": False,
+                    "features": ["fast", "long-context"],
+                },
+                {
+                    "id": "google/gemini-2.0-flash-lite",
+                    "name": "Gemini 2.0 Flash Lite",
+                    "provider": "gemini",
+                    "description": "Lightweight and cost-effective",
+                    "contextLength": 1000000,
+                    "pricing": {
+                        "inputCostPerMillion": 0.075,
+                        "outputCostPerMillion": 0.30,
+                        "currency": "USD",
+                    },
+                    "isLocal": False,
+                    "isDownloaded": False,
+                    "features": ["fast", "affordable", "long-context"],
+                },
+                {
+                    "id": "google/gemini-1.5-flash",
                     "name": "Gemini 1.5 Flash",
                     "provider": "gemini",
                     "description": "Fast and efficient",
@@ -473,19 +503,19 @@ class ModelDiscoveryService:
                     "features": ["fast", "long-context"],
                 },
                 {
-                    "id": "gemini-pro",
-                    "name": "Gemini Pro",
+                    "id": "google/gemini-1.5-pro",
+                    "name": "Gemini 1.5 Pro",
                     "provider": "gemini",
-                    "description": "Capable model",
-                    "contextLength": 32760,
+                    "description": "Most capable",
+                    "contextLength": 2000000,
                     "pricing": {
-                        "inputCostPerMillion": 0.50,
-                        "outputCostPerMillion": 1.50,
+                        "inputCostPerMillion": 1.25,
+                        "outputCostPerMillion": 10.0,
                         "currency": "USD",
                     },
                     "isLocal": False,
                     "isDownloaded": False,
-                    "features": ["capable"],
+                    "features": ["capable", "long-context"],
                 },
             ],
             "glm": [
@@ -534,6 +564,137 @@ class ModelDiscoveryService:
     def get_cache_info(self) -> Dict[str, Any]:
         """Get cache status information."""
         return self._cache.get_cache_info()
+
+    def get_model_pricing_sync(
+        self,
+        provider: str,
+        model_id: str,
+    ) -> Dict[str, float]:
+        """Get pricing for a specific model from cache (sync version).
+
+        Returns cached pricing if available, otherwise returns free pricing.
+        Use get_model_pricing() for async version that fetches from API.
+
+        Args:
+            provider: Provider ID (openai, anthropic, gemini, glm)
+            model_id: Model ID (e.g., "gpt-4o-mini", "claude-3-haiku")
+
+        Returns:
+            Dict with 'input' and 'output' prices per million tokens
+        """
+        cache_key = f"models:{provider}"
+        cached = self._cache.get(cache_key)
+
+        if cached:
+            for model in cached:
+                if model.get("id") == model_id or model.get("id", "").endswith(f"/{model_id}"):
+                    pricing = model.get("pricing", {})
+                    return {
+                        "input": float(pricing.get("inputCostPerMillion", 0)),
+                        "output": float(pricing.get("outputCostPerMillion", 0)),
+                    }
+
+        fallback = self._get_fallback_models(provider)
+        for model in fallback:
+            if model.get("id") == model_id:
+                pricing = model.get("pricing", {})
+                return {
+                    "input": float(pricing.get("inputCostPerMillion", 0)),
+                    "output": float(pricing.get("outputCostPerMillion", 0)),
+                }
+
+        return {"input": 0.0, "output": 0.0}
+
+    async def get_model_pricing(
+        self,
+        provider: str,
+        model_id: str,
+    ) -> Dict[str, float]:
+        """Get pricing for a specific model (async version that fetches if needed).
+
+        Args:
+            provider: Provider ID (openai, anthropic, gemini, glm)
+            model_id: Model ID (e.g., "gpt-4o-mini", "claude-3-haiku")
+
+        Returns:
+            Dict with 'input' and 'output' prices per million tokens
+        """
+        models = await self.get_models_for_provider(provider)
+        for model in models:
+            if model.get("id") == model_id or model.get("id", "").endswith(f"/{model_id}"):
+                pricing = model.get("pricing", {})
+                return {
+                    "input": float(pricing.get("inputCostPerMillion", 0)),
+                    "output": float(pricing.get("outputCostPerMillion", 0)),
+                }
+
+        return {"input": 0.0, "output": 0.0}
+
+    async def get_provider_info(self, provider: str) -> Dict[str, Any]:
+        """Get provider metadata with dynamic pricing from OpenRouter.
+
+        Args:
+            provider: Provider ID (openai, anthropic, gemini, glm, ollama)
+
+        Returns:
+            Provider info dict with name, description, pricing, models, features
+        """
+        provider_metadata = {
+            "ollama": {
+                "name": "Ollama (Local)",
+                "description": "Free, runs on your server",
+                "features": ["local", "free", "privacy-first", "no-api-key-needed"],
+            },
+            "openai": {
+                "name": "OpenAI",
+                "description": "Fast, accurate, cost-effective",
+                "features": ["fast", "accurate", "cost-effective", "wide-adoption"],
+            },
+            "anthropic": {
+                "name": "Anthropic",
+                "description": "Fast, accurate",
+                "features": ["fast", "accurate", "long-context", "reliable"],
+            },
+            "gemini": {
+                "name": "Google Gemini",
+                "description": "Google ecosystem, huge context",
+                "features": ["fast", "huge-context", "google-integration"],
+            },
+            "glm": {
+                "name": "GLM-4 (Zhipu AI)",
+                "description": "China market support",
+                "features": ["china-market", "chinese-language", "affordable"],
+            },
+        }
+
+        models = await self.get_models_for_provider(provider)
+
+        default_pricing = {"inputCostPerMillion": 0, "outputCostPerMillion": 0, "currency": "USD"}
+        if models:
+            first_model = models[0]
+            pricing = first_model.get("pricing", default_pricing)
+            model_ids = [m.get("id") for m in models[:10]]
+        else:
+            pricing = default_pricing
+            model_ids = []
+
+        metadata = provider_metadata.get(
+            provider,
+            {
+                "name": provider.capitalize(),
+                "description": f"{provider.capitalize()} provider",
+                "features": [],
+            },
+        )
+
+        return {
+            "id": provider,
+            "name": metadata["name"],
+            "description": metadata["description"],
+            "pricing": pricing,
+            "models": model_ids,
+            "features": metadata["features"],
+        }
 
 
 _model_discovery_service: Optional[ModelDiscoveryService] = None

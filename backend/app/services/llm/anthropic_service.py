@@ -1,7 +1,7 @@
 """Anthropic provider implementation.
 
 Uses Anthropic API for Claude models.
-Pricing: claude-3-haiku - $0.25/1M input, $1.25/1M output
+Pricing fetched dynamically from OpenRouter via ModelDiscoveryService.
 """
 
 from __future__ import annotations
@@ -25,20 +25,11 @@ class AnthropicService(BaseLLMService):
     """Anthropic provider implementation.
 
     Uses Anthropic API for Claude models.
-    Pricing: claude-3-haiku - $0.25/1M input, $1.25/1M output
+    Pricing fetched dynamically from config (via ModelDiscoveryService).
     """
 
-    # Anthropic API endpoints
     ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-
-    # Default model
     DEFAULT_MODEL = "claude-3-haiku"
-
-    # Pricing per 1M tokens (as of 2026-02)
-    PRICING = {
-        "claude-3-haiku": {"input": 0.25, "output": 1.25},
-        "claude-3-sonnet": {"input": 3.0, "output": 15.0},
-    }
 
     @property
     def provider_name(self) -> str:
@@ -115,10 +106,7 @@ class AnthropicService(BaseLLMService):
         model_name = model or self.config.get("model", self.DEFAULT_MODEL)
 
         # Convert LLMMessage to Anthropic format
-        anthropic_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in messages
-        ]
+        anthropic_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
         payload = {
             "model": model_name,
@@ -186,13 +174,3 @@ class AnthropicService(BaseLLMService):
         Approximately 4 characters per token.
         """
         return len(text) // 4
-
-    def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
-        """Estimate cost in USD for Anthropic."""
-        model = self.config.get("model", self.DEFAULT_MODEL)
-        pricing = self.PRICING.get(model, self.PRICING[self.DEFAULT_MODEL])
-
-        input_cost = (input_tokens / 1_000_000) * pricing["input"]
-        output_cost = (output_tokens / 1_000_000) * pricing["output"]
-
-        return input_cost + output_cost

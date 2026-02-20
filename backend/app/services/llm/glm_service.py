@@ -1,7 +1,7 @@
-"""GLM-4.7 provider implementation (Zhipu AI, China market).
+"""GLM-4 provider implementation (Zhipu AI, China market).
 
 Uses Zhipu AI API for GLM models.
-Pricing: glm-4-flash - ¥0.10/1M input, ¥0.10/1M output
+Pricing fetched dynamically from OpenRouter via ModelDiscoveryService.
 """
 
 from __future__ import annotations
@@ -59,25 +59,14 @@ _glm_rate_limiter = RateLimiter(requests_per_second=2.0)
 
 
 class GLMService(BaseLLMService):
-    """GLM-4.7 provider implementation (China market).
+    """GLM-4 provider implementation (China market).
 
     Uses Zhipu AI API for GLM models.
-    Pricing: glm-4-flash - ¥0.10/1M input, ¥0.10/1M output
+    Pricing fetched dynamically from config (via ModelDiscoveryService).
     """
 
-    # GLM API endpoints
     GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-
-    # Default model
     DEFAULT_MODEL = "glm-4-flash"
-
-    # Pricing per 1M tokens (as of 2026-02) in CNY
-    PRICING = {
-        "glm-4-flash": {"input": 0.10, "output": 0.10},
-        "glm-4-plus": {"input": 0.50, "output": 0.50},
-    }
-
-    # CNY to USD conversion rate (approximately)
     USD_RATE = 1.0 / 7.0
 
     @property
@@ -188,7 +177,7 @@ class GLMService(BaseLLMService):
 
                     if attempt < max_retries - 1:
                         # Exponential backoff: 1s, 2s, 4s, ...
-                        wait_time = (2 ** attempt) + 0.5  # 1.5s, 2.5s, 4.5s
+                        wait_time = (2**attempt) + 0.5  # 1.5s, 2.5s, 4.5s
                         logger.info(
                             "glm_retry_backoff",
                             wait_seconds=wait_time,
@@ -235,10 +224,7 @@ class GLMService(BaseLLMService):
         model_name = model or self.config.get("model", self.DEFAULT_MODEL)
 
         # Convert LLMMessage to GLM format
-        glm_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in messages
-        ]
+        glm_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
         payload = {
             "model": model_name,
@@ -309,12 +295,8 @@ class GLMService(BaseLLMService):
         return len(text) // 3
 
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
-        """Estimate cost in USD for GLM."""
-        model = self.config.get("model", self.DEFAULT_MODEL)
-        pricing = self.PRICING.get(model, self.PRICING[self.DEFAULT_MODEL])
+        """Estimate cost in USD for GLM.
 
-        input_cost = (input_tokens / 1_000_000) * pricing["input"]
-        output_cost = (output_tokens / 1_000_000) * pricing["output"]
-
-        # Convert CNY to USD
-        return (input_cost + output_cost) * self.USD_RATE
+        Uses pricing from config (fetched from OpenRouter which returns USD).
+        """
+        return super().estimate_cost(input_tokens, output_tokens)

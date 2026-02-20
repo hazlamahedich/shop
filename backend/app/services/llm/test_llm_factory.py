@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
 import pytest
 
 from app.services.llm.llm_factory import LLMProviderFactory
@@ -13,8 +14,9 @@ from app.services.llm.glm_service import GLMService
 from app.core.errors import APIError, ErrorCode
 
 
+@patch("app.services.llm.llm_factory.is_testing", return_value=False)
 @pytest.mark.asyncio
-async def test_factory_create_ollama() -> None:
+async def test_factory_create_ollama(mock_testing) -> None:
     """Test creating Ollama provider."""
     provider = LLMProviderFactory.create_provider(
         "ollama",
@@ -25,8 +27,9 @@ async def test_factory_create_ollama() -> None:
     assert provider.provider_name == "ollama"
 
 
+@patch("app.services.llm.llm_factory.is_testing", return_value=False)
 @pytest.mark.asyncio
-async def test_factory_create_openai() -> None:
+async def test_factory_create_openai(mock_testing) -> None:
     """Test creating OpenAI provider."""
     provider = LLMProviderFactory.create_provider(
         "openai",
@@ -37,8 +40,9 @@ async def test_factory_create_openai() -> None:
     assert provider.provider_name == "openai"
 
 
+@patch("app.services.llm.llm_factory.is_testing", return_value=False)
 @pytest.mark.asyncio
-async def test_factory_create_anthropic() -> None:
+async def test_factory_create_anthropic(mock_testing) -> None:
     """Test creating Anthropic provider."""
     provider = LLMProviderFactory.create_provider(
         "anthropic",
@@ -49,8 +53,9 @@ async def test_factory_create_anthropic() -> None:
     assert provider.provider_name == "anthropic"
 
 
+@patch("app.services.llm.llm_factory.is_testing", return_value=False)
 @pytest.mark.asyncio
-async def test_factory_create_gemini() -> None:
+async def test_factory_create_gemini(mock_testing) -> None:
     """Test creating Gemini provider."""
     provider = LLMProviderFactory.create_provider(
         "gemini",
@@ -61,8 +66,9 @@ async def test_factory_create_gemini() -> None:
     assert provider.provider_name == "gemini"
 
 
+@patch("app.services.llm.llm_factory.is_testing", return_value=False)
 @pytest.mark.asyncio
-async def test_factory_create_glm() -> None:
+async def test_factory_create_glm(mock_testing) -> None:
     """Test creating GLM provider."""
     provider = LLMProviderFactory.create_provider(
         "glm",
@@ -73,8 +79,9 @@ async def test_factory_create_glm() -> None:
     assert provider.provider_name == "glm"
 
 
+@patch("app.services.llm.llm_factory.is_testing", return_value=False)
 @pytest.mark.asyncio
-async def test_factory_invalid_provider() -> None:
+async def test_factory_invalid_provider(mock_testing) -> None:
     """Test factory raises error for invalid provider."""
     with pytest.raises(APIError) as exc_info:
         LLMProviderFactory.create_provider("invalid", {})

@@ -109,7 +109,7 @@ def settings() -> dict[str, Any]:
         "ANTHROPIC_DEFAULT_MODEL": os.getenv("ANTHROPIC_DEFAULT_MODEL", "claude-3-haiku"),
         # Gemini Configuration
         "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
-        "GEMINI_DEFAULT_MODEL": os.getenv("GEMINI_DEFAULT_MODEL", "gemini-1.5-flash"),
+        "GEMINI_DEFAULT_MODEL": os.getenv("GEMINI_DEFAULT_MODEL", "google/gemini-2.0-flash"),
         # GLM-4.7 Configuration
         "GLM_API_KEY": os.getenv("GLM_API_KEY", ""),
         "GLM_DEFAULT_MODEL": os.getenv("GLM_DEFAULT_MODEL", "glm-4-flash"),
