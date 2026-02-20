@@ -6,6 +6,7 @@ import HandoffQueue from '../pages/HandoffQueue';
 import ConversationHistory from '../pages/ConversationHistory';
 import Costs from '../pages/Costs';
 import Settings from '../pages/Settings';
+import WidgetSettings from '../pages/WidgetSettings';
 import { ProviderSettings } from '../pages/ProviderSettings';
 import PersonalityConfig from '../pages/PersonalityConfig';
 import Onboarding from '../pages/Onboarding';
@@ -50,6 +51,7 @@ export function App() {
         <Route path="/handoff-queue" element={<HandoffQueue />} />
         <Route path="/costs" element={<Costs />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/widget" element={<WidgetSettings />} />
         <Route path="/settings/provider" element={<ProviderSettings />} />
         <Route path="/personality" element={<PersonalityConfig />} />
         <Route path="/onboarding" element={<Onboarding />} />

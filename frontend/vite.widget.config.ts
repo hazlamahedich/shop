@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
+import { readFileSync } from 'fs';
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    visualizer({
+      filename: 'dist/widget/stats.html',
+      gzipSize: true,
+      open: false,
+    }),
+  ],
   build: {
     lib: {
       entry: path.resolve(__dirname, './src/widget/loader.ts'),
@@ -14,14 +25,16 @@ export default defineConfig({
     },
     outDir: 'dist/widget',
     emptyOutDir: true,
-    sourcemap: true, // Set to false for production CDN to reduce bundle size by ~500KB
+    sourcemap: false,
     minify: 'terser',
     terserOptions: {
       compress: {
-        // Keep console.error and console.warn for error reporting
-        // For production CDN, consider using pure_funcs: ['console.log', 'console.debug']
         drop_console: false,
         drop_debugger: true,
+        pure_funcs: ['console.log', 'console.debug', 'console.info'],
+      },
+      format: {
+        comments: false,
       },
     },
     rollupOptions: {
@@ -41,5 +54,6 @@ export default defineConfig({
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
+    __VITE_WIDGET_VERSION__: JSON.stringify(pkg.version),
   },
 });

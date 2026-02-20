@@ -29,7 +29,7 @@
     "security:check": "snyk test",
     "outdated": "npm outdated",
     "build:widget": "vite build --config vite.widget.config.ts",
-    "build:widget:size": "npm run build:widget && echo 'Bundle size (gzipped):' && gzip -c dist/widget/widget.es.js | wc -c"
+    "build:widget:size": "npm run build:widget && node scripts/check-bundle-size.js"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.18",
@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
+    "@lhci/cli": "^0.15.1",
     "@playwright/experimental-ct-react": "^1.58.2",
     "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.1.5",
@@ -62,9 +63,11 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.0",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "gzip-size": "^7.0.0",
     "jsdom": "^23.0.1",
     "postcss": "^8.5.6",
     "prettier": "^3.1.0",
+    "rollup-plugin-visualizer": "^6.0.5",
     "tailwindcss": "^4.1.18",
     "terser": "^5.46.0",
     "typescript": "^5.3.0",

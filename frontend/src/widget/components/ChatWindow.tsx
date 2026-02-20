@@ -16,7 +16,7 @@ export interface ChatWindowProps {
   error: string | null;
 }
 
-export function ChatWindow({
+function ChatWindow({
   isOpen,
   onClose,
   theme,
@@ -173,3 +173,5 @@ export function ChatWindow({
     </FocusTrap>
   );
 }
+
+export default ChatWindow;

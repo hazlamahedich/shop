@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Facebook, ShoppingBag, Bot, Eye, EyeOff, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Facebook, ShoppingBag, Bot, Eye, EyeOff, ChevronDown, ChevronUp, ExternalLink, MessageSquare } from 'lucide-react';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -56,7 +57,7 @@ const Settings = () => {
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
-          {['General', 'Integrations', 'Billing'].map((tab) => (
+          {['General', 'Integrations', 'Billing', 'Widget'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab.toLowerCase().replace(' ', '-'))}
@@ -275,9 +276,43 @@ const Settings = () => {
       )}
 
       {/* Placeholder for other tabs */}
-      {(activeTab === 'general' || activeTab === 'billing') && (
+      {activeTab === 'general' && (
         <div className="bg-white p-8 rounded-xl border border-gray-200 text-center">
-          <p className="text-gray-500">Settings for {activeTab} coming soon.</p>
+          <p className="text-gray-500">General settings coming soon.</p>
+        </div>
+      )}
+
+      {activeTab === 'billing' && (
+        <div className="bg-white p-8 rounded-xl border border-gray-200 text-center">
+          <p className="text-gray-500">Billing settings coming soon.</p>
+        </div>
+      )}
+
+      {activeTab === 'widget' && (
+        <div className="space-y-6 max-w-4xl">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4">
+                <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600">
+                  <MessageSquare size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">Chat Widget</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Configure your embeddable chat widget for your website.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <Link
+                to="/settings/widget"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Configure Widget Settings
+              </Link>
+            </div>
+          </div>
         </div>
       )}
     </div>

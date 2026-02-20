@@ -121,11 +121,11 @@ development_status:
   5-2-widget-session-management: review # 2026-02-18: Implementation complete - 13 tests passing (7 unit + 6 integration)
   5-3-widget-frontend-components: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (Shadow DOM, merchantId, typing animation, aria-busy, session persistence), 44 tests passing
   5-4-build-system-loader-script: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (unmount, validation, container test, localhost URLs), 19 unit + 144 E2E tests passing
-  5-5-theme-customization-system: backlog
-  5-6-merchant-widget-settings-ui: backlog
-  5-7-security-rate-limiting: backlog
-  5-8-performance-optimization: backlog
-  5-9-cdn-setup-documentation: backlog
+  5-5-theme-customization-system: done # 2026-02-18: Code review COMPLETE - 5 issues fixed (style accumulation, undefined handling, duplicate constants, file list, unused import), 107+ tests passing
+  5-6-merchant-widget-settings-ui: done # 2026-02-18: Code review COMPLETE - 8 issues fixed (4 HIGH, 4 MEDIUM), 129+ tests passing
+  5-7-security-rate-limiting: done # 2026-02-19: Adversarial code review COMPLETE - 6 issues fixed (time.sleep→mocked time, E2E assertions, bypass mode test, type annotations), 32 security + 108+ total tests passing
+  5-8-performance-optimization: done # 2026-02-19: Code review COMPLETE - 5 issues fixed (slow 3G tests, CLS threshold, CSS test, file list, checklist), 11 unit tests passing, bundle <100KB
+  5-9-cdn-setup-documentation: done # 2026-02-20: Code review COMPLETE - 3 MEDIUM issues fixed (File List accuracy, bundle copy docs, git discrepancy note), 12/12 tests passing
   epic-5-retrospective: optional
 
   # Epic 6: Data Privacy & Compliance (Renumbered from Epic 5 - approved 2026-02-17)

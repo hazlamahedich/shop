@@ -5,9 +5,10 @@ export interface ChatBubbleProps {
   isOpen: boolean;
   onClick: () => void;
   theme: WidgetTheme;
+  onPrefetch?: () => void;
 }
 
-export function ChatBubble({ isOpen, onClick, theme }: ChatBubbleProps) {
+export function ChatBubble({ isOpen, onClick, theme, onPrefetch }: ChatBubbleProps) {
   const positionStyle = theme.position === 'bottom-left'
     ? { left: 20 }
     : { right: 20 };
@@ -19,12 +20,20 @@ export function ChatBubble({ isOpen, onClick, theme }: ChatBubbleProps) {
     }
   };
 
+  const handleMouseEnter = () => {
+    if (onPrefetch) {
+      onPrefetch();
+    }
+  };
+
   return (
     <button
       type="button"
       className="chat-bubble"
+      data-testid="chat-bubble"
       onClick={onClick}
       onKeyDown={handleKeyDown}
+      onMouseEnter={handleMouseEnter}
       aria-label={isOpen ? 'Close chat' : 'Open chat'}
       aria-expanded={isOpen}
       style={{

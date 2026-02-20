@@ -3,6 +3,8 @@ import * as ReactDOM from 'react-dom/client';
 import { Widget } from './Widget';
 import type { WidgetTheme } from './types/widget';
 
+declare const __VITE_WIDGET_VERSION__: string;
+
 interface ShopBotConfig {
   merchantId: string;
   theme?: Partial<WidgetTheme>;
@@ -11,6 +13,12 @@ interface ShopBotConfig {
 declare global {
   interface Window {
     ShopBotConfig?: ShopBotConfig;
+    ShopBotWidget?: {
+      version: string;
+      init: () => void;
+      unmount: () => void;
+      isMounted: () => boolean;
+    };
   }
 }
 
@@ -105,6 +113,16 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initWidget);
 } else {
   initWidget();
+}
+
+// Expose version and API on window.ShopBotWidget
+if (typeof window !== 'undefined') {
+  window.ShopBotWidget = {
+    version: __VITE_WIDGET_VERSION__,
+    init: initWidget,
+    unmount: unmountWidget,
+    isMounted: isWidgetMounted,
+  };
 }
 
 // Export for programmatic use

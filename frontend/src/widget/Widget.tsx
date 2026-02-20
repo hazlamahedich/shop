@@ -2,13 +2,15 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { WidgetProvider, useWidgetContext } from './context/WidgetContext';
 import { ChatBubble } from './components/ChatBubble';
-import { ChatWindow } from './components/ChatWindow';
 import { WidgetErrorBoundary } from './components/WidgetErrorBoundary';
+import { LoadingSpinner } from './components/LoadingSpinner';
 import type { WidgetTheme } from './types/widget';
 import { createShadowContainer, injectStyles, injectTheme } from './utils/shadowDom';
 import { mergeThemes } from './utils/themeMerge';
 // @ts-expect-error Vite raw import
 import widgetCss from './styles/widget.css?raw';
+
+const ChatWindow = React.lazy(() => import('./components/ChatWindow'));
 
 interface WidgetInnerProps {
   theme?: Partial<WidgetTheme>;
@@ -25,6 +27,10 @@ function WidgetInner({ theme }: WidgetInnerProps) {
   const shadowRef = React.useRef<ShadowRoot | null>(null);
   const portalContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [shadowReady, setShadowReady] = React.useState(false);
+
+  const prefetchChatWindow = React.useCallback(() => {
+    import('./components/ChatWindow');
+  }, []);
 
   React.useEffect(() => {
     if (containerRef.current && !shadowRef.current) {
@@ -61,17 +67,24 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         isOpen={state.isOpen}
         onClick={toggleChat}
         theme={mergedTheme}
+        onPrefetch={prefetchChatWindow}
       />
-      <ChatWindow
-        isOpen={state.isOpen}
-        onClose={toggleChat}
-        theme={mergedTheme}
-        config={state.config}
-        messages={state.messages}
-        isTyping={state.isTyping}
-        onSendMessage={sendMessage}
-        error={state.error}
-      />
+      {state.isOpen && (
+        <WidgetErrorBoundary fallback={<div>Failed to load chat. Please refresh.</div>}>
+          <React.Suspense fallback={<LoadingSpinner />}>
+            <ChatWindow
+              isOpen={state.isOpen}
+              onClose={toggleChat}
+              theme={mergedTheme}
+              config={state.config}
+              messages={state.messages}
+              isTyping={state.isTyping}
+              onSendMessage={sendMessage}
+              error={state.error}
+            />
+          </React.Suspense>
+        </WidgetErrorBoundary>
+      )}
     </>
   );
 
