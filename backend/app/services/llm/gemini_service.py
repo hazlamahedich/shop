@@ -118,21 +118,19 @@ class GeminiService(BaseLLMService):
 
         logger.debug("gemini_chat_model", model=model_name, original=self.config.get("model"))
 
-        # Convert LLMMessage to Gemini format
-        # Gemini only accepts "user" and "model" roles
+        # Extract system message and convert other messages to Gemini format
+        # Gemini uses systemInstruction for system prompts, not role in contents
+        system_instruction = None
         gemini_contents = []
-        for msg in messages:
-            # Map roles to Gemini format
-            if msg.role == "assistant":
-                gemini_role = "model"
-            elif msg.role == "system":
-                # Gemini doesn't support system role in contents
-                # Skip system messages - they should be handled via systemInstruction
-                continue
-            else:
-                gemini_role = "user"
 
-            gemini_contents.append({"role": gemini_role, "parts": [{"text": msg.content}]})
+        for msg in messages:
+            if msg.role == "system":
+                # Save system prompt for systemInstruction
+                system_instruction = msg.content
+            elif msg.role == "assistant":
+                gemini_contents.append({"role": "model", "parts": [{"text": msg.content}]})
+            else:
+                gemini_contents.append({"role": "user", "parts": [{"text": msg.content}]})
 
         payload = {
             "contents": gemini_contents,
@@ -141,6 +139,10 @@ class GeminiService(BaseLLMService):
                 "maxOutputTokens": max_tokens,
             },
         }
+
+        # Add system instruction if provided
+        if system_instruction:
+            payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
         try:
             if self.is_testing:
