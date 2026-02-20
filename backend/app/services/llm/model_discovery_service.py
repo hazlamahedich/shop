@@ -458,10 +458,25 @@ class ModelDiscoveryService:
             ],
             "gemini": [
                 {
+                    "id": "google/gemini-2.5-flash-lite",
+                    "name": "Gemini 2.5 Flash Lite",
+                    "provider": "gemini",
+                    "description": "Lightweight and cost-effective (latest)",
+                    "contextLength": 1000000,
+                    "pricing": {
+                        "inputCostPerMillion": 0.10,
+                        "outputCostPerMillion": 0.40,
+                        "currency": "USD",
+                    },
+                    "isLocal": False,
+                    "isDownloaded": False,
+                    "features": ["fast", "affordable", "long-context"],
+                },
+                {
                     "id": "google/gemini-2.0-flash",
                     "name": "Gemini 2.0 Flash",
                     "provider": "gemini",
-                    "description": "Fast and efficient (latest)",
+                    "description": "Fast and efficient",
                     "contextLength": 1000000,
                     "pricing": {
                         "inputCostPerMillion": 0.10,
