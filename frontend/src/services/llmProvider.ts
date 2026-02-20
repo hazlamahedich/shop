@@ -133,12 +133,26 @@ async function apiRequest<T>(
     const error = await response.json().catch(() => ({
       message: 'Unknown error occurred',
     }));
+    
+    console.error('API Error:', error);
 
     // Handle structured error responses from backend
     if (error.error_code || error.details) {
       throw new Error(
         error.details?.message || error.message || 'API request failed'
       );
+    }
+    
+    // Handle FastAPI validation errors
+    if (error.detail) {
+      if (typeof error.detail === 'string') {
+        throw new Error(error.detail);
+      }
+      // FastAPI validation errors are arrays
+      if (Array.isArray(error.detail)) {
+        const messages = error.detail.map((e: any) => e.msg).join(', ');
+        throw new Error(messages);
+      }
     }
 
     throw new Error(error.message || `HTTP ${response.status}`);
