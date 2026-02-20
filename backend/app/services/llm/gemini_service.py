@@ -28,8 +28,8 @@ class GeminiService(BaseLLMService):
     Pricing fetched dynamically from config (via ModelDiscoveryService).
     """
 
-    GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/"
-    DEFAULT_MODEL = "google/gemini-2.0-flash"
+    GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    DEFAULT_MODEL = "gemini-2.0-flash"
 
     @property
     def provider_name(self) -> str:
@@ -64,12 +64,22 @@ class GeminiService(BaseLLMService):
             if not api_key:
                 return False
 
-            # Use generateContent endpoint for testing
-            response = await self.async_client.post(
-                f"{self.DEFAULT_MODEL}:generateContent?key={api_key}",
-                headers={"Content-Type": "application/json"},
-                json={"contents": [{"parts": [{"text": "Hello"}]}]},
-            )
+            # Get model from config, strip google/ prefix if present
+            model_name = self.config.get("model") or self.DEFAULT_MODEL
+
+            if model_name.startswith("google/"):
+                model_name = model_name[7:]  # Remove "google/" prefix
+
+            # Build full URL (httpx has issues with colon in path when using base_url)
+            full_url = f"{self.GEMINI_API_URL}/{model_name}:generateContent?key={api_key}"
+
+            # Use a fresh client without base_url for this request
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    full_url,
+                    headers={"Content-Type": "application/json"},
+                    json={"contents": [{"parts": [{"text": "Hello"}]}]},
+                )
             response.raise_for_status()
             return True
 
@@ -129,11 +139,16 @@ class GeminiService(BaseLLMService):
                     metadata={"test": True},
                 )
 
-            response = await self.async_client.post(
-                f"{model_name}:generateContent?key={api_key}",
-                headers={"Content-Type": "application/json"},
-                json=payload,
-            )
+            # Build full URL (httpx has issues with colon in path when using base_url)
+            full_url = f"{self.GEMINI_API_URL}/{model_name}:generateContent?key={api_key}"
+
+            # Use a fresh client without base_url
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    full_url,
+                    headers={"Content-Type": "application/json"},
+                    json=payload,
+                )
             response.raise_for_status()
             data = response.json()
 
