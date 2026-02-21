@@ -8,6 +8,8 @@ Preview conversations:
 - NOT counted in cost tracking
 - NEVER sent to real customers or Facebook Messenger
 - Include confidence scoring for transparency
+
+Story 5-10: Widget Full App Integration (Task 9: Migrate to UnifiedConversationService)
 """
 
 from __future__ import annotations
@@ -89,18 +91,25 @@ class PreviewService:
     their bot configuration with simulated conversations.
 
     Story 1.13: Bot Preview Mode
+    Story 5-10: Migrated to UnifiedConversationService
     """
 
     # In-memory session storage (NOT persisted to database)
     sessions: dict[str, PreviewConversation] = {}
 
-    def __init__(self, db: Optional[AsyncSession] = None) -> None:
+    def __init__(
+        self,
+        db: Optional[AsyncSession] = None,
+        unified_service: Optional[Any] = None,
+    ) -> None:
         """Initialize the preview service.
 
         Args:
             db: Optional database session for loading merchant config
+            unified_service: Optional UnifiedConversationService (Story 5-10)
         """
         self.db = db
+        self.unified_service = unified_service
         self.logger = structlog.get_logger(__name__)
 
     def create_session(self, merchant: Merchant) -> dict[str, Any]:
@@ -151,8 +160,8 @@ class PreviewService:
 
         This method:
         1. Adds the user message to conversation history
-        2. Calls the bot response service with merchant config
-        3. Adds bot response to conversation history
+        2. Calls UnifiedConversationService if available (Story 5-10)
+        3. Falls back to legacy flow if no db
         4. Returns response with confidence score
 
         Args:
@@ -173,6 +182,98 @@ class PreviewService:
 
         session.add_message("user", message)
 
+        # Story 5-10: Use UnifiedConversationService if db is available
+        if self.db is not None:
+            return await self._send_message_unified(
+                session=session,
+                message=message,
+                merchant=merchant,
+            )
+
+        # Legacy flow (no db)
+        return await self._send_message_legacy(
+            session=session,
+            message=message,
+            merchant=merchant,
+        )
+
+    async def _send_message_unified(
+        self,
+        session: PreviewConversation,
+        message: str,
+        merchant: Merchant,
+    ) -> PreviewMessageResponse:
+        """Send message using UnifiedConversationService (Story 5-10).
+
+        This provides intent routing, product search, cart, and checkout support.
+        """
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+        from app.services.conversation.schemas import Channel, ConversationContext
+        from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+        unified_service = self.unified_service or UnifiedConversationService(db=self.db)
+
+        history = session.get_history()
+
+        context = ConversationContext(
+            session_id=session.preview_session_id,
+            merchant_id=merchant.id,
+            channel=Channel.PREVIEW,
+            conversation_history=history,
+            platform_sender_id=None,
+            user_id=merchant.id,
+        )
+
+        assert self.db is not None
+        response = await unified_service.process_message(
+            db=self.db,
+            context=context,
+            message=message,
+        )
+
+        bot_message = response.message
+        session.add_message("bot", bot_message)
+
+        confidence_pct = int((response.confidence or 0.5) * 100)
+        confidence_level = self.get_confidence_level(confidence_pct)
+
+        products_found = len(response.products) if response.products else 0
+
+        metadata = PreviewMessageMetadata(
+            intent=response.intent,
+            faq_matched=False,
+            products_found=products_found,
+            llm_provider=response.metadata.get("llm_provider"),
+        )
+
+        self.logger.info(
+            "preview_message_sent_unified",
+            session_id=session.preview_session_id,
+            merchant_id=merchant.id,
+            intent=response.intent,
+            confidence=confidence_pct,
+        )
+
+        return PreviewMessageResponse(
+            response=bot_message,
+            confidence=confidence_pct,
+            confidence_level=confidence_level,
+            metadata=metadata,
+        )
+
+    async def _send_message_legacy(
+        self,
+        session: PreviewConversation,
+        message: str,
+        merchant: Merchant,
+    ) -> PreviewMessageResponse:
+        """Legacy message processing without db (fallback).
+
+        DEPRECATED: Use UnifiedConversationService instead.
+        This method is kept for backward compatibility when no db session is available.
+        """
         from app.services.personality.bot_response_service import BotResponseService
         from app.services.llm.llm_factory import LLMProviderFactory
         from app.services.llm.base_llm_service import LLMMessage
@@ -260,11 +361,14 @@ class PreviewService:
             # Check for FAQ match first (higher confidence for FAQ responses)
             from app.services.faq import match_faq
             from app.models.faq import Faq
-            from sqlalchemy import select
 
-            # Get merchant's FAQs
-            faq_result = await self.db.execute(select(Faq).where(Faq.merchant_id == merchant.id))
-            merchant_faqs = list(faq_result.scalars().all())
+            # Get merchant's FAQs (only if db is available)
+            merchant_faqs = []
+            if self.db:
+                faq_result = await self.db.execute(
+                    select(Faq).where(Faq.merchant_id == merchant.id)
+                )
+                merchant_faqs = list(faq_result.scalars().all())
 
             # Try FAQ match
             faq_match = None
@@ -382,7 +486,7 @@ class PreviewService:
 
             self.logger.info(
                 "preview_message_sent",
-                session_id=session_id,
+                session_id=session.preview_session_id,
                 merchant_id=merchant.id,
                 confidence=confidence,
                 message_length=len(message),
@@ -398,7 +502,7 @@ class PreviewService:
         except Exception as e:
             self.logger.error(
                 "preview_message_failed",
-                session_id=session_id,
+                session_id=session.preview_session_id,
                 error=str(e),
                 error_type=type(e).__name__,
             )

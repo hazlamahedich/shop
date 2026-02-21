@@ -1,3 +1,5 @@
+import type { WidgetError } from './errors';
+
 export interface WidgetTheme {
   primaryColor: string;
   backgroundColor: string;
@@ -33,6 +35,11 @@ export interface WidgetMessage {
   content: string;
   sender: 'user' | 'bot';
   createdAt: string;
+  products?: WidgetProduct[];
+  cart?: WidgetCart;
+  checkoutUrl?: string;
+  intent?: string;
+  confidence?: number;
 }
 
 export interface WidgetState {
@@ -43,6 +50,7 @@ export interface WidgetState {
   messages: WidgetMessage[];
   config: WidgetConfig | null;
   error: string | null;
+  errors: WidgetError[];
 }
 
 export interface WidgetApiError {
@@ -60,4 +68,42 @@ export type WidgetAction =
   | { type: 'SET_CONFIG'; payload: WidgetConfig | null }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'CLEAR_ERROR' }
+  | { type: 'ADD_WIDGET_ERROR'; payload: WidgetError }
+  | { type: 'DISMISS_WIDGET_ERROR'; payload: string }
+  | { type: 'CLEAR_WIDGET_ERRORS' }
   | { type: 'RESET' };
+
+export interface WidgetProduct {
+  id: string;
+  variantId: string;
+  title: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  available: boolean;
+  productType?: string;
+}
+
+export interface WidgetCartItem {
+  variantId: string;
+  title: string;
+  price: number;
+  quantity: number;
+}
+
+export interface WidgetCart {
+  items: WidgetCartItem[];
+  itemCount: number;
+  total: number;
+}
+
+export interface WidgetSearchResult {
+  products: WidgetProduct[];
+  total: number;
+  query: string;
+}
+
+export interface WidgetCheckoutResult {
+  checkoutUrl: string;
+  message: string;
+}

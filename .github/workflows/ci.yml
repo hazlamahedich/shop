@@ -172,6 +172,12 @@ jobs:
           cd frontend
           npm test || true  # May not exist yet
 
+      - name: Run frontend contract tests
+        run: |
+          cd frontend
+          npm run test:contract -- --reporter=list
+        continue-on-error: false
+
   validate-hooks:
     runs-on: ubuntu-latest
     timeout-minutes: 5

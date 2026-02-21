@@ -4,6 +4,7 @@ Provides message processing with merchant's LLM configuration,
 conversation history tracking, and response generation.
 
 Story 5.1: Backend Widget API
+Story 5-10: Widget Full App Integration (Task 8: Migrate to UnifiedConversationService)
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ from app.schemas.widget import WidgetSessionData
 from app.services.widget.widget_session_service import WidgetSessionService
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.llm.base_llm_service import LLMMessage, LLMResponse
+from app.services.conversation.unified_conversation_service import UnifiedConversationService
+from app.services.conversation.schemas import Channel, ConversationContext
 
 
 logger = structlog.get_logger(__name__)
@@ -54,15 +57,18 @@ class WidgetMessageService:
         self,
         db: Optional[AsyncSession] = None,
         session_service: Optional[WidgetSessionService] = None,
+        unified_service: Optional[UnifiedConversationService] = None,
     ) -> None:
         """Initialize message service.
 
         Args:
             db: Optional database session for merchant config
             session_service: Optional session service instance
+            unified_service: Optional unified conversation service (Story 5-10)
         """
         self.db = db
         self.session_service = session_service or WidgetSessionService()
+        self.unified_service = unified_service
         self.logger = structlog.get_logger(__name__)
 
     @staticmethod
@@ -94,12 +100,13 @@ class WidgetMessageService:
             merchant: Merchant configuration
 
         Returns:
-            Dictionary with message_id, content, sender, created_at
+            Dictionary with message_id, content, sender, created_at,
+            and optionally products, cart, checkout_url (Story 5-10)
 
         Raises:
             APIError: If message processing fails
         """
-        # Validate message length BEFORE sanitization (so user gets error, not silent truncation)
+        # Validate message length BEFORE sanitization
         if len(message) > MAX_MESSAGE_LENGTH:
             raise APIError(
                 ErrorCode.WIDGET_MESSAGE_TOO_LONG,
@@ -122,92 +129,20 @@ class WidgetMessageService:
         )
 
         try:
-            # Get conversation history
-            history = await self.session_service.get_message_history(session.session_id)
+            # Story 5-10: Use UnifiedConversationService if db is available
+            if self.db is not None:
+                return await self._process_with_unified_service(
+                    session=session,
+                    message=sanitized_message,
+                    merchant=merchant,
+                )
 
-            # Build LLM messages
-            llm_messages = await self._build_llm_messages(
+            # Fallback to legacy implementation (no db session)
+            return await self._process_legacy(
+                session=session,
+                message=sanitized_message,
                 merchant=merchant,
-                history=history,
-                current_message=sanitized_message,
             )
-
-            # Get merchant's LLM configuration
-            provider_name = "ollama"
-            llm_config = {}
-
-            try:
-                if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                    llm_config_obj = merchant.llm_configuration
-                    provider_name = llm_config_obj.provider or "ollama"
-
-                    # Build config dict from LLMConfiguration model
-                    llm_config = {
-                        "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
-                    }
-
-                    if provider_name == "ollama":
-                        llm_config["ollama_url"] = llm_config_obj.ollama_url
-                    else:
-                        # Decrypt API key for cloud providers
-                        if llm_config_obj.api_key_encrypted:
-                            from app.core.security import decrypt_access_token
-
-                            llm_config["api_key"] = decrypt_access_token(
-                                llm_config_obj.api_key_encrypted
-                            )
-            except Exception:
-                pass
-
-            # Create LLM provider
-            llm_service = LLMProviderFactory.create_provider(
-                provider_name=provider_name,
-                config=llm_config,
-            )
-
-            # Generate response with timeout (AC2: P95 < 3 seconds)
-            try:
-                llm_response = await asyncio.wait_for(
-                    llm_service.chat(messages=llm_messages),
-                    timeout=RESPONSE_TIMEOUT_SECONDS,
-                )
-                response_text = llm_response.content
-            except asyncio.TimeoutError:
-                self.logger.warning(
-                    "widget_llm_timeout",
-                    session_id=session.session_id,
-                    merchant_id=merchant.id,
-                    timeout_seconds=RESPONSE_TIMEOUT_SECONDS,
-                )
-                raise APIError(
-                    ErrorCode.LLM_TIMEOUT,
-                    f"LLM response timed out after {RESPONSE_TIMEOUT_SECONDS} seconds",
-                )
-
-            # Add bot response to history
-            await self.session_service.add_message_to_history(
-                session.session_id,
-                "bot",
-                response_text,
-            )
-
-            # Refresh session to extend expiry
-            await self.session_service.refresh_session(session.session_id)
-
-            self.logger.info(
-                "widget_message_processed",
-                session_id=session.session_id,
-                merchant_id=merchant.id,
-                message_length=len(sanitized_message),
-                response_length=len(response_text),
-            )
-
-            return {
-                "message_id": str(uuid4()),
-                "content": response_text,
-                "sender": "bot",
-                "created_at": datetime.now(timezone.utc),
-            }
 
         except APIError:
             raise
@@ -224,6 +159,162 @@ class WidgetMessageService:
                 f"Failed to process message: {str(e)}",
             )
 
+    async def _process_with_unified_service(
+        self,
+        session: WidgetSessionData,
+        message: str,
+        merchant: Merchant,
+    ) -> dict:
+        """Process message using UnifiedConversationService (Story 5-10).
+
+        This provides intent routing, product search, cart, and checkout support.
+        """
+        unified_service = self.unified_service or UnifiedConversationService(db=self.db)
+
+        history = await self.session_service.get_message_history(session.session_id)
+
+        context = ConversationContext(
+            session_id=session.session_id,
+            merchant_id=merchant.id,
+            channel=Channel.WIDGET,
+            conversation_history=history,
+            platform_sender_id=None,
+            user_id=None,
+            is_returning_shopper=session.is_returning_shopper,
+        )
+
+        assert self.db is not None  # We only reach here if db is set
+        response = await unified_service.process_message(
+            db=self.db,
+            context=context,
+            message=message,
+        )
+
+        bot_message = response.message
+        await self.session_service.add_message_to_history(
+            session.session_id,
+            "bot",
+            bot_message,
+        )
+        await self.session_service.refresh_session(session.session_id)
+
+        self.logger.info(
+            "widget_message_processed_unified",
+            session_id=session.session_id,
+            merchant_id=merchant.id,
+            intent=response.intent,
+            confidence=response.confidence,
+            message_length=len(message),
+            response_length=len(bot_message),
+        )
+
+        result = {
+            "message_id": str(uuid4()),
+            "content": bot_message,
+            "sender": "bot",
+            "created_at": datetime.now(timezone.utc),
+        }
+
+        if response.products:
+            result["products"] = response.products
+        if response.cart:
+            result["cart"] = response.cart
+        if response.checkout_url:
+            result["checkout_url"] = response.checkout_url
+        if response.intent:
+            result["intent"] = response.intent
+        if response.confidence is not None:
+            result["confidence"] = response.confidence
+
+        return result
+
+    async def _process_legacy(
+        self,
+        session: WidgetSessionData,
+        message: str,
+        merchant: Merchant,
+    ) -> dict:
+        """Legacy message processing without db (fallback).
+
+        Used when no database session is available.
+        """
+        history = await self.session_service.get_message_history(session.session_id)
+
+        llm_messages = await self._build_llm_messages(
+            merchant=merchant,
+            history=history,
+            current_message=message,
+        )
+
+        provider_name = "ollama"
+        llm_config = {}
+
+        try:
+            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                llm_config_obj = merchant.llm_configuration
+                provider_name = llm_config_obj.provider or "ollama"
+
+                llm_config = {
+                    "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+                }
+
+                if provider_name == "ollama":
+                    llm_config["ollama_url"] = llm_config_obj.ollama_url
+                else:
+                    if llm_config_obj.api_key_encrypted:
+                        from app.core.security import decrypt_access_token
+
+                        llm_config["api_key"] = decrypt_access_token(
+                            llm_config_obj.api_key_encrypted
+                        )
+        except Exception:
+            pass
+
+        llm_service = LLMProviderFactory.create_provider(
+            provider_name=provider_name,
+            config=llm_config,
+        )
+
+        try:
+            llm_response = await asyncio.wait_for(
+                llm_service.chat(messages=llm_messages),
+                timeout=RESPONSE_TIMEOUT_SECONDS,
+            )
+            response_text = llm_response.content
+        except asyncio.TimeoutError:
+            self.logger.warning(
+                "widget_llm_timeout",
+                session_id=session.session_id,
+                merchant_id=merchant.id,
+                timeout_seconds=RESPONSE_TIMEOUT_SECONDS,
+            )
+            raise APIError(
+                ErrorCode.LLM_TIMEOUT,
+                f"LLM response timed out after {RESPONSE_TIMEOUT_SECONDS} seconds",
+            )
+
+        await self.session_service.add_message_to_history(
+            session.session_id,
+            "bot",
+            response_text,
+        )
+        await self.session_service.refresh_session(session.session_id)
+
+        self.logger.info(
+            "widget_message_processed",
+            session_id=session.session_id,
+            merchant_id=merchant.id,
+            message_length=len(message),
+            response_length=len(response_text),
+        )
+
+        return {
+            "message_id": str(uuid4()),
+            "content": response_text,
+            "sender": "bot",
+            "created_at": datetime.now(timezone.utc),
+        }
+
     async def _build_llm_messages(
         self,
         merchant: Merchant,
@@ -231,6 +322,9 @@ class WidgetMessageService:
         current_message: str,
     ) -> list[LLMMessage]:
         """Build LLM message list with context.
+
+        DEPRECATED: Use UnifiedConversationService with LLMHandler instead.
+        This method is kept for backward compatibility when no db session is available.
 
         Args:
             merchant: Merchant for system prompt
@@ -259,6 +353,9 @@ class WidgetMessageService:
 
     async def _get_system_prompt(self, merchant: Merchant) -> str:
         """Build system prompt for widget chat.
+
+        DEPRECATED: Use UnifiedConversationService with LLMHandler instead.
+        This method is kept for backward compatibility when no db session is available.
 
         Args:
             merchant: Merchant configuration

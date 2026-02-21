@@ -80,6 +80,8 @@ class WidgetConfig(BaseSchema):
 class WidgetSessionData(BaseSchema):
     """Widget session data stored in Redis.
 
+    Story 5-10 Enhancement: Added visitor_id and is_returning_shopper.
+
     Attributes:
         session_id: Unique session identifier (UUID)
         merchant_id: Associated merchant ID
@@ -88,6 +90,8 @@ class WidgetSessionData(BaseSchema):
         expires_at: Session expiry timestamp
         visitor_ip: Optional visitor IP for analytics
         user_agent: Optional user agent for analytics
+        visitor_id: Optional visitor identifier for returning shopper detection
+        is_returning_shopper: Whether this visitor has previous sessions
     """
 
     session_id: str
@@ -97,16 +101,24 @@ class WidgetSessionData(BaseSchema):
     expires_at: datetime
     visitor_ip: Optional[str] = None
     user_agent: Optional[str] = None
+    visitor_id: Optional[str] = None
+    is_returning_shopper: bool = False
 
 
 class CreateSessionRequest(BaseSchema):
     """Request to create a new widget session.
 
+    Story 5-10 Enhancement: Added visitor_id for returning shopper detection.
+
     Attributes:
         merchant_id: The merchant ID to create session for
+        visitor_id: Optional visitor identifier for returning shopper detection
     """
 
     merchant_id: int
+    visitor_id: Optional[str] = Field(
+        default=None, description="Visitor ID for returning shopper detection"
+    )
 
 
 class WidgetSessionResponse(BaseSchema):
@@ -188,17 +200,23 @@ class WidgetMessageEnvelope(MinimalEnvelope):
 class WidgetConfigResponse(BaseSchema):
     """Response for widget configuration.
 
+    Story 5-10 Enhancement: Added personality and business_hours for frontend context.
+
     Attributes:
         bot_name: Display name for the bot
         welcome_message: Initial greeting message
         theme: Visual theme configuration
         enabled: Whether widget is enabled
+        personality: Bot personality type (friendly, professional, enthusiastic)
+        business_hours: Business hours string for display (e.g., "Mon-Fri 9am-5pm")
     """
 
     bot_name: str
     welcome_message: str
     theme: WidgetTheme
     enabled: bool
+    personality: Optional[str] = Field(default=None, description="Bot personality type")
+    business_hours: Optional[str] = Field(default=None, description="Business hours for display")
 
 
 class WidgetConfigEnvelope(MinimalEnvelope):

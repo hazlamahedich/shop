@@ -154,6 +154,17 @@ jobs:
         working-directory: ./frontend
         run: npx playwright test --project=smoke-tests --grep="@smoke"
 
+      - name: Check for skipped tests
+        if: always()
+        working-directory: ./frontend
+        run: |
+          if [ -f "test-results/results.json" ]; then
+            SKIPS=$(cat test-results/results.json | jq '.stats.skipped // 0')
+            if [ "$SKIPS" -gt "0" ]; then
+              echo "::warning::$SKIPS tests were skipped - review test output"
+            fi
+          fi
+
       - name: Upload smoke test results
         if: always()
         uses: actions/upload-artifact@v4

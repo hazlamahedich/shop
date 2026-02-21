@@ -244,29 +244,35 @@ class TestWidgetMessageService:
         mock_merchant.bot_name = "Bot"
         mock_merchant.business_name = "Store"
         mock_merchant.business_description = None
+
+        # Mock LLMConfiguration with actual model interface
         mock_llm_config = MagicMock()
-        mock_llm_config.provider_name = "openai"
-        mock_llm_config.config = {"api_key": "test"}
+        mock_llm_config.provider = "openai"
+        mock_llm_config.cloud_model = "gpt-4"
+        mock_llm_config.ollama_model = None
+        mock_llm_config.ollama_url = None
+        mock_llm_config.api_key_encrypted = b"encrypted_key"
         mock_merchant.llm_configuration = mock_llm_config
 
         mock_redis.lrange.return_value = []
 
         with patch("app.services.widget.widget_message_service.LLMProviderFactory") as mock_factory:
-            mock_llm = AsyncMock()
-            mock_llm.chat.return_value = MagicMock(content="Response")
-            mock_factory.create_provider.return_value = mock_llm
+            with patch("app.core.security.decrypt_access_token", return_value="test_api_key"):
+                mock_llm = AsyncMock()
+                mock_llm.chat.return_value = MagicMock(content="Response")
+                mock_factory.create_provider.return_value = mock_llm
 
-            await message_service.process_message(
-                session=test_session,
-                message="Hello",
-                merchant=mock_merchant,
-            )
+                await message_service.process_message(
+                    session=test_session,
+                    message="Hello",
+                    merchant=mock_merchant,
+                )
 
-            # Verify factory was called with correct provider
-            mock_factory.create_provider.assert_called_once_with(
-                provider_name="openai",
-                config={"api_key": "test"},
-            )
+                # Verify factory was called with correct provider and config
+                mock_factory.create_provider.assert_called_once_with(
+                    provider_name="openai",
+                    config={"model": "gpt-4", "api_key": "test_api_key"},
+                )
 
     @pytest.mark.asyncio
     async def test_process_message_handles_llm_error(
@@ -286,3 +292,84 @@ class TestWidgetMessageService:
                 )
 
             assert exc_info.value.code == ErrorCode.LLM_PROVIDER_ERROR
+
+    @pytest.mark.asyncio
+    async def test_process_message_uses_unified_service_with_db(
+        self, mock_session_service, test_session, mock_redis
+    ):
+        """Test that process_message uses UnifiedConversationService when db is provided."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from app.services.conversation.schemas import ConversationResponse
+
+        # Create a mock db
+        mock_db = AsyncMock()
+
+        # Create a mock unified service
+        mock_unified = AsyncMock()
+        mock_unified.process_message.return_value = ConversationResponse(
+            message="Unified response",
+            intent="product_search",
+            confidence=0.9,
+            products=[{"id": 1, "title": "Product 1"}],
+        )
+
+        # Create service with db and unified_service
+        service = WidgetMessageService(
+            db=mock_db,
+            session_service=mock_session_service,
+            unified_service=mock_unified,
+        )
+
+        mock_merchant = MagicMock()
+        mock_merchant.id = 1
+        mock_merchant.llm_configuration = None
+
+        mock_redis.lrange.return_value = []
+
+        result = await service.process_message(
+            session=test_session,
+            message="Find products",
+            merchant=mock_merchant,
+        )
+
+        assert result["content"] == "Unified response"
+        assert result["intent"] == "product_search"
+        assert result["confidence"] == 0.9
+        assert result["products"] == [{"id": 1, "title": "Product 1"}]
+        mock_unified.process_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_process_message_unified_includes_cart(
+        self, mock_session_service, test_session, mock_redis
+    ):
+        """Test that unified service response includes cart data."""
+        from app.services.conversation.schemas import ConversationResponse
+
+        mock_db = AsyncMock()
+        mock_unified = AsyncMock()
+        mock_unified.process_message.return_value = ConversationResponse(
+            message="Your cart has 2 items",
+            intent="cart_view",
+            confidence=0.95,
+            cart={"item_count": 2, "total": "25.00"},
+        )
+
+        service = WidgetMessageService(
+            db=mock_db,
+            session_service=mock_session_service,
+            unified_service=mock_unified,
+        )
+
+        mock_merchant = MagicMock()
+        mock_merchant.id = 1
+        mock_merchant.llm_configuration = None
+
+        mock_redis.lrange.return_value = []
+
+        result = await service.process_message(
+            session=test_session,
+            message="Show my cart",
+            merchant=mock_merchant,
+        )
+
+        assert result["cart"] == {"item_count": 2, "total": "25.00"}

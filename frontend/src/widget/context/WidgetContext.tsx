@@ -1,5 +1,6 @@
 import * as React from 'react';
-import type { WidgetAction, WidgetState } from '../types/widget';
+import type { WidgetAction, WidgetState, WidgetProduct } from '../types/widget';
+import { createWidgetError } from '../types/errors';
 
 const initialState: WidgetState = {
   isOpen: false,
@@ -9,6 +10,7 @@ const initialState: WidgetState = {
   messages: [],
   config: null,
   error: null,
+  errors: [],
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -31,6 +33,17 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, error: action.payload };
     case 'CLEAR_ERROR':
       return { ...state, error: null };
+    case 'ADD_WIDGET_ERROR':
+      return { ...state, errors: [...state.errors, action.payload] };
+    case 'DISMISS_WIDGET_ERROR':
+      return { 
+        ...state, 
+        errors: state.errors.map((e) => 
+          e.id === action.payload ? { ...e, dismissed: true } : e
+        ) 
+      };
+    case 'CLEAR_WIDGET_ERRORS':
+      return { ...state, errors: [] };
     case 'RESET':
       return initialState;
     default:
@@ -46,6 +59,16 @@ interface WidgetContextValue {
   endSession: () => Promise<void>;
   initWidget: (merchantId: string) => Promise<void>;
   merchantId: string;
+  addToCart: (product: WidgetProduct) => Promise<void>;
+  removeFromCart: (variantId: string) => Promise<void>;
+  checkout: () => Promise<void>;
+  addingProductId: string | null;
+  removingItemId: string | null;
+  isCheckingOut: boolean;
+  addError: (error: unknown, context?: { action?: string; fallbackUrl?: string }) => void;
+  dismissError: (errorId: string) => void;
+  clearErrors: () => void;
+  retryLastAction: () => void;
 }
 
 const WidgetContext = React.createContext<WidgetContextValue | null>(null);
@@ -65,6 +88,30 @@ interface WidgetProviderProps {
 
 export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   const [state, dispatch] = React.useReducer(widgetReducer, initialState);
+  const [addingProductId, setAddingProductId] = React.useState<string | null>(null);
+  const [removingItemId, setRemovingItemId] = React.useState<string | null>(null);
+  const [isCheckingOut, setIsCheckingOut] = React.useState(false);
+  const lastActionRef = React.useRef<{ type: string; payload?: unknown } | null>(null);
+
+  const addError = React.useCallback(
+    (error: unknown, context?: { action?: string; fallbackUrl?: string }) => {
+      const widgetError = createWidgetError(error, context);
+      dispatch({ type: 'ADD_WIDGET_ERROR', payload: widgetError });
+      dispatch({ type: 'SET_ERROR', payload: widgetError.message });
+      console.error('[Widget Error]', widgetError);
+    },
+    []
+  );
+
+  const dismissError = React.useCallback((errorId: string) => {
+    dispatch({ type: 'DISMISS_WIDGET_ERROR', payload: errorId });
+  }, []);
+
+  const clearErrors = React.useCallback(() => {
+    dispatch({ type: 'CLEAR_WIDGET_ERRORS' });
+    dispatch({ type: 'CLEAR_ERROR' });
+  }, []);
+
   const { createSession, getSession, endSession: endWidgetSession } = React.useMemo(
     () => ({
       createSession: async () => {
@@ -84,6 +131,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   );
 
   const initWidget = React.useCallback(async () => {
+    lastActionRef.current = { type: 'initWidget' };
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
 
@@ -106,12 +154,11 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       dispatch({ type: 'SET_SESSION', payload: newSession });
       sessionStorage.setItem('widget_session_id', newSession.sessionId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to initialize widget';
-      dispatch({ type: 'SET_ERROR', payload: message });
+      addError(error, { action: 'Retry' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [merchantId, createSession, getSession]);
+  }, [merchantId, createSession, getSession, addError]);
 
   const toggleChat = React.useCallback(() => {
     dispatch({ type: 'SET_OPEN', payload: !state.isOpen });
@@ -121,6 +168,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     async (content: string) => {
       if (!state.session || !content.trim()) return;
 
+      lastActionRef.current = { type: 'sendMessage', payload: content };
+      
       const userMessage = {
         messageId: crypto.randomUUID(),
         content,
@@ -135,14 +184,104 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to send message';
-        dispatch({ type: 'SET_ERROR', payload: message });
+        addError(error, { action: 'Try Again' });
       } finally {
         dispatch({ type: 'SET_TYPING', payload: false });
       }
     },
-    [state.session]
+    [state.session, addError]
   );
+
+  const addToCart = React.useCallback(
+    async (product: WidgetProduct) => {
+      if (!state.session) return;
+
+      lastActionRef.current = { type: 'addToCart', payload: product };
+      setAddingProductId(product.id);
+      try {
+        const { widgetClient } = await import('../api/widgetClient');
+        await widgetClient.addToCart(state.session.sessionId, product.variantId, 1);
+
+        const confirmationMessage = {
+          messageId: crypto.randomUUID(),
+          content: `Added "${product.title}" to your cart!`,
+          sender: 'bot' as const,
+          createdAt: new Date().toISOString(),
+        };
+        dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
+      } catch (error) {
+        addError(error, { action: 'Try Again' });
+      } finally {
+        setAddingProductId(null);
+      }
+    },
+    [state.session, addError]
+  );
+
+  const removeFromCart = React.useCallback(
+    async (variantId: string) => {
+      if (!state.session) return;
+
+      setRemovingItemId(variantId);
+      try {
+        const { widgetClient } = await import('../api/widgetClient');
+        await widgetClient.removeFromCart(state.session.sessionId, variantId);
+      } catch (error) {
+        addError(error, { action: 'Try Again' });
+      } finally {
+        setRemovingItemId(null);
+      }
+    },
+    [state.session, addError]
+  );
+
+  const checkout = React.useCallback(async () => {
+    if (!state.session) return;
+
+    lastActionRef.current = { type: 'checkout' };
+    setIsCheckingOut(true);
+    try {
+      const { widgetClient } = await import('../api/widgetClient');
+      const result = await widgetClient.checkout(state.session.sessionId);
+
+      window.open(result.checkoutUrl, '_blank');
+
+      const confirmationMessage = {
+        messageId: crypto.randomUUID(),
+        content: result.message || 'Opening checkout in a new tab...',
+        sender: 'bot' as const,
+        createdAt: new Date().toISOString(),
+        checkoutUrl: result.checkoutUrl,
+      };
+      dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
+    } catch (error) {
+      addError(error, { 
+        action: 'Try Again',
+        fallbackUrl: 'https://volare-sun.myshopify.com/cart'
+      });
+    } finally {
+      setIsCheckingOut(false);
+    }
+  }, [state.session, addError]);
+
+  const retryLastAction = React.useCallback(() => {
+    if (!lastActionRef.current) return;
+    const { type, payload } = lastActionRef.current;
+    switch (type) {
+      case 'initWidget':
+        initWidget();
+        break;
+      case 'sendMessage':
+        if (typeof payload === 'string') sendMessage(payload);
+        break;
+      case 'addToCart':
+        if (payload) addToCart(payload as WidgetProduct);
+        break;
+      case 'checkout':
+        checkout();
+        break;
+    }
+  }, [initWidget, sendMessage, addToCart, checkout]);
 
   const endSession = React.useCallback(async () => {
     if (state.session) {
@@ -165,8 +304,35 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       endSession,
       initWidget,
       merchantId,
+      addToCart,
+      removeFromCart,
+      checkout,
+      addingProductId,
+      removingItemId,
+      isCheckingOut,
+      addError,
+      dismissError,
+      clearErrors,
+      retryLastAction,
     }),
-    [state, toggleChat, sendMessage, endSession, initWidget, merchantId]
+    [
+      state,
+      toggleChat,
+      sendMessage,
+      endSession,
+      initWidget,
+      merchantId,
+      addToCart,
+      removeFromCart,
+      checkout,
+      addingProductId,
+      removingItemId,
+      isCheckingOut,
+      addError,
+      dismissError,
+      clearErrors,
+      retryLastAction,
+    ]
   );
 
   return <WidgetContext.Provider value={value}>{children}</WidgetContext.Provider>;

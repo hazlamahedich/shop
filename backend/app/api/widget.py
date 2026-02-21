@@ -41,6 +41,20 @@ from app.schemas.widget import (
     WidgetConfig,
     create_meta,
 )
+from app.schemas.widget_search import (
+    WidgetSearchRequest,
+    WidgetSearchResult,
+    WidgetSearchEnvelope,
+    ProductSummary,
+    WidgetCartRequest,
+    WidgetCartUpdateRequest,
+    WidgetCartResponse,
+    WidgetCartEnvelope,
+    WidgetCartItem,
+    WidgetCheckoutRequest,
+    WidgetCheckoutResponse,
+    WidgetCheckoutEnvelope,
+)
 from app.models.merchant import Merchant
 from app.services.widget.widget_session_service import WidgetSessionService
 from app.services.widget.widget_message_service import WidgetMessageService
@@ -87,6 +101,24 @@ def _validate_domain_whitelist(request: Request, allowed_domains: list[str]) -> 
         if isinstance(e, APIError):
             raise
         logger.warning("widget_domain_parse_error", origin=origin, error=str(e))
+
+
+def _validate_session_id_format(session_id: str) -> None:
+    """Validate session ID format before processing.
+
+    Story 5-10 Task 14: Production safeguard - validate format early.
+
+    Args:
+        session_id: Widget session identifier
+
+    Raises:
+        APIError: If session ID format is invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
 
 
 def _check_rate_limit(request: Request) -> Optional[int]:
@@ -190,11 +222,15 @@ async def create_widget_session(
     client_ip = RateLimiter.get_widget_client_ip(request)
     user_agent = request.headers.get("User-Agent")
 
+    # Story 5-10 Enhancement: Pass visitor_id for returning shopper detection
+    visitor_id = getattr(session_request, "visitor_id", None)
+
     session_service = WidgetSessionService()
     session = await session_service.create_session(
         merchant_id=merchant.id,
         visitor_ip=client_ip,
         user_agent=user_agent,
+        visitor_id=visitor_id,
     )
 
     logger.info(
@@ -202,6 +238,7 @@ async def create_widget_session(
         merchant_id=merchant.id,
         session_id=session.session_id,
         client_ip=client_ip,
+        is_returning_shopper=session.is_returning_shopper,
     )
 
     return WidgetSessionEnvelope(
@@ -431,6 +468,17 @@ async def get_widget_config(
     # Override bot_name with merchant's bot_name if set
     bot_name = merchant.bot_name or widget_config.bot_name
 
+    # Story 5-10 Enhancement: Include personality and business_hours
+    personality = None
+    if hasattr(merchant, "personality") and merchant.personality:
+        personality = (
+            merchant.personality.value
+            if hasattr(merchant.personality, "value")
+            else str(merchant.personality)
+        )
+
+    business_hours = getattr(merchant, "business_hours", None)
+
     logger.info(
         "widget_config_retrieved",
         merchant_id=merchant_id,
@@ -442,6 +490,8 @@ async def get_widget_config(
             welcome_message=widget_config.welcome_message,
             theme=widget_config.theme,
             enabled=widget_config.enabled,
+            personality=personality,
+            business_hours=business_hours,
         ),
         meta=create_meta(),
     )
@@ -505,6 +555,573 @@ async def end_widget_session(
 
     return SuccessEnvelope(
         data=SuccessResponse(success=True),
+        meta=create_meta(),
+    )
+
+
+@router.post(
+    "/widget/search",
+    response_model=WidgetSearchEnvelope,
+    summary="Search products",
+    description="Search products via Shopify Admin API",
+)
+async def widget_search(
+    request: Request,
+    search_request: WidgetSearchRequest,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetSearchEnvelope:
+    """Search products for a widget session.
+
+    Uses Shopify Admin API to search products based on query.
+
+    Args:
+        request: FastAPI request
+        search_request: Search request with session_id and query
+        db: Database session
+
+    Returns:
+        WidgetSearchEnvelope with matching products
+
+    Raises:
+        APIError: If session invalid or search fails
+    """
+    import time
+
+    start_time = time.time()
+
+    if not is_valid_session_id(search_request.session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(search_request.session_id)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == session.merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant {session.merchant_id} not found",
+        )
+
+    widget_config = merchant.widget_config or {}
+    if not widget_config.get("enabled", True):
+        raise APIError(
+            ErrorCode.WIDGET_MERCHANT_DISABLED,
+            "Widget is disabled for this merchant",
+        )
+
+    try:
+        from app.services.shopify.product_service import fetch_products
+
+        products = await fetch_products(search_request.query, merchant.id, db)
+
+        product_summaries = [
+            ProductSummary(
+                product_id=str(p.get("id", "")),
+                variant_id=str(p.get("variants", [{}])[0].get("id", ""))
+                if p.get("variants")
+                else "",
+                title=p.get("title", ""),
+                price=float(p.get("price", 0) or 0),
+                currency=p.get("currency_code", "USD"),
+                image_url=p.get("image_url"),
+                available=p.get("available", True),
+                relevance_score=p.get("relevance_score"),
+            )
+            for p in products[:10]
+        ]
+
+        search_time_ms = (time.time() - start_time) * 1000
+
+        logger.info(
+            "widget_search_complete",
+            session_id=search_request.session_id,
+            merchant_id=merchant.id,
+            query=search_request.query,
+            result_count=len(product_summaries),
+            search_time_ms=search_time_ms,
+        )
+
+        return WidgetSearchEnvelope(
+            data=WidgetSearchResult(
+                products=product_summaries,
+                total_count=len(products),
+                search_time_ms=search_time_ms,
+                alternatives_available=len(products) > 10,
+            ),
+            meta=create_meta(),
+        )
+
+    except Exception as e:
+        logger.warning(
+            "widget_search_failed",
+            session_id=search_request.session_id,
+            merchant_id=merchant.id,
+            error=str(e),
+        )
+        return WidgetSearchEnvelope(
+            data=WidgetSearchResult(
+                products=[],
+                total_count=0,
+                search_time_ms=(time.time() - start_time) * 1000,
+                alternatives_available=False,
+            ),
+            meta=create_meta(),
+        )
+
+
+@router.get(
+    "/widget/cart",
+    response_model=WidgetCartEnvelope,
+    summary="Get cart",
+    description="Get cart contents for widget session",
+)
+async def get_widget_cart(
+    request: Request,
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetCartEnvelope:
+    """Get cart contents for a widget session.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+        db: Database session
+
+    Returns:
+        WidgetCartEnvelope with cart contents
+
+    Raises:
+        APIError: If session invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(session_id)
+
+    from app.services.cart.cart_service import CartService
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+    cart_service = CartService()
+    cart_key = CartKeyStrategy.for_widget(session_id)
+    cart = await cart_service.get_cart(cart_key)
+
+    cart_items = [
+        WidgetCartItem(
+            variant_id=item.variant_id,
+            title=item.title,
+            price=float(item.price) if item.price else 0.0,
+            quantity=item.quantity,
+        )
+        for item in cart.items
+    ]
+
+    logger.info(
+        "widget_cart_retrieved",
+        session_id=session_id,
+        merchant_id=session.merchant_id,
+        item_count=len(cart_items),
+    )
+
+    return WidgetCartEnvelope(
+        data=WidgetCartResponse(
+            items=cart_items,
+            subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
+            currency=cart.currency_code.value if cart.currency_code else "USD",
+            item_count=sum(item.quantity for item in cart.items),
+        ),
+        meta=create_meta(),
+    )
+
+
+@router.post(
+    "/widget/cart",
+    response_model=WidgetCartEnvelope,
+    summary="Add to cart",
+    description="Add item to widget cart",
+)
+async def add_to_widget_cart(
+    request: Request,
+    cart_request: WidgetCartRequest,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetCartEnvelope:
+    """Add item to cart for a widget session.
+
+    Args:
+        request: FastAPI request
+        cart_request: Cart request with session_id, variant_id, quantity
+        db: Database session
+
+    Returns:
+        WidgetCartEnvelope with updated cart
+
+    Raises:
+        APIError: If session invalid or add fails
+    """
+    if not is_valid_session_id(cart_request.session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(cart_request.session_id)
+
+    from app.services.cart.cart_service import CartService
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+    cart_service = CartService()
+    cart_key = CartKeyStrategy.for_widget(cart_request.session_id)
+
+    await cart_service.add_item(
+        psid=cart_key,
+        product_id=cart_request.variant_id,
+        variant_id=cart_request.variant_id,
+        title=f"Product {cart_request.variant_id}",
+        price=0.0,
+        image_url="",
+        quantity=cart_request.quantity,
+    )
+
+    cart = await cart_service.get_cart(cart_key)
+
+    cart_items = [
+        WidgetCartItem(
+            variant_id=item.variant_id,
+            title=item.title,
+            price=float(item.price) if item.price else 0.0,
+            quantity=item.quantity,
+        )
+        for item in cart.items
+    ]
+
+    logger.info(
+        "widget_cart_item_added",
+        session_id=cart_request.session_id,
+        merchant_id=session.merchant_id,
+        variant_id=cart_request.variant_id,
+        quantity=cart_request.quantity,
+    )
+
+    return WidgetCartEnvelope(
+        data=WidgetCartResponse(
+            items=cart_items,
+            subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
+            currency=cart.currency_code.value if cart.currency_code else "USD",
+            item_count=sum(item.quantity for item in cart.items),
+        ),
+        meta=create_meta(),
+    )
+
+
+@router.delete(
+    "/widget/cart/{variant_id}",
+    response_model=WidgetCartEnvelope,
+    summary="Remove from cart",
+    description="Remove item from widget cart",
+)
+async def remove_from_widget_cart(
+    request: Request,
+    variant_id: str,
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetCartEnvelope:
+    """Remove item from cart for a widget session.
+
+    Args:
+        request: FastAPI request
+        variant_id: Product variant ID to remove
+        session_id: Widget session identifier
+        db: Database session
+
+    Returns:
+        WidgetCartEnvelope with updated cart
+
+    Raises:
+        APIError: If session invalid or remove fails
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(session_id)
+
+    from app.services.cart.cart_service import CartService
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+    cart_service = CartService()
+    cart_key = CartKeyStrategy.for_widget(session_id)
+
+    await cart_service.remove_item(psid=cart_key, variant_id=variant_id)
+
+    cart = await cart_service.get_cart(cart_key)
+
+    cart_items = [
+        WidgetCartItem(
+            variant_id=item.variant_id,
+            title=item.title,
+            price=float(item.price) if item.price else 0.0,
+            quantity=item.quantity,
+        )
+        for item in cart.items
+    ]
+
+    logger.info(
+        "widget_cart_item_removed",
+        session_id=session_id,
+        merchant_id=session.merchant_id,
+        variant_id=variant_id,
+    )
+
+    return WidgetCartEnvelope(
+        data=WidgetCartResponse(
+            items=cart_items,
+            subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
+            currency=cart.currency_code.value if cart.currency_code else "USD",
+            item_count=sum(item.quantity for item in cart.items),
+        ),
+        meta=create_meta(),
+    )
+
+
+@router.patch(
+    "/widget/cart/{variant_id}",
+    response_model=WidgetCartEnvelope,
+    summary="Update cart item quantity",
+    description="Update quantity of an item in widget cart",
+)
+async def update_widget_cart_item(
+    request: Request,
+    variant_id: str,
+    update_request: WidgetCartUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetCartEnvelope:
+    """Update item quantity in cart for a widget session.
+
+    Args:
+        request: FastAPI request
+        variant_id: Product variant ID to update
+        update_request: Update request with session_id and quantity
+        db: Database session
+
+    Returns:
+        WidgetCartEnvelope with updated cart
+
+    Raises:
+        APIError: If session invalid or update fails
+    """
+    if not is_valid_session_id(update_request.session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(update_request.session_id)
+
+    from app.services.cart.cart_service import CartService
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+    cart_service = CartService()
+    cart_key = CartKeyStrategy.for_widget(update_request.session_id)
+
+    await cart_service.update_quantity(
+        psid=cart_key, variant_id=variant_id, quantity=update_request.quantity
+    )
+
+    cart = await cart_service.get_cart(cart_key)
+
+    cart_items = [
+        WidgetCartItem(
+            variant_id=item.variant_id,
+            title=item.title,
+            price=float(item.price) if item.price else 0.0,
+            quantity=item.quantity,
+        )
+        for item in cart.items
+    ]
+
+    logger.info(
+        "widget_cart_item_updated",
+        session_id=update_request.session_id,
+        merchant_id=session.merchant_id,
+        variant_id=variant_id,
+        quantity=update_request.quantity,
+    )
+
+    return WidgetCartEnvelope(
+        data=WidgetCartResponse(
+            items=cart_items,
+            subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
+            currency=cart.currency_code.value if cart.currency_code else "USD",
+            item_count=sum(item.quantity for item in cart.items),
+        ),
+        meta=create_meta(),
+    )
+
+
+@router.post(
+    "/widget/checkout",
+    response_model=WidgetCheckoutEnvelope,
+    summary="Generate checkout URL",
+    description="Generate Shopify checkout URL from cart",
+)
+async def widget_checkout(
+    request: Request,
+    checkout_request: WidgetCheckoutRequest,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetCheckoutEnvelope:
+    """Generate checkout URL for widget cart.
+
+    Args:
+        request: FastAPI request
+        checkout_request: Checkout request with session_id
+        db: Database session
+
+    Returns:
+        WidgetCheckoutEnvelope with checkout URL
+
+    Raises:
+        APIError: If session invalid, cart empty, or checkout fails
+    """
+    if not is_valid_session_id(checkout_request.session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(checkout_request.session_id)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == session.merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant {session.merchant_id} not found",
+        )
+
+    from app.services.cart.cart_service import CartService
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+    cart_service = CartService()
+    cart_key = CartKeyStrategy.for_widget(checkout_request.session_id)
+    cart = await cart_service.get_cart(cart_key)
+
+    if not cart.items:
+        raise APIError(
+            ErrorCode.WIDGET_CART_EMPTY,
+            "Cannot checkout with empty cart",
+        )
+
+    from sqlalchemy import select as sql_select
+    from app.models.shopify_integration import ShopifyIntegration
+
+    integration_result = await db.execute(
+        sql_select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant.id)
+    )
+    integration = integration_result.scalars().first()
+
+    if not integration or integration.status != "active":
+        raise APIError(
+            ErrorCode.WIDGET_NO_SHOPIFY,
+            "No active Shopify integration for this merchant",
+        )
+
+    shop_domain = integration.shop_domain
+    if not shop_domain:
+        raise APIError(
+            ErrorCode.WIDGET_NO_SHOPIFY,
+            "No shop domain configured",
+        )
+
+    variant_parts = []
+    for item in cart.items:
+        if item.variant_id:
+            variant_parts.append(f"{item.variant_id}:{item.quantity}")
+
+    if not variant_parts:
+        raise APIError(
+            ErrorCode.WIDGET_CART_EMPTY,
+            "No valid items in cart",
+        )
+
+    checkout_url = f"https://{shop_domain}/cart/" + ",".join(variant_parts)
+
+    logger.info(
+        "widget_checkout_generated",
+        session_id=checkout_request.session_id,
+        merchant_id=merchant.id,
+        item_count=len(cart.items),
+    )
+
+    return WidgetCheckoutEnvelope(
+        data=WidgetCheckoutResponse(
+            checkout_url=checkout_url,
+            cart_total=float(cart.subtotal) if cart.subtotal else 0.0,
+            currency=cart.currency_code.value if cart.currency_code else "USD",
+            item_count=sum(item.quantity for item in cart.items),
+        ),
         meta=create_meta(),
     )
 

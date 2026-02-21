@@ -18,7 +18,11 @@ from app.core.input_sanitizer import sanitize_llm_input
 from app.services.llm.base_llm_service import BaseLLMService, LLMMessage, LLMResponse
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.llm.llm_router import LLMRouter
-from app.services.intent.classification_schema import ClassificationResult, ExtractedEntities, IntentType
+from app.services.intent.classification_schema import (
+    ClassificationResult,
+    ExtractedEntities,
+    IntentType,
+)
 from app.services.intent.prompt_templates import get_classification_system_prompt
 
 
@@ -30,19 +34,29 @@ class IntentClassifier:
 
     Uses LLM to classify user intent and extract structured entities
     from natural language messages.
+
+    Supports merchant-specific LLM configuration via injected service.
     """
 
     # System prompt for classification
     SYSTEM_PROMPT = get_classification_system_prompt()
 
-    def __init__(self, llm_router: Optional[LLMRouter] = None) -> None:
-        """Initialize intent classifier with LLM router.
+    def __init__(
+        self,
+        llm_router: Optional[LLMRouter] = None,
+        llm_service: Optional[BaseLLMService] = None,
+    ) -> None:
+        """Initialize intent classifier with LLM support.
 
         Args:
             llm_router: LLM router for classification (uses default if not provided)
+            llm_service: Direct LLM service for merchant-specific config (preferred)
         """
-        if llm_router is None:
-            # Create default LLM router from settings
+        self.llm_service = llm_service
+        self.llm_router = llm_router
+        self.logger = structlog.get_logger(__name__)
+
+        if llm_service is None and llm_router is None:
             config = {
                 "primary_provider": settings()["LLM_PROVIDER"],
                 "primary_config": {
@@ -50,17 +64,88 @@ class IntentClassifier:
                     "api_base": settings()["LLM_API_BASE"],
                     "model": settings()["LLM_MODEL"],
                 },
-                "backup_provider": "openai" if settings()["LLM_PROVIDER"] != "openai" else "anthropic",
+                "backup_provider": "openai"
+                if settings()["LLM_PROVIDER"] != "openai"
+                else "anthropic",
                 "backup_config": {
-                    "api_key": settings()["OPENAI_API_KEY"] if settings()["LLM_PROVIDER"] != "openai" else settings()["ANTHROPIC_API_KEY"],
-                    "model": settings()["OPENAI_DEFAULT_MODEL"] if settings()["LLM_PROVIDER"] != "openai" else settings()["ANTHROPIC_DEFAULT_MODEL"],
+                    "api_key": settings()["OPENAI_API_KEY"]
+                    if settings()["LLM_PROVIDER"] != "openai"
+                    else settings()["ANTHROPIC_API_KEY"],
+                    "model": settings()["OPENAI_DEFAULT_MODEL"]
+                    if settings()["LLM_PROVIDER"] != "openai"
+                    else settings()["ANTHROPIC_DEFAULT_MODEL"],
                 },
             }
             self.llm_router = LLMRouter(config)
-        else:
-            self.llm_router = llm_router
 
-        self.logger = structlog.get_logger(__name__)
+    @classmethod
+    def with_external_llm(cls, llm_service: BaseLLMService) -> "IntentClassifier":
+        """Create classifier with an external LLM service.
+
+        Story 5-10 Code Review Fix (C2):
+        Proper factory method instead of __new__ hack.
+
+        Args:
+            llm_service: LLM service to use for classification
+
+        Returns:
+            IntentClassifier configured with the given LLM service
+        """
+        instance = cls.__new__(cls)
+        instance.llm_service = llm_service
+        instance.llm_router = None
+        instance.logger = structlog.get_logger(__name__)
+        return instance
+
+    @classmethod
+    def for_merchant(
+        cls,
+        merchant: Any,
+        db: Optional[Any] = None,
+    ) -> "IntentClassifier":
+        """Create classifier with merchant's LLM configuration.
+
+        Factory method that creates an IntentClassifier configured
+        with the merchant's specific LLM provider and settings.
+
+        Args:
+            merchant: Merchant model with llm_configuration attribute
+            db: Database session (unused, kept for future use)
+
+        Returns:
+            IntentClassifier with merchant's LLM config
+        """
+        llm_service = None
+
+        try:
+            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                llm_config = merchant.llm_configuration
+                provider_name = llm_config.provider or "ollama"
+
+                config = {
+                    "model": llm_config.ollama_model or llm_config.cloud_model,
+                }
+
+                if provider_name == "ollama":
+                    config["ollama_url"] = llm_config.ollama_url
+                else:
+                    if llm_config.api_key_encrypted:
+                        from app.core.security import decrypt_access_token
+
+                        config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
+
+                llm_service = LLMProviderFactory.create_provider(
+                    provider_name=provider_name,
+                    config=config,
+                )
+        except Exception as e:
+            logger.warning(
+                "intent_classifier_merchant_llm_failed",
+                merchant_id=getattr(merchant, "id", None),
+                error=str(e),
+            )
+
+        return cls(llm_service=llm_service)
 
     async def classify(
         self,
@@ -85,9 +170,7 @@ class IntentClassifier:
         sanitized_message = sanitize_llm_input(message, max_length=10000)
 
         # Build messages with conversation context if available
-        messages: list[LLMMessage] = [
-            LLMMessage(role="system", content=self.SYSTEM_PROMPT)
-        ]
+        messages: list[LLMMessage] = [LLMMessage(role="system", content=self.SYSTEM_PROMPT)]
 
         # Add conversation context if available (for clarification scenarios)
         if conversation_context:
@@ -99,17 +182,25 @@ class IntentClassifier:
                 )
             )
         else:
-            messages.append(
-                LLMMessage(role="user", content=sanitized_message)
-            )
+            messages.append(LLMMessage(role="user", content=sanitized_message))
 
         try:
             # Call LLM with low temperature for consistent classification
-            response = await self.llm_router.chat(
-                messages=messages,
-                temperature=0.3,  # Low temperature for consistent classification
-                max_tokens=500,
-            )
+            # Prefer injected service, fall back to router
+            if self.llm_service:
+                response = await self.llm_service.chat(
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=500,
+                )
+            elif self.llm_router:
+                response = await self.llm_router.chat(
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=500,
+                )
+            else:
+                raise ValueError("No LLM service or router configured")
 
             # Parse LLM response
             result = self._parse_classification_response(

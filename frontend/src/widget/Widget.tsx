@@ -7,7 +7,6 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import type { WidgetTheme } from './types/widget';
 import { createShadowContainer, injectStyles, injectTheme } from './utils/shadowDom';
 import { mergeThemes } from './utils/themeMerge';
-// @ts-expect-error Vite raw import
 import widgetCss from './styles/widget.css?raw';
 
 const ChatWindow = React.lazy(() => import('./components/ChatWindow'));
@@ -17,7 +16,21 @@ interface WidgetInnerProps {
 }
 
 function WidgetInner({ theme }: WidgetInnerProps) {
-  const { state, toggleChat, initWidget, sendMessage, merchantId } = useWidgetContext();
+  const {
+    state,
+    toggleChat,
+    initWidget,
+    sendMessage,
+    merchantId,
+    addToCart,
+    removeFromCart,
+    checkout,
+    addingProductId,
+    removingItemId,
+    isCheckingOut,
+    dismissError,
+    retryLastAction,
+  } = useWidgetContext();
   const merchantTheme = state.config?.theme;
   const mergedTheme = React.useMemo(
     () => mergeThemes(merchantTheme, theme),
@@ -81,6 +94,15 @@ function WidgetInner({ theme }: WidgetInnerProps) {
               isTyping={state.isTyping}
               onSendMessage={sendMessage}
               error={state.error}
+              errors={state.errors}
+              onDismissError={dismissError}
+              onRetryError={retryLastAction}
+              onAddToCart={addToCart}
+              onRemoveFromCart={removeFromCart}
+              onCheckout={checkout}
+              addingProductId={addingProductId}
+              removingItemId={removingItemId}
+              isCheckingOut={isCheckingOut}
             />
           </React.Suspense>
         </WidgetErrorBoundary>

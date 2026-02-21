@@ -1,9 +1,11 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct } from '../types/widget';
+import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { TypingIndicator } from './TypingIndicator';
+import { ErrorToast } from './ErrorToast';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -14,6 +16,15 @@ export interface ChatWindowProps {
   isTyping: boolean;
   onSendMessage: (content: string) => Promise<void>;
   error: string | null;
+  errors?: WidgetError[];
+  onDismissError?: (errorId: string) => void;
+  onRetryError?: (errorId: string) => void;
+  onAddToCart?: (product: WidgetProduct) => void;
+  onRemoveFromCart?: (variantId: string) => void;
+  onCheckout?: () => void;
+  addingProductId?: string | null;
+  removingItemId?: string | null;
+  isCheckingOut?: boolean;
 }
 
 function ChatWindow({
@@ -25,6 +36,15 @@ function ChatWindow({
   isTyping,
   onSendMessage,
   error,
+  errors = [],
+  onDismissError,
+  onRetryError,
+  onAddToCart,
+  onRemoveFromCart,
+  onCheckout,
+  addingProductId,
+  removingItemId,
+  isCheckingOut,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -135,6 +155,12 @@ function ChatWindow({
           welcomeMessage={config?.welcomeMessage}
           theme={theme}
           isLoading={isTyping}
+          onAddToCart={onAddToCart}
+          onRemoveFromCart={onRemoveFromCart}
+          onCheckout={onCheckout}
+          addingProductId={addingProductId}
+          removingItemId={removingItemId}
+          isCheckingOut={isCheckingOut}
         />
 
         {isTyping && (
@@ -145,18 +171,46 @@ function ChatWindow({
           />
         )}
 
-        {error && (
+        {(errors.length > 0 || error) && (
           <div
-            className="chat-error"
-            role="alert"
+            className="chat-errors"
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#fee2e2',
-              color: '#dc2626',
-              fontSize: 12,
+              padding: '8px',
+              maxHeight: '150px',
+              overflowY: 'auto',
             }}
           >
-            {error}
+            {errors.filter((e) => !e.dismissed).map((widgetError) => (
+              <ErrorToast
+                key={widgetError.id}
+                error={widgetError}
+                onDismiss={onDismissError || (() => {})}
+                onRetry={onRetryError}
+                autoDismiss={true}
+                autoDismissDelay={10000}
+                showProgress={true}
+              />
+            ))}
+            {error && errors.filter((e) => !e.dismissed).length === 0 && (
+              <div
+                className="chat-error"
+                role="alert"
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#fee2e2',
+                  color: '#dc2626',
+                  fontSize: '13px',
+                  borderRadius: '8px',
+                  borderLeft: '4px solid #dc2626',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                }}
+              >
+                <span aria-hidden="true">❌</span>
+                <span>{error}</span>
+              </div>
+            )}
           </div>
         )}
 

@@ -20,6 +20,7 @@ from app.models.session import Session
 from app.models.budget_alert import BudgetAlert
 from app.models.handoff_alert import HandoffAlert
 from app.models.order import Order, OrderStatus
+from app.models.consent import Consent, ConsentType
 
 __all__ = [
     "Merchant",
@@ -41,4 +42,6 @@ __all__ = [
     "HandoffAlert",
     "Order",
     "OrderStatus",
+    "Consent",
+    "ConsentType",
 ]

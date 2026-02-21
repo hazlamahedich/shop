@@ -147,6 +147,7 @@ class OrderTrackingService:
                 select(Order)
                 .where(Order.merchant_id == merchant_id)
                 .where(Order.platform_sender_id == platform_sender_id)
+                .where(Order.is_test == False)
                 .order_by(Order.created_at.desc())
                 .limit(1)
             )

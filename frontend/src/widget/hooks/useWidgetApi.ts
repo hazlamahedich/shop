@@ -1,5 +1,11 @@
 import { useCallback } from 'react';
-import type { WidgetConfig, WidgetMessage } from '../types/widget';
+import type {
+  WidgetCart,
+  WidgetCheckoutResult,
+  WidgetConfig,
+  WidgetMessage,
+  WidgetSearchResult,
+} from '../types/widget';
 import { widgetClient, WidgetApiException } from '../api/widgetClient';
 
 export function useWidgetApi() {
@@ -21,9 +27,46 @@ export function useWidgetApi() {
     }
   }, []);
 
+  const searchProducts = useCallback(
+    async (sessionId: string, query: string): Promise<WidgetSearchResult> => {
+      return widgetClient.searchProducts(sessionId, query);
+    },
+    []
+  );
+
+  const getCart = useCallback(async (sessionId: string): Promise<WidgetCart> => {
+    return widgetClient.getCart(sessionId);
+  }, []);
+
+  const addToCart = useCallback(
+    async (sessionId: string, variantId: string, quantity: number = 1): Promise<WidgetCart> => {
+      return widgetClient.addToCart(sessionId, variantId, quantity);
+    },
+    []
+  );
+
+  const removeFromCart = useCallback(
+    async (sessionId: string, variantId: string): Promise<WidgetCart> => {
+      return widgetClient.removeFromCart(sessionId, variantId);
+    },
+    []
+  );
+
+  const checkout = useCallback(
+    async (sessionId: string): Promise<WidgetCheckoutResult> => {
+      return widgetClient.checkout(sessionId);
+    },
+    []
+  );
+
   return {
     sendMessage,
     getConfig,
+    searchProducts,
+    getCart,
+    addToCart,
+    removeFromCart,
+    checkout,
   };
 }
 

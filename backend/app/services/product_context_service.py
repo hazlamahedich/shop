@@ -220,13 +220,16 @@ async def get_order_context(
     }
 
     try:
-        count_result = await db.execute(select(Order).where(Order.merchant_id == merchant_id))
+        count_result = await db.execute(
+            select(Order).where(Order.merchant_id == merchant_id).where(Order.is_test == False)
+        )
         all_orders = count_result.scalars().all()
         context["total_orders"] = len(all_orders)
 
         recent_result = await db.execute(
             select(Order)
             .where(Order.merchant_id == merchant_id)
+            .where(Order.is_test == False)
             .order_by(Order.created_at.desc())
             .limit(max_orders)
         )

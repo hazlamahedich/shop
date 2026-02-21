@@ -1,7 +1,18 @@
-import type { WidgetApiError, WidgetConfig, WidgetMessage, WidgetSession } from '../types/widget';
+import type {
+  WidgetApiError,
+  WidgetCart,
+  WidgetCheckoutResult,
+  WidgetConfig,
+  WidgetMessage,
+  WidgetSearchResult,
+  WidgetSession,
+} from '../types/widget';
 import {
+  WidgetCartSchema,
+  WidgetCheckoutResultSchema,
   WidgetConfigSchema,
   WidgetMessageSchema,
+  WidgetSearchResultSchema,
   WidgetSessionSchema,
 } from '../schemas/widget';
 
@@ -118,6 +129,33 @@ export class WidgetApiClient {
       content: parsed.data.content,
       sender: parsed.data.sender,
       createdAt: parsed.data.created_at,
+      products: parsed.data.products?.map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        variantId: p.variant_id as string,
+        title: p.title as string,
+        description: p.description as string | undefined,
+        price: p.price as number,
+        imageUrl: p.image_url as string | undefined,
+        available: p.available as boolean,
+        productType: p.product_type as string | undefined,
+      })),
+      cart: parsed.data.cart
+        ? {
+            items: ((parsed.data.cart as Record<string, unknown>).items as Record<string, unknown>[]).map(
+              (item: Record<string, unknown>) => ({
+                variantId: item.variant_id as string,
+                title: item.title as string,
+                price: item.price as number,
+                quantity: item.quantity as number,
+              })
+            ),
+            itemCount: (parsed.data.cart as Record<string, unknown>).item_count as number,
+            total: (parsed.data.cart as Record<string, unknown>).total as number,
+          }
+        : undefined,
+      checkoutUrl: parsed.data.checkout_url,
+      intent: parsed.data.intent,
+      confidence: parsed.data.confidence,
     };
   }
 
@@ -133,6 +171,134 @@ export class WidgetApiClient {
       welcomeMessage: parsed.data.welcomeMessage,
       theme: parsed.data.theme,
       allowedDomains: parsed.data.allowedDomains,
+    };
+  }
+
+  async searchProducts(sessionId: string, query: string): Promise<WidgetSearchResult> {
+    const data = await this.request<{ data: unknown }>('/search', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, query }),
+    });
+    const parsed = WidgetSearchResultSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid search response');
+    }
+    return {
+      products: parsed.data.products.map((p) => ({
+        id: p.id,
+        variantId: p.variant_id,
+        title: p.title,
+        description: p.description,
+        price: p.price,
+        imageUrl: p.image_url,
+        available: p.available,
+        productType: p.product_type,
+      })),
+      total: parsed.data.total,
+      query: parsed.data.query,
+    };
+  }
+
+  async getCart(sessionId: string): Promise<WidgetCart> {
+    const data = await this.request<{ data: unknown }>(`/cart?session_id=${sessionId}`);
+    const parsed = WidgetCartSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid cart response');
+    }
+    return {
+      items: parsed.data.items.map((item) => ({
+        variantId: item.variant_id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      itemCount: parsed.data.item_count,
+      total: parsed.data.total,
+    };
+  }
+
+  async addToCart(
+    sessionId: string,
+    variantId: string,
+    quantity: number = 1
+  ): Promise<WidgetCart> {
+    const data = await this.request<{ data: unknown }>('/cart', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, variant_id: variantId, quantity }),
+    });
+    const parsed = WidgetCartSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid cart response');
+    }
+    return {
+      items: parsed.data.items.map((item) => ({
+        variantId: item.variant_id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      itemCount: parsed.data.item_count,
+      total: parsed.data.total,
+    };
+  }
+
+  async removeFromCart(sessionId: string, variantId: string): Promise<WidgetCart> {
+    const data = await this.request<{ data: unknown }>(`/cart/${variantId}?session_id=${sessionId}`, {
+      method: 'DELETE',
+    });
+    const parsed = WidgetCartSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid cart response');
+    }
+    return {
+      items: parsed.data.items.map((item) => ({
+        variantId: item.variant_id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      itemCount: parsed.data.item_count,
+      total: parsed.data.total,
+    };
+  }
+
+  async updateQuantity(
+    sessionId: string,
+    variantId: string,
+    quantity: number
+  ): Promise<WidgetCart> {
+    const data = await this.request<{ data: unknown }>(`/cart/${variantId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ session_id: sessionId, quantity }),
+    });
+    const parsed = WidgetCartSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid cart response');
+    }
+    return {
+      items: parsed.data.items.map((item) => ({
+        variantId: item.variant_id,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      itemCount: parsed.data.item_count,
+      total: parsed.data.total,
+    };
+  }
+
+  async checkout(sessionId: string): Promise<WidgetCheckoutResult> {
+    const data = await this.request<{ data: unknown }>('/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const parsed = WidgetCheckoutResultSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid checkout response');
+    }
+    return {
+      checkoutUrl: parsed.data.checkout_url,
+      message: parsed.data.message,
     };
   }
 }

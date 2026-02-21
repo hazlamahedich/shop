@@ -368,6 +368,7 @@ async def upsert_order(
             order_number=order_number,
             merchant_id=merchant_id,
             platform_sender_id=platform_sender_id or "unknown",
+            is_test=platform_sender_id is None or platform_sender_id == "unknown",
             status=order_data.get("status", OrderStatus.PENDING.value),
             items=order_data.get("items"),
             subtotal=order_data.get("subtotal", Decimal("0")),

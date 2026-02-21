@@ -1,0 +1,156 @@
+"""LLM handler for unified conversation processing.
+
+Story 5-10: Widget Full App Integration
+Task 1: Create UnifiedConversationService
+
+Handles GENERAL and UNKNOWN intents with LLM-powered responses.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.merchant import Merchant, PersonalityType
+from app.services.conversation.schemas import (
+    ConversationContext,
+    ConversationResponse,
+)
+from app.services.conversation.handlers.base_handler import BaseHandler
+from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
+from app.services.personality.personality_prompts import get_personality_system_prompt
+
+
+logger = structlog.get_logger(__name__)
+
+
+class LLMHandler(BaseHandler):
+    """Handler for GENERAL and UNKNOWN intents.
+
+    Generates responses using LLM with merchant's personality
+    and business context.
+    """
+
+    async def handle(
+        self,
+        db: AsyncSession,
+        merchant: Merchant,
+        llm_service: BaseLLMService,
+        message: str,
+        context: ConversationContext,
+        entities: Optional[dict[str, Any]] = None,
+    ) -> ConversationResponse:
+        """Handle general/unknown intent with LLM.
+
+        Args:
+            db: Database session
+            merchant: Merchant configuration
+            llm_service: LLM service for this merchant
+            message: User's message
+            context: Conversation context
+            entities: Extracted entities (not used for general)
+
+        Returns:
+            ConversationResponse with LLM-generated message
+        """
+        bot_name = merchant.bot_name or "Shopping Assistant"
+        business_name = merchant.business_name or "our store"
+        personality_type: PersonalityType = merchant.personality or PersonalityType.FRIENDLY
+
+        system_prompt = await self._build_system_prompt(
+            db=db,
+            merchant=merchant,
+            bot_name=bot_name,
+            business_name=business_name,
+            personality_type=personality_type,
+        )
+
+        messages = [LLMMessage(role="system", content=system_prompt)]
+
+        for msg in context.conversation_history[-5:]:
+            role = "user" if msg.get("role") == "user" else "assistant"
+            messages.append(LLMMessage(role=role, content=msg.get("content", "")))
+
+        messages.append(LLMMessage(role="user", content=message))
+
+        try:
+            response = await llm_service.chat(messages=messages, temperature=0.7)
+            response_text = response.content
+        except Exception as e:
+            logger.warning(
+                "llm_handler_fallback",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+            response_text = (
+                f"I'm here to help you shop at {business_name}! "
+                "You can ask me about products, check your cart, or place an order."
+            )
+
+        return ConversationResponse(
+            message=response_text,
+            intent="general",
+            confidence=1.0,
+            metadata={"bot_name": bot_name, "business_name": business_name},
+        )
+
+    async def _build_system_prompt(
+        self,
+        db: AsyncSession,
+        merchant: Merchant,
+        bot_name: str,
+        business_name: str,
+        personality_type: PersonalityType,
+    ) -> str:
+        """Build system prompt with personality and context.
+
+        Story 5-10: Fixed positional args bug - now passes all parameters correctly.
+        Includes business_hours, custom_greeting, business_description, and product context.
+
+        Args:
+            db: Database session
+            merchant: Merchant configuration
+            bot_name: Bot's name
+            business_name: Business name
+            personality_type: Personality type
+
+        Returns:
+            Complete system prompt
+        """
+        custom_greeting = getattr(merchant, "custom_greeting", None)
+        business_description = getattr(merchant, "business_description", None)
+        business_hours = getattr(merchant, "business_hours", None)
+
+        product_context = ""
+        order_context = ""
+
+        if db:
+            try:
+                from app.services.product_context_service import (
+                    get_product_context_prompt_section,
+                    get_order_context_prompt_section,
+                )
+
+                product_context = await get_product_context_prompt_section(db, merchant.id)
+                order_context = await get_order_context_prompt_section(db, merchant.id)
+            except Exception as e:
+                logger.warning(
+                    "llm_handler_context_failed",
+                    merchant_id=merchant.id,
+                    error=str(e),
+                )
+
+        personality_prompt = get_personality_system_prompt(
+            personality_type,
+            custom_greeting,
+            business_name,
+            business_description,
+            business_hours,
+            bot_name,
+            product_context,
+            order_context,
+        )
+
+        return personality_prompt

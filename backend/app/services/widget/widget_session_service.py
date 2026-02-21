@@ -4,6 +4,7 @@ Provides session lifecycle management with Redis-based storage,
 TTL-based expiry, and activity tracking.
 
 Story 5.1: Backend Widget API
+Story 5-10 Enhancement: Added returning shopper detection
 """
 
 from __future__ import annotations
@@ -32,15 +33,19 @@ class WidgetSessionService:
     - Track session activity for expiry refresh
     - Support anonymous sessions (no auth required)
     - Isolate sessions per merchant
+    - Detect returning shoppers via visitor_id (Story 5-10)
 
     Redis Keys:
     - widget:session:{session_id} - Session data (1 hour TTL)
     - widget:messages:{session_id} - Message history (1 hour TTL, max 10)
+    - widget:visitor:{merchant_id}:{visitor_id} - Visitor session list (30 days TTL)
     """
 
     SESSION_TTL_SECONDS = 3600
+    VISITOR_TTL_SECONDS = 2592000  # 30 days
     KEY_PREFIX = "widget:session"
     MESSAGES_KEY_PREFIX = "widget:messages"
+    VISITOR_KEY_PREFIX = "widget:visitor"
     MAX_MESSAGE_HISTORY = 10
 
     def __init__(
@@ -83,24 +88,78 @@ class WidgetSessionService:
         """
         return f"{self.MESSAGES_KEY_PREFIX}:{session_id}"
 
+    def _get_visitor_key(self, merchant_id: int, visitor_id: str) -> str:
+        """Generate Redis key for visitor tracking.
+
+        Story 5-10 Enhancement: For returning shopper detection.
+
+        Args:
+            merchant_id: Merchant ID
+            visitor_id: Visitor identifier
+
+        Returns:
+            Redis key string
+        """
+        return f"{self.VISITOR_KEY_PREFIX}:{merchant_id}:{visitor_id}"
+
+    async def _check_returning_shopper(
+        self,
+        merchant_id: int,
+        visitor_id: Optional[str],
+    ) -> tuple[Optional[str], bool]:
+        """Check if visitor is a returning shopper.
+
+        Story 5-10 Enhancement: Detects returning visitors via visitor_id.
+
+        Args:
+            merchant_id: Merchant ID
+            visitor_id: Optional visitor identifier from frontend
+
+        Returns:
+            Tuple of (visitor_id to use, is_returning_shopper)
+        """
+        if not visitor_id:
+            return None, False
+
+        visitor_key = self._get_visitor_key(merchant_id, visitor_id)
+        session_count = await self.redis.get(visitor_key)
+
+        if session_count:
+            count = int(session_count)
+            await self.redis.incr(visitor_key)
+            await self.redis.expire(visitor_key, self.VISITOR_TTL_SECONDS)
+            return visitor_id, count > 0
+
+        await self.redis.setex(visitor_key, self.VISITOR_TTL_SECONDS, "1")
+        return visitor_id, False
+
     async def create_session(
         self,
         merchant_id: int,
         visitor_ip: Optional[str] = None,
         user_agent: Optional[str] = None,
+        visitor_id: Optional[str] = None,
     ) -> WidgetSessionData:
         """Create a new anonymous widget session.
+
+        Story 5-10 Enhancement: Added visitor_id for returning shopper detection.
 
         Args:
             merchant_id: The merchant ID for this session
             visitor_ip: Optional visitor IP for analytics
             user_agent: Optional user agent for analytics
+            visitor_id: Optional visitor identifier for returning shopper detection
 
         Returns:
             WidgetSessionData with session details
         """
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(seconds=self.SESSION_TTL_SECONDS)
+
+        # Check for returning shopper (Story 5-10)
+        resolved_visitor_id, is_returning = await self._check_returning_shopper(
+            merchant_id, visitor_id
+        )
 
         session = WidgetSessionData(
             session_id=str(uuid4()),
@@ -110,6 +169,8 @@ class WidgetSessionService:
             expires_at=expires_at,
             visitor_ip=visitor_ip,
             user_agent=user_agent,
+            visitor_id=resolved_visitor_id,
+            is_returning_shopper=is_returning,
         )
 
         key = self._get_session_key(session.session_id)
@@ -123,6 +184,7 @@ class WidgetSessionService:
             "widget_session_created",
             session_id=session.session_id,
             merchant_id=merchant_id,
+            is_returning_shopper=is_returning,
         )
 
         return session

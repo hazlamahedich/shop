@@ -115,6 +115,18 @@ export default defineConfig({
       fullyParallel: true,
     },
 
+    // ===== CONTRACT TESTS =====
+    // Schema validation against real API
+    {
+      name: 'contract',
+      testDir: './tests/contract',
+      testMatch: /.*\.spec\.ts/,
+      use: {
+        // Contract tests use { request } fixture, no browser context needed
+      },
+      fullyParallel: true,
+    },
+
     // ===== COMPONENT TESTS =====
     // Isolated component testing with browser
     {

@@ -214,14 +214,14 @@ async def test_markdown_code_block_extraction():
         mock_router = AsyncMock()
         mock_response = AsyncMock()
         # LLM wrapped JSON in markdown code blocks
-        mock_response.content = '''```json
+        mock_response.content = """```json
 {
     "intent": "product_search",
     "confidence": 0.92,
     "entities": {"category": "shoes"},
     "reasoning": "Clear product search"
 }
-```'''
+```"""
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -232,3 +232,169 @@ async def test_markdown_code_block_extraction():
         assert result.intent == IntentType.PRODUCT_SEARCH
         assert result.confidence == 0.92
         assert result.entities.category == "shoes"
+
+
+class TestMerchantLLMSupport:
+    """Tests for merchant-specific LLM configuration.
+
+    Story 5-10: Widget Full App Integration
+    Task 2: Fix IntentClassifier Merchant LLM Support
+    """
+
+    @pytest.mark.asyncio
+    async def test_classifier_accepts_injected_llm_service(self):
+        """Test that classifier can accept an injected LLM service."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_llm = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = '{"intent": "greeting", "confidence": 0.95, "entities": {}, "reasoning": "Greeting detected"}'
+        mock_response.provider = "injected"
+        mock_response.model = "custom-model"
+        mock_llm.chat.return_value = mock_response
+
+        classifier = IntentClassifier(llm_service=mock_llm)
+        result = await classifier.classify("Hello")
+
+        assert result.intent == IntentType.GREETING
+        assert result.llm_provider == "injected"
+        mock_llm.chat.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_injected_service_takes_precedence_over_router(self):
+        """Test that injected service is used instead of router when both provided."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_llm = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = '{"intent": "greeting", "confidence": 0.95, "entities": {}, "reasoning": "From service"}'
+        mock_response.provider = "service"
+        mock_response.model = "service-model"
+        mock_llm.chat.return_value = mock_response
+
+        mock_router = AsyncMock()
+        mock_router.chat.return_value = MagicMock(
+            content='{"intent": "unknown"}',
+            provider="router",
+            model="router-model",
+        )
+
+        classifier = IntentClassifier(llm_service=mock_llm, llm_router=mock_router)
+        result = await classifier.classify("Hello")
+
+        assert result.llm_provider == "service"
+        mock_llm.chat.assert_called_once()
+        mock_router.chat.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_for_merchant_factory_method(self):
+        """Test that for_merchant creates classifier with merchant's LLM config."""
+        from unittest.mock import MagicMock, patch
+
+        mock_merchant = MagicMock()
+        mock_merchant.id = 1
+        mock_llm_config = MagicMock()
+        mock_llm_config.provider = "ollama"
+        mock_llm_config.ollama_model = "llama3.2"
+        mock_llm_config.ollama_url = "http://localhost:11434"
+        mock_merchant.llm_configuration = mock_llm_config
+
+        with patch(
+            "app.services.intent.intent_classifier.LLMProviderFactory.create_provider"
+        ) as mock_factory:
+            mock_service = MagicMock()
+            mock_factory.return_value = mock_service
+
+            classifier = IntentClassifier.for_merchant(mock_merchant)
+
+            assert classifier.llm_service == mock_service
+            mock_factory.assert_called_once_with(
+                provider_name="ollama",
+                config={"model": "llama3.2", "ollama_url": "http://localhost:11434"},
+            )
+
+    @pytest.mark.asyncio
+    async def test_for_merchant_handles_missing_config(self):
+        """Test that for_merchant handles merchant without LLM config."""
+        from unittest.mock import MagicMock
+
+        mock_merchant = MagicMock()
+        mock_merchant.id = 1
+        mock_merchant.llm_configuration = None
+
+        classifier = IntentClassifier.for_merchant(mock_merchant)
+
+        assert classifier.llm_service is None
+
+    @pytest.mark.asyncio
+    async def test_for_merchant_with_cloud_provider(self):
+        """Test that for_merchant handles cloud providers with encrypted API key."""
+        from unittest.mock import MagicMock, patch
+
+        mock_merchant = MagicMock()
+        mock_merchant.id = 1
+        mock_llm_config = MagicMock()
+        mock_llm_config.provider = "openai"
+        mock_llm_config.ollama_model = None
+        mock_llm_config.cloud_model = "gpt-4"
+        mock_llm_config.api_key_encrypted = "encrypted_key_data"
+        mock_merchant.llm_configuration = mock_llm_config
+
+        with (
+            patch(
+                "app.services.intent.intent_classifier.LLMProviderFactory.create_provider"
+            ) as mock_factory,
+            patch("app.core.security.decrypt_access_token") as mock_decrypt,
+        ):
+            mock_service = MagicMock()
+            mock_factory.return_value = mock_service
+            mock_decrypt.return_value = "decrypted_api_key"
+
+            classifier = IntentClassifier.for_merchant(mock_merchant)
+
+            mock_decrypt.assert_called_once_with("encrypted_key_data")
+            mock_factory.assert_called_once_with(
+                provider_name="openai",
+                config={"model": "gpt-4", "api_key": "decrypted_api_key"},
+            )
+
+    @pytest.mark.asyncio
+    async def test_no_service_or_router_raises_error(self):
+        """Test that classification fails gracefully without service or router."""
+        from unittest.mock import MagicMock
+
+        classifier = IntentClassifier(llm_service=None, llm_router=None)
+        classifier.llm_router = None
+
+        result = await classifier.classify("test message")
+
+        assert result.intent == IntentType.UNKNOWN
+        assert result.confidence == 0.0
+        assert result.llm_provider == "error"
+
+    @pytest.mark.asyncio
+    async def test_with_external_llm_factory_method(self):
+        """Test that with_external_llm creates classifier with external LLM.
+
+        Story 5-10 Code Review Fix (C2): Test for new factory method.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_llm = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = '{"intent": "greeting", "confidence": 0.9, "entities": {}}'
+        mock_response.provider = "external"
+        mock_response.model = "external-model"
+        mock_llm.chat.return_value = mock_response
+
+        classifier = IntentClassifier.with_external_llm(mock_llm)
+
+        assert classifier.llm_service == mock_llm
+        assert classifier.llm_router is None
+        assert hasattr(classifier, "logger")
+
+        result = await classifier.classify("Hello there")
+
+        assert result.intent == IntentType.GREETING
+        assert result.confidence == 0.9
+        mock_llm.chat.assert_called_once()

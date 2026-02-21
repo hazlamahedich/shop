@@ -35,9 +35,49 @@ export const WidgetMessageSchema = z.object({
   content: z.string(),
   sender: z.enum(['user', 'bot']),
   created_at: z.string(),
+  products: z.array(z.any()).optional(),
+  cart: z.any().optional(),
+  checkout_url: z.string().optional(),
+  intent: z.string().optional(),
+  confidence: z.number().optional(),
 });
 
 export const WidgetApiErrorSchema = z.object({
   error_code: z.number(),
+  message: z.string(),
+});
+
+export const WidgetProductSchema = z.object({
+  id: z.string(),
+  variant_id: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  price: z.number(),
+  image_url: z.string().optional(),
+  available: z.boolean(),
+  product_type: z.string().optional(),
+});
+
+export const WidgetCartItemSchema = z.object({
+  variant_id: z.string(),
+  title: z.string(),
+  price: z.number(),
+  quantity: z.number(),
+});
+
+export const WidgetCartSchema = z.object({
+  items: z.array(WidgetCartItemSchema),
+  item_count: z.number(),
+  total: z.number(),
+});
+
+export const WidgetSearchResultSchema = z.object({
+  products: z.array(WidgetProductSchema),
+  total: z.number(),
+  query: z.string(),
+});
+
+export const WidgetCheckoutResultSchema = z.object({
+  checkout_url: z.string(),
   message: z.string(),
 });
