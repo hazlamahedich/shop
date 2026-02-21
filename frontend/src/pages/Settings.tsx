@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, ShoppingBag, ChevronDown, ChevronUp, ExternalLink, MessageSquare } from 'lucide-react';
+import { Facebook, ShoppingBag, ChevronDown, ChevronUp, ExternalLink, MessageSquare, Webhook } from 'lucide-react';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
@@ -365,6 +365,96 @@ const Settings = () => {
                   >
                     Disconnect
                   </Button>
+                </div>
+
+                <div className="mt-6 border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between p-4 bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <Webhook size={20} className="text-green-600" />
+                      <div>
+                        <p className="font-medium text-gray-900">Webhook Configuration</p>
+                        <p className="text-xs text-gray-500">Required for order sync and inventory updates</p>
+                      </div>
+                    </div>
+                    <Badge variant={shopifyConnection.webhookSubscribed ? 'success' : 'outline'}>
+                      {shopifyConnection.webhookSubscribed ? 'Auto-Configured' : 'Manual Setup Required'}
+                    </Badge>
+                  </div>
+
+                  <div className="p-4 border-t border-gray-200">
+                    {shopifyConnection.webhookSubscribed ? (
+                      <div className="text-sm text-gray-600">
+                        <p className="text-green-700 font-medium mb-2">Webhooks are automatically configured!</p>
+                        <p>
+                          When you connected your store, we automatically registered webhooks for orders, inventory, and product updates.
+                          No manual configuration needed.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-sm text-amber-800">
+                            <strong>Manual webhook setup required.</strong> If webhooks weren't auto-configured during connection,
+                            follow the steps below to add them manually in your Shopify admin.
+                          </p>
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-gray-900">How to Add Webhooks in Shopify</h4>
+                          <ol className="text-sm text-gray-600 space-y-3 list-decimal list-inside">
+                            <li>
+                              Go to your{' '}
+                              <a
+                                href={`https://admin.shopify.com/store/${shopifyConnection.shopDomain?.replace('.myshopify.com', '')}/settings/notifications/webhooks`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline inline-flex items-center gap-1 text-green-600"
+                              >
+                                Shopify Admin → Settings → Notifications → Webhooks
+                                <ExternalLink size={12} />
+                              </a>
+                            </li>
+                            <li>
+                              Click <strong>&quot;Create webhook&quot;</strong>
+                            </li>
+                            <li>
+                              Add the following webhooks using this URL:
+                              <div className="mt-2 p-2 bg-gray-100 rounded font-mono text-xs overflow-x-auto">
+                                {window.location.origin}/api/webhooks/shopify
+                              </div>
+                            </li>
+                          </ol>
+
+                          <div className="mt-4">
+                            <h5 className="font-medium text-gray-900 mb-2">Required Webhooks</h5>
+                            <p className="text-xs text-gray-500 mb-2">
+                              For each webhook below, select:
+                              <br />• <strong>Event:</strong> (as listed)
+                              <br />• <strong>Format:</strong> JSON
+                              <br />• <strong>URL:</strong> (the URL above)
+                            </p>
+                            <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+                              <p className="text-sm font-mono">orders/create</p>
+                              <p className="text-sm font-mono">orders/updated</p>
+                              <p className="text-sm font-mono">orders/cancelled</p>
+                              <p className="text-sm font-mono">orders/fulfilled</p>
+                              <p className="text-sm font-mono">products/create</p>
+                              <p className="text-sm font-mono">products/update</p>
+                              <p className="text-sm font-mono">products/delete</p>
+                              <p className="text-sm font-mono">inventory_levels/update</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800">
+                              <strong>Tip:</strong> After creating each webhook, Shopify will show a <strong>Signing secret</strong>.
+                              Keep this secret safe - it&apos;s used to verify webhook authenticity.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (

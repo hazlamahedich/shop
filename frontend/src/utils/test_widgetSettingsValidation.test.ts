@@ -1,84 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  validateBotName,
-  validateWelcomeMessage,
   validatePrimaryColor,
   validateWidgetPosition,
   validateWidgetSettings,
   hasValidationErrors,
 } from './widgetSettingsValidation';
-
-describe('validateBotName', () => {
-  it('returns null for valid bot name', () => {
-    expect(validateBotName('Shopping Assistant')).toBeNull();
-    expect(validateBotName('Bot')).toBeNull();
-    expect(validateBotName('A')).toBeNull();
-  });
-
-  it('returns null for max length (50 chars)', () => {
-    expect(validateBotName('A'.repeat(50))).toBeNull();
-  });
-
-  it('returns error for empty string', () => {
-    expect(validateBotName('')).toBe('Bot name is required');
-  });
-
-  it('returns error for whitespace only', () => {
-    expect(validateBotName('   ')).toBe('Bot name is required');
-    expect(validateBotName('\t\n')).toBe('Bot name is required');
-  });
-
-  it('returns error for name over 50 characters', () => {
-    expect(validateBotName('A'.repeat(51))).toBe('Max 50 characters');
-    expect(validateBotName('A'.repeat(100))).toBe('Max 50 characters');
-  });
-
-  it('accepts bot name with special characters', () => {
-    expect(validateBotName("Bot's Store!")).toBeNull();
-    expect(validateBotName('Bot & Co.')).toBeNull();
-    expect(validateBotName('Bot-123')).toBeNull();
-  });
-
-  it('accepts unicode characters', () => {
-    expect(validateBotName('Shopping 🤖')).toBeNull();
-    expect(validateBotName('ロボット')).toBeNull();
-  });
-});
-
-describe('validateWelcomeMessage', () => {
-  it('returns null for valid welcome message', () => {
-    expect(validateWelcomeMessage('Hi! How can I help you today?')).toBeNull();
-    expect(validateWelcomeMessage('Welcome!')).toBeNull();
-  });
-
-  it('returns null for max length (500 chars)', () => {
-    expect(validateWelcomeMessage('A'.repeat(500))).toBeNull();
-  });
-
-  it('returns error for empty string', () => {
-    expect(validateWelcomeMessage('')).toBe('Welcome message is required');
-  });
-
-  it('returns error for whitespace only', () => {
-    expect(validateWelcomeMessage('   ')).toBe('Welcome message is required');
-    expect(validateWelcomeMessage('\t\n\r')).toBe('Welcome message is required');
-  });
-
-  it('returns error for message over 500 characters', () => {
-    expect(validateWelcomeMessage('A'.repeat(501))).toBe('Max 500 characters');
-    expect(validateWelcomeMessage('A'.repeat(1000))).toBe('Max 500 characters');
-  });
-
-  it('accepts multi-line messages', () => {
-    expect(validateWelcomeMessage('Hello!\n\nHow can I help?')).toBeNull();
-    expect(validateWelcomeMessage('Line 1\nLine 2\nLine 3')).toBeNull();
-  });
-
-  it('accepts messages with special characters', () => {
-    expect(validateWelcomeMessage("Hi! 👋 What's up?")).toBeNull();
-    expect(validateWelcomeMessage('Welcome! <script>alert(1)</script>')).toBeNull();
-  });
-});
 
 describe('validatePrimaryColor', () => {
   it('returns null for valid hex colors', () => {
@@ -165,8 +91,6 @@ describe('validateWidgetPosition', () => {
 describe('validateWidgetSettings', () => {
   it('returns empty object for valid settings', () => {
     const result = validateWidgetSettings({
-      botName: 'Shopping Bot',
-      welcomeMessage: 'Hello!',
       primaryColor: '#6366f1',
       position: 'bottom-right',
     });
@@ -176,40 +100,14 @@ describe('validateWidgetSettings', () => {
   it('returns empty object for all valid positions', () => {
     expect(
       validateWidgetSettings({
-        botName: 'Bot',
-        welcomeMessage: 'Hi',
         primaryColor: '#000000',
         position: 'bottom-left',
       })
     ).toEqual({});
   });
 
-  it('returns botName error for empty bot name', () => {
-    const result = validateWidgetSettings({
-      botName: '',
-      welcomeMessage: 'Hello!',
-      primaryColor: '#6366f1',
-      position: 'bottom-right',
-    });
-    expect(result.botName).toBe('Bot name is required');
-    expect(result.welcomeMessage).toBeUndefined();
-  });
-
-  it('returns welcomeMessage error for empty message', () => {
-    const result = validateWidgetSettings({
-      botName: 'Bot',
-      welcomeMessage: '',
-      primaryColor: '#6366f1',
-      position: 'bottom-right',
-    });
-    expect(result.welcomeMessage).toBe('Welcome message is required');
-    expect(result.botName).toBeUndefined();
-  });
-
   it('returns primaryColor error for invalid color', () => {
     const result = validateWidgetSettings({
-      botName: 'Bot',
-      welcomeMessage: 'Hi',
       primaryColor: 'red',
       position: 'bottom-right',
     });
@@ -218,8 +116,6 @@ describe('validateWidgetSettings', () => {
 
   it('returns position error for invalid position', () => {
     const result = validateWidgetSettings({
-      botName: 'Bot',
-      welcomeMessage: 'Hi',
       primaryColor: '#6366f1',
       position: 'top-right',
     });
@@ -228,36 +124,12 @@ describe('validateWidgetSettings', () => {
 
   it('returns multiple errors for multiple invalid fields', () => {
     const result = validateWidgetSettings({
-      botName: '',
-      welcomeMessage: '',
       primaryColor: 'invalid',
       position: 'invalid',
     });
-    expect(result.botName).toBe('Bot name is required');
-    expect(result.welcomeMessage).toBe('Welcome message is required');
     expect(result.primaryColor).toBe('Invalid color format. Use #RRGGBB');
     expect(result.position).toBe('Invalid position');
-    expect(Object.keys(result)).toHaveLength(4);
-  });
-
-  it('returns error for botName over 50 chars', () => {
-    const result = validateWidgetSettings({
-      botName: 'A'.repeat(51),
-      welcomeMessage: 'Hi',
-      primaryColor: '#6366f1',
-      position: 'bottom-right',
-    });
-    expect(result.botName).toBe('Max 50 characters');
-  });
-
-  it('returns error for welcomeMessage over 500 chars', () => {
-    const result = validateWidgetSettings({
-      botName: 'Bot',
-      welcomeMessage: 'A'.repeat(501),
-      primaryColor: '#6366f1',
-      position: 'bottom-right',
-    });
-    expect(result.welcomeMessage).toBe('Max 500 characters');
+    expect(Object.keys(result)).toHaveLength(2);
   });
 });
 
@@ -269,7 +141,7 @@ describe('hasValidationErrors', () => {
   it('returns true when there is one error', () => {
     expect(
       hasValidationErrors({
-        botName: 'Bot name is required',
+        primaryColor: 'Invalid color format. Use #RRGGBB',
       })
     ).toBe(true);
   });
@@ -277,8 +149,8 @@ describe('hasValidationErrors', () => {
   it('returns true when there are multiple errors', () => {
     expect(
       hasValidationErrors({
-        botName: 'Bot name is required',
-        welcomeMessage: 'Welcome message is required',
+        primaryColor: 'Invalid color format. Use #RRGGBB',
+        position: 'Invalid position',
       })
     ).toBe(true);
   });
@@ -286,7 +158,7 @@ describe('hasValidationErrors', () => {
   it('returns true even for undefined error values', () => {
     expect(
       hasValidationErrors({
-        botName: undefined,
+        primaryColor: undefined,
       })
     ).toBe(true);
   });
@@ -294,7 +166,7 @@ describe('hasValidationErrors', () => {
   it('returns true for empty string error', () => {
     expect(
       hasValidationErrors({
-        botName: '',
+        primaryColor: '',
       })
     ).toBe(true);
   });

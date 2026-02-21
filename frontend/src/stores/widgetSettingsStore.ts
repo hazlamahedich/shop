@@ -2,6 +2,10 @@
  * Widget Settings Store - Zustand state management
  *
  * Story 5.6: Merchant Widget Settings UI
+ *
+ * Note: This store manages widget appearance settings only.
+ * Bot name is configured via BotConfig page.
+ * Welcome message is configured via PersonalityConfig page.
  */
 
 import { create } from 'zustand';
@@ -15,8 +19,6 @@ interface PartialWidgetTheme {
 
 interface WidgetConfigUpdateRequest {
   enabled?: boolean;
-  botName?: string;
-  welcomeMessage?: string;
   theme?: PartialWidgetTheme;
 }
 
@@ -37,24 +39,18 @@ interface WidgetSettingsState {
 
 const API_ENDPOINT = '/api/v1/merchants/widget-config';
 
-const DEFAULT_CONFIG: WidgetConfig = {
-  enabled: true,
-  botName: 'Shopping Assistant',
-  welcomeMessage: 'Hi! How can I help you today?',
-  theme: {
-    primaryColor: '#6366f1',
-    backgroundColor: '#ffffff',
-    textColor: '#1f2937',
-    botBubbleColor: '#f3f4f6',
-    userBubbleColor: '#6366f1',
-    position: 'bottom-right',
-    borderRadius: 16,
-    width: 380,
-    height: 600,
-    fontFamily: 'Inter, sans-serif',
-    fontSize: 14,
-  },
-  allowedDomains: [],
+const DEFAULT_THEME = {
+  primaryColor: '#6366f1',
+  backgroundColor: '#ffffff',
+  textColor: '#1f2937',
+  botBubbleColor: '#f3f4f6',
+  userBubbleColor: '#6366f1',
+  position: 'bottom-right' as const,
+  borderRadius: 16,
+  width: 380,
+  height: 600,
+  fontFamily: 'Inter, sans-serif',
+  fontSize: 14,
 };
 
 export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => ({
@@ -72,14 +68,14 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
       const data = envelope.data;
 
       const config: WidgetConfig = {
-        enabled: data.enabled ?? DEFAULT_CONFIG.enabled,
-        botName: data.botName ?? DEFAULT_CONFIG.botName,
-        welcomeMessage: data.welcomeMessage ?? DEFAULT_CONFIG.welcomeMessage,
+        enabled: data.enabled ?? true,
+        botName: data.botName ?? 'Shopping Assistant',
+        welcomeMessage: data.welcomeMessage ?? 'Hi! How can I help you today?',
         theme: {
-          ...DEFAULT_CONFIG.theme,
+          ...DEFAULT_THEME,
           ...(data.theme || {}),
         },
-        allowedDomains: data.allowedDomains ?? DEFAULT_CONFIG.allowedDomains,
+        allowedDomains: data.allowedDomains ?? [],
       };
 
       set({ config, loading: false, hasUnsavedChanges: false });
@@ -99,14 +95,14 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
       const data = envelope.data;
 
       const config: WidgetConfig = {
-        enabled: data.enabled ?? DEFAULT_CONFIG.enabled,
-        botName: data.botName ?? DEFAULT_CONFIG.botName,
-        welcomeMessage: data.welcomeMessage ?? DEFAULT_CONFIG.welcomeMessage,
+        enabled: data.enabled ?? true,
+        botName: data.botName ?? 'Shopping Assistant',
+        welcomeMessage: data.welcomeMessage ?? 'Hi! How can I help you today?',
         theme: {
-          ...DEFAULT_CONFIG.theme,
+          ...DEFAULT_THEME,
           ...(data.theme || {}),
         },
-        allowedDomains: data.allowedDomains ?? DEFAULT_CONFIG.allowedDomains,
+        allowedDomains: data.allowedDomains ?? [],
       };
 
       set({ config, saving: false, hasUnsavedChanges: false });

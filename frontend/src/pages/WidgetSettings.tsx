@@ -5,13 +5,15 @@
  *
  * Provides a UI for merchants to configure their embeddable widget:
  * - Enable/disable widget
- * - Configure bot display name and welcome message
  * - Customize primary color and position
- * - View and copy embed code
+ * - View and copy embed code with platform-specific instructions
+ *
+ * Note: Bot name is configured in Bot Config page.
+ * Welcome message is configured in Bot Personality page.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Save, Loader2, Settings, Palette, Code } from 'lucide-react';
+import { Save, Loader2, Palette, Code, ExternalLink } from 'lucide-react';
 import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import { useAuthStore } from '../stores/authStore';
 import { EmbedCodePreview } from '../components/widget/EmbedCodePreview';
@@ -61,8 +63,6 @@ export default function WidgetSettings() {
     if (!config) return;
 
     const errors = validateWidgetSettings({
-      botName: config.botName,
-      welcomeMessage: config.welcomeMessage,
       primaryColor: config.theme.primaryColor,
       position: config.theme.position,
     });
@@ -76,14 +76,6 @@ export default function WidgetSettings() {
   const handleToggleEnabled = () => {
     if (!config) return;
     setConfig({ enabled: !config.enabled });
-  };
-
-  const handleBotNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setConfig({ botName: e.target.value });
-  };
-
-  const handleWelcomeMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setConfig({ welcomeMessage: e.target.value });
   };
 
   const handlePrimaryColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,8 +97,6 @@ export default function WidgetSettings() {
     if (!config || hasValidationErrors(validationErrors)) {
       toast('Please fix validation errors before saving', 'error');
       setTouched({
-        botName: true,
-        welcomeMessage: true,
         primaryColor: true,
         position: true,
       });
@@ -116,8 +106,6 @@ export default function WidgetSettings() {
     try {
       await updateConfig({
         enabled: config.enabled,
-        botName: config.botName,
-        welcomeMessage: config.welcomeMessage,
         theme: {
           primaryColor: config.theme.primaryColor,
           position: config.theme.position,
@@ -184,8 +172,8 @@ export default function WidgetSettings() {
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-200">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
-            <Settings className="h-5 w-5 text-gray-400" />
-            <h2 className="text-lg font-medium text-gray-900">General Settings</h2>
+            <Palette className="h-5 w-5 text-gray-400" />
+            <h2 className="text-lg font-medium text-gray-900">Appearance</h2>
           </div>
 
           <div className="space-y-6">
@@ -216,71 +204,6 @@ export default function WidgetSettings() {
               </button>
             </div>
 
-            <div>
-              <label htmlFor="botName" className="block text-sm font-medium text-gray-700">
-                Bot Display Name
-              </label>
-              <input
-                type="text"
-                id="botName"
-                data-testid="bot-name-input"
-                value={config.botName}
-                onChange={handleBotNameChange}
-                onBlur={() => handleFieldBlur('botName')}
-                maxLength={50}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
-                  touched.botName && validationErrors.botName
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-                }`}
-              />
-              <div className="flex justify-between mt-1">
-                {touched.botName && validationErrors.botName ? (
-                  <span className="text-sm text-red-600">{validationErrors.botName}</span>
-                ) : (
-                  <span />
-                )}
-                <span className="text-sm text-gray-500">{config.botName.length}/50</span>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="welcomeMessage" className="block text-sm font-medium text-gray-700">
-                Welcome Message
-              </label>
-              <textarea
-                id="welcomeMessage"
-                data-testid="welcome-message-input"
-                value={config.welcomeMessage}
-                onChange={handleWelcomeMessageChange}
-                onBlur={() => handleFieldBlur('welcomeMessage')}
-                maxLength={500}
-                rows={4}
-                className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
-                  touched.welcomeMessage && validationErrors.welcomeMessage
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-                }`}
-              />
-              <div className="flex justify-between mt-1">
-                {touched.welcomeMessage && validationErrors.welcomeMessage ? (
-                  <span className="text-sm text-red-600">{validationErrors.welcomeMessage}</span>
-                ) : (
-                  <span />
-                )}
-                <span className="text-sm text-gray-500">{config.welcomeMessage.length}/500</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Palette className="h-5 w-5 text-gray-400" />
-            <h2 className="text-lg font-medium text-gray-900">Theme Settings</h2>
-          </div>
-
-          <div className="space-y-6">
             <div>
               <label htmlFor="primaryColor" className="block text-sm font-medium text-gray-700">
                 Primary Color
@@ -350,6 +273,29 @@ export default function WidgetSettings() {
             primaryColor={config.theme.primaryColor}
             enabled={config.enabled}
           />
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-blue-900 mb-2">Bot Configuration</h3>
+        <p className="text-sm text-blue-700 mb-3">
+          To customize your bot&apos;s name and welcome message, visit these pages:
+        </p>
+        <div className="flex gap-4">
+          <a
+            href="/bot-config"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Bot Name Settings
+          </a>
+          <a
+            href="/personality"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Bot Personality & Greeting
+          </a>
         </div>
       </div>
 
