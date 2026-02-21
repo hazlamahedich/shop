@@ -128,6 +128,10 @@ class WidgetMessageService:
             sanitized_message,
         )
 
+        # Cache merchant_id immediately to avoid lazy-load on expired ORM object
+        # in the exception handler (MissingGreenlet error when session expires)
+        merchant_id_cached = merchant.id
+
         try:
             # Story 5-10: Use UnifiedConversationService if db is available
             if self.db is not None:
@@ -150,7 +154,7 @@ class WidgetMessageService:
             self.logger.error(
                 "widget_message_processing_failed",
                 session_id=session.session_id,
-                merchant_id=merchant.id,
+                merchant_id=merchant_id_cached,
                 error=str(e),
                 error_type=type(e).__name__,
             )
@@ -201,7 +205,7 @@ class WidgetMessageService:
         self.logger.info(
             "widget_message_processed_unified",
             session_id=session.session_id,
-            merchant_id=merchant.id,
+            merchant_id=context.merchant_id,  # Use cached int, not expired ORM object
             intent=response.intent,
             confidence=response.confidence,
             message_length=len(message),

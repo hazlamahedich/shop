@@ -19,27 +19,37 @@ export const WidgetConfigSchema = z.object({
   botName: z.string(),
   welcomeMessage: z.string(),
   theme: WidgetThemeSchema,
-  allowedDomains: z.array(z.string()),
-});
+  allowedDomains: z.array(z.string()).optional().default([]),
+}).passthrough();
 
-export const WidgetSessionSchema = z.object({
-  session_id: z.string().uuid(),
-  merchant_id: z.string(),
-  expires_at: z.string(),
-  created_at: z.string(),
-  last_activity_at: z.string(),
-});
+export const WidgetSessionSchema = z
+  .object({
+    session_id: z.string().optional(),
+    sessionId: z.string().optional(),
+    merchant_id: z.string().optional(),
+    expires_at: z.string().optional(),
+    expiresAt: z.string().optional(),
+    created_at: z.string().optional(),
+    last_activity_at: z.string().optional(),
+  })
+  .passthrough()
+  .refine((data) => data.session_id || data.sessionId, {
+    message: 'Either session_id or sessionId must be present',
+  });
 
 export const WidgetMessageSchema = z.object({
-  message_id: z.string().uuid(),
+  messageId: z.string().optional(),
+  message_id: z.string().optional(),
   content: z.string(),
   sender: z.enum(['user', 'bot']),
-  created_at: z.string(),
-  products: z.array(z.any()).optional(),
-  cart: z.any().optional(),
-  checkout_url: z.string().optional(),
-  intent: z.string().optional(),
-  confidence: z.number().optional(),
+  createdAt: z.string().optional(),
+  created_at: z.string().optional(),
+  products: z.array(z.any()).nullable().optional(),
+  cart: z.any().nullable().optional(),
+  checkoutUrl: z.string().nullable().optional(),
+  checkout_url: z.string().nullable().optional(),
+  intent: z.string().nullable().optional(),
+  confidence: z.number().nullable().optional(),
 });
 
 export const WidgetApiErrorSchema = z.object({

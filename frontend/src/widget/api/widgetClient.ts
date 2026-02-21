@@ -6,6 +6,7 @@ import type {
   WidgetMessage,
   WidgetSearchResult,
   WidgetSession,
+  WidgetProduct,
 } from '../types/widget';
 import {
   WidgetCartSchema,
@@ -20,7 +21,7 @@ let cachedApiBase: string | null = null;
 
 function getApiBaseUrl(): string {
   if (cachedApiBase) return cachedApiBase;
-  
+
   // Try to find the widget script by src
   const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
   for (const script of scripts) {
@@ -34,7 +35,7 @@ function getApiBaseUrl(): string {
       }
     }
   }
-  
+
   // Fallback to relative path
   cachedApiBase = '/api/v1/widget';
   return cachedApiBase;
@@ -69,11 +70,7 @@ export class WidgetApiClient {
     return error instanceof TypeError;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    retries = 2
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}, retries = 2): Promise<T> {
     try {
       const response = await fetch(`${getWidgetApiBase()}${endpoint}`, {
         ...options,
@@ -100,36 +97,49 @@ export class WidgetApiClient {
   }
 
   async createSession(merchantId: string): Promise<WidgetSession> {
-    const data = await this.request<{ session: unknown }>('/session', {
+    // Backend returns { data: { sessionId, expiresAt } } at the top level
+    const data = await this.request<{ data?: unknown; session?: unknown }>('/session', {
       method: 'POST',
       body: JSON.stringify({ merchant_id: merchantId }),
     });
-    const parsed = WidgetSessionSchema.safeParse(data.session);
+    const raw = data.data ?? data.session ?? data;
+    const parsed = WidgetSessionSchema.safeParse(raw);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid session response');
     }
     return {
-      sessionId: parsed.data.session_id,
-      merchantId: parsed.data.merchant_id,
-      expiresAt: parsed.data.expires_at,
-      createdAt: parsed.data.created_at,
-      lastActivityAt: parsed.data.last_activity_at,
+      sessionId: parsed.data.sessionId ?? parsed.data.session_id ?? '',
+      merchantId: parsed.data.merchant_id ?? merchantId,
+      expiresAt: parsed.data.expiresAt ?? parsed.data.expires_at ?? '',
+      createdAt: parsed.data.created_at ?? new Date().toISOString(),
+      lastActivityAt: parsed.data.last_activity_at ?? new Date().toISOString(),
     };
   }
 
   async getSession(sessionId: string): Promise<WidgetSession | null> {
     try {
-      const data = await this.request<{ session: unknown }>(`/session/${sessionId}`);
-      const parsed = WidgetSessionSchema.safeParse(data.session);
+      const data = await this.request<{ data?: unknown; session?: unknown }>(
+        `/session/${sessionId}`
+      );
+      const raw = data.data ?? data.session ?? data;
+      const parsed = WidgetSessionSchema.safeParse(raw);
       if (!parsed.success) {
         return null;
       }
       return {
-        sessionId: parsed.data.session_id,
-        merchantId: parsed.data.merchant_id,
-        expiresAt: parsed.data.expires_at,
-        createdAt: parsed.data.created_at,
-        lastActivityAt: parsed.data.last_activity_at,
+        sessionId: parsed.data.sessionId ?? parsed.data.session_id ?? sessionId,
+        merchantId:
+          parsed.data.merchant_id ??
+          String((parsed.data as Record<string, unknown>).merchantId ?? ''),
+        expiresAt: parsed.data.expiresAt ?? parsed.data.expires_at ?? '',
+        createdAt:
+          ((parsed.data as Record<string, unknown>).createdAt as string) ??
+          parsed.data.created_at ??
+          new Date().toISOString(),
+        lastActivityAt:
+          ((parsed.data as Record<string, unknown>).lastActivityAt as string) ??
+          parsed.data.last_activity_at ??
+          new Date().toISOString(),
       };
     } catch {
       return null;
@@ -141,46 +151,46 @@ export class WidgetApiClient {
   }
 
   async sendMessage(sessionId: string, message: string): Promise<WidgetMessage> {
-    const data = await this.request<{ message: unknown }>('/message', {
+    const data = await this.request<{ data: unknown }>('/message', {
       method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, content: message }),
+      body: JSON.stringify({ session_id: sessionId, message: message }),
     });
-    const parsed = WidgetMessageSchema.safeParse(data.message);
+    const parsed = WidgetMessageSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid message response');
     }
     return {
-      messageId: parsed.data.message_id,
+      messageId: (parsed.data.messageId || parsed.data.message_id) ?? '',
       content: parsed.data.content,
       sender: parsed.data.sender,
-      createdAt: parsed.data.created_at,
+      createdAt: (parsed.data.createdAt || parsed.data.created_at) ?? '',
       products: parsed.data.products?.map((p: Record<string, unknown>) => ({
-        id: p.id as string,
-        variantId: p.variant_id as string,
+        id: (p.id || p.product_id) as string,
+        variantId: (p.variantId || p.variant_id) as string,
         title: p.title as string,
         description: p.description as string | undefined,
         price: p.price as number,
-        imageUrl: p.image_url as string | undefined,
+        imageUrl: (p.imageUrl || p.image_url) as string | undefined,
         available: p.available as boolean,
-        productType: p.product_type as string | undefined,
+        productType: (p.productType || p.product_type) as string | undefined,
       })),
       cart: parsed.data.cart
         ? {
-            items: ((parsed.data.cart as Record<string, unknown>).items as Record<string, unknown>[]).map(
-              (item: Record<string, unknown>) => ({
-                variantId: item.variant_id as string,
-                title: item.title as string,
-                price: item.price as number,
-                quantity: item.quantity as number,
-              })
-            ),
+            items: (
+              (parsed.data.cart as Record<string, unknown>).items as Record<string, unknown>[]
+            ).map((item: Record<string, unknown>) => ({
+              variantId: item.variant_id as string,
+              title: item.title as string,
+              price: item.price as number,
+              quantity: item.quantity as number,
+            })),
             itemCount: (parsed.data.cart as Record<string, unknown>).item_count as number,
             total: (parsed.data.cart as Record<string, unknown>).total as number,
           }
         : undefined,
-      checkoutUrl: parsed.data.checkout_url,
-      intent: parsed.data.intent,
-      confidence: parsed.data.confidence,
+      checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
+      intent: parsed.data.intent ?? undefined,
+      confidence: parsed.data.confidence ?? undefined,
     };
   }
 
@@ -244,12 +254,19 @@ export class WidgetApiClient {
 
   async addToCart(
     sessionId: string,
-    variantId: string,
+    product: WidgetProduct,
     quantity: number = 1
   ): Promise<WidgetCart> {
     const data = await this.request<{ data: unknown }>('/cart', {
       method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, variant_id: variantId, quantity }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        variant_id: product.variantId,
+        quantity,
+        title: product.title,
+        price: product.price,
+        image_url: product.imageUrl,
+      }),
     });
     const parsed = WidgetCartSchema.safeParse(data.data);
     if (!parsed.success) {
@@ -268,9 +285,12 @@ export class WidgetApiClient {
   }
 
   async removeFromCart(sessionId: string, variantId: string): Promise<WidgetCart> {
-    const data = await this.request<{ data: unknown }>(`/cart/${variantId}?session_id=${sessionId}`, {
-      method: 'DELETE',
-    });
+    const data = await this.request<{ data: unknown }>(
+      `/cart/${variantId}?session_id=${sessionId}`,
+      {
+        method: 'DELETE',
+      }
+    );
     const parsed = WidgetCartSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -189,6 +189,9 @@ class WidgetMessageResponse(BaseSchema):
     content: str
     sender: str = "bot"
     created_at: datetime
+    products: Optional[list[dict[str, Any]]] = None
+    cart: Optional[dict[str, Any]] = None
+    checkout_url: Optional[str] = None
 
 
 class WidgetMessageEnvelope(MinimalEnvelope):

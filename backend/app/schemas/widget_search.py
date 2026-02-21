@@ -87,6 +87,9 @@ class WidgetCartRequest(BaseSchema):
 
     session_id: str = Field(description="Widget session identifier")
     variant_id: str = Field(description="Product variant ID")
+    title: str = Field(default="Product", description="Product title")
+    price: float = Field(default=1.0, gt=0, description="Product price")
+    image_url: Optional[str] = Field(default=None, description="Product image URL")
     quantity: int = Field(default=1, ge=1, le=10, description="Quantity to add")
 
 

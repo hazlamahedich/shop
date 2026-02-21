@@ -426,6 +426,9 @@ async def send_widget_message(
             content=response["content"],
             sender=response["sender"],
             created_at=response["created_at"],
+            products=response.get("products"),
+            cart=response.get("cart"),
+            checkout_url=response.get("checkout_url"),
         ),
         meta=create_meta(),
     )
@@ -635,9 +638,9 @@ async def widget_search(
         product_summaries = [
             ProductSummary(
                 product_id=str(p.get("id", "")),
-                variant_id=str(p.get("variants", [{}])[0].get("id", ""))
-                if p.get("variants")
-                else "",
+                variant_id=(
+                    str(p.get("variants", [{}])[0].get("id", "")) if p.get("variants") else ""
+                ),
                 title=p.get("title", ""),
                 price=float(p.get("price", 0) or 0),
                 currency=p.get("currency_code", "USD"),

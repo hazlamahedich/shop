@@ -109,14 +109,16 @@ class SearchHandler(BaseHandler):
 
             formatted_products = [
                 {
+                    "id": p.id,
                     "product_id": p.id,
+                    "variant_id": str(p.variants[0].id) if p.variants else None,
                     "title": p.title,
                     "price": float(p.price) if p.price else None,
                     "currency": str(p.currency_code) if p.currency_code else "USD",
                     "image_url": p.images[0].url if p.images else None,
-                    "available": any(v.available_for_sale for v in p.variants)
-                    if p.variants
-                    else True,
+                    "available": (
+                        any(v.available_for_sale for v in p.variants) if p.variants else True
+                    ),
                 }
                 for p in search_result.products[:5]
             ]
@@ -214,14 +216,16 @@ class SearchHandler(BaseHandler):
             if fallback_result and fallback_result.products:
                 formatted_products = [
                     {
+                        "id": p.id,
                         "product_id": p.id,
+                        "variant_id": str(p.variants[0].id) if p.variants else None,
                         "title": p.title,
                         "price": float(p.price) if p.price else None,
                         "currency": str(p.currency_code) if p.currency_code else "USD",
                         "image_url": p.images[0].url if p.images else None,
-                        "available": any(v.available_for_sale for v in p.variants)
-                        if p.variants
-                        else True,
+                        "available": (
+                            any(v.available_for_sale for v in p.variants) if p.variants else True
+                        ),
                     }
                     for p in fallback_result.products[:5]
                 ]

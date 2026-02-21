@@ -13,6 +13,7 @@ from pathlib import Path as FilePath
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -250,32 +251,23 @@ async def health() -> dict[str, Any]:
 WIDGET_DIST_PATH = FilePath(__file__).parent.parent.parent / "frontend" / "dist" / "widget"
 
 
-@app.get("/widget/widget.umd.js")
-async def serve_widget_umd():
-    """Serve the widget UMD bundle for local development."""
-    widget_file = WIDGET_DIST_PATH / "widget.umd.js"
+@app.get("/widget/{filename:path}")
+async def serve_widget_file(filename: str):
+    """Serve widget files for local development."""
+    if not filename.endswith((".js", ".css", ".map")):
+        return JSONResponse(status_code=403, content={"error": "Invalid file type"})
+
+    widget_file = WIDGET_DIST_PATH / filename
     if widget_file.exists():
         return FileResponse(
             widget_file,
-            media_type="application/javascript",
-            headers={"Access-Control-Allow-Origin": "*"},
+            media_type="application/javascript" if filename.endswith(".js") else "text/css",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-cache",
+            },
         )
-    return JSONResponse(
-        status_code=404, content={"error": "Widget not built. Run: npm run build:widget"}
-    )
-
-
-@app.get("/widget/loader-{loader_id}.js")
-async def serve_widget_loader(loader_id: str):
-    """Serve widget loader chunks."""
-    widget_file = WIDGET_DIST_PATH / f"loader-{loader_id}.js"
-    if widget_file.exists():
-        return FileResponse(
-            widget_file,
-            media_type="application/javascript",
-            headers={"Access-Control-Allow-Origin": "*"},
-        )
-    return JSONResponse(status_code=404, content={"error": "Loader not found"})
+    return JSONResponse(status_code=404, content={"error": f"File not found: {filename}"})
 
 
 # Exception handlers

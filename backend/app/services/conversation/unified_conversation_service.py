@@ -796,7 +796,7 @@ class UnifiedConversationService:
             )
             db.add(bot_msg)
 
-            conversation.updated_at = datetime.now(timezone.utc)
+            conversation.updated_at = datetime.utcnow()
 
             await db.commit()
 

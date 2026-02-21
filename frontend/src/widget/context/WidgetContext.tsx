@@ -36,11 +36,9 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
     case 'ADD_WIDGET_ERROR':
       return { ...state, errors: [...state.errors, action.payload] };
     case 'DISMISS_WIDGET_ERROR':
-      return { 
-        ...state, 
-        errors: state.errors.map((e) => 
-          e.id === action.payload ? { ...e, dismissed: true } : e
-        ) 
+      return {
+        ...state,
+        errors: state.errors.map((e) => (e.id === action.payload ? { ...e, dismissed: true } : e)),
       };
     case 'CLEAR_WIDGET_ERRORS':
       return { ...state, errors: [] };
@@ -112,7 +110,11 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
-  const { createSession, getSession, endSession: endWidgetSession } = React.useMemo(
+  const {
+    createSession,
+    getSession,
+    endSession: endWidgetSession,
+  } = React.useMemo(
     () => ({
       createSession: async () => {
         const { widgetClient } = await import('../api/widgetClient');
@@ -169,7 +171,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       if (!state.session || !content.trim()) return;
 
       lastActionRef.current = { type: 'sendMessage', payload: content };
-      
+
       const userMessage = {
         messageId: crypto.randomUUID(),
         content,
@@ -200,7 +202,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       setAddingProductId(product.id);
       try {
         const { widgetClient } = await import('../api/widgetClient');
-        await widgetClient.addToCart(state.session.sessionId, product.variantId, 1);
+        await widgetClient.addToCart(state.session.sessionId, product, 1);
 
         const confirmationMessage = {
           messageId: crypto.randomUUID(),
@@ -255,9 +257,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       };
       dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
     } catch (error) {
-      addError(error, { 
+      addError(error, {
         action: 'Try Again',
-        fallbackUrl: 'https://volare-sun.myshopify.com/cart'
+        fallbackUrl: 'https://volare-sun.myshopify.com/cart',
       });
     } finally {
       setIsCheckingOut(false);
