@@ -28,16 +28,7 @@ export function BudgetWarningBanner({
   const costSummary = useCostTrackingStore((state) => state.costSummary);
   const merchantSettings = useCostTrackingStore((state) => state.merchantSettings);
 
-  const budgetCap = merchantSettings?.budgetCap ?? merchantSettings?.budget_cap;
-  const totalCost = costSummary?.totalCostUsd ?? 0;
-
-  // No warning if no budget cap set (unlimited)
-  if (budgetCap === null || budgetCap === undefined) {
-    return null;
-  }
-
-  const budgetPercentage = budgetCap && budgetCap > 0 ? (totalCost / budgetCap) * 100 : 0;
-
+  // Move useEffect BEFORE any conditional returns - hooks must be called unconditionally
   useEffect(() => {
     const dismissedAt = localStorage.getItem(DISMISS_KEY);
     if (dismissedAt) {
@@ -49,6 +40,16 @@ export function BudgetWarningBanner({
       }
     }
   }, []);
+
+  const budgetCap = merchantSettings?.budgetCap ?? merchantSettings?.budget_cap;
+  const totalCost = costSummary?.totalCostUsd ?? 0;
+
+  // No warning if no budget cap set (unlimited) - AFTER hooks
+  if (budgetCap === null || budgetCap === undefined) {
+    return null;
+  }
+
+  const budgetPercentage = budgetCap && budgetCap > 0 ? (totalCost / budgetCap) * 100 : 0;
 
   if (budgetPercentage < 80 || isDismissed) {
     return null;

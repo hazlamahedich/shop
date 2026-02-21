@@ -171,15 +171,13 @@ class ShopifyService:
         # Generate state token for CSRF protection (stores merchant_id)
         state = generate_oauth_state(merchant_id)
 
-        # Build OAuth URL - request both required and optional scopes
-        all_scopes = REQUIRED_SCOPES + OPTIONAL_SCOPES
+        # Build OAuth URL - include read_all_orders if merchant has approval
         params = {
             "client_id": api_key,
             "redirect_uri": redirect_uri,
-            "scope": ",".join(all_scopes),
+            "scope": ",".join(REQUIRED_SCOPES + ["read_all_orders"]),
             "response_type": "code",
             "state": state,
-            "grant_options[]": "per-user",
         }
 
         query_string = urlencode(params)

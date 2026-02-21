@@ -84,7 +84,7 @@ function ChatWindow({
         role="dialog"
         aria-modal="true"
         aria-label="Chat window"
-        className="chat-window"
+        className="shopbot-chat-window"
         style={{
           position: 'fixed',
           bottom: 90,
@@ -99,7 +99,7 @@ function ChatWindow({
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          zIndex: 9998,
+          zIndex: 2147483646,
           fontFamily: theme.fontFamily,
           fontSize: theme.fontSize,
           color: theme.textColor,

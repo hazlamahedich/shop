@@ -29,7 +29,7 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch }: ChatBubblePro
   return (
     <button
       type="button"
-      className="chat-bubble"
+      className="shopbot-chat-bubble"
       data-testid="chat-bubble"
       onClick={onClick}
       onKeyDown={handleKeyDown}
@@ -51,7 +51,7 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch }: ChatBubblePro
         justifyContent: 'center',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        zIndex: 9999,
+        zIndex: 2147483647,
       }}
     >
       {isOpen ? (

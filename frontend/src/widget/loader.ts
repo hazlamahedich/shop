@@ -27,9 +27,10 @@ const capturedScript = document.currentScript as HTMLScriptElement | null;
 let widgetRoot: ReactDOM.Root | null = null;
 let widgetContainer: HTMLDivElement | null = null;
 
-const MERCHANT_ID_PATTERN = /^[a-zA-Z0-9_-]{8,64}$/;
+const MERCHANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
 function isValidMerchantId(id: string): boolean {
+  if (!id || typeof id !== 'string') return false;
   return MERCHANT_ID_PATTERN.test(id);
 }
 
@@ -75,7 +76,7 @@ function initWidget(): void {
 
   if (!isValidMerchantId(config.merchantId)) {
     console.error(
-      '[ShopBot Widget] Invalid merchantId format. Expected 8-64 alphanumeric characters, hyphens, or underscores.'
+      '[ShopBot Widget] Invalid merchantId format. Expected 1-64 alphanumeric characters, hyphens, or underscores.'
     );
     return;
   }

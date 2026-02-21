@@ -456,7 +456,22 @@ class WebhookVerificationService:
             )
 
             webhook_url = f"{self.app_url}/api/webhooks/shopify"
-            topics = ["orders/create", "orders/updated", "orders/fulfilled"]
+            topics = [
+                "orders/create",
+                "orders/updated",
+                "orders/fulfilled",
+                "orders/cancelled",
+                "products/create",
+                "products/delete",
+                "products/update",
+                "inventory_items/update",
+                "customers/create",
+                "checkouts/create",
+                "checkouts/update",
+                "fulfillments/create",
+                "refunds/create",
+                "fulfillments/update",
+            ]
 
             results = []
             for topic in topics:

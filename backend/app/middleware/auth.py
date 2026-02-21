@@ -64,6 +64,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/integrations/shopify/callback",  # Shopify OAuth callback
         "/api/integrations/shopify/authorize",  # Shopify OAuth initiation
         "/api/v1/widget/",  # Story 5-1: Public widget API
+        "/widget/",  # Static widget files for local development
     ]
 
     def __init__(self, app) -> None:

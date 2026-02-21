@@ -213,17 +213,20 @@ class PreviewService:
         from app.services.conversation.schemas import Channel, ConversationContext
         from app.services.conversation.cart_key_strategy import CartKeyStrategy
 
+        # Capture merchant_id before any operations that might cause session expiry
+        merchant_id = merchant.id
+
         unified_service = self.unified_service or UnifiedConversationService(db=self.db)
 
         history = session.get_history()
 
         context = ConversationContext(
             session_id=session.preview_session_id,
-            merchant_id=merchant.id,
+            merchant_id=merchant_id,
             channel=Channel.PREVIEW,
             conversation_history=history,
             platform_sender_id=None,
-            user_id=merchant.id,
+            user_id=merchant_id,
         )
 
         assert self.db is not None
@@ -251,7 +254,7 @@ class PreviewService:
         self.logger.info(
             "preview_message_sent_unified",
             session_id=session.preview_session_id,
-            merchant_id=merchant.id,
+            merchant_id=merchant_id,
             intent=response.intent,
             confidence=confidence_pct,
         )
@@ -261,6 +264,7 @@ class PreviewService:
             confidence=confidence_pct,
             confidence_level=confidence_level,
             metadata=metadata,
+            products=response.products,
         )
 
     async def _send_message_legacy(

@@ -53,7 +53,14 @@ function isProductQuery(messageContent: string): boolean {
   return productPatterns.some(pattern => pattern.test(messageContent));
 }
 
-function shouldShowProducts(messageContent: string): boolean {
+function shouldShowProducts(message: PreviewMessage): boolean {
+  // If message has products from backend, always show them
+  if (message.products && message.products.length > 0) {
+    return true;
+  }
+  
+  // Otherwise, check message content for product-related patterns
+  const content = message.content;
   const showPatterns = [
     /here('s| are) .* products/i,
     /we have/i,
@@ -68,13 +75,14 @@ function shouldShowProducts(messageContent: string): boolean {
     /collection/i,
   ];
 
-  return showPatterns.some(pattern => pattern.test(messageContent));
+  return showPatterns.some(pattern => pattern.test(content));
 }
 
 function extractProductNamesFromBotResponse(content: string): string[] {
   const productNames: string[] = [];
 
-  const boldWithPrice = /\*\*([^*]+)\*\*\s*\(\$?[\d.,]+\)/g;
+  // Match **Bold Name** ($price) or **Bold Name** for $price
+  const boldWithPrice = /\*\*([^*]+)\*\*\s*(?:\(|for\s+)\$?[\d.,]+/g;
   let match;
   while ((match = boldWithPrice.exec(content)) !== null) {
     const name = match[1].trim();
@@ -83,6 +91,7 @@ function extractProductNamesFromBotResponse(content: string): string[] {
     }
   }
 
+  // Match bullet points with prices: * Name ($price) or - Name ($price)
   const bulletPlainWithPrice = /[*-]\s+(.+?)\s*\(\$?[\d.,]+\)/g;
   while ((match = bulletPlainWithPrice.exec(content)) !== null) {
     const name = match[1].trim();
@@ -95,12 +104,48 @@ function extractProductNamesFromBotResponse(content: string): string[] {
 }
 
 function extractPriceContext(content: string): number | null {
-  const underPattern = /under\s+\$?(\d+)/i;
-  const match = content.match(underPattern);
-  if (match) {
-    return parseFloat(match[1]);
+  const patterns = [
+    /under\s+\$?(\d+)/i,
+    /below\s+\$?(\d+)/i,
+    /less\s+than\s+\$?(\d+)/i,
+    /budget\s+(?:of\s+)?\$?(\d+)/i,
+    /\$?(\d+)\s+(?:dollars?|or\s+less)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      return parseFloat(match[1]);
+    }
   }
   return null;
+}
+
+const PRICE_CONTEXT_KEY = 'preview_price_context';
+
+function getPriceContext(): number | null {
+  try {
+    const stored = sessionStorage.getItem(PRICE_CONTEXT_KEY);
+    if (stored) {
+      const { price, timestamp } = JSON.parse(stored);
+      if (Date.now() - timestamp < 5 * 60 * 1000) {
+        return price;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function setPriceContext(price: number): void {
+  try {
+    sessionStorage.setItem(PRICE_CONTEXT_KEY, JSON.stringify({ price, timestamp: Date.now() }));
+  } catch {}
+}
+
+function clearPriceContext(): void {
+  try {
+    sessionStorage.removeItem(PRICE_CONTEXT_KEY);
+  } catch {}
 }
 
 export function MessageBubble({
@@ -114,25 +159,67 @@ export function MessageBubble({
   const isUser = message.role === 'user';
   const isBot = message.role === 'bot';
 
-  const showProducts = isBot && merchantId && shouldShowProducts(message.content);
+  // Check if we have products from backend (preferred) or need to fetch
+  const hasProductsFromBackend = isBot && message.products && message.products.length > 0;
+  const showProducts = isBot && merchantId && (hasProductsFromBackend || shouldShowProducts(message));
 
-  const productNames = isBot ? extractProductNamesFromBotResponse(message.content) : [];
+  const productNames = isBot && !hasProductsFromBackend ? extractProductNamesFromBotResponse(message.content) : [];
   const botPriceContext = isBot ? extractPriceContext(message.content) : null;
 
-  const [trackedMaxPrice, setTrackedMaxPrice] = React.useState<number | null>(null);
-
+  // Track price from user messages and persist across messages
   React.useEffect(() => {
     if (isUser && isProductQuery(message.content)) {
       const price = extractPriceFromText(message.content);
       if (price) {
-        setTrackedMaxPrice(price);
+        setPriceContext(price);
       } else {
-        setTrackedMaxPrice(null);
+        clearPriceContext();
       }
+    } else if (isUser) {
+      clearPriceContext();
     }
   }, [isUser, message.content]);
 
-  const effectiveMaxPrice = botPriceContext ?? trackedMaxPrice ?? undefined;
+  const effectiveMaxPrice = botPriceContext ?? getPriceContext() ?? undefined;
+
+  // Render products directly from backend response
+  const renderProductsFromBackend = () => {
+    if (!message.products || message.products.length === 0) return null;
+    
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {message.products.slice(0, 5).map((product) => (
+          <div
+            key={product.product_id}
+            className="border rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => onProductClick?.(product.product_id)}
+          >
+            {product.image_url && (
+              <img
+                src={product.image_url}
+                alt={product.title}
+                className="w-full h-32 object-contain rounded mb-2 bg-gray-50"
+              />
+            )}
+            <h4 className="font-medium text-sm text-gray-900 line-clamp-2">
+              {product.title}
+            </h4>
+            {product.price !== null && (
+              <p className="text-sm font-semibold text-gray-700 mt-1">
+                ${product.price.toFixed(2)}
+              </p>
+            )}
+            <button
+              className="mt-2 w-full text-xs bg-blue-500 text-white py-1.5 px-3 rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!product.available}
+            >
+              {product.available ? 'Add to Cart' : 'Out of Stock'}
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -172,14 +259,16 @@ export function MessageBubble({
         )}
       </div>
 
-      {showProducts && merchantId && (
+      {showProducts && (
         <div className="max-w-[85%] w-full mt-1">
-          {productNames.length > 0 ? (
+          {hasProductsFromBackend ? (
+            renderProductsFromBackend()
+          ) : productNames.length > 0 ? (
             <div className="space-y-3">
               {productNames.slice(0, 3).map((name, index) => (
                 <ProductGrid
                   key={`product-${name}-${index}`}
-                  merchantId={merchantId}
+                  merchantId={merchantId!}
                   maxPrice={effectiveMaxPrice}
                   query={name}
                   limit={3}
@@ -189,7 +278,7 @@ export function MessageBubble({
             </div>
           ) : (
             <ProductGrid
-              merchantId={merchantId}
+              merchantId={merchantId!}
               maxPrice={effectiveMaxPrice}
               limit={6}
               onProductClick={onProductClick}

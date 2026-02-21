@@ -1,11 +1,12 @@
 """Product search service for Shopify integration.
 
 Orchestrates product search by mapping intent entities to Shopify queries,
-fetching from Storefront API, applying filters, and ranking by relevance.
+fetching from Admin API (no storefront token required), applying filters, and ranking by relevance.
 """
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, Optional
 
 from sqlalchemy import select
@@ -15,22 +16,24 @@ import structlog
 from app.schemas.shopify import Product, ProductSearchResult
 from app.services.intent.classification_schema import ExtractedEntities
 from app.services.shopify.product_mapper import ProductMapper
-from app.services.shopify.storefront_client import ShopifyStorefrontClient
 from app.models.shopify_integration import ShopifyIntegration
 from app.core.security import decrypt_access_token
 from app.core.config import is_testing
+from app.services.shopify_admin import ShopifyAdminClient
+
+
+logger = structlog.get_logger(__name__)
 
 
 class ProductSearchService:
     """Service for searching products based on classified entities.
 
-    Maps intent classification entities to Shopify Storefront API queries
-    and ranks results by relevance.
+    Uses Shopify Admin API for product search (no storefront token required).
+    Maps intent classification entities to filters and ranks results by relevance.
 
     Attributes:
-        client: Shopify Storefront API client
         mapper: Product data mapper
-        db: Optional database session for fetching merchant credentials
+        db: Database session for fetching merchant credentials
     """
 
     CATEGORY_MATCH_WEIGHT: float = 50.0
@@ -42,37 +45,35 @@ class ProductSearchService:
 
     def __init__(
         self,
-        storefront_client: Optional[ShopifyStorefrontClient] = None,
         product_mapper: Optional[ProductMapper] = None,
         db: Optional[AsyncSession] = None,
     ) -> None:
         """Initialize product search service.
 
         Args:
-            storefront_client: Shopify Storefront API client (optional, will be created per merchant)
             product_mapper: Product data mapper
             db: Database session for fetching merchant credentials
         """
-        self.client = storefront_client
         self.mapper = product_mapper or ProductMapper()
         self.db = db
         self.logger = structlog.get_logger(__name__)
 
-    async def _get_client_for_merchant(self, merchant_id: int) -> ShopifyStorefrontClient:
-        """Get or create a Storefront client for a specific merchant.
+    async def _get_admin_client_for_merchant(
+        self, merchant_id: int
+    ) -> Optional[ShopifyAdminClient]:
+        """Get Shopify Admin client for a specific merchant.
+
+        Uses the admin token from ShopifyIntegration (no storefront token needed).
 
         Args:
             merchant_id: Merchant ID to fetch credentials for
 
         Returns:
-            ShopifyStorefrontClient configured for the merchant's store
+            ShopifyAdminClient or None if no integration
         """
-        if self.client:
-            return self.client
-
         if not self.db:
-            self.logger.warning("no_db_session_using_mock_products", merchant_id=merchant_id)
-            return ShopifyStorefrontClient(is_testing=True)
+            self.logger.warning("no_db_session", merchant_id=merchant_id)
+            return None
 
         result = await self.db.execute(
             select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
@@ -82,26 +83,26 @@ class ProductSearchService:
         if (
             not integration
             or integration.status != "active"
-            or not integration.storefront_token_encrypted
+            or not integration.admin_token_encrypted
         ):
             self.logger.info(
-                "no_shopify_integration_using_mock",
+                "no_shopify_admin_integration",
                 merchant_id=merchant_id,
                 has_integration=integration is not None,
             )
-            return ShopifyStorefrontClient(is_testing=True)
+            return None
 
-        storefront_token = decrypt_access_token(integration.storefront_token_encrypted)
+        admin_token = decrypt_access_token(integration.admin_token_encrypted)
 
         self.logger.info(
-            "using_merchant_shopify_store",
+            "using_shopify_admin_api",
             merchant_id=merchant_id,
             shop_domain=integration.shop_domain,
         )
 
-        return ShopifyStorefrontClient(
-            access_token=storefront_token,
+        return ShopifyAdminClient(
             shop_domain=integration.shop_domain,
+            access_token=admin_token,
             is_testing=is_testing(),
         )
 
@@ -111,6 +112,8 @@ class ProductSearchService:
         merchant_id: Optional[int] = None,
     ) -> ProductSearchResult:
         """Search for products matching the extracted entities.
+
+        Uses Shopify Admin API to fetch products and filters them locally.
 
         Args:
             entities: Extracted entities from intent classification
@@ -136,25 +139,40 @@ class ProductSearchService:
             size=search_params.get("size"),
         )
 
-        client: Optional[ShopifyStorefrontClient]
+        # Fetch products from Admin API
+        admin_client: Optional[ShopifyAdminClient] = None
         if merchant_id:
-            client = await self._get_client_for_merchant(merchant_id)
-        elif self.client:
-            client = self.client
+            admin_client = await self._get_admin_client_for_merchant(merchant_id)
+
+        if admin_client:
+            # Fetch all products from Shopify (Admin API)
+            raw_products = await admin_client.list_products(limit=self.MAX_RESULTS)
+            self.logger.info(
+                "admin_api_products_fetched",
+                merchant_id=merchant_id,
+                count=len(raw_products),
+            )
         else:
-            client = ShopifyStorefrontClient(is_testing=True)
+            # Fallback to mock products
+            from app.services.shopify.product_service import fetch_products
 
-        raw_products = await client.search_products(
-            category=search_params.get("category"),
-            max_price=search_params.get("max_price"),
-            size=search_params.get("size"),
-            first=self.MAX_RESULTS,
-        )
+            raw_products = await fetch_products(None, merchant_id, self.db) if self.db else []
+            self.logger.info(
+                "using_fallback_products",
+                merchant_id=merchant_id,
+                count=len(raw_products),
+            )
 
-        products = self.mapper.map_products(raw_products)
+        # Map to Product objects
+        products = self._map_admin_products(raw_products)
 
+        # Apply filters
         products = self._apply_filters(products, search_params)
 
+        # Apply sorting
+        products = self._apply_sorting(products, entities)
+
+        # Rank by relevance
         ranked_products = self._rank_products(products, entities)
 
         has_alternatives = self._check_alternatives(ranked_products, entities)
@@ -182,6 +200,67 @@ class ProductSearchService:
             has_alternatives=has_alternatives,
             search_time_ms=search_time_ms,
         )
+
+    def _map_admin_products(self, raw_products: list[dict]) -> list[Product]:
+        """Map Admin API products to Product objects.
+
+        The list_products() method already extracts price and availability,
+        so we just need to map to Product objects.
+
+        Args:
+            raw_products: Raw product dicts from Admin API (already formatted)
+
+        Returns:
+            List of Product objects
+        """
+        from app.schemas.shopify import ProductVariant, CurrencyCode
+
+        products = []
+        for p in raw_products:
+            # Parse price safely (Product expects float)
+            price_str = p.get("price", "0")
+            try:
+                price = float(price_str) if price_str else 0.0
+            except:
+                price = 0.0
+
+            # Build image list from image_url
+            images = []
+            if p.get("image_url"):
+                images.append({"url": p["image_url"], "src": p["image_url"]})
+
+            # Build variant with availability info for filter_by_availability
+            available = p.get("available", True)
+            variants = [
+                ProductVariant(
+                    id=p.get("variant_id", ""),
+                    product_id=str(p.get("id", "")),
+                    title="Default",
+                    price=price,
+                    currency_code=CurrencyCode.USD,
+                    available_for_sale=available,
+                    selected_options={},
+                )
+            ]
+
+            products.append(
+                Product(
+                    id=str(p.get("id", "")),
+                    title=p.get("title", ""),
+                    description=p.get("description", ""),
+                    description_html=p.get("description", ""),
+                    product_type=p.get("product_type", ""),
+                    vendor=p.get("vendor", ""),
+                    tags=p.get("tags", []) if isinstance(p.get("tags"), list) else [],
+                    price=price,
+                    currency_code=CurrencyCode.USD,
+                    images=images,
+                    variants=variants,
+                    total_inventory=p.get("inventory_quantity", 0),
+                    tracks_inventory=True,
+                )
+            )
+        return products
 
     def _apply_filters(
         self,
@@ -213,6 +292,30 @@ class ProductSearchService:
                 products,
                 size=search_params["size"],
             )
+
+        return products
+
+    def _apply_sorting(
+        self,
+        products: list[Product],
+        entities: ExtractedEntities,
+    ) -> list[Product]:
+        """Apply sorting based on constraints.
+
+        Args:
+            products: List of products to sort
+            entities: Extracted entities with sort constraints
+
+        Returns:
+            Sorted list of products
+        """
+        constraints = entities.constraints or {}
+        sort_by = constraints.get("sort_by")
+        sort_order = constraints.get("sort_order", "asc")
+
+        if sort_by == "price":
+            reverse = sort_order == "desc"
+            products = sorted(products, key=lambda p: p.price or 0, reverse=reverse)
 
         return products
 

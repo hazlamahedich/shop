@@ -28,7 +28,10 @@ Extract these entities if present:
 - size: Product size (8, M, 42, etc.)
 - color: Preferred color
 - brand: Brand preference
-- constraints: Any other constraints mentioned
+- constraints: Any other constraints including:
+  - sort_by: What to sort by (e.g., "price")
+  - sort_order: "asc" for cheapest/lowest, "desc" for most expensive/highest
+  - limit: Number of results wanted
 
 Respond ONLY with valid JSON in this format:
 {
@@ -41,7 +44,7 @@ Respond ONLY with valid JSON in this format:
         "size": "8 or null",
         "color": "red or null",
         "brand": "Nike or null",
-        "constraints": {}
+        "constraints": {"sort_by": "price", "sort_order": "desc"}
     },
     "reasoning": "Brief explanation of classification"
 }
@@ -76,6 +79,15 @@ Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "re
 
 Input: "clear my memory"
 Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "User wants to reset session"}
+
+Input: "What's your most expensive product?"
+Output: {"intent": "product_search", "confidence": 0.95, "entities": {"constraints": {"sort_by": "price", "sort_order": "desc", "limit": 1}}, "reasoning": "User wants highest priced product"}
+
+Input: "Show me your cheapest items"
+Output: {"intent": "product_search", "confidence": 0.95, "entities": {"constraints": {"sort_by": "price", "sort_order": "asc"}}, "reasoning": "User wants lowest priced products"}
+
+Input: "What's the highest priced snowboard?"
+Output: {"intent": "product_search", "confidence": 0.92, "entities": {"category": "snowboard", "constraints": {"sort_by": "price", "sort_order": "desc", "limit": 1}}, "reasoning": "Category search sorted by highest price"}
 """
 
 

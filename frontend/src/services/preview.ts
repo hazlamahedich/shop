@@ -44,6 +44,18 @@ export interface PreviewMessageMetadata {
 }
 
 /**
+ * Product returned in bot response
+ */
+export interface PreviewProduct {
+  product_id: string;
+  title: string;
+  price: number | null;
+  currency: string;
+  image_url: string | null;
+  available: boolean;
+}
+
+/**
  * Response from POST /api/v1/preview/message
  */
 export interface PreviewMessageResponse {
@@ -51,6 +63,7 @@ export interface PreviewMessageResponse {
   confidence: number;
   confidenceLevel: 'high' | 'medium' | 'low';
   metadata: PreviewMessageMetadata;
+  products?: PreviewProduct[];
 }
 
 /**

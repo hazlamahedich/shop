@@ -125,8 +125,12 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
 
       // Listen for popup messages
       const messageHandler = (event: MessageEvent) => {
-        // Verify origin (security)
-        if (event.origin !== window.location.origin) return;
+        // Verify origin - allow messages from backend (same host, different port in dev)
+        const frontendOrigin = window.location.origin;
+        const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const allowedOrigins = [frontendOrigin, backendOrigin];
+        
+        if (!allowedOrigins.includes(event.origin)) return;
 
         if (event.data.type === 'facebook-oauth-success') {
           // Connection successful - refresh status
@@ -330,8 +334,12 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
 
       // Listen for popup messages
       const messageHandler = (event: MessageEvent) => {
-        // Verify origin (security)
-        if (event.origin !== window.location.origin) return;
+        // Verify origin - allow messages from backend (same host, different port in dev)
+        const frontendOrigin = window.location.origin;
+        const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const allowedOrigins = [frontendOrigin, backendOrigin];
+        
+        if (!allowedOrigins.includes(event.origin)) return;
 
         if (event.data.type === 'shopify-oauth-success') {
           // Connection successful - refresh status

@@ -16,7 +16,32 @@ import {
   WidgetSessionSchema,
 } from '../schemas/widget';
 
-const WIDGET_API_BASE = '/api/v1/widget';
+let cachedApiBase: string | null = null;
+
+function getApiBaseUrl(): string {
+  if (cachedApiBase) return cachedApiBase;
+  
+  // Try to find the widget script by src
+  const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
+  for (const script of scripts) {
+    if (script instanceof HTMLScriptElement && script.src) {
+      try {
+        const scriptUrl = new URL(script.src);
+        cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
+        return cachedApiBase;
+      } catch {
+        // Continue to next
+      }
+    }
+  }
+  
+  // Fallback to relative path
+  cachedApiBase = '/api/v1/widget';
+  return cachedApiBase;
+}
+
+// Don't call at module load time - call lazily
+const getWidgetApiBase = () => getApiBaseUrl();
 
 export class WidgetApiException extends Error {
   constructor(
@@ -50,7 +75,7 @@ export class WidgetApiClient {
     retries = 2
   ): Promise<T> {
     try {
-      const response = await fetch(`${WIDGET_API_BASE}${endpoint}`, {
+      const response = await fetch(`${getWidgetApiBase()}${endpoint}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
@@ -160,8 +185,8 @@ export class WidgetApiClient {
   }
 
   async getConfig(merchantId: string): Promise<WidgetConfig> {
-    const data = await this.request<{ config: unknown }>(`/config/${merchantId}`);
-    const parsed = WidgetConfigSchema.safeParse(data.config);
+    const data = await this.request<{ data: unknown }>(`/config/${merchantId}`);
+    const parsed = WidgetConfigSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid config response');
     }

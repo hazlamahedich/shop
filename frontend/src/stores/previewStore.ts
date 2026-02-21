@@ -38,6 +38,14 @@ export interface PreviewMessage {
     productsFound: number;
     llmProvider: string;
   };
+  products?: {
+    product_id: string;
+    title: string;
+    price: number | null;
+    currency: string;
+    image_url: string | null;
+    available: boolean;
+  }[];
 }
 
 /**
@@ -153,6 +161,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
         confidence: responseData.confidence,
         confidenceLevel: responseData.confidenceLevel,
         metadata: responseData.metadata,
+        products: responseData.products,
       };
 
       set({

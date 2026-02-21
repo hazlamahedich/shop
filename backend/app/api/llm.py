@@ -909,19 +909,42 @@ async def get_providers_list(
     """
     # Get merchant_id from authentication
     merchant_id = _get_merchant_id_from_request(http_request)
+    logger.info(
+        "providers_list_request",
+        merchant_id=merchant_id,
+        has_state=getattr(http_request.state, "merchant_id", None),
+    )
 
-    from app.services.llm.provider_switch_service import ProviderSwitchService
+    from app.services.llm.provider_switch_service import (
+        ProviderSwitchService,
+        ProviderValidationError,
+    )
 
     service = ProviderSwitchService(db)
 
-    # Get current provider info
-    current_provider_result = await service.get_current_provider(merchant_id)
+    try:
+        # Get current provider info
+        current_provider_result = await service.get_current_provider(merchant_id)
+        current_provider_id = current_provider_result["provider"]["id"]
+    except ProviderValidationError:
+        # No LLM configuration found - return defaults with ollama as active
+        current_provider_result = {
+            "provider": {
+                "id": "ollama",
+                "name": "Ollama",
+                "description": "Local LLM for development",
+                "model": "llama3",
+            },
+            "status": "not_configured",
+            "configured_at": None,
+            "last_test_at": None,
+            "total_tokens_used": 0,
+            "total_cost_usd": 0.0,
+        }
+        current_provider_id = "ollama"
 
     # Get available providers from factory
     available_providers = LLMProviderFactory.get_available_providers()
-
-    # Mark current provider as active
-    current_provider_id = current_provider_result["provider"]["id"]
 
     providers_with_metadata = []
     for provider in available_providers:

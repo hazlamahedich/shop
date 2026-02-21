@@ -56,6 +56,10 @@ class PreviewMessageResponse(BaseSchema):
     confidence: int = Field(ge=0, le=100, description="Confidence score (0-100)")
     confidence_level: str = Field(description="Confidence level: high, medium, or low")
     metadata: PreviewMessageMetadata = Field(description="Additional metadata about the response")
+    products: Optional[list[dict]] = Field(
+        default=None,
+        description="Products returned from search queries",
+    )
 
 
 class PreviewMessageMetadata(BaseSchema):
@@ -81,8 +85,7 @@ class PreviewSessionResponse(BaseSchema):
     merchant_id: int = Field(description="Merchant ID")
     created_at: str = Field(description="Session creation timestamp (ISO-8601)")
     starter_prompts: list[str] = Field(
-        default_factory=lambda: STARTER_PROMPTS,
-        description="Sample conversation starter prompts"
+        default_factory=lambda: STARTER_PROMPTS, description="Sample conversation starter prompts"
     )
 
 

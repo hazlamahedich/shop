@@ -17,6 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import structlog
 
 from app.core.database import get_db
@@ -368,8 +369,12 @@ async def send_widget_message(
     session_service = WidgetSessionService()
     session = await session_service.get_session_or_error(message_request.session_id)
 
-    # Get merchant
-    result = await db.execute(select(Merchant).where(Merchant.id == session.merchant_id))
+    # Get merchant with eager-loaded llm_configuration relationship
+    result = await db.execute(
+        select(Merchant)
+        .where(Merchant.id == session.merchant_id)
+        .options(selectinload(Merchant.llm_configuration))
+    )
     merchant = result.scalars().first()
 
     if not merchant:

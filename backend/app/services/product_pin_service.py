@@ -354,7 +354,7 @@ async def check_pin_limit(
 
 async def get_pinned_product_ids(
     db: AsyncSession,
-    merchant_id: str,
+    merchant_id: int | str,
 ) -> list[str]:
     """Get list of pinned product IDs for a merchant.
 
@@ -362,7 +362,7 @@ async def get_pinned_product_ids(
 
     Args:
         db: Database session
-        merchant_id: Merchant ID
+        merchant_id: Merchant ID (int or str)
 
     Returns:
         List of product IDs that are pinned
@@ -372,8 +372,8 @@ async def get_pinned_product_ids(
     result = await db.execute(
         select(ProductPin.product_id).where(
             and_(
-                ProductPin.merchant_id == merchant_id,
+                ProductPin.merchant_id == int(merchant_id),
             )
         )
     )
-    return list(result.scalars().all())
+    return [str(pid) for pid in result.scalars().all()]
