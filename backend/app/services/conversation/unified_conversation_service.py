@@ -537,7 +537,7 @@ class UnifiedConversationService:
         # Product search with price constraint
         price_patterns = [
             r"(products?|items?|things?)\s+(under|below|less\s+than|cheaper\s+than)\s*\$?(\d+)",
-            r"under\s*\$?(\d+)",
+            r"(under|below)\s*\$?(\d+)",
             r"(products?|items?)\s+(for|at|under)\s*\$?(\d+)",
         ]
         for pattern in price_patterns:

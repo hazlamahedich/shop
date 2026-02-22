@@ -4,6 +4,37 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-22)
 
+### Widget Price Filter: "below" Not Recognized
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** Widget search for "product below 50" returned "I had trouble searching for products" error, while "product under 50" worked correctly in Preview.
+
+**Root Cause:** The price pattern regex in `_classify_by_patterns()` only matched "under" but not "below":
+```python
+# Before (broken)
+r"under\s*\$?(\d+)"  # Only matched "under 50"
+```
+
+**Fix:** Updated pattern to match both "under" and "below":
+```python
+# After (fixed)
+r"(under|below)\s*\$?(\d+)"  # Matches both "under 50" and "below 50"
+```
+
+**Files Modified:**
+- `backend/app/services/conversation/unified_conversation_service.py` - Line 540
+
+**Verification:**
+```
+User: "product below 50"
+Bot: "Here's what I found at VolareSun:
+     • Gift Card - $10.00
+     • Selling Plans Ski Wax - $24.95"
+```
+
+**Lesson Learned:** When adding pattern-based classification, ensure all common synonyms are included. Users may use "under", "below", "less than", "cheaper than" interchangeably.
+
+---
+
 ### Widget Embed Code: Wrong Merchant ID
 **Status:** ✅ **FIXED** (2026-02-22)
 **Description:** Widget displayed "VolareSun Assistant" and default greeting instead of the configured "Snowee" bot name and custom greeting for merchant ID 2.
