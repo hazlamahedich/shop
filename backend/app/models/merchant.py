@@ -164,6 +164,11 @@ class Merchant(Base):
         cascade="all, delete-orphan",
         order_by="ProductPin.pinned_order",
     )
+    product_pin_analytics: Mapped[list["ProductPinAnalytics"]] = relationship(
+        "ProductPinAnalytics",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+    )
     budget_alerts: Mapped[list["BudgetAlert"]] = relationship(
         "BudgetAlert",
         back_populates="merchant",

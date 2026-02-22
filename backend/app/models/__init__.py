@@ -16,6 +16,7 @@ from app.models.tutorial import Tutorial
 from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
 from app.models.faq import Faq
 from app.models.product_pin import ProductPin
+from app.models.product_pin_analytics import ProductPinAnalytics
 from app.models.session import Session
 from app.models.budget_alert import BudgetAlert
 from app.models.handoff_alert import HandoffAlert
@@ -37,6 +38,7 @@ __all__ = [
     "DeletionStatus",
     "Faq",
     "ProductPin",
+    "ProductPinAnalytics",
     "Session",
     "BudgetAlert",
     "HandoffAlert",

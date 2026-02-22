@@ -96,6 +96,51 @@ boost_factor = 3.0 - (pinned_order - 1) * 0.167
 
 ## Recent Fixes (2026-02-22)
 
+### Widget Message 500 Error: Missing SQLAlchemy Relationship
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** Widget message API returned 500 Internal Server Error with "Internal server error" message. The error was caused by SQLAlchemy mapper initialization failure.
+
+**Root Cause:**
+The `ProductPinAnalytics` model defined a relationship to `Merchant` with `back_populates="product_pin_analytics"`, but the `Merchant` model was missing this relationship. SQLAlchemy failed to initialize mappers with:
+```
+sqlalchemy.exc.InvalidRequestError: Mapper 'Mapper[Merchant(merchants)]' has no property 'product_pin_analytics'
+```
+
+**Fix:**
+1. Added missing `product_pin_analytics` relationship to `Merchant` model
+2. Added import for `ProductPinAnalytics` in `app/models/__init__.py`
+
+**Files Modified:**
+- `backend/app/models/merchant.py` - Added `product_pin_analytics` relationship (lines 167-171)
+- `backend/app/models/__init__.py` - Added `ProductPinAnalytics` import and export
+
+**Code Change:**
+```python
+# backend/app/models/merchant.py (added after product_pins relationship)
+product_pin_analytics: Mapped[list["ProductPinAnalytics"]] = relationship(
+    "ProductPinAnalytics",
+    back_populates="merchant",
+    cascade="all, delete-orphan",
+)
+
+# backend/app/models/__init__.py (added import)
+from app.models.product_pin_analytics import ProductPinAnalytics
+
+# __all__ list
+"ProductPinAnalytics",
+```
+
+**Verification:**
+```
+POST /api/v1/widget/message → HTTP 200 ✅
+access-control-allow-origin: https://volare-sun.myshopify.com ✅
+Bot response with products returned ✅
+```
+
+**Lesson Learned:** When adding a new model with a bidirectional relationship (`back_populates`), ensure BOTH sides of the relationship are defined AND the model is imported in `__init__.py` so SQLAlchemy can resolve the string references during mapper initialization.
+
+---
+
 ### Conversation Card: "Unknown" Platform & Incorrect Timestamp
 **Status:** ✅ **FIXED** (2026-02-22)
 **Description:** Widget conversations showed "Unknown" as the platform label and displayed "8h" timestamp for chats created just minutes ago, even when business timezone was set to Singapore.
