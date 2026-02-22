@@ -14,6 +14,7 @@ import type {
 } from '../types/conversation';
 
 import { getCsrfToken } from '../stores/csrfStore';
+import { useAuthStore } from '../stores/authStore';
 
 const API_BASE = '/api/conversations';
 
@@ -130,7 +131,11 @@ export const conversationsService = {
   },
 
   async getFacebookPageInfo(): Promise<{ data: FacebookPageInfo }> {
-    const response = await fetch('/api/integrations/facebook/status', {
+    const merchantId = useAuthStore.getState().merchant?.id;
+    if (!merchantId) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`/api/integrations/facebook/status?merchant_id=${merchantId}`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -149,5 +154,49 @@ export const conversationsService = {
         isConnected: json.data.connected === true,
       },
     };
+  },
+
+  /**
+   * Send a merchant reply to a conversation
+   *
+   * Platform-specific behavior:
+   * - Messenger: Sends via Facebook Send API
+   * - Widget: Stores and broadcasts via SSE
+   * - Preview: Returns error (read-only)
+   *
+   * @param conversationId - ID of the conversation
+   * @param content - Message content to send
+   * @returns Promise with the sent message details
+   */
+  async sendMerchantReply(
+    conversationId: number,
+    content: string
+  ): Promise<{
+    data: {
+      message: {
+        id: number;
+        content: string;
+        sender: string;
+        createdAt: string;
+        platform: string;
+      };
+    };
+  }> {
+    const csrfToken = await getCsrfToken();
+    const response = await fetch(`${API_BASE}/${conversationId}/reply`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify({ content }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to send reply');
+    }
+
+    return response.json();
   },
 };

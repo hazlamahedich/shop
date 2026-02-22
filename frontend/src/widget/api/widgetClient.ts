@@ -175,6 +175,7 @@ export class WidgetApiClient {
         imageUrl: (p.imageUrl || p.image_url) as string | undefined,
         available: p.available as boolean,
         productType: (p.productType || p.product_type) as string | undefined,
+        isPinned: (p.isPinned || p.is_pinned) as boolean | undefined,
       })),
       cart: parsed.data.cart
         ? {

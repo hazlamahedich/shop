@@ -71,11 +71,14 @@ class UnifiedConversationService:
 
     INTENT_TO_HANDLER_MAP = {
         "product_search": "search",
+        "product_inquiry": "search",
+        "product_comparison": "search",
         "greeting": "greeting",
         "cart_view": "cart",
         "cart_add": "cart",
         "cart_remove": "cart",
         "cart_clear": "cart",
+        "add_last_viewed": "cart",
         "checkout": "checkout",
         "order_tracking": "order",
         "human_handoff": "handoff",
@@ -169,13 +172,14 @@ class UnifiedConversationService:
                     threshold=self.INTENT_CONFIDENCE_THRESHOLD,
                 )
                 handler = self._handlers["llm"]
+                entities = None
                 response = await handler.handle(
                     db=db,
                     merchant=merchant,
                     llm_service=llm_service,
                     message=message,
                     context=context,
-                    entities=None,
+                    entities=entities,
                 )
             else:
                 handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
@@ -204,6 +208,9 @@ class UnifiedConversationService:
             response.intent = intent_name
             response.confidence = confidence
 
+            # Update shopping state based on response
+            self._update_shopping_state(context, response, intent_name, entities)
+
             # Capture merchant_id before persistence (which may rollback and expire objects)
             merchant_id_for_log = context.merchant_id
 
@@ -215,6 +222,7 @@ class UnifiedConversationService:
                 bot_response=response.message,
                 intent=intent_name,
                 confidence=confidence,
+                cart=response.cart,
             )
 
             self.logger.info(
@@ -736,13 +744,53 @@ class UnifiedConversationService:
         Returns:
             Cart action: 'view', 'add', 'remove', or 'clear'
         """
-        if intent_name == "cart_add":
+        if intent_name in ("cart_add", "add_last_viewed"):
             return "add"
         elif intent_name == "cart_remove":
             return "remove"
         elif intent_name == "cart_clear":
             return "clear"
         return "view"
+
+    def _update_shopping_state(
+        self,
+        context: ConversationContext,
+        response: ConversationResponse,
+        intent_name: str,
+        entities: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Update shopping state based on response.
+
+        Tracks viewed products for anaphoric reference resolution.
+
+        Args:
+            context: Conversation context with shopping_state
+            response: Handler response
+            intent_name: Classified intent
+            entities: Extracted entities from classification
+        """
+        if response.products:
+            for product in response.products[:5]:
+                context.shopping_state.add_viewed_product(product)
+            self.logger.debug(
+                "shopping_state_updated",
+                intent=intent_name,
+                products_added=len(response.products),
+                total_viewed=len(context.shopping_state.last_viewed_products),
+            )
+
+        if entities:
+            category = entities.get("category")
+            if category:
+                context.shopping_state.last_search_category = category
+
+            if intent_name in ("product_search", "product_inquiry"):
+                raw_message = entities.get("raw_message")
+                if raw_message:
+                    context.shopping_state.last_search_query = raw_message[:100]
+
+        if response.cart:
+            context.shopping_state.last_cart_item_count = response.cart.get("item_count", 0)
 
     async def _persist_conversation_message(
         self,
@@ -753,6 +801,7 @@ class UnifiedConversationService:
         bot_response: str,
         intent: str,
         confidence: float,
+        cart: Optional[dict] = None,
     ) -> Optional[int]:
         """Persist conversation and messages to database.
 
@@ -769,6 +818,7 @@ class UnifiedConversationService:
             bot_response: Bot's response
             intent: Classified intent
             confidence: Classification confidence
+            cart: Optional cart state to persist
 
         Returns:
             Conversation ID if persisted, None on failure
@@ -817,6 +867,11 @@ class UnifiedConversationService:
                 },
             )
             db.add(bot_msg)
+
+            if cart is not None:
+                if conversation.conversation_data is None:
+                    conversation.conversation_data = {}
+                conversation.conversation_data["cart"] = cart
 
             conversation.updated_at = datetime.utcnow()
 

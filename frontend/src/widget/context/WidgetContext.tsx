@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { WidgetAction, WidgetState, WidgetProduct } from '../types/widget';
 import { createWidgetError } from '../types/errors';
+import { shopifyCartClient } from '../api/shopifyCartClient';
 
 const initialState: WidgetState = {
   isOpen: false,
@@ -186,6 +187,13 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         const { widgetClient } = await import('../api/widgetClient');
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
+
+        if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+          console.log('[Widget] Chat returned cart, syncing to Shopify:', botMessage.cart);
+          syncCartToShopify(botMessage.cart);
+        } else {
+          console.log('[Widget] Not syncing to Shopify - isOnShopify:', shopifyCartClient.isOnShopify(), 'hasCart:', !!botMessage.cart);
+        }
       } catch (error) {
         addError(error, { action: 'Try Again' });
       } finally {
@@ -193,6 +201,34 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       }
     },
     [state.session, addError]
+  );
+
+  const syncCartToShopify = React.useCallback(
+    async (cart: { items: Array<{ variantId?: string; quantity: number }>; itemCount?: number }) => {
+      if (!shopifyCartClient.isOnShopify()) return;
+
+      try {
+        if (!cart.items || cart.items.length === 0) {
+          await shopifyCartClient.clearCart();
+          console.log('[Widget] Shopify cart cleared via chat');
+        } else {
+          const shopifyCart = await shopifyCartClient.getCart();
+          const shopifyVariantIds = new Set(
+            shopifyCart.items.map((item) => String(item.variant_id))
+          );
+
+          for (const item of cart.items) {
+            if (item.variantId && !shopifyVariantIds.has(String(item.variantId))) {
+              await shopifyCartClient.addToCart(item.variantId, item.quantity);
+              console.log('[Widget] Added to Shopify cart via chat:', item.variantId);
+            }
+          }
+        }
+      } catch (shopifyError) {
+        console.warn('[Widget] Shopify cart sync failed:', shopifyError);
+      }
+    },
+    []
   );
 
   const addToCart = React.useCallback(
@@ -212,6 +248,18 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         }
 
         const updatedCart = await widgetClient.addToCart(sessionId, product, 1);
+
+        if (shopifyCartClient.isOnShopify() && product.variantId) {
+          console.log('[Widget] Syncing add to Shopify cart, variantId:', product.variantId);
+          try {
+            await shopifyCartClient.addToCart(product.variantId, 1);
+            console.log('[Widget] Shopify cart sync successful');
+          } catch (shopifyError) {
+            console.warn('[Widget] Shopify cart sync failed:', shopifyError);
+          }
+        } else {
+          console.log('[Widget] Not syncing to Shopify - isOnShopify:', shopifyCartClient.isOnShopify(), 'variantId:', product.variantId);
+        }
 
         const itemWord = updatedCart.itemCount === 1 ? 'item' : 'items';
         const confirmationMessage = {
@@ -247,6 +295,14 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         }
 
         await widgetClient.removeFromCart(sessionId, variantId);
+
+        if (shopifyCartClient.isOnShopify()) {
+          try {
+            await shopifyCartClient.removeFromCart(variantId);
+          } catch (shopifyError) {
+            console.warn('[Widget] Shopify cart sync failed:', shopifyError);
+          }
+        }
       } catch (error) {
         addError(error, { action: 'Try Again' });
       } finally {
@@ -324,6 +380,43 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       dispatch({ type: 'ADD_MESSAGE', payload: greetingMessage });
     }
   }, [state.isOpen, state.messages.length, state.config?.welcomeMessage]);
+
+  // SSE connection for merchant messages
+  React.useEffect(() => {
+    if (!state.session?.sessionId || !state.isOpen) return;
+
+    let cleanup: (() => void) | null = null;
+
+    const connectSSE = async () => {
+      const { connectToWidgetSSE, isSSESupported } = await import('../api/widgetSSEClient');
+      
+      if (!isSSESupported()) return;
+
+      cleanup = connectToWidgetSSE(state.session!.sessionId, {
+        onMessage: (event) => {
+          if (event.type === 'merchant_message') {
+            const data = event.data as { id: number; content: string; createdAt: string };
+            const merchantMessage = {
+              messageId: `merchant-${data.id}`,
+              content: data.content,
+              sender: 'bot' as const,
+              createdAt: data.createdAt,
+            };
+            dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
+          }
+        },
+        onError: (error) => {
+          console.warn('[Widget] SSE connection error:', error);
+        },
+      });
+    };
+
+    connectSSE();
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [state.session?.sessionId, state.isOpen]);
 
   const retryLastAction = React.useCallback(() => {
     if (!lastActionRef.current) return;

@@ -44,6 +44,7 @@ from app.api.handoff_alerts import router as handoff_alerts_router
 from app.api.settings import router as settings_router
 from app.api.widget import router as widget_router
 from app.api.widget_settings import router as widget_settings_router
+from app.api.widget_events import router as widget_events_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
@@ -351,6 +352,38 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     )
 
 
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Handle unhandled exceptions with JSON error response.
+
+    Ensures all errors return JSON instead of plain text "Internal Server Error".
+
+    Args:
+        request: The request object
+        exc: The unhandled exception
+
+    Returns:
+        JSONResponse with generic error message
+    """
+    import structlog
+
+    structlog.get_logger().exception(
+        "unhandled_exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+    )
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": 1000,
+            "message": "Internal server error",
+            "details": {},
+        },
+    )
+
+
 # Mount static files for widget
 from pathlib import Path as FilePath
 
@@ -392,6 +425,8 @@ app.include_router(health_router.router, prefix="/api/health", tags=["health"])
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # Story 5-1: Widget API
 app.include_router(widget_router, prefix="/api/v1", tags=["widget"])
+# Widget SSE Events
+app.include_router(widget_events_router, prefix="/api/v1", tags=["widget-events"])
 # Story 5-6: Widget Settings API
 app.include_router(widget_settings_router, prefix="/api/v1/merchants", tags=["widget-settings"])
 # These will be added as features are implemented:

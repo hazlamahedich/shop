@@ -44,12 +44,36 @@ export function ProductCard({ product, theme, onAddToCart, onClick, isAdding }: 
         padding: 12,
         backgroundColor: '#ffffff',
         borderRadius: 12,
-        border: '1px solid #e5e7eb',
+        border: product.isPinned ? `2px solid ${theme.primaryColor}` : '1px solid #e5e7eb',
         marginBottom: 8,
         cursor: onClick ? 'pointer' : 'default',
         transition: 'box-shadow 0.2s, border-color 0.2s',
+        position: 'relative',
       }}
     >
+      {product.isPinned && (
+        <div
+          className="featured-badge"
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: 8,
+            background: theme.primaryColor,
+            color: 'white',
+            padding: '2px 8px',
+            borderRadius: 4,
+            fontSize: 10,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            zIndex: 1,
+          }}
+        >
+          ⭐ Featured
+        </div>
+      )}
       {product.imageUrl && (
         <img
           src={product.imageUrl}

@@ -74,7 +74,7 @@ export interface SavedFilter {
 
 export interface MessageHistoryItem {
   id: number;
-  sender: 'customer' | 'bot';
+  sender: 'customer' | 'bot' | 'merchant';
   content: string;
   createdAt: string;
   confidenceScore?: number | null;
@@ -116,6 +116,7 @@ export interface CustomerInfo {
 export interface ConversationHistoryData {
   conversationId: number;
   platformSenderId: string;
+  platform: string;
   messages: MessageHistoryItem[];
   context: ConversationContext;
   handoff: HandoffContext;

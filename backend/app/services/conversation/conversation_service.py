@@ -251,11 +251,15 @@ class ConversationService:
             if msg.sender == "bot" and msg.message_metadata:
                 confidence_score = msg.message_metadata.get("confidence_score")
 
+            content = msg.decrypted_content
+            if content is None:
+                content = ""
+
             messages.append(
                 {
                     "id": msg.id,
                     "sender": msg.sender,
-                    "content": msg.decrypted_content,
+                    "content": content,
                     "created_at": msg.created_at,
                     "confidence_score": confidence_score,
                 }
@@ -281,7 +285,7 @@ class ConversationService:
                 }
 
         urgency_level = "low"
-        if conversation.handoff_alert:
+        if conversation.handoff_alert and conversation.handoff_alert.urgency_level:
             urgency_level = conversation.handoff_alert.urgency_level
 
         wait_time_seconds = 0
@@ -293,15 +297,12 @@ class ConversationService:
         handoff = {
             "trigger_reason": conversation.handoff_reason or "unknown",
             "triggered_at": conversation.handoff_triggered_at or datetime.utcnow(),
-            "urgency_level": urgency_level,
+            "urgency_level": urgency_level or "low",
             "wait_time_seconds": wait_time_seconds,
         }
 
-        masked_id = (
-            f"{conversation.platform_sender_id[:4]}****"
-            if len(conversation.platform_sender_id) > 4
-            else "****"
-        )
+        sender_id = conversation.platform_sender_id or ""
+        masked_id = f"{sender_id[:4]}****" if len(sender_id) > 4 else "****"
 
         customer = {
             "masked_id": masked_id,
@@ -311,6 +312,7 @@ class ConversationService:
         return {
             "conversation_id": conversation.id,
             "platform_sender_id": conversation.platform_sender_id,
+            "platform": conversation.platform,
             "messages": messages,
             "context": {
                 "cart_state": cart_state,

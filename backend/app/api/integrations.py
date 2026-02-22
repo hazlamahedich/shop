@@ -483,12 +483,25 @@ async def shopify_callback(
         admin_client = ShopifyAdminClient(shop, admin_token, is_testing=is_testing())
         shop_details = await admin_client.verify_shop_access()
 
-        # Note: Creating Storefront tokens requires the app to be a Sales Channel.
-        # For a chatbot, we use tokenless Storefront API for product queries
-        # and direct checkout URLs (https://{shop}/cart/{variant}:{qty}) for cart.
-        # This approach works without needing Storefront token creation.
+        # Try to create Storefront API token for cart sync
+        # This requires the app to have proper Admin API scopes
         storefront_token = None
-        storefront_verified = True  # Tokenless access always works
+        storefront_verified = False
+
+        try:
+            storefront_token = await admin_client.create_storefront_access_token(
+                title="Chatbot Cart Sync"
+            )
+            storefront_verified = True
+            log.info("shopify_storefront_token_created", shop_domain=shop)
+        except Exception as e:
+            log.warning(
+                "shopify_storefront_token_failed",
+                shop_domain=shop,
+                error=str(e),
+                note="Cart sync will not work. App may need Sales Channel distribution.",
+            )
+            # Continue without storefront token - product search will still work
 
         # Create Shopify integration record
         integration = await service.create_shopify_integration(

@@ -21,6 +21,7 @@ import {
   PreviewMessageResponse,
   PreviewSessionResponse,
 } from '../services/preview';
+import { useCartStore } from './cartStore';
 
 /**
  * Message in the preview conversation
@@ -99,6 +100,9 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
   startSession: async () => {
     set({ isLoading: true, error: null });
 
+    // Clear any existing cart state from previous sessions
+    useCartStore.getState().clearCart();
+
     try {
       const sessionData: PreviewSessionResponse =
         await previewService.startPreviewSession();
@@ -164,6 +168,18 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
         products: responseData.products,
       };
 
+      // Sync cart state if cart was returned
+      if (responseData.cart) {
+        const cartStore = useCartStore.getState();
+        // If cart is empty, clear the local cart
+        if (!responseData.cart.items || responseData.cart.items.length === 0) {
+          cartStore.clearCart();
+        }
+        // Note: For add operations, we don't sync back because the frontend
+        // cart uses product IDs while the backend uses variant IDs.
+        // The "clear cart" command is the main use case for syncing back.
+      }
+
       set({
         messages: [...get().messages, botMessage],
         isLoading: false,
@@ -208,6 +224,9 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
    */
   resetConversation: async () => {
     const { sessionId } = get();
+
+    // Clear the cart when resetting
+    useCartStore.getState().clearCart();
 
     if (!sessionId) {
       // No session exists, just clear messages

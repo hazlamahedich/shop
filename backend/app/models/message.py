@@ -42,7 +42,7 @@ class Message(Base):
         index=True,
     )
     sender: Mapped[str] = mapped_column(
-        Enum("customer", "bot", name="message_sender"),
+        Enum("customer", "bot", "merchant", name="message_sender", create_type=False),
         nullable=False,
     )
     content: Mapped[str] = mapped_column(

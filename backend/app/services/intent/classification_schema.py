@@ -16,6 +16,8 @@ class IntentType(str, Enum):
     """Supported intent types for product discovery."""
 
     PRODUCT_SEARCH = "product_search"
+    PRODUCT_INQUIRY = "product_inquiry"
+    PRODUCT_COMPARISON = "product_comparison"
     GREETING = "greeting"
     CLARIFICATION = "clarification"
     GENERAL = "general"
@@ -23,6 +25,7 @@ class IntentType(str, Enum):
     CART_ADD = "cart_add"
     CART_REMOVE = "cart_remove"
     CART_CLEAR = "cart_clear"
+    ADD_LAST_VIEWED = "add_last_viewed"
     CHECKOUT = "checkout"
     ORDER_TRACKING = "order_tracking"
     HUMAN_HANDOFF = "human_handoff"
@@ -54,6 +57,10 @@ class ExtractedEntities(BaseModel):
     size: Optional[str] = Field(None, description="Product size (e.g., '8', 'M', '42')")
     color: Optional[str] = Field(None, description="Preferred color")
     brand: Optional[str] = Field(None, description="Preferred brand")
+    product_reference: Optional[str] = Field(
+        None,
+        description="Anaphoric reference to previously shown product (e.g., 'that one', 'first', 'it')",
+    )
     constraints: dict[str, Any] = Field(default_factory=dict, description="Additional constraints")
 
     class Config:

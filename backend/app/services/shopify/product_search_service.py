@@ -172,8 +172,12 @@ class ProductSearchService:
         # Apply sorting
         products = self._apply_sorting(products, entities)
 
-        # Rank by relevance
-        ranked_products = self._rank_products(products, entities)
+        # Fetch pinned product IDs for relevance boosting
+        pinned_ids = await self._get_pinned_product_ids(merchant_id)
+        pinned_orders = await self._get_pinned_product_orders(merchant_id)
+
+        # Rank by relevance (with pinned boost)
+        ranked_products = self._rank_products(products, entities, pinned_ids, pinned_orders)
 
         has_alternatives = self._check_alternatives(ranked_products, entities)
 
@@ -323,16 +327,23 @@ class ProductSearchService:
         self,
         products: list[Product],
         entities: ExtractedEntities,
+        pinned_ids: Optional[set[str]] = None,
+        pinned_orders: Optional[dict[str, int]] = None,
     ) -> list[Product]:
         """Rank products by relevance to search entities.
 
         Args:
             products: List of products from Shopify
             entities: Original search entities
+            pinned_ids: Set of pinned product IDs (for boosting)
+            pinned_orders: Dict mapping product_id to pinned_order (1-10)
 
         Returns:
             Products with relevance scores, sorted by score
         """
+        pinned_ids = pinned_ids or set()
+        pinned_orders = pinned_orders or {}
+
         scored_products: list[Product] = []
 
         for product in products:
@@ -357,6 +368,15 @@ class ProductSearchService:
                     # Prefer products closer to budget (better value)
                     budget_ratio = product.price / entities.budget
                     score += (1.0 - budget_ratio) * self.PRICE_PROXIMITY_WEIGHT
+
+            # Pinned product boost (dynamic based on order)
+            # Order 1 gets 3.0x boost, order 10 gets 1.5x boost
+            product_id_str = str(product.id)
+            if product_id_str in pinned_ids:
+                order = pinned_orders.get(product_id_str, 10)
+                # Calculate boost: 3.0 for order 1, decreasing to 1.5 for order 10
+                boost_factor = 3.0 - (order - 1) * 0.167  # (3.0 - 1.5) / 9 = 0.167
+                score = score * boost_factor
 
             product.relevance_score = score
             scored_products.append(product)
@@ -390,3 +410,58 @@ class ProductSearchService:
             return True
 
         return False
+
+    async def _get_pinned_product_ids(self, merchant_id: int) -> set[str]:
+        """Fetch pinned product IDs for a merchant.
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Set of pinned product IDs as strings
+        """
+        if not self.db:
+            return set()
+
+        try:
+            from app.services.product_pin_service import get_pinned_product_ids
+
+            pinned_ids = await get_pinned_product_ids(self.db, merchant_id)
+            return {str(pid) for pid in pinned_ids}
+        except Exception as e:
+            self.logger.warning(
+                "get_pinned_ids_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            return set()
+
+    async def _get_pinned_product_orders(self, merchant_id: int) -> dict[str, int]:
+        """Fetch pinned product orders for a merchant.
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Dict mapping product_id to pinned_order
+        """
+        if not self.db:
+            return {}
+
+        try:
+            from app.models.product_pin import ProductPin
+
+            result = await self.db.execute(
+                select(ProductPin.product_id, ProductPin.pinned_order).where(
+                    ProductPin.merchant_id == merchant_id
+                )
+            )
+            pins = result.all()
+            return {str(pin.product_id): pin.pinned_order for pin in pins}
+        except Exception as e:
+            self.logger.warning(
+                "get_pinned_orders_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            return {}

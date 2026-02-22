@@ -195,6 +195,7 @@ class ConversationHistoryData(BaseModel):
 
     conversation_id: int
     platform_sender_id: str = Field(..., description="Customer's platform sender ID (PSID)")
+    platform: str = Field(..., description="Conversation platform (messenger, widget, preview)")
     messages: List[MessageHistoryItem]
     context: ConversationContext
     handoff: HandoffContext

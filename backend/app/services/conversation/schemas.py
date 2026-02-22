@@ -22,6 +22,88 @@ class Channel(str, Enum):
     PREVIEW = "preview"
 
 
+class SessionShoppingState(BaseModel):
+    """Tracks shopping-related state within a conversation session.
+
+    Enables context-aware responses for:
+    - Anaphoric references ("add that to cart")
+    - Product mention detection
+    - Personalized recommendations
+    """
+
+    last_viewed_products: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Last 5 products shown to user",
+        max_length=5,
+    )
+    last_search_query: Optional[str] = Field(
+        None,
+        description="Most recent search query",
+    )
+    last_search_category: Optional[str] = Field(
+        None,
+        description="Most recent product category searched",
+    )
+    interested_product_ids: list[str] = Field(
+        default_factory=list,
+        description="Product IDs user has shown interest in",
+    )
+    last_cart_item_count: int = Field(
+        default=0,
+        description="Number of items in cart at last check",
+    )
+
+    def add_viewed_product(self, product: dict[str, Any]) -> None:
+        """Add a product to viewed history, maintaining max 5."""
+        product_id = product.get("id")
+        # Remove if already exists (will be added at front)
+        self.last_viewed_products = [
+            p for p in self.last_viewed_products if p.get("id") != product_id
+        ]
+        self.last_viewed_products.insert(0, product)
+        # Keep only last 5
+        self.last_viewed_products = self.last_viewed_products[:5]
+
+    def get_last_viewed_product(self) -> Optional[dict[str, Any]]:
+        """Get the most recently viewed product."""
+        return self.last_viewed_products[0] if self.last_viewed_products else None
+
+    def find_product_by_reference(
+        self,
+        reference: str,
+    ) -> Optional[dict[str, Any]]:
+        """Find a product by reference term (first, last, by name/brand).
+
+        Args:
+            reference: Term like "first", "last", "the red one", "nike", etc.
+
+        Returns:
+            Matching product or None
+        """
+        if not self.last_viewed_products:
+            return None
+
+        ref_lower = reference.lower().strip()
+
+        # Positional references
+        if ref_lower in ("first", "that one", "it", "this one", "the first one"):
+            return self.last_viewed_products[0]
+        if ref_lower in ("second", "the second one") and len(self.last_viewed_products) > 1:
+            return self.last_viewed_products[1]
+        if ref_lower in ("third", "the third one") and len(self.last_viewed_products) > 2:
+            return self.last_viewed_products[2]
+        if ref_lower in ("last", "the last one"):
+            return self.last_viewed_products[-1]
+
+        # Search by title/brand
+        for product in self.last_viewed_products:
+            title = (product.get("title") or "").lower()
+            if ref_lower in title:
+                return product
+
+        return None
+
+
 class ConversationContext(BaseModel):
     """Normalized context for any channel.
 
@@ -49,6 +131,10 @@ class ConversationContext(BaseModel):
     is_returning_shopper: bool = Field(
         default=False,
         description="Whether this visitor has previous sessions",
+    )
+    shopping_state: SessionShoppingState = Field(
+        default_factory=SessionShoppingState,
+        description="Shopping session state (viewed products, searches)",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
@@ -92,12 +178,15 @@ class IntentType(str, Enum):
     """
 
     PRODUCT_SEARCH = "product_search"
+    PRODUCT_INQUIRY = "product_inquiry"
+    PRODUCT_COMPARISON = "product_comparison"
     GREETING = "greeting"
     CLARIFICATION = "clarification"
     CART_VIEW = "cart_view"
     CART_ADD = "cart_add"
     CART_REMOVE = "cart_remove"
     CART_CLEAR = "cart_clear"
+    ADD_LAST_VIEWED = "add_last_viewed"
     CHECKOUT = "checkout"
     ORDER_TRACKING = "order_tracking"
     HUMAN_HANDOFF = "human_handoff"

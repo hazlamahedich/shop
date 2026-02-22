@@ -2,6 +2,98 @@
 
 Status: ✅ **COMPLETE**
 
+## Recent Enhancements (2026-02-22)
+
+### Intent Mechanism Improvements
+
+**Status:** ✅ **COMPLETE** (2026-02-22)
+
+Enhanced the intent classification and response system for smarter, context-aware conversations.
+
+| Feature | Description | Files |
+|---------|-------------|-------|
+| **SessionShoppingState** | Tracks viewed products, searches, cart state for context | `backend/app/services/conversation/schemas.py` |
+| **New Intent Types** | `product_inquiry`, `product_comparison`, `add_last_viewed` | `schemas.py`, `classification_schema.py` |
+| **Enhanced Prompts** | 20+ new examples for anaphoric references, product mentions | `backend/app/services/intent/prompt_templates.py` |
+| **Product Mention Detection** | Auto-fetches products when LLM mentions them in responses | `backend/app/services/conversation/product_mention_detector.py` (new) |
+| **Anaphoric Resolution** | "add that to cart" → resolves to last viewed product | `backend/app/services/conversation/handlers/cart_handler.py` |
+| **State Tracking** | Updates `shopping_state` after each response | `backend/app/services/conversation/unified_conversation_service.py` |
+
+**How It Works:**
+```
+User: "Show me running shoes"
+Bot: [Shows products] → shopping_state.last_viewed_products updated
+
+User: "Add that to cart"
+Intent: add_last_viewed → cart_action: add
+CartHandler: Resolves "that" → last_viewed_products[0] → adds to cart
+
+User: "Do you have Nike Air Max?"
+Bot (LLM): "Yes, we have the Nike Air Max in stock..."
+ProductMentionDetector: Detects "Nike Air Max" → fetches product → attaches card
+```
+
+**Files Created:**
+- `backend/app/services/conversation/product_mention_detector.py` - Detects product mentions in LLM responses
+
+**Files Modified:**
+- `backend/app/services/conversation/schemas.py` - Added `SessionShoppingState`, new intent types
+- `backend/app/services/intent/classification_schema.py` - Added new intents, `product_reference` field
+- `backend/app/services/intent/prompt_templates.py` - Enhanced prompts with shopping context
+- `backend/app/services/intent/intent_classifier.py` - Pass shopping context to classifier
+- `backend/app/services/conversation/handlers/llm_handler.py` - Product mention detection
+- `backend/app/services/conversation/handlers/cart_handler.py` - Anaphoric reference resolution
+- `backend/app/services/conversation/unified_conversation_service.py` - State tracking, new intent routing
+
+---
+
+### Pinned Product Highlights Enhancement
+
+**Status:** ✅ **COMPLETE** (2026-02-22)
+
+Maximized the effectiveness of pinned/featured products across the widget experience.
+
+| Phase | Feature | Impact |
+|-------|---------|--------|
+| **1. Featured Badge** | ⭐ badge with blue border on pinned products | High visibility in all product cards |
+| **2. Greeting Showcase** | Shows up to 2 pinned products on "Hi" | Immediate product discovery |
+| **3. Analytics Tracking** | Tracks views and cart adds for pinned products | Merchant insights |
+| **4. Dynamic Boost** | 3.0x→1.5x relevance boost by pinned_order | Smart ranking |
+| **5. Auto-Prioritization** | Pinned products appear first in search | Always featured |
+
+**Featured Badge Display:**
+```
+┌─────────────────────────────────────────────┐
+│ ⭐ Featured                                 │  ← Badge + blue border
+│ [Product Image]                             │
+│ Nike Air Max                                │
+│ $129.00                    [Add to Cart]    │
+└─────────────────────────────────────────────┘
+```
+
+**Dynamic Boost Calculation:**
+```python
+# Order 1: 3.0x boost
+# Order 5: 2.33x boost  
+# Order 10: 1.5x boost
+boost_factor = 3.0 - (pinned_order - 1) * 0.167
+```
+
+**Files Created:**
+- `backend/app/models/product_pin_analytics.py` - Analytics model
+- `backend/app/services/product_pin_analytics_service.py` - Tracking service
+
+**Files Modified:**
+- `frontend/src/widget/types/widget.ts` - Added `isPinned` to `WidgetProduct`
+- `frontend/src/widget/components/ProductCard.tsx` - Featured badge UI
+- `frontend/src/widget/api/widgetClient.ts` - Parse `isPinned` field
+- `backend/app/services/conversation/handlers/search_handler.py` - Include `is_pinned`, track views
+- `backend/app/services/conversation/handlers/greeting_handler.py` - Show pinned products
+- `backend/app/services/conversation/handlers/cart_handler.py` - Track cart adds
+- `backend/app/services/shopify/product_search_service.py` - Dynamic relevance boost
+
+---
+
 ## Recent Fixes (2026-02-22)
 
 ### Conversation Card: "Unknown" Platform & Incorrect Timestamp

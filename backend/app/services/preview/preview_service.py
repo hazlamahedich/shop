@@ -265,6 +265,7 @@ class PreviewService:
             confidence_level=confidence_level,
             metadata=metadata,
             products=response.products,
+            cart=response.cart,
         )
 
     async def _send_message_legacy(

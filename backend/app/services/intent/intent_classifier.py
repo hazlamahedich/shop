@@ -23,7 +23,11 @@ from app.services.intent.classification_schema import (
     ExtractedEntities,
     IntentType,
 )
-from app.services.intent.prompt_templates import get_classification_system_prompt
+from app.services.intent.prompt_templates import (
+    get_classification_system_prompt,
+    get_context_aware_classification_prompt,
+    format_shopping_context,
+)
 
 
 logger = structlog.get_logger(__name__)
@@ -311,6 +315,7 @@ class IntentClassifier:
                 size=entities_data.get("size"),
                 color=entities_data.get("color"),
                 brand=entities_data.get("brand"),
+                product_reference=entities_data.get("productReference"),
                 constraints=entities_data.get("constraints", {}),
             )
 

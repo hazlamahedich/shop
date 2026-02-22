@@ -63,6 +63,7 @@ class SearchHandler(BaseHandler):
         try:
             from app.services.shopify.product_search_service import ProductSearchService
             from app.services.intent.classification_schema import ExtractedEntities
+            from app.services.product_pin_service import get_pinned_product_ids
 
             # Check if this is a recommendation/pinned product request
             constraints = entities.get("constraints", {}) if entities else {}
@@ -81,6 +82,10 @@ class SearchHandler(BaseHandler):
                     brand=entities.get("brand"),
                     constraints=constraints,
                 )
+
+            # Get pinned product IDs for is_pinned flag
+            pinned_ids = await get_pinned_product_ids(db, merchant.id)
+            pinned_ids_set = {str(pid) for pid in pinned_ids}
 
             # For pinned/recommendation requests, get pinned products first
             if is_pinned_request:
@@ -119,6 +124,7 @@ class SearchHandler(BaseHandler):
                     "available": (
                         any(v.available_for_sale for v in p.variants) if p.variants else True
                     ),
+                    "is_pinned": str(p.id) in pinned_ids_set,
                 }
                 for p in search_result.products[:5]
             ]
@@ -143,6 +149,11 @@ class SearchHandler(BaseHandler):
                 total_results=search_result.total_count,
                 returned_count=len(formatted_products),
             )
+
+            # Track views for pinned products
+            pinned_view_ids = [p["id"] for p in formatted_products if p.get("is_pinned")]
+            if pinned_view_ids:
+                await self._track_pinned_views(db, merchant.id, pinned_view_ids)
 
             return ConversationResponse(
                 message=response_message,
@@ -226,6 +237,7 @@ class SearchHandler(BaseHandler):
                         "available": (
                             any(v.available_for_sale for v in p.variants) if p.variants else True
                         ),
+                        "is_pinned": True,  # Fallback products are always pinned
                     }
                     for p in fallback_result.products[:5]
                 ]
@@ -421,3 +433,27 @@ class SearchHandler(BaseHandler):
             logger.warning("pinned_products_failed", merchant_id=merchant.id, error=str(e))
             # Fall back to regular search
             return await search_service.search_products(extracted_entities, merchant.id)
+
+    async def _track_pinned_views(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+        product_ids: list[str],
+    ) -> None:
+        """Track views for pinned products.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID
+            product_ids: List of pinned product IDs that were shown
+        """
+        try:
+            from app.services.product_pin_analytics_service import track_pinned_products_view
+
+            await track_pinned_products_view(db, merchant_id, product_ids)
+        except Exception as e:
+            logger.warning(
+                "track_pinned_views_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )

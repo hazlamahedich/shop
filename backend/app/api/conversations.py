@@ -760,3 +760,104 @@ async def get_notification_queue_status(
             timestamp=datetime.now(timezone.utc).isoformat(),
         ),
     )
+
+
+class MerchantReplyRequest(BaseModel):
+    """Request schema for merchant reply."""
+
+    content: str = Field(..., min_length=1, max_length=5000, description="Reply message content")
+
+
+class MerchantReplyData(BaseModel):
+    """Response data schema for merchant reply."""
+
+    id: int
+    content: str
+    sender: str = "merchant"
+    createdAt: str
+    platform: str
+
+
+class MerchantReplyResponse(BaseModel):
+    """Response schema for merchant reply."""
+
+    message: MerchantReplyData
+
+
+class MerchantReplyEnvelope(MinimalEnvelope):
+    """Envelope for merchant reply response."""
+
+    data: MerchantReplyResponse
+
+
+@router.post(
+    "/{conversation_id}/reply",
+    response_model=MerchantReplyEnvelope,
+)
+async def merchant_reply(
+    request: Request,
+    conversation_id: int,
+    reply_request: MerchantReplyRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MerchantReplyEnvelope:
+    """Send a merchant reply to a conversation.
+
+    Platform-specific behavior:
+    - Messenger: Sends via Facebook Send API to the customer
+    - Widget: Stores message and broadcasts to active widget via SSE
+    - Preview: Returns 400 error (preview conversations are read-only)
+
+    Args:
+        request: FastAPI request
+        conversation_id: Conversation ID to reply to
+        reply_request: Request body with message content
+        db: Database session
+
+    Returns:
+        MerchantReplyEnvelope with the sent message details
+
+    Raises:
+        APIError: If authentication fails, conversation not found,
+                  or reply fails (e.g., preview is read-only)
+    """
+    from app.services.conversation.merchant_reply_service import MerchantReplyService
+
+    logger.info(
+        "merchant_reply_request",
+        conversation_id=conversation_id,
+        content_length=len(reply_request.content),
+    )
+
+    merchant_id = _get_merchant_id(request)
+
+    reply_service = MerchantReplyService(db)
+
+    # Set SSE manager if available (for widget broadcasts)
+    from app.api.widget_events import sse_manager
+
+    if sse_manager:
+        reply_service.set_sse_manager(sse_manager)
+
+    result = await reply_service.send_reply(
+        conversation_id=conversation_id,
+        merchant_id=merchant_id,
+        content=reply_request.content,
+    )
+
+    message_data = result.get("message", {})
+
+    return MerchantReplyEnvelope(
+        data=MerchantReplyResponse(
+            message=MerchantReplyData(
+                id=message_data.get("id"),
+                content=message_data.get("content"),
+                sender="merchant",
+                createdAt=message_data.get("createdAt"),
+                platform=result.get("platform"),
+            ),
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        ),
+    )

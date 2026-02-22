@@ -56,6 +56,19 @@ export interface PreviewProduct {
 }
 
 /**
+ * Cart state returned in bot response
+ */
+export interface PreviewCartState {
+  items: Array<{
+    title: string;
+    quantity: number;
+    price: number;
+  }>;
+  subtotal: number;
+  currency: string;
+}
+
+/**
  * Response from POST /api/v1/preview/message
  */
 export interface PreviewMessageResponse {
@@ -64,6 +77,7 @@ export interface PreviewMessageResponse {
   confidenceLevel: 'high' | 'medium' | 'low';
   metadata: PreviewMessageMetadata;
   products?: PreviewProduct[];
+  cart?: PreviewCartState;
 }
 
 /**
@@ -137,7 +151,8 @@ export const previewService = {
    */
   async startPreviewSession(): Promise<PreviewSessionResponse> {
     const response = await apiClient.post<PreviewSessionResponse>(
-      '/api/v1/preview/conversation'
+      '/api/v1/preview/conversation',
+      {}
     );
     return response.data;
   },

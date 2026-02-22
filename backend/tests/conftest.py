@@ -112,7 +112,7 @@ async def _setup_enums():
             ("facebook_status", "('pending', 'active', 'error')"),
             ("shopify_status", "('pending', 'active', 'error')"),
             ("conversation_status", "('with', 'handoff', 'closed')"),
-            ("message_sender", "('customer', 'bot')"),
+            ("message_sender", "('customer', 'bot', 'merchant')"),
             ("message_type", "('text', 'attachment', 'postback')"),
             ("verification_platform", "('facebook', 'shopify')"),
             ("test_type", "('status_check', 'test_webhook', 'resubscribe')"),

@@ -8,6 +8,7 @@ export { SearchBar } from './SearchBar';
 export { FilterPanel } from './FilterPanel';
 export { ActiveFilters } from './ActiveFilters';
 export { SavedFilters } from './SavedFilters';
+export { ReplyInput } from './ReplyInput';
 
 export type { SearchBarProps } from './SearchBar';
 export type { FilterPanelProps } from './FilterPanel';

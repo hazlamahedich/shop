@@ -4,6 +4,7 @@ Story 5-10: Widget Full App Integration
 Task 1: Create UnifiedConversationService
 
 Handles GENERAL and UNKNOWN intents with LLM-powered responses.
+Enhanced with automatic product mention detection for product cards.
 """
 
 from __future__ import annotations
@@ -31,6 +32,8 @@ class LLMHandler(BaseHandler):
 
     Generates responses using LLM with merchant's personality
     and business context.
+
+    Enhanced to detect product mentions and attach product cards.
     """
 
     async def handle(
@@ -89,12 +92,68 @@ class LLMHandler(BaseHandler):
                 "You can ask me about products, check your cart, or place an order."
             )
 
+        # Detect product mentions and fetch matching products
+        products = await self._detect_product_mentions(
+            response_text=response_text,
+            merchant=merchant,
+            llm_service=llm_service,
+            db=db,
+        )
+
         return ConversationResponse(
             message=response_text,
             intent="general",
             confidence=1.0,
+            products=products,
             metadata={"bot_name": bot_name, "business_name": business_name},
         )
+
+    async def _detect_product_mentions(
+        self,
+        response_text: str,
+        merchant: Merchant,
+        llm_service: BaseLLMService,
+        db: AsyncSession,
+    ) -> Optional[list[dict[str, Any]]]:
+        """Detect product mentions in LLM response and fetch products.
+
+        Args:
+            response_text: The LLM's response text
+            merchant: Merchant configuration
+            llm_service: LLM service for detection
+            db: Database session
+
+        Returns:
+            List of products if mentions detected, None otherwise
+        """
+        try:
+            from app.services.conversation.product_mention_detector import ProductMentionDetector
+
+            detector = ProductMentionDetector(llm_service=llm_service)
+
+            products = await detector.detect_and_fetch(
+                response_text=response_text,
+                merchant_id=merchant.id,
+                db=db,
+                max_products=3,
+            )
+
+            if products:
+                logger.info(
+                    "llm_handler_products_detected",
+                    merchant_id=merchant.id,
+                    products_count=len(products),
+                )
+
+            return products
+
+        except Exception as e:
+            logger.warning(
+                "llm_handler_product_detection_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+            return None
 
     async def _build_system_prompt(
         self,

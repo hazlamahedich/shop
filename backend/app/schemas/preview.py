@@ -60,6 +60,10 @@ class PreviewMessageResponse(BaseSchema):
         default=None,
         description="Products returned from search queries",
     )
+    cart: Optional[dict] = Field(
+        default=None,
+        description="Cart state if cart operation was performed",
+    )
 
 
 class PreviewMessageMetadata(BaseSchema):

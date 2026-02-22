@@ -83,6 +83,7 @@ export interface WidgetProduct {
   imageUrl?: string;
   available: boolean;
   productType?: string;
+  isPinned?: boolean;
 }
 
 export interface WidgetCartItem {

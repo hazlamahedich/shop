@@ -18,6 +18,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ConversationHistory from './ConversationHistory';
 import { conversationsService } from '../services/conversations';
+import type { ConversationHistoryResponse } from '../types/conversation';
 
 vi.mock('../services/conversations', () => ({
   conversationsService: {
@@ -29,13 +30,17 @@ const mockGetConversationHistory = vi.mocked(conversationsService.getConversatio
 
 const createMockHistoryResponse = (overrides: {
   conversationId?: number;
-  messages?: Array<{ id: number; sender: 'customer' | 'bot'; content: string; createdAt: string; confidenceScore?: number | null }>;
-  context?: { cartState?: { items: Array<{ productId: string; name: string; quantity: number }> } | null; extractedConstraints?: { budget?: string | null; size?: string | null; category?: string | null } | null };
+  platformSenderId?: string;
+  platform?: string;
+  messages?: Array<{ id: number; sender: 'customer' | 'bot' | 'merchant'; content: string; createdAt: string; confidenceScore?: number | null }>;
+  context?: { cartState: { items: Array<{ productId: string; name: string; quantity: number }> } | null; extractedConstraints: { budget?: string | null; size?: string | null; category?: string | null } | null };
   handoff?: { triggerReason: string; triggeredAt: string; urgencyLevel: 'high' | 'medium' | 'low'; waitTimeSeconds: number };
   customer?: { maskedId: string; orderCount: number };
-} = {}) => ({
+} = {}): ConversationHistoryResponse => ({
   data: {
     conversationId: overrides.conversationId ?? 1,
+    platformSenderId: overrides.platformSenderId ?? 'test-sender-id',
+    platform: overrides.platform ?? 'messenger',
     messages: overrides.messages ?? [
       { id: 1, sender: 'customer' as const, content: 'Hello', createdAt: new Date().toISOString(), confidenceScore: null },
     ],

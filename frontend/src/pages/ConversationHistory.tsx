@@ -3,18 +3,21 @@
  *
  * Displays full conversation history including bot context for handoff conversations.
  * Story 4-9: Added StickyActionBar for Open in Messenger / Return to Bot functionality.
+ * Merchant Reply Feature: Added reply input for Messenger/Widget conversations.
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Bot, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Bot, User, AlertCircle, CheckCircle, Store } from 'lucide-react';
 import { conversationsService } from '../services/conversations';
 import ContextSidebar from '../components/conversations/ContextSidebar';
 import StickyActionBar from '../components/conversations/StickyActionBar';
+import ReplyInput from '../components/conversations/ReplyInput';
 import type { 
   ConversationHistoryResponse, 
   HybridModeState, 
-  FacebookPageInfo 
+  FacebookPageInfo,
+  MessageHistoryItem 
 } from '../types/conversation';
 
 function formatConfidence(score: number | null | undefined): string {
@@ -33,6 +36,8 @@ export default function ConversationHistory() {
   const [facebookPage, setFacebookPage] = useState<FacebookPageInfo | null>(null);
   const [isHybridModeLoading, setIsHybridModeLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isReplyLoading, setIsReplyLoading] = useState(false);
+  const [messages, setMessages] = useState<MessageHistoryItem[]>([]);
 
   const backDestination = (location.state as { from?: string })?.from || '/conversations';
 
@@ -50,6 +55,7 @@ export default function ConversationHistory() {
         ]);
         setHistory(historyResponse);
         setFacebookPage(pageResponse.data);
+        setMessages(historyResponse.data.messages);
         
         const conversationData = historyResponse.data as ConversationHistoryResponse['data'] & {
           hybridMode?: HybridModeState;
@@ -97,6 +103,34 @@ export default function ConversationHistory() {
       setError(err instanceof Error ? err.message : 'Failed to update hybrid mode');
     } finally {
       setIsHybridModeLoading(false);
+    }
+  };
+
+  const handleSendReply = async (content: string) => {
+    if (!conversationId || !history) return;
+
+    setIsReplyLoading(true);
+    try {
+      const response = await conversationsService.sendMerchantReply(
+        parseInt(conversationId, 10),
+        content
+      );
+
+      // Add the message to the local list
+      const newMessage: MessageHistoryItem = {
+        id: response.data.message.id,
+        sender: 'merchant',
+        content: response.data.message.content,
+        createdAt: response.data.message.createdAt,
+      };
+      setMessages((prev) => [...prev, newMessage]);
+
+      setSuccessMessage('Message sent successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      throw err;
+    } finally {
+      setIsReplyLoading(false);
     }
   };
 
@@ -181,17 +215,25 @@ export default function ConversationHistory() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6">
           <div data-testid="message-list" className="max-w-2xl mx-auto space-y-4">
-            {history.data.messages.map((message) => (
+            {messages.map((message) => (
               <div
                 key={message.id}
                 data-testid="message-bubble"
                 data-sender={message.sender}
-                className={`flex ${message.sender === 'customer' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${
+                  message.sender === 'customer' 
+                    ? 'justify-end' 
+                    : message.sender === 'merchant'
+                    ? 'justify-start'
+                    : 'justify-start'
+                }`}
               >
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-3 ${
                     message.sender === 'customer'
                       ? 'bg-blue-500 text-white'
+                      : message.sender === 'merchant'
+                      ? 'bg-green-100 text-gray-900 border border-green-200'
                       : 'bg-gray-200 text-gray-900'
                   }`}
                 >
@@ -199,15 +241,21 @@ export default function ConversationHistory() {
                   <div className="flex items-center gap-2 mb-1">
                     {message.sender === 'bot' ? (
                       <Bot size={14} className="text-gray-600" />
+                    ) : message.sender === 'merchant' ? (
+                      <Store size={14} className="text-green-600" />
                     ) : (
                       <User size={14} className="text-blue-100" />
                     )}
                     <span
                       className={`text-xs font-medium ${
-                        message.sender === 'customer' ? 'text-blue-100' : 'text-gray-500'
+                        message.sender === 'customer' 
+                          ? 'text-blue-100' 
+                          : message.sender === 'merchant'
+                          ? 'text-green-700'
+                          : 'text-gray-500'
                       }`}
                     >
-                      {message.sender === 'customer' ? 'Shopper' : 'Bot'}
+                      {message.sender === 'customer' ? 'Shopper' : message.sender === 'merchant' ? 'You' : 'Bot'}
                     </span>
                   </div>
 
@@ -230,6 +278,16 @@ export default function ConversationHistory() {
             ))}
           </div>
         </div>
+
+        {/* Reply Input */}
+        {history && (
+          <ReplyInput
+            conversationId={history.data.conversationId}
+            platform={history.data.platform as 'messenger' | 'widget' | 'preview' | 'facebook'}
+            onSend={handleSendReply}
+            isLoading={isReplyLoading}
+          />
+        )}
       </div>
 
       {/* Context Sidebar */}
