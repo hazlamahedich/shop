@@ -1,4 +1,5 @@
-import { r as reactExports, j as jsxRuntimeExports, f as formatRetryTime, E as ErrorSeverity } from "./loader-CbVjW76K.js";
+import { r as reactExports, j as jsxRuntimeExports, f as formatRetryTime, E as ErrorSeverity } from "./loader-Dyu2sL0I.js";
+import { widgetClient, WidgetApiException } from "./widgetClient-G3RWKtC5.js";
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -1836,8 +1837,20 @@ focusTrapReact.exports = FocusTrap$1;
 focusTrapReact.exports.FocusTrap = FocusTrap$1;
 var focusTrapReactExports = focusTrapReact.exports;
 const FocusTrap = /* @__PURE__ */ getDefaultExportFromCjs(focusTrapReactExports);
-function ProductCard({ product, theme, onAddToCart, isAdding }) {
-  const handleAddToCart = () => {
+function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
+  const handleCardClick = () => {
+    if (onClick && product.available) {
+      onClick(product);
+    }
+  };
+  const handleKeyDown = (e) => {
+    if ((e.key === "Enter" || e.key === " ") && onClick && product.available) {
+      e.preventDefault();
+      onClick(product);
+    }
+  };
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
     if (onAddToCart && product.available) {
       onAddToCart(product);
     }
@@ -1846,6 +1859,11 @@ function ProductCard({ product, theme, onAddToCart, isAdding }) {
     "div",
     {
       className: "product-card",
+      onClick: handleCardClick,
+      onKeyDown: handleKeyDown,
+      tabIndex: onClick ? 0 : void 0,
+      role: onClick ? "button" : void 0,
+      "aria-label": onClick ? `View details for ${product.title}` : void 0,
       style: {
         display: "flex",
         gap: 12,
@@ -1853,7 +1871,9 @@ function ProductCard({ product, theme, onAddToCart, isAdding }) {
         backgroundColor: "#ffffff",
         borderRadius: 12,
         border: "1px solid #e5e7eb",
-        marginBottom: 8
+        marginBottom: 8,
+        cursor: onClick ? "pointer" : "default",
+        transition: "box-shadow 0.2s, border-color 0.2s"
       },
       children: [
         product.imageUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -1908,7 +1928,7 @@ function ProductCard({ product, theme, onAddToCart, isAdding }) {
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontWeight: 600, fontSize: 14 }, children: [
                   "$",
-                  product.price.toFixed(2)
+                  (product.price ?? 0).toFixed(2)
                 ] }),
                 onAddToCart && /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "button",
@@ -1938,7 +1958,7 @@ function ProductCard({ product, theme, onAddToCart, isAdding }) {
     }
   );
 }
-function ProductList({ products, theme, onAddToCart, addingProductId }) {
+function ProductList({ products, theme, onAddToCart, onProductClick, addingProductId }) {
   if (products.length === 0) {
     return null;
   }
@@ -1948,6 +1968,7 @@ function ProductList({ products, theme, onAddToCart, addingProductId }) {
       product,
       theme,
       onAddToCart,
+      onClick: onProductClick,
       isAdding: addingProductId === product.id
     },
     product.id
@@ -2048,28 +2069,72 @@ function CartView({
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontWeight: 600 }, children: [
                 "Total: $",
-                cart.total.toFixed(2)
+                (cart.total ?? 0).toFixed(2)
               ] }),
-              onCheckout && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: onCheckout,
-                  disabled: isCheckingOut,
-                  style: {
-                    padding: "8px 16px",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    backgroundColor: theme.primaryColor,
-                    color: "white",
-                    border: "none",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    opacity: isCheckingOut ? 0.7 : 1
-                  },
-                  children: isCheckingOut ? "Processing..." : "Checkout"
-                }
-              )
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+                cart.shopifyCartUrl && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "a",
+                  {
+                    href: cart.shopifyCartUrl,
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                    style: {
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      backgroundColor: "transparent",
+                      color: theme.primaryColor,
+                      border: `1px solid ${theme.primaryColor}`,
+                      borderRadius: 8,
+                      textDecoration: "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                        "svg",
+                        {
+                          width: "14",
+                          height: "14",
+                          viewBox: "0 0 24 24",
+                          fill: "none",
+                          stroke: "currentColor",
+                          strokeWidth: "2",
+                          strokeLinecap: "round",
+                          strokeLinejoin: "round",
+                          children: [
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }),
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "15 3 21 3 21 9" }),
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "10", y1: "14", x2: "21", y2: "3" })
+                          ]
+                        }
+                      ),
+                      "View on Store"
+                    ]
+                  }
+                ),
+                onCheckout && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: onCheckout,
+                    disabled: isCheckingOut,
+                    style: {
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      backgroundColor: theme.primaryColor,
+                      color: "white",
+                      border: "none",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      opacity: isCheckingOut ? 0.7 : 1
+                    },
+                    children: isCheckingOut ? "Processing..." : "Checkout"
+                  }
+                )
+              ] })
             ]
           }
         )
@@ -2108,13 +2173,13 @@ function CartItemView({ item, onRemove, isRemoving }) {
             "Qty: ",
             item.quantity,
             " × $",
-            item.price.toFixed(2)
+            (item.price ?? 0).toFixed(2)
           ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontWeight: 500, fontSize: 13 }, children: [
             "$",
-            (item.price * item.quantity).toFixed(2)
+            ((item.price ?? 0) * item.quantity).toFixed(2)
           ] }),
           onRemove && /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
@@ -2161,6 +2226,7 @@ function MessageList({
   theme,
   isLoading,
   onAddToCart,
+  onProductClick,
   onRemoveFromCart,
   onCheckout,
   addingProductId,
@@ -2232,6 +2298,7 @@ function MessageList({
             botName,
             theme,
             onAddToCart,
+            onProductClick,
             onRemoveFromCart,
             onCheckout,
             addingProductId,
@@ -2250,6 +2317,7 @@ function MessageBubble({
   botName,
   theme,
   onAddToCart,
+  onProductClick,
   onRemoveFromCart,
   onCheckout,
   addingProductId,
@@ -2310,6 +2378,7 @@ function MessageBubble({
             products: message.products,
             theme,
             onAddToCart,
+            onProductClick,
             addingProductId
           }
         ) }),
@@ -2774,6 +2843,364 @@ function ErrorToast({
     }
   );
 }
+function ProductDetailModal({
+  productId,
+  sessionId,
+  theme,
+  isOpen,
+  onClose,
+  onAddToCart
+}) {
+  const [product, setProduct] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const [quantity, setQuantity] = reactExports.useState(1);
+  const [added, setAdded] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    if (!isOpen || !productId) {
+      setProduct(null);
+      setError(null);
+      setQuantity(1);
+      setAdded(false);
+      return;
+    }
+    const fetchProduct = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await widgetClient.getProduct(sessionId, productId);
+        setProduct(data);
+      } catch (err) {
+        setError(err instanceof WidgetApiException ? err.message : "Failed to load product");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [isOpen, productId, sessionId]);
+  reactExports.useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen, onClose]);
+  reactExports.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+  if (!isOpen) return null;
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  const inStock = product && product.available && (product.inventoryQuantity ?? 0) > 0;
+  const maxQuantity = (product == null ? void 0 : product.inventoryQuantity) ?? 99;
+  const handleAddToCartClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product || !inStock || !onAddToCart) return;
+    onAddToCart(product, quantity);
+    setAdded(true);
+    setTimeout(() => {
+      setAdded(false);
+      onClose();
+    }, 1e3);
+  };
+  const handleCloseClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  };
+  const handleIncrement = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantity < maxQuantity) {
+      setQuantity(quantity + 1);
+    }
+  };
+  const handleDecrement = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantity > 1) {
+      setQuantity(quantity - 1);
+    }
+  };
+  const getStockStatus = () => {
+    if (!product) return null;
+    if (!product.available) {
+      return { text: "Out of Stock", color: "#dc2626", bg: "#fef2f2" };
+    }
+    if (product.inventoryQuantity === 0) {
+      return { text: "Out of Stock", color: "#dc2626", bg: "#fef2f2" };
+    }
+    if (product.inventoryQuantity && product.inventoryQuantity <= 5) {
+      return { text: `Only ${product.inventoryQuantity} in stock`, color: "#ea580c", bg: "#fff7ed" };
+    }
+    if (product.inventoryQuantity && product.inventoryQuantity <= 10) {
+      return { text: `${product.inventoryQuantity} in stock`, color: "#ca8a04", bg: "#fefce8" };
+    }
+    return { text: "In Stock", color: "#16a34a", bg: "#f0fdf4" };
+  };
+  const stockStatus = getStockStatus();
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      style: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 2147483647,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        backgroundColor: "rgba(0, 0, 0, 0.5)"
+      },
+      onClick: handleBackdropClick,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            backgroundColor: "#ffffff",
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            maxWidth: "400px",
+            width: "100%",
+            maxHeight: "90vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column"
+          },
+          onClick: (e) => e.stopPropagation(),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "16px",
+                  borderBottom: "1px solid #e5e7eb"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { style: { fontSize: "18px", fontWeight: 600, color: "#111827", margin: 0 }, children: "Product Details" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: handleCloseClick,
+                      style: {
+                        padding: "8px",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#9ca3af"
+                      },
+                      "aria-label": "Close modal",
+                      children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M18 6L6 18M6 6l12 12" }) })
+                    }
+                  )
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { overflowY: "auto", flex: 1 }, children: [
+              loading && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", padding: "48px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "svg",
+                {
+                  style: { animation: "spin 1s linear infinite", width: 32, height: 32, color: theme.primaryColor },
+                  viewBox: "0 0 24 24",
+                  fill: "none",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { style: { opacity: 0.25 }, cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "4" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("path", { style: { opacity: 0.75 }, fill: "currentColor", d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" })
+                  ]
+                }
+              ) }),
+              error && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "24px", textAlign: "center" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#dc2626", marginBottom: "16px" }, children: error }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleCloseClick,
+                    style: { padding: "8px 16px", fontSize: "14px", color: "#6b7280", background: "none", border: "none", cursor: "pointer" },
+                    children: "Close"
+                  }
+                )
+              ] }),
+              product && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "div",
+                  {
+                    style: {
+                      position: "relative",
+                      aspectRatio: "1 / 1",
+                      backgroundColor: "#f3f4f6",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      marginBottom: "16px"
+                    },
+                    children: product.imageUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: product.imageUrl, alt: product.title, style: { width: "100%", height: "100%", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "64", height: "64", viewBox: "0 0 24 24", fill: "none", stroke: "#9ca3af", strokeWidth: "1.5", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" }) }) })
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { fontSize: "20px", fontWeight: 600, color: "#111827", marginBottom: "8px" }, children: product.title }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { fontSize: "24px", fontWeight: 700, color: theme.primaryColor, marginBottom: "12px" }, children: [
+                  "$",
+                  product.price.toFixed(2)
+                ] }),
+                stockStatus && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "div",
+                  {
+                    style: {
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "4px 12px",
+                      borderRadius: "9999px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      backgroundColor: stockStatus.bg,
+                      color: stockStatus.color,
+                      marginBottom: "12px"
+                    },
+                    children: stockStatus.text
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexWrap: "wrap", gap: "16px", marginBottom: "12px", fontSize: "14px" }, children: [
+                  product.productType && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#6b7280" }, children: "Category: " }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 500, color: "#111827" }, children: product.productType })
+                  ] }),
+                  product.vendor && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#6b7280" }, children: "Vendor: " }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 500, color: "#111827" }, children: product.vendor })
+                  ] })
+                ] }),
+                product.description && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { borderTop: "1px solid #e5e7eb", paddingTop: "12px" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { style: { fontSize: "14px", fontWeight: 500, color: "#374151", marginBottom: "8px" }, children: "Description" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: "14px", color: "#4b5563", lineHeight: 1.6, whiteSpace: "pre-line" }, children: product.description })
+                ] })
+              ] })
+            ] }),
+            product && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px", borderTop: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }, children: [
+              inStock && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "14px", color: "#4b5563" }, children: "Qty:" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", border: "1px solid #d1d5db", borderRadius: "8px" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: handleDecrement,
+                      disabled: quantity <= 1,
+                      style: {
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "none",
+                        border: "none",
+                        borderRight: "1px solid #d1d5db",
+                        cursor: quantity <= 1 ? "not-allowed" : "pointer",
+                        fontSize: "16px",
+                        fontWeight: 500,
+                        color: "#374151",
+                        opacity: quantity <= 1 ? 0.5 : 1
+                      },
+                      children: "-"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { padding: "0 16px", textAlign: "center", minWidth: "40px" }, children: quantity }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: handleIncrement,
+                      disabled: quantity >= maxQuantity,
+                      style: {
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "none",
+                        border: "none",
+                        borderLeft: "1px solid #d1d5db",
+                        cursor: quantity >= maxQuantity ? "not-allowed" : "pointer",
+                        fontSize: "16px",
+                        fontWeight: 500,
+                        color: "#374151",
+                        opacity: quantity >= maxQuantity ? 0.5 : 1
+                      },
+                      children: "+"
+                    }
+                  )
+                ] })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "8px" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleAddToCartClick,
+                    disabled: !inStock || added,
+                    style: {
+                      flex: 1,
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      fontWeight: 500,
+                      fontSize: "14px",
+                      cursor: added || !inStock ? "not-allowed" : "pointer",
+                      border: "none",
+                      backgroundColor: added ? "#22c55e" : inStock ? theme.primaryColor : "#d1d5db",
+                      color: "white",
+                      opacity: added || inStock ? 1 : 0.7
+                    },
+                    children: added ? "Added to Cart!" : inStock ? "Add to Cart" : "Out of Stock"
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: handleCloseClick,
+                    style: {
+                      padding: "10px 16px",
+                      backgroundColor: "#e5e7eb",
+                      color: "#374151",
+                      borderRadius: "8px",
+                      fontWeight: 500,
+                      fontSize: "14px",
+                      border: "none",
+                      cursor: "pointer"
+                    },
+                    children: "Close"
+                  }
+                )
+              ] })
+            ] })
+          ]
+        }
+      )
+    }
+  );
+}
 function ChatWindow({
   isOpen,
   onClose,
@@ -2791,10 +3218,35 @@ function ChatWindow({
   onCheckout,
   addingProductId,
   removingItemId,
-  isCheckingOut
+  isCheckingOut,
+  sessionId
 }) {
   const [inputValue, setInputValue] = reactExports.useState("");
+  const [selectedProductId, setSelectedProductId] = reactExports.useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = reactExports.useState(false);
   const inputRef = reactExports.useRef(null);
+  const handleProductClick = (product) => {
+    setSelectedProductId(product.id);
+    setIsProductModalOpen(true);
+  };
+  const handleProductModalClose = () => {
+    setIsProductModalOpen(false);
+    setSelectedProductId(null);
+  };
+  const handleProductAddToCart = (product, quantity) => {
+    if (onAddToCart) {
+      onAddToCart({
+        id: product.id,
+        variantId: product.variantId || product.id,
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        available: product.available,
+        productType: product.productType
+      });
+    }
+  };
   const positionStyle = theme.position === "bottom-left" ? { left: 20 } : { right: 20 };
   reactExports.useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -2817,171 +3269,185 @@ function ChatWindow({
     await onSendMessage(message);
   };
   if (!isOpen) return null;
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(FocusTrap, { active: isOpen, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "div",
-    {
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-label": "Chat window",
-      className: "shopbot-chat-window",
-      style: {
-        position: "fixed",
-        bottom: 90,
-        ...positionStyle,
-        width: theme.width,
-        height: theme.height,
-        maxWidth: "calc(100vw - 40px)",
-        maxHeight: "calc(100vh - 120px)",
-        backgroundColor: theme.backgroundColor,
-        borderRadius: theme.borderRadius,
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        zIndex: 2147483646,
-        fontFamily: theme.fontFamily,
-        fontSize: theme.fontSize,
-        color: theme.textColor
-      },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "chat-header",
-            style: {
-              padding: "16px",
-              backgroundColor: theme.primaryColor,
-              color: "white",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              borderRadius: `${theme.borderRadius}px ${theme.borderRadius}px 0 0`
-            },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600 }, children: (config == null ? void 0 : config.botName) ?? "Assistant" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: onClose,
-                  "aria-label": "Close chat window",
-                  style: {
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 4,
-                    color: "white"
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(FocusTrap, { active: isOpen && !isProductModalOpen, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-label": "Chat window",
+        className: "shopbot-chat-window",
+        style: {
+          position: "fixed",
+          bottom: 90,
+          ...positionStyle,
+          width: theme.width,
+          height: theme.height,
+          maxWidth: "calc(100vw - 40px)",
+          maxHeight: "calc(100vh - 120px)",
+          backgroundColor: theme.backgroundColor,
+          borderRadius: theme.borderRadius,
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          zIndex: 2147483646,
+          fontFamily: theme.fontFamily,
+          fontSize: theme.fontSize,
+          color: theme.textColor
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "chat-header",
+              style: {
+                padding: "16px",
+                backgroundColor: theme.primaryColor,
+                color: "white",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderRadius: `${theme.borderRadius}px ${theme.borderRadius}px 0 0`
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600 }, children: (config == null ? void 0 : config.botName) ?? "Assistant" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: onClose,
+                    "aria-label": "Close chat window",
+                    style: {
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 4,
+                      color: "white"
+                    },
+                    children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "svg",
+                      {
+                        width: "20",
+                        height: "20",
+                        viewBox: "0 0 24 24",
+                        fill: "none",
+                        stroke: "currentColor",
+                        strokeWidth: "2",
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        "aria-hidden": "true",
+                        children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+                        ]
+                      }
+                    )
+                  }
+                )
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            MessageList,
+            {
+              messages,
+              botName: (config == null ? void 0 : config.botName) ?? "Assistant",
+              welcomeMessage: config == null ? void 0 : config.welcomeMessage,
+              theme,
+              isLoading: isTyping,
+              onAddToCart,
+              onProductClick: handleProductClick,
+              onRemoveFromCart,
+              onCheckout,
+              addingProductId,
+              removingItemId,
+              isCheckingOut
+            }
+          ),
+          isTyping && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            TypingIndicator,
+            {
+              isVisible: isTyping,
+              botName: (config == null ? void 0 : config.botName) ?? "Assistant",
+              theme
+            }
+          ),
+          (errors.length > 0 || error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "chat-errors",
+              style: {
+                padding: "8px",
+                maxHeight: "150px",
+                overflowY: "auto"
+              },
+              children: [
+                errors.filter((e) => !e.dismissed).map((widgetError) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  ErrorToast,
+                  {
+                    error: widgetError,
+                    onDismiss: onDismissError || (() => {
+                    }),
+                    onRetry: onRetryError,
+                    autoDismiss: true,
+                    autoDismissDelay: 1e4,
+                    showProgress: true
                   },
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                    "svg",
-                    {
-                      width: "20",
-                      height: "20",
-                      viewBox: "0 0 24 24",
-                      fill: "none",
-                      stroke: "currentColor",
-                      strokeWidth: "2",
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      "aria-hidden": "true",
-                      children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
-                      ]
-                    }
-                  )
-                }
-              )
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          MessageList,
-          {
-            messages,
-            botName: (config == null ? void 0 : config.botName) ?? "Assistant",
-            welcomeMessage: config == null ? void 0 : config.welcomeMessage,
-            theme,
-            isLoading: isTyping,
-            onAddToCart,
-            onRemoveFromCart,
-            onCheckout,
-            addingProductId,
-            removingItemId,
-            isCheckingOut
-          }
-        ),
-        isTyping && /* @__PURE__ */ jsxRuntimeExports.jsx(
-          TypingIndicator,
-          {
-            isVisible: isTyping,
-            botName: (config == null ? void 0 : config.botName) ?? "Assistant",
-            theme
-          }
-        ),
-        (errors.length > 0 || error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            className: "chat-errors",
-            style: {
-              padding: "8px",
-              maxHeight: "150px",
-              overflowY: "auto"
-            },
-            children: [
-              errors.filter((e) => !e.dismissed).map((widgetError) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                ErrorToast,
-                {
-                  error: widgetError,
-                  onDismiss: onDismissError || (() => {
-                  }),
-                  onRetry: onRetryError,
-                  autoDismiss: true,
-                  autoDismissDelay: 1e4,
-                  showProgress: true
-                },
-                widgetError.id
-              )),
-              error && errors.filter((e) => !e.dismissed).length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  className: "chat-error",
-                  role: "alert",
-                  style: {
-                    padding: "12px 16px",
-                    backgroundColor: "#fee2e2",
-                    color: "#dc2626",
-                    fontSize: "13px",
-                    borderRadius: "8px",
-                    borderLeft: "4px solid #dc2626",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "12px"
-                  },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: "❌" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: error })
-                  ]
-                }
-              )
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          MessageInput,
-          {
-            value: inputValue,
-            onChange: setInputValue,
-            onSend: handleSend,
-            disabled: isTyping,
-            placeholder: "Type a message...",
-            inputRef,
-            theme
-          }
-        )
-      ]
-    }
-  ) });
+                  widgetError.id
+                )),
+                error && errors.filter((e) => !e.dismissed).length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "div",
+                  {
+                    className: "chat-error",
+                    role: "alert",
+                    style: {
+                      padding: "12px 16px",
+                      backgroundColor: "#fee2e2",
+                      color: "#dc2626",
+                      fontSize: "13px",
+                      borderRadius: "8px",
+                      borderLeft: "4px solid #dc2626",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "12px"
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: "❌" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: error })
+                    ]
+                  }
+                )
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            MessageInput,
+            {
+              value: inputValue,
+              onChange: setInputValue,
+              onSend: handleSend,
+              disabled: isTyping,
+              placeholder: "Type a message...",
+              inputRef,
+              theme
+            }
+          )
+        ]
+      }
+    ) }),
+    sessionId && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ProductDetailModal,
+      {
+        productId: selectedProductId,
+        sessionId,
+        theme,
+        isOpen: isProductModalOpen,
+        onClose: handleProductModalClose,
+        onAddToCart: handleProductAddToCart
+      }
+    )
+  ] });
 }
 export {
   ChatWindow as default

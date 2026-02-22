@@ -39,7 +39,7 @@ function parseThemeFromUrl() {
 
 function getMerchantId() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('merchantId') || '1';
+  return params.get('merchantId') || '4';
 }
 
 export default function WidgetTestPage() {
@@ -48,29 +48,35 @@ export default function WidgetTestPage() {
 
   return (
     <div style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{
-        maxWidth: 800,
-        margin: '0 auto',
-        background: 'white',
-        padding: 40,
-        borderRadius: 8,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        <h1 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>
-          Widget Test Page
-        </h1>
+      <div
+        style={{
+          maxWidth: 800,
+          margin: '0 auto',
+          background: 'white',
+          padding: 40,
+          borderRadius: 8,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        }}
+      >
+        <h1 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>Widget Test Page</h1>
         <p style={{ color: '#6b7280', lineHeight: 1.6 }}>
-          This page is used for E2E testing of the chat widget.
-          The widget should appear in the bottom-right corner.
+          This page is used for E2E testing of the chat widget. The widget should appear in the
+          bottom-right corner.
         </p>
-        <p style={{ color: '#6b7280', marginTop: 16 }}>
-          URL parameters for testing:
-        </p>
+        <p style={{ color: '#6b7280', marginTop: 16 }}>URL parameters for testing:</p>
         <ul style={{ color: '#6b7280', marginTop: 8 }}>
-          <li><code>?theme[primaryColor]=%23ff0000</code> - Custom primary color</li>
-          <li><code>?theme[position]=bottom-left</code> - Position on bottom-left</li>
-          <li><code>?theme[borderRadius]=24</code> - Custom border radius</li>
-          <li><code>?merchantId=2</code> - Different merchant ID</li>
+          <li>
+            <code>?theme[primaryColor]=%23ff0000</code> - Custom primary color
+          </li>
+          <li>
+            <code>?theme[position]=bottom-left</code> - Position on bottom-left
+          </li>
+          <li>
+            <code>?theme[borderRadius]=24</code> - Custom border radius
+          </li>
+          <li>
+            <code>?merchantId=2</code> - Different merchant ID
+          </li>
         </ul>
       </div>
       <Widget merchantId={merchantId} theme={theme} />

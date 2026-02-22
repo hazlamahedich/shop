@@ -211,13 +211,15 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
           sessionId = newSession.sessionId;
         }
 
-        await widgetClient.addToCart(sessionId, product, 1);
+        const updatedCart = await widgetClient.addToCart(sessionId, product, 1);
 
+        const itemWord = updatedCart.itemCount === 1 ? 'item' : 'items';
         const confirmationMessage = {
           messageId: crypto.randomUUID(),
-          content: `Added "${product.title}" to your cart!`,
+          content: `Added "${product.title}" to your cart!\n\nYour cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.`,
           sender: 'bot' as const,
           createdAt: new Date().toISOString(),
+          cart: updatedCart,
         };
         dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
       } catch (error) {

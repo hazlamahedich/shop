@@ -97,6 +97,7 @@ class IntentType(str, Enum):
     CART_VIEW = "cart_view"
     CART_ADD = "cart_add"
     CART_REMOVE = "cart_remove"
+    CART_CLEAR = "cart_clear"
     CHECKOUT = "checkout"
     ORDER_TRACKING = "order_tracking"
     HUMAN_HANDOFF = "human_handoff"

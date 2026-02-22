@@ -151,6 +151,7 @@ class ProviderSwitchService:
 
         Validates new provider configuration before applying changes.
         Rolls back to previous provider if validation fails.
+        Creates a new configuration if one doesn't exist.
 
         Args:
             merchant_id: Merchant ID
@@ -165,10 +166,20 @@ class ProviderSwitchService:
         Raises:
             ProviderValidationError: If validation fails (original provider unchanged)
         """
-        # Get current configuration for potential rollback
-        current_config = await self._get_llm_config(merchant_id)
+        is_new_config = False
+        current_config = await self._get_llm_config_optional(merchant_id)
 
-        # Store current state for rollback
+        if not current_config:
+            is_new_config = True
+            current_config = LLMConfiguration(
+                merchant_id=merchant_id,
+                provider=provider_id,
+                status="active",
+                configured_at=datetime.utcnow(),
+            )
+            self.db.add(current_config)
+            await self.db.flush()
+
         previous_provider = current_config.provider
         previous_ollama_url = current_config.ollama_url
         previous_ollama_model = current_config.ollama_model
@@ -176,7 +187,6 @@ class ProviderSwitchService:
         previous_cloud_model = current_config.cloud_model
 
         try:
-            # Validate new configuration first (DOES NOT modify database)
             validation_result = await self.validate_provider_config(
                 merchant_id=merchant_id,
                 provider_id=provider_id,
@@ -185,32 +195,24 @@ class ProviderSwitchService:
                 model=model,
             )
 
-            # Validation succeeded - now apply changes
             is_ollama = provider_id == "ollama"
-
-            # Check if this is an update to the same provider
             is_update = previous_provider == provider_id
 
             if is_ollama:
                 current_config.provider = provider_id
                 current_config.ollama_url = server_url
                 current_config.ollama_model = model or "llama3"
-                # Clear cloud provider credentials
                 current_config.api_key_encrypted = None
                 current_config.cloud_model = None
             else:
                 current_config.provider = provider_id
-                # Keep existing API key if updating same provider and no new key provided
                 if is_update and not api_key:
-                    # Keep the existing encrypted API key
                     pass
                 elif api_key:
-                    # New API key provided - encrypt and store
                     from app.core.security import encrypt_access_token
 
                     current_config.api_key_encrypted = encrypt_access_token(api_key)
                 current_config.cloud_model = model or self._get_default_model(provider_id)
-                # Clear Ollama configuration
                 current_config.ollama_url = None
                 current_config.ollama_model = None
 
@@ -233,20 +235,19 @@ class ProviderSwitchService:
                     or (self._get_default_model(provider_id) if not is_ollama else "llama3"),
                 },
                 "switched_at": datetime.utcnow().isoformat(),
-                "previous_provider": previous_provider,
+                "previous_provider": previous_provider if not is_new_config else None,
             }
 
         except ProviderValidationError:
-            # Validation failed - rollback to previous configuration
-            current_config.provider = previous_provider
-            current_config.ollama_url = previous_ollama_url
-            current_config.ollama_model = previous_ollama_model
-            current_config.api_key_encrypted = previous_api_key
-            current_config.cloud_model = previous_cloud_model
-
-            await self.db.commit()
-
-            # Re-raise validation error
+            if is_new_config:
+                await self.db.rollback()
+            else:
+                current_config.provider = previous_provider
+                current_config.ollama_url = previous_ollama_url
+                current_config.ollama_model = previous_ollama_model
+                current_config.api_key_encrypted = previous_api_key
+                current_config.cloud_model = previous_cloud_model
+                await self.db.commit()
             raise
 
     async def test_provider_call(
@@ -400,18 +401,20 @@ class ProviderSwitchService:
         Raises:
             ProviderValidationError: If configuration not found
         """
-        result = await self.db.execute(
-            select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
-        )
-        config = result.scalar_one_or_none()
-
+        config = await self._get_llm_config_optional(merchant_id)
         if not config:
             raise ProviderValidationError(
                 ErrorCode.LLM_CONFIGURATION_MISSING,
                 f"LLM configuration not found for merchant: {merchant_id}",
             )
-
         return config
+
+    async def _get_llm_config_optional(self, merchant_id: int) -> Optional[LLMConfiguration]:
+        """Get LLM configuration for merchant, or None if not found."""
+        result = await self.db.execute(
+            select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
+        )
+        return result.scalar_one_or_none()
 
     async def _validate_ollama_config(self, server_url: Optional[str]) -> None:
         """Validate Ollama server URL format.

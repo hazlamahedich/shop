@@ -1,6 +1,7 @@
 """Alembic environment configuration for async SQLAlchemy."""
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -8,22 +9,21 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+_db_url = os.environ.get("DATABASE_URL")
+
 from app.core.config import settings
 from app.core.database import Base
 
-# this is the Alembic Config object
 config = context.config
 
-# Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
 
-# Set up async engine
-section = config.get_section(config.config_ini_section)
-section["sqlalchemy.url"] = settings()["DATABASE_URL"]
+section = config.get_section(config.config_ini_section) or {}
+section["sqlalchemy.url"] = _db_url or settings()["DATABASE_URL"]
+config.set_section_option(config.config_ini_section, "sqlalchemy.url", section["sqlalchemy.url"])
 
 
 def run_migrations_offline() -> None:
@@ -70,7 +70,7 @@ async def run_async_migrations() -> None:
     and associate a connection with the context.
     """
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section),
+        config.get_section(config.config_ini_section) or {},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

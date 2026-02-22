@@ -4,6 +4,27 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-22)
 
+### Widget Embed Code: Wrong Merchant ID
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** Widget displayed "VolareSun Assistant" and default greeting instead of the configured "Snowee" bot name and custom greeting for merchant ID 2.
+
+**Root Cause:** The widget embed code in the test page was hardcoded to use `merchantId: '4'` instead of `'2'`. The widget was correctly fetching config for merchant 4, which had different bot settings.
+
+**Fix:** Updated the widget embed code to use the correct merchant ID (`2`) for the test@test.com account.
+
+**Verification:**
+```bash
+# API returns correct config for merchant 2
+curl -s "http://localhost:8000/api/v1/widget/config/2" | jq '.data.botName, .data.welcomeMessage'
+# Output:
+# "Snowee"
+# "Hi! I'm Snowee, your smart and friendly shopping assistant for VolareSun..."
+```
+
+**Lesson Learned:** Always verify the merchant ID in widget embed code matches the intended merchant account. The widget correctly fetches config based on the merchant ID provided in `window.ShopBotConfig.merchantId`.
+
+---
+
 ### Conversation Page: Source Badge & Timestamp Display
 **Status:** ✅ **FIXED** (2026-02-22)
 **Description:** The conversation list page was missing the chat source (Widget/Messenger/Preview) and proper timestamp display, making it difficult to track conversations.

@@ -21,7 +21,7 @@ import sqlalchemy as sa
 
 
 revision: str = "025_add_is_test_to_orders"
-down_revision: Union[str, None] = "024_shopify_nullable_storefront_token"
+down_revision: Union[str, None] = "024_nullable_storefront_tkn"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

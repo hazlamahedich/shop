@@ -109,6 +109,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                   addingProductId={addingProductId}
                   removingItemId={removingItemId}
                   isCheckingOut={isCheckingOut}
+                  sessionId={state.session?.sessionId}
                 />
               </React.Suspense>
             </WidgetErrorBoundary>

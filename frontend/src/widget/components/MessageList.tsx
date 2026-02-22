@@ -10,6 +10,7 @@ export interface MessageListProps {
   theme: WidgetTheme;
   isLoading?: boolean;
   onAddToCart?: (product: WidgetProduct) => void;
+  onProductClick?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
   onCheckout?: () => void;
   addingProductId?: string | null;
@@ -24,6 +25,7 @@ export function MessageList({
   theme,
   isLoading,
   onAddToCart,
+  onProductClick,
   onRemoveFromCart,
   onCheckout,
   addingProductId,
@@ -94,6 +96,7 @@ export function MessageList({
           botName={botName}
           theme={theme}
           onAddToCart={onAddToCart}
+          onProductClick={onProductClick}
           onRemoveFromCart={onRemoveFromCart}
           onCheckout={onCheckout}
           addingProductId={addingProductId}
@@ -111,6 +114,7 @@ interface MessageBubbleProps {
   botName: string;
   theme: WidgetTheme;
   onAddToCart?: (product: WidgetProduct) => void;
+  onProductClick?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
   onCheckout?: () => void;
   addingProductId?: string | null;
@@ -123,6 +127,7 @@ function MessageBubble({
   botName,
   theme,
   onAddToCart,
+  onProductClick,
   onRemoveFromCart,
   onCheckout,
   addingProductId,
@@ -180,6 +185,7 @@ function MessageBubble({
             products={message.products}
             theme={theme}
             onAddToCart={onAddToCart}
+            onProductClick={onProductClick}
             addingProductId={addingProductId}
           />
         </div>

@@ -90,27 +90,65 @@ export function CartView({
           borderTop: '1px solid #e5e7eb',
         }}
       >
-        <div style={{ fontWeight: 600 }}>Total: ${cart.total.toFixed(2)}</div>
-        {onCheckout && (
-          <button
-            type="button"
-            onClick={onCheckout}
-            disabled={isCheckingOut}
-            style={{
-              padding: '8px 16px',
-              fontSize: 13,
-              fontWeight: 500,
-              backgroundColor: theme.primaryColor,
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-              opacity: isCheckingOut ? 0.7 : 1,
-            }}
-          >
-            {isCheckingOut ? 'Processing...' : 'Checkout'}
-          </button>
-        )}
+        <div style={{ fontWeight: 600 }}>Total: ${(cart.total ?? 0).toFixed(2)}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {cart.shopifyCartUrl && (
+            <a
+              href={cart.shopifyCartUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: '8px 16px',
+                fontSize: 13,
+                fontWeight: 500,
+                backgroundColor: 'transparent',
+                color: theme.primaryColor,
+                border: `1px solid ${theme.primaryColor}`,
+                borderRadius: 8,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              View on Store
+            </a>
+          )}
+          {onCheckout && (
+            <button
+              type="button"
+              onClick={onCheckout}
+              disabled={isCheckingOut}
+              style={{
+                padding: '8px 16px',
+                fontSize: 13,
+                fontWeight: 500,
+                backgroundColor: theme.primaryColor,
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                opacity: isCheckingOut ? 0.7 : 1,
+              }}
+            >
+              {isCheckingOut ? 'Processing...' : 'Checkout'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -147,12 +185,12 @@ function CartItemView({ item, onRemove, isRemoving }: CartItemViewProps) {
           {item.title}
         </div>
         <div style={{ fontSize: 12, color: '#6b7280' }}>
-          Qty: {item.quantity} × ${item.price.toFixed(2)}
+          Qty: {item.quantity} × ${(item.price ?? 0).toFixed(2)}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontWeight: 500, fontSize: 13 }}>
-          ${(item.price * item.quantity).toFixed(2)}
+          ${((item.price ?? 0) * item.quantity).toFixed(2)}
         </div>
         {onRemove && (
           <button

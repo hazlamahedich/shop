@@ -129,12 +129,16 @@ class WidgetCartResponse(BaseSchema):
         subtotal: Cart subtotal
         currency: Currency code
         item_count: Total number of items
+        shopify_cart_url: URL to view cart on Shopify store (optional)
     """
 
     items: list[WidgetCartItem] = Field(default_factory=list, description="Cart items")
     subtotal: float = Field(default=0.0, description="Cart subtotal")
     currency: str = Field(default="USD", description="Currency code")
     item_count: int = Field(default=0, description="Total item count")
+    shopify_cart_url: Optional[str] = Field(
+        default=None, description="URL to view cart on Shopify store"
+    )
 
 
 class WidgetCartEnvelope(MinimalEnvelope):
@@ -175,3 +179,37 @@ class WidgetCheckoutEnvelope(MinimalEnvelope):
     """Envelope for checkout response."""
 
     data: WidgetCheckoutResponse
+
+
+class WidgetProductDetail(BaseSchema):
+    """Detailed product information for widget.
+
+    Attributes:
+        id: Product ID
+        title: Product title
+        description: Product description
+        image_url: Primary product image URL
+        price: Price as float
+        available: Whether product is in stock
+        inventory_quantity: Number of items in stock
+        product_type: Product category/type
+        vendor: Product vendor/brand
+        variant_id: Default variant ID for cart operations
+    """
+
+    id: str = Field(description="Product ID")
+    title: str = Field(description="Product title")
+    description: Optional[str] = Field(default=None, description="Product description")
+    image_url: Optional[str] = Field(default=None, description="Product image URL")
+    price: float = Field(description="Price as float")
+    available: bool = Field(default=True, description="Whether product is in stock")
+    inventory_quantity: int = Field(default=0, description="Number of items in stock")
+    product_type: Optional[str] = Field(default=None, description="Product category")
+    vendor: Optional[str] = Field(default=None, description="Product vendor")
+    variant_id: Optional[str] = Field(default=None, description="Variant ID for cart")
+
+
+class WidgetProductDetailEnvelope(MinimalEnvelope):
+    """Envelope for product detail response."""
+
+    data: WidgetProductDetail

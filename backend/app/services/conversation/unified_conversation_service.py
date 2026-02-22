@@ -75,6 +75,7 @@ class UnifiedConversationService:
         "cart_view": "cart",
         "cart_add": "cart",
         "cart_remove": "cart",
+        "cart_clear": "cart",
         "checkout": "checkout",
         "order_tracking": "order",
         "human_handoff": "handoff",
@@ -458,6 +459,25 @@ class UnifiedConversationService:
                     processing_time_ms=0,
                 )
 
+        # Cart clear/empty patterns
+        cart_clear_patterns = [
+            r"(empty|clear)\s+(my\s+)?cart",
+            r"(remove\s+all|delete\s+all)\s+(from\s+)?(my\s+)?cart",
+            r"^(clear\s+cart|empty\s+cart)$",
+            r"(i\s+want\s+to\s+(empty|clear)\s+(my\s+)?cart)",
+        ]
+        for pattern in cart_clear_patterns:
+            if re.search(pattern, lower_msg):
+                return ClassificationResult(
+                    intent=ClassifierIntentType.CART_CLEAR,
+                    confidence=0.95,
+                    entities=ExtractedEntities(),
+                    raw_message=message,
+                    llm_provider="pattern",
+                    model="regex",
+                    processing_time_ms=0,
+                )
+
         # Checkout patterns - must be more specific to avoid matching product searches
         checkout_patterns = [
             r"^(checkout|check\s*out)$",
@@ -714,12 +734,14 @@ class UnifiedConversationService:
             intent_name: Intent name
 
         Returns:
-            Cart action: 'view', 'add', or 'remove'
+            Cart action: 'view', 'add', 'remove', or 'clear'
         """
         if intent_name == "cart_add":
             return "add"
         elif intent_name == "cart_remove":
             return "remove"
+        elif intent_name == "cart_clear":
+            return "clear"
         return "view"
 
     async def _persist_conversation_message(

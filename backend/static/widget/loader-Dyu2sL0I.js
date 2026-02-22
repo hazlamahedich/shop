@@ -7208,11 +7208,13 @@ function useWidgetContext() {
   return context;
 }
 function WidgetProvider({ children, merchantId }) {
+  var _a;
   const [state, dispatch] = reactExports.useReducer(widgetReducer, initialState);
   const [addingProductId, setAddingProductId] = reactExports.useState(null);
   const [removingItemId, setRemovingItemId] = reactExports.useState(null);
   const [isCheckingOut, setIsCheckingOut] = reactExports.useState(false);
   const lastActionRef = reactExports.useRef(null);
+  const greetingShownRef = reactExports.useRef(false);
   const addError = reactExports.useCallback(
     (error, context) => {
       const widgetError = createWidgetError(error, context);
@@ -7236,15 +7238,15 @@ function WidgetProvider({ children, merchantId }) {
   } = reactExports.useMemo(
     () => ({
       createSession: async () => {
-        const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
+        const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
         return widgetClient.createSession(merchantId);
       },
       getSession: async (sessionId) => {
-        const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
+        const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
         return widgetClient.getSession(sessionId);
       },
       endSession: async (sessionId) => {
-        const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
+        const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
         return widgetClient.endSession(sessionId);
       }
     }),
@@ -7255,7 +7257,7 @@ function WidgetProvider({ children, merchantId }) {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "CLEAR_ERROR" });
     try {
-      const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
+      const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
       const config = await widgetClient.getConfig(merchantId);
       dispatch({ type: "SET_CONFIG", payload: config });
       const sessionId = sessionStorage.getItem("widget_session_id");
@@ -7292,7 +7294,7 @@ function WidgetProvider({ children, merchantId }) {
       dispatch({ type: "ADD_MESSAGE", payload: userMessage });
       dispatch({ type: "SET_TYPING", payload: true });
       try {
-        const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
+        const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
         dispatch({ type: "ADD_MESSAGE", payload: botMessage });
       } catch (error) {
@@ -7305,24 +7307,28 @@ function WidgetProvider({ children, merchantId }) {
   );
   const addToCart = reactExports.useCallback(
     async (product) => {
-      var _a;
+      var _a2;
       lastActionRef.current = { type: "addToCart", payload: product };
       setAddingProductId(product.id);
       try {
-        const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
-        let sessionId = (_a = state.session) == null ? void 0 : _a.sessionId;
+        const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
+        let sessionId = (_a2 = state.session) == null ? void 0 : _a2.sessionId;
         if (!sessionId) {
           const newSession = await createSession();
           dispatch({ type: "SET_SESSION", payload: newSession });
           sessionStorage.setItem("widget_session_id", newSession.sessionId);
           sessionId = newSession.sessionId;
         }
-        await widgetClient.addToCart(sessionId, product, 1);
+        const updatedCart = await widgetClient.addToCart(sessionId, product, 1);
+        const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
         const confirmationMessage = {
           messageId: crypto.randomUUID(),
-          content: `Added "${product.title}" to your cart!`,
+          content: `Added "${product.title}" to your cart!
+
+Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.`,
           sender: "bot",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          cart: updatedCart
         };
         dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
       } catch (error) {
@@ -7335,11 +7341,11 @@ function WidgetProvider({ children, merchantId }) {
   );
   const removeFromCart = reactExports.useCallback(
     async (variantId) => {
-      var _a;
+      var _a2;
       setRemovingItemId(variantId);
       try {
-        const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
-        let sessionId = (_a = state.session) == null ? void 0 : _a.sessionId;
+        const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
+        let sessionId = (_a2 = state.session) == null ? void 0 : _a2.sessionId;
         if (!sessionId) {
           const newSession = await createSession();
           dispatch({ type: "SET_SESSION", payload: newSession });
@@ -7356,12 +7362,12 @@ function WidgetProvider({ children, merchantId }) {
     [state.session, addError, createSession]
   );
   const checkout = reactExports.useCallback(async () => {
-    var _a;
+    var _a2;
     lastActionRef.current = { type: "checkout" };
     setIsCheckingOut(true);
     try {
-      const { widgetClient } = await import("./widgetClient-CFodt_zT.js");
-      let sessionId = (_a = state.session) == null ? void 0 : _a.sessionId;
+      const { widgetClient } = await import("./widgetClient-G3RWKtC5.js");
+      let sessionId = (_a2 = state.session) == null ? void 0 : _a2.sessionId;
       if (!sessionId) {
         const newSession = await createSession();
         dispatch({ type: "SET_SESSION", payload: newSession });
@@ -7387,6 +7393,19 @@ function WidgetProvider({ children, merchantId }) {
       setIsCheckingOut(false);
     }
   }, [state.session, addError, createSession]);
+  reactExports.useEffect(() => {
+    var _a2;
+    if (state.isOpen && state.messages.length === 0 && ((_a2 = state.config) == null ? void 0 : _a2.welcomeMessage) && !greetingShownRef.current) {
+      greetingShownRef.current = true;
+      const greetingMessage = {
+        messageId: crypto.randomUUID(),
+        content: state.config.welcomeMessage,
+        sender: "bot",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      dispatch({ type: "ADD_MESSAGE", payload: greetingMessage });
+    }
+  }, [state.isOpen, state.messages.length, (_a = state.config) == null ? void 0 : _a.welcomeMessage]);
   const retryLastAction = reactExports.useCallback(() => {
     if (!lastActionRef.current) return;
     const { type, payload } = lastActionRef.current;
@@ -7884,9 +7903,9 @@ function mergeThemes(merchantTheme, embedOverrides) {
     ...sanitizedEmbed
   };
 }
-const ChatWindow$2 = reactExports.lazy(() => import("./ChatWindow-D9JhAfek.js"));
+const ChatWindow$2 = reactExports.lazy(() => import("./ChatWindow-DP3a1k6J.js"));
 function WidgetInner({ theme }) {
-  var _a;
+  var _a, _b;
   const {
     state,
     toggleChat,
@@ -7908,7 +7927,7 @@ function WidgetInner({ theme }) {
     [merchantTheme, theme]
   );
   const prefetchChatWindow = reactExports.useCallback(() => {
-    import("./ChatWindow-D9JhAfek.js");
+    import("./ChatWindow-DP3a1k6J.js");
   }, []);
   reactExports.useEffect(() => {
     initWidget2(merchantId);
@@ -7975,7 +7994,8 @@ function WidgetInner({ theme }) {
           onCheckout: checkout,
           addingProductId,
           removingItemId,
-          isCheckingOut
+          isCheckingOut,
+          sessionId: (_b = state.session) == null ? void 0 : _b.sessionId
         }
       ) }) })
     ] })

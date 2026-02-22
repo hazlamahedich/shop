@@ -891,6 +891,7 @@ async def get_widget_cart(
             subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
             currency=cart.currency_code.value if cart.currency_code else "USD",
             item_count=sum(item.quantity for item in cart.items),
+            shopify_cart_url=cart.shopify_cart_url,
         ),
         meta=create_meta(),
     )
@@ -939,6 +940,8 @@ async def add_to_widget_cart(
 
     from app.services.cart.cart_service import CartService
     from app.services.conversation.cart_key_strategy import CartKeyStrategy
+    from app.services.cart.shopify_cart_sync import ShopifyCartSync
+    from app.schemas.cart import CartItem
 
     cart_service = CartService()
     cart_key = CartKeyStrategy.for_widget(cart_request.session_id)
@@ -954,6 +957,27 @@ async def add_to_widget_cart(
     )
 
     cart = await cart_service.get_cart(cart_key)
+
+    try:
+        sync_service = ShopifyCartSync(merchant_id=session.merchant_id)
+        from datetime import datetime, timezone
+
+        new_item = CartItem(
+            product_id=cart_request.variant_id,
+            variant_id=cart_request.variant_id,
+            title=cart_request.title or f"Product {cart_request.variant_id}",
+            price=cart_request.price,
+            image_url=cart_request.image_url or "",
+            quantity=cart_request.quantity,
+            added_at=datetime.now(timezone.utc).isoformat(),
+        )
+        cart = await sync_service.sync_add_item(cart_key, new_item)
+    except Exception as e:
+        logger.warning(
+            "widget_cart_sync_add_failed",
+            session_id=cart_request.session_id,
+            error=str(e),
+        )
 
     cart_items = [
         WidgetCartItem(
@@ -979,6 +1003,7 @@ async def add_to_widget_cart(
             subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
             currency=cart.currency_code.value if cart.currency_code else "USD",
             item_count=sum(item.quantity for item in cart.items),
+            shopify_cart_url=cart.shopify_cart_url,
         ),
         meta=create_meta(),
     )
@@ -1029,6 +1054,7 @@ async def remove_from_widget_cart(
 
     from app.services.cart.cart_service import CartService
     from app.services.conversation.cart_key_strategy import CartKeyStrategy
+    from app.services.cart.shopify_cart_sync import ShopifyCartSync
 
     cart_service = CartService()
     cart_key = CartKeyStrategy.for_widget(session_id)
@@ -1036,6 +1062,16 @@ async def remove_from_widget_cart(
     await cart_service.remove_item(psid=cart_key, variant_id=variant_id)
 
     cart = await cart_service.get_cart(cart_key)
+
+    try:
+        sync_service = ShopifyCartSync(merchant_id=session.merchant_id)
+        cart = await sync_service.sync_remove_item(cart_key, variant_id)
+    except Exception as e:
+        logger.warning(
+            "widget_cart_sync_remove_failed",
+            session_id=session_id,
+            error=str(e),
+        )
 
     cart_items = [
         WidgetCartItem(
@@ -1060,6 +1096,7 @@ async def remove_from_widget_cart(
             subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
             currency=cart.currency_code.value if cart.currency_code else "USD",
             item_count=sum(item.quantity for item in cart.items),
+            shopify_cart_url=cart.shopify_cart_url,
         ),
         meta=create_meta(),
     )
@@ -1110,6 +1147,7 @@ async def update_widget_cart_item(
 
     from app.services.cart.cart_service import CartService
     from app.services.conversation.cart_key_strategy import CartKeyStrategy
+    from app.services.cart.shopify_cart_sync import ShopifyCartSync
 
     cart_service = CartService()
     cart_key = CartKeyStrategy.for_widget(update_request.session_id)
@@ -1119,6 +1157,18 @@ async def update_widget_cart_item(
     )
 
     cart = await cart_service.get_cart(cart_key)
+
+    try:
+        sync_service = ShopifyCartSync(merchant_id=session.merchant_id)
+        cart = await sync_service.sync_update_quantity(
+            cart_key, variant_id, update_request.quantity
+        )
+    except Exception as e:
+        logger.warning(
+            "widget_cart_sync_update_failed",
+            session_id=update_request.session_id,
+            error=str(e),
+        )
 
     cart_items = [
         WidgetCartItem(
@@ -1144,6 +1194,7 @@ async def update_widget_cart_item(
             subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
             currency=cart.currency_code.value if cart.currency_code else "USD",
             item_count=sum(item.quantity for item in cart.items),
+            shopify_cart_url=cart.shopify_cart_url,
         ),
         meta=create_meta(),
     )

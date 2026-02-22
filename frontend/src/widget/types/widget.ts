@@ -95,6 +95,7 @@ export interface WidgetCart {
   items: WidgetCartItem[];
   itemCount: number;
   total: number;
+  shopifyCartUrl?: string;
 }
 
 export interface WidgetSearchResult {
@@ -106,4 +107,17 @@ export interface WidgetSearchResult {
 export interface WidgetCheckoutResult {
   checkoutUrl: string;
   message: string;
+}
+
+export interface WidgetProductDetail {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  price: number;
+  available: boolean;
+  inventoryQuantity?: number;
+  productType?: string;
+  vendor?: string;
+  variantId?: string;
 }

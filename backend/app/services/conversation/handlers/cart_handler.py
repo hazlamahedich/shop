@@ -67,6 +67,8 @@ class CartHandler(BaseHandler):
                 return await self._handle_add(cart_service, cart_key, entities or {}, merchant)
             elif intent == "remove":
                 return await self._handle_remove(cart_service, cart_key, entities or {}, merchant)
+            elif intent == "clear":
+                return await self._handle_clear(cart_service, cart_key, merchant)
             else:
                 return await self._handle_view(cart_service, cart_key, merchant)
 
@@ -191,4 +193,25 @@ class CartHandler(BaseHandler):
             message="Item removed from your cart. Anything else I can help with?",
             intent="cart_remove",
             confidence=1.0,
+        )
+
+    async def _handle_clear(
+        self,
+        cart_service: Any,
+        cart_key: str,
+        merchant: Merchant,
+    ) -> ConversationResponse:
+        """Handle clear/empty cart."""
+        await cart_service.clear_cart(cart_key)
+
+        logger.info(
+            "cart_cleared",
+            merchant_id=merchant.id,
+        )
+
+        return ConversationResponse(
+            message="Your cart has been emptied. Would you like to browse our products?",
+            intent="cart_clear",
+            confidence=1.0,
+            cart={"items": [], "subtotal": 0, "currency": "USD"},
         )

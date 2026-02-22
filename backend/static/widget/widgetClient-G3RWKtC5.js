@@ -4114,10 +4114,18 @@ const WidgetThemeSchema = object({
 const WidgetConfigSchema = object({
   enabled: boolean(),
   botName: string(),
+  bot_name: string().optional(),
   welcomeMessage: string(),
+  welcome_message: string().optional(),
   theme: WidgetThemeSchema,
   allowedDomains: array(string()).optional().default([])
-}).passthrough();
+}).passthrough().transform((data) => ({
+  enabled: data.enabled,
+  botName: data.botName || data.bot_name || "Assistant",
+  welcomeMessage: data.welcomeMessage || data.welcome_message || "",
+  theme: data.theme,
+  allowedDomains: data.allowedDomains || []
+}));
 const WidgetSessionSchema = object({
   session_id: string().optional(),
   sessionId: string().optional(),
@@ -4158,25 +4166,48 @@ const WidgetProductSchema = object({
   product_type: string().optional()
 });
 const WidgetCartItemSchema = object({
-  variant_id: string(),
+  variant_id: string().optional(),
+  variantId: string().optional(),
   title: string(),
   price: number(),
   quantity: number()
-});
+}).passthrough();
 const WidgetCartSchema = object({
   items: array(WidgetCartItemSchema),
-  item_count: number(),
-  total: number()
-});
+  item_count: number().optional(),
+  itemCount: number().optional(),
+  total: number().optional(),
+  subtotal: number().optional()
+}).passthrough();
 const WidgetSearchResultSchema = object({
   products: array(WidgetProductSchema),
   total: number(),
   query: string()
 });
 const WidgetCheckoutResultSchema = object({
-  checkout_url: string(),
-  message: string()
-});
+  checkout_url: string().optional(),
+  checkoutUrl: string().optional(),
+  message: string().optional(),
+  cartTotal: number().optional(),
+  currency: string().optional(),
+  itemCount: number().optional()
+}).passthrough();
+const WidgetProductDetailSchema = object({
+  id: string(),
+  title: string(),
+  description: string().nullable().optional(),
+  image_url: string().nullable().optional(),
+  imageUrl: string().nullable().optional(),
+  price: number(),
+  available: boolean(),
+  inventory_quantity: number().nullable().optional(),
+  inventoryQuantity: number().nullable().optional(),
+  product_type: string().nullable().optional(),
+  productType: string().nullable().optional(),
+  vendor: string().nullable().optional(),
+  variant_id: string().nullable().optional(),
+  variantId: string().nullable().optional()
+}).passthrough();
 let cachedApiBase = null;
 function getApiBaseUrl() {
   if (cachedApiBase) return cachedApiBase;
@@ -4364,15 +4395,17 @@ class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, "Invalid cart response");
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
+      items: cartData.items.map((item) => ({
+        variantId: item.variant_id || item.variantId,
         title: item.title,
         price: item.price,
         quantity: item.quantity
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total
+      itemCount: cartData.item_count ?? cartData.itemCount ?? 0,
+      total: cartData.total ?? cartData.subtotal ?? 0,
+      shopifyCartUrl: cartData.shopify_cart_url
     };
   }
   async addToCart(sessionId, product, quantity = 1) {
@@ -4391,15 +4424,17 @@ class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, "Invalid cart response");
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
+      items: cartData.items.map((item) => ({
+        variantId: item.variant_id || item.variantId,
         title: item.title,
         price: item.price,
         quantity: item.quantity
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total
+      itemCount: cartData.item_count ?? cartData.itemCount ?? 0,
+      total: cartData.total ?? cartData.subtotal ?? 0,
+      shopifyCartUrl: cartData.shopify_cart_url
     };
   }
   async removeFromCart(sessionId, variantId) {
@@ -4413,15 +4448,17 @@ class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, "Invalid cart response");
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
+      items: cartData.items.map((item) => ({
+        variantId: item.variant_id || item.variantId,
         title: item.title,
         price: item.price,
         quantity: item.quantity
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total
+      itemCount: cartData.item_count ?? cartData.itemCount ?? 0,
+      total: cartData.total ?? cartData.subtotal ?? 0,
+      shopifyCartUrl: cartData.shopify_cart_url
     };
   }
   async updateQuantity(sessionId, variantId, quantity) {
@@ -4433,15 +4470,17 @@ class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, "Invalid cart response");
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
+      items: cartData.items.map((item) => ({
+        variantId: item.variant_id || item.variantId,
         title: item.title,
         price: item.price,
         quantity: item.quantity
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total
+      itemCount: cartData.item_count ?? cartData.itemCount ?? 0,
+      total: cartData.total ?? cartData.subtotal ?? 0,
+      shopifyCartUrl: cartData.shopify_cart_url
     };
   }
   async checkout(sessionId) {
@@ -4453,9 +4492,32 @@ class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, "Invalid checkout response");
     }
+    const checkoutData = parsed.data;
     return {
-      checkoutUrl: parsed.data.checkout_url,
-      message: parsed.data.message
+      checkoutUrl: checkoutData.checkout_url || checkoutData.checkoutUrl,
+      message: checkoutData.message || "Opening checkout..."
+    };
+  }
+  async getProduct(sessionId, productId) {
+    const data = await this.request(
+      `/product/${productId}?session_id=${sessionId}`
+    );
+    const parsed = WidgetProductDetailSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, "Invalid product detail response");
+    }
+    const productData = parsed.data;
+    return {
+      id: productData.id,
+      title: productData.title,
+      description: productData.description || productData.description,
+      imageUrl: productData.imageUrl || productData.image_url,
+      price: productData.price,
+      available: productData.available,
+      inventoryQuantity: productData.inventoryQuantity || productData.inventory_quantity,
+      productType: productData.productType || productData.product_type,
+      vendor: productData.vendor,
+      variantId: productData.variantId || productData.variant_id
     };
   }
 }

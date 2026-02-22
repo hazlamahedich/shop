@@ -98,7 +98,8 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
     try {
       // Get OAuth URL from backend
       const response = await fetch(
-        `/api/integrations/facebook/authorize?merchant_id=${merchantId}`
+        `/api/integrations/facebook/authorize?merchant_id=${merchantId}`,
+        { credentials: 'include' }
       );
       if (!response.ok) {
         throw new Error('Failed to initiate OAuth');
@@ -163,7 +164,9 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
   checkFacebookStatus: async () => {
     const { merchantId } = get();
     try {
-      const response = await fetch(`/api/integrations/facebook/status?merchant_id=${merchantId}`);
+      const response = await fetch(`/api/integrations/facebook/status?merchant_id=${merchantId}`, {
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to check status');
       }
@@ -208,6 +211,7 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
             'Content-Type': 'application/json',
             'X-CSRF-Token': csrfToken,
           },
+          credentials: 'include',
         }
       );
 
@@ -241,10 +245,11 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       const response = await fetch('/api/integrations/facebook/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          appId,
-          appSecret,
-          merchantId,
+          app_id: appId,
+          app_secret: appSecret,
+          merchant_id: merchantId,
         }),
       });
 
@@ -372,7 +377,9 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
   checkShopifyStatus: async () => {
     const { merchantId } = get();
     try {
-      const response = await fetch(`/api/integrations/shopify/status?merchant_id=${merchantId}`);
+      const response = await fetch(`/api/integrations/shopify/status?merchant_id=${merchantId}`, {
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to check status');
       }
@@ -418,6 +425,7 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
             'Content-Type': 'application/json',
             'X-CSRF-Token': csrfToken,
           },
+          credentials: 'include',
         }
       );
 
@@ -460,10 +468,11 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       const response = await fetch('/api/integrations/shopify/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          apiKey,
-          apiSecret,
-          merchantId,
+          api_key: apiKey,
+          api_secret: apiSecret,
+          merchant_id: merchantId,
         }),
       });
 

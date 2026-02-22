@@ -242,9 +242,9 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
-    const cartData = parsed.data;
+    const cartData = parsed.data as Record<string, unknown>;
     return {
-      items: cartData.items.map((item: Record<string, unknown>) => ({
+      items: (cartData.items as Record<string, unknown>[]).map((item) => ({
         variantId: (item.variant_id || item.variantId) as string,
         title: item.title as string,
         price: item.price as number,
@@ -252,6 +252,7 @@ export class WidgetApiClient {
       })),
       itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
       total: (cartData.total ?? cartData.subtotal ?? 0) as number,
+      shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
     };
   }
 
@@ -275,9 +276,9 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
-    const cartData = parsed.data;
+    const cartData = parsed.data as Record<string, unknown>;
     return {
-      items: cartData.items.map((item: Record<string, unknown>) => ({
+      items: (cartData.items as Record<string, unknown>[]).map((item) => ({
         variantId: (item.variant_id || item.variantId) as string,
         title: item.title as string,
         price: item.price as number,
@@ -285,6 +286,7 @@ export class WidgetApiClient {
       })),
       itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
       total: (cartData.total ?? cartData.subtotal ?? 0) as number,
+      shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
     };
   }
 
@@ -299,9 +301,9 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
-    const cartData = parsed.data;
+    const cartData = parsed.data as Record<string, unknown>;
     return {
-      items: cartData.items.map((item: Record<string, unknown>) => ({
+      items: (cartData.items as Record<string, unknown>[]).map((item) => ({
         variantId: (item.variant_id || item.variantId) as string,
         title: item.title as string,
         price: item.price as number,
@@ -309,6 +311,7 @@ export class WidgetApiClient {
       })),
       itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
       total: (cartData.total ?? cartData.subtotal ?? 0) as number,
+      shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
     };
   }
 
@@ -325,9 +328,9 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
-    const cartData = parsed.data;
+    const cartData = parsed.data as Record<string, unknown>;
     return {
-      items: cartData.items.map((item: Record<string, unknown>) => ({
+      items: (cartData.items as Record<string, unknown>[]).map((item) => ({
         variantId: (item.variant_id || item.variantId) as string,
         title: item.title as string,
         price: item.price as number,
@@ -335,6 +338,7 @@ export class WidgetApiClient {
       })),
       itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
       total: (cartData.total ?? cartData.subtotal ?? 0) as number,
+      shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
     };
   }
 

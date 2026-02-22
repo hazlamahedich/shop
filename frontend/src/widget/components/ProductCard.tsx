@@ -5,11 +5,26 @@ export interface ProductCardProps {
   product: WidgetProduct;
   theme: WidgetTheme;
   onAddToCart?: (product: WidgetProduct) => void;
+  onClick?: (product: WidgetProduct) => void;
   isAdding?: boolean;
 }
 
-export function ProductCard({ product, theme, onAddToCart, isAdding }: ProductCardProps) {
-  const handleAddToCart = () => {
+export function ProductCard({ product, theme, onAddToCart, onClick, isAdding }: ProductCardProps) {
+  const handleCardClick = () => {
+    if (onClick && product.available) {
+      onClick(product);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'Enter' || e.key === ' ') && onClick && product.available) {
+      e.preventDefault();
+      onClick(product);
+    }
+  };
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onAddToCart && product.available) {
       onAddToCart(product);
     }
@@ -18,6 +33,11 @@ export function ProductCard({ product, theme, onAddToCart, isAdding }: ProductCa
   return (
     <div
       className="product-card"
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? 'button' : undefined}
+      aria-label={onClick ? `View details for ${product.title}` : undefined}
       style={{
         display: 'flex',
         gap: 12,
@@ -26,6 +46,8 @@ export function ProductCard({ product, theme, onAddToCart, isAdding }: ProductCa
         borderRadius: 12,
         border: '1px solid #e5e7eb',
         marginBottom: 8,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
       }}
     >
       {product.imageUrl && (
@@ -73,7 +95,7 @@ export function ProductCard({ product, theme, onAddToCart, isAdding }: ProductCa
             gap: 8,
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: 14 }}>${product.price.toFixed(2)}</div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>${(product.price ?? 0).toFixed(2)}</div>
           {onAddToCart && (
             <button
               type="button"
@@ -104,10 +126,11 @@ export interface ProductListProps {
   products: WidgetProduct[];
   theme: WidgetTheme;
   onAddToCart?: (product: WidgetProduct) => void;
+  onProductClick?: (product: WidgetProduct) => void;
   addingProductId?: string | null;
 }
 
-export function ProductList({ products, theme, onAddToCart, addingProductId }: ProductListProps) {
+export function ProductList({ products, theme, onAddToCart, onProductClick, addingProductId }: ProductListProps) {
   if (products.length === 0) {
     return null;
   }
@@ -120,6 +143,7 @@ export function ProductList({ products, theme, onAddToCart, addingProductId }: P
           product={product}
           theme={theme}
           onAddToCart={onAddToCart}
+          onClick={onProductClick}
           isAdding={addingProductId === product.id}
         />
       ))}
