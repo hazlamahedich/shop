@@ -169,6 +169,7 @@ class ConversationService:
             formatted_conversations.append(
                 {
                     "id": conv.id,
+                    "platform": conv.platform,
                     "platform_sender_id": conv.platform_sender_id,
                     "platform_sender_id_masked": (
                         f"{conv.platform_sender_id[:4]}****"

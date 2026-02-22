@@ -9,6 +9,7 @@ export type Sentiment = 'positive' | 'neutral' | 'negative';
 
 export interface Conversation {
   id: number;
+  platform: string;
   platformSenderId: string;
   platformSenderIdMasked: string;
   lastMessage: string | null;

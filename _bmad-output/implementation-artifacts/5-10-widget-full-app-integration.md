@@ -1,8 +1,46 @@
 # Story 5.10: Widget Full App Integration
 
-Status: 🔄 **IN PROGRESS** (Issue 1 remaining)
+Status: ✅ **COMPLETE**
 
-## Current Issues (2026-02-22)
+## Recent Fixes (2026-02-22)
+
+### Conversation Page: Source Badge & Timestamp Display
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** The conversation list page was missing the chat source (Widget/Messenger/Preview) and proper timestamp display, making it difficult to track conversations.
+
+**Root Cause:** The backend `platform` field was not included in the API response, and the frontend `ConversationCard` component only showed relative time without source indication.
+
+**Fix:**
+1. **Backend:** Added `platform` field to conversation list API response
+2. **Frontend Types:** Added `platform: string` to `Conversation` type
+3. **Frontend Component:** Added source badge with platform-specific styling and created date display
+
+**Files Modified:**
+- `backend/app/services/conversation/conversation_service.py` - Added `platform` to response dict
+- `frontend/src/types/conversation.ts` - Added `platform` field to `Conversation` interface
+- `frontend/src/components/conversations/ConversationCard.tsx` - Added source badge (Widget/Messenger/Preview) + created date display
+- `frontend/src/components/conversations/ConversationCard.test.tsx` - Updated test mock with `platform` field
+
+**New ConversationCard Display:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ 🌐 Website Chat                          Updated 2h ago │
+│ 💬 cust****                            Created: Today   │
+│                                                         │
+│ I am looking for running shoes...                       │
+│                                                         │
+│ Active                              5 messages          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Platform Badges:**
+| Platform | Icon | Label | Color |
+|----------|------|-------|-------|
+| widget | Globe | Website Chat | Blue |
+| messenger | MessageCircle | Messenger | Indigo |
+| preview | Eye | Preview | Purple |
+
+---
 
 ### Issue 1: Welcome Message Not Displaying
 **Status:** 🔄 Investigating

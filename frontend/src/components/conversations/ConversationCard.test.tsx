@@ -12,6 +12,7 @@ import type { Conversation as ConversationType } from '../../types/conversation'
 describe('ConversationCard', () => {
   const mockConversation: ConversationType = {
     id: 1,
+    platform: 'messenger',
     platformSenderId: 'customer_1234567890',
     platformSenderIdMasked: 'cust****',
     lastMessage: 'I am looking for running shoes',

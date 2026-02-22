@@ -3,14 +3,15 @@
  *
  * Displays a single conversation in the list with:
  * - Masked customer ID
+ * - Source badge (Widget/Messenger/Preview)
  * - Last message preview
  * - Status badge
  * - Message count
- * - Updated time
+ * - Created date and updated time
  */
 
 import React from 'react';
-import { MessageSquare, Clock } from 'lucide-react';
+import { MessageSquare, Clock, Globe, MessageCircle, Eye } from 'lucide-react';
 import type {
   Conversation as ConversationType,
   ConversationStatus,
@@ -33,6 +34,39 @@ const statusLabels: Record<ConversationStatus, string> = {
   closed: 'Closed',
 };
 
+interface PlatformConfig {
+  icon: React.ReactNode;
+  label: string;
+  className: string;
+}
+
+const platformConfigs: Record<string, PlatformConfig> = {
+  widget: {
+    icon: <Globe size={12} />,
+    label: 'Website Chat',
+    className: 'bg-blue-50 text-blue-600',
+  },
+  messenger: {
+    icon: <MessageCircle size={12} />,
+    label: 'Messenger',
+    className: 'bg-indigo-50 text-indigo-600',
+  },
+  preview: {
+    icon: <Eye size={12} />,
+    label: 'Preview',
+    className: 'bg-purple-50 text-purple-600',
+  },
+};
+
+const getPlatformConfig = (platform: string): PlatformConfig => {
+  const safePlatform = platform || 'unknown';
+  return platformConfigs[safePlatform] || {
+    icon: <MessageSquare size={12} />,
+    label: safePlatform.charAt(0).toUpperCase() + safePlatform.slice(1),
+    className: 'bg-gray-50 text-gray-600',
+  };
+};
+
 // Format timestamp relative to now
 const formatTimestamp = (timestamp: string): string => {
   const date = new Date(timestamp);
@@ -49,14 +83,42 @@ const formatTimestamp = (timestamp: string): string => {
   return date.toLocaleDateString();
 };
 
+// Format created date for display
+const formatCreatedDate = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onClick }) => {
+  const platformConfig = getPlatformConfig(conversation.platform);
+
   return (
     <div
       onClick={onClick}
       data-testid="conversation-card"
       className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
     >
-      {/* Header: Customer ID and time */}
+      {/* Header: Source badge and updated time */}
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center space-x-2">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full ${platformConfig.className}`}>
+            {platformConfig.icon}
+            {platformConfig.label}
+          </span>
+        </div>
+        <span className="flex items-center text-xs text-gray-400">
+          <Clock size={12} className="mr-1" />
+          {formatTimestamp(conversation.updatedAt)}
+        </span>
+      </div>
+
+      {/* Customer ID and created date */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center space-x-2">
           <MessageSquare size={14} className="text-gray-400" />
@@ -64,9 +126,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation
             {conversation.platformSenderIdMasked}
           </h4>
         </div>
-        <span className="flex items-center text-xs text-gray-400">
-          <Clock size={12} className="mr-1" />
-          {formatTimestamp(conversation.updatedAt)}
+        <span className="text-xs text-gray-400">
+          Created: {formatCreatedDate(conversation.createdAt)}
         </span>
       </div>
 
