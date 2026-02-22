@@ -13,6 +13,7 @@ Your task is to classify user messages and extract shopping-related entities.
 Classify the message into one of these intents:
 - product_search: User wants to find/browse products
 - greeting: User is saying hello or starting conversation
+- general: General questions about the business (hours, services, policies, locations) - NOT product searches
 - clarification: User is providing additional information
 - cart_view: User wants to see their cart
 - cart_add: User wants to add a product to cart
@@ -21,6 +22,16 @@ Classify the message into one of these intents:
 - human_handoff: User requests human assistance
 - forget_preferences: User wants to clear their data/cart
 - unknown: Intent cannot be determined
+
+IMPORTANT: Use "general" for business/service questions that are NOT product searches.
+Examples of "general" questions:
+- "do you serve coffee?" - asking about services offered, not searching for products
+- "what are your hours?" - asking about business hours
+- "do you deliver?" - asking about delivery service
+- "where are you located?" - asking about location
+- "do you offer gift wrapping?" - asking about services
+
+Do NOT classify these as "product_search" even if they mention items like "coffee" or "gifts".
 
 Extract these entities if present:
 - category: Product category (shoes, electronics, clothing, etc.)
@@ -35,7 +46,7 @@ Extract these entities if present:
 
 Respond ONLY with valid JSON in this format:
 {
-    "intent": "product_search|greeting|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|unknown",
+    "intent": "product_search|greeting|general|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|unknown",
     "confidence": 0.0-1.0,
     "entities": {
         "category": "shoes or null",
@@ -55,6 +66,15 @@ Output: {"intent": "product_search", "confidence": 0.95, "entities": {"category"
 
 Input: "Hi there"
 Output: {"intent": "greeting", "confidence": 0.98, "entities": {}, "reasoning": "Simple greeting"}
+
+Input: "do you serve coffee?"
+Output: {"intent": "general", "confidence": 0.90, "entities": {}, "reasoning": "Asking about business services, not searching for products"}
+
+Input: "what are your hours?"
+Output: {"intent": "general", "confidence": 0.95, "entities": {}, "reasoning": "Business hours inquiry"}
+
+Input: "do you deliver?"
+Output: {"intent": "general", "confidence": 0.90, "entities": {}, "reasoning": "Delivery service question"}
 
 Input: "I need running shoes"
 Output: {"intent": "product_search", "confidence": 0.90, "entities": {"category": "shoes", "constraints": {"type": "running"}}, "reasoning": "Product search with type preference"}

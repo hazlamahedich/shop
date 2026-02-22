@@ -41,6 +41,32 @@ Status: 🔄 **IN PROGRESS** (Issue 1 remaining)
 
 ## Recent Fixes (2026-02-22)
 
+### General Intent Classification Fix
+
+| Issue | Description | Fix | Files |
+|-------|-------------|-----|-------|
+| Business questions classified as product search | "do you serve coffee?" triggered product search instead of general conversation | Added `GENERAL` intent type with examples for business service questions | `backend/app/services/intent/classification_schema.py` |
+| LLM prompt missing general intent | Classification prompt had no guidance for non-shopping business questions | Added `general` intent with examples (hours, delivery, services) to classification prompt | `backend/app/services/intent/prompt_templates.py` |
+| Generic redirect responses | Bot didn't reference store products when answering general questions | Updated `BASE_SYSTEM_PROMPT` to instruct LLM to mention store products when redirecting | `backend/app/services/personality/personality_prompts.py` |
+
+**Before Fix:**
+```
+User: "do you serve coffee?"
+Bot: Returns product search results for all products
+```
+
+**After Fix:**
+```
+User: "do you serve coffee?"
+Bot: "I don't serve coffee, but I can help you find snowboards, ski wax, 
+     and accessories! What are you looking for today?" 😊
+```
+
+**Related Files:**
+- `backend/app/services/intent/classification_schema.py` - Added `GENERAL = "general"` to `IntentType` enum
+- `backend/app/services/intent/prompt_templates.py` - Added general intent examples to LLM classification prompt
+- `backend/app/services/personality/personality_prompts.py` - Updated `BASE_SYSTEM_PROMPT` with product-referencing redirect examples
+
 ### Bot Personality Page Fixes
 
 | Issue | Description | Fix | Files |

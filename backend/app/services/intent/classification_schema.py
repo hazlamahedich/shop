@@ -18,12 +18,15 @@ class IntentType(str, Enum):
     PRODUCT_SEARCH = "product_search"
     GREETING = "greeting"
     CLARIFICATION = "clarification"
+    GENERAL = "general"
     CART_VIEW = "cart_view"
     CART_ADD = "cart_add"
+    CART_REMOVE = "cart_remove"
+    CART_CLEAR = "cart_clear"
     CHECKOUT = "checkout"
     ORDER_TRACKING = "order_tracking"
     HUMAN_HANDOFF = "human_handoff"
-    FORGET_PREFERENCES = "forget_preferences"  # Story 2.7: Clear cart and data
+    FORGET_PREFERENCES = "forget_preferences"
     UNKNOWN = "unknown"
 
 
@@ -43,7 +46,9 @@ def to_camel(value: str) -> str:
 class ExtractedEntities(BaseModel):
     """Entities extracted from user message."""
 
-    category: Optional[str] = Field(None, description="Product category (e.g., 'shoes', 'electronics')")
+    category: Optional[str] = Field(
+        None, description="Product category (e.g., 'shoes', 'electronics')"
+    )
     budget: Optional[float] = Field(None, description="Maximum budget in USD")
     budget_currency: str = Field("USD", description="Budget currency")
     size: Optional[str] = Field(None, description="Product size (e.g., '8', 'M', '42')")
