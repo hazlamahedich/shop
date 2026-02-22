@@ -300,6 +300,10 @@ class ModelDiscoveryService:
             try:
                 all_models = await self._fetch_openrouter_models()
                 self._cache.set(cache_key, all_models)
+                from app.services.cost_tracking.pricing import update_pricing_from_discovery
+
+                updated = update_pricing_from_discovery(all_models)
+                logger.info("pricing_updated_from_openrouter", models_updated=updated)
             except Exception as e:
                 logger.error("openrouter_fetch_failed", error=str(e))
                 return self._get_fallback_models(provider)

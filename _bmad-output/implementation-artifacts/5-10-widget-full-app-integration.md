@@ -1984,3 +1984,66 @@ Claude Opus 4 (claude-4-opus-20250514)
 - Tested querying "products below 50 dollars".
 - ✅ Product text returned successfully.
 - ✅ Two beautiful product UI cards rendered successfully inside the widget, each complete with product images, titles, prices, and active "Add to Cart" buttons.
+
+---
+
+## LLM Cost Tracking Fixes (2026-02-22)
+
+### Issues Resolved
+
+| Issue | Description | Fix | Files |
+|-------|-------------|-----|-------|
+| Cost presets not updating | Clicking "Today", "Last 7 Days" buttons only updated local state | Modified `handlePresetClick` to call `fetchCostSummary` with new date params | `frontend/src/pages/Costs.tsx` |
+| Polling ignores date filter | Polling called `fetchCostSummary()` without current date range | Set initial date params before starting polling | `frontend/src/pages/Costs.tsx` |
+| Gemini 2.5 Flash Lite pricing missing | Model not in static pricing table, returned $0.00 | Added `gemini-2.5-flash-lite` and `gemini-2.5-flash` to STATIC_PRICING | `backend/app/services/cost_tracking/pricing.py` |
+| Dynamic pricing not initialized | `update_pricing_from_discovery()` never called on startup | Created `initialize_pricing_from_openrouter()` and call on app startup | `backend/app/services/cost_tracking/pricing.py`, `backend/app/main.py` |
+| Pricing format mismatch | `update_pricing_from_discovery` expected different field names | Fixed to handle OpenRouter format (`input_price_per_million`, etc.) | `backend/app/services/cost_tracking/pricing.py` |
+| Cost displays rounded to $0.00 | `formatCost()` used 2 decimals, small costs rounded to 0 | Changed all cost displays to use 4 decimal places | `frontend/src/components/costs/CostSummaryCards.tsx`, `CostComparisonCard.tsx`, `Costs.tsx` |
+| Old seeded data displayed | Database contained anthropic/openai test data for merchant 4 | Deleted 212 non-gemini records for merchant 4 | Database cleanup |
+| Existing records had $0 cost | Records created before pricing fix had incorrect $0 values | Recalculated all 13 existing cost records with correct pricing | Database update |
+
+### Pricing Fix Details
+
+**Problem:** Gemini 2.5 Flash Lite was not in the static pricing table, and the dynamic pricing system that should fetch from OpenRouter was never being called.
+
+**Solution:**
+1. Added static pricing fallback for common Gemini models
+2. Created `initialize_pricing_from_openrouter()` function to fetch pricing on app startup
+3. Modified `update_pricing_from_discovery()` to handle OpenRouter model format
+
+**Gemini 2.5 Flash Lite Pricing (from OpenRouter):**
+- Input: $0.10 per 1M tokens
+- Output: $0.40 per 1M tokens
+
+**Startup Flow:**
+```
+App Startup
+    ↓
+initialize_pricing_from_openrouter()
+    ↓
+Fetch 337 models from OpenRouter API
+    ↓
+Populate dynamic pricing cache
+    ↓
+All LLM requests have correct pricing
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `frontend/src/pages/Costs.tsx` | Auto-fetch on preset click, initialize date params before polling |
+| `frontend/src/components/costs/CostSummaryCards.tsx` | Changed Total Cost and Top Provider cost to 4 decimal places |
+| `frontend/src/components/costs/CostComparisonCard.tsx` | Changed all cost displays to 4 decimal places |
+| `backend/app/services/cost_tracking/pricing.py` | Added Gemini 2.5 models, created `initialize_pricing_from_openrouter()`, fixed `update_pricing_from_discovery()` format handling |
+| `backend/app/main.py` | Added pricing initialization call on app startup |
+
+### Validation
+
+- ✅ Cost Overview displays correct total (~$0.0038)
+- ✅ Cost Comparison shows actual spend vs ManyChat
+- ✅ Top Provider shows correct cost
+- ✅ Cost by Provider shows correct breakdown
+- ✅ Date presets auto-refresh data
+- ✅ Pricing initialized from OpenRouter on startup (337 models)
+- ✅ New LLM models will have correct pricing automatically

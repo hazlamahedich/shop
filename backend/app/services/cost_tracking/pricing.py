@@ -34,6 +34,8 @@ STATIC_PRICING: Dict[str, Dict | float] = {
         "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
         "gemini-pro": {"input": 0.50, "output": 1.50},
         "gemini-1.5-pro": {"input": 3.50, "output": 10.50},
+        "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40},
+        "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
     },
     "glm": {
         "glm-4-flash": {"input": 0.10, "output": 0.10},
@@ -122,23 +124,119 @@ def update_pricing_from_discovery(models_data: list[Dict[str, Any]]) -> int:
     """
     updated = 0
     for model in models_data:
-        provider = model.get("provider", "")
         model_id = model.get("id", "")
-        pricing = model.get("pricing", {})
 
-        input_price = pricing.get("inputCostPerMillion", pricing.get("input_cost_per_million", 0.0))
-        output_price = pricing.get(
-            "outputCostPerMillion", pricing.get("output_cost_per_million", 0.0)
+        # Handle OpenRouter format (e.g., "google/gemini-2.5-flash-lite")
+        if "/" in model_id:
+            provider_prefix, model_name = model_id.split("/", 1)
+        else:
+            provider_prefix = model.get("provider", "")
+            model_name = model_id
+
+        # Map OpenRouter provider prefixes to our provider IDs
+        provider_mapping = {
+            "google": "gemini",
+            "openai": "openai",
+            "anthropic": "anthropic",
+            "meta-llama": "meta",
+        }
+        provider = provider_mapping.get(provider_prefix, provider_prefix)
+
+        # Get pricing - handle both formats
+        input_price = (
+            model.get("input_price_per_million")
+            or model.get("inputCostPerMillion")
+            or model.get("input_cost_per_million", 0.0)
         )
 
-        if provider and model_id:
-            set_dynamic_pricing(provider, model_id, input_price, output_price)
+        output_price = (
+            model.get("output_price_per_million")
+            or model.get("outputCostPerMillion")
+            or model.get("output_cost_per_million", 0.0)
+        )
+
+        # Also check nested pricing object
+        pricing = model.get("pricing", {})
+        if not input_price:
+            input_price = pricing.get("inputCostPerMillion") or pricing.get(
+                "input_cost_per_million", 0.0
+            )
+        if not output_price:
+            output_price = pricing.get("outputCostPerMillion") or pricing.get(
+                "output_cost_per_million", 0.0
+            )
+
+        if provider and model_name:
+            set_dynamic_pricing(
+                provider, model_name, float(input_price or 0), float(output_price or 0)
+            )
             updated += 1
 
     if updated > 0:
         logger.info("dynamic_pricing_updated", models_updated=updated)
 
     return updated
+
+
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/models"
+
+
+async def initialize_pricing_from_openrouter() -> int:
+    """Fetch pricing from OpenRouter API and populate dynamic pricing cache.
+
+    Should be called on application startup to ensure all models have
+    correct pricing before any LLM requests are made.
+
+    Returns:
+        Number of models with pricing updated
+    """
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(OPENROUTER_API_URL)
+            response.raise_for_status()
+            data = response.json()
+
+        models = data.get("data", [])
+        updated = 0
+
+        for model_data in models:
+            model_id = model_data.get("id", "")
+
+            # Handle OpenRouter format (e.g., "google/gemini-2.5-flash-lite")
+            if "/" not in model_id:
+                continue
+
+            provider_prefix, model_name = model_id.split("/", 1)
+
+            # Map OpenRouter provider prefixes to our provider IDs
+            provider_mapping = {
+                "google": "gemini",
+                "openai": "openai",
+                "anthropic": "anthropic",
+                "meta-llama": "meta",
+            }
+            provider = provider_mapping.get(provider_prefix, provider_prefix)
+
+            # Get pricing from OpenRouter (per-token, convert to per-1M)
+            pricing = model_data.get("pricing", {})
+            prompt_price = float(pricing.get("prompt", 0) or 0)
+            completion_price = float(pricing.get("completion", 0) or 0)
+
+            input_per_million = prompt_price * 1_000_000
+            output_per_million = completion_price * 1_000_000
+
+            if provider and model_name:
+                set_dynamic_pricing(provider, model_name, input_per_million, output_per_million)
+                updated += 1
+
+        logger.info("pricing_initialized_from_openrouter", models_updated=updated)
+        return updated
+
+    except Exception as e:
+        logger.warning("openrouter_pricing_init_failed", error=str(e))
+        return 0
 
 
 LLM_PRICING = STATIC_PRICING

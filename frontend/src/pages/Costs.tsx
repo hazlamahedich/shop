@@ -112,19 +112,27 @@ const Costs = () => {
     fetchBotStatus();
   }, [getMerchantSettings, fetchBotStatus]);
 
-  // Start real-time polling on mount
+  // Initialize date params and start real-time polling on mount
   useEffect(() => {
+    const initialParams = { dateFrom, dateTo };
+    setCostSummaryParams(initialParams);
+    fetchCostSummary(initialParams);
     startPolling(undefined, pollingInterval);
 
     return () => {
       stopPolling();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPolling, stopPolling, pollingInterval]);
 
   // Handle date range preset click
   const handlePresetClick = (preset: DateRangePreset) => {
-    setDateFrom(preset.dateFrom);
-    setDateTo(preset.dateTo || getTodayDate());
+    const newDateFrom = preset.dateFrom;
+    const newDateTo = preset.dateTo || getTodayDate();
+    setDateFrom(newDateFrom);
+    setDateTo(newDateTo);
+    setCostSummaryParams({ dateFrom: newDateFrom, dateTo: newDateTo });
+    fetchCostSummary({ dateFrom: newDateFrom, dateTo: newDateTo });
   };
 
   // Handle custom date range change
@@ -513,7 +521,7 @@ const Costs = () => {
                           {provider.name}
                         </span>
                         <span className="font-bold text-gray-900">
-                          {formatCost(provider.costUsd || 0, 2)}
+                          {formatCost(provider.costUsd || 0, 4)}
                         </span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">

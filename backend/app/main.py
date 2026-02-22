@@ -160,6 +160,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
     await start_widget_cleanup_scheduler()  # Story 5-2: Start widget session cleanup scheduler
 
+    # Initialize LLM pricing from OpenRouter
+    try:
+        from app.services.cost_tracking.pricing import initialize_pricing_from_openrouter
+
+        await initialize_pricing_from_openrouter()
+    except Exception as e:
+        import structlog
+
+        structlog.get_logger().warning("pricing_init_failed", error=str(e))
+
     # Story 4-4: Start Shopify order polling scheduler
     try:
         from app.tasks.polling_scheduler import start_polling_scheduler
@@ -199,13 +209,59 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+def _is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed for CORS.
+
+    Allows:
+    - Configured CORS_ORIGINS (localhost)
+    - Any .myshopify.com domain for widget
+    - trycloudflare.com domains for testing
+
+    Args:
+        origin: The request origin header
+
+    Returns:
+        True if origin is allowed
+    """
+    from urllib.parse import urlparse
+
+    allowed_origins = settings()["CORS_ORIGINS"]
+    if origin in allowed_origins:
+        return True
+
+    try:
+        parsed = urlparse(origin)
+        hostname = parsed.netloc.lower()
+
+        if hostname.endswith(".myshopify.com"):
+            return True
+
+        if hostname.endswith(".trycloudflare.com"):
+            return True
+
+    except Exception:
+        pass
+
+    return False
+
+
 # Configure CORS - limit to specific methods for better security
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings()["CORS_ORIGINS"],
+    allow_origin_regex=r"https?://([a-z0-9-]+\.)?myshopify\.com(:\d+)?|https?://([a-z0-9-]+\.)?trycloudflare\.com(:\d+)?|"
+    + "|".join(
+        origin.replace(".", r"\.").replace(":", r":") for origin in settings()["CORS_ORIGINS"]
+    ),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Webhook-Signature", "X-CSRF-Token"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Webhook-Signature",
+        "X-CSRF-Token",
+        "Accept",
+    ],
 )
 
 # Setup security middleware (HTTPS enforcement, HSTS, CSP, etc.)
@@ -293,6 +349,14 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
         content=exc.to_dict(),
         headers=headers if headers else None,
     )
+
+
+# Mount static files for widget
+from pathlib import Path as FilePath
+
+_static_dir = FilePath(__file__).parent.parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
 # Include API routes

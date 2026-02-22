@@ -185,7 +185,7 @@ export const CostSummaryCards: React.FC<{
   const cards: CardData[] = [
     {
       label: 'Total Cost',
-      value: formatCost(costSummary.totalCostUsd, 2),
+      value: formatCost(costSummary.totalCostUsd, 4),
       icon: <DollarSign size={20} className="text-blue-600" />,
       colorClass: 'text-blue-600',
       bgColorClass: 'bg-blue-50',
@@ -260,7 +260,7 @@ export const CostSummaryCards: React.FC<{
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-500">{topProvider.requests} requests</p>
-              <p className="text-sm font-medium text-gray-900">{formatCost(topProvider.costUsd, 2)}</p>
+              <p className="text-sm font-medium text-gray-900">{formatCost(topProvider.costUsd, 4)}</p>
             </div>
           </div>
         </div>

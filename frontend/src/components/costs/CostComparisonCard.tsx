@@ -59,7 +59,7 @@ export function CostComparisonCard() {
       <p className="text-gray-600 mb-4">
         You spent{' '}
         <span className="font-bold text-gray-900">
-          {formatCost(merchantSpend, 2)}
+          {formatCost(merchantSpend, 4)}
         </span>{' '}
         this month vs.{' '}
         <span className="font-bold text-gray-900">
@@ -72,7 +72,7 @@ export function CostComparisonCard() {
         <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
           <span className="font-semibold text-green-800">
-            You saved {formatCost(savingsAmount, 2)} ({savingsPercentage.toFixed(0)}
+            You saved {formatCost(savingsAmount, 4)} ({savingsPercentage.toFixed(0)}
             %)
           </span>
         </div>
@@ -90,7 +90,7 @@ export function CostComparisonCard() {
           <div className="flex justify-between text-xs mb-1">
             <span className="font-medium text-gray-700">Shop (You)</span>
             <span className="font-bold text-green-600">
-              {formatCost(merchantSpend, 2)}
+              {formatCost(merchantSpend, 4)}
             </span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-3">
