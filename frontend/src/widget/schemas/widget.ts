@@ -22,12 +22,15 @@ export const WidgetConfigSchema = z.object({
   welcome_message: z.string().optional(),
   theme: WidgetThemeSchema,
   allowedDomains: z.array(z.string()).optional().default([]),
+  shopDomain: z.string().nullable().optional(),
+  shop_domain: z.string().nullable().optional(),
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
   botName: data.botName || data.bot_name || 'Assistant',
   welcomeMessage: data.welcomeMessage || data.welcome_message || '',
   theme: data.theme,
   allowedDomains: data.allowedDomains || [],
+  shopDomain: data.shopDomain || data.shop_domain || undefined,
 }));
 
 export const WidgetSessionSchema = z

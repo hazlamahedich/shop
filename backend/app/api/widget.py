@@ -494,6 +494,18 @@ async def get_widget_config(
     business_hours = getattr(merchant, "business_hours", None)
     business_name = getattr(merchant, "business_name", None)
 
+    # Get shop domain from Shopify integration
+    shop_domain = None
+    from sqlalchemy import select as sql_select
+    from app.models.shopify_integration import ShopifyIntegration
+
+    integration_result = await db.execute(
+        sql_select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant.id)
+    )
+    integration = integration_result.scalars().first()
+    if integration and integration.status == "active":
+        shop_domain = integration.shop_domain
+
     # Get effective greeting using personality-based greeting service
     # This uses custom greeting if set, otherwise personality default with variable substitution
     merchant_config = {
@@ -519,6 +531,7 @@ async def get_widget_config(
             enabled=widget_config.enabled,
             personality=personality,
             business_hours=business_hours,
+            shop_domain=shop_domain,
         ),
         meta=create_meta(),
     )

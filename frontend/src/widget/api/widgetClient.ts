@@ -208,6 +208,7 @@ export class WidgetApiClient {
       welcomeMessage: parsed.data.welcomeMessage,
       theme: parsed.data.theme,
       allowedDomains: parsed.data.allowedDomains,
+      shopDomain: parsed.data.shopDomain,
     };
   }
 

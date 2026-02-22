@@ -260,38 +260,51 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     lastActionRef.current = { type: 'checkout' };
     setIsCheckingOut(true);
     try {
-      const { widgetClient } = await import('../api/widgetClient');
+      const shopDomain = state.config?.shopDomain;
       
-      let sessionId = state.session?.sessionId;
-      
-      if (!sessionId) {
-        const newSession = await createSession();
-        dispatch({ type: 'SET_SESSION', payload: newSession });
-        sessionStorage.setItem('widget_session_id', newSession.sessionId);
-        sessionId = newSession.sessionId;
+      if (!shopDomain) {
+        throw new Error('Shop domain not configured');
       }
 
-      const result = await widgetClient.checkout(sessionId);
+      const messagesWithCart = state.messages.filter(m => m.cart && m.cart.items.length > 0);
+      const latestCart = messagesWithCart.length > 0 
+        ? messagesWithCart[messagesWithCart.length - 1].cart 
+        : null;
 
-      window.open(result.checkoutUrl, '_blank');
+      if (!latestCart || latestCart.items.length === 0) {
+        throw new Error('Your cart is empty');
+      }
+
+      const validItems = latestCart.items.filter(item => item.variantId && item.quantity > 0);
+      if (validItems.length === 0) {
+        throw new Error('No valid items in cart');
+      }
+
+      const cartItems = validItems
+        .map(item => `${item.variantId}:${item.quantity}`)
+        .join(',');
+
+      const checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
+
+      window.open(checkoutUrl, '_blank');
 
       const confirmationMessage = {
         messageId: crypto.randomUUID(),
-        content: result.message || 'Opening checkout in a new tab...',
+        content: 'Opening checkout in a new tab...',
         sender: 'bot' as const,
         createdAt: new Date().toISOString(),
-        checkoutUrl: result.checkoutUrl,
+        checkoutUrl: checkoutUrl,
       };
       dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
     } catch (error) {
       addError(error, {
         action: 'Try Again',
-        fallbackUrl: 'https://volare-sun.myshopify.com/cart',
+        fallbackUrl: state.config?.shopDomain ? `https://${state.config.shopDomain}/cart` : undefined,
       });
     } finally {
       setIsCheckingOut(false);
     }
-  }, [state.session, addError, createSession]);
+  }, [state.config, state.messages, addError]);
 
   // Show greeting message when config is loaded and widget is open with no messages
   React.useEffect(() => {

@@ -4,6 +4,47 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-22)
 
+### Widget Checkout: Different Behavior Than Preview
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** Widget "Proceed to Checkout" button showed a checkout error toast, while Preview's checkout worked correctly and redirected to Shopify checkout page.
+
+**Root Cause:** Widget and Preview used different checkout approaches:
+- **Preview:** Built checkout URL client-side using `buildCheckoutUrl(shopDomain, items)` 
+- **Widget:** Called backend API `/api/v1/widget/checkout` which required an active Shopify integration
+
+The backend checkout endpoint checked for active Shopify integration status:
+```python
+if not integration or integration.status != "active":
+    raise APIError(ErrorCode.WIDGET_NO_SHOPIFY, "No active Shopify integration")
+```
+
+This caused failures when the integration wasn't properly configured, even though the shop domain was available.
+
+**Fix:** Aligned widget with preview by building checkout URLs client-side:
+1. Added `shop_domain` to `WidgetConfigResponse` schema
+2. Backend now includes `shopDomain` in widget config response
+3. Frontend `WidgetContext.checkout()` builds URL client-side instead of calling backend API
+4. Uses same URL format as preview: `https://{shopDomain}/cart/{variantId}:{quantity},...`
+
+**Files Modified:**
+- `backend/app/schemas/widget.py` - Added `shop_domain` to `WidgetConfigResponse`
+- `backend/app/api/widget.py` - Fetch Shopify integration and include `shop_domain` in config
+- `frontend/src/widget/types/widget.ts` - Added `shopDomain` to `WidgetConfig`
+- `frontend/src/widget/schemas/widget.ts` - Added `shopDomain` field with transform
+- `frontend/src/widget/api/widgetClient.ts` - Return `shopDomain` from `getConfig()`
+- `frontend/src/widget/context/WidgetContext.tsx` - Build checkout URL client-side
+
+**Verification:**
+```
+Widget Cart → "Proceed to Checkout" → Opens Shopify checkout page ✅
+Preview Cart → "Proceed to Checkout" → Opens Shopify checkout page ✅
+Both now use identical client-side URL building logic
+```
+
+**Lesson Learned:** When two features (widget and preview) should have identical behavior, ensure they use the same implementation approach. Server-side validation that requires additional configuration can cause failures even when the core data (shop domain) is available.
+
+---
+
 ### Widget Price Filter: "below" Not Recognized
 **Status:** ✅ **FIXED** (2026-02-22)
 **Description:** Widget search for "product below 50" returned "I had trouble searching for products" error, while "product under 50" worked correctly in Preview.

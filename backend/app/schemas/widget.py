@@ -212,6 +212,7 @@ class WidgetConfigResponse(BaseSchema):
         enabled: Whether widget is enabled
         personality: Bot personality type (friendly, professional, enthusiastic)
         business_hours: Business hours string for display (e.g., "Mon-Fri 9am-5pm")
+        shop_domain: Shopify shop domain for checkout URL construction
     """
 
     bot_name: str
@@ -220,6 +221,7 @@ class WidgetConfigResponse(BaseSchema):
     enabled: bool
     personality: Optional[str] = Field(default=None, description="Bot personality type")
     business_hours: Optional[str] = Field(default=None, description="Business hours for display")
+    shop_domain: Optional[str] = Field(default=None, description="Shopify shop domain for checkout")
 
 
 class WidgetConfigEnvelope(MinimalEnvelope):

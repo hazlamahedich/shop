@@ -20,6 +20,7 @@ export interface WidgetConfig {
   welcomeMessage: string;
   theme: WidgetTheme;
   allowedDomains: string[];
+  shopDomain?: string;
 }
 
 export interface WidgetSession {
