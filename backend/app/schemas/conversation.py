@@ -21,6 +21,7 @@ class ConversationListItem(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     id: int
+    platform: str
     platform_sender_id_masked: str
     last_message: Optional[str] = None
     status: str

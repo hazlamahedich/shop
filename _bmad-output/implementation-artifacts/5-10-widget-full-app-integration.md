@@ -4,6 +4,46 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-22)
 
+### Conversation Card: "Unknown" Platform & Incorrect Timestamp
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** Widget conversations showed "Unknown" as the platform label and displayed "8h" timestamp for chats created just minutes ago, even when business timezone was set to Singapore.
+
+**Root Cause:**
+1. **"Unknown" Platform:** The `ConversationListItem` Pydantic schema (`backend/app/schemas/conversation.py`) was missing the `platform` field. The backend service returned it, but Pydantic stripped it from the API response.
+2. **"8h" Timestamp:** The frontend `ConversationCard` used browser local time to calculate relative timestamps. The backend stores timestamps as naive UTC (`datetime.utcnow`), which caused a timezone mismatch when compared against local browser time. The 8h offset indicated the server's UTC time was being interpreted incorrectly.
+
+**Fix:**
+1. **Backend Schema:** Added `platform: str` field to `ConversationListItem` schema
+2. **Frontend Timestamps:** 
+   - Added `parseAsUTC()` helper to treat backend timestamps as UTC explicitly
+   - Updated `formatTimestamp()` and `formatCreatedDate()` to use business timezone from `businessHoursStore`
+   - Falls back gracefully if timezone is not configured
+
+**Files Modified:**
+- `backend/app/schemas/conversation.py` - Added `platform: str` to `ConversationListItem`
+- `frontend/src/components/conversations/ConversationCard.tsx` - Parse UTC timestamps correctly, use business timezone
+
+**Verification:**
+```
+Before Fix:
+┌─────────────────────────────────────────────────────────┐
+│ ❓ Unknown                                Updated 8h    │  ← Wrong platform, wrong time
+│ 💬 0886****                            Created: Today   │
+└─────────────────────────────────────────────────────────┘
+
+After Fix (with Singapore timezone):
+┌─────────────────────────────────────────────────────────┐
+│ 🌐 Website Chat                          Updated Just now│  ← Correct platform, correct time
+│ 💬 0886****                            Created: Today   │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Lesson Learned:** 
+1. When adding fields to API responses, ensure both the service layer AND the Pydantic schema include the field.
+2. Timestamp calculations should use explicit UTC parsing and respect configured business timezone, not browser timezone.
+
+---
+
 ### Widget Checkout: Different Behavior Than Preview
 **Status:** ✅ **FIXED** (2026-02-22)
 **Description:** Widget "Proceed to Checkout" button showed a checkout error toast, while Preview's checkout worked correctly and redirected to Shopify checkout page.

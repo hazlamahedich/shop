@@ -8,6 +8,8 @@
  * - Status badge
  * - Message count
  * - Created date and updated time
+ *
+ * Uses business timezone for timestamp calculations (from businessHoursStore).
  */
 
 import React from 'react';
@@ -16,6 +18,7 @@ import type {
   Conversation as ConversationType,
   ConversationStatus,
 } from '../../types/conversation';
+import { useBusinessHoursStore } from '../../stores/businessHoursStore';
 
 interface ConversationCardProps {
   conversation: ConversationType;
@@ -67,9 +70,15 @@ const getPlatformConfig = (platform: string): PlatformConfig => {
   };
 };
 
-// Format timestamp relative to now
-const formatTimestamp = (timestamp: string): string => {
-  const date = new Date(timestamp);
+const parseAsUTC = (timestamp: string): Date => {
+  if (timestamp.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(timestamp)) {
+    return new Date(timestamp);
+  }
+  return new Date(timestamp + 'Z');
+};
+
+const formatTimestamp = (timestamp: string, timezone?: string): string => {
+  const date = parseAsUTC(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -80,22 +89,36 @@ const formatTimestamp = (timestamp: string): string => {
   if (diffMins < 60) return `${diffMins}m`;
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString();
+  
+  try {
+    return date.toLocaleDateString(undefined, timezone ? { timeZone: timezone } : undefined);
+  } catch {
+    return date.toLocaleDateString();
+  }
 };
 
-// Format created date for display
-const formatCreatedDate = (timestamp: string): string => {
-  const date = new Date(timestamp);
+const formatCreatedDate = (timestamp: string, timezone?: string): string => {
+  const date = parseAsUTC(timestamp);
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
 
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  try {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      timeZone: timezone 
+    });
+  } catch {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 };
 
 export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onClick }) => {
+  const timezone = useBusinessHoursStore((state) => state.config?.timezone);
   const platformConfig = getPlatformConfig(conversation.platform);
 
   return (
@@ -114,7 +137,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation
         </div>
         <span className="flex items-center text-xs text-gray-400">
           <Clock size={12} className="mr-1" />
-          {formatTimestamp(conversation.updatedAt)}
+          {formatTimestamp(conversation.updatedAt, timezone)}
         </span>
       </div>
 
@@ -127,7 +150,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation
           </h4>
         </div>
         <span className="text-xs text-gray-400">
-          Created: {formatCreatedDate(conversation.createdAt)}
+          Created: {formatCreatedDate(conversation.createdAt, timezone)}
         </span>
       </div>
 
