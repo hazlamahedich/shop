@@ -242,6 +242,7 @@ async def get_conversation_history(
     data = ConversationHistoryData(
         conversation_id=history_data["conversation_id"],
         platform_sender_id=history_data["platform_sender_id"],
+        platform=history_data["platform"],
         messages=history_data["messages"],
         context=context,
         handoff=handoff,

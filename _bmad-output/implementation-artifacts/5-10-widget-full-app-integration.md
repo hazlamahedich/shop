@@ -141,6 +141,85 @@ Bot response with products returned ✅
 
 ---
 
+### Conversation History Page: 500 Internal Server Error
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** Clicking on a conversation in the conversation list page resulted in 500 Internal Server Error with "Unexpected token 'I', "Internal S"... is not valid JSON" error.
+
+**Root Causes (3 bugs):**
+1. **Facebook Status 422:** The `getFacebookPageInfo()` function in `conversations.ts` didn't pass `merchant_id` query parameter, but the backend endpoint required it.
+2. **Conversation History 500 - Missing Platform:** The `ConversationHistoryData` Pydantic schema required a `platform` field, but the endpoint wasn't passing it when constructing the response object.
+3. **Plain Text Error Response:** Unhandled exceptions returned plain text "Internal Server Error" instead of JSON, causing JSON parsing errors in the frontend.
+
+**Fix:**
+1. **Frontend:** Added `merchant_id` query parameter to Facebook status call using `useAuthStore.getState().merchant?.id`
+2. **Backend API:** Added `platform=history_data["platform"]` to `ConversationHistoryData` instantiation
+3. **Backend Main:** Added general exception handler that returns JSON error responses for all unhandled exceptions
+
+**Files Modified:**
+- `frontend/src/services/conversations.ts` - Added `merchant_id` param to Facebook status call
+- `backend/app/api/conversations.py` - Added `platform` field to `ConversationHistoryData` constructor (line 245)
+- `backend/app/main.py` - Added `general_exception_handler` for JSON error responses
+- `backend/app/services/conversation/conversation_service.py` - Added null-safety checks for `decrypted_content`, `handoff_alert.urgency_level`, and `platform_sender_id`
+
+**Code Changes:**
+```typescript
+// frontend/src/services/conversations.ts
+import { useAuthStore } from '../stores/authStore';
+
+async getFacebookPageInfo(): Promise<{ data: FacebookPageInfo }> {
+  const merchantId = useAuthStore.getState().merchant?.id;
+  if (!merchantId) {
+    throw new Error('Not authenticated');
+  }
+  const response = await fetch(`/api/integrations/facebook/status?merchant_id=${merchantId}`, {
+```
+
+```python
+# backend/app/api/conversations.py
+data = ConversationHistoryData(
+    conversation_id=history_data["conversation_id"],
+    platform_sender_id=history_data["platform_sender_id"],
+    platform=history_data["platform"],  # ADDED THIS LINE
+    messages=history_data["messages"],
+    ...
+)
+```
+
+```python
+# backend/app/main.py
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    import structlog
+    structlog.get_logger().exception(
+        "unhandled_exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": 1000,
+            "message": "Internal server error",
+            "details": {},
+        },
+    )
+```
+
+**Verification:**
+```
+GET /api/conversations/440/history → HTTP 200 ✅
+Conversation history page loads with messages ✅
+Facebook status no longer returns 422 ✅
+```
+
+**Lesson Learned:**
+1. When Pydantic models have required fields, ensure ALL fields are passed when constructing instances - even if the service layer returns them.
+2. Always add global exception handlers to return JSON errors instead of plain text for API endpoints.
+3. When calling endpoints that require query parameters, ensure frontend passes all required params.
+
+---
+
 ### Conversation Card: "Unknown" Platform & Incorrect Timestamp
 **Status:** ✅ **FIXED** (2026-02-22)
 **Description:** Widget conversations showed "Unknown" as the platform label and displayed "8h" timestamp for chats created just minutes ago, even when business timezone was set to Singapore.
