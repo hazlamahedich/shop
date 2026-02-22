@@ -1,6 +1,115 @@
 # Story 5.10: Widget Full App Integration
 
-Status: ✅ **DONE**
+Status: 🔄 **IN PROGRESS** (Issue 1 remaining)
+
+## Current Issues (2026-02-22)
+
+### Issue 1: Welcome Message Not Displaying
+**Status:** 🔄 Investigating
+**Description:** When the chat window opens, the welcome message is not displayed even when there are no messages.
+
+**Investigation:**
+- `MessageList.tsx` has logic to show welcome message when `messages.length === 0`
+- `welcomeMessage` is passed from `config?.welcomeMessage`
+- Config API returns correct `welcomeMessage` value
+- Possible cause: Session persistence may be affecting state
+
+**Related Files:**
+- `frontend/src/widget/components/MessageList.tsx`
+- `frontend/src/widget/context/WidgetContext.tsx`
+- `frontend/src/widget/Widget.tsx`
+
+### Issue 2: Product Detail Modal Buttons Not Working
+**Status:** ✅ **FIXED** (2026-02-22)
+**Description:** All buttons in the Product Detail Modal (Add to Cart, Close, Quantity +/-) were not responding to clicks.
+
+**Root Cause:** The `FocusTrap` component in `ChatWindow.tsx` was active when the chat window was open (`active={isOpen}`), which trapped all focus and prevented interaction with elements outside the trap - including the `ProductDetailModal` which renders outside the `FocusTrap`.
+
+**Fix:** Deactivate the focus trap when the product modal is open:
+```tsx
+// Before
+<FocusTrap active={isOpen}>
+
+// After
+<FocusTrap active={isOpen && !isProductModalOpen}>
+```
+
+**Related Files:**
+- `frontend/src/widget/components/ChatWindow.tsx`
+
+---
+
+## Recent Fixes (2026-02-22)
+
+### Bot Personality Page Fixes
+
+| Issue | Description | Fix | Files |
+|-------|-------------|-----|-------|
+| Greeting preview hardcoded | Preview showed "GearBot" and "Alex's Athletic Gear" instead of actual merchant data | Added `botName`, `businessName`, `businessHours` props to `GreetingConfig`, passed from stores | `frontend/src/components/business-info/GreetingConfig.tsx`, `frontend/src/pages/PersonalityConfig.tsx` |
+| Save button invisible | Button used dynamic Tailwind classes (`bg-primary` in template literal) that were purged | Changed to explicit classes (`bg-indigo-600`) | `frontend/src/pages/PersonalityConfig.tsx` |
+
+### Widget Greeting Integration
+
+| Issue | Description | Fix | Files |
+|-------|-------------|-----|-------|
+| Widget not using personality greeting | Widget used static `welcome_message` from widget config instead of personality-based greeting | Updated widget config endpoint to use `get_effective_greeting()` from greeting service | `backend/app/api/widget.py` |
+| Custom greeting variables not substituted | Custom greetings with placeholders like `{bot_name}` were not being substituted | Added variable substitution for custom greetings in `get_effective_greeting()` | `backend/app/services/personality/greeting_service.py` |
+| Custom greeting not enabled when saved | Setting a custom greeting didn't set `use_custom_greeting=True`, so default greeting was used instead | Auto-set `use_custom_greeting=True` when custom greeting is provided, `False` when cleared | `backend/app/api/merchant.py` |
+| Greeting only shown as placeholder | Greeting was only shown as text when message list was empty, not as an actual bot message | Added greeting as first bot message when widget opens | `frontend/src/widget/context/WidgetContext.tsx` |
+| Schema snake_case mismatch | API returns `welcome_message` but schema expected `welcomeMessage` | Added transform to WidgetConfigSchema to handle both formats | `frontend/src/widget/schemas/widget.ts` |
+| Tests failing | Widget config tests expected old `welcome_message` values | Updated mock merchants with personality attributes, updated expected greeting values | `backend/app/api/test_widget.py` |
+
+### Widget Feature Enhancements
+
+| Issue | Description | Fix | Files |
+|-------|-------------|-----|-------|
+| Product Detail Modal | Added clickable product cards that open full product details | Created `ProductDetailModal` component with image, description, stock status, quantity selector | `frontend/src/widget/components/ProductDetailModal.tsx` |
+| Modal buttons not responding | FocusTrap blocked clicks on modal which renders outside the trap | Deactivate FocusTrap when product modal is open: `active={isOpen && !isProductModalOpen}` | `frontend/src/widget/components/ChatWindow.tsx` |
+| Product API Endpoint | No endpoint to fetch single product details | Added `GET /api/v1/widget/product/{product_id}` endpoint | `backend/app/api/widget.py` |
+| Schema nullable fields | API returns `null` but schema expected `string \| undefined` | Added `.nullable()` to schema fields | `frontend/src/widget/schemas/widget.ts` |
+| Cart Clear Intent | "Empty my cart" didn't clear the cart | Added `CART_CLEAR` intent type and handler | `backend/app/services/conversation/schemas.py`, `backend/app/services/conversation/handlers/cart_handler.py` |
+| Session on demand | Add to Cart failed without existing session | Create session automatically when needed | `frontend/src/widget/context/WidgetContext.tsx` |
+| Price validation | Cart required `price > 0` but widget passed `0.0` | Use actual product price from request | `backend/app/api/widget.py` |
+| CORS for Shopify | Shopify domains blocked by CORS | Added `.myshopify.com` to allowed origins | `backend/app/main.py` |
+| Static file serving | Widget JS not accessible through backend | Added `/static` mount for widget files | `backend/app/main.py` |
+| onProductClick prop | Prop not passed through component chain | Added `onProductClick` to `MessageBubbleProps` and `MessageBubble` | `frontend/src/widget/components/MessageList.tsx` |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `frontend/src/widget/components/ProductDetailModal.tsx` | Full-screen modal with product details, quantity selector, Add to Cart |
+| `backend/app/schemas/widget_search.py` (updated) | Added `WidgetProductDetail` and `WidgetProductDetailEnvelope` schemas |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `backend/app/api/widget.py` | Added `GET /widget/product/{product_id}` endpoint, fixed price in cart add, integrated personality-based greeting |
+| `backend/app/services/personality/greeting_service.py` | Added variable substitution for custom greetings |
+| `backend/app/api/merchant.py` | Auto-set `use_custom_greeting=True` when custom greeting provided |
+| `backend/app/api/test_widget.py` | Updated widget config tests for personality-based greetings |
+| `frontend/src/widget/context/WidgetContext.tsx` | Added greeting as first bot message when widget opens |
+| `frontend/src/widget/schemas/widget.ts` | Added transform to handle both snake_case and camelCase fields |
+| `frontend/src/widget/api/widgetClient.ts` | Added debug logging for config response |
+| `frontend/src/components/business-info/GreetingConfig.tsx` | Added props for actual merchant data in preview |
+| `frontend/src/pages/PersonalityConfig.tsx` | Pass actual merchant data to GreetingConfig, fixed save button visibility |
+| `backend/app/main.py` | Added CORS support for Shopify domains, static file serving |
+| `backend/app/middleware/auth.py` | Added `/static/` to bypass paths |
+| `backend/app/services/conversation/schemas.py` | Added `CART_CLEAR` to `IntentType` |
+| `backend/app/services/conversation/handlers/cart_handler.py` | Added `_handle_clear()` method |
+| `backend/app/services/conversation/unified_conversation_service.py` | Added `cart_clear` intent routing and pattern matching |
+| `backend/app/services/intent/classification_schema.py` | Added `CART_REMOVE` and `CART_CLEAR` to `IntentType` |
+| `frontend/src/widget/types/widget.ts` | Added `WidgetProductDetail` interface |
+| `frontend/src/widget/schemas/widget.ts` | Added `WidgetProductDetailSchema` with nullable fields |
+| `frontend/src/widget/api/widgetClient.ts` | Added `getProduct()` method |
+| `frontend/src/widget/components/ProductCard.tsx` | Added `onClick` prop for clickable cards |
+| `frontend/src/widget/components/MessageList.tsx` | Added `onProductClick` prop |
+| `frontend/src/widget/components/ChatWindow.tsx` | Added modal state, handlers, and rendering |
+| `frontend/src/widget/context/WidgetContext.tsx` | Added session-on-demand for cart operations |
+| `frontend/src/widget/Widget.tsx` | Pass `sessionId` to ChatWindow |
+
+---
 
 ## Shopify Embedding Fixes (2026-02-22)
 

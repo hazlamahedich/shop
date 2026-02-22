@@ -1,11 +1,12 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { TypingIndicator } from './TypingIndicator';
 import { ErrorToast } from './ErrorToast';
+import { ProductDetailModal } from './ProductDetailModal';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export interface ChatWindowProps {
   addingProductId?: string | null;
   removingItemId?: string | null;
   isCheckingOut?: boolean;
+  sessionId?: string;
 }
 
 function ChatWindow({
@@ -45,9 +47,37 @@ function ChatWindow({
   addingProductId,
   removingItemId,
   isCheckingOut,
+  sessionId,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
+  const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleProductClick = (product: WidgetProduct) => {
+    setSelectedProductId(product.id);
+    setIsProductModalOpen(true);
+  };
+
+  const handleProductModalClose = () => {
+    setIsProductModalOpen(false);
+    setSelectedProductId(null);
+  };
+
+  const handleProductAddToCart = (product: WidgetProductDetail, quantity: number) => {
+    if (onAddToCart) {
+      onAddToCart({
+        id: product.id,
+        variantId: product.variantId || product.id,
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        available: product.available,
+        productType: product.productType,
+      });
+    }
+  };
 
   const positionStyle = theme.position === 'bottom-left'
     ? { left: 20 }
@@ -79,7 +109,8 @@ function ChatWindow({
   if (!isOpen) return null;
 
   return (
-    <FocusTrap active={isOpen}>
+    <>
+    <FocusTrap active={isOpen && !isProductModalOpen}>
       <div
         role="dialog"
         aria-modal="true"
@@ -156,6 +187,7 @@ function ChatWindow({
           theme={theme}
           isLoading={isTyping}
           onAddToCart={onAddToCart}
+          onProductClick={handleProductClick}
           onRemoveFromCart={onRemoveFromCart}
           onCheckout={onCheckout}
           addingProductId={addingProductId}
@@ -225,6 +257,18 @@ function ChatWindow({
         />
       </div>
     </FocusTrap>
+
+    {sessionId && (
+      <ProductDetailModal
+        productId={selectedProductId}
+        sessionId={sessionId}
+        theme={theme}
+        isOpen={isProductModalOpen}
+        onClose={handleProductModalClose}
+        onAddToCart={handleProductAddToCart}
+      />
+    )}
+  </>
   );
 }
 
