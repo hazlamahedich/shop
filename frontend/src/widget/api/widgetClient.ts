@@ -7,6 +7,7 @@ import type {
   WidgetSearchResult,
   WidgetSession,
   WidgetProduct,
+  WidgetProductDetail,
 } from '../types/widget';
 import {
   WidgetCartSchema,
@@ -15,6 +16,7 @@ import {
   WidgetMessageSchema,
   WidgetSearchResultSchema,
   WidgetSessionSchema,
+  WidgetProductDetailSchema,
 } from '../schemas/widget';
 
 let cachedApiBase: string | null = null;
@@ -240,15 +242,16 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
+      items: cartData.items.map((item: Record<string, unknown>) => ({
+        variantId: (item.variant_id || item.variantId) as string,
+        title: item.title as string,
+        price: item.price as number,
+        quantity: item.quantity as number,
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total,
+      itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
+      total: (cartData.total ?? cartData.subtotal ?? 0) as number,
     };
   }
 
@@ -272,15 +275,16 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
+      items: cartData.items.map((item: Record<string, unknown>) => ({
+        variantId: (item.variant_id || item.variantId) as string,
+        title: item.title as string,
+        price: item.price as number,
+        quantity: item.quantity as number,
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total,
+      itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
+      total: (cartData.total ?? cartData.subtotal ?? 0) as number,
     };
   }
 
@@ -295,15 +299,16 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
+      items: cartData.items.map((item: Record<string, unknown>) => ({
+        variantId: (item.variant_id || item.variantId) as string,
+        title: item.title as string,
+        price: item.price as number,
+        quantity: item.quantity as number,
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total,
+      itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
+      total: (cartData.total ?? cartData.subtotal ?? 0) as number,
     };
   }
 
@@ -320,15 +325,16 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
+    const cartData = parsed.data;
     return {
-      items: parsed.data.items.map((item) => ({
-        variantId: item.variant_id,
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
+      items: cartData.items.map((item: Record<string, unknown>) => ({
+        variantId: (item.variant_id || item.variantId) as string,
+        title: item.title as string,
+        price: item.price as number,
+        quantity: item.quantity as number,
       })),
-      itemCount: parsed.data.item_count,
-      total: parsed.data.total,
+      itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
+      total: (cartData.total ?? cartData.subtotal ?? 0) as number,
     };
   }
 
@@ -341,9 +347,33 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid checkout response');
     }
+    const checkoutData = parsed.data;
     return {
-      checkoutUrl: parsed.data.checkout_url,
-      message: parsed.data.message,
+      checkoutUrl: (checkoutData.checkout_url || checkoutData.checkoutUrl) as string,
+      message: (checkoutData.message || 'Opening checkout...') as string,
+    };
+  }
+
+  async getProduct(sessionId: string, productId: string): Promise<WidgetProductDetail> {
+    const data = await this.request<{ data: unknown }>(
+      `/product/${productId}?session_id=${sessionId}`
+    );
+    const parsed = WidgetProductDetailSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid product detail response');
+    }
+    const productData = parsed.data;
+    return {
+      id: productData.id,
+      title: productData.title,
+      description: (productData.description || productData.description) as string | undefined,
+      imageUrl: (productData.imageUrl || productData.image_url) as string | undefined,
+      price: productData.price,
+      available: productData.available,
+      inventoryQuantity: (productData.inventoryQuantity || productData.inventory_quantity) as number | undefined,
+      productType: (productData.productType || productData.product_type) as string | undefined,
+      vendor: productData.vendor,
+      variantId: (productData.variantId || productData.variant_id) as string | undefined,
     };
   }
 }

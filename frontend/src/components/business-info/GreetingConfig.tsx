@@ -32,6 +32,9 @@ interface GreetingConfigProps {
   }) => void;
   onReset: () => void;
   disabled?: boolean;
+  botName?: string | null;
+  businessName?: string | null;
+  businessHours?: string | null;
 }
 
 // Add data-testid attribute for container div
@@ -87,6 +90,9 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
   onUpdate,
   onReset,
   disabled = false,
+  botName,
+  businessName,
+  businessHours,
 }) => {
   // Local state for custom greeting input
   const [customText, setCustomText] = React.useState(greetingTemplate || '');
@@ -133,9 +139,9 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
     // Simple variable substitution for preview
     // Note: Real substitution happens on backend with actual merchant data
     return message
-      .replace(/{bot_name}/g, 'GearBot')
-      .replace(/{business_name}/g, "Alex's Athletic Gear")
-      .replace(/{business_hours}/g, '9 AM - 6 PM PST');
+      .replace(/{bot_name}/g, botName || 'Your Bot')
+      .replace(/{business_name}/g, businessName || 'Your Business')
+      .replace(/{business_hours}/g, businessHours || '9 AM - 6 PM');
   };
 
   const previewMessage = buildPreviewMessage();

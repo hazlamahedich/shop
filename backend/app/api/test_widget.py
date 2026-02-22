@@ -253,6 +253,8 @@ class TestWidgetConfigEndpoint:
     @pytest.fixture
     def mock_merchant(self):
         """Create mock merchant with widget config."""
+        from app.models.merchant import PersonalityType
+
         merchant = MagicMock()
         merchant.id = 1
         merchant.bot_name = "Custom Bot"
@@ -268,24 +270,43 @@ class TestWidgetConfigEndpoint:
                 "border_radius": 8,
             },
         }
+        merchant.personality = PersonalityType.FRIENDLY
+        merchant.custom_greeting = None
+        merchant.use_custom_greeting = False
+        merchant.business_name = "Test Store"
+        merchant.business_hours = None
         return merchant
 
     @pytest.fixture
     def mock_merchant_no_config(self):
         """Create mock merchant without widget config."""
+        from app.models.merchant import PersonalityType
+
         merchant = MagicMock()
         merchant.id = 2
         merchant.bot_name = "Default Bot"
         merchant.widget_config = None
+        merchant.personality = PersonalityType.FRIENDLY
+        merchant.custom_greeting = None
+        merchant.use_custom_greeting = False
+        merchant.business_name = None
+        merchant.business_hours = None
         return merchant
 
     @pytest.fixture
     def mock_merchant_disabled(self):
         """Create mock merchant with disabled widget."""
+        from app.models.merchant import PersonalityType
+
         merchant = MagicMock()
         merchant.id = 3
         merchant.bot_name = "Disabled Bot"
         merchant.widget_config = {"enabled": False}
+        merchant.personality = PersonalityType.FRIENDLY
+        merchant.custom_greeting = None
+        merchant.use_custom_greeting = False
+        merchant.business_name = None
+        merchant.business_hours = None
         return merchant
 
     @pytest.fixture
@@ -316,7 +337,11 @@ class TestWidgetConfigEndpoint:
         assert response.status_code == 200
         body = response.json()
         assert body["data"]["botName"] == "Custom Bot"
-        assert body["data"]["welcomeMessage"] == "Welcome!"
+        # Greeting now comes from personality-based greeting service
+        assert (
+            body["data"]["welcomeMessage"]
+            == "Hey there! 👋 I'm Custom Bot from Test Store. How can I help you today?"
+        )
         assert body["data"]["enabled"] is True
         assert body["data"]["theme"]["primaryColor"] == "#ff0000"
         assert body["data"]["theme"]["position"] == "bottom-left"
@@ -343,7 +368,11 @@ class TestWidgetConfigEndpoint:
         assert response.status_code == 200
         body = response.json()
         assert body["data"]["botName"] == "Default Bot"
-        assert body["data"]["welcomeMessage"] == "Hi! How can I help you today?"
+        # Greeting now comes from personality-based greeting service with fallback
+        assert (
+            body["data"]["welcomeMessage"]
+            == "Hey there! 👋 I'm Default Bot from the store. How can I help you today?"
+        )
         assert body["data"]["enabled"] is True
         assert body["data"]["theme"]["primaryColor"] == "#6366f1"
 
@@ -372,6 +401,52 @@ class TestWidgetConfigEndpoint:
         assert "meta" in body
         assert "requestId" in body["meta"]
         assert "timestamp" in body["meta"]
+
+    @pytest.fixture
+    def mock_merchant_custom_greeting(self):
+        """Create mock merchant with custom greeting."""
+        from app.models.merchant import PersonalityType
+
+        merchant = MagicMock()
+        merchant.id = 4
+        merchant.bot_name = "Greeting Bot"
+        merchant.widget_config = {
+            "enabled": True,
+            "theme": {
+                "primary_color": "#6366f1",
+                "background_color": "#ffffff",
+                "text_color": "#000000",
+                "position": "bottom-right",
+                "border_radius": 8,
+            },
+        }
+        merchant.personality = PersonalityType.PROFESSIONAL
+        merchant.custom_greeting = (
+            "Welcome! I'm {bot_name} from {business_name}. How may I assist you?"
+        )
+        merchant.use_custom_greeting = True
+        merchant.business_name = "Custom Shop"
+        merchant.business_hours = None
+        return merchant
+
+    def test_get_config_uses_custom_greeting_when_enabled(
+        self, client, mock_db, mock_merchant_custom_greeting
+    ):
+        """Test that get_config uses custom greeting when enabled."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = mock_merchant_custom_greeting
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.get("/api/v1/widget/config/4")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["data"]["botName"] == "Greeting Bot"
+        # Custom greeting should be used with variable substitution
+        assert (
+            body["data"]["welcomeMessage"]
+            == "Welcome! I'm Greeting Bot from Custom Shop. How may I assist you?"
+        )
 
 
 class TestDomainWhitelistValidation:

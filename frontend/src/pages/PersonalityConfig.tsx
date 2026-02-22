@@ -13,6 +13,8 @@ import React, { useEffect, useState } from 'react';
 import { Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty, selectEffectiveGreeting } from '../stores/personalityStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
+import { useBotConfigStore } from '../stores/botConfigStore';
+import { useBusinessInfoStore } from '../stores/businessInfoStore';
 import { PersonalityCard } from '../components/personality/PersonalityCard';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import type { PersonalityType } from '../types/enums';
@@ -26,6 +28,9 @@ const PersonalityConfig: React.FC = () => {
   const error = usePersonalityStore(selectPersonalityError);
   const isDirty = usePersonalityStore(selectPersonalityIsDirty);
   const markBotConfigComplete = useOnboardingPhaseStore((state) => state.markBotConfigComplete);
+  const botName = useBotConfigStore((state) => state.botName);
+  const businessName = useBusinessInfoStore((state) => state.businessName);
+  const businessHours = useBusinessInfoStore((state) => state.businessHours);
 
   // Local state for UI
   const [selectedPersonality, setSelectedPersonality] = useState<PersonalityType | null>(null);
@@ -201,6 +206,9 @@ const PersonalityConfig: React.FC = () => {
             useCustomGreeting={!!greetingValue}
             defaultTemplate={getDefaultGreeting()}
             availableVariables={['bot_name', 'business_name', 'business_hours']}
+            botName={botName}
+            businessName={businessName}
+            businessHours={businessHours}
             onUpdate={(data) => {
               if (data.greeting_template !== undefined) {
                 handleGreetingChange(data.greeting_template);
@@ -225,15 +233,7 @@ const PersonalityConfig: React.FC = () => {
           type="button"
           onClick={handleSave}
           disabled={loading || !selectedPersonality || saveStatus === 'saving'}
-          className={`
-            inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-white
-            transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-            disabled:opacity-50 disabled:cursor-not-allowed
-            ${loading || saveStatus === 'saving'
-              ? 'bg-gray-400 cursor-wait'
-              : 'bg-primary hover:bg-blue-700'
-            }
-          `}
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400"
         >
           {saveStatus === 'saving' ? (
             <>

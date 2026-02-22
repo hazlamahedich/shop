@@ -126,7 +126,7 @@ def substitute_greeting_variables(
     result = template
     for key, value in substitutions.items():
         # Use regex to replace all occurrences of {key} with value
-        result = re.sub(rf'\{{{re.escape(key)}\}}', value, result)
+        result = re.sub(rf"\{{{re.escape(key)}\}}", value, result)
 
     return result
 
@@ -181,7 +181,8 @@ def get_effective_greeting(merchant_config: dict[str, Optional[str]]) -> str:
         custom_greeting = merchant_config.get("custom_greeting", "")
         # Use custom if non-empty after stripping
         if custom_greeting and custom_greeting.strip():
-            return custom_greeting
+            # Apply variable substitution to custom greeting as well
+            return substitute_greeting_variables(custom_greeting, merchant_config)
 
     # Fall back to personality-based default with variable substitution
     default_template = get_default_greeting(personality)

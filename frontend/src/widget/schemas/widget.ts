@@ -17,10 +17,18 @@ export const WidgetThemeSchema = z.object({
 export const WidgetConfigSchema = z.object({
   enabled: z.boolean(),
   botName: z.string(),
+  bot_name: z.string().optional(),
   welcomeMessage: z.string(),
+  welcome_message: z.string().optional(),
   theme: WidgetThemeSchema,
   allowedDomains: z.array(z.string()).optional().default([]),
-}).passthrough();
+}).passthrough().transform((data) => ({
+  enabled: data.enabled,
+  botName: data.botName || data.bot_name || 'Assistant',
+  welcomeMessage: data.welcomeMessage || data.welcome_message || '',
+  theme: data.theme,
+  allowedDomains: data.allowedDomains || [],
+}));
 
 export const WidgetSessionSchema = z
   .object({
@@ -69,17 +77,20 @@ export const WidgetProductSchema = z.object({
 });
 
 export const WidgetCartItemSchema = z.object({
-  variant_id: z.string(),
+  variant_id: z.string().optional(),
+  variantId: z.string().optional(),
   title: z.string(),
   price: z.number(),
   quantity: z.number(),
-});
+}).passthrough();
 
 export const WidgetCartSchema = z.object({
   items: z.array(WidgetCartItemSchema),
-  item_count: z.number(),
-  total: z.number(),
-});
+  item_count: z.number().optional(),
+  itemCount: z.number().optional(),
+  total: z.number().optional(),
+  subtotal: z.number().optional(),
+}).passthrough();
 
 export const WidgetSearchResultSchema = z.object({
   products: z.array(WidgetProductSchema),
@@ -88,6 +99,27 @@ export const WidgetSearchResultSchema = z.object({
 });
 
 export const WidgetCheckoutResultSchema = z.object({
-  checkout_url: z.string(),
-  message: z.string(),
-});
+  checkout_url: z.string().optional(),
+  checkoutUrl: z.string().optional(),
+  message: z.string().optional(),
+  cartTotal: z.number().optional(),
+  currency: z.string().optional(),
+  itemCount: z.number().optional(),
+}).passthrough();
+
+export const WidgetProductDetailSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable().optional(),
+  image_url: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  price: z.number(),
+  available: z.boolean(),
+  inventory_quantity: z.number().nullable().optional(),
+  inventoryQuantity: z.number().nullable().optional(),
+  product_type: z.string().nullable().optional(),
+  productType: z.string().nullable().optional(),
+  vendor: z.string().nullable().optional(),
+  variant_id: z.string().nullable().optional(),
+  variantId: z.string().nullable().optional(),
+}).passthrough();

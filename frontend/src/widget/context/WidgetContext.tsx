@@ -90,6 +90,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   const [removingItemId, setRemovingItemId] = React.useState<string | null>(null);
   const [isCheckingOut, setIsCheckingOut] = React.useState(false);
   const lastActionRef = React.useRef<{ type: string; payload?: unknown } | null>(null);
+  const greetingShownRef = React.useRef(false);
 
   const addError = React.useCallback(
     (error: unknown, context?: { action?: string; fallbackUrl?: string }) => {
@@ -196,13 +197,21 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const addToCart = React.useCallback(
     async (product: WidgetProduct) => {
-      if (!state.session) return;
-
       lastActionRef.current = { type: 'addToCart', payload: product };
       setAddingProductId(product.id);
       try {
         const { widgetClient } = await import('../api/widgetClient');
-        await widgetClient.addToCart(state.session.sessionId, product, 1);
+        
+        let sessionId = state.session?.sessionId;
+        
+        if (!sessionId) {
+          const newSession = await createSession();
+          dispatch({ type: 'SET_SESSION', payload: newSession });
+          sessionStorage.setItem('widget_session_id', newSession.sessionId);
+          sessionId = newSession.sessionId;
+        }
+
+        await widgetClient.addToCart(sessionId, product, 1);
 
         const confirmationMessage = {
           messageId: crypto.randomUUID(),
@@ -217,34 +226,50 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         setAddingProductId(null);
       }
     },
-    [state.session, addError]
+    [state.session, addError, createSession]
   );
 
   const removeFromCart = React.useCallback(
     async (variantId: string) => {
-      if (!state.session) return;
-
       setRemovingItemId(variantId);
       try {
         const { widgetClient } = await import('../api/widgetClient');
-        await widgetClient.removeFromCart(state.session.sessionId, variantId);
+        
+        let sessionId = state.session?.sessionId;
+        
+        if (!sessionId) {
+          const newSession = await createSession();
+          dispatch({ type: 'SET_SESSION', payload: newSession });
+          sessionStorage.setItem('widget_session_id', newSession.sessionId);
+          sessionId = newSession.sessionId;
+        }
+
+        await widgetClient.removeFromCart(sessionId, variantId);
       } catch (error) {
         addError(error, { action: 'Try Again' });
       } finally {
         setRemovingItemId(null);
       }
     },
-    [state.session, addError]
+    [state.session, addError, createSession]
   );
 
   const checkout = React.useCallback(async () => {
-    if (!state.session) return;
-
     lastActionRef.current = { type: 'checkout' };
     setIsCheckingOut(true);
     try {
       const { widgetClient } = await import('../api/widgetClient');
-      const result = await widgetClient.checkout(state.session.sessionId);
+      
+      let sessionId = state.session?.sessionId;
+      
+      if (!sessionId) {
+        const newSession = await createSession();
+        dispatch({ type: 'SET_SESSION', payload: newSession });
+        sessionStorage.setItem('widget_session_id', newSession.sessionId);
+        sessionId = newSession.sessionId;
+      }
+
+      const result = await widgetClient.checkout(sessionId);
 
       window.open(result.checkoutUrl, '_blank');
 
@@ -264,7 +289,26 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [state.session, addError]);
+  }, [state.session, addError, createSession]);
+
+  // Show greeting message when config is loaded and widget is open with no messages
+  React.useEffect(() => {
+    if (
+      state.isOpen &&
+      state.messages.length === 0 &&
+      state.config?.welcomeMessage &&
+      !greetingShownRef.current
+    ) {
+      greetingShownRef.current = true;
+      const greetingMessage = {
+        messageId: crypto.randomUUID(),
+        content: state.config.welcomeMessage,
+        sender: 'bot' as const,
+        createdAt: new Date().toISOString(),
+      };
+      dispatch({ type: 'ADD_MESSAGE', payload: greetingMessage });
+    }
+  }, [state.isOpen, state.messages.length, state.config?.welcomeMessage]);
 
   const retryLastAction = React.useCallback(() => {
     if (!lastActionRef.current) return;

@@ -193,9 +193,11 @@ async def update_personality_configuration(
             if update.custom_greeting.strip():
                 # Non-empty greeting - preserve original value including trailing spaces
                 merchant.custom_greeting = update.custom_greeting
+                merchant.use_custom_greeting = True  # Auto-enable custom greeting when provided
             else:
                 # Whitespace-only - treat as None
                 merchant.custom_greeting = None
+                merchant.use_custom_greeting = False  # Disable when clearing greeting
 
         # Commit changes
         try:

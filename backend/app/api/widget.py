@@ -55,10 +55,16 @@ from app.schemas.widget_search import (
     WidgetCheckoutRequest,
     WidgetCheckoutResponse,
     WidgetCheckoutEnvelope,
+    WidgetProductDetail,
+    WidgetProductDetailEnvelope,
 )
 from app.models.merchant import Merchant
 from app.services.widget.widget_session_service import WidgetSessionService
 from app.services.widget.widget_message_service import WidgetMessageService
+from app.services.personality.greeting_service import (
+    get_effective_greeting,
+    substitute_greeting_variables,
+)
 
 
 logger = structlog.get_logger(__name__)
@@ -486,6 +492,19 @@ async def get_widget_config(
         )
 
     business_hours = getattr(merchant, "business_hours", None)
+    business_name = getattr(merchant, "business_name", None)
+
+    # Get effective greeting using personality-based greeting service
+    # This uses custom greeting if set, otherwise personality default with variable substitution
+    merchant_config = {
+        "personality": merchant.personality,
+        "custom_greeting": merchant.custom_greeting,
+        "use_custom_greeting": merchant.use_custom_greeting,
+        "bot_name": bot_name,
+        "business_name": business_name,
+        "business_hours": business_hours,
+    }
+    welcome_message = get_effective_greeting(merchant_config)
 
     logger.info(
         "widget_config_retrieved",
@@ -495,7 +514,7 @@ async def get_widget_config(
     return WidgetConfigEnvelope(
         data=WidgetConfigResponse(
             bot_name=bot_name,
-            welcome_message=widget_config.welcome_message,
+            welcome_message=welcome_message,
             theme=widget_config.theme,
             enabled=widget_config.enabled,
             personality=personality,
@@ -691,6 +710,117 @@ async def widget_search(
 
 
 @router.get(
+    "/widget/product/{product_id}",
+    response_model=WidgetProductDetailEnvelope,
+    summary="Get product details",
+    description="Get detailed product information for widget",
+)
+async def get_widget_product(
+    request: Request,
+    product_id: str,
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> WidgetProductDetailEnvelope:
+    """Get detailed product information for widget.
+
+    Args:
+        request: FastAPI request
+        product_id: Product ID to fetch
+        session_id: Widget session identifier
+        db: Database session
+
+    Returns:
+        WidgetProductDetailEnvelope with product details
+
+    Raises:
+        APIError: If session invalid or product not found
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(session_id)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == session.merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant {session.merchant_id} not found",
+        )
+
+    from app.services.shopify.product_service import fetch_products
+
+    try:
+        products = await fetch_products("", merchant.id, db)
+
+        product = None
+        for p in products:
+            if str(p.get("id")) == str(product_id):
+                product = p
+                break
+
+        if not product:
+            raise APIError(
+                ErrorCode.NOT_FOUND,
+                f"Product {product_id} not found",
+            )
+
+        variant_id = None
+        if product.get("variants"):
+            variant_id = str(product["variants"][0].get("id", ""))
+
+        logger.info(
+            "widget_product_fetched",
+            session_id=session_id,
+            merchant_id=merchant.id,
+            product_id=product_id,
+        )
+
+        return WidgetProductDetailEnvelope(
+            data=WidgetProductDetail(
+                id=str(product.get("id", "")),
+                title=product.get("title", ""),
+                description=product.get("description", ""),
+                image_url=product.get("image_url"),
+                price=float(product.get("price", 0) or 0),
+                available=product.get("available", True),
+                inventory_quantity=product.get("inventory_quantity", 0),
+                product_type=product.get("product_type"),
+                vendor=product.get("vendor"),
+                variant_id=variant_id,
+            ),
+            meta=create_meta(),
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        logger.error(
+            "widget_product_fetch_failed",
+            session_id=session_id,
+            product_id=product_id,
+            error=str(e),
+        )
+        raise APIError(
+            ErrorCode.PRODUCT_NOT_FOUND,
+            f"Failed to fetch product: {str(e)}",
+        )
+
+
+@router.get(
     "/widget/cart",
     response_model=WidgetCartEnvelope,
     summary="Get cart",
@@ -817,9 +947,9 @@ async def add_to_widget_cart(
         psid=cart_key,
         product_id=cart_request.variant_id,
         variant_id=cart_request.variant_id,
-        title=f"Product {cart_request.variant_id}",
-        price=0.0,
-        image_url="",
+        title=cart_request.title or f"Product {cart_request.variant_id}",
+        price=cart_request.price,
+        image_url=cart_request.image_url or "",
         quantity=cart_request.quantity,
     )
 
