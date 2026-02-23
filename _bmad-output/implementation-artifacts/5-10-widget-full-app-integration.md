@@ -97,6 +97,32 @@ Server → Client:
 2. Dynamic URL detection fails when tunnel URLs change - use explicit `apiBaseUrl`
 3. WebSocket provides bidirectional communication and works through most proxies/CDNs
 
+### WebSocket Duplicate Message Fix
+
+**Status:** ✅ **FIXED** (2026-02-23)
+
+**Issue:** Merchant replies appeared twice in widget chat window.
+
+**Root Cause:** The `broadcast_to_session` method was delivering messages locally AND publishing to Redis, but the Redis listener also delivered locally - causing duplicate delivery on the same server instance.
+
+**Flow (Before Fix):**
+```
+broadcast_to_session()
+  ├── _deliver_locally() → sends to WebSocket ❌
+  └── redis.publish() → Redis listener → _deliver_locally() → sends to WebSocket ❌
+```
+
+**Flow (After Fix):**
+```
+broadcast_to_session()
+  └── redis.publish() → Redis listener → _deliver_locally() → sends to WebSocket ✅
+```
+
+**Fix:** Removed the direct local delivery from `broadcast_to_session`. Now only publishes to Redis, and the Redis listener handles all delivery (both local and cross-instance).
+
+**Files Modified:**
+- `backend/app/services/widget/connection_manager.py` - Removed duplicate local delivery
+
 ---
 
 ### Bot Response Quality Improprovements

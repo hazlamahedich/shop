@@ -136,15 +136,15 @@ class WidgetConnectionManager:
             message: Message payload to broadcast
 
         Returns:
-            Number of connections the message was sent to (local only)
+            Number of connections the message was sent to
         """
-        # Publish to Redis for cross-instance delivery
+        # Publish to Redis for delivery (works for both local and cross-instance)
         redis_client = self._get_redis()
         channel = f"widget:{session_id}"
 
         try:
             await redis_client.publish(channel, json.dumps(message))
-            self._logger.debug(
+            self._logger.info(
                 "redis_message_published",
                 channel=channel,
                 message_type=message.get("type"),
@@ -155,9 +155,11 @@ class WidgetConnectionManager:
                 channel=channel,
                 error=str(e),
             )
+            # Fallback: deliver locally if Redis fails
+            return await self._deliver_locally(session_id, message)
 
-        # Also deliver locally for same-instance connections
-        return await self._deliver_locally(session_id, message)
+        # Return connection count (actual delivery happens via Redis listener)
+        return self.get_connection_count(session_id)
 
     async def _deliver_locally(
         self,
