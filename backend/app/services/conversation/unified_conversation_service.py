@@ -208,7 +208,9 @@ class UnifiedConversationService:
             response.intent = intent_name
             response.confidence = confidence
 
-            # Update shopping state based on response
+            if response.products:
+                response.products = self._deduplicate_products(response.products)
+
             self._update_shopping_state(context, response, intent_name, entities)
 
             # Capture merchant_id before persistence (which may rollback and expire objects)
@@ -751,6 +753,41 @@ class UnifiedConversationService:
         elif intent_name == "cart_clear":
             return "clear"
         return "view"
+
+    def _deduplicate_products(self, products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Remove duplicate products by product_id.
+
+        Defense-in-depth deduplication to ensure no duplicate product cards
+        are ever returned to the frontend.
+
+        Args:
+            products: List of product dicts
+
+        Returns:
+            Deduplicated list of products
+        """
+        seen_ids = set()
+        unique_products = []
+
+        for product in products:
+            product_id = str(product.get("product_id") or product.get("id") or "")
+            if product_id and product_id not in seen_ids:
+                seen_ids.add(product_id)
+                unique_products.append(product)
+            elif product_id:
+                self.logger.debug(
+                    "response_dedup_skipped_duplicate",
+                    product_id=product_id,
+                )
+
+        if len(unique_products) != len(products):
+            self.logger.info(
+                "response_products_deduplicated",
+                original_count=len(products),
+                deduplicated_count=len(unique_products),
+            )
+
+        return unique_products
 
     def _update_shopping_state(
         self,

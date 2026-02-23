@@ -71,45 +71,56 @@ class TestGetPersonalitySystemPrompt:
 
     @pytest.mark.asyncio
     async def test_custom_greeting_friendly(self) -> None:
-        """Test friendly personality with custom greeting (Story 1.10 AC 4)."""
+        """Test friendly personality with custom greeting.
+
+        Note: Custom greeting is NO LONGER included in the LLM system prompt
+        to prevent the bot from re-introducing itself on every response.
+        The greeting is handled by the frontend widget instead.
+        """
         custom_greeting = "Welcome to Alex's Athletic Gear! How can I help you find today?"
         prompt = get_personality_system_prompt(
             PersonalityType.FRIENDLY,
             custom_greeting=custom_greeting,
         )
 
-        # Should include custom greeting
-        assert "STORE GREETING:" in prompt
-        assert custom_greeting in prompt
+        # Custom greeting should NOT be in the prompt (handled by frontend)
+        assert "STORE GREETING:" not in prompt
+        assert custom_greeting not in prompt
 
         # Should still include friendly personality
         assert "friendly" in prompt.lower()
 
     @pytest.mark.asyncio
     async def test_custom_greeting_professional(self) -> None:
-        """Test professional personality with custom greeting."""
+        """Test professional personality with custom greeting.
+
+        Note: Custom greeting is NO LONGER included in the LLM system prompt.
+        """
         custom_greeting = "Thank you for visiting TechHub. How may I assist you?"
         prompt = get_personality_system_prompt(
             PersonalityType.PROFESSIONAL,
             custom_greeting=custom_greeting,
         )
 
-        # Should include custom greeting
-        assert "STORE GREETING:" in prompt
-        assert custom_greeting in prompt
+        # Custom greeting should NOT be in the prompt (handled by frontend)
+        assert "STORE GREETING:" not in prompt
+        assert custom_greeting not in prompt
 
     @pytest.mark.asyncio
     async def test_custom_greeting_enthusiastic(self) -> None:
-        """Test enthusiastic personality with custom greeting."""
+        """Test enthusiastic personality with custom greeting.
+
+        Note: Custom greeting is NO LONGER included in the LLM system prompt.
+        """
         custom_greeting = "Hey!!! Welcome to TrendyStyles!!! Let's find you something amazing!!!"
         prompt = get_personality_system_prompt(
             PersonalityType.ENTHUSIASTIC,
             custom_greeting=custom_greeting,
         )
 
-        # Should include custom greeting
-        assert "STORE GREETING:" in prompt
-        assert custom_greeting in prompt
+        # Custom greeting should NOT be in the prompt (handled by frontend)
+        assert "STORE GREETING:" not in prompt
+        assert custom_greeting not in prompt
 
     @pytest.mark.asyncio
     async def test_no_custom_greeting(self) -> None:
@@ -144,16 +155,19 @@ class TestGetPersonalitySystemPrompt:
 
     @pytest.mark.asyncio
     async def test_long_custom_greeting(self) -> None:
-        """Test prompt with very long custom greeting (500 chars)."""
+        """Test prompt with very long custom greeting (500 chars).
+
+        Note: Custom greeting is NO LONGER included in the LLM system prompt.
+        """
         long_greeting = "Welcome! " * 100  # 900 characters
         prompt = get_personality_system_prompt(
             PersonalityType.FRIENDLY,
             custom_greeting=long_greeting,
         )
 
-        # Should include the full greeting
-        assert long_greeting in prompt
-        assert "STORE GREETING:" in prompt
+        # Long greeting should NOT be in the prompt (handled by frontend)
+        assert long_greeting not in prompt
+        assert "STORE GREETING:" not in prompt
 
 
 class TestPersonalityPromptService:
@@ -176,7 +190,10 @@ class TestPersonalityPromptService:
 
     @pytest.mark.asyncio
     async def test_get_system_prompt_with_custom_greeting(self) -> None:
-        """Test get_system_prompt with custom greeting."""
+        """Test get_system_prompt with custom greeting.
+
+        Note: Custom greeting is NO LONGER included in the LLM system prompt.
+        """
         service = PersonalityPromptService()
         custom_greeting = "Welcome to my store!"
         prompt = service.get_system_prompt(
@@ -184,8 +201,9 @@ class TestPersonalityPromptService:
             custom_greeting=custom_greeting,
         )
 
-        assert custom_greeting in prompt
-        assert "STORE GREETING:" in prompt
+        # Custom greeting should NOT be in the prompt (handled by frontend)
+        assert custom_greeting not in prompt
+        assert "STORE GREETING:" not in prompt
 
     @pytest.mark.asyncio
     async def test_get_prompt_description_friendly(self) -> None:

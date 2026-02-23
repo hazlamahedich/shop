@@ -2,6 +2,86 @@
 
 Status: ✅ **COMPLETE**
 
+## Recent Fixes (2026-02-23)
+
+### Bot Response Quality Improvements
+
+**Status:** ✅ **COMPLETE** (2026-02-23)
+
+Fixed three critical UX issues affecting bot conversation quality:
+
+| Issue | Description | Impact |
+|-------|-------------|--------|
+| **Bot re-introduces itself** | LLM repeated greeting on every response | Annoying, unprofessional |
+| **Duplicate product cards** | Same product shown 3x (e.g., "Ski Wax" x3) | Confusing UI |
+| **Products on non-shopping queries** | "Where are you located?" showed product cards | Irrelevant content |
+
+**Root Causes:**
+
+1. **Re-introduction:** `STORE GREETING:` was injected into LLM system prompt, causing LLM to "see" and repeat the greeting
+2. **Duplicates:** `ProductMentionDetector._fetch_products_by_names()` had no deduplication logic
+3. **Irrelevant products:** Product detection ran on ALL responses, regardless of query intent
+
+**Fixes Applied:**
+
+| Fix | File | Change |
+|-----|------|--------|
+| **#1: Remove greeting from prompt** | `personality_prompts.py` | Removed `STORE GREETING:` section from system prompt |
+| **#2: Product deduplication** | `product_mention_detector.py` | Added `seen_product_ids` set to skip duplicates |
+| **#3: Intent-aware detection** | `llm_handler.py` | Added `_should_detect_products()` - skips for non-shopping queries |
+| **#4: Response-level dedup** | `unified_conversation_service.py` | Added `_deduplicate_products()` as defense-in-depth |
+
+**Intent-Aware Product Detection Logic:**
+
+```python
+def _should_detect_products(self, user_message: str, response_text: str) -> bool:
+    # Skip products for non-shopping queries
+    non_product_patterns = [
+        "where are you located",
+        "what are your hours",
+        "shipping policy",
+        "return policy",
+        "track my order",
+        "contact you",
+        "talk to human",
+    ]
+    
+    # Show products for shopping queries
+    shopping_indicators = [
+        "looking for",
+        "do you have",
+        "show me",
+        "i want",
+        "buy", "purchase",
+        "how much", "price",
+        "recommend", "suggest",
+        "what do you sell",
+    ]
+```
+
+**Files Modified:**
+- `backend/app/services/personality/personality_prompts.py` - Removed `STORE GREETING:` from system prompt
+- `backend/app/services/conversation/product_mention_detector.py` - Added product deduplication
+- `backend/app/services/conversation/handlers/llm_handler.py` - Added intent-aware product detection
+- `backend/app/services/conversation/unified_conversation_service.py` - Added response-level deduplication
+- `backend/app/services/personality/test_personality_prompts.py` - Updated tests for new behavior
+
+**Verification:**
+
+| Query | Before | After |
+|-------|--------|-------|
+| "Where are you located?" | Bot re-introduces + 3x Ski Wax | Just answers location, no products |
+| "What do you sell?" | Shows only Ski Wax (pinned) | Shows products (pinned prioritized) |
+| "Show me ski wax" | Shows Ski Wax 3x | Shows Ski Wax once |
+| "What are your hours?" | Shows Ski Wax cards | Just answers hours |
+
+**Lesson Learned:** 
+1. Custom greeting should only be used for frontend widget welcome display, NOT in LLM context
+2. Always deduplicate products at multiple layers (detector + response)
+3. Product cards should only appear for shopping-related intents
+
+---
+
 ## Recent Enhancements (2026-02-22)
 
 ### Intent Mechanism Improvements

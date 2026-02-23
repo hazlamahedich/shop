@@ -191,10 +191,11 @@ class ProductMentionDetector:
             max_products: Maximum products to return
 
         Returns:
-            List of product dicts
+            List of product dicts (deduplicated by product_id)
         """
         search_service = ProductSearchService(db=db)
         found_products = []
+        seen_product_ids = set()
 
         for name in product_names[:max_products]:
             try:
@@ -206,6 +207,17 @@ class ProductMentionDetector:
 
                 if result.products:
                     best_match = result.products[0]
+                    product_id_str = str(best_match.id)
+
+                    if product_id_str in seen_product_ids:
+                        self.logger.debug(
+                            "product_mention_skipped_duplicate",
+                            product_name=name,
+                            product_id=product_id_str,
+                        )
+                        continue
+
+                    seen_product_ids.add(product_id_str)
                     found_products.append(
                         {
                             "id": best_match.id,

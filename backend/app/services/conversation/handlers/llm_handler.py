@@ -34,7 +34,16 @@ class LLMHandler(BaseHandler):
     and business context.
 
     Enhanced to detect product mentions and attach product cards.
+    Only shows products for shopping-related queries (intent-aware).
     """
+
+    PRODUCT_RELATED_INTENTS = {
+        "product_search",
+        "product_inquiry",
+        "product_comparison",
+        "price_inquiry",
+        "recommendation",
+    }
 
     async def handle(
         self,
@@ -92,13 +101,14 @@ class LLMHandler(BaseHandler):
                 "You can ask me about products, check your cart, or place an order."
             )
 
-        # Detect product mentions and fetch matching products
-        products = await self._detect_product_mentions(
-            response_text=response_text,
-            merchant=merchant,
-            llm_service=llm_service,
-            db=db,
-        )
+        products = None
+        if self._should_detect_products(message, response_text):
+            products = await self._detect_product_mentions(
+                response_text=response_text,
+                merchant=merchant,
+                llm_service=llm_service,
+                db=db,
+            )
 
         return ConversationResponse(
             message=response_text,
@@ -107,6 +117,72 @@ class LLMHandler(BaseHandler):
             products=products,
             metadata={"bot_name": bot_name, "business_name": business_name},
         )
+
+    def _should_detect_products(self, user_message: str, response_text: str) -> bool:
+        """Determine if product cards should be shown based on message content.
+
+        Product cards should only appear for shopping-related queries,
+        not for informational questions like "where are you located?".
+
+        Args:
+            user_message: Original user message
+            response_text: LLM's response
+
+        Returns:
+            True if product detection should run, False otherwise
+        """
+        lower_msg = user_message.lower().strip()
+
+        non_product_patterns = [
+            "where are you located",
+            "where is your store",
+            "what is your address",
+            "what are your hours",
+            "business hours",
+            "shipping policy",
+            "return policy",
+            "how do i return",
+            "track my order",
+            "order status",
+            "contact you",
+            "phone number",
+            "email address",
+            "talk to human",
+            "speak to someone",
+        ]
+
+        for pattern in non_product_patterns:
+            if pattern in lower_msg:
+                return False
+
+        shopping_indicators = [
+            "looking for",
+            "do you have",
+            "show me",
+            "i want",
+            "i need",
+            "buy",
+            "purchase",
+            "how much",
+            "price",
+            "cost",
+            "available",
+            "in stock",
+            "recommend",
+            "suggest",
+            "best seller",
+            "featured",
+            "popular",
+            "what do you sell",
+            "products",
+            "items",
+        ]
+
+        for indicator in shopping_indicators:
+            if indicator in lower_msg:
+                return True
+
+        return False
 
     async def _detect_product_mentions(
         self,

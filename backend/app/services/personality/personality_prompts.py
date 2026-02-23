@@ -162,9 +162,6 @@ def get_personality_system_prompt(
     if order_context and order_context.strip():
         full_prompt += "ORDER TRACKING:\n" + order_context + "\n\n"
 
-    if custom_greeting and custom_greeting.strip():
-        full_prompt += f"STORE GREETING: {custom_greeting}\n\n"
-
     full_prompt += f"COMMUNICATION STYLE:\n{personality_prompt}"
 
     return full_prompt
