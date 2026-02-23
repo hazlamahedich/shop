@@ -242,6 +242,13 @@ class MerchantReplyService:
 
             # Update conversation timestamp
             conversation.updated_at = datetime.utcnow()
+
+            # Track merchant message time for handoff resolution
+            from app.services.handoff.resolution_service import HandoffResolutionService
+
+            resolution_service = HandoffResolutionService(self.db)
+            await resolution_service.update_merchant_message_time(conversation.id)
+
             await self.db.commit()
 
             self.logger.info(
@@ -371,6 +378,13 @@ class MerchantReplyService:
 
             # Update conversation timestamp
             conversation.updated_at = datetime.utcnow()
+
+            # Track merchant message time for handoff resolution
+            from app.services.handoff.resolution_service import HandoffResolutionService
+
+            resolution_service = HandoffResolutionService(self.db)
+            await resolution_service.update_merchant_message_time(conversation.id)
+
             await self.db.commit()
 
             self.logger.info(

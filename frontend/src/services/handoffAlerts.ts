@@ -25,6 +25,7 @@ export interface HandoffAlert {
   conversationPreview: string | null;
   waitTimeSeconds: number;
   isRead: boolean;
+  isOffline: boolean;
   createdAt: string;
   handoffReason: 'keyword' | 'low_confidence' | 'clarification_loop' | null;
 }

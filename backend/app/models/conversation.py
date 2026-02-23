@@ -9,14 +9,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text
+from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing_extensions import Literal
 
 from app.core.database import Base
 
-HandoffStatusType = Literal["none", "pending", "active", "resolved"]
+HandoffStatusType = Literal["none", "pending", "active", "resolved", "reopened", "escalated"]
 from app.core.encryption import (
     encrypt_metadata,
     decrypt_metadata,
@@ -75,6 +75,8 @@ class Conversation(Base):
             "pending",
             "active",
             "resolved",
+            "reopened",
+            "escalated",
             name="handoff_status",
             create_type=False,
         ),
@@ -87,6 +89,31 @@ class Conversation(Base):
     )
     handoff_reason: Mapped[Optional[str]] = mapped_column(
         String(50),
+        nullable=True,
+    )
+    handoff_resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+    handoff_resolution_type: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    handoff_reopened_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=True,
+    )
+    last_customer_message_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+    last_merchant_message_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+    customer_satisfied: Mapped[Optional[bool]] = mapped_column(
+        Boolean,
         nullable=True,
     )
     consecutive_low_confidence_count: Mapped[int] = mapped_column(

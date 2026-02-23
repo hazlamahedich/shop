@@ -4,6 +4,260 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-23)
 
+### Handoff Resolution Flow Implementation
+
+**Status:** ✅ **COMPLETE** (2026-02-23)
+
+Implemented complete handoff lifecycle management with auto-close timers, reopen windows, and customer satisfaction tracking.
+
+| Feature | Description | Value |
+|---------|-------------|-------|
+| **24-hour auto-close** | Auto-close handoff after 24h customer inactivity | Reduces stale handoffs |
+| **20-hour warning** | Send warning message 4h before auto-close | Customer awareness |
+| **7-day reopen window** | Customers can reopen resolved handoffs within 7 days | Better UX |
+| **4-hour escalation** | Escalate pending handoffs with no merchant response | Prevents forgotten customers |
+| **Satisfaction feedback** | Track customer satisfaction (thumbs up/down) | Quality metrics |
+| **"Mark Resolved" button** | Merchants can manually resolve handoffs | Control |
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     Handoff Resolution Flow                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Customer Message ──► Handoff Triggered ──► Status: pending              │
+│                              │                                           │
+│                              ▼                                           │
+│                    Merchant Responds?                                    │
+│                       │         │                                        │
+│                      Yes        No ──► Escalate after 4h (high→medium)   │
+│                       │                                                   │
+│                       ▼                                                   │
+│              Status: active                                               │
+│                       │                                                   │
+│                       ▼                                                   │
+│            Customer inactive 20h? ──► Send warning message               │
+│                       │                                                   │
+│                       ▼                                                   │
+│            Customer inactive 24h? ──► Auto-close (resolved)              │
+│                       │                                                   │
+│                       ▼                                                   │
+│            Within 7 days? ──► Customer can reopen                        │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Files Created:**
+
+| File | Purpose |
+|------|---------|
+| `backend/alembic/versions/029_handoff_resolution_fields.py` | Database migration for resolution fields |
+| `backend/app/services/handoff/resolution_service.py` | HandoffResolutionService with lifecycle methods |
+| `backend/app/tasks/handoff_resolution_task.py` | APScheduler background task for auto-close/warning |
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/models/conversation.py` | Added `handoff_resolved_at`, `handoff_resolution_type`, `handoff_reopened_count`, `last_customer_message_at`, `last_merchant_message_at`, `customer_satisfied` fields |
+| `backend/app/models/handoff_alert.py` | Added resolution tracking fields |
+| `backend/app/background_jobs/data_retention.py` | Registered handoff resolution scheduler |
+| `backend/app/api/conversations.py` | Added `/resolve-handoff`, `/reopen-handoff`, `/satisfaction` endpoints |
+| `backend/app/services/conversation/merchant_reply_service.py` | Track merchant message time for inactivity detection |
+| `backend/app/services/conversation/unified_conversation_service.py` | Track customer message time, auto-reopen detection |
+| `frontend/src/services/conversations.ts` | Added `resolveHandoff()` method |
+| `frontend/src/pages/HandoffQueue.tsx` | Added "Mark Resolved" button |
+
+**API Endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/conversations/{id}/resolve-handoff` | POST | Mark handoff as resolved |
+| `/api/conversations/{id}/reopen-handoff` | POST | Reopen a recently closed handoff |
+| `/api/conversations/{id}/satisfaction` | POST | Record customer satisfaction |
+
+**Database Fields Added:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `handoff_resolved_at` | DateTime | When handoff was resolved |
+| `handoff_resolution_type` | String(20) | How resolved: manual, auto_close, customer_inactive |
+| `handoff_reopened_count` | Integer | Number of times reopened |
+| `last_customer_message_at` | DateTime | Last customer message timestamp |
+| `last_merchant_message_at` | DateTime | Last merchant message timestamp |
+| `customer_satisfied` | Boolean | Customer feedback (thumbs up/down) |
+
+---
+
+### Handoff Intent Detection Enhancement
+
+**Status:** ✅ **COMPLETE** (2026-02-23)
+
+Enhanced handoff detection to catch payment, billing, and order issues that need human support.
+
+| Enhancement | Description | Impact |
+|-------------|-------------|--------|
+| **Payment keyword patterns** | Regex patterns for payment/billing issues | Catches "I need help with my payment" |
+| **LLM classification guidance** | Enhanced prompt with handoff scenarios | Catches edge cases like "I was charged twice" |
+| **Pattern + LLM hybrid** | Patterns for fast-path, LLM for fallback | Best of both worlds |
+
+**Pattern-Based Handoff Triggers (Fast Path ~0ms):**
+
+```python
+payment_handoff_patterns = [
+    r"(i\s+need\s+help\s+(with|on|about)\s+(my\s+)?payment)",
+    r"(payment\s+(issue|problem|help|question|error|failed))",
+    r"(problem\s+with\s+(my\s+)?payment)",
+    r"(billing\s+(issue|problem|help|question|error|dispute))",
+    r"(charge\s+(issue|problem|dispute|error))",
+    r"(refund\s+(request|issue|problem|help))",
+    r"(i\s+want\s+(a\s+)?refund)",
+    r"(money\s+back)",
+    r"(dispute\s+(my\s+)?(charge|payment|order))",
+    r"(can'?t\s+(pay|checkout|complete\s+payment))",
+    r"(payment\s+(didn'?t|did\s+not)\s+(go\s+through|work))",
+]
+```
+
+**LLM Classification Guidance (Fallback):**
+
+Added to intent classification prompt:
+```
+IMPORTANT - When to use "human_handoff":
+- Payment/billing issues: refunds, disputes, failed payments, charge questions
+- Order problems: missing orders, damaged items, wrong items, delivery issues
+- Account issues: login problems, password resets, account access
+- Frustrated customers: repeated questions, complaints, escalation requests
+- Complex requests: situations requiring human judgment or discretion
+```
+
+**LLM Examples Added:**
+
+| Input | Output |
+|-------|--------|
+| "I need help with my payment" | `human_handoff` |
+| "My order never arrived" | `human_handoff` |
+| "I want a refund" | `human_handoff` |
+| "I was charged twice" | `human_handoff` |
+| "Can I speak to a manager?" | `human_handoff` |
+| "This is the third time I'm asking" | `human_handoff` |
+| "My account is locked" | `human_handoff` |
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/services/conversation/unified_conversation_service.py` | Added payment handoff patterns |
+| `backend/app/services/intent/prompt_templates.py` | Added handoff guidance + examples |
+
+---
+
+### Handoff Urgency Classification Enhancement
+
+**Status:** ✅ **COMPLETE** (2026-02-23)
+
+Improved urgency classification to better prioritize handoffs based on issue type.
+
+**Previous Logic (Too Limited):**
+```
+HIGH: Only if "checkout" in message
+MEDIUM: Low confidence or clarification loop
+LOW: Everything else
+```
+
+**New Logic (Keyword-Based):**
+
+| Priority | Keywords | During Hours | After Hours |
+|----------|----------|--------------|-------------|
+| **HIGH** | checkout, payment, charged, refund, cancel, billing, dispute, fraud | HIGH | MEDIUM (downgrade) |
+| **MEDIUM** | order, delivery, shipping, track, missing, damaged, wrong, return, account | MEDIUM | LOW |
+| **LOW** | General questions | LOW | LOW |
+
+**Rationale:**
+- Revenue-at-risk issues (payment, refund, checkout) get HIGH priority
+- After hours, nothing is truly HIGH since no one can respond
+- But we still differentiate so team knows what to prioritize when they return
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/services/conversation/handlers/handoff_handler.py` | Added keyword-based urgency classification |
+
+---
+
+### Handoff Message Template Fixes
+
+**Status:** ✅ **COMPLETE** (2026-02-23)
+
+Fixed awkward handoff messages that read poorly.
+
+| Issue | Before | After |
+|-------|--------|-------|
+| **Vague response time** | "at the next available time" | "within 24 hours" |
+| **Awkward hours fallback** | "Our hours are our posted hours" | Hours omitted if not configured |
+| **Customer concern missing** | Generic message | Includes detected concern (payment, order, etc.) |
+
+**Improved Message Flow:**
+
+```
+Before:
+"Thanks for reaching out to VolareSun about your payment! Our team is currently 
+away, but I've saved your message and someone will get back to you at the next 
+available time. Our hours are our posted hours. We appreciate your patience..."
+
+After:
+"Thanks for reaching out to VolareSun about your payment! Our team is currently 
+away, but I've saved your message and someone will get back to you within 24 hours. 
+We appreciate your patience and look forward to resolving this for you!"
+```
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/services/handoff/business_hours_handoff_service.py` | Fixed response time fallback, template formatting |
+
+---
+
+### Boolean Column Type Fix
+
+**Status:** ✅ **FIXED** (2026-02-23)
+
+Fixed `customer_satisfied` column type mismatch causing insert errors.
+
+| Issue | Description | Fix |
+|-------|-------------|-----|
+| **Type mismatch** | Model used `Integer` but migration used `Boolean` | Changed model to `Boolean` |
+| **Import missing** | `Boolean` not imported in model | Added to imports |
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/models/conversation.py` | Changed `customer_satisfied` from `Integer` to `Boolean`, added `Boolean` import |
+
+---
+
+### DateTime Timezone Compatibility Fix
+
+**Status:** ✅ **FIXED** (2026-02-23)
+
+Fixed timezone mismatch errors in handoff resolution service.
+
+| Issue | Description | Fix |
+|-------|-------------|-----|
+| **Naive vs aware datetime** | `datetime.now(timezone.utc)` created aware datetime but DB expected naive | Changed to `datetime.utcnow()` |
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/services/handoff/resolution_service.py` | Replaced all `datetime.now(timezone.utc)` with `datetime.utcnow()` |
+
+---
+
 ### WebSocket Real-Time Communication (Merchant Reply Feature)
 
 **Status:** ✅ **COMPLETE** (2026-02-23)

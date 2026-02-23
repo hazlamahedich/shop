@@ -28,24 +28,16 @@ Classify the message into one of these intents:
 - add_last_viewed: User refers to a previously shown product (e.g., "add that one", "get the first", "I want it")
 - unknown: Intent cannot be determined
 
-IMPORTANT DISTINCTIONS:
-1. Use "general" for business/service questions that are NOT product searches.
-   Examples of "general" questions:
-   - "do you serve coffee?" - asking about services offered
-   - "what are your hours?" - asking about business hours
-   - "do you deliver?" - asking about delivery service
-   
-2. Use "add_last_viewed" when user refers to a previously mentioned product:
-   - "add that to cart" / "add it" / "I want that one"
-   - "get the first one" / "buy the second one"
-   - "yes, that one" (after being shown products)
+IMPORTANT - When to use "human_handoff":
+Use this intent when the customer needs human assistance that the bot cannot provide:
+- Payment/billing issues: refunds, disputes, failed payments, charge questions, billing errors
+- Order problems: missing orders, damaged items, wrong items, delivery issues, tracking problems
+- Account issues: login problems, password resets, account access, locked accounts
+- Frustrated customers: repeated questions, complaints, escalation requests, anger
+- Complex requests: situations requiring human judgment, discretion, or exceptions
+- Sensitive matters: refunds, compensation, special accommodations
 
-3. Use "product_inquiry" when asking about details of a SPECIFIC product:
-   - "how much is that?" (after seeing a product)
-   - "is it available in blue?"
-   - "what sizes does it come in?"
-
-Do NOT classify service questions as "product_search" even if they mention items.
+Do NOT use human_handoff for simple product questions, browsing, or general inquiries.
 
 Extract these entities if present:
 - category: Product category (shoes, electronics, clothing, etc.)
@@ -130,6 +122,27 @@ Output: {"intent": "order_tracking", "confidence": 0.90, "entities": {}, "reason
 
 Input: "Talk to a person"
 Output: {"intent": "human_handoff", "confidence": 0.99, "entities": {}, "reasoning": "Explicit human agent request"}
+
+Input: "I need help with my payment"
+Output: {"intent": "human_handoff", "confidence": 0.95, "entities": {}, "reasoning": "Payment issue requires human support"}
+
+Input: "My order never arrived"
+Output: {"intent": "human_handoff", "confidence": 0.95, "entities": {}, "reasoning": "Order issue needs human investigation"}
+
+Input: "I want a refund"
+Output: {"intent": "human_handoff", "confidence": 0.90, "entities": {}, "reasoning": "Refund request requires human support"}
+
+Input: "I was charged twice"
+Output: {"intent": "human_handoff", "confidence": 0.95, "entities": {}, "reasoning": "Billing dispute needs human review"}
+
+Input: "Can I speak to a manager?"
+Output: {"intent": "human_handoff", "confidence": 0.98, "entities": {}, "reasoning": "Escalation request"}
+
+Input: "This is the third time I'm asking about this"
+Output: {"intent": "human_handoff", "confidence": 0.85, "entities": {}, "reasoning": "Frustrated customer needs human attention"}
+
+Input: "My account is locked"
+Output: {"intent": "human_handoff", "confidence": 0.95, "entities": {}, "reasoning": "Account access issue requires human support"}
 
 Input: "forget my preferences"
 Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "User wants to clear their data"}

@@ -45,9 +45,7 @@ async def list_conversations(
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query("updated_at", description="Sort column"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
-    search: str | None = Query(
-        None, description="Search term for customer ID or message content"
-    ),
+    search: str | None = Query(None, description="Search term for customer ID or message content"),
     date_from: str | None = Query(None, description="Start date filter (ISO 8601)"),
     date_to: str | None = Query(None, description="End date filter (ISO 8601)"),
     status: list[str] | None = Query(
@@ -884,3 +882,260 @@ async def merchant_reply(
             ErrorCode.INTERNAL_ERROR,
             f"Failed to send reply: {str(e)}",
         )
+
+
+# ============================================================
+# Handoff Resolution Endpoints
+# ============================================================
+
+
+class ResolveHandoffRequest(BaseModel):
+    """Request schema for resolving a handoff."""
+
+    resolution_type: Literal["merchant_resolved", "escalated", "abandoned"] = "merchant_resolved"
+    notes: str | None = None
+
+
+class ResolveHandoffResponse(BaseModel):
+    """Response schema for handoff resolution."""
+
+    success: bool
+    conversationId: int
+    resolvedAt: str | None
+    resolutionType: str | None
+
+
+class ResolveHandoffEnvelope(MinimalEnvelope):
+    """Envelope for handoff resolution response."""
+
+    data: ResolveHandoffResponse
+
+
+@router.post(
+    "/{conversation_id}/resolve-handoff",
+    response_model=ResolveHandoffEnvelope,
+)
+async def resolve_handoff(
+    request: Request,
+    conversation_id: int,
+    resolve_request: ResolveHandoffRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ResolveHandoffEnvelope:
+    """Manually resolve a handoff conversation.
+
+    Marks the handoff as resolved and returns conversation to bot control.
+
+    Args:
+        conversation_id: ID of the conversation
+        resolve_request: Resolution type and optional notes
+
+    Returns:
+        ResolveHandoffEnvelope with resolution status
+    """
+    from app.services.handoff.resolution_service import (
+        HandoffResolutionService,
+        RESOLUTION_MERCHANT_RESOLVED,
+    )
+
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.merchant_id == merchant_id,
+        )
+    )
+    conversation = result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    if conversation.status != "handoff":
+        raise APIError(
+            ErrorCode.INVALID_STATUS_TRANSITION,
+            "Conversation is not in handoff status",
+        )
+
+    service = HandoffResolutionService(db)
+    success = await service.resolve_handoff(
+        conversation=conversation,
+        resolution_type=resolve_request.resolution_type,
+        notes=resolve_request.notes,
+    )
+
+    await db.commit()
+
+    return ResolveHandoffEnvelope(
+        data=ResolveHandoffResponse(
+            success=success,
+            conversationId=conversation_id,
+            resolvedAt=conversation.handoff_resolved_at.isoformat()
+            if conversation.handoff_resolved_at
+            else None,
+            resolutionType=conversation.handoff_resolution_type,
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )
+
+
+class ReopenHandoffRequest(BaseModel):
+    """Request schema for reopening a handoff."""
+
+    message: str = Field(..., description="Customer message that triggered reopen")
+
+
+class ReopenHandoffResponse(BaseModel):
+    """Response schema for handoff reopen."""
+
+    success: bool
+    conversationId: int
+    alertId: int | None
+    reopenCount: int
+
+
+class ReopenHandoffEnvelope(MinimalEnvelope):
+    """Envelope for handoff reopen response."""
+
+    data: ReopenHandoffResponse
+
+
+@router.post(
+    "/{conversation_id}/reopen-handoff",
+    response_model=ReopenHandoffEnvelope,
+)
+async def reopen_handoff(
+    request: Request,
+    conversation_id: int,
+    reopen_request: ReopenHandoffRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ReopenHandoffEnvelope:
+    """Reopen a recently resolved handoff.
+
+    Allows customers to resume a conversation within the 7-day reopen window.
+
+    Args:
+        conversation_id: ID of the conversation
+        reopen_request: Customer message that triggered reopen
+
+    Returns:
+        ReopenHandoffEnvelope with reopen status
+    """
+    from app.services.handoff.resolution_service import HandoffResolutionService
+
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.merchant_id == merchant_id,
+        )
+    )
+    conversation = result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found or access denied",
+        )
+
+    service = HandoffResolutionService(db)
+    alert = await service.reopen_handoff(
+        conversation=conversation,
+        message=reopen_request.message,
+    )
+
+    await db.commit()
+
+    return ReopenHandoffEnvelope(
+        data=ReopenHandoffResponse(
+            success=alert is not None,
+            conversationId=conversation_id,
+            alertId=alert.id if alert else None,
+            reopenCount=conversation.handoff_reopened_count or 0,
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )
+
+
+class SatisfactionRequest(BaseModel):
+    """Request schema for customer satisfaction feedback."""
+
+    satisfied: bool = Field(..., description="Whether customer was satisfied")
+
+
+class SatisfactionResponse(BaseModel):
+    """Response schema for satisfaction feedback."""
+
+    success: bool
+    conversationId: int
+    satisfied: bool | None
+
+
+class SatisfactionEnvelope(MinimalEnvelope):
+    """Envelope for satisfaction response."""
+
+    data: SatisfactionResponse
+
+
+@router.post(
+    "/{conversation_id}/satisfaction",
+    response_model=SatisfactionEnvelope,
+)
+async def record_satisfaction(
+    request: Request,
+    conversation_id: int,
+    satisfaction_request: SatisfactionRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> SatisfactionEnvelope:
+    """Record customer satisfaction feedback.
+
+    Allows customers to provide feedback after handoff resolution.
+
+    Args:
+        conversation_id: ID of the conversation
+        satisfaction_request: Whether customer was satisfied
+
+    Returns:
+        SatisfactionEnvelope with feedback status
+    """
+    from app.services.handoff.resolution_service import HandoffResolutionService
+
+    _get_merchant_id(request)
+
+    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conversation = result.scalars().first()
+
+    if not conversation:
+        raise APIError(
+            ErrorCode.CONVERSATION_NOT_FOUND,
+            "Conversation not found",
+        )
+
+    service = HandoffResolutionService(db)
+    success = await service.record_satisfaction(
+        conversation_id=conversation_id,
+        satisfied=satisfaction_request.satisfied,
+    )
+
+    await db.commit()
+
+    return SatisfactionEnvelope(
+        data=SatisfactionResponse(
+            success=success,
+            conversationId=conversation_id,
+            satisfied=conversation.customer_satisfied == 1 if conversation else None,
+        ),
+        meta=MetaData(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )

@@ -49,6 +49,9 @@ class HandoffAlertResponse(BaseSchema):
     conversation_preview: str | None = Field(default=None, description="Last 3 messages")
     wait_time_seconds: int = Field(description="Time since handoff in seconds")
     is_read: bool = Field(description="Whether alert has been read")
+    is_offline: bool = Field(
+        default=False, description="Whether handoff was triggered outside business hours"
+    )
     created_at: str = Field(description="ISO 8601 timestamp")
     handoff_reason: str | None = Field(
         default=None, description="Reason for handoff: keyword, low_confidence, clarification_loop"
@@ -146,6 +149,7 @@ def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
         conversation_preview=alert.conversation_preview,
         wait_time_seconds=alert.wait_time_seconds,
         is_read=alert.is_read,
+        is_offline=getattr(alert, "is_offline", False),
         created_at=alert.created_at.isoformat() if alert.created_at else "",
         handoff_reason=handoff_reason,
     )

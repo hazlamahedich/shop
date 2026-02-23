@@ -544,6 +544,32 @@ class UnifiedConversationService:
                     processing_time_ms=0,
                 )
 
+        # Payment/billing/order issues - trigger handoff (require human support)
+        payment_handoff_patterns = [
+            r"(i\s+need\s+help\s+(with|on|about)\s+(my\s+)?payment)",
+            r"(payment\s+(issue|problem|help|question|error|failed))",
+            r"(problem\s+with\s+(my\s+)?payment)",
+            r"(billing\s+(issue|problem|help|question|error|dispute))",
+            r"(charge\s+(issue|problem|dispute|error))",
+            r"(refund\s+(request|issue|problem|help))",
+            r"(i\s+want\s+(a\s+)?refund)",
+            r"(money\s+back)",
+            r"(dispute\s+(my\s+)?(charge|payment|order))",
+            r"(can'?t\s+(pay|checkout|complete\s+payment))",
+            r"(payment\s+(didn'?t|did\s+not)\s+(go\s+through|work))",
+        ]
+        for pattern in payment_handoff_patterns:
+            if re.search(pattern, lower_msg):
+                return ClassificationResult(
+                    intent=ClassifierIntentType.HUMAN_HANDOFF,
+                    confidence=0.90,
+                    entities=ExtractedEntities(),
+                    raw_message=message,
+                    llm_provider="pattern",
+                    model="regex",
+                    processing_time_ms=0,
+                )
+
         # Product search with price constraint
         price_patterns = [
             r"(products?|items?|things?)\s+(under|below|less\s+than|cheaper\s+than)\s*\$?(\d+)",
@@ -911,6 +937,33 @@ class UnifiedConversationService:
                 conversation.conversation_data["cart"] = cart
 
             conversation.updated_at = datetime.utcnow()
+
+            # Track customer message time for handoff resolution
+            from app.services.handoff.resolution_service import HandoffResolutionService
+
+            resolution_service = HandoffResolutionService(db)
+
+            # Check if conversation is in active handoff - update customer message time
+            if conversation.status == "handoff" and conversation.handoff_status in (
+                "active",
+                "pending",
+                "resolved",
+                "escalated",
+                "reopened",
+            ):
+                await resolution_service.update_customer_message_time(conversation.id)
+            elif conversation.status == "active" and conversation.handoff_status == "none":
+                # Check if this is a recently resolved handoff that should be reopened
+                reopenable = await resolution_service.get_reopenable_handoff(
+                    context.session_id, merchant_id
+                )
+                if reopenable and reopenable.id == conversation.id:
+                    await resolution_service.reopen_handoff(conversation, user_message)
+                    self.logger.info(
+                        "handoff_reopened_by_customer",
+                        conversation_id=conversation.id,
+                        merchant_id=merchant_id,
+                    )
 
             await db.commit()
 

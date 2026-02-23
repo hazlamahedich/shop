@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Users, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import { useHandoffAlertsStore, type QueueUrgencyFilter } from '../stores/handoffAlertStore';
 import type { HandoffAlert } from '../services/handoffAlerts';
 import { conversationsService } from '../services/conversations';
@@ -18,6 +18,13 @@ const URGENCY_CONFIG = {
   high: { emoji: '🔴', label: 'High', color: 'text-red-600', bg: 'bg-red-50' },
   medium: { emoji: '🟡', label: 'Medium', color: 'text-yellow-600', bg: 'bg-yellow-50' },
   low: { emoji: '🟢', label: 'Low', color: 'text-green-600', bg: 'bg-green-50' },
+};
+
+const OFFLINE_CONFIG = {
+  emoji: '🌙',
+  label: 'After Hours',
+  color: 'text-purple-600',
+  bg: 'bg-purple-50',
 };
 
 const HANDOFF_REASON_LABELS: Record<string, string> = {
@@ -46,6 +53,7 @@ interface HandoffQueueItemProps {
   alert: HandoffAlert;
   onMarkAsRead: (id: number) => void;
   onViewHistory: (conversationId: number) => void;
+  onResolve: (conversationId: number) => void;
   facebookPage: FacebookPageInfo | null;
   onOpenMessenger: (conversationId: number, platformSenderId: string) => Promise<void>;
   hybridModes: Record<number, HybridModeState>;
@@ -55,6 +63,7 @@ function HandoffQueueItem({
   alert, 
   onMarkAsRead, 
   onViewHistory, 
+  onResolve,
   facebookPage, 
   onOpenMessenger,
   hybridModes,
@@ -77,13 +86,21 @@ function HandoffQueueItem({
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           {/* Header: Customer + Urgency Badge */}
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span 
               data-testid="item-urgency-badge"
               className={`inline-flex items-center px-2 py-0.5 rounded text-sm font-medium ${urgencyConfig.bg} ${urgencyConfig.color}`}
             >
               {urgencyConfig.emoji} {urgencyConfig.label}
             </span>
+            {alert.isOffline && (
+              <span 
+                data-testid="item-offline-badge"
+                className={`inline-flex items-center px-2 py-0.5 rounded text-sm font-medium ${OFFLINE_CONFIG.bg} ${OFFLINE_CONFIG.color}`}
+              >
+                {OFFLINE_CONFIG.emoji} {OFFLINE_CONFIG.label}
+              </span>
+            )}
             <span className="text-gray-400">•</span>
             <span 
               data-testid="item-wait-time"
@@ -125,6 +142,17 @@ function HandoffQueueItem({
 
         {/* Actions */}
         <div className="ml-4 flex flex-col items-end gap-2">
+          <button
+            data-testid="item-resolve"
+            onClick={async (e) => {
+              e.stopPropagation();
+              onResolve(alert.conversationId);
+            }}
+            className="text-xs px-3 py-1.5 rounded-md flex items-center gap-1 bg-green-100 text-green-700 hover:bg-green-200"
+          >
+            <CheckCircle size={12} />
+            <span>Mark Resolved</span>
+          </button>
           {hasFacebookConnection && (
             <button
               data-testid="item-open-messenger"
@@ -298,6 +326,15 @@ export default function HandoffQueue() {
     }
   };
 
+  const handleResolve = async (conversationId: number) => {
+    try {
+      await conversationsService.resolveHandoff(conversationId);
+      await fetchQueue();
+    } catch (err) {
+      console.error('Failed to resolve handoff:', err);
+    }
+  };
+
   return (
     <div className="p-6" data-testid="handoff-queue-page">
       {/* Error Banner */}
@@ -360,6 +397,7 @@ export default function HandoffQueue() {
                 alert={alert}
                 onMarkAsRead={handleMarkAsRead}
                 onViewHistory={handleViewHistory}
+                onResolve={handleResolve}
                 facebookPage={facebookPage}
                 onOpenMessenger={handleOpenMessenger}
                 hybridModes={hybridModes}

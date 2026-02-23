@@ -22,6 +22,7 @@ from app.services.data_retention import DataRetentionService
 from app.services.cart.cart_retention import run_cart_retention_cleanup
 from app.tasks.handoff_followup_task import process_handoff_followups
 from app.tasks.queued_notification_task import process_queued_notifications
+from app.tasks.handoff_resolution_task import process_handoff_resolutions
 
 logger = structlog.get_logger(__name__)
 
@@ -103,6 +104,19 @@ async def _run_queued_notifications() -> dict:
         return await process_queued_notifications(db)
 
 
+async def _run_handoff_resolution() -> dict:
+    """Run handoff resolution task wrapper.
+
+    Story: Handoff Resolution Flow
+    Processes auto-close warnings, auto-closes, and escalations every 30 minutes.
+
+    Returns:
+        Dictionary with resolution processing results
+    """
+    async with async_session() as db:
+        return await process_handoff_resolutions(db)
+
+
 def start_scheduler() -> None:
     """Start the data retention scheduler.
 
@@ -141,6 +155,15 @@ def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=30),
         id="queued_notification_task",
         name="Process Queued Notifications",
+        replace_existing=True,
+    )
+
+    # Handoff Resolution: Schedule resolution task every 30 minutes
+    scheduler.add_job(
+        lambda: _run_handoff_resolution(),
+        trigger=IntervalTrigger(minutes=30),
+        id="handoff_resolution_task",
+        name="Handoff Resolution Lifecycle",
         replace_existing=True,
     )
 

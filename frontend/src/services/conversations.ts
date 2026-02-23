@@ -199,4 +199,35 @@ export const conversationsService = {
 
     return response.json();
   },
+
+  /**
+   * Resolve a handoff conversation
+   *
+   * Marks a handoff as resolved and returns conversation to bot mode.
+   *
+   * @param conversationId - ID of the conversation to resolve
+   * @param notes - Optional resolution notes
+   * @returns Promise with resolution confirmation
+   */
+  async resolveHandoff(
+    conversationId: number,
+    notes?: string
+  ): Promise<{ success: boolean; conversation_id: number }> {
+    const csrfToken = await getCsrfToken();
+    const response = await fetch(`${API_BASE}/${conversationId}/resolve-handoff`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify({ notes }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to resolve handoff');
+    }
+
+    return response.json();
+  },
 };
