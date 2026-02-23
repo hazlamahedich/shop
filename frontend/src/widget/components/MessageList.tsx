@@ -135,6 +135,8 @@ function MessageBubble({
   isCheckingOut,
 }: MessageBubbleProps) {
   const isUser = message.sender === 'user';
+  const isMerchant = message.sender === 'merchant';
+  const displayName = isMerchant ? 'Merchant' : botName;
 
   return (
     <div
@@ -170,7 +172,7 @@ function MessageBubble({
                 opacity: 0.8,
               }}
             >
-              {botName}
+              {displayName}
             </div>
           )}
           <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

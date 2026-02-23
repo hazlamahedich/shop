@@ -1,5 +1,7 @@
 import type { WidgetError } from './errors';
 
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
 export interface WidgetTheme {
   primaryColor: string;
   backgroundColor: string;
@@ -34,7 +36,7 @@ export interface WidgetSession {
 export interface WidgetMessage {
   messageId: string;
   content: string;
-  sender: 'user' | 'bot';
+  sender: 'user' | 'bot' | 'merchant';
   createdAt: string;
   products?: WidgetProduct[];
   cart?: WidgetCart;
@@ -52,6 +54,7 @@ export interface WidgetState {
   config: WidgetConfig | null;
   error: string | null;
   errors: WidgetError[];
+  connectionStatus: ConnectionStatus;
 }
 
 export interface WidgetApiError {
@@ -72,6 +75,7 @@ export type WidgetAction =
   | { type: 'ADD_WIDGET_ERROR'; payload: WidgetError }
   | { type: 'DISMISS_WIDGET_ERROR'; payload: string }
   | { type: 'CLEAR_WIDGET_ERRORS' }
+  | { type: 'SET_CONNECTION_STATUS'; payload: ConnectionStatus }
   | { type: 'RESET' };
 
 export interface WidgetProduct {

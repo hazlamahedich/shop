@@ -4,7 +4,102 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-23)
 
-### Bot Response Quality Improvements
+### WebSocket Real-Time Communication (Merchant Reply Feature)
+
+**Status:** ✅ **COMPLETE** (2026-02-23)
+
+Replaced SSE (Server-Sent Events) with WebSocket for real-time merchant reply delivery. SSE was being buffered by Cloudflare tunnels, causing messages to never reach the widget.
+
+| Issue | Description | Impact |
+|-------|-------------|--------|
+| **SSE buffered by Cloudflare** | EventStream was blank - events never reached browser | "Send to Widget" not working |
+| **Tunnel URL changes** | Cloudflare tunnel URLs change frequently, causing connection issues | Widget couldn't connect |
+
+**Architecture:**
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Shopify Widget │────▶│ Cloudflare Tunnel│────▶│  FastAPI Backend│
+│  WebSocket Client│    │  (WS supported)  │     │  WebSocket API  │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+                                                ┌─────────────────┐
+                                                │   Redis Pub/Sub │
+                                                │  (broadcast)    │
+                                                └─────────────────┘
+```
+
+**Files Created:**
+
+| File | Purpose |
+|------|---------|
+| `backend/app/api/widget_ws.py` | WebSocket endpoint `/ws/widget/{session_id}` |
+| `backend/app/services/widget/connection_manager.py` | WebSocket connection manager with Redis pub/sub |
+| `frontend/src/widget/api/widgetWsClient.ts` | WebSocket client with auto-reconnect, heartbeat |
+| `frontend/src/widget/components/ConnectionStatus.tsx` | Connection status indicator |
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/main.py` | Added WebSocket router |
+| `backend/app/middleware/auth.py` | Added `/ws/widget/` to bypass paths |
+| `backend/app/services/conversation/merchant_reply_service.py` | Publish to WebSocket via Redis |
+| `frontend/src/widget/context/WidgetContext.tsx` | Replaced SSE with WebSocket |
+| `frontend/src/widget/components/ChatWindow.tsx` | Added ConnectionStatus indicator |
+| `frontend/src/widget/types/widget.ts` | Added `ConnectionStatus` type |
+
+**Key Features:**
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-reconnect** | Up to 10 reconnection attempts with 3s interval |
+| **Heartbeat** | Client sends ping every 25s, server responds with pong |
+| **Redis Pub/Sub** | Cross-instance message delivery |
+| **Connection status** | Visual indicator (connecting/disconnected/error) |
+| **Explicit API URL** | `apiBaseUrl` in config bypasses script detection |
+
+**WebSocket Protocol:**
+
+```
+Client → Server:
+  - { type: "ping" } → Heartbeat request
+  - "ping" → Plain text heartbeat
+
+Server → Client:
+  - { type: "pong", data: { timestamp } } → Heartbeat response
+  - { type: "ping", data: { timestamp } } → Server heartbeat
+  - { type: "connected", data: { sessionId, timestamp } } → Connection confirmation
+  - { type: "merchant_message", data: { id, content, sender, createdAt } } → Merchant reply
+```
+
+**Embed Code with WebSocket:**
+
+```html
+<script>
+  window.ShopBotConfig = {
+    merchantId: 'YOUR_MERCHANT_ID',
+    theme: { primaryColor: '#6366f1' },
+    apiBaseUrl: 'https://your-api-domain.com/api/v1/widget'
+  };
+</script>
+<script src="https://your-api-domain.com/static/widget/widget.umd.js"></script>
+```
+
+**Important Notes:**
+1. `apiBaseUrl` is **required** when using Cloudflare tunnels (URLs change frequently)
+2. Remove `async` attribute from script tag for reliable initialization
+3. Use version query param `?v=XXX` for cache busting after updates
+
+**Lesson Learned:**
+1. SSE doesn't work through Cloudflare tunnels (buffered) - use WebSocket instead
+2. Dynamic URL detection fails when tunnel URLs change - use explicit `apiBaseUrl`
+3. WebSocket provides bidirectional communication and works through most proxies/CDNs
+
+---
+
+### Bot Response Quality Improprovements
 
 **Status:** ✅ **COMPLETE** (2026-02-23)
 

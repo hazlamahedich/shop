@@ -22,29 +22,51 @@ import {
 let cachedApiBase: string | null = null;
 
 function getApiBaseUrl(): string {
-  if (cachedApiBase) return cachedApiBase;
+  // Check if explicitly set via config (highest priority)
+  if (typeof window !== 'undefined' && (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig?.apiBaseUrl) {
+    const configUrl = (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig!.apiBaseUrl;
+    console.warn('[WidgetAPI] Using config apiBaseUrl:', configUrl);
+    return configUrl.replace(/\/$/, '');
+  }
 
-  // Try to find the widget script by src
+  // Try to find the widget script by src - prefer trycloudflare URLs
   const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
+  console.warn('[WidgetAPI] Found scripts:', scripts.length);
+  
+  let bestScript: HTMLScriptElement | null = null;
+
   for (const script of scripts) {
     if (script instanceof HTMLScriptElement && script.src) {
-      try {
-        const scriptUrl = new URL(script.src);
-        cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
-        return cachedApiBase;
-      } catch {
-        // Continue to next
+      console.warn('[WidgetAPI] Script src:', script.src);
+      // Prefer trycloudflare URLs (tunnels change frequently)
+      if (script.src.includes('trycloudflare.com')) {
+        bestScript = script;
+        break;
       }
+      bestScript = script;
+    }
+  }
+
+  if (bestScript) {
+    try {
+      const scriptUrl = new URL(bestScript.src);
+      cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
+      console.warn('[WidgetAPI] Detected API base:', cachedApiBase);
+      return cachedApiBase;
+    } catch (e) {
+      console.warn('[WidgetAPI] Failed to parse script URL:', e);
     }
   }
 
   // Fallback to relative path
   cachedApiBase = '/api/v1/widget';
+  console.warn('[WidgetAPI] Using fallback:', cachedApiBase);
   return cachedApiBase;
 }
 
 // Don't call at module load time - call lazily
-const getWidgetApiBase = () => getApiBaseUrl();
+// Exported for use by SSE client to ensure consistent origin detection
+export const getWidgetApiBase = () => getApiBaseUrl();
 
 export class WidgetApiException extends Error {
   constructor(

@@ -6,9 +6,8 @@ Supports Messenger, Widget, and rejects Preview (read-only).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
-from uuid import uuid4
+from datetime import datetime
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -17,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import APIError, ErrorCode
 from app.models.conversation import Conversation
 from app.models.message import Message
-
 
 logger = structlog.get_logger(__name__)
 
@@ -41,7 +39,7 @@ class MerchantReplyService:
         self.logger = structlog.get_logger(__name__)
 
         # SSE connection manager reference (set by SSE endpoint)
-        self._sse_manager: Optional[Any] = None
+        self._sse_manager: Any | None = None
 
     def set_sse_manager(self, manager: Any) -> None:
         """Set the SSE connection manager for widget broadcasts.
@@ -149,24 +147,46 @@ class MerchantReplyService:
 
         Returns:
             The created Message object
+
+        Raises:
+            APIError: If message save fails
         """
-        message = Message(
-            conversation_id=conversation_id,
-            sender="merchant",
-            content=content,
-            message_type="text",
-        )
-        self.db.add(message)
-        await self.db.commit()
-        await self.db.refresh(message)
+        try:
+            message = Message(
+                conversation_id=conversation_id,
+                sender="merchant",
+                content=content,
+                message_type="text",
+            )
+            self.db.add(message)
+            await self.db.commit()
+            await self.db.refresh(message)
 
-        self.logger.info(
-            "merchant_message_saved",
-            conversation_id=conversation_id,
-            message_id=message.id,
-        )
+            if not message.id:
+                raise APIError(
+                    ErrorCode.INTERNAL_ERROR,
+                    "Message was not saved - no ID returned",
+                )
 
-        return message
+            self.logger.info(
+                "merchant_message_saved",
+                conversation_id=conversation_id,
+                message_id=message.id,
+            )
+
+            return message
+        except APIError:
+            raise
+        except Exception as e:
+            self.logger.error(
+                "merchant_message_save_failed",
+                conversation_id=conversation_id,
+                error=str(e),
+            )
+            raise APIError(
+                ErrorCode.INTERNAL_ERROR,
+                f"Failed to save message: {str(e)}",
+            )
 
     async def _send_messenger_reply(
         self,
@@ -185,8 +205,8 @@ class MerchantReplyService:
         Raises:
             APIError: If Facebook API call fails
         """
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import decrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
         from app.services.messenger.send_service import MessengerSendService
 
         # Get Facebook integration
@@ -221,7 +241,7 @@ class MerchantReplyService:
             message = await self._save_merchant_message(conversation.id, content)
 
             # Update conversation timestamp
-            conversation.updated_at = datetime.now(timezone.utc)
+            conversation.updated_at = datetime.utcnow()
             await self.db.commit()
 
             self.logger.info(
@@ -277,68 +297,113 @@ class MerchantReplyService:
         # Get session ID from conversation
         session_id = conversation.platform_sender_id
 
-        # Save message to database
-        message = await self._save_merchant_message(conversation.id, content)
+        if not session_id:
+            raise APIError(
+                ErrorCode.VALIDATION_ERROR,
+                "Conversation has no associated widget session",
+            )
 
-        # Add to widget session message history
-        session_service = WidgetSessionService()
         try:
-            await session_service.add_message_to_history(
-                session_id=session_id,
-                role="merchant",
-                content=content,
-            )
-        except Exception as e:
-            self.logger.warning(
-                "widget_message_history_add_failed",
-                session_id=session_id,
-                error=str(e),
-            )
+            # Save message to database
+            message = await self._save_merchant_message(conversation.id, content)
 
-        # Broadcast via SSE if manager is available
-        sse_sent = False
-        if self._sse_manager:
+            # Add to widget session message history (non-critical, log failures)
             try:
-                await self._sse_manager.broadcast_message(
+                session_service = WidgetSessionService()
+                await session_service.add_message_to_history(
                     session_id=session_id,
-                    message={
-                        "type": "merchant_message",
-                        "data": {
-                            "id": message.id,
-                            "content": message.content,
-                            "sender": "merchant",
-                            "createdAt": message.created_at.isoformat(),
-                        },
-                    },
+                    role="merchant",
+                    content=content,
                 )
-                sse_sent = True
             except Exception as e:
                 self.logger.warning(
-                    "widget_sse_broadcast_failed",
+                    "widget_message_history_add_failed",
                     session_id=session_id,
                     error=str(e),
                 )
 
-        # Update conversation timestamp
-        conversation.updated_at = datetime.now(timezone.utc)
-        await self.db.commit()
+            # Prepare message payload
+            message_payload = {
+                "type": "merchant_message",
+                "data": {
+                    "id": message.id,
+                    "content": message.content,
+                    "sender": "merchant",
+                    "createdAt": message.created_at.isoformat(),
+                },
+            }
 
-        self.logger.info(
-            "merchant_widget_reply_sent",
-            conversation_id=conversation.id,
-            message_id=message.id,
-            session_id=session_id,
-            sse_sent=sse_sent,
-        )
+            # Broadcast via WebSocket (preferred)
+            ws_sent = False
+            try:
+                from app.services.widget.connection_manager import get_connection_manager
 
-        return {
-            "message": {
-                "id": message.id,
-                "content": message.content,
-                "sender": "merchant",
-                "createdAt": message.created_at.isoformat(),
-            },
-            "platform": "widget",
-            "sessionId": session_id,
-            "sseSent": sse_sent,
-        }
+                ws_manager = get_connection_manager()
+                await ws_manager.broadcast_to_session(session_id, message_payload)
+                ws_sent = True
+                self.logger.info(
+                    "websocket_broadcast_sent",
+                    session_id=session_id,
+                    message_id=message.id,
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "websocket_broadcast_failed",
+                    session_id=session_id,
+                    error=str(e),
+                )
+
+            # Fallback: Broadcast via SSE if manager is available (legacy support)
+            sse_sent = False
+            if self._sse_manager:
+                try:
+                    await self._sse_manager.broadcast_message(
+                        session_id=session_id,
+                        message=message_payload,
+                    )
+                    sse_sent = True
+                except Exception as e:
+                    self.logger.warning(
+                        "widget_sse_broadcast_failed",
+                        session_id=session_id,
+                        error=str(e),
+                    )
+
+            # Update conversation timestamp
+            conversation.updated_at = datetime.utcnow()
+            await self.db.commit()
+
+            self.logger.info(
+                "merchant_widget_reply_sent",
+                conversation_id=conversation.id,
+                message_id=message.id,
+                session_id=session_id,
+                ws_sent=ws_sent,
+                sse_sent=sse_sent,
+            )
+
+            return {
+                "message": {
+                    "id": message.id,
+                    "content": message.content,
+                    "sender": "merchant",
+                    "createdAt": message.created_at.isoformat(),
+                },
+                "platform": "widget",
+                "sessionId": session_id,
+                "wsSent": ws_sent,
+                "sseSent": sse_sent,
+            }
+        except APIError:
+            raise
+        except Exception as e:
+            self.logger.error(
+                "merchant_widget_reply_failed",
+                conversation_id=conversation.id,
+                session_id=session_id,
+                error=str(e),
+            )
+            raise APIError(
+                ErrorCode.INTERNAL_ERROR,
+                f"Failed to send widget reply: {str(e)}",
+            )

@@ -8,6 +8,7 @@ declare const __VITE_WIDGET_VERSION__: string;
 interface ShopBotConfig {
   merchantId: string;
   theme?: Partial<WidgetTheme>;
+  apiBaseUrl?: string;
 }
 
 declare global {

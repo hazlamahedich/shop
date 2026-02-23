@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetAction, WidgetState, WidgetProduct } from '../types/widget';
+import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus } from '../types/widget';
 import { createWidgetError } from '../types/errors';
 import { shopifyCartClient } from '../api/shopifyCartClient';
 
@@ -12,6 +12,7 @@ const initialState: WidgetState = {
   config: null,
   error: null,
   errors: [],
+  connectionStatus: 'disconnected',
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -43,6 +44,8 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       };
     case 'CLEAR_WIDGET_ERRORS':
       return { ...state, errors: [] };
+    case 'SET_CONNECTION_STATUS':
+      return { ...state, connectionStatus: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -68,6 +71,7 @@ interface WidgetContextValue {
   dismissError: (errorId: string) => void;
   clearErrors: () => void;
   retryLastAction: () => void;
+  connectionStatus: ConnectionStatus;
 }
 
 const WidgetContext = React.createContext<WidgetContextValue | null>(null);
@@ -381,37 +385,48 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     }
   }, [state.isOpen, state.messages.length, state.config?.welcomeMessage]);
 
-  // SSE connection for merchant messages
+  // WebSocket connection for merchant messages
   React.useEffect(() => {
     if (!state.session?.sessionId || !state.isOpen) return;
 
     let cleanup: (() => void) | null = null;
 
-    const connectSSE = async () => {
-      const { connectToWidgetSSE, isSSESupported } = await import('../api/widgetSSEClient');
+    const connectWebSocket = async () => {
+      const { connectWidgetWebSocket, isWebSocketSupported } = await import('../api/widgetWsClient');
       
-      if (!isSSESupported()) return;
+      if (!isWebSocketSupported()) {
+        console.warn('[Widget] WebSocket not supported');
+        dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
+        return;
+      }
 
-      cleanup = connectToWidgetSSE(state.session!.sessionId, {
+      cleanup = connectWidgetWebSocket(state.session!.sessionId, {
         onMessage: (event) => {
+          console.warn('[WidgetContext] WS onMessage:', event);
           if (event.type === 'merchant_message') {
             const data = event.data as { id: number; content: string; createdAt: string };
+            console.warn('[WidgetContext] Merchant message data:', data);
             const merchantMessage = {
               messageId: `merchant-${data.id}`,
               content: data.content,
-              sender: 'bot' as const,
+              sender: 'merchant' as const,
               createdAt: data.createdAt,
             };
+            console.warn('[WidgetContext] Dispatching ADD_MESSAGE:', merchantMessage);
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
           }
         },
+        onStatusChange: (status) => {
+          console.warn('[WidgetContext] Connection status:', status);
+          dispatch({ type: 'SET_CONNECTION_STATUS', payload: status });
+        },
         onError: (error) => {
-          console.warn('[Widget] SSE connection error:', error);
+          console.warn('[Widget] WebSocket error:', error);
         },
       });
     };
 
-    connectSSE();
+    connectWebSocket();
 
     return () => {
       if (cleanup) cleanup();
@@ -468,6 +483,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       dismissError,
       clearErrors,
       retryLastAction,
+      connectionStatus: state.connectionStatus,
     }),
     [
       state,

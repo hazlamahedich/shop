@@ -1,12 +1,13 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { TypingIndicator } from './TypingIndicator';
 import { ErrorToast } from './ErrorToast';
 import { ProductDetailModal } from './ProductDetailModal';
+import { ConnectionStatusIndicator } from './ConnectionStatus';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export interface ChatWindowProps {
   removingItemId?: string | null;
   isCheckingOut?: boolean;
   sessionId?: string;
+  connectionStatus?: ConnectionStatus;
 }
 
 function ChatWindow({
@@ -48,6 +50,7 @@ function ChatWindow({
   removingItemId,
   isCheckingOut,
   sessionId,
+  connectionStatus = 'disconnected',
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
@@ -179,6 +182,13 @@ function ChatWindow({
             </svg>
           </button>
         </div>
+
+        {/* Connection Status Indicator */}
+        {connectionStatus !== 'connected' && (
+          <div style={{ padding: '8px 12px' }}>
+            <ConnectionStatusIndicator status={connectionStatus} />
+          </div>
+        )}
 
         <MessageList
           messages={messages}

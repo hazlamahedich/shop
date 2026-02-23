@@ -64,6 +64,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/integrations/shopify/callback",  # Shopify OAuth callback
         "/api/integrations/shopify/authorize",  # Shopify OAuth initiation
         "/api/v1/widget/",  # Story 5-1: Public widget API
+        "/ws/widget/",  # WebSocket endpoint for widget real-time communication
         "/widget/",  # Static widget files for local development
         "/static/",  # Static files (widget JS, CSS, etc.)
     ]

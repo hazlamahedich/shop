@@ -110,6 +110,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                   removingItemId={removingItemId}
                   isCheckingOut={isCheckingOut}
                   sessionId={state.session?.sessionId}
+                  connectionStatus={state.connectionStatus}
                 />
               </React.Suspense>
             </WidgetErrorBoundary>

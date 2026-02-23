@@ -196,6 +196,10 @@ async def _event_generator(
 
     try:
         # Send initial connection confirmation
+        logger.info(
+            "sse_sending_connected_event",
+            session_id=session_id,
+        )
         yield _format_sse_event(
             "connected",
             {
@@ -214,7 +218,14 @@ async def _event_generator(
 
                 # Send the message
                 event_type = message.get("type", "message")
-                yield _format_sse_event(event_type, message)
+                formatted_event = _format_sse_event(event_type, message)
+                logger.info(
+                    "sse_event_yielded",
+                    session_id=session_id,
+                    event_type=event_type,
+                    message_preview=str(message)[:100],
+                )
+                yield formatted_event
 
             except asyncio.TimeoutError:
                 # Send keepalive comment
@@ -287,9 +298,12 @@ async def widget_events(
         _event_generator(session_id, queue, manager),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-store, no-transform, must-revalidate, max-age=0",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+            "Pragma": "no-cache",
+            "Expires": "0",
         },
     )
 

@@ -5,6 +5,8 @@
  * and other events in the widget.
  */
 
+import { getWidgetApiBase } from './widgetClient';
+
 export interface SSEMerchantMessage {
   id: number;
   content: string;
@@ -56,15 +58,19 @@ export function connectToWidgetSSE(
   const connect = () => {
     if (isClosed) return;
 
-    const url = `/api/v1/widget/${sessionId}/events`;
+    // Use same origin detection as widgetClient to work on Shopify/cross-origin
+    const url = `${getWidgetApiBase()}/${sessionId}/events`;
+    console.warn('[SSE] Connecting to:', url);
     eventSource = new EventSource(url);
 
     eventSource.onopen = () => {
+      console.warn('[SSE] Connection opened');
       reconnectAttempts = 0;
       onOpen?.();
     };
 
     eventSource.onerror = (error) => {
+      console.warn('[SSE] Connection error:', error);
       onError?.(error);
 
       // Attempt to reconnect
@@ -93,19 +99,30 @@ export function connectToWidgetSSE(
 
     // Handle 'merchant_message' event
     eventSource.addEventListener('merchant_message', (event) => {
+      console.warn('[SSE] merchant_message event FIRED:', event);
       try {
-        const data = JSON.parse((event as MessageEvent).data);
-        onMessage?.({ type: 'merchant_message', data });
-      } catch {
-        // Ignore parse errors
+        const raw = (event as MessageEvent).data;
+        console.warn('[SSE] Raw event data:', raw);
+        const parsed = JSON.parse(raw);
+        console.warn('[SSE] Parsed data:', parsed);
+        // Unwrap the nested structure: {"type":"merchant_message","data":{...}}
+        // WidgetContext expects event.data to be the inner data object
+        const innerData = parsed.data || parsed;
+        console.warn('[SSE] Inner data to pass:', innerData);
+        onMessage?.({ type: 'merchant_message', data: innerData });
+        console.warn('[SSE] onMessage callback called');
+      } catch (e) {
+        console.warn('[SSE] Parse error:', e);
       }
     });
 
     // Handle generic messages
     eventSource.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        onMessage?.({ type: 'merchant_message', data });
+        const parsed = JSON.parse(event.data);
+        // Unwrap nested structure if present
+        const innerData = parsed.data || parsed;
+        onMessage?.({ type: 'merchant_message', data: innerData });
       } catch {
         // Ignore parse errors
       }

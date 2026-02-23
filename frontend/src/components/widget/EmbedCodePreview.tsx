@@ -15,34 +15,40 @@ interface EmbedCodePreviewProps {
   merchantId: number | null;
   primaryColor: string;
   enabled: boolean;
+  apiBaseUrl?: string;
 }
 
 type Platform = 'html' | 'shopify' | 'react' | 'wordpress';
 
-function generateEmbedCode(merchantId: number | null, primaryColor: string): string {
+function generateEmbedCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
+  const baseUrl = apiBaseUrl || 'https://your-api-domain.com/api/v1/widget';
+  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
   return `<script>
   window.ShopBotConfig = {
     merchantId: '${id}',
-    theme: { primaryColor: '${primaryColor}' }
+    theme: { primaryColor: '${primaryColor}' },
+    apiBaseUrl: '${baseUrl}'
   };
 </script>
-<script src="https://cdn.yourbot.com/widget.umd.js" async></script>`;
+<script src="${scriptUrl}"></script>`;
 }
 
-function generateReactCode(merchantId: number | null, primaryColor: string): string {
+function generateReactCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
+  const baseUrl = apiBaseUrl || 'https://your-api-domain.com/api/v1/widget';
+  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
   return `// In your root layout or _app.tsx file:
 
 useEffect(() => {
   window.ShopBotConfig = {
     merchantId: '${id}',
-    theme: { primaryColor: '${primaryColor}' }
+    theme: { primaryColor: '${primaryColor}' },
+    apiBaseUrl: '${baseUrl}'
   };
 
   const script = document.createElement('script');
-  script.src = 'https://cdn.yourbot.com/widget.umd.js';
-  script.async = true;
+  script.src = '${scriptUrl}';
   document.body.appendChild(script);
 
   return () => {
@@ -51,8 +57,10 @@ useEffect(() => {
 }, []);`;
 }
 
-function generateWordPressCode(merchantId: number | null, primaryColor: string): string {
+function generateWordPressCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
+  const baseUrl = apiBaseUrl || 'https://your-api-domain.com/api/v1/widget';
+  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
   return `// Add this to your theme's functions.php file:
 
 function shop_bot_widget() {
@@ -60,10 +68,11 @@ function shop_bot_widget() {
   <script>
     window.ShopBotConfig = {
       merchantId: '${id}',
-      theme: { primaryColor: '${primaryColor}' }
+      theme: { primaryColor: '${primaryColor}' },
+      apiBaseUrl: '${baseUrl}'
     };
   </script>
-  <script src="https://cdn.yourbot.com/widget.umd.js" async></script>
+  <script src="${scriptUrl}"></script>
   <?php
 }
 add_action('wp_footer', 'shop_bot_widget');`;
@@ -73,6 +82,7 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
   merchantId,
   primaryColor,
   enabled,
+  apiBaseUrl,
 }) => {
   const [copied, setCopied] = useState(false);
   const [activePlatform, setActivePlatform] = useState<Platform>('html');
@@ -82,13 +92,13 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
   const getCodeForPlatform = (platform: Platform): string => {
     switch (platform) {
       case 'shopify':
-        return generateEmbedCode(merchantId, primaryColor);
+        return generateEmbedCode(merchantId, primaryColor, apiBaseUrl);
       case 'react':
-        return generateReactCode(merchantId, primaryColor);
+        return generateReactCode(merchantId, primaryColor, apiBaseUrl);
       case 'wordpress':
-        return generateWordPressCode(merchantId, primaryColor);
+        return generateWordPressCode(merchantId, primaryColor, apiBaseUrl);
       default:
-        return generateEmbedCode(merchantId, primaryColor);
+        return generateEmbedCode(merchantId, primaryColor, apiBaseUrl);
     }
   };
 
@@ -120,6 +130,7 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
     html: {
       title: 'Plain HTML / Any Website',
       steps: [
+        'Replace YOUR_API_DOMAIN with your actual API server URL',
         'Copy the code below',
         'Paste it into your website\'s HTML, just before the closing </body> tag',
         'Save and publish your changes',
@@ -128,16 +139,19 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
     shopify: {
       title: 'Shopify Store',
       steps: [
+        'Replace YOUR_API_DOMAIN with your actual API server URL',
         'Go to your Shopify Admin → Online Store → Themes',
         'Click "..." next to your active theme → Edit code',
         'Find and open theme.liquid in the Layout folder',
         'Scroll to the bottom and paste the code just before </body>',
         'Click Save',
+        'Note: The apiBaseUrl is required for real-time merchant replies to work',
       ],
     },
     react: {
       title: 'React / Next.js',
       steps: [
+        'Replace YOUR_API_DOMAIN with your actual API server URL',
         'Copy the code below',
         'Add it to your root layout file (e.g., _app.tsx, layout.tsx, or App.tsx)',
         'The widget will load automatically on all pages',
@@ -146,6 +160,7 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
     wordpress: {
       title: 'WordPress',
       steps: [
+        'Replace YOUR_API_DOMAIN with your actual API server URL',
         'Option 1: Add to functions.php (recommended)',
         'Copy the code below to your theme\'s functions.php file',
         'Option 2: Use a plugin like "Insert Headers and Footers"',

@@ -26,17 +26,7 @@ export default defineConfig({
     outDir: 'dist/widget',
     emptyOutDir: true,
     sourcemap: false,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false,
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.debug', 'console.info'],
-      },
-      format: {
-        comments: false,
-      },
-    },
+    minify: false, // Disable for debugging
     rollupOptions: {
       output: {
         globals: {

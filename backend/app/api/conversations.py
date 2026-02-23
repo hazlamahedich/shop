@@ -1,32 +1,30 @@
-from datetime import datetime, timezone, timedelta
-from typing import Annotated, Optional, List, Literal
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Literal
 from uuid import uuid4
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode, ValidationError
 from app.models.conversation import Conversation
-from app.schemas.base import MinimalEnvelope, MetaData
+from app.schemas.base import MetaData, MinimalEnvelope
 from app.schemas.conversation import (
-    ConversationListResponse,
+    VALID_SENTIMENT_VALUES,
+    VALID_STATUS_VALUES,
+    ConversationContext,
     ConversationFilterParams,
-    ConversationHistoryResponse,
     ConversationHistoryData,
     ConversationHistoryMeta,
-    ConversationContext,
-    HandoffContext,
+    ConversationHistoryResponse,
+    ConversationListResponse,
     CustomerInfo,
-    VALID_STATUS_VALUES,
-    VALID_SENTIMENT_VALUES,
+    HandoffContext,
     HybridModeRequest,
-    HybridModeResponse,
-    FacebookPageInfo,
 )
 from app.services.conversation import ConversationService
 
@@ -47,18 +45,18 @@ async def list_conversations(
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query("updated_at", description="Sort column"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
-    search: Optional[str] = Query(
+    search: str | None = Query(
         None, description="Search term for customer ID or message content"
     ),
-    date_from: Optional[str] = Query(None, description="Start date filter (ISO 8601)"),
-    date_to: Optional[str] = Query(None, description="End date filter (ISO 8601)"),
-    status: Optional[List[str]] = Query(
+    date_from: str | None = Query(None, description="Start date filter (ISO 8601)"),
+    date_to: str | None = Query(None, description="End date filter (ISO 8601)"),
+    status: list[str] | None = Query(
         None, description=f"Filter by status: {', '.join(VALID_STATUS_VALUES)}"
     ),
-    sentiment: Optional[List[str]] = Query(
+    sentiment: list[str] | None = Query(
         None, description=f"Filter by sentiment: {', '.join(VALID_SENTIMENT_VALUES)}"
     ),
-    has_handoff: Optional[bool] = Query(None, description="Filter by handoff presence"),
+    has_handoff: bool | None = Query(None, description="Filter by handoff presence"),
 ) -> ConversationListResponse:
     """
     List conversations for the authenticated merchant.
@@ -251,7 +249,7 @@ async def get_conversation_history(
 
     meta = ConversationHistoryMeta(
         request_id=str(uuid4()),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
     return ConversationHistoryResponse(data=data, meta=meta)
@@ -288,9 +286,9 @@ async def set_hybrid_mode(
     Raises:
         APIError: If authentication fails or conversation not found
     """
+    from app.core.security import decrypt_access_token
     from app.models.conversation import Conversation
     from app.models.facebook_integration import FacebookIntegration
-    from app.core.security import decrypt_access_token
     from app.services.handoff.return_to_bot_service import ReturnToBotService
     from app.services.messenger.send_service import MessengerSendService
 
@@ -335,7 +333,7 @@ async def set_hybrid_mode(
             "Conversation not found or access denied",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     conversation_data = conversation.conversation_data or {}
     expires_at: datetime | None = None
     previous_status = conversation.status
@@ -567,7 +565,7 @@ async def get_handoff_context(
             pass
 
     if check_time is None:
-        check_time = datetime.now(timezone.utc)
+        check_time = datetime.now(UTC)
 
     business_hours_config = merchant.business_hours_config
     business_hours_configured = bool(business_hours_config and business_hours_config.get("hours"))
@@ -584,7 +582,7 @@ async def get_handoff_context(
         ),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )
 
@@ -656,7 +654,7 @@ async def create_handoff_notification(
             pass
 
     if check_time is None:
-        check_time = datetime.now(timezone.utc)
+        check_time = datetime.now(UTC)
 
     business_hours_config = merchant.business_hours_config
     business_hours_configured = bool(business_hours_config and business_hours_config.get("hours"))
@@ -702,7 +700,7 @@ async def create_handoff_notification(
         ),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )
 
@@ -758,7 +756,7 @@ async def get_notification_queue_status(
         ),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )
 
@@ -772,11 +770,11 @@ class MerchantReplyRequest(BaseModel):
 class MerchantReplyData(BaseModel):
     """Response data schema for merchant reply."""
 
-    id: int
+    id: int | None = None
     content: str
     sender: str = "merchant"
-    createdAt: str
-    platform: str
+    createdAt: str | None = None
+    platform: str | None = None
 
 
 class MerchantReplyResponse(BaseModel):
@@ -831,34 +829,58 @@ async def merchant_reply(
 
     merchant_id = _get_merchant_id(request)
 
-    reply_service = MerchantReplyService(db)
+    try:
+        reply_service = MerchantReplyService(db)
 
-    # Set SSE manager if available (for widget broadcasts)
-    from app.api.widget_events import sse_manager
+        # Set SSE manager if available (for widget broadcasts)
+        from app.api.widget_events import sse_manager
 
-    if sse_manager:
-        reply_service.set_sse_manager(sse_manager)
+        if sse_manager:
+            reply_service.set_sse_manager(sse_manager)
 
-    result = await reply_service.send_reply(
-        conversation_id=conversation_id,
-        merchant_id=merchant_id,
-        content=reply_request.content,
-    )
+        result = await reply_service.send_reply(
+            conversation_id=conversation_id,
+            merchant_id=merchant_id,
+            content=reply_request.content,
+        )
 
-    message_data = result.get("message", {})
+        message_data = result.get("message", {})
 
-    return MerchantReplyEnvelope(
-        data=MerchantReplyResponse(
-            message=MerchantReplyData(
-                id=message_data.get("id"),
-                content=message_data.get("content"),
-                sender="merchant",
-                createdAt=message_data.get("createdAt"),
-                platform=result.get("platform"),
+        # Validate message was saved
+        if not message_data:
+            logger.error(
+                "merchant_reply_no_message_data",
+                conversation_id=conversation_id,
+            )
+            raise APIError(
+                ErrorCode.INTERNAL_ERROR,
+                "Failed to send reply - no message data returned",
+            )
+
+        return MerchantReplyEnvelope(
+            data=MerchantReplyResponse(
+                message=MerchantReplyData(
+                    id=message_data.get("id"),
+                    content=message_data.get("content", reply_request.content),
+                    sender="merchant",
+                    createdAt=message_data.get("createdAt"),
+                    platform=result.get("platform"),
+                ),
             ),
-        ),
-        meta=MetaData(
-            request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
-        ),
-    )
+            meta=MetaData(
+                request_id=str(uuid4()),
+                timestamp=datetime.now(UTC).isoformat(),
+            ),
+        )
+    except APIError:
+        raise
+    except Exception as e:
+        logger.exception(
+            "merchant_reply_unexpected_error",
+            conversation_id=conversation_id,
+            error=str(e),
+        )
+        raise APIError(
+            ErrorCode.INTERNAL_ERROR,
+            f"Failed to send reply: {str(e)}",
+        )

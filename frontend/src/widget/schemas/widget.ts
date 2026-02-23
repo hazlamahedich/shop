@@ -52,7 +52,7 @@ export const WidgetMessageSchema = z.object({
   messageId: z.string().optional(),
   message_id: z.string().optional(),
   content: z.string(),
-  sender: z.enum(['user', 'bot']),
+  sender: z.enum(['user', 'bot', 'merchant']),
   createdAt: z.string().optional(),
   created_at: z.string().optional(),
   products: z.array(z.any()).nullable().optional(),
