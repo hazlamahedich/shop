@@ -2,6 +2,54 @@
 
 Status: ✅ **COMPLETE**
 
+## Recent Fixes (2026-02-24)
+
+### Business Hours Key Naming Bug Fix
+
+**Status:** ✅ **FIXED** (2026-02-24)
+
+Fixed a critical bug where all handoffs were incorrectly flagged as "after hours" even during business hours.
+
+**Description:** A handoff created on Tuesday at 3:21 PM Singapore time (within configured 9am-5pm business hours) was incorrectly flagged as "after hours", triggering the offline handoff message.
+
+**Root Cause:** Key naming mismatch between stored config and business hours service:
+
+| Layer | Keys Used | Format |
+|-------|-----------|--------|
+| **Frontend sends** | `isOpen`, `openTime`, `closeTime` | camelCase |
+| **Backend stores** | `isOpen`, `openTime`, `closeTime` | camelCase (via `model_dump()`) |
+| **Service expects** | `is_open`, `open_time`, `close_time` | snake_case |
+
+When the business hours service checked `day_config.get("is_open", False)`, the key wasn't found (stored as `isOpen`), so it defaulted to `False` → "outside business hours".
+
+**Impact:** All handoffs for merchants who configured business hours after the bug was introduced were incorrectly flagged as "after hours".
+
+**Fix:**
+
+1. **Code Fix:** Changed `model_dump()` → `model_dump(by_alias=False)` to store snake_case keys
+2. **Data Migration:** Created Alembic migration `030_fix_business_hours_keys.py` to fix existing records
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/api/business_hours.py` | Line 121: Added `by_alias=False` to `model_dump()` |
+| `backend/alembic/versions/030_fix_business_hours_keys.py` | New migration - transforms camelCase → snake_case keys |
+
+**Migration Output:**
+```
+INFO  [alembic.migration] Fixed business_hours_config for merchant_id: 2
+INFO  [alembic.migration] Migration complete: Fixed 1 of 1 merchants, skipped 0
+```
+
+**Verification:**
+- Handoff during business hours (9am-5pm Singapore) no longer shows "after hours" message
+- Handoff outside business hours correctly shows offline message
+
+**Lesson Learned:** When storing Pydantic models to JSONB columns, use `model_dump(by_alias=False)` to ensure snake_case keys that match Python/backend conventions, not camelCase which is only for API responses.
+
+---
+
 ## Recent Fixes (2026-02-23)
 
 ### Handoff Resolution Flow Implementation

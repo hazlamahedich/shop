@@ -118,7 +118,7 @@ async def update_business_hours(
 
         config_dict = {
             "timezone": update.timezone,
-            "hours": [h.model_dump() for h in update.hours],
+            "hours": [h.model_dump(by_alias=False) for h in update.hours],
             "out_of_office_message": update.out_of_office_message or DEFAULT_OUT_OF_OFFICE_MESSAGE,
         }
 
