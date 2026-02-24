@@ -50,8 +50,15 @@ def client(app):
 class MockConversation:
     """Mock Conversation for testing."""
 
-    def __init__(self, handoff_reason: str | None = None):
+    def __init__(
+        self,
+        handoff_reason: str | None = None,
+        platform_sender_id: str | None = None,
+        handoff_triggered_at: datetime | None = None,
+    ):
         self.handoff_reason = handoff_reason
+        self.platform_sender_id = platform_sender_id
+        self.handoff_triggered_at = handoff_triggered_at
 
 
 class MockAlert:
@@ -69,6 +76,8 @@ class MockAlert:
         wait_time_seconds: int = 30,
         is_read: bool = False,
         handoff_reason: str | None = None,
+        platform_sender_id: str | None = None,
+        handoff_triggered_at: datetime | None = None,
     ):
         self.id = id
         self.merchant_id = merchant_id
@@ -80,7 +89,11 @@ class MockAlert:
         self.wait_time_seconds = wait_time_seconds
         self.is_read = is_read
         self.created_at = datetime.utcnow()
-        self.conversation = MockConversation(handoff_reason=handoff_reason)
+        self.conversation = MockConversation(
+            handoff_reason=handoff_reason,
+            platform_sender_id=platform_sender_id,
+            handoff_triggered_at=handoff_triggered_at,
+        )
 
 
 class TestAlertToResponse:
@@ -141,6 +154,63 @@ class TestAlertToResponse:
 
             response = _alert_to_response(mock_alert)
             assert response.urgency_level == urgency
+
+    def test_alert_conversion_calculates_wait_time(self):
+        """Test wait_time_seconds is calculated from handoff_triggered_at."""
+        from datetime import timezone, timedelta
+
+        triggered_at = datetime.now(timezone.utc) - timedelta(hours=2, minutes=30)
+        mock_alert: Any = MockAlert(
+            id=1,
+            merchant_id=1,
+            conversation_id=100,
+            urgency_level="low",
+            wait_time_seconds=0,
+            handoff_triggered_at=triggered_at,
+        )
+
+        response = _alert_to_response(mock_alert)
+
+        assert response.wait_time_seconds > 0
+        expected_seconds = 2 * 3600 + 30 * 60
+        assert abs(response.wait_time_seconds - expected_seconds) < 5
+
+    def test_alert_conversion_falls_back_to_stored_wait_time(self):
+        """Test wait_time_seconds falls back to stored value when no handoff_triggered_at."""
+        mock_alert: Any = MockAlert(
+            id=1,
+            merchant_id=1,
+            conversation_id=100,
+            urgency_level="low",
+            wait_time_seconds=120,
+            handoff_triggered_at=None,
+        )
+
+        response = _alert_to_response(mock_alert)
+
+        assert response.wait_time_seconds == 120
+
+    def test_alert_conversion_handles_naive_datetime(self):
+        """Test wait_time_seconds handles naive datetime (no timezone info)."""
+        from datetime import timedelta
+
+        triggered_at = datetime.utcnow() - timedelta(hours=1)
+        assert triggered_at.tzinfo is None
+
+        mock_alert: Any = MockAlert(
+            id=1,
+            merchant_id=1,
+            conversation_id=100,
+            urgency_level="low",
+            wait_time_seconds=0,
+            handoff_triggered_at=triggered_at,
+        )
+
+        response = _alert_to_response(mock_alert)
+
+        assert response.wait_time_seconds > 0
+        expected_seconds = 3600
+        assert abs(response.wait_time_seconds - expected_seconds) < 5
 
 
 class TestResponseSchemas:

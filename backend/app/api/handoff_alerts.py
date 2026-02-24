@@ -13,6 +13,7 @@ Provides endpoints for:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -135,9 +136,18 @@ def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
     """
     handoff_reason = None
     platform_sender_id = None
+    wait_time_seconds = alert.wait_time_seconds
+
     if alert.conversation:
         handoff_reason = alert.conversation.handoff_reason
         platform_sender_id = alert.conversation.platform_sender_id
+
+        if alert.conversation.handoff_triggered_at:
+            triggered_at = alert.conversation.handoff_triggered_at
+            if triggered_at.tzinfo is None:
+                triggered_at = triggered_at.replace(tzinfo=timezone.utc)
+            elapsed = datetime.now(timezone.utc) - triggered_at
+            wait_time_seconds = int(elapsed.total_seconds())
 
     return HandoffAlertResponse(
         id=alert.id,
@@ -147,7 +157,7 @@ def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
         customer_name=alert.customer_name,
         customer_id=alert.customer_id,
         conversation_preview=alert.conversation_preview,
-        wait_time_seconds=alert.wait_time_seconds,
+        wait_time_seconds=wait_time_seconds,
         is_read=alert.is_read,
         is_offline=getattr(alert, "is_offline", False),
         created_at=alert.created_at.isoformat() if alert.created_at else "",

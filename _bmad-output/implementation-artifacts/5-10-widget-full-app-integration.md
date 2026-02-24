@@ -4,6 +4,91 @@ Status: ✅ **COMPLETE**
 
 ## Recent Fixes (2026-02-24)
 
+### Handoff Wait Time Calculation Fix
+
+**Status:** ✅ **FIXED** (2026-02-24)
+
+Fixed handoff queue showing "0s" wait time instead of actual elapsed time.
+
+**Description:** The handoff queue displayed "0s" for all handoff wait times, even for handoffs that had been waiting for hours. This made it impossible to prioritize customers who had been waiting the longest.
+
+**Root Cause:** The `_alert_to_response()` function in `handoff_alerts.py` returned the stored `wait_time_seconds` value from the database, which was always set to `0` at creation time and never updated.
+
+**Fix:**
+
+1. **Dynamic Calculation:** Calculate wait time dynamically from `handoff_triggered_at` timestamp
+2. **Timezone Handling:** Handle both naive and timezone-aware datetimes to avoid comparison errors
+3. **Fallback:** Fall back to stored value if `handoff_triggered_at` is not available
+
+**Code Change:**
+
+```python
+def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
+    wait_time_seconds = alert.wait_time_seconds  # Default fallback
+
+    if alert.conversation and alert.conversation.handoff_triggered_at:
+        triggered_at = alert.conversation.handoff_triggered_at
+        # Handle naive datetime (DB stores without timezone)
+        if triggered_at.tzinfo is None:
+            triggered_at = triggered_at.replace(tzinfo=timezone.utc)
+        elapsed = datetime.now(timezone.utc) - triggered_at
+        wait_time_seconds = int(elapsed.total_seconds())
+```
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/api/handoff_alerts.py` | Added `datetime, timezone` imports; modified `_alert_to_response()` to calculate wait time dynamically |
+| `backend/app/api/test_handoff_alerts.py` | Added `platform_sender_id`, `handoff_triggered_at` to mocks; added 3 new tests for wait time calculation |
+
+**Tests Added:**
+
+| Test | Description |
+|------|-------------|
+| `test_alert_conversion_calculates_wait_time` | Verifies wait time calculated from `handoff_triggered_at` |
+| `test_alert_conversion_falls_back_to_stored_wait_time` | Verifies fallback when no trigger time |
+| `test_alert_conversion_handles_naive_datetime` | Verifies handling of naive datetime without timezone info |
+
+---
+
+### Handoff Pattern Matching Enhancement
+
+**Status:** ✅ **COMPLETE** (2026-02-24)
+
+Added "manager" and "supervisor" to handoff pattern matching for faster detection.
+
+**Description:** Phrases like "I need to speak to your manager" were not caught by pattern matching and had to fall back to LLM classification, adding latency.
+
+**Fix:** Extended handoff patterns to include "manager" and "supervisor" keywords:
+
+```python
+handoff_patterns = [
+    r"(talk\s+to|speak\s+with|speak\s+to|connect\s+me\s+to)\s+(a\s+|your\s+)?(person|human|agent|representative|manager|supervisor)",
+    r"(human|agent|representative|customer\s+service|manager|supervisor)",
+    r"(i\s+need\s+help\s+from\s+a\s+person)",
+    r"(i\s+want\s+to\s+speak\s+to\s+(a\s+|the\s+|your\s+)?manager)",
+    r"(let\s+me\s+speak\s+to\s+(a\s+)?manager)",
+]
+```
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `backend/app/services/conversation/unified_conversation_service.py` | Extended `handoff_patterns` with "manager", "supervisor", and additional phrase patterns |
+
+**Verification:**
+
+| Phrase | Before | After |
+|--------|--------|-------|
+| "i need to speak to your manager" | LLM fallback (~500ms) | Pattern match (~0ms) ✅ |
+| "let me speak to a manager" | LLM fallback | Pattern match ✅ |
+| "connect me to a supervisor" | LLM fallback | Pattern match ✅ |
+| "manager" (standalone) | LLM fallback | Pattern match ✅ |
+
+---
+
 ### Business Hours Key Naming Bug Fix
 
 **Status:** ✅ **FIXED** (2026-02-24)

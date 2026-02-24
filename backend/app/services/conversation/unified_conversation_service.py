@@ -528,9 +528,11 @@ class UnifiedConversationService:
 
         # Human handoff patterns
         handoff_patterns = [
-            r"(talk\s+to|speak\s+with|connect\s+me\s+to)\s+(a\s+)?(person|human|agent|representative)",
-            r"(human|agent|representative|customer\s+service)",
+            r"(talk\s+to|speak\s+with|speak\s+to|connect\s+me\s+to)\s+(a\s+|your\s+)?(person|human|agent|representative|manager|supervisor)",
+            r"(human|agent|representative|customer\s+service|manager|supervisor)",
             r"(i\s+need\s+help\s+from\s+a\s+person)",
+            r"(i\s+want\s+to\s+speak\s+to\s+(a\s+|the\s+|your\s+)?manager)",
+            r"(let\s+me\s+speak\s+to\s+(a\s+)?manager)",
         ]
         for pattern in handoff_patterns:
             if re.search(pattern, lower_msg):
