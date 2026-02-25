@@ -136,6 +136,108 @@ class Order(Base):
         nullable=True,
         comment="Last update timestamp from Shopify (for out-of-order handling)",
     )
+
+    # Payment breakdown fields (Story 4-13)
+    discount_codes: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Discount codes applied to order as JSON array",
+    )
+    total_discount: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Total discount amount",
+    )
+    total_tax: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Total tax amount",
+    )
+    total_shipping: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Total shipping cost",
+    )
+    tax_lines: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Tax breakdown as JSON array",
+    )
+    payment_method: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Payment method used (e.g., credit_card, paypal)",
+    )
+    payment_details: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Masked payment details as JSON",
+    )
+
+    # COGS tracking fields (Story 4-13)
+    cogs_total: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="Total cost of goods sold",
+    )
+    cogs_fetched_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        comment="When COGS was last fetched from Shopify",
+    )
+
+    # Customer identity fields (Story 4-13)
+    customer_phone: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Customer phone number",
+    )
+    customer_first_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Customer first name",
+    )
+    customer_last_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Customer last name",
+    )
+
+    # Geographic fields for analytics (Story 4-13)
+    shipping_city: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Shipping city for analytics",
+    )
+    shipping_province: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Shipping province/state for analytics",
+    )
+    shipping_country: Mapped[str | None] = mapped_column(
+        String(2),
+        nullable=True,
+        index=True,
+        comment="Shipping country code (ISO 3166-1 alpha-2)",
+    )
+    shipping_postal_code: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Shipping postal code",
+    )
+
+    # Cancellation fields (Story 4-13)
+    cancel_reason: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Reason for order cancellation",
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        comment="When order was cancelled",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -164,6 +266,11 @@ class Order(Base):
     merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="orders",
+    )
+    disputes: Mapped[list["Dispute"]] = relationship(
+        "Dispute",
+        back_populates="order",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

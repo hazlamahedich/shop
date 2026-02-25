@@ -186,6 +186,17 @@ class Merchant(Base):
         cascade="all, delete-orphan",
         order_by="Order.created_at.desc()",
     )
+    customer_profiles: Mapped[list["CustomerProfile"]] = relationship(
+        "CustomerProfile",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+    )
+    disputes: Mapped[list["Dispute"]] = relationship(
+        "Dispute",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="Dispute.created_at.desc()",
+    )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),

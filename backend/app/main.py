@@ -46,6 +46,7 @@ from app.api.widget import router as widget_router
 from app.api.widget_settings import router as widget_settings_router
 from app.api.widget_events import router as widget_events_router
 from app.api.widget_ws import router as widget_ws_router
+from app.api.analytics import router as analytics_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
@@ -432,6 +433,8 @@ app.include_router(widget_events_router, prefix="/api/v1", tags=["widget-events"
 app.include_router(widget_ws_router, tags=["widget-websocket"])
 # Story 5-6: Widget Settings API
 app.include_router(widget_settings_router, prefix="/api/v1/merchants", tags=["widget-settings"])
+# Story 4-13: Geographic Analytics API
+app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

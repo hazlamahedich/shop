@@ -83,6 +83,9 @@ def map_shopify_status_to_order_status(
 def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
     """Parse Shopify webhook payload into order data dict.
 
+    Story 4-2: Shopify Webhook Integration
+    Story 4-13: Payment/Cost Data Enhancement
+
     Args:
         payload: Raw Shopify order webhook payload
 
@@ -171,6 +174,104 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
         except Exception:
             pass
 
+    # Story 4-13: Payment breakdown extraction
+    discount_codes = payload.get("discount_codes", [])
+    if discount_codes:
+        discount_codes = [
+            {
+                "code": dc.get("code"),
+                "amount": dc.get("amount"),
+                "type": dc.get("type"),
+            }
+            for dc in discount_codes
+        ]
+
+    total_discount_str = payload.get("current_total_discounts") or payload.get(
+        "total_discounts", "0"
+    )
+    try:
+        total_discount = Decimal(str(total_discount_str))
+    except Exception:
+        total_discount = Decimal("0")
+
+    total_tax_str = payload.get("total_tax") or "0"
+    try:
+        total_tax = Decimal(str(total_tax_str))
+    except Exception:
+        total_tax = Decimal("0")
+
+    total_shipping_str = "0"
+    shipping_lines = payload.get("shipping_lines", [])
+    if shipping_lines:
+        for shipping in shipping_lines:
+            price = shipping.get("price") or "0"
+            try:
+                total_shipping_str = str(Decimal(str(price)) + Decimal(total_shipping_str))
+            except Exception:
+                pass
+    else:
+        total_shipping_set = payload.get("total_shipping_price_set", {})
+        shop_money = total_shipping_set.get("shop_money", {})
+        total_shipping_str = shop_money.get("amount", "0") if shop_money else "0"
+
+    try:
+        total_shipping = Decimal(str(total_shipping_str))
+    except Exception:
+        total_shipping = Decimal("0")
+
+    tax_lines = payload.get("tax_lines", [])
+    if tax_lines:
+        tax_lines = [
+            {
+                "title": tl.get("title"),
+                "rate": tl.get("rate"),
+                "price": tl.get("price"),
+            }
+            for tl in tax_lines
+        ]
+
+    payment_gateway_names = payload.get("payment_gateway_names", [])
+    payment_method = payment_gateway_names[0] if payment_gateway_names else None
+
+    transactions = payload.get("transactions", [])
+    payment_details = None
+    if transactions:
+        latest_txn = transactions[0]
+        payment_details = {
+            "gateway": latest_txn.get("gateway"),
+            "kind": latest_txn.get("kind"),
+            "status": latest_txn.get("status"),
+            "credit_card_company": latest_txn.get("credit_card_company"),
+            "credit_card_number": latest_txn.get("credit_card_number"),
+        }
+
+    # Story 4-13: Customer identity extraction
+    customer_phone = customer.get("phone")
+    customer_first_name = customer.get("first_name")
+    customer_last_name = customer.get("last_name")
+
+    # Story 4-13: Geographic data extraction
+    shipping_city = shipping_address.get("city") if shipping_address else None
+    shipping_province = shipping_address.get("province") if shipping_address else None
+    shipping_country = shipping_address.get("country_code") if shipping_address else None
+    if not shipping_country and shipping_address:
+        shipping_country = shipping_address.get("country")
+    shipping_postal_code = shipping_address.get("zip") if shipping_address else None
+
+    # Story 4-13: Cancellation data
+    cancel_reason = payload.get("cancel_reason")
+    cancelled_at_str = payload.get("cancelled_at")
+    cancelled_at = None
+    if cancelled_at_str:
+        try:
+            if cancelled_at_str.endswith("Z"):
+                cancelled_at_str = cancelled_at_str[:-1] + "+00:00"
+            cancelled_at = datetime.fromisoformat(cancelled_at_str.replace("Z", "+00:00")).replace(
+                tzinfo=None
+            )
+        except Exception:
+            pass
+
     return {
         "shopify_order_id": shopify_order_id,
         "shopify_order_key": str(order_number) if order_number else None,
@@ -187,6 +288,26 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
         "tracking_url": tracking_url,
         "shipping_address": shipping_address,
         "shopify_updated_at": shopify_updated_at,
+        # Story 4-13: Payment breakdown
+        "discount_codes": discount_codes if discount_codes else None,
+        "total_discount": total_discount,
+        "total_tax": total_tax,
+        "total_shipping": total_shipping,
+        "tax_lines": tax_lines if tax_lines else None,
+        "payment_method": payment_method,
+        "payment_details": payment_details,
+        # Story 4-13: Customer identity
+        "customer_phone": customer_phone,
+        "customer_first_name": customer_first_name,
+        "customer_last_name": customer_last_name,
+        # Story 4-13: Geographic data
+        "shipping_city": shipping_city,
+        "shipping_province": shipping_province,
+        "shipping_country": shipping_country,
+        "shipping_postal_code": shipping_postal_code,
+        # Story 4-13: Cancellation
+        "cancel_reason": cancel_reason,
+        "cancelled_at": cancelled_at,
     }
 
 
@@ -341,6 +462,38 @@ async def upsert_order(
                 "total": order_data.get("total", existing_order.total),
                 "shopify_updated_at": incoming_updated_at or existing_order.shopify_updated_at,
                 "updated_at": datetime.utcnow(),
+                # Story 4-13: Payment breakdown fields
+                "discount_codes": order_data.get("discount_codes", existing_order.discount_codes),
+                "total_discount": order_data.get("total_discount", existing_order.total_discount),
+                "total_tax": order_data.get("total_tax", existing_order.total_tax),
+                "total_shipping": order_data.get("total_shipping", existing_order.total_shipping),
+                "tax_lines": order_data.get("tax_lines", existing_order.tax_lines),
+                "payment_method": order_data.get("payment_method", existing_order.payment_method),
+                "payment_details": order_data.get(
+                    "payment_details", existing_order.payment_details
+                ),
+                # Story 4-13: Customer identity fields
+                "customer_phone": order_data.get("customer_phone", existing_order.customer_phone),
+                "customer_first_name": order_data.get(
+                    "customer_first_name", existing_order.customer_first_name
+                ),
+                "customer_last_name": order_data.get(
+                    "customer_last_name", existing_order.customer_last_name
+                ),
+                # Story 4-13: Geographic fields
+                "shipping_city": order_data.get("shipping_city", existing_order.shipping_city),
+                "shipping_province": order_data.get(
+                    "shipping_province", existing_order.shipping_province
+                ),
+                "shipping_country": order_data.get(
+                    "shipping_country", existing_order.shipping_country
+                ),
+                "shipping_postal_code": order_data.get(
+                    "shipping_postal_code", existing_order.shipping_postal_code
+                ),
+                # Story 4-13: Cancellation fields
+                "cancel_reason": order_data.get("cancel_reason", existing_order.cancel_reason),
+                "cancelled_at": order_data.get("cancelled_at", existing_order.cancelled_at),
             }
 
             if platform_sender_id and not existing_order.platform_sender_id:
@@ -382,6 +535,26 @@ async def upsert_order(
             shopify_order_key=order_data.get("shopify_order_key"),
             fulfillment_status=order_data.get("fulfillment_status"),
             shopify_updated_at=incoming_updated_at,
+            # Story 4-13: Payment breakdown
+            discount_codes=order_data.get("discount_codes"),
+            total_discount=order_data.get("total_discount"),
+            total_tax=order_data.get("total_tax"),
+            total_shipping=order_data.get("total_shipping"),
+            tax_lines=order_data.get("tax_lines"),
+            payment_method=order_data.get("payment_method"),
+            payment_details=order_data.get("payment_details"),
+            # Story 4-13: Customer identity
+            customer_phone=order_data.get("customer_phone"),
+            customer_first_name=order_data.get("customer_first_name"),
+            customer_last_name=order_data.get("customer_last_name"),
+            # Story 4-13: Geographic data
+            shipping_city=order_data.get("shipping_city"),
+            shipping_province=order_data.get("shipping_province"),
+            shipping_country=order_data.get("shipping_country"),
+            shipping_postal_code=order_data.get("shipping_postal_code"),
+            # Story 4-13: Cancellation
+            cancel_reason=order_data.get("cancel_reason"),
+            cancelled_at=order_data.get("cancelled_at"),
         )
 
         db.add(new_order)

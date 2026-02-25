@@ -425,30 +425,42 @@ const Settings = () => {
                             </li>
                           </ol>
 
-                          <div className="mt-4">
-                            <h5 className="font-medium text-gray-900 mb-2">Required Webhooks</h5>
-                            <p className="text-xs text-gray-500 mb-2">
-                              For each webhook below, select:
-                              <br />• <strong>Event:</strong> (as listed)
-                              <br />• <strong>Format:</strong> JSON
-                              <br />• <strong>URL:</strong> (the URL above)
-                            </p>
-                            <div className="bg-gray-50 p-3 rounded-lg space-y-1">
-                              <p className="text-sm font-mono">orders/create</p>
-                              <p className="text-sm font-mono">orders/updated</p>
-                              <p className="text-sm font-mono">orders/cancelled</p>
-                              <p className="text-sm font-mono">orders/fulfilled</p>
-                              <p className="text-sm font-mono">products/create</p>
-                              <p className="text-sm font-mono">products/update</p>
-                              <p className="text-sm font-mono">products/delete</p>
-                              <p className="text-sm font-mono">inventory_levels/update</p>
+                            <div className="mt-4">
+                              <h5 className="font-medium text-gray-900 mb-2">Required Webhooks</h5>
+                              <p className="text-xs text-gray-500 mb-2">
+                                For each webhook below, select:
+                                <br />• <strong>Event:</strong> (as listed)
+                                <br />• <strong>Format:</strong> JSON
+                                <br />• <strong>URL:</strong> (the URL above)
+                              </p>
+                              <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+                                <p className="text-sm font-mono">orders/create</p>
+                                <p className="text-sm font-mono">orders/updated</p>
+                                <p className="text-sm font-mono">orders/cancelled</p>
+                                <p className="text-sm font-mono">orders/fulfilled</p>
+                                <p className="text-sm font-mono">products/create</p>
+                                <p className="text-sm font-mono">products/update</p>
+                                <p className="text-sm font-mono">products/delete</p>
+                                <p className="text-sm font-mono">inventory_levels/update</p>
+                                <p className="text-sm font-mono text-amber-700">disputes/create</p>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2">
+                                <strong>Note:</strong> <code className="bg-amber-100 px-1 rounded">disputes/create</code> is required for chargeback alerts (Story 4-13).
+                              </p>
                             </div>
-                          </div>
 
                           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                             <p className="text-sm text-blue-800">
                               <strong>Tip:</strong> After creating each webhook, Shopify will show a <strong>Signing secret</strong>.
                               Keep this secret safe - it&apos;s used to verify webhook authenticity.
+                            </p>
+                          </div>
+
+                          <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <p className="text-sm text-indigo-800">
+                              <strong>Storefront API:</strong> To enable the chat widget on external websites, enable the 
+                              Storefront API in your Shopify Admin under <strong>Apps → App development</strong> → 
+                              select your app → <strong>Configuration → API credentials → Storefront API</strong>.
                             </p>
                           </div>
                         </div>

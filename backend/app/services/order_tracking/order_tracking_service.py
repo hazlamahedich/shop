@@ -59,45 +59,52 @@ RESPONSE_TEMPLATES: dict[str, str] = {
     OrderStatus.PENDING.value: (
         "📦 Order #{order_number}\n"
         "Status: Pending\n"
-        "Your order has been received and will be processed soon.\n\n"
-        "Need help? Just ask!"
+        "Your order has been received and will be processed soon.\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
     OrderStatus.CONFIRMED.value: (
         "📦 Order #{order_number}\n"
         "Status: Confirmed\n"
-        "Your order is confirmed and being prepared.\n\n"
-        "Need help? Just ask!"
+        "Your order is confirmed and being prepared.\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
     OrderStatus.PROCESSING.value: (
         "📦 Order #{order_number}\n"
         "Status: Processing\n"
-        "Your order is being prepared for shipment.\n\n"
-        "Need help? Just ask!"
+        "Your order is being prepared for shipment.\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
     OrderStatus.SHIPPED.value: (
         "📦 Order #{order_number}\n"
         "Status: Shipped 🚚\n"
         "{tracking_info}"
-        "Estimated delivery: {estimated_delivery}\n\n"
-        "Need help? Just ask!"
+        "Estimated delivery: {estimated_delivery}\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
     OrderStatus.DELIVERED.value: (
         "📦 Order #{order_number}\n"
         "Status: Delivered ✅\n"
-        "Your order was delivered.\n\n"
-        "Need help? Just ask!"
+        "Your order was delivered.\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
     OrderStatus.CANCELLED.value: (
         "📦 Order #{order_number}\n"
         "Status: Cancelled\n"
-        "This order has been cancelled.\n\n"
-        "Need help? Just ask!"
+        "This order has been cancelled.\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
     OrderStatus.REFUNDED.value: (
         "📦 Order #{order_number}\n"
         "Status: Refunded\n"
-        "Your refund has been processed.\n\n"
-        "Need help? Just ask!"
+        "Your refund has been processed.\n"
+        "{payment_breakdown}"
+        "\nNeed help? Just ask!"
     ),
 }
 
@@ -280,6 +287,8 @@ class OrderTrackingService:
     def format_order_response(self, order: Order) -> str:
         """Format an order for Messenger response.
 
+        Story 4-13: Added payment breakdown to response.
+
         Args:
             order: Order to format
 
@@ -301,11 +310,47 @@ class OrderTrackingService:
         if order.estimated_delivery:
             estimated_delivery = order.estimated_delivery.strftime("%B %d, %Y")
 
+        payment_breakdown = self._format_payment_breakdown(order)
+
         return template.format(
             order_number=order.order_number,
             tracking_info=tracking_info,
             estimated_delivery=estimated_delivery,
+            payment_breakdown=payment_breakdown,
         )
+
+    def _format_payment_breakdown(self, order: Order) -> str:
+        """Format payment breakdown for order response.
+
+        Story 4-13: Payment breakdown display.
+
+        Args:
+            order: Order to format payment for
+
+        Returns:
+            Formatted payment breakdown string
+        """
+        lines = ["\n💰 Payment Summary:"]
+
+        if order.subtotal:
+            lines.append(f"Items: ${order.subtotal:.2f}")
+
+        if order.total_shipping:
+            lines.append(f"Shipping: ${order.total_shipping:.2f}")
+
+        if order.total_tax:
+            lines.append(f"Tax: ${order.total_tax:.2f}")
+
+        if order.total_discount and order.total_discount > 0:
+            lines.append(f"Discount: -${order.total_discount:.2f}")
+
+        lines.append("─────────")
+        lines.append(f"Total: ${order.total:.2f}")
+
+        if order.payment_method:
+            lines.append(f"Paid via: {order.payment_method}")
+
+        return "\n".join(lines)
 
     def format_order_not_found_response(
         self,

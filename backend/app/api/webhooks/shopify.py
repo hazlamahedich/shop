@@ -1,6 +1,8 @@
 """Shopify webhook handler.
 
-Receives and processes webhooks from Shopify including orders/create, orders/updated, orders/fulfilled.
+Receives and processes webhooks from Shopify including orders/create,
+orders/updated, orders/fulfilled, orders/cancelled, inventory_levels/update,
+products/update, disputes/create.
 """
 
 from __future__ import annotations
@@ -395,13 +397,11 @@ async def handle_fulfillment_event(payload: dict, shop_domain: str, log, topic: 
         topic: Webhook topic (fulfillments/create or fulfillments/update)
     """
     from app.models.shopify_integration import ShopifyIntegration
-    from app.services.shopify import ShopifyOrderProcessor
 
     fulfillment_id = payload.get("id")
     order_id = payload.get("order_id")
     tracking_number = payload.get("tracking_number")
     tracking_url = payload.get("tracking_url")
-    tracking_company = payload.get("tracking_company")
 
     log.info(
         "shopify_fulfillment_event",
@@ -597,3 +597,188 @@ async def enqueue_failed_shopify_webhook(
 
     except Exception as e:
         log.error("shopify_webhook_dlq_failed", error=str(e))
+
+
+async def _upsert_customer_profile_and_link(
+    db,
+    payload: dict,
+    order,
+    merchant_id: int,
+    log,
+) -> None:
+    """Upsert customer profile and link conversation on purchase.
+
+    Story 4-13: AC 10 - Conversation linking with customer identity.
+
+    Args:
+        db: Database session
+        payload: Shopify order payload
+        order: Order model instance
+        merchant_id: Merchant ID
+        log: Structlog logger
+    """
+    from decimal import Decimal
+
+    from app.services.customer_lookup_service import CustomerLookupService
+
+    customer_email = payload.get("email")
+    customer = payload.get("customer", {})
+    first_name = customer.get("first_name")
+    last_name = customer.get("last_name")
+    phone = customer.get("phone")
+
+    if not customer_email:
+        return
+
+    try:
+        customer_service = CustomerLookupService()
+        profile = await customer_service.upsert_customer_profile(
+            db=db,
+            merchant_id=merchant_id,
+            email=customer_email,
+            phone=phone,
+            first_name=first_name,
+            last_name=last_name,
+            order_total=Decimal(str(order.total)) if order.total else None,
+        )
+
+        if order.platform_sender_id and order.platform_sender_id != "unknown":
+            from app.models.conversation import Conversation
+
+            result = await db.execute(
+                select(Conversation).where(
+                    Conversation.merchant_id == merchant_id,
+                    Conversation.platform_sender_id == order.platform_sender_id,
+                )
+            )
+            conversation = result.scalars().first()
+
+            if conversation:
+                conversation_data = conversation.conversation_data or {}
+                updated_data = await customer_service.link_device_to_profile(
+                    db=db,
+                    profile=profile,
+                    platform_sender_id=order.platform_sender_id,
+                    conversation_data=conversation_data,
+                )
+                conversation.conversation_data = updated_data
+                await db.commit()
+
+                log.info(
+                    "customer_profile_linked_to_conversation",
+                    profile_id=profile.id,
+                    conversation_id=conversation.id,
+                    email=customer_email,
+                )
+
+    except Exception as e:
+        log.warning(
+            "customer_profile_upsert_failed",
+            email=customer_email,
+            error=str(e),
+        )
+
+
+async def _fetch_cogs_async(
+    shop_domain: str,
+    items: list,
+    order_id: int,
+    log,
+) -> None:
+    """Fetch COGS for order items asynchronously.
+
+    Story 4-13: AC 9 - COGS tracking with Redis caching.
+
+    Args:
+        shop_domain: Shopify shop domain
+        items: List of order items with variant_id
+        order_id: Database order ID
+        log: Structlog logger
+    """
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.core.security import decrypt_access_token
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify.cogs_cache import COGSCache
+    from app.services.shopify_admin import ShopifyAdminClient
+
+    variant_ids = []
+    for item in items:
+        variant_id = item.get("variant_id")
+        if variant_id:
+            variant_ids.append(f"gid://shopify/ProductVariant/{variant_id}")
+
+    if not variant_ids:
+        return
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration).where(ShopifyIntegration.shop_domain == shop_domain)
+            )
+            integration = result.scalars().first()
+
+            if not integration:
+                log.warning("cogs_fetch_no_integration", shop_domain=shop_domain)
+                return
+
+            decrypted_token = decrypt_access_token(integration.admin_token_encrypted)
+            admin_client = ShopifyAdminClient(
+                shop_domain=shop_domain,
+                access_token=decrypted_token,
+            )
+
+            costs = await admin_client.fetch_variant_costs_batch(variant_ids)
+
+            if not costs:
+                return
+
+            cogs_cache = COGSCache()
+            await cogs_cache.set_batch(costs)
+
+            total_cogs = Decimal("0") * sum(costs.values())
+
+            order_result = await db.execute(select(Order).where(Order.id == order_id))
+            order = order_result.scalars().first()
+
+            if order:
+                order.cogs_total = Decimal(str(total_cogs))
+                order.cogs_fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                await db.commit()
+
+                log.info(
+                    "cogs_fetched_for_order",
+                    order_id=order_id,
+                    total_cogs=str(total_cogs),
+                    variant_count=len(costs),
+                )
+
+    except Exception as e:
+        log.warning(
+            "cogs_fetch_failed_enqueue_dlq",
+            order_id=order_id,
+            error=str(e),
+        )
+
+        try:
+            from datetime import datetime
+
+            import redis
+
+            redis_url = os.getenv("REDIS_URL")
+            if redis_url:
+                redis_client = redis.from_url(redis_url, decode_responses=True)
+                retry_data = {
+                    "order_id": order_id,
+                    "variant_ids": variant_ids,
+                    "shop_domain": shop_domain,
+                    "error": str(e),
+                    "attempts": 0,
+                    "max_attempts": 3,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+                redis_client.rpush("cogs:dlq", json.dumps(retry_data))
+                log.info("cogs_fetch_enqueued_dlq", order_id=order_id)
+        except Exception as dlq_error:
+            log.error("cogs_dlq_enqueue_failed", error=str(dlq_error))

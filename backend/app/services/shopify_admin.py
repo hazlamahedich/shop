@@ -1,11 +1,13 @@
 """Shopify Admin API client for webhook management and token creation.
 
 Uses REST API to manage webhooks and create Storefront access tokens.
+Story 4-13: Added COGS batch fetch via GraphQL.
 """
 
 from __future__ import annotations
 
 from typing import Optional, Dict, Any, List
+from decimal import Decimal
 import httpx
 import asyncio
 import structlog
@@ -14,6 +16,7 @@ from app.services.shopify_base import ShopifyBaseClient
 from app.core.errors import APIError, ErrorCode
 
 SHOPIFY_ADMIN_API_URL = "https://{shop}/admin/api/2024-01"
+SHOPIFY_GRAPHQL_API_URL = "https://{shop}/admin/api/2024-01/graphql.json"
 
 logger = structlog.get_logger(__name__)
 
@@ -310,3 +313,147 @@ class ShopifyAdminClient(ShopifyBaseClient):
         except Exception as e:
             logger.error("admin_products_error", error=str(e))
             raise APIError(ErrorCode.SHOPIFY_API_ERROR, f"Failed to fetch products: {str(e)}")
+
+    async def fetch_variant_costs_batch(
+        self,
+        variant_ids: List[str],
+        max_retries: int = 3,
+    ) -> Dict[str, Decimal]:
+        """Fetch cost of goods sold for multiple variants via GraphQL.
+
+        Story 4-13: COGS tracking for profit analysis.
+
+        Args:
+            variant_ids: List of Shopify variant GIDs (e.g., "gid://shopify/ProductVariant/123")
+            max_retries: Maximum retry attempts for rate limits
+
+        Returns:
+            Dict mapping variant_id to unit_cost (Decimal)
+
+        Raises:
+            APIError: If fetch fails after retries
+        """
+        if self.is_testing:
+            return {vid: Decimal("10.00") for vid in variant_ids}
+
+        if not variant_ids:
+            return {}
+
+        url = SHOPIFY_GRAPHQL_API_URL.format(shop=self.shop_domain)
+
+        query = """
+        query getVariantCosts($ids: [ID!]!) {
+            nodes(ids: $ids) {
+                ... on ProductVariant {
+                    id
+                    inventoryItem {
+                        unitCost {
+                            amount
+                            currencyCode
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        variables = {"ids": variant_ids}
+
+        costs: Dict[str, Decimal] = {}
+        retry_count = 0
+        base_delay = 1.0
+
+        while retry_count <= max_retries:
+            try:
+                response = await self.async_client.post(
+                    url,
+                    json={"query": query, "variables": variables},
+                    headers={
+                        "X-Shopify-Access-Token": self.access_token,
+                        "Content-Type": "application/json",
+                    },
+                    timeout=30.0,
+                )
+
+                if response.status_code == 429:
+                    retry_after = float(
+                        response.headers.get("Retry-After", base_delay * (2**retry_count))
+                    )
+                    logger.warning(
+                        "cogs_fetch_rate_limited",
+                        retry_count=retry_count,
+                        retry_after=retry_after,
+                    )
+                    await asyncio.sleep(retry_after)
+                    retry_count += 1
+                    continue
+
+                response.raise_for_status()
+                data = response.json()
+
+                if "errors" in data:
+                    error_msg = data["errors"][0].get("message", "Unknown GraphQL error")
+                    logger.error("cogs_graphql_error", errors=data["errors"])
+                    raise APIError(
+                        ErrorCode.COGS_FETCH_FAILED,
+                        f"GraphQL error fetching COGS: {error_msg}",
+                    )
+
+                nodes = data.get("data", {}).get("nodes", [])
+                for node in nodes:
+                    if node and "inventoryItem" in node:
+                        variant_id = node.get("id")
+                        unit_cost = node.get("inventoryItem", {}).get("unitCost", {})
+                        amount = unit_cost.get("amount")
+                        if variant_id and amount:
+                            try:
+                                costs[variant_id] = Decimal(str(amount))
+                            except Exception:
+                                costs[variant_id] = Decimal("0")
+
+                logger.info(
+                    "cogs_batch_fetched",
+                    shop_domain=self.shop_domain,
+                    variant_count=len(variant_ids),
+                    costs_found=len(costs),
+                )
+
+                return costs
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:
+                    delay = base_delay * (2**retry_count)
+                    logger.warning(
+                        "cogs_fetch_rate_limited_http",
+                        retry_count=retry_count,
+                        delay=delay,
+                    )
+                    await asyncio.sleep(delay)
+                    retry_count += 1
+                    continue
+
+                logger.error(
+                    "cogs_fetch_http_error",
+                    status=e.response.status_code,
+                    detail=e.response.text,
+                )
+                raise APIError(
+                    ErrorCode.COGS_FETCH_FAILED,
+                    f"Failed to fetch COGS (HTTP {e.response.status_code}): {e.response.text}",
+                )
+
+            except APIError:
+                raise
+            except Exception as e:
+                logger.error("cogs_fetch_error", error=str(e))
+                if retry_count < max_retries:
+                    delay = base_delay * (2**retry_count)
+                    await asyncio.sleep(delay)
+                    retry_count += 1
+                    continue
+                raise APIError(ErrorCode.COGS_FETCH_FAILED, f"Failed to fetch COGS: {str(e)}")
+
+        raise APIError(
+            ErrorCode.COGS_FETCH_FAILED,
+            f"Failed to fetch COGS after {max_retries} retries",
+        )

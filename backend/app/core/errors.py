@@ -209,6 +209,11 @@ class ErrorCode(IntEnum):
     POLLING_NO_MERCHANTS_CONFIGURED = 7053  # No merchants with Shopify configured
     POLLING_DATABASE_ERROR = 7054  # Database error during polling
 
+    # Story 4-13: Payment/Cost data error codes
+    COGS_FETCH_FAILED = 7060  # Shopify Admin API cost lookup failed
+    CUSTOMER_PROFILE_ERROR = 7061  # Customer profile create/update failed
+    GEOGRAPHIC_QUERY_ERROR = 7062  # Analytics query failed
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002
