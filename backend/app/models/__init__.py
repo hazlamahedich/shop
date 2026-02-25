@@ -22,6 +22,8 @@ from app.models.budget_alert import BudgetAlert
 from app.models.handoff_alert import HandoffAlert
 from app.models.order import Order, OrderStatus
 from app.models.consent import Consent, ConsentType
+from app.models.customer_profile import CustomerProfile
+from app.models.dispute import Dispute
 
 __all__ = [
     "Merchant",
@@ -46,4 +48,6 @@ __all__ = [
     "OrderStatus",
     "Consent",
     "ConsentType",
+    "CustomerProfile",
+    "Dispute",
 ]

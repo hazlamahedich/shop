@@ -159,6 +159,8 @@ class CartHandler(BaseHandler):
 
         Enhanced to resolve anaphoric references from shopping_state.
         If variant_id is missing, looks up product from last_viewed_products.
+
+        Story 5-11 GAP-4: Added consent check for cart operations.
         """
         variant_id = entities.get("variant_id")
         title = entities.get("title", "Product")
@@ -167,7 +169,28 @@ class CartHandler(BaseHandler):
         image_url = entities.get("image_url", "")
         product_reference = entities.get("product_reference")
 
-        # Handle anaphoric reference - resolve from shopping state
+        if context and context.consent_status == "pending":
+            context.pending_consent_product = {
+                "variant_id": variant_id,
+                "title": title,
+                "price": price,
+                "quantity": quantity,
+                "image_url": image_url,
+            }
+            return ConversationResponse(
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "cart",
+                    "consent_required",
+                    merchant.personality,
+                ),
+                intent="cart_add",
+                confidence=1.0,
+                metadata={
+                    "consent_required": True,
+                    "pending_product": context.pending_consent_product,
+                },
+            )
+
         if not variant_id and context and product_reference:
             resolved_product = context.shopping_state.find_product_by_reference(product_reference)
             if resolved_product:
@@ -182,7 +205,6 @@ class CartHandler(BaseHandler):
                     resolved_to=title,
                 )
 
-        # Fallback: use last viewed product if no variant_id and no reference
         if not variant_id and context:
             last_product = context.shopping_state.get_last_viewed_product()
             if last_product:

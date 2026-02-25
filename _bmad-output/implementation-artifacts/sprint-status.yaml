@@ -117,7 +117,7 @@ development_status:
 
   # Epic 5: Embeddable Widget (NEW - approved 2026-02-17)
   # See: sprint-change-proposal-2026-02-17.md, docs/embeddable-widget-plan.md
-  epic-5: in-progress # 2026-02-21: Retro conducted. Story 5-11 pending.
+  epic-5: in-progress # 2026-02-25: Story 5-11 ready for code review (29/29 tests passing)
   5-1-backend-widget-api: done # 2026-02-17: Code review COMPLETE - 4 issues fixed (LLM timeout, domain whitelist, sanitization, test endpoint), 35 tests passing
   5-2-widget-session-management: done # 2026-02-21: Implementation complete - 13 tests passing (7 unit + 6 integration)
   5-3-widget-frontend-components: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (Shadow DOM, merchantId, typing animation, aria-busy, session persistence), 44 tests passing
@@ -128,8 +128,8 @@ development_status:
   5-8-performance-optimization: done # 2026-02-19: Code review COMPLETE - 5 issues fixed (slow 3G tests, CLS threshold, CSS test, file list, checklist), 11 unit tests passing, bundle <100KB
   5-9-cdn-setup-documentation: done # 2026-02-20: Code review COMPLETE - 3 MEDIUM issues fixed (File List accuracy, bundle copy docs, git discrepancy note), 12/12 tests passing
   5-10-widget-full-app-integration: done # 2026-02-21: COMPLETE - UnifiedConversationService created, Widget/Preview migrated, FB Messenger deferred to 5-11
-  5-11-messenger-unified-service-migration: backlog # Deferred from 5-10 Task 10 - Migrate FB Messenger to UnifiedConversationService
-  5-12-personality-consistency: ready-for-dev # P0 Critical - Ensure bot personality applied consistently across ALL response types (handlers + notifications)
+  5-11-messenger-unified-service-migration: done # 2026-02-25: Code review COMPLETE - 2 HIGH + 5 MEDIUM issues fixed (Redis leak, security checklist, db param, datetime.utcnow, freezegun skip)
+  5-12-personality-consistency: done # Code review complete - 3 HIGH + 3 MEDIUM issues fixed, 65 tests passing
   epic-5-retrospective: done
 
   # Epic 6: Data Privacy & Compliance (Renumbered from Epic 5 - approved 2026-02-17)

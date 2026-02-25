@@ -1,11 +1,22 @@
 """Message processing orchestrator for webhook → classify → respond flow.
 
+.. deprecated:: 5-11
+    MessageProcessor is deprecated. Use UnifiedConversationService via
+    MessengerAdapter for new implementations. This class is kept for
+    backward compatibility during the transition period.
+
+    Migration guide:
+        - Replace MessageProcessor.process_message() with UnifiedConversationService.process_message()
+        - Use MessengerAdapter for Facebook Messenger integration
+        - See Story 5-11 for full migration details
+
 Coordinates intent classification, context management, and response
 routing for incoming Facebook Messenger messages.
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +54,26 @@ logger = structlog.get_logger(__name__)
 
 
 class MessageProcessor:
-    """Orchestrates message processing: webhook → classify → respond."""
+    """Orchestrates message processing: webhook → classify → respond.
+
+    .. deprecated:: 5-11
+        Use UnifiedConversationService via MessengerAdapter instead.
+        This class is deprecated and will be removed in a future version.
+
+        For Messenger integration:
+            adapter = MessengerAdapter()
+            context = adapter.create_context(psid, merchant_id)
+            service = UnifiedConversationService(db=db)
+            response = await service.process_message(db, context, message)
+
+    Attributes:
+        classifier: Intent classifier for message classification
+        context_manager: Conversation context manager
+        consent_service: Consent management service
+        session_service: Session management service
+        merchant_id: Merchant ID for personality-based responses
+        db: Database session for credential lookup
+    """
 
     def __init__(
         self,
@@ -56,6 +86,9 @@ class MessageProcessor:
     ) -> None:
         """Initialize message processor.
 
+        .. deprecated:: 5-11
+            Use UnifiedConversationService via MessengerAdapter instead.
+
         Args:
             classifier: Intent classifier (uses default if not provided)
             context_manager: Conversation context manager (uses default if not provided)
@@ -64,6 +97,12 @@ class MessageProcessor:
             merchant_id: Merchant ID for personality-based responses (Story 1.10)
             db: Database session for Shopify credential lookup
         """
+        warnings.warn(
+            "MessageProcessor is deprecated. Use UnifiedConversationService via MessengerAdapter. "
+            "See Story 5-11 for migration guide.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.classifier = classifier or IntentClassifier()
         self.context_manager = context_manager or ConversationContextManager()
         self.logger = structlog.get_logger(__name__)

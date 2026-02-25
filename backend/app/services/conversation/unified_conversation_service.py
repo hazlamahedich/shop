@@ -10,6 +10,12 @@ Story 5-10 Code Review Fix:
 - C7: Added BudgetAwareLLMWrapper for cost tracking
 - C8: Added conversation persistence for widget channel
 - C9: Added HandoffHandler for human handoff intent
+
+Story 5-11: Messenger Unified Service Migration
+- GAP-1: Handoff Detection (Low Confidence + Clarification Loop)
+- GAP-5: Hybrid Mode Detection
+- GAP-6: Budget Alert (Bot Pausing)
+- GAP-7: Returning Shopper Welcome
 """
 
 from __future__ import annotations
@@ -65,9 +71,16 @@ class UnifiedConversationService:
     - Cost tracking via BudgetAwareLLMWrapper (C7 fix)
     - Conversation persistence to database (C8 fix)
     - Human handoff support (C9 fix)
+    - Handoff detection via HandoffDetector (Story 5-11 GAP-1)
+    - Hybrid mode detection (Story 5-11 GAP-5)
+    - Budget pause check (Story 5-11 GAP-6)
+    - Returning shopper welcome (Story 5-11 GAP-7)
     """
 
     INTENT_CONFIDENCE_THRESHOLD = 0.5
+    HANDOFF_CONFIDENCE_THRESHOLD = 0.50
+    HANDOFF_CONFIDENCE_TRIGGER_COUNT = 3
+    RETURNING_SHOPPER_THRESHOLD_SECONDS = 1800
 
     INTENT_TO_HANDLER_MAP = {
         "product_search": "search",
@@ -124,6 +137,12 @@ class UnifiedConversationService:
 
         This is the main entry point for all channel message processing.
 
+        Story 5-11: Added pre-processing checks:
+        - GAP-6: Budget pause check
+        - GAP-5: Hybrid mode detection
+        - GAP-1: Handoff detection
+        - GAP-7: Returning shopper welcome
+
         Args:
             db: Database session
             context: Conversation context with channel info
@@ -145,6 +164,19 @@ class UnifiedConversationService:
                     f"Merchant {context.merchant_id} not found",
                 )
 
+            # GAP-6: Check if bot is paused due to budget limit
+            budget_paused_response = await self._check_budget_pause(db, context, merchant)
+            if budget_paused_response:
+                return budget_paused_response
+
+            # GAP-5: Check hybrid mode - if active, only respond to @bot mentions
+            hybrid_mode_response = await self._check_hybrid_mode(db, context, message)
+            if hybrid_mode_response:
+                return hybrid_mode_response
+
+            # GAP-7: Check for returning shopper and send welcome
+            await self._check_returning_shopper(db, context)
+
             llm_service = await self._get_merchant_llm(merchant, db, context)
 
             classification = await self._classify_intent(
@@ -163,6 +195,18 @@ class UnifiedConversationService:
                 intent=intent_name,
                 confidence=confidence,
             )
+
+            # GAP-1: Check for handoff triggers (low confidence + clarification loop)
+            handoff_response = await self._check_handoff(
+                db=db,
+                context=context,
+                merchant=merchant,
+                message=message,
+                confidence=confidence,
+                intent_name=intent_name,
+            )
+            if handoff_response:
+                return handoff_response
 
             if confidence < self.INTENT_CONFIDENCE_THRESHOLD:
                 self.logger.debug(
@@ -938,7 +982,7 @@ class UnifiedConversationService:
                     conversation.conversation_data = {}
                 conversation.conversation_data["cart"] = cart
 
-            conversation.updated_at = datetime.utcnow()
+            conversation.updated_at = datetime.now(timezone.utc)
 
             # Track customer message time for handoff resolution
             from app.services.handoff.resolution_service import HandoffResolutionService
@@ -988,3 +1032,353 @@ class UnifiedConversationService:
             )
             await db.rollback()
             return None
+
+    async def _check_budget_pause(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Merchant,
+    ) -> Optional[ConversationResponse]:
+        """Check if bot is paused due to budget limit.
+
+        Story 5-11: GAP-6 - Budget Alert (Bot Pausing)
+
+        Args:
+            db: Database session
+            context: Conversation context
+            merchant: Merchant model
+
+        Returns:
+            ConversationResponse if bot is paused, None otherwise
+        """
+        try:
+            from app.services.cost_tracking.budget_alert_service import BudgetAlertService
+
+            budget_service = BudgetAlertService(db=db)
+            is_paused, pause_reason = await budget_service.get_bot_paused_state(merchant.id)
+
+            if is_paused:
+                self.logger.info(
+                    "bot_paused_budget_exceeded",
+                    merchant_id=merchant.id,
+                    session_id=context.session_id,
+                    pause_reason=pause_reason,
+                )
+                return ConversationResponse(
+                    message="I'm currently unavailable. Please contact support or try again later.",
+                    intent="bot_paused",
+                    confidence=1.0,
+                    metadata={"bot_paused": True, "reason": pause_reason},
+                )
+        except Exception as e:
+            self.logger.warning(
+                "budget_pause_check_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+        return None
+
+    async def _check_hybrid_mode(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        message: str,
+    ) -> Optional[ConversationResponse]:
+        """Check if hybrid mode is active - only respond to @bot mentions.
+
+        Story 5-11: GAP-5 - Hybrid Mode Detection
+
+        Args:
+            db: Database session
+            context: Conversation context
+            message: User's message
+
+        Returns:
+            ConversationResponse (empty) if should stay silent, None to proceed
+        """
+        if not context.hybrid_mode_enabled:
+            return None
+
+        if context.hybrid_mode_expires_at:
+            try:
+                expires_dt = datetime.fromisoformat(
+                    context.hybrid_mode_expires_at.replace("Z", "+00:00")
+                )
+                if datetime.now(timezone.utc) > expires_dt:
+                    self.logger.info(
+                        "hybrid_mode_expired",
+                        session_id=context.session_id,
+                    )
+                    return None
+            except (ValueError, TypeError) as e:
+                self.logger.warning(
+                    "hybrid_mode_malformed_expiry",
+                    session_id=context.session_id,
+                    error=str(e),
+                )
+                return None
+
+        if "@bot" in message.lower():
+            self.logger.info(
+                "hybrid_mode_bot_mention",
+                session_id=context.session_id,
+            )
+            return None
+
+        self.logger.info(
+            "hybrid_mode_active_silent",
+            session_id=context.session_id,
+        )
+        return ConversationResponse(
+            message="",
+            intent="hybrid_mode_silent",
+            confidence=1.0,
+            metadata={"hybrid_mode": True, "silent": True},
+        )
+
+    async def _check_returning_shopper(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+    ) -> None:
+        """Check for returning shopper and update state.
+
+        Story 5-11: GAP-7 - Returning Shopper Welcome
+
+        Note: This method only updates the context. The actual welcome message
+        is sent by the channel-specific adapter (MessengerSendService for Messenger).
+
+        Args:
+            db: Database session
+            context: Conversation context (will be updated in-place)
+        """
+        now = datetime.now(timezone.utc)
+        context.last_activity_at = now.isoformat()
+
+        if context.is_returning_shopper:
+            return
+
+        last_activity_str = context.metadata.get("last_activity_at")
+        if last_activity_str:
+            try:
+                last_activity = datetime.fromisoformat(last_activity_str.replace("Z", "+00:00"))
+                diff = (now - last_activity).total_seconds()
+                if diff > self.RETURNING_SHOPPER_THRESHOLD_SECONDS:
+                    context.is_returning_shopper = True
+                    self.logger.info(
+                        "returning_shopper_detected",
+                        session_id=context.session_id,
+                        inactive_seconds=diff,
+                    )
+            except (ValueError, TypeError):
+                pass
+
+    async def _check_handoff(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Merchant,
+        message: str,
+        confidence: float,
+        intent_name: str,
+    ) -> Optional[ConversationResponse]:
+        """Check for handoff triggers (low confidence + clarification loop).
+
+        Story 5-11: GAP-1 - Handoff Detection
+
+        Checks for:
+        1. Keyword detection (human, agent, etc.)
+        2. Low confidence scores (3 consecutive < 0.50)
+        3. Clarification loops (3 same-type questions)
+
+        Args:
+            db: Database session
+            context: Conversation context
+            merchant: Merchant model
+            message: User's message
+            confidence: Classification confidence
+            intent_name: Classified intent
+
+        Returns:
+            ConversationResponse with handoff message if triggered, None otherwise
+        """
+        redis_client = None
+        try:
+            from app.services.handoff.detector import HandoffDetector
+            from app.core.config import settings
+
+            config = settings()
+            redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
+            import redis.asyncio as redis
+
+            redis_client = redis.from_url(redis_url, decode_responses=True)
+            detector = HandoffDetector(redis_client=redis_client)
+
+            conversation = await self._get_conversation(db, context.session_id, merchant.id)
+            conversation_id = conversation.id if conversation else merchant.id
+
+            clarification_type = None
+            if context.clarification_state.active:
+                clarification_type = context.clarification_state.last_type
+
+            result = await detector.detect(
+                message=message,
+                conversation_id=conversation_id,
+                confidence_score=confidence,
+                clarification_type=clarification_type,
+            )
+
+            if confidence < self.HANDOFF_CONFIDENCE_THRESHOLD:
+                context.handoff_state.consecutive_low_confidence += 1
+            else:
+                context.handoff_state.consecutive_low_confidence = 0
+
+            if result.should_handoff:
+                self.logger.info(
+                    "handoff_triggered_unified",
+                    merchant_id=merchant.id,
+                    session_id=context.session_id,
+                    reason=result.reason.value if result.reason else None,
+                    confidence_count=result.confidence_count,
+                    matched_keyword=result.matched_keyword,
+                    loop_count=result.loop_count,
+                )
+
+                await self._update_conversation_handoff_status(
+                    db=db,
+                    context=context,
+                    merchant=merchant,
+                    reason=result.reason.value if result.reason else "unknown",
+                    confidence_count=result.confidence_count,
+                )
+
+                handoff_message = await self._get_handoff_message(merchant)
+                return ConversationResponse(
+                    message=handoff_message,
+                    intent="human_handoff",
+                    confidence=1.0,
+                    metadata={
+                        "handoff_triggered": True,
+                        "reason": result.reason.value if result.reason else None,
+                    },
+                )
+
+            if context.handoff_state.consecutive_low_confidence == 0:
+                await detector.reset_state(conversation_id)
+
+        except Exception as e:
+            self.logger.warning(
+                "handoff_check_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+        finally:
+            if redis_client:
+                await redis_client.close()
+        return None
+
+    async def _get_conversation(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        merchant_id: int,
+    ) -> Optional[Any]:
+        """Get conversation for a session.
+
+        Args:
+            db: Database session
+            session_id: Session identifier
+            merchant_id: Merchant ID
+
+        Returns:
+            Conversation model or None
+        """
+        try:
+            from app.models.conversation import Conversation
+
+            result = await db.execute(
+                select(Conversation)
+                .where(
+                    Conversation.merchant_id == merchant_id,
+                    Conversation.platform_sender_id == session_id,
+                )
+                .order_by(Conversation.updated_at.desc())
+                .limit(1)
+            )
+            return result.scalars().first()
+        except Exception as e:
+            self.logger.warning(
+                "get_conversation_failed",
+                session_id=session_id,
+                error=str(e),
+            )
+            return None
+
+    async def _update_conversation_handoff_status(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Merchant,
+        reason: str,
+        confidence_count: int = 0,
+    ) -> None:
+        """Update conversation status to handoff in database.
+
+        Args:
+            db: Database session
+            context: Conversation context
+            merchant: Merchant model
+            reason: Handoff reason
+            confidence_count: Consecutive low confidence count
+        """
+        try:
+            from app.models.conversation import Conversation
+
+            conversation = await self._get_conversation(db, context.session_id, merchant.id)
+
+            if conversation:
+                conversation.status = "handoff"
+                conversation.handoff_status = "pending"
+                conversation.handoff_triggered_at = datetime.now(timezone.utc)
+                conversation.handoff_reason = reason
+                conversation.consecutive_low_confidence_count = confidence_count
+                await db.flush()
+
+                self.logger.info(
+                    "handoff_status_updated_unified",
+                    conversation_id=conversation.id,
+                    session_id=context.session_id,
+                    reason=reason,
+                    confidence_count=confidence_count,
+                )
+        except Exception as e:
+            self.logger.error(
+                "handoff_status_update_failed_unified",
+                session_id=context.session_id,
+                reason=reason,
+                error=str(e),
+            )
+
+    async def _get_handoff_message(self, merchant: Merchant) -> str:
+        """Get business hours-aware handoff message.
+
+        Args:
+            merchant: Merchant model
+
+        Returns:
+            Handoff message string
+        """
+        try:
+            from app.services.handoff.business_hours_handoff_service import (
+                BusinessHoursHandoffService,
+            )
+
+            service = BusinessHoursHandoffService()
+            return service.build_handoff_message(merchant.business_hours_config)
+        except Exception as e:
+            self.logger.warning(
+                "handoff_message_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+            return "Connecting you to a human agent..."

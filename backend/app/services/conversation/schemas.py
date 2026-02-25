@@ -22,6 +22,36 @@ class Channel(str, Enum):
     PREVIEW = "preview"
 
 
+class ClarificationState(BaseModel):
+    """Tracks clarification flow state within a conversation.
+
+    Story 5-11: Messenger Unified Service Migration
+    GAP-3: Clarification State Tracking
+    """
+
+    active: bool = Field(default=False, description="Whether clarification flow is active")
+    attempt_count: int = Field(default=0, description="Number of clarification attempts")
+    questions_asked: list[str] = Field(
+        default_factory=list,
+        description="List of constraint types asked about",
+    )
+    last_question: Optional[str] = Field(None, description="Last question asked")
+    last_type: Optional[str] = Field(None, description="Last clarification type")
+
+
+class HandoffState(BaseModel):
+    """Tracks handoff detection state within a conversation.
+
+    Story 5-11: Messenger Unified Service Migration
+    GAP-1: Handoff Detection State Tracking
+    """
+
+    consecutive_low_confidence: int = Field(
+        default=0, description="Consecutive low confidence count"
+    )
+    last_handoff_check: Optional[str] = Field(None, description="ISO timestamp of last check")
+
+
 class SessionShoppingState(BaseModel):
     """Tracks shopping-related state within a conversation session.
 
@@ -108,6 +138,7 @@ class ConversationContext(BaseModel):
     """Normalized context for any channel.
 
     Story 5-10 Enhancement: Added is_returning_shopper for personalized greetings.
+    Story 5-11 Enhancement: Added clarification_state, handoff_state, consent_status, hybrid_mode_enabled.
 
     Provides a unified interface for message processing across
     Widget, Facebook Messenger, and Preview channels.
@@ -135,6 +166,34 @@ class ConversationContext(BaseModel):
     shopping_state: SessionShoppingState = Field(
         default_factory=SessionShoppingState,
         description="Shopping session state (viewed products, searches)",
+    )
+    clarification_state: ClarificationState = Field(
+        default_factory=ClarificationState,
+        description="Clarification flow state (GAP-3)",
+    )
+    handoff_state: HandoffState = Field(
+        default_factory=HandoffState,
+        description="Handoff detection state (GAP-1)",
+    )
+    consent_status: Optional[str] = Field(
+        None,
+        description="Consent status: none, pending, granted, denied (GAP-4)",
+    )
+    pending_consent_product: Optional[dict[str, Any]] = Field(
+        None,
+        description="Pending product awaiting consent (GAP-4)",
+    )
+    hybrid_mode_enabled: bool = Field(
+        default=False,
+        description="Whether hybrid mode is active (GAP-5)",
+    )
+    hybrid_mode_expires_at: Optional[str] = Field(
+        None,
+        description="ISO timestamp when hybrid mode expires (GAP-5)",
+    )
+    last_activity_at: Optional[str] = Field(
+        None,
+        description="ISO timestamp of last activity (GAP-7)",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,

@@ -34,6 +34,7 @@ test = [
     "schemathesis>=3.20.0",
     "httpx>=0.25.0",
     "respx>=0.21.0",
+    "freezegun>=1.5.0",
 ]
 dev = [
     "ruff>=0.1.9",
@@ -72,6 +73,14 @@ testpaths = ["tests"]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::RuntimeWarning",
+]
+markers = [
+    "p0: Critical tests (run on every commit)",
+    "p1: High priority tests (run pre-merge)",
+    "p2: Medium priority tests (run nightly)",
+    "p3: Low priority tests (run weekly)",
+    "test_id: Test ID for traceability (format: STORY-LEVEL-SEQ)",
+    "smoke: Smoke tests for quick validation",
 ]
 
 [tool.mypy]
