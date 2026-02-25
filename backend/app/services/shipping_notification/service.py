@@ -2,18 +2,24 @@
 
 Story 4-3: Shipping Notifications
 Sends Messenger notifications when orders are fulfilled.
+
+Story 5-12: Bot Personality Consistency
+Task 3.2: Uses PersonalityAwareResponseFormatter for personality-based messages.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
 import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ErrorCode
+from app.models.merchant import Merchant, PersonalityType
 from app.models.order import Order
 from app.services.messenger.send_service import MessengerSendService
 from app.services.shipping_notification.consent_checker import ConsentChecker
@@ -79,6 +85,33 @@ class ShippingNotificationService:
         self.rate_limiter = rate_limiter or ShippingRateLimiter()
         self.tracking_formatter = TrackingFormatter()
         self.consent_checker = ConsentChecker()
+
+    async def _get_merchant_personality(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+    ) -> PersonalityType:
+        """Fetch merchant personality from database.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID
+
+        Returns:
+            PersonalityType (defaults to FRIENDLY if not found)
+        """
+        try:
+            result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+            merchant = result.scalars().first()
+            if merchant and merchant.personality:
+                return merchant.personality
+        except Exception as e:
+            logger.warning(
+                "failed_to_fetch_merchant_personality",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+        return PersonalityType.FRIENDLY
 
     async def send_shipping_notification(
         self,
@@ -163,10 +196,14 @@ class ShippingNotificationService:
                 order_age_hours=order_age_hours,
             )
 
+        # Get merchant personality for message formatting
+        personality = await self._get_merchant_personality(db, order.merchant_id)
+
         message = TrackingFormatter.format_tracking_message(
             order_number=order_number,
             tracking_number=order.tracking_number,
             tracking_url=order.tracking_url,
+            personality=personality,
         )
 
         try:
@@ -225,7 +262,7 @@ class ShippingNotificationService:
         """
         if not order.created_at:
             return 0.0
-        age_delta = datetime.utcnow() - order.created_at
+        age_delta = datetime.now(timezone.utc).replace(tzinfo=None) - order.created_at
         return age_delta.total_seconds() / 3600
 
     async def close(self) -> None:

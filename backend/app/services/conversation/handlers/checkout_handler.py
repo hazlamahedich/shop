@@ -4,6 +4,9 @@ Story 5-10: Widget Full App Integration
 Task 1: Create UnifiedConversationService
 Task 15: Circuit Breaker for Shopify
 
+Story 5-12: Bot Personality Consistency
+Task 2.3: Update CheckoutHandler to use PersonalityAwareResponseFormatter
+
 Handles CHECKOUT intent with Shopify checkout URL generation.
 Implements circuit breaker for resilience.
 """
@@ -26,6 +29,7 @@ from app.services.shopify.circuit_breaker import (
     CircuitOpenError,
     ShopifyCircuitBreaker,
 )
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 
 logger = structlog.get_logger(__name__)
@@ -70,7 +74,11 @@ class CheckoutHandler(BaseHandler):
 
         if not cart.items:
             return ConversationResponse(
-                message="Your cart is empty! Add some items first before checking out.",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "checkout",
+                    "empty_cart",
+                    merchant.personality,
+                ),
                 intent="checkout",
                 confidence=1.0,
                 metadata={"error": "cart_empty"},
@@ -92,7 +100,12 @@ class CheckoutHandler(BaseHandler):
             )
 
             return ConversationResponse(
-                message=f"Ready to checkout! Click here to complete your order: {checkout_url}",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "checkout",
+                    "ready",
+                    merchant.personality,
+                    checkout_url=checkout_url,
+                ),
                 intent="checkout",
                 confidence=1.0,
                 checkout_url=checkout_url,
@@ -179,12 +192,12 @@ class CheckoutHandler(BaseHandler):
         shop_domain = getattr(merchant, "shop_domain", None)
         fallback_url = f"https://{shop_domain}" if shop_domain else None
 
-        message = "Checkout is experiencing high demand right now. Please try again in a moment"
-        if fallback_url:
-            message += f", or visit our store directly: {fallback_url}"
-
         return ConversationResponse(
-            message=message,
+            message=PersonalityAwareResponseFormatter.format_response(
+                "checkout",
+                "fallback",
+                merchant.personality,
+            ),
             intent="checkout",
             confidence=1.0,
             fallback=True,
@@ -200,11 +213,14 @@ class CheckoutHandler(BaseHandler):
         Returns:
             ConversationResponse with circuit open message
         """
-        message = ShopifyCircuitBreaker.get_fallback_message(merchant)
         fallback_url = ShopifyCircuitBreaker.get_fallback_url(merchant)
 
         return ConversationResponse(
-            message=message,
+            message=PersonalityAwareResponseFormatter.format_response(
+                "checkout",
+                "circuit_open",
+                merchant.personality,
+            ),
             intent="checkout",
             confidence=1.0,
             fallback=True,

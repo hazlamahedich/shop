@@ -1,13 +1,14 @@
 """Handoff handler for unified conversation processing.
 
-Story 5-10 Code Review Fix (C9):
+Story 5-10: Code Review Fix (C9):
 - Added HandoffHandler for human handoff intent
 - Integrates with business hours handoff service
 - Updates conversation status to 'handoff' in database
 - Creates HandoffAlert for queue visibility
-"""
 
-from __future__ import annotations
+Story 5-12: Bot Personality Consistency
+Task 2.5: Update HandoffHandler to use PersonalityAwareResponseFormatter
+"""
 
 from typing import Any, Optional
 
@@ -22,6 +23,7 @@ from app.services.conversation.schemas import (
 )
 from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 
 logger = structlog.get_logger(__name__)
@@ -60,36 +62,42 @@ class HandoffHandler(BaseHandler):
         """
         from app.services.handoff.business_hours_handoff_service import (
             BusinessHoursHandoffService,
-            STANDARD_HANDOFF_MESSAGE,
         )
 
         business_name = merchant.business_name or "our store"
-        business_description = getattr(merchant, "business_description", None)
-        handoff_service = BusinessHoursHandoffService()
-
         business_hours_config = getattr(merchant, "business_hours_config", None)
 
         try:
-            handoff_message = handoff_service.build_handoff_message(
-                business_hours_config,
-                business_name=business_name if business_name != "our store" else None,
-                business_description=business_description,
-                customer_message=message,
-            )
+            handoff_service = BusinessHoursHandoffService()
+            is_after_hours = handoff_service.is_offline_handoff(business_hours_config)
+
+            if is_after_hours:
+                from app.services.business_hours.business_hours_service import get_formatted_hours
+
+                business_hours_str = get_formatted_hours(business_hours_config) or "business hours"
+                handoff_message = PersonalityAwareResponseFormatter.format_response(
+                    "handoff",
+                    "after_hours",
+                    merchant.personality,
+                    business_hours=business_hours_str,
+                )
+            else:
+                handoff_message = PersonalityAwareResponseFormatter.format_response(
+                    "handoff",
+                    "standard",
+                    merchant.personality,
+                )
         except Exception as e:
             logger.warning(
                 "handoff_message_failed",
                 merchant_id=merchant.id,
                 error=str(e),
             )
-            fallback_name = business_name if business_name != "our store" else None
-            if fallback_name:
-                handoff_message = (
-                    f"Thanks for reaching out to {fallback_name}! A member of our team will be with you shortly. "
-                    f"We've received your message and will respond as soon as possible."
-                )
-            else:
-                handoff_message = STANDARD_HANDOFF_MESSAGE
+            handoff_message = PersonalityAwareResponseFormatter.format_response(
+                "handoff",
+                "standard",
+                merchant.personality,
+            )
 
         conversation = await self._update_conversation_handoff_status(
             db=db,
@@ -226,11 +234,9 @@ class HandoffHandler(BaseHandler):
             bh_service = BusinessHoursHandoffService()
             is_offline = bh_service.is_offline_handoff(business_hours_config)
 
-            # Urgency classification based on issue type
             urgency_level = "low"
             message_lower = (message or "").lower()
 
-            # High priority: Revenue at risk or urgent customer needs
             high_priority_keywords = [
                 "checkout",
                 "payment",
@@ -245,7 +251,6 @@ class HandoffHandler(BaseHandler):
                 "stolen",
             ]
 
-            # Medium priority: Issues needing attention but not revenue-critical
             medium_priority_keywords = [
                 "order",
                 "delivery",
@@ -264,10 +269,8 @@ class HandoffHandler(BaseHandler):
             ]
 
             if is_offline:
-                # After hours: reduce urgency (no one available anyway)
-                # But still differentiate for when team returns
                 if any(kw in message_lower for kw in high_priority_keywords):
-                    urgency_level = "medium"  # Downgrade from high since offline
+                    urgency_level = "medium"
                 else:
                     urgency_level = "low"
             elif any(kw in message_lower for kw in high_priority_keywords):

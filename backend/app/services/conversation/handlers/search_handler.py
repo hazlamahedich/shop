@@ -4,6 +4,9 @@ Story 5-10: Widget Full App Integration
 Task 1: Create UnifiedConversationService
 Task 15: Circuit Breaker for Shopify
 
+Story 5-12: Bot Personality Consistency
+Task 2.1: Update SearchHandler to use PersonalityAwareResponseFormatter
+
 Handles PRODUCT_SEARCH intent with Shopify Admin API integration.
 Implements circuit breaker for resilience.
 """
@@ -26,6 +29,7 @@ from app.services.shopify.circuit_breaker import (
     CircuitOpenError,
     ShopifyCircuitBreaker,
 )
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 
 logger = structlog.get_logger(__name__)
@@ -185,7 +189,11 @@ class SearchHandler(BaseHandler):
                 error=str(e),
             )
             return ConversationResponse(
-                message="I had trouble searching for products. Please try again or ask me about something else!",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "error",
+                    "search_failed",
+                    merchant.personality,
+                ),
                 intent="product_search",
                 confidence=1.0,
                 fallback=True,
@@ -297,23 +305,29 @@ class SearchHandler(BaseHandler):
         """
         business_name = merchant.business_name or "our store"
 
-        lines = [
-            f"I don't have {query_term} at {business_name}, but here are some popular items:\n"
-        ]
-
+        product_lines = []
         for p in products[:5]:
             price_str = f" - ${p['price']:.2f}" if p.get("price") else ""
-            lines.append(f"• {p['title']}{price_str}")
+            product_lines.append(f"• {p['title']}{price_str}")
+        products_str = "\n".join(product_lines)
 
-        lines.append("\nWould you like more details on any of these?")
-        return "\n".join(lines)
+        return PersonalityAwareResponseFormatter.format_response(
+            "product_search",
+            "fallback",
+            merchant.personality,
+            business_name=business_name,
+            query=query_term,
+            products=products_str,
+        )
 
     def _format_no_results_message(self, query: str, merchant: Merchant) -> str:
         """Format message when no products found."""
         business_name = merchant.business_name or "our store"
-        return (
-            f"I couldn't find any products matching '{query}' at {business_name}. "
-            "Try a different search term or ask me what we have available!"
+        return PersonalityAwareResponseFormatter.format_response(
+            "product_search",
+            "no_results",
+            merchant.personality,
+            query=query,
         )
 
     def _format_recommendation_message(
@@ -337,17 +351,37 @@ class SearchHandler(BaseHandler):
         if len(products) == 1:
             p = products[0]
             price_str = f" (${p['price']:.2f})" if p.get("price") else ""
-            return f"My top pick at {business_name}:\n\n• {p['title']}{price_str}"
+            return PersonalityAwareResponseFormatter.format_response(
+                "product_search",
+                "recommendation_single",
+                merchant.personality,
+                business_name=business_name,
+                title=p["title"],
+                price=price_str,
+            )
 
-        lines = [f"Here are my recommendations from {business_name}:\n"]
+        product_lines = []
         for i, p in enumerate(products[:5], 1):
             price_str = f" - ${p['price']:.2f}" if p.get("price") else ""
-            lines.append(f"{i}. {p['title']}{price_str}")
+            product_lines.append(f"{i}. {p['title']}{price_str}")
+        products_str = "\n".join(product_lines)
 
+        more_options = ""
         if total_count > 5:
-            lines.append(f"\nWant to see more options?")
+            more_options = PersonalityAwareResponseFormatter.format_response(
+                "product_search",
+                "more_options",
+                merchant.personality,
+            )
 
-        return "\n".join(lines)
+        return PersonalityAwareResponseFormatter.format_response(
+            "product_search",
+            "recommendation_multiple",
+            merchant.personality,
+            business_name=business_name,
+            products=products_str,
+            more_options=more_options,
+        )
 
     def _format_results_message(
         self,
@@ -361,17 +395,33 @@ class SearchHandler(BaseHandler):
         if len(products) == 1:
             p = products[0]
             price_str = f" (${p['price']:.2f})" if p.get("price") else ""
-            return f"I found this at {business_name}:\n\n• {p['title']}{price_str}"
+            return PersonalityAwareResponseFormatter.format_response(
+                "product_search",
+                "found_single",
+                merchant.personality,
+                business_name=business_name,
+                title=p["title"],
+                price=price_str,
+            )
 
-        lines = [f"Here's what I found at {business_name}:\n"]
+        product_lines = []
         for p in products[:5]:
             price_str = f" - ${p['price']:.2f}" if p.get("price") else ""
-            lines.append(f"• {p['title']}{price_str}")
+            product_lines.append(f"• {p['title']}{price_str}")
+        products_str = "\n".join(product_lines)
 
+        more_options = ""
         if total_count > 5:
-            lines.append(f"\n...and {total_count - 5} more. Want me to show you more?")
+            more_options = f"\n...and {total_count - 5} more. Want me to show you more?"
+            products_str = f"{products_str}\n{more_options}"
 
-        return "\n".join(lines)
+        return PersonalityAwareResponseFormatter.format_response(
+            "product_search",
+            "found_multiple",
+            merchant.personality,
+            business_name=business_name,
+            products=products_str,
+        )
 
     async def _get_pinned_products(
         self,

@@ -4,6 +4,9 @@ Story 5-10: Widget Full App Integration
 Task 1: Create UnifiedConversationService
 Story 4-13: Cross-device order lookup with email fallback
 
+Story 5-12: Bot Personality Consistency
+Task 2.4: Update OrderHandler to use PersonalityAwareResponseFormatter
+
 Handles ORDER_TRACKING intent with OrderTrackingService.
 """
 
@@ -22,6 +25,7 @@ from app.services.conversation.schemas import (
 )
 from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 
 logger = structlog.get_logger(__name__)
@@ -170,7 +174,11 @@ class OrderHandler(BaseHandler):
 
         if not profile:
             return ConversationResponse(
-                message=f"I couldn't find any orders for {email}. Please check the email or provide your order number.",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "order_tracking",
+                    "not_found",
+                    merchant.personality,
+                ),
                 intent="order_tracking",
                 confidence=1.0,
             )
@@ -182,8 +190,14 @@ class OrderHandler(BaseHandler):
         )
 
         if not orders:
+            welcome_msg = PersonalityAwareResponseFormatter.format_response(
+                "order_tracking",
+                "welcome_back",
+                merchant.personality,
+                customer_name=profile.first_name or "there",
+            )
             return ConversationResponse(
-                message=f"I found your account, {profile.first_name or 'there'}! But no orders yet. Would you like to browse our products?",
+                message=f"{welcome_msg} But I couldn't find any orders yet. Would you like to browse our products?",
                 intent="order_tracking",
                 confidence=1.0,
             )
@@ -191,8 +205,12 @@ class OrderHandler(BaseHandler):
         order = orders[0]
         response_text = tracking_service.format_order_response(order)
 
-        greeting = customer_service.get_personalized_greeting(profile)
-        device_link_message = f"\n\n🎉 {greeting} This device is now linked to your account!"
+        device_link_msg = PersonalityAwareResponseFormatter.format_response(
+            "order_tracking",
+            "device_linked",
+            merchant.personality,
+            customer_name=profile.first_name or "there",
+        )
 
         conversation_data = context.conversation_data or {}
         updated_data = await customer_service.link_device_to_profile(
@@ -218,7 +236,7 @@ class OrderHandler(BaseHandler):
         }
 
         return ConversationResponse(
-            message=response_text + device_link_message,
+            message=response_text + device_link_msg,
             intent="order_tracking",
             confidence=1.0,
             order=order_dict,
@@ -256,10 +274,10 @@ class OrderHandler(BaseHandler):
             order_number=order_number,
         )
 
-        cross_device_prompt = (
-            "\n\n😊 I can look it up! What's easier:\n"
-            "• Your order number (from confirmation email)\n"
-            "• Or your email address"
+        cross_device_prompt = "\n\n" + PersonalityAwareResponseFormatter.format_response(
+            "order_tracking",
+            "prompt_email",
+            merchant.personality,
         )
 
         conversation_data = context.conversation_data or {}

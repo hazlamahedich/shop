@@ -1,6 +1,7 @@
 """Tracking link formatter for shipping notifications.
 
 Story 4-3 AC5: Tracking link formatting
+Story 5-12: Bot Personality Consistency - Task 3.3
 
 Detects carriers from tracking number format and generates tracking URLs.
 """
@@ -12,6 +13,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 import structlog
+
+from app.models.merchant import PersonalityType
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 logger = structlog.get_logger(__name__)
 
@@ -108,15 +112,18 @@ class TrackingFormatter:
         order_number: str,
         tracking_number: Optional[str],
         tracking_url: Optional[str] = None,
+        personality: PersonalityType = PersonalityType.FRIENDLY,
     ) -> str:
         """Format the tracking portion of the shipping notification.
 
         AC5: Include tracking number link to carrier website
+        Story 5-12: Uses PersonalityAwareResponseFormatter for personality-based messages.
 
         Args:
             order_number: The order number for display
             tracking_number: The tracking number
             tracking_url: Optional tracking URL (takes precedence)
+            personality: Merchant's personality type for message formatting
 
         Returns:
             Formatted message string
@@ -127,27 +134,31 @@ class TrackingFormatter:
                 order_number=order_number,
                 error_code=7042,
             )
-            return f"Your order #{order_number} has been shipped."
-
-        if tracking_url:
-            return (
-                f"Great news! Your order #{order_number} has been shipped. \U0001f4e6\n\n"
-                f"Tracking: {tracking_url}\n\n"
-                f'You can also check your order status anytime by typing "Where\'s my order?"'
+            return PersonalityAwareResponseFormatter.format_response(
+                "order_tracking",
+                "found_shipped",
+                personality,
+                order_details=f"Order #{order_number}",
+                tracking_info="Tracking information not yet available",
             )
 
         carrier_info = TrackingFormatter.detect_carrier(tracking_number)
-        if carrier_info:
-            return (
-                f"Great news! Your order #{order_number} has been shipped. \U0001f4e6\n\n"
-                f"Tracking ({carrier_info.name}): {carrier_info.tracking_url}\n\n"
-                f'You can also check your order status anytime by typing "Where\'s my order?"'
-            )
+        tracking_link = tracking_url or (carrier_info.tracking_url if carrier_info else None)
+        carrier_name = carrier_info.name if carrier_info else None
 
-        return (
-            f"Great news! Your order #{order_number} has been shipped. \U0001f4e6\n\n"
-            f"Tracking number: {tracking_number}\n\n"
-            f'You can also check your order status anytime by typing "Where\'s my order?"'
+        if tracking_link:
+            tracking_info = (
+                f"Tracking{' (' + carrier_name + ')' if carrier_name else ''}: {tracking_link}"
+            )
+        else:
+            tracking_info = f"Tracking number: {tracking_number}"
+
+        return PersonalityAwareResponseFormatter.format_response(
+            "order_tracking",
+            "found_shipped",
+            personality,
+            order_details=f"Order #{order_number}",
+            tracking_info=tracking_info,
         )
 
     @staticmethod

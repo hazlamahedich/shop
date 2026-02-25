@@ -3,6 +3,9 @@
 Story 5-10: Widget Full App Integration
 Task 1: Create UnifiedConversationService
 
+Story 5-12: Bot Personality Consistency
+Task 2.2: Update CartHandler to use PersonalityAwareResponseFormatter
+
 Handles CART_VIEW, CART_ADD, CART_REMOVE intents with CartService.
 Syncs cart changes to Shopify for widget/preview channels.
 
@@ -24,6 +27,7 @@ from app.services.conversation.schemas import (
 )
 from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 
 logger = structlog.get_logger(__name__)
@@ -90,7 +94,11 @@ class CartHandler(BaseHandler):
                 error=str(e),
             )
             return ConversationResponse(
-                message="I had trouble with your cart. Please try again!",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "error",
+                    "cart_failed",
+                    merchant.personality,
+                ),
                 intent=f"cart_{intent}",
                 confidence=1.0,
                 fallback=True,
@@ -107,7 +115,11 @@ class CartHandler(BaseHandler):
 
         if not cart.items:
             return ConversationResponse(
-                message="Your cart is empty. Would you like to browse our products?",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "cart",
+                    "view_empty",
+                    merchant.personality,
+                ),
                 intent="cart_view",
                 confidence=1.0,
                 cart={"items": [], "subtotal": 0, "currency": "USD"},
@@ -115,13 +127,21 @@ class CartHandler(BaseHandler):
 
         cart_dict = self._cart_to_dict(cart)
 
-        lines = ["Here's what's in your cart:\n"]
+        item_lines = []
         for item in cart.items:
-            lines.append(f"• {item.title} (x{item.quantity}) - ${item.price:.2f}")
-        lines.append(f"\nSubtotal: ${cart.subtotal:.2f}")
+            item_lines.append(f"• {item.title} (x{item.quantity}) - ${item.price:.2f}")
+        items_str = "\n".join(item_lines)
+
+        message = PersonalityAwareResponseFormatter.format_response(
+            "cart",
+            "view_items",
+            merchant.personality,
+            items=items_str,
+            subtotal=f"{cart.subtotal:.2f}",
+        )
 
         return ConversationResponse(
-            message="\n".join(lines),
+            message=message,
             intent="cart_view",
             confidence=1.0,
             cart=cart_dict,
@@ -178,7 +198,11 @@ class CartHandler(BaseHandler):
 
         if not variant_id:
             return ConversationResponse(
-                message="I need to know which product to add. Which one would you like?",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "cart",
+                    "add_needs_selection",
+                    merchant.personality,
+                ),
                 intent="cart_add",
                 confidence=1.0,
             )
@@ -214,11 +238,15 @@ class CartHandler(BaseHandler):
 
         cart_state = self._cart_to_dict(cart)
 
-        # Track cart add for pinned product analytics
         await self._track_pinned_cart_add(db, merchant.id, variant_id)
 
         return ConversationResponse(
-            message=f"Added {title} to your cart! Would you like to continue shopping or checkout?",
+            message=PersonalityAwareResponseFormatter.format_response(
+                "cart",
+                "add_success",
+                merchant.personality,
+                title=title,
+            ),
             intent="cart_add",
             confidence=1.0,
             cart=cart_state,
@@ -236,7 +264,11 @@ class CartHandler(BaseHandler):
 
         if not variant_id:
             return ConversationResponse(
-                message="Which item would you like to remove from your cart?",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "cart",
+                    "remove_needs_selection",
+                    merchant.personality,
+                ),
                 intent="cart_remove",
                 confidence=1.0,
             )
@@ -255,7 +287,11 @@ class CartHandler(BaseHandler):
         cart_state = self._cart_to_dict(cart)
 
         return ConversationResponse(
-            message="Item removed from your cart. Anything else I can help with?",
+            message=PersonalityAwareResponseFormatter.format_response(
+                "cart",
+                "remove_success",
+                merchant.personality,
+            ),
             intent="cart_remove",
             confidence=1.0,
             cart=cart_state,
@@ -284,7 +320,11 @@ class CartHandler(BaseHandler):
         )
 
         return ConversationResponse(
-            message="Your cart has been emptied. Would you like to browse our products?",
+            message=PersonalityAwareResponseFormatter.format_response(
+                "cart",
+                "clear_success",
+                merchant.personality,
+            ),
             intent="cart_clear",
             confidence=1.0,
             cart={"items": [], "subtotal": 0, "currency": "USD"},

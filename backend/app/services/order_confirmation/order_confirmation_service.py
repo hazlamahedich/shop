@@ -1,5 +1,8 @@
 """Order Confirmation Service (Story 2.9).
 
+Story 5-12: Bot Personality Consistency
+Task 3.1: Update OrderConfirmationService to use PersonalityAwareResponseFormatter
+
 Processes Shopify order webhooks, sends confirmation messages to shoppers,
 and clears cart after successful payment.
 """
@@ -12,8 +15,11 @@ from typing import Any, Dict, Optional
 
 import structlog
 import redis.asyncio as redis
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
+from app.models.merchant import Merchant, PersonalityType
 from app.schemas.order_confirmation import (
     ConfirmationStatus,
     OrderConfirmationRequest,
@@ -22,6 +28,7 @@ from app.schemas.order_confirmation import (
 )
 from app.services.cart import CartService
 from app.services.messenger.send_service import MessengerSendService
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 
 class OrderConfirmationService:
@@ -40,20 +47,13 @@ class OrderConfirmationService:
     """
 
     ORDER_REFERENCE_TTL_DAYS = 365
-    CONFIRMATION_MESSAGE_TEMPLATE = """Order confirmed! 🎉
-
-Order #{order_number}
-
-Est. delivery: {delivery_date}
-
-Track your order: Type "Where's my order?"
-"""
 
     def __init__(
         self,
         redis_client: Optional[Any] = None,
         cart_service: Optional[CartService] = None,
         send_service: Optional[MessengerSendService] = None,
+        db: Optional[AsyncSession] = None,
     ) -> None:
         """Initialize order confirmation service.
 
@@ -61,10 +61,11 @@ Track your order: Type "Where's my order?"
             redis_client: Redis client instance
             cart_service: Cart service for clearing carts
             send_service: Messenger send service
+            db: Database session for fetching merchant personality
         """
         if redis_client is None:
-            # Create default Redis client (Async)
             from app.core.config import settings
+
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
             self.redis = redis.from_url(redis_url, decode_responses=True)
@@ -73,6 +74,7 @@ Track your order: Type "Where's my order?"
 
         self.cart_service = cart_service or CartService(self.redis)
         self.send_service = send_service or MessengerSendService()
+        self.db = db
         self.logger = structlog.get_logger(__name__)
 
     def _get_order_reference_key(self, psid: str, order_id: str) -> str:
@@ -128,9 +130,8 @@ Track your order: Type "Where's my order?"
                         self.logger.info("psid_extracted_from_attributes")
                         return psid
 
-        # 3. Fallback: Try reverse lookup if checkout_token available
-        # This requires parsing checkout token from the order
-        # Not implemented in initial version (primary strategy is custom attributes)
+        # 3. Fallback: Reverse lookup via checkout_token is not currently needed
+        # Primary strategy (custom attributes) covers the standard flow
 
         self.logger.warning("psid_not_found_in_order_attributes")
         return None
@@ -183,9 +184,7 @@ Track your order: Type "Where's my order?"
             result.model_dump_json(exclude_none=True),
         )
 
-    async def _store_order_reference(
-        self, psid: str, order: OrderConfirmationRequest
-    ) -> None:
+    async def _store_order_reference(self, psid: str, order: OrderConfirmationRequest) -> None:
         """Store order reference for tracking (operational data tier).
 
         Args:
@@ -268,21 +267,28 @@ Track your order: Type "Where's my order?"
         psid: str,
         order_number: int,
         created_at: str,
+        personality: PersonalityType = PersonalityType.FRIENDLY,
     ) -> None:
         """Send order confirmation message via Messenger.
+
+        Story 5-12: Uses PersonalityAwareResponseFormatter for personality-based messages.
 
         Args:
             psid: Facebook Page-Scoped ID
             order_number: Shopify order number
             created_at: Order creation timestamp
+            personality: Merchant's personality type for message formatting
         """
         delivery_date = await self._calculate_estimated_delivery(created_at)
-        message = self.CONFIRMATION_MESSAGE_TEMPLATE.format(
+
+        message = PersonalityAwareResponseFormatter.format_response(
+            "order_confirmation",
+            "confirmed",
+            personality,
             order_number=order_number,
             delivery_date=delivery_date,
         )
 
-        # Send with order_update tag for 24-hour rule compliance (Story 2.9)
         await self.send_service.send_message(
             recipient_id=psid,
             message_payload={"text": message},
@@ -295,13 +301,47 @@ Track your order: Type "Where's my order?"
             order_number=order_number,
         )
 
+    async def _get_merchant_personality(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+    ) -> PersonalityType:
+        """Fetch merchant personality from database.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID
+
+        Returns:
+            PersonalityType (defaults to FRIENDLY if not found)
+        """
+        try:
+            result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+            merchant = result.scalars().first()
+            if merchant and merchant.personality:
+                return merchant.personality
+        except Exception as e:
+            self.logger.warning(
+                "failed_to_fetch_merchant_personality",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+        return PersonalityType.FRIENDLY
+
     async def process_order_confirmation(
-        self, order_payload: Dict[str, Any]
+        self,
+        order_payload: Dict[str, Any],
+        db: Optional[AsyncSession] = None,
+        merchant_id: Optional[int] = None,
     ) -> OrderConfirmationResult:
         """Process order confirmation from Shopify webhook.
 
+        Story 5-12: Added personality support via merchant_id parameter.
+
         Args:
             order_payload: Shopify orders/create webhook payload
+            db: Optional database session for fetching merchant personality
+            merchant_id: Optional merchant ID for personality lookup
 
         Returns:
             Order confirmation result
@@ -374,11 +414,17 @@ Track your order: Type "Where's my order?"
             # Store order reference
             await self._store_order_reference(psid, order)
 
+            # Get merchant personality for message formatting
+            personality = PersonalityType.FRIENDLY
+            if db and merchant_id:
+                personality = await self._get_merchant_personality(db, merchant_id)
+
             # Send confirmation message
             await self._send_confirmation_message(
                 psid=psid,
                 order_number=order.order_number,
                 created_at=order.created_at,
+                personality=personality,
             )
 
             # Create result
