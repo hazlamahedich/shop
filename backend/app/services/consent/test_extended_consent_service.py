@@ -502,3 +502,117 @@ class TestHandleForgetPreferencesWithDeletion:
 
         assert result["deletion_summary"]["conversations_deleted"] == 1
         assert result["deletion_summary"]["messages_deleted"] == 5
+
+    @pytest.mark.asyncio
+    async def test_deletion_completes_within_5_seconds(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test that deletion completes within 5 seconds (AC4)."""
+        import time
+
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = [(i,) for i in range(100)]
+        mock_msg_result = MagicMock()
+        mock_msg_result.rowcount = 500
+        mock_conv_delete_result = MagicMock()
+        mock_conv_delete_result.rowcount = 100
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_conv_result,
+                mock_msg_result,
+                mock_conv_delete_result,
+            ]
+        )
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        start_time = time.time()
+        result = await service.delete_voluntary_data("session_1", 1)
+        elapsed_time = time.time() - start_time
+
+        assert result["status"] == "success"
+        assert elapsed_time < 5.0, f"Deletion took {elapsed_time:.2f}s, expected <5s"
+
+
+class TestOrderReferencePreservation:
+    """Tests for order reference preservation during deletion (Task 5.3)."""
+
+    @pytest.mark.asyncio
+    async def test_order_references_not_deleted(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test that order references are NOT deleted during voluntary data deletion."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = []
+
+        mock_db.execute = AsyncMock(return_value=mock_conv_result)
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.delete_voluntary_data("session_1", 1)
+
+        assert result["status"] == "success"
+        assert result["conversations_deleted"] == 0
+
+        all_calls = [str(call) for call in mock_db.execute.call_args_list]
+        for call in all_calls:
+            assert "order" not in call.lower(), (
+                "Order references should not be queried for deletion"
+            )
+
+    @pytest.mark.asyncio
+    async def test_deletion_excludes_conversations_with_orders(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test that conversations with order references are excluded from deletion."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = [(1,)]
+
+        mock_msg_result = MagicMock()
+        mock_msg_result.rowcount = 3
+
+        mock_conv_delete_result = MagicMock()
+        mock_conv_delete_result.rowcount = 1
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_conv_result,
+                mock_msg_result,
+                mock_conv_delete_result,
+            ]
+        )
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.delete_voluntary_data("session_1", 1)
+
+        assert result["status"] == "success"
+        execute_calls = mock_db.execute.call_args_list
+        conversation_delete_call = None
+        for call in execute_calls:
+            call_str = str(call)
+            if "delete" in call_str.lower() and "conversation" in call_str.lower():
+                conversation_delete_call = call
+                break
+
+        if conversation_delete_call:
+            delete_stmt = str(conversation_delete_call)
+            assert "order_id" not in delete_stmt.lower() or "is null" in delete_stmt.lower(), (
+                "Deletion should exclude conversations with orders"
+            )

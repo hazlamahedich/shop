@@ -578,6 +578,7 @@ class ConversationConsentService:
             raise APIError(
                 ErrorCode.VALIDATION_ERROR,
                 "Deletion already in progress. Please wait.",
+                {"retry_after_seconds": DELETION_LOCK_TTL},
             )
 
         audit_log = DeletionAuditLog(
@@ -635,9 +636,9 @@ class ConversationConsentService:
                 failed_redis_keys=all_failed_redis_keys if all_failed_redis_keys else None,
             )
 
-            await self._set_deletion_rate_limit(session_id)
-
             await self.db.commit()
+
+            await self._set_deletion_rate_limit(session_id)
 
             self.logger.info(
                 "voluntary_data_deleted",

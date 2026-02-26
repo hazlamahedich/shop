@@ -120,13 +120,44 @@ class ForgetPreferencesHandler(BaseHandler):
                 session_id=context.session_id,
                 error=str(e),
             )
+            return ConversationResponse(
+                message="I encountered an error while trying to delete your preferences. Please try again later.",
+                intent="forget_preferences",
+                confidence=1.0,
+                checkout_url=None,
+                fallback=False,
+                fallback_url=None,
+                products=None,
+                cart=None,
+                order=None,
+                metadata={
+                    "preferences_forgotten": False,
+                    "error": str(e),
+                },
+            )
 
         except Exception as e:
-            logger.warning(
-                "forget_preferences_failed",
+            logger.error(
+                "forget_preferences_unexpected_error",
                 merchant_id=merchant.id,
                 session_id=context.session_id,
                 error=str(e),
+                exc_info=True,
+            )
+            return ConversationResponse(
+                message="I encountered an unexpected error. Please try again later.",
+                intent="forget_preferences",
+                confidence=1.0,
+                checkout_url=None,
+                fallback=False,
+                fallback_url=None,
+                products=None,
+                cart=None,
+                order=None,
+                metadata={
+                    "preferences_forgotten": False,
+                    "error": str(e),
+                },
             )
 
         prompt_service = ConsentPromptService()
