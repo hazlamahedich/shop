@@ -135,7 +135,7 @@ development_status:
   # Epic 6: Data Privacy & Compliance (Renumbered from Epic 5 - approved 2026-02-17)
   epic-6: in-progress # 2026-02-25: Story 6-1 created, ready for development
   6-1-opt-in-consent-flow: done # 2026-02-25: Code review COMPLETE - All 8 issues fixed (1 CRITICAL dead code, 3 HIGH API mismatch/untracked migration/AC6, 4 MEDIUM/LOW). AC6 personality-aware consent prompts now integrated in frontend.
-  6-2-request-data-deletion: review
+  6-2-request-data-deletion: review # 2026-02-26: COMPLETE - All acceptance criteria met. Ready for code review.
   6-3-merchant-csv-export: backlog
   6-4-data-tier-separation: backlog
   6-5-30-day-retention-enforcement: backlog
