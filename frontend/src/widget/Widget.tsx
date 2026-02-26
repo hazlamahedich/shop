@@ -27,6 +27,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     isCheckingOut,
     dismissError,
     retryLastAction,
+    recordConsent,
   } = useWidgetContext();
   const merchantTheme = state.config?.theme;
   const mergedTheme = React.useMemo(
@@ -111,6 +112,8 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                   isCheckingOut={isCheckingOut}
                   sessionId={state.session?.sessionId}
                   connectionStatus={state.connectionStatus}
+                  consentState={state.consentState}
+                  onRecordConsent={recordConsent}
                 />
               </React.Suspense>
             </WidgetErrorBoundary>

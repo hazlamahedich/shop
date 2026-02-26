@@ -136,17 +136,54 @@ backend/tests/
 
 **Database → API Conversion:**
 
-- Database: `snake_case` (PostgreSQL convention)
-- API: `camelCase` (JavaScript convention)
-- Conversion via Pydantic `alias_generator`:
-  ```python
-  class ProductSchema(BaseModel):
-      display_name: str = Field(alias="displayName")  # API side
-      # Or use ConfigDict
-      class Config:
-          alias_generator = to_camel
-          populate_by_name = True
-  ```
+| Layer | Convention | Example |
+|-------|------------|---------|
+| Database (PostgreSQL) | `snake_case` | `created_at`, `is_open`, `customer_id` |
+| Backend Python | `snake_case` | `created_at`, `is_open`, `customer_id` |
+| API Response (JSON) | `camelCase` | `createdAt`, `isOpen`, `customerId` |
+| Frontend TypeScript | `camelCase` | `createdAt`, `isOpen`, `customerId` |
+
+**Transformation Rules:**
+
+1. **Pydantic Schemas:** Use `Field(alias="...")` or `alias_generator`
+   ```python
+   class ProductSchema(BaseModel):
+       display_name: str = Field(alias="displayName")
+       is_active: bool = Field(alias="isActive")
+       
+       class Config:
+           alias_generator = to_camel
+           populate_by_name = True
+   ```
+
+2. **API Response:** Pydantic automatically converts `snake_case` → `camelCase` via `model_dump(by_alias=True)`
+
+3. **Database Storage:** Always use `snake_case` keys in JSONB columns
+   ```python
+   # ✅ CORRECT - stores with snake_case keys
+   config = model_dump(by_alias=False)
+   
+   # ❌ WRONG - stores with camelCase keys (breaks lookups)
+   config = model_dump()  # defaults to by_alias=True
+   ```
+   **Reference:** Story 5-10 bug - stored `isOpen` but code expected `is_open`
+
+4. **Frontend Parsing:** TypeScript expects `camelCase` from API
+   ```typescript
+   interface WidgetConfig {
+     createdAt: Date;      // API sends createdAt
+     isOpen: boolean;      // API sends isOpen
+     customerId?: string;  // API sends customerId
+   }
+   ```
+
+**Common Pitfalls:**
+
+| Mistake | Symptom | Fix |
+|---------|---------|-----|
+| Storing camelCase in DB | Lookups fail with `key not found` | Use `model_dump(by_alias=False)` |
+| Missing alias in Pydantic | API returns snake_case | Add `Field(alias="...")` |
+| Frontend expects wrong case | `undefined` values in frontend | Match TypeScript to API response |
 
 **File Naming:**
 
@@ -189,6 +226,39 @@ backend/tests/
 - Do NOT manually write TypeScript types for API responses
 - Pre-commit hook auto-runs when schemas change
 - Runtime validation via Zod on frontend
+
+**Schema Sync Verification (Epic 5 Retrospective AI-2):**
+
+Before implementing any story that adds/modifies API fields, verify sync:
+
+```markdown
+## Schema Sync Checklist
+
+### Step 1: Identify Changed Fields
+- List all new/modified fields in this story: _______________
+
+### Step 2: Backend Verification
+- [ ] Pydantic schema updated in `backend/app/schemas/*.py`
+- [ ] SQLAlchemy model updated in `backend/app/models/*.py`
+- [ ] Migration created if DB schema changed
+- [ ] Field uses correct naming: `snake_case` for Python/DB
+- [ ] Alias defined for API: `Field(alias="camelCase")`
+
+### Step 3: Frontend Verification
+- [ ] TypeScript interface updated in `frontend/src/types/*.ts`
+- [ ] Field uses correct naming: `camelCase` for TypeScript
+- [ ] Matches API response structure exactly
+- [ ] Optional fields marked with `?`
+
+### Step 4: Cross-Check
+| Field | Backend (snake_case) | Frontend (camelCase) | Match? |
+|-------|---------------------|---------------------|--------|
+| _____ | _________________ | _________________ | [ ] |
+| _____ | _________________ | _________________ | [ ] |
+| _____ | _________________ | _________________ | [ ] |
+```
+
+**Reference:** Story 5-5 had 5 backend fields vs 11 frontend fields - would have silently lost theme data.
 
 ### Security Rules
 

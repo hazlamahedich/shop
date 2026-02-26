@@ -7,25 +7,42 @@ following TDD principles.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any, Generator
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import redis
 
 from app.services.consent.consent_service import ConsentService, ConsentStatus
 
 
 @pytest.fixture
-def mock_redis() -> redis.Redis:
+def mock_redis() -> Generator[MagicMock, Any, Any]:
     """Create mock Redis client for testing."""
-    # Use Redis client with decode_responses for string operations
-    client = redis.from_url("redis://localhost:6379/1", decode_responses=True)
+    storage: dict[str, str] = {}
+
+    client = MagicMock()
+
+    async def mock_get(key: str) -> str | None:
+        return storage.get(key)
+
+    async def mock_setex(key: str, ttl: int, value: str) -> bool:
+        storage[key] = value
+        return True
+
+    async def mock_delete(key: str) -> int:
+        if key in storage:
+            del storage[key]
+            return 1
+        return 0
+
+    client.get = mock_get
+    client.setex = mock_setex
+    client.delete = mock_delete
     yield client
-    # Cleanup test data
-    client.flushdb()
 
 
 @pytest.mark.asyncio
-async def test_consent_opt_in(mock_redis: redis.Redis) -> None:
+async def test_consent_opt_in(mock_redis: MagicMock) -> None:
     """Test user opts in to cart persistence."""
     service = ConsentService(redis_client=mock_redis)
     psid = "test_psid_opt_in"
@@ -47,7 +64,7 @@ async def test_consent_opt_in(mock_redis: redis.Redis) -> None:
 
 
 @pytest.mark.asyncio
-async def test_consent_opt_out(mock_redis: redis.Redis) -> None:
+async def test_consent_opt_out(mock_redis: MagicMock) -> None:
     """Test user opts out of cart persistence."""
     service = ConsentService(redis_client=mock_redis)
     psid = "test_psid_opt_out"
@@ -68,7 +85,7 @@ async def test_consent_opt_out(mock_redis: redis.Redis) -> None:
 
 
 @pytest.mark.asyncio
-async def test_consent_pending_initially(mock_redis: redis.Redis) -> None:
+async def test_consent_pending_initially(mock_redis: MagicMock) -> None:
     """Test consent is pending for new users."""
     service = ConsentService(redis_client=mock_redis)
 
@@ -82,7 +99,7 @@ async def test_consent_pending_initially(mock_redis: redis.Redis) -> None:
 
 
 @pytest.mark.asyncio
-async def test_consent_revoke(mock_redis: redis.Redis) -> None:
+async def test_consent_revoke(mock_redis: MagicMock) -> None:
     """Test consent revocation."""
     service = ConsentService(redis_client=mock_redis)
     psid = "test_psid_revoke"
@@ -104,7 +121,7 @@ async def test_consent_revoke(mock_redis: redis.Redis) -> None:
 
 
 @pytest.mark.asyncio
-async def test_consent_timestamp_is_valid_iso(mock_redis: redis.Redis) -> None:
+async def test_consent_timestamp_is_valid_iso(mock_redis: MagicMock) -> None:
     """Test consent timestamp is valid ISO format."""
     service = ConsentService(redis_client=mock_redis)
     psid = "test_psid_timestamp"
@@ -119,13 +136,13 @@ async def test_consent_timestamp_is_valid_iso(mock_redis: redis.Redis) -> None:
 
 
 @pytest.mark.asyncio
-async def test_consent_ttl_days_constant(mock_redis: redis.Redis) -> None:
+async def test_consent_ttl_days_constant(mock_redis: MagicMock) -> None:
     """Test consent TTL constant is set correctly."""
     assert ConsentService.CONSENT_TTL_DAYS == 30
 
 
 @pytest.mark.asyncio
-async def test_consent_overwrite(mock_redis: redis.Redis) -> None:
+async def test_consent_overwrite(mock_redis: MagicMock) -> None:
     """Test consent can be overwritten (opt-out to opt-in)."""
     service = ConsentService(redis_client=mock_redis)
     psid = "test_psid_overwrite"
@@ -144,7 +161,7 @@ async def test_consent_overwrite(mock_redis: redis.Redis) -> None:
 
 
 @pytest.mark.asyncio
-async def test_multiple_users_consent(mock_redis: redis.Redis) -> None:
+async def test_multiple_users_consent(mock_redis: MagicMock) -> None:
     """Test consent tracking works for multiple users."""
     service = ConsentService(redis_client=mock_redis)
 

@@ -8,6 +8,7 @@ import type {
   WidgetSession,
   WidgetProduct,
   WidgetProductDetail,
+  ConsentPromptResponse,
 } from '../types/widget';
 import {
   WidgetCartSchema,
@@ -18,27 +19,31 @@ import {
   WidgetSessionSchema,
   WidgetProductDetailSchema,
 } from '../schemas/widget';
+import { z } from 'zod';
+
+const ConsentPromptResponseSchema = z.object({
+  status: z.enum(['pending', 'opted_in', 'opted_out']),
+  can_store_conversation: z.boolean(),
+  consent_message_shown: z.boolean(),
+});
 
 let cachedApiBase: string | null = null;
 
 function getApiBaseUrl(): string {
-  // Check if explicitly set via config (highest priority)
-  if (typeof window !== 'undefined' && (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig?.apiBaseUrl) {
-    const configUrl = (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig!.apiBaseUrl;
-    console.warn('[WidgetAPI] Using config apiBaseUrl:', configUrl);
+  const shopBotConfig = typeof window !== 'undefined' 
+    ? (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig 
+    : null;
+  if (shopBotConfig?.apiBaseUrl) {
+    const configUrl = shopBotConfig.apiBaseUrl;
     return configUrl.replace(/\/$/, '');
   }
 
-  // Try to find the widget script by src - prefer trycloudflare URLs
   const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
-  console.warn('[WidgetAPI] Found scripts:', scripts.length);
   
   let bestScript: HTMLScriptElement | null = null;
 
   for (const script of scripts) {
     if (script instanceof HTMLScriptElement && script.src) {
-      console.warn('[WidgetAPI] Script src:', script.src);
-      // Prefer trycloudflare URLs (tunnels change frequently)
       if (script.src.includes('trycloudflare.com')) {
         bestScript = script;
         break;
@@ -51,21 +56,16 @@ function getApiBaseUrl(): string {
     try {
       const scriptUrl = new URL(bestScript.src);
       cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
-      console.warn('[WidgetAPI] Detected API base:', cachedApiBase);
       return cachedApiBase;
-    } catch (e) {
-      console.warn('[WidgetAPI] Failed to parse script URL:', e);
+    } catch {
+      // Fall through to fallback
     }
   }
 
-  // Fallback to relative path
   cachedApiBase = '/api/v1/widget';
-  console.warn('[WidgetAPI] Using fallback:', cachedApiBase);
   return cachedApiBase;
 }
 
-// Don't call at module load time - call lazily
-// Exported for use by SSE client to ensure consistent origin detection
 export const getWidgetApiBase = () => getApiBaseUrl();
 
 export class WidgetApiException extends Error {
@@ -120,11 +120,10 @@ export class WidgetApiClient {
     }
   }
 
-  async createSession(merchantId: string): Promise<WidgetSession> {
-    // Backend returns { data: { sessionId, expiresAt } } at the top level
+  async createSession(merchantId: string, visitorId?: string): Promise<WidgetSession> {
     const data = await this.request<{ data?: unknown; session?: unknown }>('/session', {
       method: 'POST',
-      body: JSON.stringify({ merchant_id: merchantId }),
+      body: JSON.stringify({ merchant_id: merchantId, visitor_id: visitorId }),
     });
     const raw = data.data ?? data.session ?? data;
     const parsed = WidgetSessionSchema.safeParse(raw);
@@ -174,11 +173,12 @@ export class WidgetApiClient {
     await this.request(`/session/${sessionId}`, { method: 'DELETE' });
   }
 
-  async sendMessage(sessionId: string, message: string): Promise<WidgetMessage> {
+  async sendMessage(sessionId: string, message: string): Promise<WidgetMessage & { consent_prompt_required?: boolean }> {
     const data = await this.request<{ data: unknown }>('/message', {
       method: 'POST',
       body: JSON.stringify({ session_id: sessionId, message: message }),
     });
+    const rawData = data.data as Record<string, unknown>;
     const parsed = WidgetMessageSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid message response');
@@ -216,6 +216,7 @@ export class WidgetApiClient {
       checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
       intent: parsed.data.intent ?? undefined,
       confidence: parsed.data.confidence ?? undefined,
+      consent_prompt_required: rawData.consent_prompt_required as boolean | undefined,
     };
   }
 
@@ -398,10 +399,61 @@ export class WidgetApiClient {
       imageUrl: (productData.imageUrl || productData.image_url) as string | undefined,
       price: productData.price,
       available: productData.available,
-      inventoryQuantity: (productData.inventoryQuantity || productData.inventory_quantity) as number | undefined,
+      inventoryQuantity: (productData.inventoryQuantity ?? productData.inventory_quantity) ?? undefined,
       productType: (productData.productType || productData.product_type) as string | undefined,
       vendor: productData.vendor,
       variantId: (productData.variantId || productData.variant_id) as string | undefined,
+    };
+  }
+
+  async recordConsent(sessionId: string, consented: boolean, visitorId?: string): Promise<ConsentPromptResponse> {
+    const data = await this.request<{ data: unknown }>('/consent', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        consent_granted: consented,
+        source: 'widget',
+        visitor_id: visitorId,
+      }),
+    });
+    const parsed = ConsentPromptResponseSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid consent response');
+    }
+    return {
+      status: parsed.data.status,
+      can_store_conversation: parsed.data.can_store_conversation,
+      consent_message_shown: parsed.data.consent_message_shown,
+    };
+  }
+
+  async getConsentStatus(sessionId: string, visitorId?: string): Promise<ConsentPromptResponse | null> {
+    try {
+      const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : '';
+      const data = await this.request<{ data: unknown }>(`/consent/${sessionId}${queryParam}`);
+      const parsed = ConsentPromptResponseSchema.safeParse(data.data);
+      if (!parsed.success) {
+        return null;
+      }
+      return {
+        status: parsed.data.status,
+        can_store_conversation: parsed.data.can_store_conversation,
+        consent_message_shown: parsed.data.consent_message_shown,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async forgetPreferences(sessionId: string, visitorId?: string): Promise<{ success: boolean; clearVisitorId: boolean }> {
+    const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : '';
+    const data = await this.request<{ data: { success: boolean; clear_visitor_id?: boolean } }>(
+      `/consent/${sessionId}${queryParam}`,
+      { method: 'DELETE' }
+    );
+    return {
+      success: data.data?.success ?? true,
+      clearVisitorId: data.data?.clear_visitor_id ?? true,
     };
   }
 }

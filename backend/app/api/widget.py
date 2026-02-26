@@ -58,6 +58,12 @@ from app.schemas.widget_search import (
     WidgetProductDetail,
     WidgetProductDetailEnvelope,
 )
+from app.schemas.consent import (
+    ConsentStatus,
+    ConsentSource,
+    RecordConsentRequest,
+    ConsentPromptResponse as ConsentPromptResponseSchema,
+)
 from app.models.merchant import Merchant
 from app.services.widget.widget_session_service import WidgetSessionService
 from app.services.widget.widget_message_service import WidgetMessageService
@@ -1326,6 +1332,233 @@ async def widget_checkout(
         ),
         meta=create_meta(),
     )
+
+
+@router.post(
+    "/widget/consent",
+    response_model=SuccessEnvelope,
+    summary="Record consent choice",
+    description="Record user's consent choice for conversation data storage",
+)
+async def record_widget_consent(
+    request: Request,
+    consent_request: RecordConsentRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SuccessEnvelope:
+    """Record user's consent choice for conversation data storage.
+
+    Story 6-1: Opt-In Consent Flow
+    Story 6-1 Enhancement: Uses visitor_id for privacy-friendly consent persistence.
+
+    Args:
+        request: FastAPI request
+        consent_request: Consent request with session_id, consent choice, and visitor_id
+        db: Database session
+
+    Returns:
+        SuccessEnvelope with consent status
+
+    Raises:
+        APIError: If session invalid or recording fails
+    """
+    if not is_valid_session_id(consent_request.session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(consent_request.session_id)
+
+    from app.services.consent.extended_consent_service import ConversationConsentService
+
+    client_ip = RateLimiter.get_widget_client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+
+    visitor_id = consent_request.visitor_id or session.visitor_id
+
+    consent_service = ConversationConsentService(db=db)
+    await consent_service.record_conversation_consent(
+        session_id=consent_request.session_id,
+        merchant_id=session.merchant_id,
+        consent_granted=consent_request.consent_granted,
+        source=consent_request.source.value if consent_request.source else "widget",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        visitor_id=visitor_id,
+    )
+
+    logger.info(
+        "widget_consent_recorded",
+        session_id=consent_request.session_id,
+        merchant_id=session.merchant_id,
+        consent_granted=consent_request.consent_granted,
+        visitor_id=visitor_id,
+    )
+
+    return SuccessEnvelope(
+        data=SuccessResponse(success=True),
+        meta=create_meta(),
+    )
+
+
+@router.get(
+    "/widget/consent/{session_id}",
+    summary="Get consent status",
+    description="Get user's consent status for conversation data storage",
+)
+async def get_widget_consent_status(
+    request: Request,
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    visitor_id: Optional[str] = None,
+):
+    """Get user's consent status for conversation data storage.
+
+    Story 6-1: Opt-In Consent Flow
+    Story 6-1 Enhancement: Uses visitor_id for cross-session consent lookup.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+        db: Database session
+        visitor_id: Optional visitor identifier for cross-session consent lookup
+
+    Returns:
+        Consent status with prompt visibility flag
+
+    Raises:
+        APIError: If session invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(session_id)
+
+    from app.services.consent.extended_consent_service import ConversationConsentService
+    from app.models.consent import ConsentType
+
+    effective_visitor_id = visitor_id or session.visitor_id
+
+    consent_service = ConversationConsentService(db=db)
+    consent = await consent_service.get_consent_for_conversation(
+        session_id=session_id,
+        merchant_id=session.merchant_id,
+        visitor_id=effective_visitor_id,
+    )
+
+    if consent is None:
+        return {
+            "data": {
+                "status": ConsentStatus.PENDING.value,
+                "can_store_conversation": False,
+                "consent_message_shown": False,
+            },
+            "meta": create_meta(),
+        }
+
+    if consent.granted and consent.revoked_at is None:
+        status = ConsentStatus.OPTED_IN
+        can_store = True
+    elif consent.granted is False and consent.revoked_at is not None:
+        status = ConsentStatus.OPTED_OUT
+        can_store = False
+    else:
+        status = ConsentStatus.PENDING
+        can_store = False
+
+    return {
+        "data": {
+            "status": status.value,
+            "can_store_conversation": can_store,
+            "consent_message_shown": consent.consent_message_shown,
+        },
+        "meta": create_meta(),
+    }
+
+
+@router.delete(
+    "/widget/consent/{session_id}",
+    summary="Forget preferences",
+    description="Reset consent and delete user preferences",
+)
+async def forget_widget_preferences(
+    request: Request,
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    visitor_id: Optional[str] = None,
+):
+    """Reset consent and delete user preferences.
+
+    Story 6-1: Opt-In Consent Flow - GDPR/CCPA compliance
+    Story 6-1 Enhancement: Returns clear_visitor_id flag for frontend to clear localStorage.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+        db: Database session
+        visitor_id: Optional visitor identifier to also delete
+
+    Returns:
+        Dict with confirmation and clear_visitor_id flag
+
+    Raises:
+        APIError: If session invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(session_id)
+
+    from app.services.consent.extended_consent_service import ConversationConsentService
+
+    effective_visitor_id = visitor_id or session.visitor_id
+
+    consent_service = ConversationConsentService(db=db)
+    result = await consent_service.handle_forget_preferences(
+        session_id=session_id,
+        merchant_id=session.merchant_id,
+        visitor_id=effective_visitor_id,
+    )
+
+    logger.info(
+        "widget_preferences_forgotten",
+        session_id=session_id,
+        merchant_id=session.merchant_id,
+        visitor_id=effective_visitor_id,
+    )
+
+    return {
+        "data": {
+            "success": True,
+            "clear_visitor_id": result.get("clear_visitor_id", True),
+        },
+        "meta": create_meta(),
+    }
 
 
 @router.post(

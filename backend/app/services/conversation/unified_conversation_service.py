@@ -46,6 +46,7 @@ from app.services.conversation.handlers import (
     OrderHandler,
     HandoffHandler,
     ClarificationHandler,
+    ForgetPreferencesHandler,
 )
 from app.services.intent.intent_classifier import IntentClassifier
 from app.services.intent.classification_schema import (
@@ -55,6 +56,9 @@ from app.services.intent.classification_schema import (
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
+from app.services.consent.extended_consent_service import ConversationConsentService
+from app.services.consent.consent_prompt_service import ConsentPromptService
+from app.schemas.consent import ConsentStatus
 
 
 logger = structlog.get_logger(__name__)
@@ -96,7 +100,7 @@ class UnifiedConversationService:
         "order_tracking": "order",
         "human_handoff": "handoff",
         "clarification": "clarification",
-        "forget_preferences": "llm",
+        "forget_preferences": "forget_preferences",
         "general": "llm",
         "unknown": "llm",
     }
@@ -125,6 +129,7 @@ class UnifiedConversationService:
             "order": OrderHandler(),
             "handoff": HandoffHandler(),
             "clarification": ClarificationHandler(),
+            "forget_preferences": ForgetPreferencesHandler(),
         }
 
     async def process_message(
@@ -176,6 +181,11 @@ class UnifiedConversationService:
 
             # GAP-7: Check for returning shopper and send welcome
             await self._check_returning_shopper(db, context)
+
+            # Story 6-1: Check consent status and prompt if needed
+            consent_response = await self._check_and_prompt_consent(db, context, merchant)
+            if consent_response:
+                return consent_response
 
             llm_service = await self._get_merchant_llm(merchant, db, context)
 
@@ -919,6 +929,10 @@ class UnifiedConversationService:
         - Creates Message records for user and bot
         - Enables widget conversations to appear in conversation page
 
+        Story 6-1: Consent-based persistence
+        - Only persist conversation messages if consent granted
+        - Always persist operational data (cart, order refs) regardless of consent
+
         Args:
             db: Database session
             context: Conversation context
@@ -932,6 +946,20 @@ class UnifiedConversationService:
         Returns:
             Conversation ID if persisted, None on failure
         """
+        can_store_conversation = context.consent_state.can_store_conversation
+
+        if not can_store_conversation:
+            self.logger.debug(
+                "conversation_persist_skipped_no_consent",
+                merchant_id=merchant_id,
+                session_id=context.session_id,
+                consent_status=context.consent_state.status,
+            )
+            if cart is not None and intent in ("checkout", "order_tracking"):
+                pass
+            else:
+                return None
+
         try:
             from app.models.conversation import Conversation
             from app.models.message import Message
@@ -1172,6 +1200,81 @@ class UnifiedConversationService:
                     )
             except (ValueError, TypeError):
                 pass
+
+    async def _check_and_prompt_consent(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Merchant,
+    ) -> Optional[ConversationResponse]:
+        """Check consent status and prompt if needed.
+
+        Story 6-1: Opt-In Consent Flow
+        Task 3.1: Consent check integration
+
+        Checks if consent prompt should be shown and updates context state.
+        Returns a consent prompt response if needed.
+
+        Args:
+            db: Database session
+            context: Conversation context (will be updated in-place)
+            merchant: Merchant model
+
+        Returns:
+            ConversationResponse with consent prompt if needed, None otherwise
+        """
+        try:
+            consent_service = ConversationConsentService(db=db)
+
+            consent = await consent_service.get_consent_for_conversation(
+                session_id=context.session_id,
+                merchant_id=merchant.id,
+            )
+
+            if consent:
+                status = consent.status
+                context.consent_state.status = status
+                context.consent_state.can_store_conversation = status == ConsentStatus.OPTED_IN
+                context.consent_state.prompt_shown = consent.consent_message_shown or False
+
+                if status == ConsentStatus.OPTED_IN:
+                    context.consent_status = "granted"
+                elif status == ConsentStatus.OPTED_OUT:
+                    context.consent_status = "denied"
+                else:
+                    context.consent_status = "pending"
+
+                self.logger.debug(
+                    "consent_status_loaded",
+                    session_id=context.session_id,
+                    merchant_id=merchant.id,
+                    status=status,
+                    can_store=context.consent_state.can_store_conversation,
+                )
+                return None
+
+            context.consent_state.status = ConsentStatus.PENDING
+            context.consent_state.can_store_conversation = False
+            context.consent_state.prompt_shown = False
+            context.consent_status = "pending"
+
+            self.logger.info(
+                "consent_status_pending",
+                session_id=context.session_id,
+                merchant_id=merchant.id,
+            )
+
+            return None
+
+        except Exception as e:
+            self.logger.warning(
+                "consent_check_failed",
+                session_id=context.session_id,
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+            context.consent_state.can_store_conversation = False
+            return None
 
     async def _check_handoff(
         self,

@@ -24,6 +24,7 @@ export const WidgetConfigSchema = z.object({
   allowedDomains: z.array(z.string()).optional().default([]),
   shopDomain: z.string().nullable().optional(),
   shop_domain: z.string().nullable().optional(),
+  personality: z.enum(['friendly', 'professional', 'enthusiastic']).nullable().optional(),
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
   botName: data.botName || data.bot_name || 'Assistant',
@@ -31,6 +32,7 @@ export const WidgetConfigSchema = z.object({
   theme: data.theme,
   allowedDomains: data.allowedDomains || [],
   shopDomain: data.shopDomain || data.shop_domain || undefined,
+  personality: data.personality || undefined,
 }));
 
 export const WidgetSessionSchema = z
@@ -108,7 +110,7 @@ export const WidgetCheckoutResultSchema = z.object({
   cartTotal: z.number().optional(),
   currency: z.string().optional(),
   itemCount: z.number().optional(),
-}).passthrough();
+});
 
 export const WidgetProductDetailSchema = z.object({
   id: z.string(),

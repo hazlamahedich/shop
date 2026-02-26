@@ -1,6 +1,6 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -8,6 +8,7 @@ import { TypingIndicator } from './TypingIndicator';
 import { ErrorToast } from './ErrorToast';
 import { ProductDetailModal } from './ProductDetailModal';
 import { ConnectionStatusIndicator } from './ConnectionStatus';
+import { ConsentPrompt } from './ConsentPrompt';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export interface ChatWindowProps {
   isCheckingOut?: boolean;
   sessionId?: string;
   connectionStatus?: ConnectionStatus;
+  consentState?: ConsentState;
+  onRecordConsent?: (consented: boolean) => Promise<void>;
 }
 
 function ChatWindow({
@@ -51,6 +54,8 @@ function ChatWindow({
   isCheckingOut,
   sessionId,
   connectionStatus = 'disconnected',
+  consentState,
+  onRecordConsent,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
@@ -67,17 +72,17 @@ function ChatWindow({
     setSelectedProductId(null);
   };
 
-  const handleProductAddToCart = (product: WidgetProductDetail, quantity: number) => {
+  const handleProductAddToCart = (product: WidgetProductDetail, _quantity: number) => {
     if (onAddToCart) {
       onAddToCart({
         id: product.id,
         variantId: product.variantId || product.id,
         title: product.title,
-        description: product.description,
+        description: product.description ?? undefined,
         price: product.price,
-        imageUrl: product.imageUrl,
+        imageUrl: product.imageUrl ?? undefined,
         available: product.available,
-        productType: product.productType,
+        productType: product.productType ?? undefined,
       });
     }
   };
@@ -204,6 +209,28 @@ function ChatWindow({
           removingItemId={removingItemId}
           isCheckingOut={isCheckingOut}
         />
+
+        {consentState && onRecordConsent && (
+          <div style={{ padding: '8px 12px' }}>
+            <ConsentPrompt
+              isOpen={isOpen}
+              isLoading={false}
+              isTyping={isTyping}
+              promptShown={consentState.promptShown}
+              consentGranted={
+                consentState.status === 'opted_in'
+                  ? true
+                  : consentState.status === 'opted_out'
+                    ? false
+                    : null
+              }
+              theme={theme}
+              botName={config?.botName ?? 'Assistant'}
+              personality={config?.personality}
+              onConfirmConsent={onRecordConsent}
+            />
+          </div>
+        )}
 
         {isTyping && (
           <TypingIndicator

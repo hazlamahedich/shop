@@ -5,6 +5,9 @@ Task 1: Create UnifiedConversationService
 Task 16: ClarificationHandler
 
 Story 5-10 Code Review Fix (C9): Added HandoffHandler
+
+Story 6-1: Opt-In Consent Flow
+Task 3.3: Added ForgetPreferencesHandler
 """
 
 from app.services.conversation.handlers.base_handler import BaseHandler
@@ -16,6 +19,7 @@ from app.services.conversation.handlers.checkout_handler import CheckoutHandler
 from app.services.conversation.handlers.order_handler import OrderHandler
 from app.services.conversation.handlers.handoff_handler import HandoffHandler
 from app.services.conversation.handlers.clarification_handler import ClarificationHandler
+from app.services.conversation.handlers.forget_preferences_handler import ForgetPreferencesHandler
 
 __all__ = [
     "BaseHandler",
@@ -27,4 +31,5 @@ __all__ = [
     "OrderHandler",
     "HandoffHandler",
     "ClarificationHandler",
+    "ForgetPreferencesHandler",
 ]

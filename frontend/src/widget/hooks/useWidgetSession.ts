@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { WidgetSession } from '../types/widget';
 import { widgetClient } from '../api/widgetClient';
-import { safeStorage, SESSION_KEY, MERCHANT_KEY } from '../utils/storage';
+import { safeStorage, SESSION_KEY, MERCHANT_KEY, getVisitorId } from '../utils/storage';
 
 export function useWidgetSession(merchantId: string) {
   const [session, setSession] = useState<WidgetSession | null>(() => {
@@ -20,7 +20,8 @@ export function useWidgetSession(merchantId: string) {
   });
 
   const createSession = useCallback(async (): Promise<WidgetSession> => {
-    const newSession = await widgetClient.createSession(merchantId);
+    const visitorId = getVisitorId() || undefined;
+    const newSession = await widgetClient.createSession(merchantId, visitorId);
     setSession(newSession);
     safeStorage.set(SESSION_KEY, newSession.sessionId);
     safeStorage.set(MERCHANT_KEY, merchantId);
@@ -52,6 +53,7 @@ export function useWidgetSession(merchantId: string) {
       }
     }
     safeStorage.remove(SESSION_KEY);
+    safeStorage.remove(MERCHANT_KEY);
     setSession(null);
   }, []);
 

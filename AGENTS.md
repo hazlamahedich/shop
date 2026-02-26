@@ -210,6 +210,46 @@ bd sync && git push
 
 ---
 
+## ✅ Story Start Checklist
+
+**CRITICAL:** Complete this checklist BEFORE writing any code for a new story.
+
+### Pre-Implementation Verification
+
+```markdown
+□ **CSRF**: Is this story adding/modifying API endpoints?
+   - If YES: Verify CSRF bypass/middleware is configured for new routes
+   - Check: `backend/app/middleware/auth.py` for bypass paths
+   - Reference: Epic 5 had 6 stories forget CSRF initially
+
+□ **Python venv**: Activated before any Python work?
+   - Run: `source backend/venv/bin/activate`
+   - Verify: `python --version` (should be 3.11.x)
+   - Reference: Epic 5 had 5 stories with datetime.UTC errors
+
+□ **Schema Sync**: Frontend and Backend types aligned?
+   - Check: TypeScript interface matches Pydantic schema
+   - New fields: Add to BOTH frontend types AND backend schemas
+   - Reference: Story 5-5 had 5 backend fields vs 11 frontend fields
+
+□ **Naming Convention**: API fields use correct case?
+   - Backend/DB: `snake_case` (e.g., `created_at`)
+   - Frontend/API: `camelCase` (e.g., `createdAt`)
+   - Use Pydantic `alias_generator` for transformation
+   - Reference: Story 5-10 stored `isOpen` but expected `is_open`
+```
+
+### Quick Reference
+
+| Check | Command/File | Common Mistake |
+|-------|--------------|----------------|
+| CSRF | `backend/app/middleware/auth.py` | Forgetting to add new route to bypass list |
+| venv | `source backend/venv/bin/activate` | Using system Python (3.12+) instead of venv (3.11) |
+| Schema | Compare `frontend/src/types/*.ts` with `backend/app/schemas/*.py` | Adding field to one side only |
+| Naming | Pydantic `Field(alias="...")` | Using wrong case for API field names |
+
+---
+
 ## 🐍 Python Development Guidelines
 
 ### Version Requirement

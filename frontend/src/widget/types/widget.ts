@@ -2,6 +2,26 @@ import type { WidgetError } from './errors';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
+export type ConsentStatus = 'pending' | 'opted_in' | 'opted_out';
+
+export interface ConsentState {
+  promptShown: boolean;
+  canStoreConversation: boolean;
+  status: ConsentStatus;
+}
+
+export interface ConsentPromptResponse {
+  status: ConsentStatus;
+  can_store_conversation: boolean;
+  consent_message_shown: boolean;
+}
+
+export interface RecordConsentRequest {
+  session_id: string;
+  consented: boolean;
+  source_channel: string;
+}
+
 export interface WidgetTheme {
   primaryColor: string;
   backgroundColor: string;
@@ -16,6 +36,8 @@ export interface WidgetTheme {
   fontSize: number;
 }
 
+export type PersonalityType = 'friendly' | 'professional' | 'enthusiastic';
+
 export interface WidgetConfig {
   enabled: boolean;
   botName: string;
@@ -23,6 +45,7 @@ export interface WidgetConfig {
   theme: WidgetTheme;
   allowedDomains: string[];
   shopDomain?: string;
+  personality?: PersonalityType;
 }
 
 export interface WidgetSession {
@@ -55,6 +78,7 @@ export interface WidgetState {
   error: string | null;
   errors: WidgetError[];
   connectionStatus: ConnectionStatus;
+  consentState: ConsentState;
 }
 
 export interface WidgetApiError {
@@ -76,6 +100,8 @@ export type WidgetAction =
   | { type: 'DISMISS_WIDGET_ERROR'; payload: string }
   | { type: 'CLEAR_WIDGET_ERRORS' }
   | { type: 'SET_CONNECTION_STATUS'; payload: ConnectionStatus }
+  | { type: 'SET_CONSENT_STATE'; payload: ConsentState }
+  | { type: 'SET_CONSENT_PROMPT_SHOWN'; payload: boolean }
   | { type: 'RESET' };
 
 export interface WidgetProduct {
@@ -118,12 +144,12 @@ export interface WidgetCheckoutResult {
 export interface WidgetProductDetail {
   id: string;
   title: string;
-  description?: string;
-  imageUrl?: string;
+  description?: string | null;
+  imageUrl?: string | null;
   price: number;
   available: boolean;
-  inventoryQuantity?: number;
-  productType?: string;
-  vendor?: string;
-  variantId?: string;
+  inventoryQuantity?: number | null;
+  productType?: string | null;
+  vendor?: string | null;
+  variantId?: string | null;
 }

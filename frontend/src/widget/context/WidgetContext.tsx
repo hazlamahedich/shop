@@ -1,7 +1,14 @@
 import * as React from 'react';
-import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus } from '../types/widget';
+import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus, ConsentState } from '../types/widget';
 import { createWidgetError } from '../types/errors';
 import { shopifyCartClient } from '../api/shopifyCartClient';
+import { safeStorage, SESSION_KEY, MERCHANT_KEY, getOrCreateVisitorId, getVisitorId, clearVisitorId } from '../utils/storage';
+
+const initialConsentState: ConsentState = {
+  promptShown: false,
+  canStoreConversation: false,
+  status: 'pending',
+};
 
 const initialState: WidgetState = {
   isOpen: false,
@@ -13,6 +20,7 @@ const initialState: WidgetState = {
   error: null,
   errors: [],
   connectionStatus: 'disconnected',
+  consentState: initialConsentState,
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -46,6 +54,10 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, errors: [] };
     case 'SET_CONNECTION_STATUS':
       return { ...state, connectionStatus: action.payload };
+    case 'SET_CONSENT_STATE':
+      return { ...state, consentState: action.payload };
+    case 'SET_CONSENT_PROMPT_SHOWN':
+      return { ...state, consentState: { ...state.consentState, promptShown: action.payload } };
     case 'RESET':
       return initialState;
     default:
@@ -72,6 +84,8 @@ interface WidgetContextValue {
   clearErrors: () => void;
   retryLastAction: () => void;
   connectionStatus: ConnectionStatus;
+  recordConsent: (consented: boolean) => Promise<void>;
+  forgetPreferences: () => Promise<void>;
 }
 
 const WidgetContext = React.createContext<WidgetContextValue | null>(null);
@@ -96,6 +110,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   const [isCheckingOut, setIsCheckingOut] = React.useState(false);
   const lastActionRef = React.useRef<{ type: string; payload?: unknown } | null>(null);
   const greetingShownRef = React.useRef(false);
+  const consentPromptShownRef = React.useRef(false);
 
   const addError = React.useCallback(
     (error: unknown, context?: { action?: string; fallbackUrl?: string }) => {
@@ -122,9 +137,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     endSession: endWidgetSession,
   } = React.useMemo(
     () => ({
-      createSession: async () => {
+      createSession: async (visitorId?: string) => {
         const { widgetClient } = await import('../api/widgetClient');
-        return widgetClient.createSession(merchantId);
+        return widgetClient.createSession(merchantId, visitorId);
       },
       getSession: async (sessionId: string) => {
         const { widgetClient } = await import('../api/widgetClient');
@@ -148,29 +163,54 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       const config = await widgetClient.getConfig(merchantId);
       dispatch({ type: 'SET_CONFIG', payload: config });
 
-      const sessionId = sessionStorage.getItem('widget_session_id');
+      const visitorId = getOrCreateVisitorId();
+
+      const sessionId = safeStorage.get(SESSION_KEY);
       if (sessionId) {
-        const session = await getSession(sessionId);
+        const session = await getSession(sessionId)
         if (session) {
-          dispatch({ type: 'SET_SESSION', payload: session });
-          dispatch({ type: 'SET_LOADING', payload: false });
-          return;
+          dispatch({ type: 'SET_SESSION', payload: session })
+          dispatch({ type: 'SET_LOADING', payload: false })
+          return
         }
       }
 
-      const newSession = await createSession();
-      dispatch({ type: 'SET_SESSION', payload: newSession });
-      sessionStorage.setItem('widget_session_id', newSession.sessionId);
+      const newSession = await createSession(visitorId)
+      dispatch({ type: 'SET_SESSION', payload: newSession })
+      safeStorage.set(SESSION_KEY, newSession.sessionId)
+      safeStorage.set(MERCHANT_KEY, merchantId)
     } catch (error) {
-      addError(error, { action: 'Retry' });
+      addError(error, { action: 'Retry' })
     } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: 'SET_LOADING', payload: false })
     }
-  }, [merchantId, createSession, getSession, addError]);
+  }, [merchantId, createSession, getSession, addError])
 
   const toggleChat = React.useCallback(() => {
     dispatch({ type: 'SET_OPEN', payload: !state.isOpen });
   }, [state.isOpen]);
+
+  const recordConsent = React.useCallback(
+    async (consented: boolean) => {
+      if (!state.session?.sessionId) return;
+
+      try {
+        const { widgetClient } = await import('../api/widgetClient');
+        const visitorId = getVisitorId() || undefined;
+        await widgetClient.recordConsent(state.session.sessionId, consented, visitorId);
+
+        const newConsentState: ConsentState = {
+          promptShown: true,
+          canStoreConversation: consented,
+          status: consented ? 'opted_in' : 'opted_out',
+        };
+        dispatch({ type: 'SET_CONSENT_STATE', payload: newConsentState });
+      } catch (error) {
+        addError(error, { action: 'Try Again' });
+      }
+    },
+    [state.session, addError]
+  );
 
   const sendMessage = React.useCallback(
     async (content: string) => {
@@ -192,11 +232,13 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
+        if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+          consentPromptShownRef.current = true;
+          dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
+        }
+
         if (shopifyCartClient.isOnShopify() && botMessage.cart) {
-          console.log('[Widget] Chat returned cart, syncing to Shopify:', botMessage.cart);
           syncCartToShopify(botMessage.cart);
-        } else {
-          console.log('[Widget] Not syncing to Shopify - isOnShopify:', shopifyCartClient.isOnShopify(), 'hasCart:', !!botMessage.cart);
         }
       } catch (error) {
         addError(error, { action: 'Try Again' });
@@ -211,26 +253,24 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     async (cart: { items: Array<{ variantId?: string; quantity: number }>; itemCount?: number }) => {
       if (!shopifyCartClient.isOnShopify()) return;
 
-      try {
-        if (!cart.items || cart.items.length === 0) {
-          await shopifyCartClient.clearCart();
-          console.log('[Widget] Shopify cart cleared via chat');
-        } else {
-          const shopifyCart = await shopifyCartClient.getCart();
-          const shopifyVariantIds = new Set(
-            shopifyCart.items.map((item) => String(item.variant_id))
-          );
+        try {
+          if (!cart.items || cart.items.length === 0) {
+            await shopifyCartClient.clearCart();
+          } else {
+            const shopifyCart = await shopifyCartClient.getCart();
+            const shopifyVariantIds = new Set(
+              shopifyCart.items.map((item) => String(item.variant_id))
+            );
 
-          for (const item of cart.items) {
-            if (item.variantId && !shopifyVariantIds.has(String(item.variantId))) {
-              await shopifyCartClient.addToCart(item.variantId, item.quantity);
-              console.log('[Widget] Added to Shopify cart via chat:', item.variantId);
+            for (const item of cart.items) {
+              if (item.variantId && !shopifyVariantIds.has(String(item.variantId))) {
+                await shopifyCartClient.addToCart(item.variantId, item.quantity);
+              }
             }
           }
+        } catch (shopifyError) {
+          // Ignore Shopify sync errors
         }
-      } catch (shopifyError) {
-        console.warn('[Widget] Shopify cart sync failed:', shopifyError);
-      }
     },
     []
   );
@@ -245,24 +285,21 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         let sessionId = state.session?.sessionId;
         
         if (!sessionId) {
-          const newSession = await createSession();
+          const visitorId = getVisitorId() || undefined;
+          const newSession = await createSession(visitorId);
           dispatch({ type: 'SET_SESSION', payload: newSession });
-          sessionStorage.setItem('widget_session_id', newSession.sessionId);
+          safeStorage.set(SESSION_KEY, newSession.sessionId);
           sessionId = newSession.sessionId;
         }
 
         const updatedCart = await widgetClient.addToCart(sessionId, product, 1);
 
         if (shopifyCartClient.isOnShopify() && product.variantId) {
-          console.log('[Widget] Syncing add to Shopify cart, variantId:', product.variantId);
           try {
             await shopifyCartClient.addToCart(product.variantId, 1);
-            console.log('[Widget] Shopify cart sync successful');
           } catch (shopifyError) {
-            console.warn('[Widget] Shopify cart sync failed:', shopifyError);
+            // Ignore Shopify sync errors
           }
-        } else {
-          console.log('[Widget] Not syncing to Shopify - isOnShopify:', shopifyCartClient.isOnShopify(), 'variantId:', product.variantId);
         }
 
         const itemWord = updatedCart.itemCount === 1 ? 'item' : 'items';
@@ -292,9 +329,10 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         let sessionId = state.session?.sessionId;
         
         if (!sessionId) {
-          const newSession = await createSession();
+          const visitorId = getVisitorId() || undefined;
+          const newSession = await createSession(visitorId);
           dispatch({ type: 'SET_SESSION', payload: newSession });
-          sessionStorage.setItem('widget_session_id', newSession.sessionId);
+          safeStorage.set(SESSION_KEY, newSession.sessionId);
           sessionId = newSession.sessionId;
         }
 
@@ -304,7 +342,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
           try {
             await shopifyCartClient.removeFromCart(variantId);
           } catch (shopifyError) {
-            console.warn('[Widget] Shopify cart sync failed:', shopifyError);
+            // Ignore Shopify sync errors
           }
         }
       } catch (error) {
@@ -366,7 +404,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     }
   }, [state.config, state.messages, addError]);
 
-  // Show greeting message when config is loaded and widget is open with no messages
   React.useEffect(() => {
     if (
       state.isOpen &&
@@ -385,7 +422,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     }
   }, [state.isOpen, state.messages.length, state.config?.welcomeMessage]);
 
-  // WebSocket connection for merchant messages
   React.useEffect(() => {
     if (!state.session?.sessionId || !state.isOpen) return;
 
@@ -395,33 +431,28 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       const { connectWidgetWebSocket, isWebSocketSupported } = await import('../api/widgetWsClient');
       
       if (!isWebSocketSupported()) {
-        console.warn('[Widget] WebSocket not supported');
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
         return;
       }
 
       cleanup = connectWidgetWebSocket(state.session!.sessionId, {
         onMessage: (event) => {
-          console.warn('[WidgetContext] WS onMessage:', event);
           if (event.type === 'merchant_message') {
             const data = event.data as { id: number; content: string; createdAt: string };
-            console.warn('[WidgetContext] Merchant message data:', data);
             const merchantMessage = {
               messageId: `merchant-${data.id}`,
               content: data.content,
               sender: 'merchant' as const,
               createdAt: data.createdAt,
             };
-            console.warn('[WidgetContext] Dispatching ADD_MESSAGE:', merchantMessage);
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
           }
         },
         onStatusChange: (status) => {
-          console.warn('[WidgetContext] Connection status:', status);
           dispatch({ type: 'SET_CONNECTION_STATUS', payload: status });
         },
-        onError: (error) => {
-          console.warn('[Widget] WebSocket error:', error);
+        onError: () => {
+          // WebSocket error - connection status already updated
         },
       });
     };
@@ -460,9 +491,33 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         // Ignore errors on cleanup
       }
     }
-    sessionStorage.removeItem('widget_session_id');
+    safeStorage.remove(SESSION_KEY);
+    safeStorage.remove(MERCHANT_KEY);
     dispatch({ type: 'RESET' });
   }, [state.session, endWidgetSession]);
+
+  const forgetPreferences = React.useCallback(async () => {
+    if (!state.session?.sessionId) return;
+
+    try {
+      const { widgetClient } = await import('../api/widgetClient');
+      const visitorId = getVisitorId() || undefined;
+      const result = await widgetClient.forgetPreferences(state.session.sessionId, visitorId);
+
+      if (result.clearVisitorId) {
+        clearVisitorId();
+      }
+
+      const newConsentState: ConsentState = {
+        promptShown: false,
+        canStoreConversation: false,
+        status: 'pending',
+      };
+      dispatch({ type: 'SET_CONSENT_STATE', payload: newConsentState });
+    } catch (error) {
+      addError(error, { action: 'Try Again' });
+    }
+  }, [state.session, addError]);
 
   const value = React.useMemo(
     () => ({
@@ -484,6 +539,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       clearErrors,
       retryLastAction,
       connectionStatus: state.connectionStatus,
+      recordConsent,
+      forgetPreferences,
     }),
     [
       state,
@@ -502,6 +559,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       dismissError,
       clearErrors,
       retryLastAction,
+      recordConsent,
+      forgetPreferences,
     ]
   );
 

@@ -22,6 +22,22 @@ class Channel(str, Enum):
     PREVIEW = "preview"
 
 
+class ConsentState(BaseModel):
+    """Tracks consent state within a conversation.
+
+    Story 6-1: Opt-In Consent Flow
+    Task 3.1: Consent check integration
+    """
+
+    prompt_shown: bool = Field(default=False, description="Whether consent prompt has been shown")
+    can_store_conversation: bool = Field(
+        default=False, description="Whether conversation data can be stored"
+    )
+    status: str = Field(
+        default="pending", description="Consent status: pending, opted_in, opted_out"
+    )
+
+
 class ClarificationState(BaseModel):
     """Tracks clarification flow state within a conversation.
 
@@ -175,9 +191,13 @@ class ConversationContext(BaseModel):
         default_factory=HandoffState,
         description="Handoff detection state (GAP-1)",
     )
+    consent_state: ConsentState = Field(
+        default_factory=ConsentState,
+        description="Consent state for conversation data (Story 6-1)",
+    )
     consent_status: Optional[str] = Field(
         None,
-        description="Consent status: none, pending, granted, denied (GAP-4)",
+        description="Consent status: none, pending, granted, denied (GAP-4) - DEPRECATED: use consent_state",
     )
     pending_consent_product: Optional[dict[str, Any]] = Field(
         None,
