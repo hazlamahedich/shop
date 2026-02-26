@@ -284,3 +284,221 @@ class TestHandleForgetPreferences:
         result = await service.handle_forget_preferences("session_1", 1)
         assert result["status"] == ConsentStatus.PENDING
         assert "deleted" in result["message"].lower()
+
+
+class TestDeleteVoluntaryData:
+    """Tests for delete_voluntary_data method (Story 6-2)."""
+
+    @pytest.mark.asyncio
+    async def test_raises_when_db_is_none(self, mock_redis: redis.Redis) -> None:
+        """Test raises APIError when no database session."""
+        from app.core.errors import APIError
+
+        service = ConversationConsentService(redis_client=mock_redis, db=None)
+
+        with pytest.raises(APIError, match="Database connection required"):
+            await service.delete_voluntary_data("session_1", 1)
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_blocks_rapid_requests(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test rate limiting blocks rapid deletion requests."""
+        from app.core.errors import APIError
+
+        mock_redis.exists = AsyncMock(return_value=1)
+
+        with pytest.raises(APIError, match="Rate limit exceeded"):
+            await service.delete_voluntary_data("session_1", 1)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_deletion_blocked_by_lock(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test concurrent deletion blocked by Redis lock."""
+        from app.core.errors import APIError
+
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=False)
+
+        with pytest.raises(APIError, match="Deletion already in progress"):
+            await service.delete_voluntary_data("session_1", 1)
+
+    @pytest.mark.asyncio
+    async def test_deletes_conversations_and_messages(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test deletion of conversations and messages."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = [(1,), (2,)]
+        mock_msg_result = MagicMock()
+        mock_msg_result.rowcount = 5
+        mock_conv_delete_result = MagicMock()
+        mock_conv_delete_result.rowcount = 2
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_conv_result,
+                mock_msg_result,
+                mock_conv_delete_result,
+            ]
+        )
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.delete_voluntary_data("session_1", 1)
+
+        assert result["status"] == "success"
+        assert result["conversations_deleted"] == 2
+        assert result["messages_deleted"] == 5
+        assert "audit_log_id" in result
+
+    @pytest.mark.asyncio
+    async def test_clears_redis_cart_data(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test Redis cart and preferences data is cleared."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_conv_result)
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.delete_voluntary_data("session_1", 1)
+
+        assert result["status"] == "success"
+        assert mock_redis.delete.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_handles_redis_failure_gracefully(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test Redis failures are handled gracefully and logged."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(side_effect=Exception("Redis connection error"))
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_conv_result)
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.delete_voluntary_data("session_1", 1)
+
+        assert result["status"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_cross_platform_deletion_by_visitor_id(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test cross-platform deletion when visitor_id provided."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_sessions_result = MagicMock()
+        mock_sessions_result.all.return_value = [("session_1", "widget"), ("psid_2", "messenger")]
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = [(1,)]
+
+        mock_msg_result = MagicMock()
+        mock_msg_result.rowcount = 3
+
+        mock_conv_delete_result = MagicMock()
+        mock_conv_delete_result.rowcount = 1
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_sessions_result,
+                mock_conv_result,
+                mock_msg_result,
+                mock_conv_delete_result,
+                mock_conv_result,
+                mock_msg_result,
+                mock_conv_delete_result,
+            ]
+        )
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.delete_voluntary_data("session_1", 1, visitor_id="visitor_123")
+
+        assert result["status"] == "success"
+
+
+class TestHandleForgetPreferencesWithDeletion:
+    """Tests for handle_forget_preferences_with_deletion method (Story 6-2)."""
+
+    @pytest.mark.asyncio
+    async def test_calls_delete_voluntary_data(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test that actual deletion is performed."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = []
+        mock_consent_result = MagicMock()
+        mock_consent_result.scalars().first.return_value = None
+
+        mock_db.execute = AsyncMock(side_effect=[mock_conv_result, mock_consent_result])
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.handle_forget_preferences_with_deletion("session_1", 1)
+
+        assert result["status"] == ConsentStatus.PENDING
+        assert result["clear_visitor_id"] is True
+        assert "deletion_summary" in result
+
+    @pytest.mark.asyncio
+    async def test_returns_deletion_summary(
+        self, service: ConversationConsentService, mock_db: AsyncMock, mock_redis: redis.Redis
+    ) -> None:
+        """Test that deletion summary is returned."""
+        mock_redis.exists = AsyncMock(return_value=0)
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.delete = AsyncMock(return_value=1)
+        mock_redis.setex = AsyncMock()
+
+        mock_conv_result = MagicMock()
+        mock_conv_result.all.return_value = [(1,)]
+        mock_msg_result = MagicMock()
+        mock_msg_result.rowcount = 5
+        mock_conv_delete_result = MagicMock()
+        mock_conv_delete_result.rowcount = 1
+        mock_consent_result = MagicMock()
+        mock_consent_result.scalars().first.return_value = None
+
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                mock_conv_result,
+                mock_msg_result,
+                mock_conv_delete_result,
+                mock_consent_result,
+            ]
+        )
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        result = await service.handle_forget_preferences_with_deletion("session_1", 1)
+
+        assert result["deletion_summary"]["conversations_deleted"] == 1
+        assert result["deletion_summary"]["messages_deleted"] == 5

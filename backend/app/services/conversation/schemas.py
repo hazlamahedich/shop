@@ -27,6 +27,7 @@ class ConsentState(BaseModel):
 
     Story 6-1: Opt-In Consent Flow
     Task 3.1: Consent check integration
+    Story 6-2: Added visitor_id for cross-platform deletion
     """
 
     prompt_shown: bool = Field(default=False, description="Whether consent prompt has been shown")
@@ -35,6 +36,9 @@ class ConsentState(BaseModel):
     )
     status: str = Field(
         default="pending", description="Consent status: pending, opted_in, opted_out"
+    )
+    visitor_id: Optional[str] = Field(
+        None, description="Visitor identifier for cross-session tracking"
     )
 
 
