@@ -442,10 +442,13 @@ const Settings = () => {
                                 <p className="text-sm font-mono">products/update</p>
                                 <p className="text-sm font-mono">products/delete</p>
                                 <p className="text-sm font-mono">inventory_levels/update</p>
-                                <p className="text-sm font-mono text-amber-700">disputes/create</p>
+                                <p className="text-sm font-mono">inventory_items/update</p>
+                                <p className="text-sm font-mono">customers/create</p>
+                                <p className="text-sm font-mono">checkouts/create</p>
+                                <p className="text-sm font-mono">checkouts/update</p>
                               </div>
                               <p className="text-xs text-gray-500 mt-2">
-                                <strong>Note:</strong> <code className="bg-amber-100 px-1 rounded">disputes/create</code> is required for chargeback alerts (Story 4-13).
+                                <strong>Note:</strong> <code className="bg-amber-100 px-1 rounded">disputes/create</code> is optional - only for stores using Shopify Payments.
                               </p>
                             </div>
 

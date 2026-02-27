@@ -154,10 +154,28 @@ async def process_shopify_webhook(
             await handle_order_updated(payload, shop_domain, log)
         elif topic == "orders/fulfilled":
             await handle_order_fulfilled(payload, shop_domain, log)
+        elif topic == "orders/cancelled":
+            await handle_order_cancelled(payload, shop_domain, log)
         elif topic == "fulfillments/create" or topic == "fulfillments/update":
             await handle_fulfillment_event(payload, shop_domain, log, topic)
         elif topic == "refunds/create":
             await handle_refund_created(payload, shop_domain, log)
+        elif topic == "products/create":
+            await handle_product_created(payload, shop_domain, log)
+        elif topic == "products/update":
+            await handle_product_updated(payload, shop_domain, log)
+        elif topic == "products/delete":
+            await handle_product_deleted(payload, shop_domain, log)
+        elif topic == "inventory_levels/update":
+            await handle_inventory_level_updated(payload, shop_domain, log)
+        elif topic == "inventory_items/update":
+            await handle_inventory_item_updated(payload, shop_domain, log)
+        elif topic == "customers/create":
+            await handle_customer_created(payload, shop_domain, log)
+        elif topic == "checkouts/create":
+            await handle_checkout_created(payload, shop_domain, log)
+        elif topic == "checkouts/update":
+            await handle_checkout_updated(payload, shop_domain, log)
         else:
             log.warning("shopify_webhook_unknown_topic", topic=topic)
 
@@ -782,3 +800,610 @@ async def _fetch_cogs_async(
                 log.info("cogs_fetch_enqueued_dlq", order_id=order_id)
         except Exception as dlq_error:
             log.error("cogs_dlq_enqueue_failed", error=str(dlq_error))
+
+
+async def handle_order_cancelled(payload: dict, shop_domain: str, log) -> None:
+    """Handle orders/cancelled webhook.
+
+    Story 4-13: Track cancelled orders and notify merchant.
+
+    Args:
+        payload: Order payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+
+    order_id = payload.get("id")
+    cancel_reason = payload.get("cancel_reason")
+    cancelled_at = payload.get("cancelled_at")
+
+    log.info(
+        "shopify_order_cancelled",
+        order_id=order_id,
+        cancel_reason=cancel_reason,
+        cancelled_at=cancelled_at,
+    )
+
+    if not order_id:
+        log.warning("shopify_order_cancelled_no_order_id")
+        return
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_order_cancelled_no_merchant",
+                    shop_domain=shop_domain,
+                    order_id=order_id,
+                )
+                return
+
+            merchant_id = integration
+            shopify_order_id = f"gid://shopify/Order/{order_id}"
+
+            order_result = await db.execute(
+                select(Order).where(
+                    Order.merchant_id == merchant_id,
+                    Order.shopify_order_id == shopify_order_id,
+                )
+            )
+            order = order_result.scalars().first()
+
+            if order:
+                order.status = "cancelled"
+                order.cancel_reason = cancel_reason
+                order.cancelled_at = cancelled_at
+                await db.commit()
+
+                log.info(
+                    "shopify_order_cancelled_updated",
+                    order_id=order.id,
+                    order_number=order.order_number,
+                    cancel_reason=cancel_reason,
+                )
+
+                await _send_cancellation_notification(
+                    db=db,
+                    merchant_id=merchant_id,
+                    order=order,
+                    cancel_reason=cancel_reason,
+                    log=log,
+                )
+            else:
+                log.warning(
+                    "shopify_order_cancelled_not_found",
+                    shopify_order_id=shopify_order_id,
+                    merchant_id=merchant_id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_order_cancelled_failed",
+            order_id=order_id,
+            error=str(e),
+        )
+        raise
+
+
+async def _send_cancellation_notification(
+    db,
+    merchant_id: int,
+    order,
+    cancel_reason: str,
+    log,
+) -> None:
+    """Send cancellation notification to merchant via email and dashboard.
+
+    Args:
+        db: Database session
+        merchant_id: Merchant ID
+        order: Order model instance
+        cancel_reason: Reason for cancellation
+        log: Structlog logger
+    """
+    try:
+        from app.models.merchant import Merchant
+        from app.services.handoff.notification_service import HandoffNotificationService
+
+        merchant_result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = merchant_result.scalars().first()
+
+        if not merchant:
+            log.warning("cancellation_notification_merchant_not_found", merchant_id=merchant_id)
+            return
+
+        notification_service = HandoffNotificationService(db=db)
+        notification_content = {
+            "title": f"Order Cancelled: #{order.order_number}",
+            "message": f"Order #{order.order_number} has been cancelled. Reason: {cancel_reason or 'Not specified'}",
+            "order_number": order.order_number,
+            "cancel_reason": cancel_reason,
+            "customer_email": order.customer_email,
+            "total": str(order.total) if order.total else None,
+            "type": "order_cancelled",
+        }
+
+        await notification_service.send_notifications(
+            conversation=None,
+            merchant=merchant,
+            notification_content=notification_content,
+            urgency="medium",
+        )
+
+        log.info(
+            "cancellation_notification_sent",
+            order_id=order.id,
+            order_number=order.order_number,
+            merchant_id=merchant_id,
+        )
+
+    except Exception as e:
+        log.warning(
+            "cancellation_notification_failed",
+            order_id=order.id,
+            error=str(e),
+        )
+
+
+async def handle_product_created(payload: dict, shop_domain: str, log) -> None:
+    """Handle products/create webhook.
+
+    Story 4-13: Invalidate product cache for new product.
+
+    Args:
+        payload: Product payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify.product_service import invalidate_product_cache
+
+    product_id = payload.get("id")
+    product_title = payload.get("title")
+
+    log.info(
+        "shopify_product_created",
+        product_id=product_id,
+        product_title=product_title,
+    )
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if integration:
+                merchant_id = integration
+                await invalidate_product_cache(merchant_id=str(merchant_id))
+
+                log.info(
+                    "shopify_product_created_cache_invalidated",
+                    product_id=product_id,
+                    merchant_id=merchant_id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_product_created_failed",
+            product_id=product_id,
+            error=str(e),
+        )
+
+
+async def handle_product_updated(payload: dict, shop_domain: str, log) -> None:
+    """Handle products/update webhook.
+
+    Story 4-13: Invalidate product cache for updated product.
+
+    Args:
+        payload: Product payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify.product_service import invalidate_product_cache
+
+    product_id = payload.get("id")
+    product_title = payload.get("title")
+
+    log.info(
+        "shopify_product_updated",
+        product_id=product_id,
+        product_title=product_title,
+    )
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if integration:
+                merchant_id = integration
+                await invalidate_product_cache(merchant_id=str(merchant_id))
+
+                log.info(
+                    "shopify_product_updated_cache_invalidated",
+                    product_id=product_id,
+                    merchant_id=merchant_id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_product_updated_failed",
+            product_id=product_id,
+            error=str(e),
+        )
+
+
+async def handle_product_deleted(payload: dict, shop_domain: str, log) -> None:
+    """Handle products/delete webhook.
+
+    Story 4-13: Invalidate product cache for deleted product.
+
+    Args:
+        payload: Product payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify.product_service import invalidate_product_cache
+
+    product_id = payload.get("id")
+
+    log.info(
+        "shopify_product_deleted",
+        product_id=product_id,
+    )
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if integration:
+                merchant_id = integration
+                await invalidate_product_cache(merchant_id=str(merchant_id))
+
+                log.info(
+                    "shopify_product_deleted_cache_invalidated",
+                    product_id=product_id,
+                    merchant_id=merchant_id,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_product_deleted_failed",
+            product_id=product_id,
+            error=str(e),
+        )
+
+
+async def handle_inventory_level_updated(payload: dict, shop_domain: str, log) -> None:
+    """Handle inventory_levels/update webhook.
+
+    Story 4-13: Update stock levels, invalidate COGS cache, trigger low-stock alerts.
+
+    Args:
+        payload: Inventory level payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+
+    inventory_item_id = payload.get("inventory_item_id")
+    location_id = payload.get("location_id")
+    available = payload.get("available", 0)
+
+    log.info(
+        "shopify_inventory_level_updated",
+        inventory_item_id=inventory_item_id,
+        location_id=location_id,
+        available=available,
+    )
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_inventory_no_merchant",
+                    shop_domain=shop_domain,
+                )
+                return
+
+            merchant_id = integration
+
+            try:
+                from app.services.shopify.cogs_cache import COGSCache
+
+                cogs_cache = COGSCache()
+                variant_id = f"gid://shopify/ProductVariant/{inventory_item_id}"
+                await cogs_cache.delete(variant_id)
+
+                log.info(
+                    "shopify_inventory_cogs_cache_invalidated",
+                    inventory_item_id=inventory_item_id,
+                )
+            except Exception as cache_error:
+                log.warning(
+                    "shopify_inventory_cache_invalidation_failed",
+                    error=str(cache_error),
+                )
+
+            if available <= 5:
+                await _send_low_stock_alert(
+                    db=db,
+                    merchant_id=merchant_id,
+                    inventory_item_id=inventory_item_id,
+                    available=available,
+                    log=log,
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_inventory_level_update_failed",
+            inventory_item_id=inventory_item_id,
+            error=str(e),
+        )
+
+
+async def _send_low_stock_alert(
+    db,
+    merchant_id: int,
+    inventory_item_id: int,
+    available: int,
+    log,
+) -> None:
+    """Send low stock alert notification to merchant.
+
+    Args:
+        db: Database session
+        merchant_id: Merchant ID
+        inventory_item_id: Inventory item ID
+        available: Available quantity
+        log: Structlog logger
+    """
+    try:
+        from app.models.merchant import Merchant
+        from app.services.handoff.notification_service import HandoffNotificationService
+
+        merchant_result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = merchant_result.scalars().first()
+
+        if not merchant:
+            return
+
+        notification_service = HandoffNotificationService(db=db)
+        notification_content = {
+            "title": "Low Stock Alert",
+            "message": f"Inventory item {inventory_item_id} has only {available} units remaining.",
+            "inventory_item_id": inventory_item_id,
+            "available": available,
+            "type": "low_stock_alert",
+        }
+
+        await notification_service.send_notifications(
+            conversation=None,
+            merchant=merchant,
+            notification_content=notification_content,
+            urgency="medium",
+        )
+
+        log.info(
+            "low_stock_alert_sent",
+            inventory_item_id=inventory_item_id,
+            available=available,
+            merchant_id=merchant_id,
+        )
+
+    except Exception as e:
+        log.warning(
+            "low_stock_alert_failed",
+            inventory_item_id=inventory_item_id,
+            error=str(e),
+        )
+
+
+async def handle_inventory_item_updated(payload: dict, shop_domain: str, log) -> None:
+    """Handle inventory_items/update webhook.
+
+    Story 4-13: Invalidate COGS cache when inventory item cost/SKU changes.
+
+    Args:
+        payload: Inventory item payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    inventory_item_id = payload.get("id")
+    sku = payload.get("sku")
+    cost = payload.get("cost")
+
+    log.info(
+        "shopify_inventory_item_updated",
+        inventory_item_id=inventory_item_id,
+        sku=sku,
+        cost=cost,
+    )
+
+    try:
+        try:
+            from app.services.shopify.cogs_cache import COGSCache
+
+            cogs_cache = COGSCache()
+            variant_id = f"gid://shopify/ProductVariant/{inventory_item_id}"
+            await cogs_cache.delete(variant_id)
+
+            log.info(
+                "shopify_inventory_item_cogs_cache_invalidated",
+                inventory_item_id=inventory_item_id,
+            )
+        except Exception as cache_error:
+            log.warning(
+                "shopify_inventory_item_cache_invalidation_failed",
+                error=str(cache_error),
+            )
+
+    except Exception as e:
+        log.error(
+            "shopify_inventory_item_update_failed",
+            inventory_item_id=inventory_item_id,
+            error=str(e),
+        )
+
+
+async def handle_customer_created(payload: dict, shop_domain: str, log) -> None:
+    """Handle customers/create webhook.
+
+    Story 4-13: Create/update CustomerProfile for new customer.
+
+    Args:
+        payload: Customer payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from app.models.shopify_integration import ShopifyIntegration
+
+    customer_id = payload.get("id")
+    email = payload.get("email")
+    first_name = payload.get("first_name")
+    last_name = payload.get("last_name")
+    phone = payload.get("phone")
+
+    log.info(
+        "shopify_customer_created",
+        customer_id=customer_id,
+        email=email,
+    )
+
+    if not email:
+        log.warning("shopify_customer_created_no_email", customer_id=customer_id)
+        return
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_customer_created_no_merchant",
+                    shop_domain=shop_domain,
+                )
+                return
+
+            merchant_id = integration
+
+            try:
+                from app.services.customer_lookup_service import CustomerLookupService
+
+                customer_service = CustomerLookupService()
+                profile = await customer_service.upsert_customer_profile(
+                    db=db,
+                    merchant_id=merchant_id,
+                    email=email,
+                    phone=phone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    order_total=None,
+                )
+
+                log.info(
+                    "shopify_customer_profile_created",
+                    customer_id=customer_id,
+                    profile_id=profile.id,
+                    email=email,
+                )
+
+            except Exception as profile_error:
+                log.warning(
+                    "shopify_customer_profile_failed",
+                    customer_id=customer_id,
+                    error=str(profile_error),
+                )
+
+    except Exception as e:
+        log.error(
+            "shopify_customer_created_failed",
+            customer_id=customer_id,
+            error=str(e),
+        )
+
+
+async def handle_checkout_created(payload: dict, shop_domain: str, log) -> None:
+    """Handle checkouts/create webhook.
+
+    Future: Abandoned cart tracking.
+    Currently logs checkout events for analytics.
+
+    Args:
+        payload: Checkout payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    checkout_id = payload.get("id")
+    email = payload.get("email")
+    total_price = payload.get("total_price")
+    line_items = payload.get("line_items", [])
+
+    log.info(
+        "shopify_checkout_created",
+        checkout_id=checkout_id,
+        email=email,
+        total_price=total_price,
+        item_count=len(line_items),
+    )
+
+
+async def handle_checkout_updated(payload: dict, shop_domain: str, log) -> None:
+    """Handle checkouts/update webhook.
+
+    Future: Abandoned cart tracking.
+    Currently logs checkout events for analytics.
+
+    Args:
+        payload: Checkout payload
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    checkout_id = payload.get("id")
+    email = payload.get("email")
+    total_price = payload.get("total_price")
+    completed_at = payload.get("completed_at")
+
+    log.info(
+        "shopify_checkout_updated",
+        checkout_id=checkout_id,
+        email=email,
+        total_price=total_price,
+        completed_at=completed_at,
+    )
