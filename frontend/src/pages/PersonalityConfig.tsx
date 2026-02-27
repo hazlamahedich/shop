@@ -9,9 +9,9 @@
  * - Save and persist their configuration
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty, selectEffectiveGreeting } from '../stores/personalityStore';
+import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty } from '../stores/personalityStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { useBotConfigStore } from '../stores/botConfigStore';
 import { useBusinessInfoStore } from '../stores/businessInfoStore';
@@ -19,9 +19,10 @@ import { PersonalityCard } from '../components/personality/PersonalityCard';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import type { PersonalityType } from '../types/enums';
 import { PersonalityDisplay, PersonalityDefaultGreetings } from '../types/enums';
+import { hasToneMismatch, getToneMismatchMessage, isToneMatch } from '../utils/toneDetection';
+import { merchantConfigApi } from '../services/merchantConfig';
 
 const PersonalityConfig: React.FC = () => {
-  // Store state
   const personality = usePersonalityStore(selectPersonality);
   const customGreeting = usePersonalityStore(selectCustomGreeting);
   const loading = usePersonalityStore(selectPersonalityLoading);
@@ -32,11 +33,15 @@ const PersonalityConfig: React.FC = () => {
   const businessName = useBusinessInfoStore((state) => state.businessName);
   const businessHours = useBusinessInfoStore((state) => state.businessHours);
 
-  // Local state for UI
   const [selectedPersonality, setSelectedPersonality] = useState<PersonalityType | null>(null);
   const [greetingValue, setGreetingValue] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showToneWarning, setShowToneWarning] = useState(false);
+  const [dismissedWarning, setDismissedWarning] = useState(false);
+  const [transformLoading, setTransformLoading] = useState(false);
+  const [transformedGreeting, setTransformedGreeting] = useState<string | null>(null);
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
 
   const fetchPersonalityConfig = usePersonalityStore((state) => state.fetchPersonalityConfig);
   const updatePersonalityConfig = usePersonalityStore((state) => state.updatePersonalityConfig);
@@ -45,7 +50,9 @@ const PersonalityConfig: React.FC = () => {
   const resetToDefault = usePersonalityStore((state) => state.resetToDefault);
   const clearError = usePersonalityStore((state) => state.clearError);
 
-  // Initialize: fetch configuration on mount
+  const prevGreetingRef = useRef<string>('');
+  const prevPersonalityRef = useRef<PersonalityType | null>(null);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -58,7 +65,6 @@ const PersonalityConfig: React.FC = () => {
     init();
   }, [fetchPersonalityConfig]);
 
-  // Sync local state with store state
   useEffect(() => {
     if (personality) {
       setSelectedPersonality(personality);
@@ -69,33 +75,136 @@ const PersonalityConfig: React.FC = () => {
     setGreetingValue(customGreeting || '');
   }, [customGreeting]);
 
-  // Handle personality selection
+  useEffect(() => {
+    if (!selectedPersonality || !greetingValue || greetingValue.trim().length === 0) {
+      setTransformedGreeting(null);
+      return;
+    }
+
+    if (isToneMatch(greetingValue, selectedPersonality)) {
+      setTransformedGreeting(null);
+      return;
+    }
+
+    if (
+      prevGreetingRef.current === greetingValue &&
+      prevPersonalityRef.current === selectedPersonality
+    ) {
+      return;
+    }
+
+    prevGreetingRef.current = greetingValue;
+    prevPersonalityRef.current = selectedPersonality;
+
+    let cancelled = false;
+
+    const transformExistingGreeting = async () => {
+      setTransformLoading(true);
+      setTransformedGreeting(null);
+      setSuggestionApplied(false);
+
+      try {
+        const response = await merchantConfigApi.transformGreeting({
+          custom_greeting: greetingValue,
+          target_personality: selectedPersonality,
+          bot_name: botName,
+          business_name: businessName,
+        });
+
+        if (!cancelled) {
+          if (response.transformed_greeting && response.transformed_greeting !== greetingValue) {
+            setTransformedGreeting(response.transformed_greeting);
+          } else {
+            setTransformedGreeting(null);
+          }
+        }
+      } catch (error) {
+        console.error('[GreetingTransform] Failed:', error);
+        if (!cancelled) {
+          setTransformedGreeting(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setTransformLoading(false);
+        }
+      }
+    };
+
+    transformExistingGreeting();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPersonality, greetingValue, botName, businessName]);
+
   const handlePersonalitySelect = (newPersonality: PersonalityType) => {
     setSelectedPersonality(newPersonality);
     setPersonality(newPersonality);
     setSaveStatus('idle');
     setLocalError(null);
     clearError();
+    setSuggestionApplied(false);
   };
 
-  // Handle greeting change
   const handleGreetingChange = (value: string) => {
     setGreetingValue(value);
     setCustomGreeting(value);
     setSaveStatus('idle');
     setLocalError(null);
     clearError();
+    setDismissedWarning(false);
+    setShowToneWarning(false);
+    setSuggestionApplied(false);
   };
 
-  // Handle reset to default
   const handleResetGreeting = () => {
     setGreetingValue('');
     resetToDefault();
     setSaveStatus('idle');
+    setShowToneWarning(false);
+    setDismissedWarning(false);
+    setTransformedGreeting(null);
+    setSuggestionApplied(false);
   };
 
-  // Handle save
-  const handleSave = async () => {
+  const getSuggestedGreeting = useCallback((): string => {
+    if (!selectedPersonality) return '';
+
+    if (transformedGreeting) {
+      return transformedGreeting;
+    }
+
+    const template = PersonalityDefaultGreetings[selectedPersonality];
+
+    return template
+      .replace(/{bot_name}/g, botName || 'your shopping assistant')
+      .replace(/{business_name}/g, businessName || 'our store')
+      .replace(/{business_hours}/g, businessHours || '');
+  }, [selectedPersonality, botName, businessName, businessHours, transformedGreeting]);
+
+  const handleApplySuggestion = () => {
+    const suggested = getSuggestedGreeting();
+    setGreetingValue(suggested);
+    setCustomGreeting(suggested);
+    setShowToneWarning(false);
+    setDismissedWarning(false);
+    setSaveStatus('idle');
+    setTransformedGreeting(null);
+    prevGreetingRef.current = suggested;
+    setSuggestionApplied(true);
+  };
+
+  const handleDismissWarning = () => {
+    setShowToneWarning(false);
+    setDismissedWarning(true);
+  };
+
+  const handleSaveAnyway = () => {
+    setShowToneWarning(false);
+    performSave();
+  };
+
+  const performSave = async () => {
     if (!selectedPersonality) {
       setLocalError('Please select a personality');
       return;
@@ -112,8 +221,9 @@ const PersonalityConfig: React.FC = () => {
       });
       markBotConfigComplete('personality');
       setSaveStatus('success');
+      setShowToneWarning(false);
+      setDismissedWarning(false);
 
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSaveStatus('idle');
       }, 3000);
@@ -124,17 +234,27 @@ const PersonalityConfig: React.FC = () => {
     }
   };
 
-  // Get default greeting for current personality
+  const handleSave = async () => {
+    if (!selectedPersonality) {
+      setLocalError('Please select a personality');
+      return;
+    }
+
+    if (!dismissedWarning && hasToneMismatch(greetingValue, selectedPersonality)) {
+      setShowToneWarning(true);
+      return;
+    }
+
+    await performSave();
+  };
+
   const getDefaultGreeting = (): string => {
     if (!selectedPersonality) return '';
     return PersonalityDefaultGreetings[selectedPersonality];
   };
 
-  const effectiveGreeting = greetingValue || getDefaultGreeting();
-
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold text-gray-900">Bot Personality</h1>
         <p className="text-gray-600">
@@ -142,12 +262,8 @@ const PersonalityConfig: React.FC = () => {
         </p>
       </div>
 
-      {/* Error alert */}
       {(error || localError) && (
-        <div
-          className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
-          role="alert"
-        >
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3" role="alert">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-medium text-red-800">Error</h3>
@@ -156,13 +272,8 @@ const PersonalityConfig: React.FC = () => {
         </div>
       )}
 
-      {/* Success alert */}
       {saveStatus === 'success' && (
-        <div
-          className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3"
-          role="status"
-          aria-live="polite"
-        >
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3" role="status" aria-live="polite">
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-medium text-green-800">Success</h3>
@@ -173,7 +284,6 @@ const PersonalityConfig: React.FC = () => {
         </div>
       )}
 
-      {/* Personality Selection */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold text-gray-900">Select a Personality</h2>
         <p className="text-sm text-gray-600">
@@ -192,7 +302,6 @@ const PersonalityConfig: React.FC = () => {
         </div>
       </section>
 
-      {/* Custom Greeting */}
       {selectedPersonality && (
         <section className="space-y-4 pt-6 border-t border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Customize Greeting</h2>
@@ -216,11 +325,17 @@ const PersonalityConfig: React.FC = () => {
             }}
             onReset={handleResetGreeting}
             disabled={loading}
+            showSuggestion={!suggestionApplied && !!transformedGreeting}
+            suggestedGreeting={getSuggestedGreeting()}
+            suggestionLoading={transformLoading}
+            onApplySuggestion={handleApplySuggestion}
+            toneMismatchWarning={showToneWarning ? getToneMismatchMessage(greetingValue) : null}
+            onDismissWarning={handleDismissWarning}
+            onSaveAnyway={handleSaveAnyway}
           />
         </section>
       )}
 
-      {/* Save button */}
       <div className="flex items-center justify-between pt-6 border-t border-gray-200">
         <p className="text-sm text-gray-500">
           {isDirty ? (

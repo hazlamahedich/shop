@@ -857,6 +857,289 @@ async def get_alert_status(
     )
 
 
+class GreetingTransformRequest(BaseModel):
+    """Request schema for transforming greeting to target personality."""
+
+    custom_greeting: str = Field(
+        ...,
+        min_length=10,
+        max_length=1000,
+        description="The custom greeting to transform",
+    )
+    target_personality: PersonalityType = Field(
+        ...,
+        description="The target personality tone to apply",
+    )
+    bot_name: Optional[str] = Field(
+        None,
+        description="Bot name for context (optional)",
+    )
+    business_name: Optional[str] = Field(
+        None,
+        description="Business name for context (optional)",
+    )
+
+
+class GreetingTransformResponse(BaseModel):
+    """Response schema for transformed greeting."""
+
+    transformed_greeting: str = Field(
+        description="The greeting rewritten in the target personality tone",
+    )
+    personality: PersonalityType = Field(
+        description="The personality tone applied",
+    )
+    original_greeting: str = Field(
+        description="The original greeting provided",
+    )
+
+
+PERSONALITY_TONE_GUIDES = {
+    PersonalityType.FRIENDLY: """Write in a casual, warm, conversational tone.
+- Use friendly, approachable language
+- Use emojis sparingly but naturally (1-2 max)
+- Keep it welcoming and personable
+- Example: "Hey there! 👋 I'm {bot_name} from {business_name}. How can I help you today?" """,
+    PersonalityType.PROFESSIONAL: """Write in a direct, helpful, respectful business tone.
+- NO emojis at all
+- Use formal, professional language
+- Be concise and clear
+- Example: "Good day. I am {bot_name} from {business_name}. How may I assist you today?" """,
+    PersonalityType.ENTHUSIASTIC: """Write in a high-energy, exciting, positive tone!
+- Use expressive emojis naturally (2-3 max)
+- Use exclamation marks sparingly but effectively
+- Show genuine excitement and energy
+- Example: "Hello! 🎉 I'm {bot_name} from {business_name}. How can I help you find exactly what you need!!! ✨"
+""",
+}
+
+
+@router.post(
+    "/greeting/transform",
+    response_model=MinimalEnvelope,
+)
+async def transform_greeting(
+    request: Request,
+    transform_request: GreetingTransformRequest,
+    db: AsyncSession = Depends(get_db),
+) -> MinimalEnvelope:
+    """Transform a custom greeting to match a target personality tone.
+
+    Uses LLM to rewrite the greeting while preserving all business details
+    (business name, products, location, taglines, etc.) but changing the
+    tone to match the target personality.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        transform_request: The greeting and target personality
+        db: Database session
+
+    Returns:
+        MinimalEnvelope with transformed greeting
+
+    Raises:
+        APIError: If transformation fails
+    """
+    from app.services.llm.llm_factory import LLMProviderFactory
+    from app.services.llm.base_llm_service import LLMMessage
+
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant with ID {merchant_id} not found",
+        )
+
+    bot_name = transform_request.bot_name or merchant.bot_name or "Shopping Assistant"
+    business_name = transform_request.business_name or merchant.business_name or "our store"
+    target_personality = transform_request.target_personality
+    original_greeting = transform_request.custom_greeting
+
+    tone_guide = PERSONALITY_TONE_GUIDES[target_personality]
+
+    system_prompt = f"""You are a greeting message editor. Your task is to rewrite greeting messages to match a specific personality tone while preserving ALL business details.
+
+CRITICAL RULES:
+1. PRESERVE all business-specific information exactly as written:
+   - Business name, products, services
+   - Location, taglines, unique selling points
+   - Numbers, prices, specific details
+   - Any special offers or promotions
+
+2. ONLY change the TONE and STYLE to match the target personality:
+{tone_guide}
+
+3. Keep the greeting concise (1-3 sentences max)
+
+4. Do NOT add new information that wasn't in the original
+
+5. Do NOT remove any business details from the original"""
+
+    user_prompt = f"""Original greeting:
+"{original_greeting}"
+
+Target personality: {target_personality.value}
+
+Context:
+- Bot name: {bot_name}
+- Business name: {business_name}
+
+Rewrite this greeting in the {target_personality.value} personality tone, preserving all business details. Return ONLY the rewritten greeting, nothing else."""
+
+    try:
+        # Try LLM transformation first
+        llm_config = {}
+        provider_name = "ollama"
+
+        if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+            llm_config_obj = merchant.llm_configuration
+            provider_name = llm_config_obj.provider or "ollama"
+            llm_config = {
+                "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+            }
+            if provider_name == "ollama":
+                llm_config["ollama_url"] = llm_config_obj.ollama_url
+            elif llm_config_obj.api_key_encrypted:
+                from app.core.security import decrypt_access_token
+
+                llm_config["api_key"] = decrypt_access_token(llm_config_obj.api_key_encrypted)
+
+        llm_service = LLMProviderFactory.create_provider(
+            provider_name=provider_name,
+            config=llm_config,
+        )
+
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt),
+        ]
+
+        llm_response = await llm_service.chat(
+            messages=messages,
+            temperature=0.3,
+            max_tokens=200,
+        )
+
+        transformed_greeting = llm_response.content.strip()
+
+        if transformed_greeting.startswith('"') and transformed_greeting.endswith('"'):
+            transformed_greeting = transformed_greeting[1:-1]
+
+        logger.info(
+            "greeting_transformed_via_llm",
+            merchant_id=merchant_id,
+            target_personality=target_personality.value,
+            original_length=len(original_greeting),
+            transformed_length=len(transformed_greeting),
+        )
+
+    except Exception as e:
+        # Fallback: Use rule-based transformation without LLM
+        logger.warning(
+            "greeting_transform_llm_failed_using_rule_based_fallback",
+            merchant_id=merchant_id,
+            error=str(e),
+        )
+
+        # Rule-based transformation: adjust tone based on personality
+        import re
+
+        transformed_greeting = original_greeting
+
+        if target_personality == PersonalityType.PROFESSIONAL:
+            # Remove emojis for Professional
+            emoji_pattern = re.compile(
+                "["
+                "\U0001f600-\U0001f64f"
+                "\U0001f300-\U0001f5ff"
+                "\U0001f680-\U0001f6ff"
+                "\U0001f1e0-\U0001f1ff"
+                "\U00002702-\U000027b0"
+                "\U000024c2-\U0001f251"
+                "\U0001f926-\U0001f937"
+                "\U00010000-\U0010ffff"
+                "\u2640-\u2642"
+                "\u2600-\u2b55"
+                "\u200d"
+                "\u23cf"
+                "\u23e9"
+                "\u231a"
+                "\ufe0f"
+                "\u3030"
+                "]+",
+                flags=re.UNICODE,
+            )
+            transformed_greeting = emoji_pattern.sub("", transformed_greeting)
+
+            # Replace multiple exclamation marks with period
+            transformed_greeting = re.sub(r"!{2,}", ".", transformed_greeting)
+            transformed_greeting = re.sub(r"!$", ".", transformed_greeting)
+
+            # Replace casual words with professional alternatives
+            casual_to_professional = {
+                "Hi!": "Good day.",
+                "Hi ": "Hello ",
+                "Hey!": "Good day.",
+                "Hey ": "Hello ",
+                "your smart and friendly": "your professional",
+                "smart and friendly": "professional",
+                "friendly": "professional",
+                "number 1": "premier",
+                "How can I help you?": "How may I assist you?",
+                "How can I help you": "How may I assist you",
+                "How can I help?": "How may I assist?",
+                "can't wait": "look forward",
+                "awesome": "excellent",
+                "amazing": "excellent",
+            }
+
+            for casual, professional in casual_to_professional.items():
+                transformed_greeting = transformed_greeting.replace(casual, professional)
+
+            # Clean up any double spaces
+            transformed_greeting = re.sub(r"\s+", " ", transformed_greeting).strip()
+
+        elif target_personality == PersonalityType.ENTHUSIASTIC:
+            # Add enthusiasm for Enthusiastic personality
+            if not re.search(r"[!]{2,}", transformed_greeting):
+                transformed_greeting = transformed_greeting.replace("!", "!")
+
+            # Add emoji at the end if not present
+            if not re.search(r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF]", transformed_greeting):
+                transformed_greeting = transformed_greeting.rstrip(".!") + "! 🎉"
+
+            # Replace some words with enthusiastic alternatives
+            professional_to_enthusiastic = {
+                "professional": "amazing",
+                "your professional": "your awesome",
+                "premier": "number 1",
+                "How may I assist you?": "How can I help you today?!",
+                "How may I assist you": "How can I help you",
+            }
+
+            for professional, enthusiastic in professional_to_enthusiastic.items():
+                transformed_greeting = transformed_greeting.replace(professional, enthusiastic)
+
+        # For FRIENDLY, keep as-is since it's already friendly
+        # Just ensure there's one emoji if none present
+        elif target_personality == PersonalityType.FRIENDLY:
+            if not re.search(r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF]", transformed_greeting):
+                transformed_greeting = transformed_greeting.rstrip(".!") + "! 👋"
+
+    return MinimalEnvelope(
+        data=GreetingTransformResponse(
+            transformed_greeting=transformed_greeting,
+            personality=target_personality,
+            original_greeting=original_greeting,
+        ),
+        meta=_create_meta(),
+    )
+
+
 def _get_merchant_id(request: Request) -> int:
     """Get merchant ID from request state with fallback for testing.
 

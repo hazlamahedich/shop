@@ -66,6 +66,25 @@ export class PersonalityConfigError extends Error {
 }
 
 /**
+ * Request body for transforming greeting
+ */
+export interface GreetingTransformRequest {
+  custom_greeting: string;
+  target_personality: PersonalityType;
+  bot_name?: string | null;
+  business_name?: string | null;
+}
+
+/**
+ * Response from greeting transform endpoint
+ */
+export interface GreetingTransformResponse {
+  transformed_greeting: string;
+  personality: PersonalityType;
+  original_greeting: string;
+}
+
+/**
  * Personality Configuration API Client
  *
  * Handles all personality configuration operations with automatic error handling
@@ -129,6 +148,33 @@ export const merchantConfigApi = {
         errorCode,
         (error as any)?.status
       );
+    }
+  },
+
+  /**
+   * Transform a custom greeting to match a target personality tone
+   *
+   * Uses LLM to rewrite the greeting while preserving all business details
+   * (business name, products, location, taglines, etc.) but changing the
+   * tone to match the target personality.
+   *
+   * @param request - Transform request with greeting and target personality
+   * @returns Transformed greeting with personality tone applied
+   * @throws PersonalityConfigError if request fails
+   */
+  async transformGreeting(
+    request: GreetingTransformRequest
+  ): Promise<GreetingTransformResponse> {
+    try {
+      const response = await apiClient.post<GreetingTransformResponse>(
+        '/api/merchant/greeting/transform',
+        request
+      );
+      return response.data;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to transform greeting';
+      throw new PersonalityConfigError(errorMessage, undefined, (error as any)?.status);
     }
   },
 };

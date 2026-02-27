@@ -10,12 +10,14 @@
  * - Live preview of how greeting will appear to customers
  * - "Reset to Default" button
  * - Help text for placeholder variables
+ * - Suggestion panel with personality-appropriate greeting
+ * - Tone mismatch warning for Professional personality
  *
  * WCAG 2.1 AA accessible.
  */
 
 import React from 'react';
-import { MessageSquare, Info, RotateCcw } from 'lucide-react';
+import { MessageSquare, Info, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
 /**
  * Greeting configuration state interface
@@ -35,10 +37,14 @@ interface GreetingConfigProps {
   botName?: string | null;
   businessName?: string | null;
   businessHours?: string | null;
+  showSuggestion?: boolean;
+  suggestedGreeting?: string;
+  suggestionLoading?: boolean;
+  onApplySuggestion?: () => void;
+  toneMismatchWarning?: string | null;
+  onDismissWarning?: () => void;
+  onSaveAnyway?: () => void;
 }
-
-// Add data-testid attribute for container div
-const GREETING_CONTAINER_ID = 'greeting-config-section-container';
 
 /**
  * Variable badges for available placeholders
@@ -93,6 +99,13 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
   botName,
   businessName,
   businessHours,
+  showSuggestion = false,
+  suggestedGreeting,
+  suggestionLoading = false,
+  onApplySuggestion,
+  toneMismatchWarning,
+  onDismissWarning,
+  onSaveAnyway,
 }) => {
   // Local state for custom greeting input
   const [customText, setCustomText] = React.useState(greetingTemplate || '');
@@ -281,6 +294,77 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Suggestion Panel - NOW BELOW CUSTOM GREETING */}
+        {showSuggestion && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-800 mb-1">
+                  💡 Suggested greeting for {personalityName} personality:
+                </p>
+                {suggestionLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-blue-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Transforming your greeting...</span>
+                  </div>
+                ) : suggestedGreeting ? (
+                  <p className="text-sm text-blue-700 italic">
+                    &quot;{suggestedGreeting}&quot;
+                  </p>
+                ) : (
+                  <p className="text-sm text-blue-600 italic">
+                    Enter a custom greeting above to see a personality-matched suggestion.
+                  </p>
+                )}
+              </div>
+              {onApplySuggestion && suggestedGreeting && !suggestionLoading && (
+                <button
+                  type="button"
+                  onClick={onApplySuggestion}
+                  disabled={disabled}
+                  className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-md hover:bg-blue-50 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Apply
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tone Mismatch Warning */}
+        {toneMismatchWarning && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-amber-800">{toneMismatchWarning}</p>
+                <div className="flex gap-2 mt-3">
+                  {onSaveAnyway && (
+                    <button
+                      type="button"
+                      onClick={onSaveAnyway}
+                      disabled={disabled}
+                      className="px-3 py-1.5 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-md hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Save Anyway
+                    </button>
+                  )}
+                  {onDismissWarning && (
+                    <button
+                      type="button"
+                      onClick={onDismissWarning}
+                      disabled={disabled}
+                      className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Live Preview */}

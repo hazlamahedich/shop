@@ -22,6 +22,7 @@ from app.services.conversation.schemas import (
 from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.personality_prompts import get_personality_system_prompt
+from app.services.personality.greeting_service import substitute_greeting_variables
 
 
 logger = structlog.get_logger(__name__)
@@ -68,7 +69,14 @@ class GreetingHandler(BaseHandler):
         pinned_products = await self._get_greeting_pinned_products(db, merchant)
 
         if merchant.use_custom_greeting and merchant.custom_greeting:
-            greeting_text = merchant.custom_greeting
+            greeting_text = substitute_greeting_variables(
+                merchant.custom_greeting,
+                {
+                    "bot_name": bot_name,
+                    "business_name": business_name,
+                    "business_hours": merchant.business_hours,
+                },
+            )
             if is_returning:
                 greeting_text = f"Welcome back! {greeting_text}"
         else:

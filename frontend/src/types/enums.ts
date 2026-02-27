@@ -69,9 +69,9 @@ export const PersonalityDescriptions: Record<PersonalityType, string> = {
 };
 
 export const PersonalityDefaultGreetings: Record<PersonalityType, string> = {
-  friendly: "Hey! 👋 How can I help you today?",
-  professional: "Hello. How may I assist you?",
-  enthusiastic: "Hi there! Welcome! What can I help you find today?",
+  friendly: "Hey there! 👋 I'm {bot_name} from {business_name}. How can I help you today?",
+  professional: "Good day. I am {bot_name} from {business_name}. How may I assist you today?",
+  enthusiastic: "Hello! 🎉 I'm {bot_name} from {business_name}. How can I help you find exactly what you need!!! ✨ What can I help you with today?",
 };
 
 export const PersonalitySystemPrompts: Record<PersonalityType, string> = {
