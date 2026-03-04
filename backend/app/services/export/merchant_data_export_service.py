@@ -484,12 +484,16 @@ class MerchantDataExportService:
 
         consent_map = {}
         for consent in consents:
-            # Use visitor_id as primary key if available (Story 6-1 pattern)
-            key = consent.visitor_id or consent.session_id
             if consent.granted:
-                consent_map[key] = ConsentStatus.OPTED_IN
+                status = ConsentStatus.OPTED_IN
             else:
-                consent_map[key] = ConsentStatus.OPTED_OUT
+                status = ConsentStatus.OPTED_OUT
+
+            # Key by BOTH visitor_id AND session_id so lookups work from either
+            if consent.visitor_id:
+                consent_map[consent.visitor_id] = status
+            if consent.session_id:
+                consent_map[consent.session_id] = status
 
         return consent_map
 
