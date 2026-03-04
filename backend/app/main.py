@@ -36,6 +36,7 @@ from app.api.tutorial import router as tutorial_router
 from app.api.conversations import router as conversation_router
 from app.api.csrf import router as csrf_router
 from app.api.export import router as export_router
+from app.api.data_export import router as data_export_router
 from app.api.preview import router as preview_router
 from app.api.auth import router as auth_router
 from app.api.cost_tracking import router as cost_tracking_router
@@ -136,6 +137,12 @@ def get_error_status_code(error_code: ErrorCode) -> int:
         if error_code in (ErrorCode.WIDGET_MERCHANT_DISABLED, ErrorCode.WIDGET_DOMAIN_NOT_ALLOWED):
             return status.HTTP_403_FORBIDDEN
         if error_code == ErrorCode.WIDGET_RATE_LIMITED:
+            return status.HTTP_429_TOO_MANY_REQUESTS
+        return status.HTTP_400_BAD_REQUEST
+
+    # 11xxx: Data Export errors -> 400, 429
+    if 11000 <= error_code < 12000:
+        if error_code in (ErrorCode.EXPORT_RATE_LIMITED, ErrorCode.EXPORT_ALREADY_IN_PROGRESS):
             return status.HTTP_429_TOO_MANY_REQUESTS
         return status.HTTP_400_BAD_REQUEST
 
@@ -344,7 +351,15 @@ async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     status_code = get_error_status_code(exc.code)
     headers = {}
 
-    if exc.code == ErrorCode.WIDGET_RATE_LIMITED and "retry_after" in exc.details:
+    if (
+        exc.code
+        in (
+            ErrorCode.WIDGET_RATE_LIMITED,
+            ErrorCode.EXPORT_RATE_LIMITED,
+            ErrorCode.EXPORT_ALREADY_IN_PROGRESS,
+        )
+        and "retry_after" in exc.details
+    ):
         headers["Retry-After"] = str(exc.details["retry_after"])
 
     return JSONResponse(
@@ -435,6 +450,8 @@ app.include_router(widget_ws_router, tags=["widget-websocket"])
 app.include_router(widget_settings_router, prefix="/api/v1/merchants", tags=["widget-settings"])
 # Story 4-13: Geographic Analytics API
 app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
+app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
+app.include_router(data_export_router, prefix="/api/v1", tags=["data-export"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

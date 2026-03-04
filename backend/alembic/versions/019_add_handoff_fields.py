@@ -19,7 +19,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision: str = "019_add_handoff_fields"
-down_revision: Union[str, None] = "d8b872fa2427"
+down_revision: Union[str, None] = "018_create_budget_alerts_table"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, ShoppingBag, ChevronDown, ChevronUp, ExternalLink, MessageSquare, Webhook } from 'lucide-react';
+import { Facebook, ShoppingBag, ChevronDown, ChevronUp, ExternalLink, MessageSquare, Webhook, Download } from 'lucide-react';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
+import { ExportButton } from '../components/ExportButton';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('integrations');
@@ -641,8 +642,30 @@ const Settings = () => {
 
       {/* Placeholder for other tabs */}
       {activeTab === 'general' && (
-        <div className="bg-white p-8 rounded-xl border border-gray-200 text-center">
-          <p className="text-gray-500">General settings coming soon.</p>
+        <div className="space-y-6 max-w-4xl">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-start space-x-4">
+              <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
+                <Download size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-gray-900">Data Export</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Download a copy of all your data for GDPR/CCPA compliance. This includes conversations, messages, LLM costs, and configuration settings.
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Data from visitors who opted out of voluntary data collection will be excluded from the export.
+                </p>
+                <div className="mt-4">
+                  {merchant?.id ? (
+                    <ExportButton merchantId={merchant.id} />
+                  ) : (
+                    <p className="text-sm text-gray-500">Please log in to export your data.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

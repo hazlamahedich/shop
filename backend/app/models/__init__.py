@@ -25,6 +25,7 @@ from app.models.consent import Consent, ConsentType
 from app.models.customer_profile import CustomerProfile
 from app.models.dispute import Dispute
 from app.models.deletion_audit_log import DeletionAuditLog
+from app.models.data_export_audit_log import DataExportAuditLog
 
 __all__ = [
     "Merchant",
@@ -52,4 +53,5 @@ __all__ = [
     "CustomerProfile",
     "Dispute",
     "DeletionAuditLog",
+    "DataExportAuditLog",
 ]
