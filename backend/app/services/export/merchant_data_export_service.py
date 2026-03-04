@@ -15,7 +15,7 @@ import io
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
@@ -73,10 +73,13 @@ class MerchantDataExportService:
 
             # Generate sections (consent map loaded once for efficiency)
             consent_map = await self._batch_load_consent_statuses(merchant_id)
+            message_count_map = await self._batch_load_message_counts(merchant_id)
 
             opted_out_count = 0
             # Stream conversations section
-            async for chunk in self._generate_conversations_section(merchant_id, consent_map):
+            async for chunk in self._generate_conversations_section(
+                merchant_id, consent_map, message_count_map
+            ):
                 yield chunk
                 if (
                     chunk.strip()
@@ -138,6 +141,7 @@ class MerchantDataExportService:
         self,
         merchant_id: int,
         consent_map: dict[str, ConsentStatus],
+        message_count_map: dict[int, int],
     ) -> AsyncGenerator[str, None]:
         """Generate conversations section with consent-based filtering."""
         yield "## SECTION: CONVERSATIONS\n"
@@ -187,7 +191,7 @@ class MerchantDataExportService:
                         status_str,
                         conv.created_at.isoformat() if conv.created_at else "",
                         ended_at,
-                        "0",  # Message count not available without eager loading
+                        str(message_count_map.get(conv.id, 0)),
                     ]
                 )
 
@@ -238,7 +242,7 @@ class MerchantDataExportService:
                 )
 
                 if consent_status in [ConsentStatus.OPTED_OUT, ConsentStatus.PENDING]:
-                    content = ""
+                    content = "[Content redacted - no consent]"
                 else:
                     try:
                         content = msg.decrypted_content
@@ -496,6 +500,30 @@ class MerchantDataExportService:
                 consent_map[consent.session_id] = status
 
         return consent_map
+
+    async def _batch_load_message_counts(self, merchant_id: int) -> dict[int, int]:
+        """Batch load message counts to avoid N+1 queries.
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Dict mapping conversation_id to message count
+        """
+        result = await self.db.execute(
+            select(
+                Message.conversation_id,
+                func.count(Message.id).label("count"),
+            )
+            .select_from(Message)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .where(Conversation.merchant_id == merchant_id)
+            .group_by(Message.conversation_id)
+        )
+        message_counts: dict[int, int] = {}
+        for row in result.all():
+            message_counts[int(row[0])] = int(row[1])  # type: ignore
+        return message_counts
 
     def _get_consent_from_map(
         self,
