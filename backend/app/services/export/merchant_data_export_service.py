@@ -26,6 +26,7 @@ from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.merchant import Merchant
 from app.models.data_export_audit_log import DataExportAuditLog
 from app.models.consent import Consent, ConsentType
+from app.models.handoff_alert import HandoffAlert
 from app.schemas.consent import ConsentStatus
 
 
@@ -64,16 +65,18 @@ class MerchantDataExportService:
             total_conversations = await self._count_conversations(merchant_id)
             total_messages = await self._count_messages(merchant_id)
             total_cost = await self._calculate_total_cost(merchant_id)
+            total_handoffs = await self._count_handoffs(merchant_id)
 
             # Stream metadata section
             for chunk in self._generate_metadata_section(
-                merchant_id, total_conversations, total_messages, total_cost
+                merchant_id, total_conversations, total_messages, total_cost, total_handoffs
             ):
                 yield chunk
 
             # Generate sections (consent map loaded once for efficiency)
             consent_map = await self._batch_load_consent_statuses(merchant_id)
             message_count_map = await self._batch_load_message_counts(merchant_id)
+            handoff_alerts_map = await self._batch_load_handoff_alerts(merchant_id)
 
             opted_out_count = 0
             # Stream conversations section
@@ -93,6 +96,12 @@ class MerchantDataExportService:
 
             # Stream messages section
             async for chunk in self._generate_messages_section(merchant_id, consent_map):
+                yield chunk
+
+            # Stream handoffs section
+            async for chunk in self._generate_handoffs_section(
+                merchant_id, consent_map, handoff_alerts_map
+            ):
                 yield chunk
 
             # Stream costs section
@@ -127,6 +136,7 @@ class MerchantDataExportService:
         total_conversations: int,
         total_messages: int,
         total_cost: float,
+        total_handoffs: int,
     ):
         """Generate CSV metadata header."""
         yield "# Merchant Data Export\n"
@@ -135,6 +145,7 @@ class MerchantDataExportService:
         yield f"# Total Conversations: {total_conversations}\n"
         yield f"# Total Messages: {total_messages}\n"
         yield f"# Total LLM Cost: ${total_cost:.2f}\n"
+        yield f"# Total Handoffs: {total_handoffs}\n"
         yield "\n"
 
     async def _generate_conversations_section(
@@ -263,6 +274,109 @@ class MerchantDataExportService:
                 yield ",".join(row) + "\n"
 
             offset += chunk_size
+
+    async def _generate_handoffs_section(
+        self,
+        merchant_id: int,
+        consent_map: dict[str, ConsentStatus],
+        handoff_alerts_map: dict[int, list[HandoffAlert]],
+    ) -> AsyncGenerator[str, None]:
+        """Generate handoffs section with all handoff alerts.
+
+        Optimized for 1000+ records - uses pre-loaded alerts_map.
+        One row per HandoffAlert. If conversation has handoff but no alert,
+        shows single row with "[No alert]" placeholders.
+
+        Args:
+            merchant_id: Merchant ID
+            consent_map: Pre-loaded consent map for preview filtering
+            handoff_alerts_map: Pre-loaded alerts grouped by conversation_id
+
+        Yields:
+            CSV rows for handoff section
+        """
+        yield "\n## SECTION: HANDOFFS\n"
+        yield "conversation_id,handoff_status,handoff_reason,triggered_at,resolved_at,resolution_type,reopened_count,alert_id,urgency_level,wait_time_seconds,is_offline,is_read,conversation_preview\n"
+
+        # Get all conversations with handoff data
+        result = await self.db.execute(
+            select(Conversation)
+            .where(
+                Conversation.merchant_id == merchant_id,
+                Conversation.handoff_status != "none",
+            )
+            .order_by(Conversation.handoff_triggered_at.desc())
+        )
+        conversations = result.scalars().all()
+
+        for conv in conversations:
+            # Get pre-loaded alerts for this conversation
+            alerts = handoff_alerts_map.get(conv.id, [])
+
+            # Get consent status for preview filtering
+            visitor_id = getattr(conv, "visitor_id", None)
+            consent_status = self._get_consent_from_map(
+                consent_map, conv.platform_sender_id, visitor_id
+            )
+
+            if not alerts:
+                # No alerts: show single row with placeholders
+                row = self._sanitize_csv_row(
+                    [
+                        str(conv.id),
+                        conv.handoff_status or "",
+                        conv.handoff_reason or "",
+                        conv.handoff_triggered_at.isoformat() if conv.handoff_triggered_at else "",
+                        conv.handoff_resolved_at.isoformat() if conv.handoff_resolved_at else "",
+                        conv.handoff_resolution_type or "",
+                        str(conv.handoff_reopened_count or 0),
+                        "[No alert]",  # alert_id placeholder
+                        "[No alert]",  # urgency_level placeholder
+                        "[No alert]",  # wait_time_seconds placeholder
+                        "[No alert]",  # is_offline placeholder
+                        "[No alert]",  # is_read placeholder
+                        "[No alert]",  # conversation_preview placeholder
+                    ]
+                )
+                yield ",".join(row) + "\n"
+            else:
+                # Show one row per alert
+                for alert in alerts:
+                    # Filter preview based on consent
+                    if consent_status in [
+                        ConsentStatus.OPTED_OUT,
+                        ConsentStatus.PENDING,
+                    ]:
+                        preview = "[Preview redacted - no consent]"
+                    else:
+                        preview = alert.conversation_preview or ""
+
+                    row = self._sanitize_csv_row(
+                        [
+                            str(conv.id),
+                            conv.handoff_status or "",
+                            conv.handoff_reason or "",
+                            conv.handoff_triggered_at.isoformat()
+                            if conv.handoff_triggered_at
+                            else "",
+                            conv.handoff_resolved_at.isoformat()
+                            if conv.handoff_resolved_at
+                            else "",
+                            conv.handoff_resolution_type or "",
+                            str(conv.handoff_reopened_count or 0),
+                            str(alert.id),
+                            alert.urgency_level or "",
+                            str(alert.wait_time_seconds or 0),
+                            (
+                                str(alert.is_offline).lower()
+                                if alert.is_offline is not None
+                                else "false"
+                            ),
+                            (str(alert.is_read).lower() if alert.is_read is not None else "false"),
+                            preview,
+                        ]
+                    )
+                    yield ",".join(row) + "\n"
 
     async def _generate_costs_section(
         self,
@@ -451,6 +565,23 @@ class MerchantDataExportService:
         )
         return result.scalar() or 0
 
+    async def _count_handoffs(self, merchant_id: int) -> int:
+        """Count conversations with handoff data.
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Number of conversations with handoff_status != 'none'
+        """
+        result = await self.db.execute(
+            select(func.count(Conversation.id)).where(
+                Conversation.merchant_id == merchant_id,
+                Conversation.handoff_status != "none",
+            )
+        )
+        return result.scalar() or 0
+
     async def _calculate_total_cost(self, merchant_id: int) -> float:
         """Calculate total LLM cost for merchant.
 
@@ -524,6 +655,35 @@ class MerchantDataExportService:
         for row in result.all():
             message_counts[int(row[0])] = int(row[1])  # type: ignore
         return message_counts
+
+    async def _batch_load_handoff_alerts(self, merchant_id: int) -> dict[int, list[HandoffAlert]]:
+        """Batch load handoff alerts to avoid N+1 queries.
+
+        Optimized for 1000+ records - single query for all alerts.
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Dict mapping conversation_id to list of HandoffAlert objects
+        """
+        result = await self.db.execute(
+            select(HandoffAlert)
+            .join(Conversation, HandoffAlert.conversation_id == Conversation.id)
+            .where(Conversation.merchant_id == merchant_id)
+            .order_by(HandoffAlert.created_at.desc())
+        )
+        alerts = result.scalars().all()
+
+        # Group alerts by conversation_id
+        alerts_map: dict[int, list[HandoffAlert]] = {}
+        for alert in alerts:
+            conv_id = alert.conversation_id
+            if conv_id not in alerts_map:
+                alerts_map[conv_id] = []
+            alerts_map[conv_id].append(alert)
+
+        return alerts_map
 
     def _get_consent_from_map(
         self,
