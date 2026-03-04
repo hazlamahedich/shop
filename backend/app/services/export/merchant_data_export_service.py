@@ -65,46 +65,49 @@ class MerchantDataExportService:
             total_messages = await self._count_messages(merchant_id)
             total_cost = await self._calculate_total_cost(merchant_id)
 
-            csv_buffer = io.StringIO()
-
-            # Generate metadata with actual counts
+            # Stream metadata section
             for chunk in self._generate_metadata_section(
                 merchant_id, total_conversations, total_messages, total_cost
             ):
-                csv_buffer.write(chunk)
+                yield chunk
 
             # Generate sections (consent map loaded once for efficiency)
             consent_map = await self._batch_load_consent_statuses(merchant_id)
 
             opted_out_count = 0
+            # Stream conversations section
             async for chunk in self._generate_conversations_section(merchant_id, consent_map):
-                csv_buffer.write(chunk)
-                if chunk.strip() and "," in chunk and not chunk.startswith("#"):
+                yield chunk
+                if (
+                    chunk.strip()
+                    and "," in chunk
+                    and not chunk.startswith("#")
+                    and not chunk.startswith("##")
+                ):
                     parts = chunk.split(",")
                     if len(parts) > 3 and parts[3].strip() in ['"opted_out"', '"pending"']:
                         opted_out_count += 1
 
+            # Stream messages section
             async for chunk in self._generate_messages_section(merchant_id, consent_map):
-                csv_buffer.write(chunk)
+                yield chunk
 
+            # Stream costs section
             async for chunk in self._generate_costs_section(merchant_id):
-                csv_buffer.write(chunk)
+                yield chunk
 
+            # Stream configuration section
             async for chunk in self._generate_configuration_section(merchant_id):
-                csv_buffer.write(chunk)
+                yield chunk
 
-            csv_content = csv_buffer.getvalue()
-            total_bytes = len(csv_content.encode("utf-8"))
-
+            # Update audit log with final counts
             audit_log.mark_completed(
                 conversations=total_conversations,
                 messages=total_messages,
                 excluded=opted_out_count,
-                size=total_bytes,
+                size=0,  # Size not known in streaming mode
             )
             await self.db.commit()
-
-            yield csv_content
 
         except Exception as e:
             logger.error("export_failed", merchant_id=merchant_id, error=str(e))
@@ -184,9 +187,7 @@ class MerchantDataExportService:
                         status_str,
                         conv.created_at.isoformat() if conv.created_at else "",
                         ended_at,
-                        str(len(conv.messages))
-                        if hasattr(conv, "messages") and conv.messages
-                        else "0",
+                        "0",  # Message count not available without eager loading
                     ]
                 )
 
