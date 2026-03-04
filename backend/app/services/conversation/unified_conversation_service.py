@@ -47,6 +47,7 @@ from app.services.conversation.handlers import (
     HandoffHandler,
     ClarificationHandler,
     ForgetPreferencesHandler,
+    CheckConsentHandler,
 )
 from app.services.intent.intent_classifier import IntentClassifier
 from app.services.intent.classification_schema import (
@@ -101,6 +102,7 @@ class UnifiedConversationService:
         "human_handoff": "handoff",
         "clarification": "clarification",
         "forget_preferences": "forget_preferences",
+        "check_consent_status": "check_consent",
         "general": "llm",
         "unknown": "llm",
     }
@@ -130,6 +132,7 @@ class UnifiedConversationService:
             "handoff": HandoffHandler(),
             "clarification": ClarificationHandler(),
             "forget_preferences": ForgetPreferencesHandler(),
+            "check_consent": CheckConsentHandler(),
         }
 
     async def process_message(
@@ -261,6 +264,22 @@ class UnifiedConversationService:
             response.metadata["processing_time_ms"] = round(processing_time_ms, 2)
             response.intent = intent_name
             response.confidence = confidence
+
+            # Story 6-1: Add consent_prompt_required for widget channel
+            # Signal frontend to show consent prompt when status is pending and not yet shown
+            if (
+                context.channel == Channel.WIDGET
+                and context.consent_state.status == ConsentStatus.PENDING
+                and not context.consent_state.prompt_shown
+            ):
+                response.metadata["consent_prompt_required"] = True
+                self.logger.info(
+                    "consent_prompt_required_set",
+                    session_id=context.session_id,
+                    visitor_id=context.consent_state.visitor_id,
+                    consent_status=context.consent_state.status,
+                    prompt_shown=context.consent_state.prompt_shown,
+                )
 
             if response.products:
                 response.products = self._deduplicate_products(response.products)
@@ -800,7 +819,25 @@ class UnifiedConversationService:
                     processing_time_ms=0,
                 )
 
-        # Forget preferences / clear data
+        check_consent_patterns = [
+            r"(are|is)\s+(my\s+)?(preferences?|data|consent|settings)\s+(saved|stored|recorded)",
+            r"(confirm|check|verify)\s+(if\s+)?(my\s+)?(preferences?|data|consent)",
+            r"what('?s|\s+is)\s+(my\s+)?(consent|preference)\s+status",
+            r"do\s+you\s+(remember|know)\s+(my\s+)?(preferences?|data)",
+            r"(show|tell)\s+me\s+(my\s+)?(consent|preference)\s+status",
+        ]
+        for pattern in check_consent_patterns:
+            if re.search(pattern, lower_msg):
+                return ClassificationResult(
+                    intent=ClassifierIntentType.CHECK_CONSENT_STATUS,
+                    confidence=0.95,
+                    entities=ExtractedEntities(),
+                    raw_message=message,
+                    llm_provider="pattern",
+                    model="regex",
+                    processing_time_ms=0,
+                )
+
         forget_patterns = [
             r"(forget|clear|reset|delete)\s+(my\s+)?(preferences?|data|cart|memory)",
             r"(start\s+over|start\s+again|fresh\s+start)",
@@ -1010,7 +1047,7 @@ class UnifiedConversationService:
                     conversation.conversation_data = {}
                 conversation.conversation_data["cart"] = cart
 
-            conversation.updated_at = datetime.now(timezone.utc)
+            conversation.updated_at = datetime.utcnow()
 
             # Track customer message time for handoff resolution
             from app.services.handoff.resolution_service import HandoffResolutionService
@@ -1229,10 +1266,19 @@ class UnifiedConversationService:
             consent = await consent_service.get_consent_for_conversation(
                 session_id=context.session_id,
                 merchant_id=merchant.id,
+                visitor_id=context.consent_state.visitor_id,
             )
 
             if consent:
-                status = consent.status
+                # Compute status from granted and revoked_at fields
+                # Consent model doesn't have a 'status' property
+                if consent.granted and consent.revoked_at is None:
+                    status = ConsentStatus.OPTED_IN
+                elif consent.granted is False and consent.revoked_at is not None:
+                    status = ConsentStatus.OPTED_OUT
+                else:
+                    status = ConsentStatus.PENDING
+
                 context.consent_state.status = status
                 context.consent_state.can_store_conversation = status == ConsentStatus.OPTED_IN
                 context.consent_state.prompt_shown = consent.consent_message_shown or False
@@ -1259,9 +1305,10 @@ class UnifiedConversationService:
             context.consent_status = "pending"
 
             self.logger.info(
-                "consent_status_pending",
+                "consent_status_pending_no_record",
                 session_id=context.session_id,
                 merchant_id=merchant.id,
+                visitor_id=context.consent_state.visitor_id,
             )
 
             return None

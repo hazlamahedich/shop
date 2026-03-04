@@ -417,6 +417,10 @@ async def send_widget_message(
     allowed_domains = widget_config.get("allowed_domains", [])
     _validate_domain_whitelist(request, allowed_domains)
 
+    # Cache merchant_id to avoid lazy-load issues after process_message
+    # (process_message may commit/rollback and expire ORM objects)
+    merchant_id_cached = merchant.id
+
     # Process message
     message_service = WidgetMessageService(db=db, session_service=session_service)
     response = await message_service.process_message(
@@ -428,7 +432,7 @@ async def send_widget_message(
     logger.info(
         "widget_message_sent",
         session_id=session.session_id,
-        merchant_id=merchant.id,
+        merchant_id=merchant_id_cached,
         message_length=len(sanitized_message),
     )
 
@@ -441,6 +445,7 @@ async def send_widget_message(
             products=response.get("products"),
             cart=response.get("cart"),
             checkout_url=response.get("checkout_url"),
+            consent_prompt_required=response.get("consent_prompt_required"),
         ),
         meta=create_meta(),
     )
@@ -1336,7 +1341,6 @@ async def widget_checkout(
 
 @router.post(
     "/widget/consent",
-    response_model=SuccessEnvelope,
     summary="Record consent choice",
     description="Record user's consent choice for conversation data storage",
 )
@@ -1344,7 +1348,7 @@ async def record_widget_consent(
     request: Request,
     consent_request: RecordConsentRequest,
     db: AsyncSession = Depends(get_db),
-) -> SuccessEnvelope:
+) -> dict:
     """Record user's consent choice for conversation data storage.
 
     Story 6-1: Opt-In Consent Flow
@@ -1404,10 +1408,17 @@ async def record_widget_consent(
         visitor_id=visitor_id,
     )
 
-    return SuccessEnvelope(
-        data=SuccessResponse(success=True),
-        meta=create_meta(),
-    )
+    status = ConsentStatus.OPTED_IN if consent_request.consent_granted else ConsentStatus.OPTED_OUT
+    can_store = consent_request.consent_granted
+
+    return {
+        "data": {
+            "status": status.value,
+            "can_store_conversation": can_store,
+            "consent_message_shown": True,
+        },
+        "meta": create_meta(),
+    }
 
 
 @router.get(

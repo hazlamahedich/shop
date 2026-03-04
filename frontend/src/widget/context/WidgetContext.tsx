@@ -170,6 +170,27 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         const session = await getSession(sessionId)
         if (session) {
           dispatch({ type: 'SET_SESSION', payload: session })
+          
+          // Load existing consent status if available
+          try {
+            const consentStatus = await widgetClient.getConsentStatus(sessionId, visitorId);
+            if (consentStatus) {
+              const newConsentState: ConsentState = {
+                promptShown: consentStatus.consent_message_shown || false,
+                canStoreConversation: consentStatus.can_store_conversation,
+                status: consentStatus.status,
+              };
+              dispatch({ type: 'SET_CONSENT_STATE', payload: newConsentState });
+              
+              // Mark ref to prevent showing prompt again if already shown
+              if (consentStatus.consent_message_shown) {
+                consentPromptShownRef.current = true;
+              }
+            }
+          } catch (error) {
+            // Ignore consent status load errors - will prompt on first message
+          }
+          
           dispatch({ type: 'SET_LOADING', payload: false })
           return
         }
@@ -192,12 +213,19 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const recordConsent = React.useCallback(
     async (consented: boolean) => {
-      if (!state.session?.sessionId) return;
+      console.warn('[WidgetContext] recordConsent called:', consented);
+      if (!state.session?.sessionId) {
+        console.warn('[WidgetContext] No session, aborting recordConsent');
+        return;
+      }
 
       try {
+        console.warn('[WidgetContext] Getting widgetClient...');
         const { widgetClient } = await import('../api/widgetClient');
         const visitorId = getVisitorId() || undefined;
+        console.warn('[WidgetContext] Calling recordConsent API with visitorId:', visitorId);
         await widgetClient.recordConsent(state.session.sessionId, consented, visitorId);
+        console.warn('[WidgetContext] recordConsent API call succeeded');
 
         const newConsentState: ConsentState = {
           promptShown: true,
@@ -206,6 +234,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         };
         dispatch({ type: 'SET_CONSENT_STATE', payload: newConsentState });
       } catch (error) {
+        console.error('[WidgetContext] recordConsent error:', error);
         addError(error, { action: 'Try Again' });
       }
     },
@@ -214,6 +243,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const sendMessage = React.useCallback(
     async (content: string) => {
+      console.warn('[WidgetContext] sendMessage called with:', content);
       if (!state.session || !content.trim()) return;
 
       lastActionRef.current = { type: 'sendMessage', payload: content };
@@ -228,11 +258,15 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       dispatch({ type: 'SET_TYPING', payload: true });
 
       try {
+        console.warn('[WidgetContext] Calling widgetClient.sendMessage...');
         const { widgetClient } = await import('../api/widgetClient');
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
+        console.warn('[WidgetContext] botMessage received:', botMessage);
+        console.warn('[WidgetContext] consent_prompt_required:', botMessage.consent_prompt_required);
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
         if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+          console.warn('[WidgetContext] Setting consent prompt shown to true');
           consentPromptShownRef.current = true;
           dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
         }
