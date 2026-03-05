@@ -49,7 +49,11 @@ from app.api.widget_events import router as widget_events_router
 from app.api.widget_ws import router as widget_ws_router
 from app.api.analytics import router as analytics_router
 from app.api.consent import router as consent_router
+from app.api.health import router as health_router
 from app.api.audit import router as audit_router
+from app.middleware.security import setup_security_middleware
+from app.middleware.csrf import setup_csrf_middleware
+from app.middleware.auth import AuthenticationMiddleware
 
 from app.api import health as health_router
 

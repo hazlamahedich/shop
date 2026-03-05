@@ -83,8 +83,13 @@ class DeletionAuditLog(Base):
         comment="Retention period in days for automated deletions (null for manual)",
     )
     deletion_trigger: Mapped[str] = mapped_column(
-        SQLEnum(DeletionTrigger, name="deletion_trigger", create_type=False),
-        default=DeletionTrigger.MANUAL,
+        SQLEnum(
+            DeletionTrigger,
+            name="deletion_trigger",
+            create_type=False,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=DeletionTrigger.MANUAL.value,
         nullable=False,
         comment="Whether deletion was manual (user-requested) or automated (retention policy)",
     )

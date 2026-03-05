@@ -18,7 +18,7 @@ from datetime import datetime, timezone, timedelta
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession

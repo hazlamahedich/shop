@@ -24,11 +24,11 @@ class TestRetentionPolicyBatchProcessing:
     async def test_batch_processing_handles_large_dataset(
         self,
         db_session,
-        merchant_factory,
+        merchant,
     ):
         """AC5: Verify batch processing for 10K+ conversations."""
-        merchant_id = merchant_factory.id
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=31)
+        merchant_id = merchant.id
+        cutoff_date = datetime.utcnow() - timedelta(days=31)
 
         # Create 1500 old voluntary conversations (more than batch size of 1000)
         for i in range(1500):
@@ -67,11 +67,11 @@ class TestRetentionPolicyBatchProcessing:
     async def test_batch_processing_respects_timeout(
         self,
         db_session,
-        merchant_factory,
+        merchant,
     ):
         """AC5: Verify timeout handling to prevent long-running jobs."""
-        merchant_id = merchant_factory.id
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=31)
+        merchant_id = merchant.id
+        cutoff_date = datetime.utcnow() - timedelta(days=31)
 
         # Create 100 old conversations
         for i in range(100):
@@ -104,11 +104,11 @@ class TestRetentionPolicyBatchProcessing:
     async def test_batch_processing_creates_audit_logs(
         self,
         db_session,
-        merchant_factory,
+        merchant,
     ):
         """AC3: Verify audit logs are created for each deletion."""
-        merchant_id = merchant_factory.id
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=31)
+        merchant_id = merchant.id
+        cutoff_date = datetime.utcnow() - timedelta(days=31)
 
         # Create 50 old voluntary conversations
         for i in range(50):
@@ -155,11 +155,11 @@ class TestRetentionPolicyDataTierFiltering:
     async def test_only_voluntary_data_deleted(
         self,
         db_session,
-        merchant_factory,
+        merchant,
     ):
         """AC1: Verify only VOLUNTARY tier data is deleted."""
-        merchant_id = merchant_factory.id
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=31)
+        merchant_id = merchant.id
+        cutoff_date = datetime.utcnow() - timedelta(days=31)
 
         # Create old conversations in different tiers
         voluntary_conv = Conversation(
@@ -216,11 +216,11 @@ class TestRetentionPolicyDataTierFiltering:
     async def test_operational_data_preserved_indefinitely(
         self,
         db_session,
-        merchant_factory,
+        merchant,
     ):
         """AC4: Verify operational data (order refs) is never deleted."""
-        merchant_id = merchant_factory.id
-        old_date = datetime.now(timezone.utc) - timedelta(days=365)
+        merchant_id = merchant.id
+        old_date = datetime.utcnow() - timedelta(days=365)
 
         # Create very old operational conversation (1 year old)
         operational_conv = Conversation(
@@ -267,9 +267,9 @@ class TestRetentionPolicyEdgeCases:
         assert deleted_count == 0
 
     @pytest.mark.asyncio
-    async def test_no_expired_data(self, db_session, merchant_factory):
+    async def test_no_expired_data(self, db_session, merchant):
         """Verify no deletion when all data is within retention period."""
-        merchant_id = merchant_factory.id
+        merchant_id = merchant.id
 
         # Create recent voluntary conversations
         for i in range(10):
@@ -279,8 +279,8 @@ class TestRetentionPolicyEdgeCases:
                 platform_sender_id=f"recent_user_{i}",
                 status="active",
                 data_tier=DataTier.VOLUNTARY,
-                created_at=datetime.now(timezone.utc) - timedelta(days=10),
-                updated_at=datetime.now(timezone.utc) - timedelta(days=5),
+                created_at=datetime.utcnow() - timedelta(days=10),
+                updated_at=datetime.utcnow() - timedelta(days=5),
             )
             db_session.add(conv)
 
@@ -309,10 +309,10 @@ class TestAuditLogQuery:
     async def test_audit_log_tracks_manual_vs_auto_deletions(
         self,
         db_session,
-        merchant_factory,
+        merchant,
     ):
         """Verify audit logs distinguish between manual and automated deletions."""
-        merchant_id = merchant_factory.id
+        merchant_id = merchant.id
 
         # Create manual deletion audit log
         manual_log = DeletionAuditLog(

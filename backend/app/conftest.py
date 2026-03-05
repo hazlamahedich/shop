@@ -113,12 +113,14 @@ async def _setup_app_database():
 
     async with engine.begin() as conn:
         # Truncate tables to ensure clean state
+        await conn.execute(text("TRUNCATE TABLE deletion_audit_log CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE merchants CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE tutorials CASCADE;"))
 
         # Reset sequences
         await conn.execute(text("SELECT setval('merchants_id_seq', 1, false);"))
         await conn.execute(text("SELECT setval('tutorials_id_seq', 1, false);"))
+        await conn.execute(text("SELECT setval('deletion_audit_log_id_seq', 1, false);"))
 
         # Create foreign key constraints with CASCADE explicitly
         # (SQLAlchemy's ondelete doesn't always create the FK constraint)

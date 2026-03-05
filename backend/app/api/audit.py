@@ -50,6 +50,9 @@ class RetentionLogsListResponse(BaseModel):
     page: int
     page_size: int = Field(alias="pageSize")
 
+    class Config:
+        populate_by_name = True
+
 
 @router.get("/retention-logs", response_model=RetentionLogsListResponse)
 async def get_retention_logs(
