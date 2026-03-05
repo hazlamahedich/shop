@@ -26,9 +26,11 @@ class TestConsentTierIntegration:
     """Test suite for consent-tier integration (Story 6-4 Task 3)."""
 
     @pytest.mark.asyncio
-    async def test_consent_opt_in_keeps_voluntary_tier(self, db_session: AsyncSession) -> None:
+    async def test_consent_opt_in_keeps_voluntary_tier(
+        self, db_session: AsyncSession, test_merchant: int
+    ) -> None:
         """Test that consent opt-in keeps data tier as VOLUNTARY."""
-        merchant_id = 1
+        merchant_id = test_merchant
         session_id = "test-session-1"
         visitor_id = "test-visitor-1"
         platform_sender_id = "user123"
@@ -51,8 +53,8 @@ class TestConsentTierIntegration:
                 session_id=session_id,
                 visitor_id=visitor_id,
                 consent_type="conversation",
-                consent_status="opted_in",
-                consented_at=datetime.now(timezone.utc),
+                granted=True,
+                granted_at=datetime.now(timezone.utc),
             )
             session.add(consent)
             await session.commit()
@@ -62,13 +64,13 @@ class TestConsentTierIntegration:
 
     @pytest.mark.asyncio
     async def test_consent_opt_out_updates_tier_to_anonymized(
-        self, db_session: AsyncSession
+        self, db_session: AsyncSession, test_merchant: int
     ) -> None:
         """Test that consent opt-out updates tier to ANONYMIZED after deletion."""
-        merchant_id = 1
+        merchant_id = test_merchant
         session_id = "test-session-2"
         visitor_id = "test-visitor-2"
-        platform_sender_id = "user456"
+        platform_sender_id = session_id  # Match session_id for join to work
 
         async with db_session as session:
             # Create conversation with VOLUNTARY tier
@@ -88,15 +90,18 @@ class TestConsentTierIntegration:
                 session_id=session_id,
                 visitor_id=visitor_id,
                 consent_type="conversation",
-                consent_status="opted_out",
-                consented_at=datetime.now(timezone.utc),
+                granted=False,
+                revoked_at=datetime.now(timezone.utc),
             )
             session.add(consent)
             await session.commit()
 
             # Simulate opt-out flow: update tier to ANONYMIZED
-            await ConversationConsentService.update_data_tier(
-                session, session_id, visitor_id, DataTier.ANONYMIZED
+            consent_service = ConversationConsentService(db=session)
+            await consent_service.update_data_tier(
+                session_id=session_id,
+                visitor_id=visitor_id,
+                new_tier=DataTier.ANONYMIZED.value,
             )
             await session.refresh(conversation)
 
@@ -105,13 +110,13 @@ class TestConsentTierIntegration:
 
     @pytest.mark.asyncio
     async def test_update_data_tier_atomic_with_consent_change(
-        self, db_session: AsyncSession
+        self, db_session: AsyncSession, test_merchant: int
     ) -> None:
         """Test that tier updates are atomic with consent status changes."""
-        merchant_id = 1
+        merchant_id = test_merchant
         session_id = "test-session-3"
         visitor_id = "test-visitor-3"
-        platform_sender_id = "user789"
+        platform_sender_id = session_id  # Match session_id for join to work
 
         async with db_session as session:
             # Create conversation
@@ -131,14 +136,17 @@ class TestConsentTierIntegration:
                 session_id=session_id,
                 visitor_id=visitor_id,
                 consent_type="conversation",
-                consent_status="opted_out",
-                consented_at=datetime.now(timezone.utc),
+                granted=False,
+                revoked_at=datetime.now(timezone.utc),
             )
             session.add(consent)
 
             # Update tier in same transaction
-            await ConversationConsentService.update_data_tier(
-                session, session_id, visitor_id, DataTier.ANONYMIZED
+            consent_service = ConversationConsentService(db=session)
+            await consent_service.update_data_tier(
+                session_id=session_id,
+                visitor_id=visitor_id,
+                new_tier=DataTier.ANONYMIZED.value,
             )
 
             # Both changes should commit together
@@ -148,11 +156,13 @@ class TestConsentTierIntegration:
             assert conversation.data_tier == DataTier.ANONYMIZED
 
     @pytest.mark.asyncio
-    async def test_update_data_tier_by_session_id(self, db_session: AsyncSession) -> None:
+    async def test_update_data_tier_by_session_id(
+        self, db_session: AsyncSession, test_merchant: int
+    ) -> None:
         """Test updating tier by session_id (fallback when visitor_id unavailable)."""
-        merchant_id = 1
+        merchant_id = test_merchant
         session_id = "test-session-4"
-        platform_sender_id = "user000"
+        platform_sender_id = session_id  # Match session_id for fallback query to work
 
         async with db_session as session:
             conversation = Conversation(
@@ -168,16 +178,19 @@ class TestConsentTierIntegration:
                 session_id=session_id,
                 visitor_id=None,  # No visitor_id
                 consent_type="conversation",
-                consent_status="opted_out",
-                consented_at=datetime.now(timezone.utc),
+                granted=False,
+                revoked_at=datetime.now(timezone.utc),
             )
             session.add(consent)
             await session.commit()
             await session.refresh(conversation)
 
             # Update tier by session_id only
-            await ConversationConsentService.update_data_tier(
-                session, session_id, None, DataTier.ANONYMIZED
+            consent_service = ConversationConsentService(db=session)
+            await consent_service.update_data_tier(
+                session_id=session_id,
+                visitor_id=None,
+                new_tier=DataTier.ANONYMIZED.value,
             )
             await session.commit()
             await session.refresh(conversation)
@@ -186,33 +199,47 @@ class TestConsentTierIntegration:
 
     @pytest.mark.asyncio
     async def test_update_data_tier_updates_all_conversations(
-        self, db_session: AsyncSession
+        self, db_session: AsyncSession, test_merchant: int
     ) -> None:
         """Test that update_data_tier updates all conversations for visitor."""
-        merchant_id = 1
+        merchant_id = test_merchant
         session_id = "test-session-5"
         visitor_id = "test-visitor-5"
 
         async with db_session as session:
-            # Create multiple conversations
+            # Create multiple conversations with matching session_id
             conv1 = Conversation(
                 merchant_id=merchant_id,
                 platform="facebook",
-                platform_sender_id="user1",
+                platform_sender_id=session_id,  # Match session_id for join
                 data_tier=DataTier.VOLUNTARY,
             )
             conv2 = Conversation(
                 merchant_id=merchant_id,
                 platform="facebook",
-                platform_sender_id="user2",
+                platform_sender_id=session_id,  # Match session_id for join
                 data_tier=DataTier.VOLUNTARY,
             )
             session.add_all([conv1, conv2])
+
+            # Create consent record
+            consent = Consent(
+                merchant_id=merchant_id,
+                session_id=session_id,
+                visitor_id=visitor_id,
+                consent_type="conversation",
+                granted=False,
+                revoked_at=datetime.now(timezone.utc),
+            )
+            session.add(consent)
             await session.commit()
 
             # Update tier for all conversations
-            await ConversationConsentService.update_data_tier(
-                session, session_id, visitor_id, DataTier.ANONYMIZED
+            consent_service = ConversationConsentService(db=session)
+            await consent_service.update_data_tier(
+                session_id=session_id,
+                visitor_id=visitor_id,
+                new_tier=DataTier.ANONYMIZED.value,
             )
             await session.commit()
 

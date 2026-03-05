@@ -6,7 +6,8 @@ Task 8: API integration tests
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -69,9 +70,9 @@ class TestConsentOptOutTierChange:
         assert response.status_code == 200
 
         # Verify tier changed to ANONYMIZED
-        result = await db_session.execute(select(Conversation).where(Conversation.id == conv.id))
-        updated_conv = result.scalars().first()
-        assert updated_conv.data_tier == DataTier.ANONYMIZED
+        # Refresh to see changes committed by API
+        await db_session.refresh(conv)
+        assert conv.data_tier == DataTier.ANONYMIZED
 
     @pytest.mark.asyncio
     async def test_consent_opt_out_preserves_operational_data(
@@ -88,7 +89,9 @@ class TestConsentOptOutTierChange:
             merchant_id=test_merchant,
             order_number="ORD-TEST-001",
             platform_sender_id=session_id,
+            subtotal=99.99,
             total=99.99,
+            currency_code="USD",
             is_test=False,
             data_tier=DataTier.OPERATIONAL,
         )
@@ -154,21 +157,24 @@ class TestDataExportTierSeparation:
         await db_session.commit()
 
         # Request data export
-        response = await client.get(
+        response = await client.post(
             "/api/v1/data/export",
-            headers=auth_headers(test_merchant),
+            headers={
+                **auth_headers(test_merchant),
+                "X-CSRF-Token": "test-csrf-token",
+                "X-Merchant-ID": str(test_merchant),
+            },
         )
 
         assert response.status_code == 200
-        data = response.json()
+        assert response.headers["content-type"].startswith("text/csv")
 
-        # Verify VOLUNTARY included
-        assert any(c["platformSenderId"] == "voluntary_user" for c in data.get("conversations", []))
+        # Parse CSV to check tier filtering
+        csv_content = response.text
 
-        # Verify ANONYMIZED excluded
-        assert not any(
-            c["platformSenderId"] == "anonymized_user" for c in data.get("conversations", [])
-        )
+        # Verify only 1 conversation exported (VOLUNTARY included, ANONYMIZED excluded)
+        # The export service strips PII, so we check the count in the header
+        assert "# Total Conversations: 1" in csv_content
 
     @pytest.mark.asyncio
     async def test_export_includes_operational_tier(
@@ -183,7 +189,8 @@ class TestDataExportTierSeparation:
             merchant_id=test_merchant,
             order_number="ORD-EXPORT-001",
             platform_sender_id="export_user",
-            total=149.99,
+            subtotal=Decimal("129.99"),
+            total=Decimal("149.99"),
             is_test=False,
             data_tier=DataTier.OPERATIONAL,
         )
@@ -191,16 +198,23 @@ class TestDataExportTierSeparation:
         await db_session.commit()
 
         # Request data export
-        response = await client.get(
+        response = await client.post(
             "/api/v1/data/export",
-            headers=auth_headers(test_merchant),
+            headers={
+                **auth_headers(test_merchant),
+                "X-CSRF-Token": "test-csrf-token",
+                "X-Merchant-ID": str(test_merchant),
+            },
         )
 
         assert response.status_code == 200
-        data = response.json()
+        assert response.headers["content-type"].startswith("text/csv")
 
-        # Verify OPERATIONAL included
-        assert any(o["orderNumber"] == "ORD-EXPORT-001" for o in data.get("orders", []))
+        # Parse CSV to check tier filtering
+        csv_content = response.text
+
+        # Verify OPERATIONAL included (order should be in CSV)
+        assert "ORD-EXPORT-001" in csv_content
 
 
 class TestAnalyticsSummaryAnonymized:
@@ -264,7 +278,8 @@ class TestAnalyticsSummaryAnonymized:
             merchant_id=test_merchant,
             order_number="ORD-ANALYTICS-001",
             platform_sender_id="op_user",
-            total=50.00,
+            subtotal=Decimal("45.00"),
+            total=Decimal("50.00"),
             is_test=False,
             data_tier=DataTier.OPERATIONAL,
         )
@@ -315,8 +330,8 @@ class TestRetentionJobVoluntaryOnly:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_voluntary)
 
@@ -328,8 +343,8 @@ class TestRetentionJobVoluntaryOnly:
             status="active",
             handoff_status="none",
             data_tier=DataTier.OPERATIONAL,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_operational)
 
@@ -341,8 +356,8 @@ class TestRetentionJobVoluntaryOnly:
             status="active",
             handoff_status="none",
             data_tier=DataTier.ANONYMIZED,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_anonymized)
 
@@ -390,8 +405,8 @@ class TestRetentionJobVoluntaryOnly:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=15),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=15),
+            created_at=datetime.utcnow() - timedelta(days=15),
+            updated_at=datetime.utcnow() - timedelta(days=15),
         )
         db_session.add(recent_voluntary)
         await db_session.commit()

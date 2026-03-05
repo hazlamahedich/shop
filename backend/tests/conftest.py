@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Set testing environment before any imports
 os.environ["IS_TESTING"] = "true"
 os.environ["DEBUG"] = "true"
+os.environ["REDIS_URL"] = ""  # Disable Redis in tests
 os.environ["SECRET_KEY"] = "dev-secret-key-for-testing"
 os.environ["FACEBOOK_APP_ID"] = "test_app_id"
 os.environ["FACEBOOK_REDIRECT_URI"] = "https://example.com/callback"
@@ -117,6 +118,11 @@ async def _setup_enums():
             ("verification_platform", "('facebook', 'shopify')"),
             ("test_type", "('status_check', 'test_webhook', 'resubscribe')"),
             ("verification_status", "('pending', 'success', 'failed')"),
+            (
+                "datatier",
+                "('voluntary', 'operational', 'anonymized')",
+            ),  # Story 6-4: Data tier separation
+            ("consent_type", "('conversation', 'marketing', 'analytics')"),  # Consent types
         ]
         for enum_name, enum_values in enums:
             try:
@@ -152,7 +158,10 @@ async def _reset_database():
     from sqlalchemy import text
 
     async with test_engine.begin() as conn:
-        # Truncate tables in correct order
+        # Truncate tables in correct order (child tables first, then parents)
+        await conn.execute(text("TRUNCATE TABLE conversations CASCADE;"))
+        await conn.execute(text("TRUNCATE TABLE messages CASCADE;"))
+        await conn.execute(text("TRUNCATE TABLE orders CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE merchants CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE tutorials CASCADE;"))
 
@@ -216,7 +225,7 @@ async def test_merchant(async_session: AsyncSession):
     async_session.add(merchant)
     await async_session.commit()
     await async_session.refresh(merchant)
-    return merchant
+    return merchant.id  # Return merchant_id (int) for test compatibility
 
 
 # =============================================================================
@@ -249,3 +258,61 @@ async def async_client(async_session):
     finally:
         # Clean up override
         app.dependency_overrides.clear()
+
+
+# Alias for backward compatibility
+@pytest.fixture(scope="function")
+async def client(async_session):
+    """Alias for async_client for backward compatibility.
+
+    Many existing test files use 'client' instead of 'async_client'.
+    This fixture provides backward compatibility.
+    """
+    from app.main import app
+    from app.core.database import get_db
+
+    # Override get_db dependency to use the test's async_session
+    async def override_get_db():
+        yield async_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as http_client:
+            yield http_client
+    finally:
+        # Clean up override
+        app.dependency_overrides.clear()
+
+
+# =============================================================================
+# AUTHENTICATION HELPERS
+# =============================================================================
+
+
+def auth_headers(merchant_id: int) -> dict[str, str]:
+    """Generate authentication headers with JWT token for testing.
+
+    Creates a valid JWT token for the given merchant_id and returns
+    headers with Bearer token in Authorization header.
+
+    Story 4-12: Auth middleware supports Bearer token for API tests.
+
+    Args:
+        merchant_id: Merchant ID to create token for
+
+    Returns:
+        Dict with Authorization header containing Bearer token
+    """
+    from app.core.auth import create_jwt
+    import uuid
+
+    # Create JWT token with unique session ID
+    session_id = str(uuid.uuid4())
+    token = create_jwt(merchant_id=merchant_id, session_id=session_id)
+
+    # Return headers with Bearer token (Story 4-12: middleware supports this)
+    return {"Authorization": f"Bearer {token}"}
