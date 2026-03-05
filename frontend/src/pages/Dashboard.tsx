@@ -3,6 +3,7 @@ import { DollarSign, MessageSquare, TrendingUp, ArrowRight, Store } from 'lucide
 import { Card } from '../components/ui/Card';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
 import { useHasStoreConnected, useStoreProvider } from '../stores/authStore';
+import { RetentionJobStatus } from '../components/retention/RetentionJobStatus';
 
 const Dashboard = () => {
   const hasStoreConnected = useHasStoreConnected();
@@ -13,7 +14,7 @@ const Dashboard = () => {
       {/* Tutorial Prompt Banner */}
       <TutorialPrompt />
 
-      <div className="space-y-8">
+      <div data-testid="dashboard-content" className="space-y-8">
         {/* Welcome Card with Tutorial Entry */}
         <Card>
           <div style={{ padding: 'var(--card-padding)' }}>
@@ -169,6 +170,11 @@ const Dashboard = () => {
               </div>
             </Card>
           )}
+        </div>
+
+        {/* Data Retention Status - GDPR/CCPA Compliance */}
+        <div className="mt-8">
+          <RetentionJobStatus />
         </div>
       </div>
     </>

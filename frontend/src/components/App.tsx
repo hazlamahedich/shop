@@ -16,6 +16,7 @@ import BotConfig from '../pages/BotConfig';
 import { BotPreview } from '../pages/BotPreview';
 import Login from '../pages/Login';
 import WidgetTestPage from '../pages/WidgetTestPage';
+import AuditLogs from '../pages/AuditLogs';
 import { OnboardingGuard, AuthGuard } from './RouteGuards';
 import { useAuthStore } from '../stores/authStore';
 
@@ -59,6 +60,7 @@ export function App() {
         <Route path="/business-info-faq" element={<BusinessInfoFaqConfig />} />
         <Route path="/bot-config" element={<BotConfig />} />
         <Route path="/bot-preview" element={<BotPreview />} />
+        <Route path="/dashboard/audit-logs" element={<AuditLogs />} />
       </Route>
 
       {/* Wildcard redirects to dashboard (will be guarded by OnboardingGuard) */}

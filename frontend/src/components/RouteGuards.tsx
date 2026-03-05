@@ -68,9 +68,14 @@ export function OnboardingGuard({ children, requireAuth = true, isAuthenticated 
       if (isStarted) {
         return <>{children}</>;
       }
-      // If tutorial not completed/skipped, show tutorial prompt
+      // If tutorial not completed/skipped, show tutorial prompt as overlay
       if (!isCompleted && !isSkipped) {
-        return <TutorialPrompt />;
+        return (
+          <>
+            <TutorialPrompt />
+            {children}
+          </>
+        );
       }
       // Redirect to bot config for setup completion
       return <Navigate to="/bot-config" replace />;
