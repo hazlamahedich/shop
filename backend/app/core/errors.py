@@ -257,6 +257,12 @@ class ErrorCode(IntEnum):
     EXPORT_GENERATION_FAILED = 11012
     EXPORT_CONSENT_CHECK_FAILED = 11013
 
+    # Story 6-4: Data tier separation (GDPR/CCPA compliance)
+    INVALID_DATA_TIER = 11020  # Invalid data tier value
+    TIER_TRANSITION_NOT_ALLOWED = 11021  # Cannot downgrade tier (operational → voluntary)
+    RETENTION_POLICY_FAILED = 11022  # Failed to apply retention policy
+    ANONYMIZATION_FAILED = 11023  # Failed to anonymize data
+
     # 12000-12999: Widget (owner: widget team)
     WIDGET_SESSION_NOT_FOUND = 12001
     WIDGET_SESSION_EXPIRED = 12002
