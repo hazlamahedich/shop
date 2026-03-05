@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
+from app.services.privacy.data_tier_service import DataTier
 from sqlalchemy.orm import selectinload
 from app.services.conversation.schemas import (
     Channel,
@@ -1016,6 +1017,7 @@ class UnifiedConversationService:
                     platform_sender_id=context.session_id,
                     status="active",
                     handoff_status="none",
+                    data_tier=DataTier.VOLUNTARY,
                 )
                 db.add(conversation)
                 await db.flush()
@@ -1025,6 +1027,7 @@ class UnifiedConversationService:
                 sender="customer",
                 content=user_message,
                 message_type="text",
+                data_tier=DataTier.VOLUNTARY,
             )
             user_msg.set_encrypted_content(user_message, "customer")
             db.add(user_msg)
@@ -1034,6 +1037,7 @@ class UnifiedConversationService:
                 sender="bot",
                 content=bot_response,
                 message_type="text",
+                data_tier=DataTier.VOLUNTARY,
                 message_metadata={
                     "intent": intent,
                     "confidence": confidence,

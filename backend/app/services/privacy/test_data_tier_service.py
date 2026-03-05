@@ -1,6 +1,7 @@
 """Tests for DataTierService.
 
 Story 6-1: Opt-In Consent Flow
+Story 6-4: Data Tier Separation
 
 Tests for data tier classification service.
 """
@@ -8,8 +9,14 @@ Tests for data tier classification service.
 from __future__ import annotations
 
 import pytest
+from datetime import datetime, timezone, timedelta
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.privacy.data_tier_service import DataTierService, DataTier
+from app.models.conversation import Conversation
+from app.models.order import Order
 
 
 class TestClassifyDataTier:
@@ -187,3 +194,234 @@ class TestDataTierEnum:
         assert isinstance(DataTier.VOLUNTARY, str)
         assert isinstance(DataTier.OPERATIONAL, str)
         assert isinstance(DataTier.ANONYMIZED, str)
+
+
+# ==============================================================================
+# Story 6-4: DataTierService Extensions
+# ==============================================================================
+
+
+class TestCategorizeDataAlias:
+    """Tests for categorize_data() alias method (Story 6-4)."""
+
+    def test_categorize_data_is_alias(self) -> None:
+        """Test that categorize_data() is an alias to classify_data_tier()."""
+        result_classify = DataTierService.classify_data_tier("conversation_history")
+        result_categorize = DataTierService.categorize_data("conversation_history")
+
+        assert result_classify == result_categorize
+        assert result_classify == DataTier.VOLUNTARY
+
+    def test_categorize_data_with_operational(self) -> None:
+        """Test categorize_data() with operational data type."""
+        result = DataTierService.categorize_data("order_references")
+        assert result == DataTier.OPERATIONAL
+
+    def test_categorize_data_with_anonymized(self) -> None:
+        """Test categorize_data() with anonymized data type."""
+        result = DataTierService.categorize_data("aggregated_analytics")
+        assert result == DataTier.ANONYMIZED
+
+
+class TestGetTierSummary:
+    """Tests for get_tier_summary() method (Story 6-4)."""
+
+    @pytest.mark.asyncio
+    async def test_get_tier_summary_returns_distribution(self, db_session: AsyncSession) -> None:
+        """Test that get_tier_summary() returns correct tier distribution."""
+        merchant_id = 1
+
+        async with db_session as session:
+            conv1 = Conversation(
+                merchant_id=merchant_id,
+                platform="facebook",
+                platform_sender_id="user1",
+                data_tier=DataTier.VOLUNTARY,
+            )
+            conv2 = Conversation(
+                merchant_id=merchant_id,
+                platform="facebook",
+                platform_sender_id="user2",
+                data_tier=DataTier.VOLUNTARY,
+            )
+            conv3 = Conversation(
+                merchant_id=merchant_id,
+                platform="facebook",
+                platform_sender_id="user3",
+                data_tier=DataTier.OPERATIONAL,
+            )
+
+            session.add_all([conv1, conv2, conv3])
+            await session.commit()
+
+            summary = await DataTierService.get_tier_summary(merchant_id)
+
+            assert summary["voluntary"] == 2
+            assert summary["operational"] == 1
+            assert summary["anonymized"] == 0
+            assert summary["total"] == 3
+
+    @pytest.mark.asyncio
+    async def test_get_tier_summary_empty_merchant(self, db_session: AsyncSession) -> None:
+        """Test get_tier_summary() with no conversations."""
+        summary = await DataTierService.get_tier_summary(999)
+
+        assert summary["voluntary"] == 0
+        assert summary["operational"] == 0
+        assert summary["anonymized"] == 0
+        assert summary["total"] == 0
+
+
+class TestUpdateTier:
+    """Tests for update_tier() method (Story 6-4)."""
+
+    @pytest.mark.asyncio
+    async def test_update_tier_changes_tier(self, db_session: AsyncSession) -> None:
+        """Test that update_tier() changes the data tier."""
+        async with db_session as session:
+            conversation = Conversation(
+                merchant_id=1,
+                platform="facebook",
+                platform_sender_id="user1",
+                data_tier=DataTier.VOLUNTARY,
+            )
+            session.add(conversation)
+            await session.commit()
+            await session.refresh(conversation)
+
+            assert conversation.data_tier == DataTier.VOLUNTARY
+
+            await DataTierService.update_tier(
+                session, Conversation, conversation.id, DataTier.OPERATIONAL
+            )
+            await session.refresh(conversation)
+
+            assert conversation.data_tier == DataTier.OPERATIONAL
+
+    @pytest.mark.asyncio
+    async def test_update_tier_rejects_downgrade(self, db_session: AsyncSession) -> None:
+        """Test that update_tier() rejects tier downgrade (operational → voluntary)."""
+        async with db_session as session:
+            conversation = Conversation(
+                merchant_id=1,
+                platform="facebook",
+                platform_sender_id="user1",
+                data_tier=DataTier.OPERATIONAL,
+            )
+            session.add(conversation)
+            await session.commit()
+            await session.refresh(conversation)
+
+            with pytest.raises(ValueError, match="tier downgrade not allowed"):
+                await DataTierService.update_tier(
+                    session, Conversation, conversation.id, DataTier.VOLUNTARY
+                )
+
+    @pytest.mark.asyncio
+    async def test_update_tier_allows_upgrade(self, db_session: AsyncSession) -> None:
+        """Test that update_tier() allows tier upgrade (voluntary → anonymized)."""
+        async with db_session as session:
+            conversation = Conversation(
+                merchant_id=1,
+                platform="facebook",
+                platform_sender_id="user1",
+                data_tier=DataTier.VOLUNTARY,
+            )
+            session.add(conversation)
+            await session.commit()
+            await session.refresh(conversation)
+
+            await DataTierService.update_tier(
+                session, Conversation, conversation.id, DataTier.ANONYMIZED
+            )
+            await session.refresh(conversation)
+
+            assert conversation.data_tier == DataTier.ANONYMIZED
+
+
+class TestApplyRetentionPolicy:
+    """Tests for apply_retention_policy() method (Story 6-4)."""
+
+    @pytest.mark.asyncio
+    async def test_apply_retention_policy_voluntary_deletes_old(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Test that apply_retention_policy() deletes old VOLUNTARY tier data."""
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+
+        async with db_session as session:
+            old_conv = Conversation(
+                merchant_id=1,
+                platform="facebook",
+                platform_sender_id="user1",
+                data_tier=DataTier.VOLUNTARY,
+                created_at=cutoff_date - timedelta(days=1),
+            )
+            recent_conv = Conversation(
+                merchant_id=1,
+                platform="facebook",
+                platform_sender_id="user2",
+                data_tier=DataTier.VOLUNTARY,
+                created_at=datetime.now(timezone.utc) - timedelta(days=15),
+            )
+
+            session.add_all([old_conv, recent_conv])
+            await session.commit()
+
+            deleted_count = await DataTierService.apply_retention_policy(
+                session, DataTier.VOLUNTARY
+            )
+
+            assert deleted_count == 1
+
+            result = await session.execute(
+                select(Conversation).where(Conversation.id == old_conv.id)
+            )
+            assert result.scalar_one_or_none() is None
+
+            result = await session.execute(
+                select(Conversation).where(Conversation.id == recent_conv.id)
+            )
+            assert result.scalar_one_or_none() is not None
+
+    @pytest.mark.asyncio
+    async def test_apply_retention_policy_operational_keeps_all(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Test that apply_retention_policy() keeps all OPERATIONAL tier data."""
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+
+        async with db_session as session:
+            old_order = Order(
+                order_number="ORD-001",
+                merchant_id=1,
+                platform_sender_id="user1",
+                subtotal=100.00,
+                total=100.00,
+                data_tier=DataTier.OPERATIONAL,
+                created_at=cutoff_date - timedelta(days=100),
+            )
+
+            session.add(old_order)
+            await session.commit()
+
+            deleted_count = await DataTierService.apply_retention_policy(
+                session, DataTier.OPERATIONAL
+            )
+
+            assert deleted_count == 0
+
+            result = await session.execute(select(Order).where(Order.id == old_order.id))
+            assert result.scalar_one_or_none() is not None
+
+    @pytest.mark.asyncio
+    async def test_apply_retention_policy_anonymized_keeps_all(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Test that apply_retention_policy() keeps all ANONYMIZED tier data."""
+        async with db_session as session:
+            deleted_count = await DataTierService.apply_retention_policy(
+                session, DataTier.ANONYMIZED
+            )
+
+            assert deleted_count == 0

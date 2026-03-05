@@ -1,6 +1,7 @@
 """Data tier classification service for GDPR/CCPA compliance.
 
 Story 6-1: Opt-In Consent Flow
+Story 6-4: Data Tier Separation
 
 Provides data classification based on retention requirements:
 - VOLUNTARY: User preferences, conversation history (deletable)
@@ -10,9 +11,16 @@ Provides data classification based on retention requirements:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone, timedelta
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import structlog
+from sqlalchemy import delete, func, select
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.orm import DeclarativeBase
 
 
 logger = structlog.get_logger(__name__)
@@ -157,3 +165,169 @@ class DataTierService:
             Set of anonymized data type names
         """
         return cls.ANONYMIZED_DATA_TYPES.copy()
+
+    # ==============================================================================
+    # Story 6-4: Data Tier Extensions
+    # ==============================================================================
+
+    @classmethod
+    def categorize_data(cls, data_type: str) -> DataTier:
+        """Alias for classify_data_tier() for consistency.
+
+        Args:
+            data_type: Type of data to classify
+
+        Returns:
+            DataTier enum value
+        """
+        return cls.classify_data_tier(data_type)
+
+    @classmethod
+    async def get_tier_summary(cls, db: "AsyncSession", merchant_id: int) -> dict:
+        """Get tier distribution summary for a merchant.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID to get summary for
+
+        Returns:
+            Dictionary with tier counts and total
+        """
+        from app.models.conversation import Conversation
+
+        async with db as session:
+            result = await session.execute(
+                select(Conversation.data_tier, func.count(Conversation.id).label("count"))
+                .where(Conversation.merchant_id == merchant_id)
+                .group_by(Conversation.data_tier)
+            )
+
+            tier_counts = {row[0]: row[1] for row in result.fetchall()}
+
+            return {
+                "voluntary": tier_counts.get(DataTier.VOLUNTARY, 0),
+                "operational": tier_counts.get(DataTier.OPERATIONAL, 0),
+                "anonymized": tier_counts.get(DataTier.ANONYMIZED, 0),
+                "total": sum(tier_counts.values()),
+            }
+
+    @classmethod
+    async def update_tier(
+        cls,
+        db: "AsyncSession",
+        model_class: type["DeclarativeBase"],
+        record_id: int,
+        new_tier: DataTier,
+    ) -> None:
+        """Update data tier for a specific record.
+
+        Args:
+            db: Database session
+            model_class: SQLAlchemy model class
+            record_id: ID of the record to update
+            new_tier: New data tier value
+
+        Raises:
+            ValueError: If tier downgrade is attempted (operational → voluntary)
+        """
+        async with db as session:
+            result = await session.execute(select(model_class).where(model_class.id == record_id))
+            record = result.scalar_one_or_none()
+
+            if not record:
+                raise ValueError(f"Record {record_id} not found")
+
+            current_tier = record.data_tier
+
+            # Prevent tier downgrade (data protection)
+            if current_tier == DataTier.OPERATIONAL and new_tier == DataTier.VOLUNTARY:
+                raise ValueError(
+                    "Tier downgrade not allowed: operational data cannot become voluntary"
+                )
+
+            record.data_tier = new_tier
+            await session.commit()
+
+            logger.info(
+                "data_tier_updated",
+                record_id=record_id,
+                model=model_class.__name__,
+                old_tier=current_tier.value,
+                new_tier=new_tier.value,
+            )
+
+    @classmethod
+    async def apply_retention_policy(
+        cls,
+        db: "AsyncSession",
+        tier: DataTier,
+        days: int | None = None,
+    ) -> int:
+        """Apply retention policy for a specific tier.
+
+        Args:
+            db: Database session
+            tier: Data tier to apply retention policy to
+            days: Optional custom retention period (defaults based on tier)
+
+        Returns:
+            Number of records deleted
+
+        Note:
+            - VOLUNTARY: Default 30-day retention
+            - OPERATIONAL: No deletion (indefinite retention)
+            - ANONYMIZED: No deletion (indefinite retention)
+        """
+        if tier == DataTier.OPERATIONAL:
+            logger.info(
+                "retention_skipped_operational", reason="Operational data has indefinite retention"
+            )
+            return 0
+
+        if tier == DataTier.ANONYMIZED:
+            logger.info(
+                "retention_skipped_anonymized", reason="Anonymized data has indefinite retention"
+            )
+            return 0
+
+        # VOLUNTARY tier: Apply retention policy
+        retention_days = days if days is not None else 30
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+        from app.models.conversation import Conversation
+        from app.models.message import Message
+
+        deleted_count = 0
+
+        async with db as session:
+            # Delete old conversations
+            result = await session.execute(
+                delete(Conversation)
+                .where(Conversation.data_tier == tier)
+                .where(Conversation.created_at < cutoff_date)
+                .returning(Conversation.id)
+            )
+            conv_ids = [row[0] for row in result.fetchall()]
+            deleted_count += len(conv_ids)
+
+            # Delete old messages (orphaned by conversation cascade)
+            result = await session.execute(
+                delete(Message)
+                .where(Message.data_tier == tier)
+                .where(Message.created_at < cutoff_date)
+                .returning(Message.id)
+            )
+            msg_ids = [row[0] for row in result.fetchall()]
+            deleted_count += len(msg_ids)
+
+            await session.commit()
+
+            logger.info(
+                "retention_policy_applied",
+                tier=tier.value,
+                retention_days=retention_days,
+                deleted_count=deleted_count,
+                cutoff_date=cutoff_date.isoformat(),
+            )
+
+        return deleted_count

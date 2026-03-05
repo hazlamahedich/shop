@@ -30,6 +30,7 @@ from app.models.consent import Consent, ConsentType, ConsentSource
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.deletion_audit_log import DeletionAuditLog
+from app.services.privacy.data_tier_service import DataTier
 
 
 DELETION_LOCK_TTL = 10
@@ -284,10 +285,86 @@ class ConversationConsentService:
         return {
             "session_id": session_id,
             "merchant_id": merchant_id,
-            "status": ConsentStatus.PENDING,
-            "message": "Preferences and conversation history deleted",
+            "visitor_id": visitor_id,
             "clear_visitor_id": True,
+            "deletion_summary": {
+                "conversations_deleted": deletion_result.get("conversations_deleted", 0),
+                "messages_deleted": deletion_result.get("messages_deleted", 0),
+                "audit_log_id": deletion_result.get("audit_log_id"),
+            },
         }
+
+    # =========================================================================
+    # Story 6-4: Data Tier Integration
+    # =========================================================================
+
+    async def update_data_tier(
+        self,
+        session_id: str,
+        visitor_id: Optional[str],
+        new_tier: str,
+    ) -> None:
+        """Update data tier for conversations based on consent status.
+
+        Story 6-4: Integrate data tier system with consent management.
+
+        Called when:
+        - User opts out → tier changes to ANONYMIZED after deletion
+        - User opts in → tier stays VOLUNTARY for new conversations
+
+        Args:
+            session_id: Widget session ID or PSID
+            visitor_id: Optional visitor identifier (primary lookup)
+            new_tier: New data tier value (voluntary/operational/anonymized)
+        """
+        from app.models.conversation import Conversation
+
+        if self.db is None:
+            self.logger.warning("update_data_tier_no_db", session_id=session_id)
+            return
+
+        try:
+            # Find conversations by visitor_id (primary) or session_id (fallback)
+            query = select(Conversation)
+
+            if visitor_id:
+                # Join with consent to find by visitor_id
+                query = query.join(
+                    Consent,
+                    Consent.session_id == Conversation.platform_sender_id,
+                ).where(
+                    Consent.visitor_id == visitor_id,
+                )
+            else:
+                # Fallback: Find by session_id
+                query = query.where(Conversation.platform_sender_id == session_id)
+
+            result = await self.db.execute(query)
+            conversations = result.scalars().all()
+
+            # Update tier for all matching conversations
+            for conversation in conversations:
+                conversation.data_tier = DataTier(new_tier)
+
+            await self.db.commit()
+
+            self.logger.info(
+                "data_tier_updated_for_consent",
+                session_id=session_id,
+                visitor_id=visitor_id,
+                new_tier=new_tier,
+                conversations_updated=len(conversations),
+            )
+
+        except Exception as e:
+            self.logger.error(
+                "update_data_tier_failed",
+                session_id=session_id,
+                visitor_id=visitor_id,
+                new_tier=new_tier,
+                error=str(e),
+            )
+            raise
 
     async def _check_deletion_rate_limit(
         self,

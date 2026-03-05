@@ -12,10 +12,12 @@ from enum import Enum
 from typing import Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.services.privacy.data_tier_service import DataTier
 
 
 class OrderStatus(str, Enum):
@@ -237,6 +239,16 @@ class Order(Base):
         nullable=True,
         comment="When order was cancelled",
     )
+    data_tier: Mapped[str] = mapped_column(
+        SAEnum(
+            DataTier,
+            name="datatier",
+            create_type=False,
+        ),
+        nullable=False,
+        default=DataTier.OPERATIONAL,
+        index=True,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -261,6 +273,7 @@ class Order(Base):
             "merchant_id",
             "order_number",
         ),
+        Index("ix_orders_tier_created", "data_tier", "created_at"),
     )
 
     merchant: Mapped[Merchant] = relationship(

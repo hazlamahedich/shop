@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, Text, DateTime, Enum, ForeignKey
+from sqlalchemy import String, Integer, Text, DateTime, Enum, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,7 @@ from app.core.encryption import (
     encrypt_metadata,
     decrypt_metadata,
 )
+from app.services.privacy.data_tier_service import DataTier
 
 
 class Message(Base):
@@ -64,6 +65,16 @@ class Message(Base):
         "message_metadata",
         JSONB,
         nullable=True,
+    )
+    data_tier: Mapped[str] = mapped_column(
+        Enum(
+            DataTier,
+            name="datatier",
+            create_type=False,
+        ),
+        nullable=False,
+        default=DataTier.VOLUNTARY,
+        index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -141,6 +152,8 @@ class Message(Base):
             self.message_metadata = None
         else:
             self.message_metadata = encrypt_metadata(metadata)
+
+    __table_args__ = (Index("ix_messages_tier_created", "data_tier", "created_at"),)
 
     def __repr__(self) -> str:
         return (

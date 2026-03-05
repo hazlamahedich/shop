@@ -9,12 +9,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text, Boolean
+from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text, Boolean, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing_extensions import Literal
 
 from app.core.database import Base
+from app.services.privacy.data_tier_service import DataTier
 
 HandoffStatusType = Literal["none", "pending", "active", "resolved", "reopened", "escalated"]
 from app.core.encryption import (
@@ -121,6 +122,16 @@ class Conversation(Base):
         default=0,
         nullable=True,
     )
+    data_tier: Mapped[str] = mapped_column(
+        Enum(
+            DataTier,
+            name="datatier",
+            create_type=False,
+        ),
+        nullable=False,
+        default=DataTier.VOLUNTARY,
+        index=True,
+    )
     # Encrypted conversation_data for storing sensitive conversation data
     # (renamed from 'metadata' which is reserved in SQLAlchemy)
     conversation_data: Mapped[Optional[dict]] = mapped_column(
@@ -215,6 +226,8 @@ class Conversation(Base):
         if self.conversation_data is None:
             self.conversation_data = {}
         self.conversation_data[f"followup_{followup_type}_sent_at"] = timestamp
+
+    __table_args__ = (Index("ix_conversations_tier_created", "data_tier", "created_at"),)
 
     def __repr__(self) -> str:
         return (
