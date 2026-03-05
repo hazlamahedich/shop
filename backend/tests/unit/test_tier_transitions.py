@@ -56,9 +56,7 @@ class TestTierTransitions:
         )
 
         # Verify tier updated
-        result = await db_session.execute(
-            select(Conversation).where(Conversation.id == conv.id)
-        )
+        result = await db_session.execute(select(Conversation).where(Conversation.id == conv.id))
         updated_conv = result.scalars().first()
         assert updated_conv.data_tier == DataTier.ANONYMIZED
 
@@ -95,9 +93,7 @@ class TestTierTransitions:
         assert exc_info.value.code == ErrorCode.TIER_TRANSITION_NOT_ALLOWED
 
         # Verify tier NOT changed
-        result = await db_session.execute(
-            select(Conversation).where(Conversation.id == conv.id)
-        )
+        result = await db_session.execute(select(Conversation).where(Conversation.id == conv.id))
         unchanged_conv = result.scalars().first()
         assert unchanged_conv.data_tier == DataTier.OPERATIONAL
 
@@ -130,9 +126,7 @@ class TestTierTransitions:
         )
 
         # Verify tier updated
-        result = await db_session.execute(
-            select(Conversation).where(Conversation.id == conv.id)
-        )
+        result = await db_session.execute(select(Conversation).where(Conversation.id == conv.id))
         updated_conv = result.scalars().first()
         assert updated_conv.data_tier == DataTier.ANONYMIZED
 
@@ -194,9 +188,7 @@ class TestTierTransitions:
         )
 
         # Verify tier unchanged
-        result = await db_session.execute(
-            select(Conversation).where(Conversation.id == conv.id)
-        )
+        result = await db_session.execute(select(Conversation).where(Conversation.id == conv.id))
         updated_conv = result.scalars().first()
         assert updated_conv.data_tier == DataTier.VOLUNTARY
 
@@ -245,9 +237,7 @@ class TestConsentTierIntegration:
         )
 
         # Verify tier updated
-        result = await db_session.execute(
-            select(Conversation).where(Conversation.id == conv.id)
-        )
+        result = await db_session.execute(select(Conversation).where(Conversation.id == conv.id))
         updated_conv = result.scalars().first()
         assert updated_conv.data_tier == DataTier.ANONYMIZED
 
