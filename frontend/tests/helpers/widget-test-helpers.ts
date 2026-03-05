@@ -111,7 +111,7 @@ export interface MockMessageResponse {
     total: number;
   };
   checkout_url?: string;
-  consent_required?: boolean;
+  consent_prompt_required?: boolean;
   budget_exceeded?: boolean;
   hybrid_ignored?: boolean;
 }
@@ -121,7 +121,7 @@ export async function mockWidgetMessage(page: Page, response: MockMessageRespons
     await route.fulfill({
       status: 200,
       body: JSON.stringify({
-        message: {
+        data: {
           message_id: crypto.randomUUID(),
           sender: 'bot',
           created_at: new Date().toISOString(),
@@ -148,7 +148,7 @@ export async function mockWidgetMessageConditional(
         await route.fulfill({
           status: 200,
           body: JSON.stringify({
-            message: {
+            data: {
               message_id: crypto.randomUUID(),
               sender: 'bot',
               created_at: new Date().toISOString(),

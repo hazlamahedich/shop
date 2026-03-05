@@ -1,4 +1,4 @@
-import { getWidgetApiBase } from "./widgetClient-DgavxOUn.js";
+import { getWidgetApiBase } from "./widgetClient-hLdD-FAx.js";
 function getWsBaseUrl() {
   const apiBase = getWidgetApiBase();
   try {

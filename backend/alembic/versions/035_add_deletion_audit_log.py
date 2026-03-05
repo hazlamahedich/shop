@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 
 revision: str = "035_deletion_audit"
-down_revision: Union[str, None] = "034_add_visitor_id_to_consents"
+down_revision: Union[str, None] = "034_visitor_id_consent"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -178,11 +178,14 @@ class SendMessageRequest(BaseSchema):
 class WidgetMessageResponse(BaseSchema):
     """Response for widget message.
 
+    Story 6-1: Added consent_prompt_required for opt-in consent flow.
+
     Attributes:
         message_id: Unique message identifier
         content: Bot response content
         sender: Message sender (always 'bot')
         created_at: Message timestamp
+        consent_prompt_required: Whether to show consent prompt (Story 6-1)
     """
 
     message_id: str
@@ -192,6 +195,9 @@ class WidgetMessageResponse(BaseSchema):
     products: Optional[list[dict[str, Any]]] = None
     cart: Optional[dict[str, Any]] = None
     checkout_url: Optional[str] = None
+    consent_prompt_required: Optional[bool] = Field(
+        default=None, description="Whether to show consent prompt (Story 6-1)"
+    )
 
 
 class WidgetMessageEnvelope(MinimalEnvelope):

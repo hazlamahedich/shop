@@ -1,7 +1,12 @@
-import { getWidgetApiBase } from "./widgetClient-DgavxOUn.js";
+import { getWidgetApiBase } from "./widgetClient-CfzCw7bN.js";
 function getWsBaseUrl() {
   const apiBase = getWidgetApiBase();
-  return apiBase.replace(/^http/, "ws");
+  try {
+    const url = new URL(apiBase);
+    return url.origin.replace(/^http/, "ws");
+  } catch {
+    return apiBase.replace(/^http/, "ws").replace(/\/api\/v1\/widget$/, "");
+  }
 }
 function connectWidgetWebSocket(sessionId, options = {}) {
   const {

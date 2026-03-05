@@ -30,6 +30,7 @@ class IntentType(str, Enum):
     ORDER_TRACKING = "order_tracking"
     HUMAN_HANDOFF = "human_handoff"
     FORGET_PREFERENCES = "forget_preferences"
+    CHECK_CONSENT_STATUS = "check_consent_status"
     UNKNOWN = "unknown"
 
 

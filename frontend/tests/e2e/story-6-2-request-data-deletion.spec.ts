@@ -189,7 +189,7 @@ test.describe('Story 6-2: Request Data Deletion', () => {
         response: createMockMessageResponse({
           content: 'To remember your preferences for faster shopping next time, I\'ll save your conversation. OK?',
           intent: 'consent_prompt',
-          consent_required: true,
+          consent_prompt_required: true,
         }),
       },
     ]);

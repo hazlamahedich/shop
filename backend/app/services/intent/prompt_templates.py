@@ -25,6 +25,7 @@ Classify the message into one of these intents:
 - order_tracking: User wants to check order status
 - human_handoff: User requests human assistance
 - forget_preferences: User wants to clear their data/cart
+- check_consent_status: User wants to verify their data/consent preferences status
 - add_last_viewed: User refers to a previously shown product (e.g., "add that one", "get the first", "I want it")
 - unknown: Intent cannot be determined
 
@@ -53,7 +54,7 @@ Extract these entities if present:
 
 Respond ONLY with valid JSON in this format:
 {
-    "intent": "product_search|product_inquiry|product_comparison|greeting|general|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|add_last_viewed|unknown",
+    "intent": "product_search|product_inquiry|product_comparison|greeting|general|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|check_consent_status|add_last_viewed|unknown",
     "confidence": 0.0-1.0,
     "entities": {
         "category": "shoes or null",
@@ -152,6 +153,18 @@ Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "re
 
 Input: "clear my memory"
 Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "User wants to reset session"}
+
+Input: "are my preferences saved?"
+Output: {"intent": "check_consent_status", "confidence": 0.95, "entities": {}, "reasoning": "User asking about data status, not requesting deletion"}
+
+Input: "confirm if my preferences are saved"
+Output: {"intent": "check_consent_status", "confidence": 0.95, "entities": {}, "reasoning": "User verifying consent status"}
+
+Input: "what's my consent status?"
+Output: {"intent": "check_consent_status", "confidence": 0.95, "entities": {}, "reasoning": "User checking their data preferences"}
+
+Input: "do you remember my preferences?"
+Output: {"intent": "check_consent_status", "confidence": 0.92, "entities": {}, "reasoning": "User asking about stored data"}
 
 Input: "What's your most expensive product?"
 Output: {"intent": "product_search", "confidence": 0.95, "entities": {"constraints": {"sort_by": "price", "sort_order": "desc", "limit": 1}}, "reasoning": "User wants highest priced product"}

@@ -108,10 +108,13 @@ function ChatWindow({
   }, [isOpen, onClose]);
 
   const handleSend = async () => {
+    console.warn('[ChatWindow] handleSend called, inputValue:', inputValue);
     if (!inputValue.trim()) return;
     const message = inputValue.trim();
     setInputValue('');
+    console.warn('[ChatWindow] calling onSendMessage with:', message);
     await onSendMessage(message);
+    console.warn('[ChatWindow] onSendMessage completed');
   };
 
   if (!isOpen) return null;

@@ -7538,18 +7538,11 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const recordConsent = reactExports.useCallback(
       async (consented) => {
         var _a3;
-        console.warn("[WidgetContext] recordConsent called:", consented);
-        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) {
-          console.warn("[WidgetContext] No session, aborting recordConsent");
-          return;
-        }
+        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
         try {
-          console.warn("[WidgetContext] Getting widgetClient...");
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           const visitorId = getVisitorId() || void 0;
-          console.warn("[WidgetContext] Calling recordConsent API with visitorId:", visitorId);
           await widgetClient2.recordConsent(state.session.sessionId, consented, visitorId);
-          console.warn("[WidgetContext] recordConsent API call succeeded");
           const newConsentState = {
             promptShown: true,
             canStoreConversation: consented,
@@ -7557,7 +7550,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           };
           dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
         } catch (error) {
-          console.error("[WidgetContext] recordConsent error:", error);
           addError(error, { action: "Try Again" });
         }
       },
@@ -13040,19 +13032,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       };
     }
     async recordConsent(sessionId, consented, visitorId) {
-      console.warn("[WidgetClient] recordConsent called:", { sessionId, consented, visitorId });
-      const body = JSON.stringify({
-        session_id: sessionId,
-        consent_granted: consented,
-        source: "widget",
-        visitor_id: visitorId
-      });
-      console.warn("[WidgetClient] recordConsent request body:", body);
       const data = await this.request("/consent", {
         method: "POST",
-        body
+        body: JSON.stringify({
+          session_id: sessionId,
+          consent_granted: consented,
+          source: "widget",
+          visitor_id: visitorId
+        })
       });
-      console.warn("[WidgetClient] recordConsent response:", data);
       const parsed = ConsentPromptResponseSchema.safeParse(data.data);
       if (!parsed.success) {
         throw new WidgetApiException(0, "Invalid consent response");

@@ -43,6 +43,9 @@ export function ConsentPrompt({
 }: ConsentPromptProps) {
   const [isProcessing, setIsProcessing] = React.useState(false);
 
+  // Debug logging for Story 6-1 consent prompt visibility
+  console.log('[ConsentPrompt] render:', { isOpen, promptShown, consentGranted, shouldRender: isOpen && promptShown && consentGranted === null });
+
   if (!isOpen || !promptShown || consentGranted !== null) {
     return null;
   }

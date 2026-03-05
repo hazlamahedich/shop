@@ -20,6 +20,7 @@ from app.services.conversation.handlers.order_handler import OrderHandler
 from app.services.conversation.handlers.handoff_handler import HandoffHandler
 from app.services.conversation.handlers.clarification_handler import ClarificationHandler
 from app.services.conversation.handlers.forget_preferences_handler import ForgetPreferencesHandler
+from app.services.conversation.handlers.check_consent_handler import CheckConsentHandler
 
 __all__ = [
     "BaseHandler",
@@ -32,4 +33,5 @@ __all__ = [
     "HandoffHandler",
     "ClarificationHandler",
     "ForgetPreferencesHandler",
+    "CheckConsentHandler",
 ]

@@ -179,6 +179,8 @@ export class WidgetApiClient {
       body: JSON.stringify({ session_id: sessionId, message: message }),
     });
     const rawData = data.data as Record<string, unknown>;
+    console.warn('[WidgetClient] sendMessage raw response:', rawData);
+    console.warn('[WidgetClient] consentPromptRequired field:', rawData.consentPromptRequired, rawData.consent_prompt_required);
     const parsed = WidgetMessageSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid message response');
@@ -216,7 +218,7 @@ export class WidgetApiClient {
       checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
       intent: parsed.data.intent ?? undefined,
       confidence: parsed.data.confidence ?? undefined,
-      consent_prompt_required: rawData.consent_prompt_required as boolean | undefined,
+      consent_prompt_required: (rawData.consentPromptRequired ?? rawData.consent_prompt_required) as boolean | undefined,
     };
   }
 
@@ -407,15 +409,19 @@ export class WidgetApiClient {
   }
 
   async recordConsent(sessionId: string, consented: boolean, visitorId?: string): Promise<ConsentPromptResponse> {
+    console.warn('[WidgetClient] recordConsent called:', { sessionId, consented, visitorId });
+    const body = JSON.stringify({
+      session_id: sessionId,
+      consent_granted: consented,
+      source: 'widget',
+      visitor_id: visitorId,
+    });
+    console.warn('[WidgetClient] recordConsent request body:', body);
     const data = await this.request<{ data: unknown }>('/consent', {
       method: 'POST',
-      body: JSON.stringify({
-        session_id: sessionId,
-        consent_granted: consented,
-        source: 'widget',
-        visitor_id: visitorId,
-      }),
+      body,
     });
+    console.warn('[WidgetClient] recordConsent response:', data);
     const parsed = ConsentPromptResponseSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid consent response');

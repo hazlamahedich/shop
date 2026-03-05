@@ -11,6 +11,7 @@
  * - Consent persists across sessions via visitor_id (hybrid storage)
  * - "Forget my preferences" revokes consent and clears visitor_id
  * - Post-opt-out journey: Complete purchase after declining consent
+ * - User can check consent status without triggering deletion
  *
  * Storage Strategy (Privacy-Friendly):
  * - visitor_id: localStorage (13 months) - for consent tracking
@@ -20,7 +21,7 @@
  * - Frontend dev server running at http://localhost:5173
  * - Run: `cd frontend && npm run dev`
  *
- * Test IDs: 6-1-E2E-001 to 6-1-E2E-013
+ * Test IDs: 6-1-E2E-001 to 6-1-E2E-014
  * @tags e2e consent gdpr privacy story-6-1
  */
 
@@ -44,7 +45,7 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
         response: createMockMessageResponse({
           content: 'To remember your preferences for faster shopping next time, I\'ll save your conversation. OK?',
           intent: 'consent_prompt',
-          consent_required: true,
+          consent_prompt_required: true,
         }),
       },
     ]);
@@ -72,7 +73,13 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
         }
         await route.fulfill({
           status: 200,
-          body: JSON.stringify({ data: { success: true } }),
+          body: JSON.stringify({
+            data: {
+              status: body?.consent_granted ? 'opted_in' : 'opted_out',
+              can_store_conversation: body?.consent_granted ?? false,
+              consent_message_shown: true,
+            },
+          }),
         });
       } else {
         await route.continue();
@@ -85,7 +92,7 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
         response: createMockMessageResponse({
           content: 'To remember your preferences, I\'ll save your conversation. OK?',
           intent: 'consent_prompt',
-          consent_required: true,
+          consent_prompt_required: true,
         }),
       },
       {
@@ -137,7 +144,7 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
         response: createMockMessageResponse({
           content: 'To remember your preferences, I\'ll save your conversation. OK?',
           intent: 'consent_prompt',
-          consent_required: true,
+          consent_prompt_required: true,
         }),
       },
       {
@@ -280,7 +287,7 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
         response: createMockMessageResponse({
           content: 'Hey there! To give you the best recommendations, I\'d love to remember your preferences. Sound good?',
           intent: 'consent_prompt',
-          consent_required: true,
+          consent_prompt_required: true,
         }),
       },
     ]);
@@ -445,6 +452,60 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
     expect(consentStatusResponse?.status || 'opted_out').toBeTruthy();
   });
 
+  test('[P0][6-1-E2E-014] @smoke @consent should check consent status without triggering deletion', async ({ page }) => {
+    await setupWidgetMocks(page);
+
+    await page.route('**/api/v1/widget/consent/*', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          body: JSON.stringify({
+            data: {
+              status: 'opted_in',
+              can_store_conversation: true,
+              consent_message_shown: true,
+            },
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await mockWidgetMessageConditional(page, [
+      {
+        match: (msg) => msg.includes('preferences') && (msg.includes('saved') || msg.includes('status')),
+        response: createMockMessageResponse({
+          content: 'Yup! Your preferences are saved! 😊 I\'ll remember you for faster shopping. (Saved on March 4, 2026)',
+          intent: 'check_consent_status',
+          metadata: {
+            consent_status: 'opted_in',
+            consent_granted_at: '2026-03-04T12:00:00Z',
+            quick_replies: [
+              { content_type: 'text', title: 'Change my preferences', payload: 'CONSENT_CHANGE' },
+              { content_type: 'text', title: 'Delete my data', payload: 'CONSENT_DELETE' },
+            ],
+          },
+        }),
+      },
+    ]);
+
+    const { input } = await openWidgetChat(page);
+    await input.fill('are my preferences saved?');
+    await input.press('Enter');
+
+    await expect(page.getByText(/preferences are saved/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/March 4, 2026/i)).toBeVisible();
+
+    const changeButton = page.getByRole('button', { name: /change.*preferences/i });
+    const deleteButton = page.getByRole('button', { name: /delete.*data/i });
+
+    expect(changeButton).toBeVisible();
+    expect(deleteButton).toBeVisible();
+
+    await expect(page.getByText(/forgotten your preferences/i)).not.toBeVisible();
+  });
+
   test('[P1][6-1-E2E-011] @regression should verify opt-out takes immediate effect', async ({ page }) => {
     await setupWidgetMocks(page);
 
@@ -457,8 +518,14 @@ test.describe('Story 6-1: Opt-In Consent Flow', () => {
           optOutTime = new Date();
           await route.fulfill({
             status: 200,
-            body: JSON.stringify({ data: { success: true } }),
-          });
+            body: JSON.stringify({
+              data: {
+                status: 'opted_out',
+                can_store_conversation: false,
+                consent_message_shown: true,
+              },
+          }),
+        });
         } else {
           await route.continue();
         }

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import APIError, ErrorCode
 from app.models.order import Order, OrderStatus
 from app.models.conversation import Conversation
+from app.services.privacy.data_tier_service import DataTier
 
 logger = structlog.get_logger(__name__)
 
@@ -555,6 +556,8 @@ async def upsert_order(
             # Story 4-13: Cancellation
             cancel_reason=order_data.get("cancel_reason"),
             cancelled_at=order_data.get("cancelled_at"),
+            # Story 6-4: Data tier for operational data
+            data_tier=DataTier.OPERATIONAL,
         )
 
         db.add(new_order)

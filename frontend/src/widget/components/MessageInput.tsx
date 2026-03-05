@@ -24,12 +24,14 @@ export function MessageInput({
 }: MessageInputProps) {
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
+      console.warn('[MessageInput] Enter key pressed, calling onSend');
       event.preventDefault();
       onSend();
     }
   };
 
   const handleSubmit = (event: React.FormEvent) => {
+    console.warn('[MessageInput] Form submitted, calling onSend');
     event.preventDefault();
     onSend();
   };

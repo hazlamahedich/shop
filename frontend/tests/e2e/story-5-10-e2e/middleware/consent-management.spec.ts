@@ -27,7 +27,7 @@ test.describe('Widget Consent Management (Task 18) [5.10-E2E-018]', () => {
             sender: 'bot',
             created_at: new Date().toISOString(),
             intent: 'consent_prompt',
-            consent_required: true,
+            consent_prompt_required: true,
             consent_type: 'cart_management',
           },
         }),

@@ -7269,6 +7269,103 @@ const shopifyCartClient = {
 if (typeof window !== "undefined") {
   window.shopifyCartClient = shopifyCartClient;
 }
+const safeStorage = {
+  get: (key) => {
+    try {
+      return sessionStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      sessionStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  remove: (key) => {
+    try {
+      sessionStorage.removeItem(key);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+const safeLocalStorage = {
+  get: (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  remove: (key) => {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+const SESSION_KEY = "widget_session_id";
+const MERCHANT_KEY = "widget_merchant_id";
+const VISITOR_KEY = "widget_visitor_id";
+const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
+function getOrCreateVisitorId() {
+  const stored = safeLocalStorage.get(VISITOR_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      const createdAt = new Date(parsed.createdAt).getTime();
+      const now = Date.now();
+      if (now - createdAt < VISITOR_MAX_AGE_MS) {
+        return parsed.visitorId;
+      }
+    } catch {
+    }
+  }
+  const visitorId = crypto.randomUUID();
+  safeLocalStorage.set(VISITOR_KEY, JSON.stringify({
+    visitorId,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  }));
+  return visitorId;
+}
+function getVisitorId() {
+  const stored = safeLocalStorage.get(VISITOR_KEY);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored);
+    const createdAt = new Date(parsed.createdAt).getTime();
+    const now = Date.now();
+    if (now - createdAt < VISITOR_MAX_AGE_MS) {
+      return parsed.visitorId;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+function clearVisitorId() {
+  safeLocalStorage.remove(VISITOR_KEY);
+}
+const initialConsentState = {
+  promptShown: false,
+  canStoreConversation: false,
+  status: "pending"
+};
 const initialState = {
   isOpen: false,
   isLoading: false,
@@ -7278,7 +7375,8 @@ const initialState = {
   config: null,
   error: null,
   errors: [],
-  connectionStatus: "disconnected"
+  connectionStatus: "disconnected",
+  consentState: initialConsentState
 };
 function widgetReducer(state, action) {
   switch (action.type) {
@@ -7311,6 +7409,10 @@ function widgetReducer(state, action) {
       return { ...state, errors: [] };
     case "SET_CONNECTION_STATUS":
       return { ...state, connectionStatus: action.payload };
+    case "SET_CONSENT_STATE":
+      return { ...state, consentState: action.payload };
+    case "SET_CONSENT_PROMPT_SHOWN":
+      return { ...state, consentState: { ...state.consentState, promptShown: action.payload } };
     case "RESET":
       return initialState;
     default:
@@ -7333,6 +7435,7 @@ function WidgetProvider({ children, merchantId }) {
   const [isCheckingOut, setIsCheckingOut] = reactExports.useState(false);
   const lastActionRef = reactExports.useRef(null);
   const greetingShownRef = reactExports.useRef(false);
+  const consentPromptShownRef = reactExports.useRef(false);
   const addError = reactExports.useCallback(
     (error, context) => {
       const widgetError = createWidgetError(error, context);
@@ -7355,16 +7458,16 @@ function WidgetProvider({ children, merchantId }) {
     endSession: endWidgetSession
   } = reactExports.useMemo(
     () => ({
-      createSession: async () => {
-        const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
-        return widgetClient.createSession(merchantId);
+      createSession: async (visitorId) => {
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
+        return widgetClient.createSession(merchantId, visitorId);
       },
       getSession: async (sessionId) => {
-        const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
         return widgetClient.getSession(sessionId);
       },
       endSession: async (sessionId) => {
-        const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
         return widgetClient.endSession(sessionId);
       }
     }),
@@ -7375,10 +7478,11 @@ function WidgetProvider({ children, merchantId }) {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "CLEAR_ERROR" });
     try {
-      const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
+      const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
       const config = await widgetClient.getConfig(merchantId);
       dispatch({ type: "SET_CONFIG", payload: config });
-      const sessionId = sessionStorage.getItem("widget_session_id");
+      const visitorId = getOrCreateVisitorId();
+      const sessionId = safeStorage.get(SESSION_KEY);
       if (sessionId) {
         const session = await getSession(sessionId);
         if (session) {
@@ -7387,9 +7491,10 @@ function WidgetProvider({ children, merchantId }) {
           return;
         }
       }
-      const newSession = await createSession();
+      const newSession = await createSession(visitorId);
       dispatch({ type: "SET_SESSION", payload: newSession });
-      sessionStorage.setItem("widget_session_id", newSession.sessionId);
+      safeStorage.set(SESSION_KEY, newSession.sessionId);
+      safeStorage.set(MERCHANT_KEY, merchantId);
     } catch (error) {
       addError(error, { action: "Retry" });
     } finally {
@@ -7399,8 +7504,37 @@ function WidgetProvider({ children, merchantId }) {
   const toggleChat = reactExports.useCallback(() => {
     dispatch({ type: "SET_OPEN", payload: !state.isOpen });
   }, [state.isOpen]);
+  const recordConsent = reactExports.useCallback(
+    async (consented) => {
+      var _a2;
+      console.warn("[WidgetContext] recordConsent called:", consented);
+      if (!((_a2 = state.session) == null ? void 0 : _a2.sessionId)) {
+        console.warn("[WidgetContext] No session, aborting recordConsent");
+        return;
+      }
+      try {
+        console.warn("[WidgetContext] Getting widgetClient...");
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
+        const visitorId = getVisitorId() || void 0;
+        console.warn("[WidgetContext] Calling recordConsent API with visitorId:", visitorId);
+        await widgetClient.recordConsent(state.session.sessionId, consented, visitorId);
+        console.warn("[WidgetContext] recordConsent API call succeeded");
+        const newConsentState = {
+          promptShown: true,
+          canStoreConversation: consented,
+          status: consented ? "opted_in" : "opted_out"
+        };
+        dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
+      } catch (error) {
+        console.error("[WidgetContext] recordConsent error:", error);
+        addError(error, { action: "Try Again" });
+      }
+    },
+    [state.session, addError]
+  );
   const sendMessage = reactExports.useCallback(
     async (content) => {
+      console.warn("[WidgetContext] sendMessage called with:", content);
       if (!state.session || !content.trim()) return;
       lastActionRef.current = { type: "sendMessage", payload: content };
       const userMessage = {
@@ -7412,14 +7546,19 @@ function WidgetProvider({ children, merchantId }) {
       dispatch({ type: "ADD_MESSAGE", payload: userMessage });
       dispatch({ type: "SET_TYPING", payload: true });
       try {
-        const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
+        console.warn("[WidgetContext] Calling widgetClient.sendMessage...");
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
+        console.warn("[WidgetContext] botMessage received:", botMessage);
+        console.warn("[WidgetContext] consent_prompt_required:", botMessage.consent_prompt_required);
         dispatch({ type: "ADD_MESSAGE", payload: botMessage });
+        if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+          console.warn("[WidgetContext] Setting consent prompt shown to true");
+          consentPromptShownRef.current = true;
+          dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
+        }
         if (shopifyCartClient.isOnShopify() && botMessage.cart) {
-          console.log("[Widget] Chat returned cart, syncing to Shopify:", botMessage.cart);
           syncCartToShopify(botMessage.cart);
-        } else {
-          console.log("[Widget] Not syncing to Shopify - isOnShopify:", shopifyCartClient.isOnShopify(), "hasCart:", !!botMessage.cart);
         }
       } catch (error) {
         addError(error, { action: "Try Again" });
@@ -7435,7 +7574,6 @@ function WidgetProvider({ children, merchantId }) {
       try {
         if (!cart.items || cart.items.length === 0) {
           await shopifyCartClient.clearCart();
-          console.log("[Widget] Shopify cart cleared via chat");
         } else {
           const shopifyCart = await shopifyCartClient.getCart();
           const shopifyVariantIds = new Set(
@@ -7444,12 +7582,10 @@ function WidgetProvider({ children, merchantId }) {
           for (const item of cart.items) {
             if (item.variantId && !shopifyVariantIds.has(String(item.variantId))) {
               await shopifyCartClient.addToCart(item.variantId, item.quantity);
-              console.log("[Widget] Added to Shopify cart via chat:", item.variantId);
             }
           }
         }
       } catch (shopifyError) {
-        console.warn("[Widget] Shopify cart sync failed:", shopifyError);
       }
     },
     []
@@ -7460,25 +7596,21 @@ function WidgetProvider({ children, merchantId }) {
       lastActionRef.current = { type: "addToCart", payload: product };
       setAddingProductId(product.id);
       try {
-        const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
         let sessionId = (_a2 = state.session) == null ? void 0 : _a2.sessionId;
         if (!sessionId) {
-          const newSession = await createSession();
+          const visitorId = getVisitorId() || void 0;
+          const newSession = await createSession(visitorId);
           dispatch({ type: "SET_SESSION", payload: newSession });
-          sessionStorage.setItem("widget_session_id", newSession.sessionId);
+          safeStorage.set(SESSION_KEY, newSession.sessionId);
           sessionId = newSession.sessionId;
         }
         const updatedCart = await widgetClient.addToCart(sessionId, product, 1);
         if (shopifyCartClient.isOnShopify() && product.variantId) {
-          console.log("[Widget] Syncing add to Shopify cart, variantId:", product.variantId);
           try {
             await shopifyCartClient.addToCart(product.variantId, 1);
-            console.log("[Widget] Shopify cart sync successful");
           } catch (shopifyError) {
-            console.warn("[Widget] Shopify cart sync failed:", shopifyError);
           }
-        } else {
-          console.log("[Widget] Not syncing to Shopify - isOnShopify:", shopifyCartClient.isOnShopify(), "variantId:", product.variantId);
         }
         const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
         const confirmationMessage = {
@@ -7504,12 +7636,13 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       var _a2;
       setRemovingItemId(variantId);
       try {
-        const { widgetClient } = await import("./widgetClient-DgavxOUn.js");
+        const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
         let sessionId = (_a2 = state.session) == null ? void 0 : _a2.sessionId;
         if (!sessionId) {
-          const newSession = await createSession();
+          const visitorId = getVisitorId() || void 0;
+          const newSession = await createSession(visitorId);
           dispatch({ type: "SET_SESSION", payload: newSession });
-          sessionStorage.setItem("widget_session_id", newSession.sessionId);
+          safeStorage.set(SESSION_KEY, newSession.sessionId);
           sessionId = newSession.sessionId;
         }
         await widgetClient.removeFromCart(sessionId, variantId);
@@ -7517,7 +7650,6 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
           try {
             await shopifyCartClient.removeFromCart(variantId);
           } catch (shopifyError) {
-            console.warn("[Widget] Shopify cart sync failed:", shopifyError);
           }
         }
       } catch (error) {
@@ -7584,34 +7716,28 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
     if (!((_a2 = state.session) == null ? void 0 : _a2.sessionId) || !state.isOpen) return;
     let cleanup = null;
     const connectWebSocket = async () => {
-      const { connectWidgetWebSocket, isWebSocketSupported } = await import("./widgetWsClient-DYNuAWep.js");
+      const { connectWidgetWebSocket, isWebSocketSupported } = await import("./widgetWsClient-BPpq-tdb.js");
       if (!isWebSocketSupported()) {
-        console.warn("[Widget] WebSocket not supported");
         dispatch({ type: "SET_CONNECTION_STATUS", payload: "error" });
         return;
       }
       cleanup = connectWidgetWebSocket(state.session.sessionId, {
         onMessage: (event) => {
-          console.warn("[WidgetContext] WS onMessage:", event);
           if (event.type === "merchant_message") {
             const data = event.data;
-            console.warn("[WidgetContext] Merchant message data:", data);
             const merchantMessage = {
               messageId: `merchant-${data.id}`,
               content: data.content,
               sender: "merchant",
               createdAt: data.createdAt
             };
-            console.warn("[WidgetContext] Dispatching ADD_MESSAGE:", merchantMessage);
             dispatch({ type: "ADD_MESSAGE", payload: merchantMessage });
           }
         },
         onStatusChange: (status) => {
-          console.warn("[WidgetContext] Connection status:", status);
           dispatch({ type: "SET_CONNECTION_STATUS", payload: status });
         },
-        onError: (error) => {
-          console.warn("[Widget] WebSocket error:", error);
+        onError: () => {
         }
       });
     };
@@ -7645,9 +7771,30 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       } catch {
       }
     }
-    sessionStorage.removeItem("widget_session_id");
+    safeStorage.remove(SESSION_KEY);
+    safeStorage.remove(MERCHANT_KEY);
     dispatch({ type: "RESET" });
   }, [state.session, endWidgetSession]);
+  const forgetPreferences = reactExports.useCallback(async () => {
+    var _a2;
+    if (!((_a2 = state.session) == null ? void 0 : _a2.sessionId)) return;
+    try {
+      const { widgetClient } = await import("./widgetClient-hLdD-FAx.js");
+      const visitorId = getVisitorId() || void 0;
+      const result = await widgetClient.forgetPreferences(state.session.sessionId, visitorId);
+      if (result.clearVisitorId) {
+        clearVisitorId();
+      }
+      const newConsentState = {
+        promptShown: false,
+        canStoreConversation: false,
+        status: "pending"
+      };
+      dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
+    } catch (error) {
+      addError(error, { action: "Try Again" });
+    }
+  }, [state.session, addError]);
   const value = reactExports.useMemo(
     () => ({
       state,
@@ -7667,7 +7814,9 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       dismissError,
       clearErrors,
       retryLastAction,
-      connectionStatus: state.connectionStatus
+      connectionStatus: state.connectionStatus,
+      recordConsent,
+      forgetPreferences
     }),
     [
       state,
@@ -7685,7 +7834,9 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       addError,
       dismissError,
       clearErrors,
-      retryLastAction
+      retryLastAction,
+      recordConsent,
+      forgetPreferences
     ]
   );
   return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetContext.Provider, { value, children });
@@ -8118,7 +8269,7 @@ function mergeThemes(merchantTheme, embedOverrides) {
     ...sanitizedEmbed
   };
 }
-const ChatWindow$2 = reactExports.lazy(() => import("./ChatWindow-ClPAzFCH.js"));
+const ChatWindow$2 = reactExports.lazy(() => import("./ChatWindow-eWBcwHdo.js"));
 function WidgetInner({ theme }) {
   var _a, _b;
   const {
@@ -8134,7 +8285,8 @@ function WidgetInner({ theme }) {
     removingItemId,
     isCheckingOut,
     dismissError,
-    retryLastAction
+    retryLastAction,
+    recordConsent
   } = useWidgetContext();
   const merchantTheme = (_a = state.config) == null ? void 0 : _a.theme;
   const mergedTheme = reactExports.useMemo(
@@ -8142,7 +8294,7 @@ function WidgetInner({ theme }) {
     [merchantTheme, theme]
   );
   const prefetchChatWindow = reactExports.useCallback(() => {
-    import("./ChatWindow-ClPAzFCH.js");
+    import("./ChatWindow-eWBcwHdo.js");
   }, []);
   reactExports.useEffect(() => {
     initWidget2(merchantId);
@@ -8211,7 +8363,9 @@ function WidgetInner({ theme }) {
           removingItemId,
           isCheckingOut,
           sessionId: (_b = state.session) == null ? void 0 : _b.sessionId,
-          connectionStatus: state.connectionStatus
+          connectionStatus: state.connectionStatus,
+          consentState: state.consentState,
+          onRecordConsent: recordConsent
         }
       ) }) })
     ] })

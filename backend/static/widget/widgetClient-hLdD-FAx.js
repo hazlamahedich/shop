@@ -4120,14 +4120,16 @@ const WidgetConfigSchema = object({
   theme: WidgetThemeSchema,
   allowedDomains: array(string()).optional().default([]),
   shopDomain: string().nullable().optional(),
-  shop_domain: string().nullable().optional()
+  shop_domain: string().nullable().optional(),
+  personality: _enum(["friendly", "professional", "enthusiastic"]).nullable().optional()
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
   botName: data.botName || data.bot_name || "Assistant",
   welcomeMessage: data.welcomeMessage || data.welcome_message || "",
   theme: data.theme,
   allowedDomains: data.allowedDomains || [],
-  shopDomain: data.shopDomain || data.shop_domain || void 0
+  shopDomain: data.shopDomain || data.shop_domain || void 0,
+  personality: data.personality || void 0
 }));
 const WidgetSessionSchema = object({
   session_id: string().optional(),
@@ -4194,7 +4196,7 @@ const WidgetCheckoutResultSchema = object({
   cartTotal: number().optional(),
   currency: string().optional(),
   itemCount: number().optional()
-}).passthrough();
+});
 const WidgetProductDetailSchema = object({
   id: string(),
   title: string(),
@@ -4211,14 +4213,18 @@ const WidgetProductDetailSchema = object({
   variant_id: string().nullable().optional(),
   variantId: string().nullable().optional()
 }).passthrough();
+const ConsentPromptResponseSchema = object({
+  status: _enum(["pending", "opted_in", "opted_out"]),
+  can_store_conversation: boolean(),
+  consent_message_shown: boolean()
+});
 let cachedApiBase = null;
 function getApiBaseUrl() {
-  var _a2;
-  if (typeof window !== "undefined" && ((_a2 = window.ShopBotConfig) == null ? void 0 : _a2.apiBaseUrl)) {
-    const configUrl = window.ShopBotConfig.apiBaseUrl;
+  const shopBotConfig = typeof window !== "undefined" ? window.ShopBotConfig : null;
+  if (shopBotConfig == null ? void 0 : shopBotConfig.apiBaseUrl) {
+    const configUrl = shopBotConfig.apiBaseUrl;
     return configUrl.replace(/\/$/, "");
   }
-  cachedApiBase = null;
   const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
   let bestScript = null;
   for (const script of scripts) {
@@ -4285,10 +4291,10 @@ class WidgetApiClient {
       throw error;
     }
   }
-  async createSession(merchantId) {
+  async createSession(merchantId, visitorId) {
     const data = await this.request("/session", {
       method: "POST",
-      body: JSON.stringify({ merchant_id: merchantId })
+      body: JSON.stringify({ merchant_id: merchantId, visitor_id: visitorId })
     });
     const raw = data.data ?? data.session ?? data;
     const parsed = WidgetSessionSchema.safeParse(raw);
@@ -4333,6 +4339,9 @@ class WidgetApiClient {
       method: "POST",
       body: JSON.stringify({ session_id: sessionId, message })
     });
+    const rawData = data.data;
+    console.warn("[WidgetClient] sendMessage raw response:", rawData);
+    console.warn("[WidgetClient] consentPromptRequired field:", rawData.consentPromptRequired, rawData.consent_prompt_required);
     const parsed = WidgetMessageSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, "Invalid message response");
@@ -4365,7 +4374,8 @@ class WidgetApiClient {
       } : void 0,
       checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? void 0,
       intent: parsed.data.intent ?? void 0,
-      confidence: parsed.data.confidence ?? void 0
+      confidence: parsed.data.confidence ?? void 0,
+      consent_prompt_required: rawData.consentPromptRequired ?? rawData.consent_prompt_required
     };
   }
   async getConfig(merchantId) {
@@ -4532,10 +4542,63 @@ class WidgetApiClient {
       imageUrl: productData.imageUrl || productData.image_url,
       price: productData.price,
       available: productData.available,
-      inventoryQuantity: productData.inventoryQuantity || productData.inventory_quantity,
+      inventoryQuantity: productData.inventoryQuantity ?? productData.inventory_quantity ?? void 0,
       productType: productData.productType || productData.product_type,
       vendor: productData.vendor,
       variantId: productData.variantId || productData.variant_id
+    };
+  }
+  async recordConsent(sessionId, consented, visitorId) {
+    console.warn("[WidgetClient] recordConsent called:", { sessionId, consented, visitorId });
+    const body = JSON.stringify({
+      session_id: sessionId,
+      consent_granted: consented,
+      source: "widget",
+      visitor_id: visitorId
+    });
+    console.warn("[WidgetClient] recordConsent request body:", body);
+    const data = await this.request("/consent", {
+      method: "POST",
+      body
+    });
+    console.warn("[WidgetClient] recordConsent response:", data);
+    const parsed = ConsentPromptResponseSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, "Invalid consent response");
+    }
+    return {
+      status: parsed.data.status,
+      can_store_conversation: parsed.data.can_store_conversation,
+      consent_message_shown: parsed.data.consent_message_shown
+    };
+  }
+  async getConsentStatus(sessionId, visitorId) {
+    try {
+      const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : "";
+      const data = await this.request(`/consent/${sessionId}${queryParam}`);
+      const parsed = ConsentPromptResponseSchema.safeParse(data.data);
+      if (!parsed.success) {
+        return null;
+      }
+      return {
+        status: parsed.data.status,
+        can_store_conversation: parsed.data.can_store_conversation,
+        consent_message_shown: parsed.data.consent_message_shown
+      };
+    } catch {
+      return null;
+    }
+  }
+  async forgetPreferences(sessionId, visitorId) {
+    var _a2, _b;
+    const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : "";
+    const data = await this.request(
+      `/consent/${sessionId}${queryParam}`,
+      { method: "DELETE" }
+    );
+    return {
+      success: ((_a2 = data.data) == null ? void 0 : _a2.success) ?? true,
+      clearVisitorId: ((_b = data.data) == null ? void 0 : _b.clear_visitor_id) ?? true
     };
   }
 }

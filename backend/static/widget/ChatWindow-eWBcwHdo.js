@@ -1,5 +1,5 @@
-import { r as reactExports, j as jsxRuntimeExports, f as formatRetryTime, E as ErrorSeverity } from "./loader-XDYioZtO.js";
-import { widgetClient, WidgetApiException } from "./widgetClient-sG1lk9_A.js";
+import { r as reactExports, j as jsxRuntimeExports, f as formatRetryTime, E as ErrorSeverity } from "./loader-DhiFBWN-.js";
+import { widgetClient, WidgetApiException } from "./widgetClient-hLdD-FAx.js";
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -2454,11 +2454,13 @@ function MessageInput({
 }) {
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
+      console.warn("[MessageInput] Enter key pressed, calling onSend");
       event.preventDefault();
       onSend();
     }
   };
   const handleSubmit = (event) => {
+    console.warn("[MessageInput] Form submitted, calling onSend");
     event.preventDefault();
     onSend();
   };
@@ -3227,6 +3229,383 @@ function ProductDetailModal({
     }
   );
 }
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const mergeClasses = (...classes) => classes.filter((className, index, array) => {
+  return Boolean(className) && className.trim() !== "" && array.indexOf(className) === index;
+}).join(" ").trim();
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const toKebabCase = (string) => string.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const toCamelCase = (string) => string.replace(
+  /^([A-Z])|[\s-_]+(\w)/g,
+  (match, p1, p2) => p2 ? p2.toUpperCase() : p1.toLowerCase()
+);
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const toPascalCase = (string) => {
+  const camelCase = toCamelCase(string);
+  return camelCase.charAt(0).toUpperCase() + camelCase.slice(1);
+};
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+var defaultAttributes = {
+  xmlns: "http://www.w3.org/2000/svg",
+  width: 24,
+  height: 24,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round"
+};
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const hasA11yProp = (props) => {
+  for (const prop in props) {
+    if (prop.startsWith("aria-") || prop === "role" || prop === "title") {
+      return true;
+    }
+  }
+  return false;
+};
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const Icon = reactExports.forwardRef(
+  ({
+    color = "currentColor",
+    size = 24,
+    strokeWidth = 2,
+    absoluteStrokeWidth,
+    className = "",
+    children,
+    iconNode,
+    ...rest
+  }, ref) => reactExports.createElement(
+    "svg",
+    {
+      ref,
+      ...defaultAttributes,
+      width: size,
+      height: size,
+      stroke: color,
+      strokeWidth: absoluteStrokeWidth ? Number(strokeWidth) * 24 / Number(size) : strokeWidth,
+      className: mergeClasses("lucide", className),
+      ...!children && !hasA11yProp(rest) && { "aria-hidden": "true" },
+      ...rest
+    },
+    [
+      ...iconNode.map(([tag, attrs]) => reactExports.createElement(tag, attrs)),
+      ...Array.isArray(children) ? children : [children]
+    ]
+  )
+);
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const createLucideIcon = (iconName, iconNode) => {
+  const Component = reactExports.forwardRef(
+    ({ className, ...props }, ref) => reactExports.createElement(Icon, {
+      ref,
+      iconNode,
+      className: mergeClasses(
+        `lucide-${toKebabCase(toPascalCase(iconName))}`,
+        `lucide-${iconName}`,
+        className
+      ),
+      ...props
+    })
+  );
+  Component.displayName = toPascalCase(iconName);
+  return Component;
+};
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const __iconNode$1 = [["path", { d: "M21 12a9 9 0 1 1-6.219-8.56", key: "13zald" }]];
+const LoaderCircle = createLucideIcon("loader-circle", __iconNode$1);
+/**
+ * @license lucide-react v0.563.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
+const __iconNode = [
+  ["path", { d: "M12 20h.01", key: "zekei9" }],
+  ["path", { d: "M8.5 16.429a5 5 0 0 1 7 0", key: "1bycff" }],
+  ["path", { d: "M5 12.859a10 10 0 0 1 5.17-2.69", key: "1dl1wf" }],
+  ["path", { d: "M19 12.859a10 10 0 0 0-2.007-1.523", key: "4k23kn" }],
+  ["path", { d: "M2 8.82a15 15 0 0 1 4.177-2.643", key: "1grhjp" }],
+  ["path", { d: "M22 8.82a15 15 0 0 0-11.288-3.764", key: "z3jwby" }],
+  ["path", { d: "m2 2 20 20", key: "1ooewy" }]
+];
+const WifiOff = createLucideIcon("wifi-off", __iconNode);
+const ConnectionStatusIndicator = ({ status }) => {
+  if (status === "connected") {
+    return null;
+  }
+  const getStatusConfig = () => {
+    switch (status) {
+      case "connecting":
+        return {
+          icon: LoaderCircle,
+          text: "Connecting...",
+          bgColor: "bg-yellow-50",
+          textColor: "text-yellow-700",
+          borderColor: "border-yellow-200",
+          animate: true
+        };
+      case "disconnected":
+        return {
+          icon: WifiOff,
+          text: "Disconnected - Reconnecting...",
+          bgColor: "bg-orange-50",
+          textColor: "text-orange-700",
+          borderColor: "border-orange-200",
+          animate: false
+        };
+      case "error":
+        return {
+          icon: WifiOff,
+          text: "Connection error",
+          bgColor: "bg-red-50",
+          textColor: "text-red-700",
+          borderColor: "border-red-200",
+          animate: false
+        };
+      default:
+        return null;
+    }
+  };
+  const config = getStatusConfig();
+  if (!config) return null;
+  const Icon2 = config.icon;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: `
+        flex items-center gap-2 px-3 py-2 text-sm
+        ${config.bgColor} ${config.textColor} border ${config.borderColor}
+        rounded-lg
+      `,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          Icon2,
+          {
+            size: 14,
+            className: config.animate ? "animate-spin" : ""
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: config.text })
+      ]
+    }
+  );
+};
+const CONSENT_MESSAGES = {
+  friendly: {
+    title: "Save your preferences?",
+    description: "I can remember your preferences to help you shop faster next time! 😊 Your data stays private and you can change this anytime."
+  },
+  professional: {
+    title: "Save conversation data?",
+    description: "To provide personalized service in future conversations, I can save your preferences. Your data is handled according to privacy regulations."
+  },
+  enthusiastic: {
+    title: "Remember me?! 🎉",
+    description: "Want me to remember your preferences so I can help you shop EVEN FASTER next time?! Your data stays safe and you can always change your mind!"
+  }
+};
+function ConsentPrompt({
+  isOpen,
+  isLoading,
+  isTyping = false,
+  promptShown,
+  consentGranted,
+  theme,
+  botName,
+  personality = "friendly",
+  onConfirmConsent,
+  onDismiss
+}) {
+  const [isProcessing, setIsProcessing] = reactExports.useState(false);
+  console.log("[ConsentPrompt] render:", { isOpen, promptShown, consentGranted, shouldRender: isOpen && promptShown && consentGranted === null });
+  if (!isOpen || !promptShown || consentGranted !== null) {
+    return null;
+  }
+  const handleConsent = async (consented) => {
+    setIsProcessing(true);
+    try {
+      await onConfirmConsent(consented);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  const handleOptIn = () => handleConsent(true);
+  const handleOptOut = () => handleConsent(false);
+  const handleDismiss = () => onDismiss == null ? void 0 : onDismiss();
+  const disabled = isLoading || isTyping || isProcessing;
+  const messages = CONSENT_MESSAGES[personality];
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-labelledby": "consent-title",
+      "aria-describedby": "consent-description",
+      className: "shopbot-consent-prompt",
+      style: {
+        padding: "16px",
+        backgroundColor: theme.botBubbleColor,
+        borderRadius: theme.borderRadius,
+        margin: "8px 0",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            id: "consent-title",
+            style: {
+              fontSize: "14px",
+              fontWeight: 600,
+              marginBottom: "8px",
+              color: theme.textColor
+            },
+            children: messages.title
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "p",
+          {
+            id: "consent-description",
+            style: {
+              fontSize: "13px",
+              lineHeight: "1.5",
+              marginBottom: "12px",
+              color: theme.textColor,
+              opacity: 0.9
+            },
+            children: messages.description.replace("{botName}", botName)
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            style: {
+              display: "flex",
+              gap: "8px",
+              justifyContent: "flex-end"
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: handleOptOut,
+                  disabled,
+                  style: {
+                    padding: "8px 16px",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    border: `1px solid ${theme.primaryColor}`,
+                    backgroundColor: "transparent",
+                    color: theme.primaryColor,
+                    borderRadius: theme.borderRadius / 2,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.6 : 1,
+                    transition: "all 0.2s ease"
+                  },
+                  "aria-label": "Decline to save preferences",
+                  children: "No, don't save"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: handleOptIn,
+                  disabled,
+                  style: {
+                    padding: "8px 16px",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    border: "none",
+                    backgroundColor: theme.primaryColor,
+                    color: "white",
+                    borderRadius: theme.borderRadius / 2,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.6 : 1,
+                    transition: "all 0.2s ease"
+                  },
+                  "aria-label": "Agree to save preferences",
+                  children: "Yes, save my preferences"
+                }
+              )
+            ]
+          }
+        ),
+        onDismiss && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: handleDismiss,
+            disabled,
+            style: {
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+              padding: "4px",
+              background: "none",
+              border: "none",
+              cursor: disabled ? "not-allowed" : "pointer",
+              opacity: 0.6,
+              fontSize: "16px"
+            },
+            "aria-label": "Close consent prompt",
+            children: "×"
+          }
+        )
+      ]
+    }
+  );
+}
 function ChatWindow({
   isOpen,
   onClose,
@@ -3245,7 +3624,10 @@ function ChatWindow({
   addingProductId,
   removingItemId,
   isCheckingOut,
-  sessionId
+  sessionId,
+  connectionStatus = "disconnected",
+  consentState,
+  onRecordConsent
 }) {
   const [inputValue, setInputValue] = reactExports.useState("");
   const [selectedProductId, setSelectedProductId] = reactExports.useState(null);
@@ -3259,17 +3641,17 @@ function ChatWindow({
     setIsProductModalOpen(false);
     setSelectedProductId(null);
   };
-  const handleProductAddToCart = (product, quantity) => {
+  const handleProductAddToCart = (product, _quantity) => {
     if (onAddToCart) {
       onAddToCart({
         id: product.id,
         variantId: product.variantId || product.id,
         title: product.title,
-        description: product.description,
+        description: product.description ?? void 0,
         price: product.price,
-        imageUrl: product.imageUrl,
+        imageUrl: product.imageUrl ?? void 0,
         available: product.available,
-        productType: product.productType
+        productType: product.productType ?? void 0
       });
     }
   };
@@ -3289,10 +3671,13 @@ function ChatWindow({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
   const handleSend = async () => {
+    console.warn("[ChatWindow] handleSend called, inputValue:", inputValue);
     if (!inputValue.trim()) return;
     const message = inputValue.trim();
     setInputValue("");
+    console.warn("[ChatWindow] calling onSendMessage with:", message);
     await onSendMessage(message);
+    console.warn("[ChatWindow] onSendMessage completed");
   };
   if (!isOpen) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -3374,6 +3759,7 @@ function ChatWindow({
               ]
             }
           ),
+          connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus }) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             MessageList,
             {
@@ -3391,6 +3777,20 @@ function ChatWindow({
               isCheckingOut
             }
           ),
+          consentState && onRecordConsent && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            ConsentPrompt,
+            {
+              isOpen,
+              isLoading: false,
+              isTyping,
+              promptShown: consentState.promptShown,
+              consentGranted: consentState.status === "opted_in" ? true : consentState.status === "opted_out" ? false : null,
+              theme,
+              botName: (config == null ? void 0 : config.botName) ?? "Assistant",
+              personality: config == null ? void 0 : config.personality,
+              onConfirmConsent: onRecordConsent
+            }
+          ) }),
           isTyping && /* @__PURE__ */ jsxRuntimeExports.jsx(
             TypingIndicator,
             {

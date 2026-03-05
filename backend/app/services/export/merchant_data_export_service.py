@@ -28,6 +28,7 @@ from app.models.data_export_audit_log import DataExportAuditLog
 from app.models.consent import Consent, ConsentType
 from app.models.handoff_alert import HandoffAlert
 from app.schemas.consent import ConsentStatus
+from app.services.privacy.data_tier_service import DataTier
 
 
 logger = structlog.get_logger(__name__)
@@ -165,6 +166,7 @@ class MerchantDataExportService:
             result = await self.db.execute(
                 select(Conversation)
                 .where(Conversation.merchant_id == merchant_id)
+                .where(Conversation.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
                 .order_by(Conversation.created_at)
                 .offset(offset)
                 .limit(chunk_size)
@@ -227,6 +229,7 @@ class MerchantDataExportService:
                 select(Message)
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(Conversation.merchant_id == merchant_id)
+                .where(Message.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
                 .order_by(Message.created_at)
                 .offset(offset)
                 .limit(chunk_size)

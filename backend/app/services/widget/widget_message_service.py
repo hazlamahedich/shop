@@ -27,7 +27,7 @@ from app.services.widget.widget_session_service import WidgetSessionService
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.llm.base_llm_service import LLMMessage, LLMResponse
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
-from app.services.conversation.schemas import Channel, ConversationContext
+from app.services.conversation.schemas import Channel, ConversationContext, ConsentState
 
 
 logger = structlog.get_logger(__name__)
@@ -185,6 +185,7 @@ class WidgetMessageService:
             platform_sender_id=None,
             user_id=None,
             is_returning_shopper=session.is_returning_shopper,
+            consent_state=ConsentState(visitor_id=session.visitor_id),
         )
 
         assert self.db is not None  # We only reach here if db is set
@@ -229,6 +230,10 @@ class WidgetMessageService:
             result["intent"] = response.intent
         if response.confidence is not None:
             result["confidence"] = response.confidence
+
+        # Story 6-1: Pass consent_prompt_required from metadata
+        if response.metadata.get("consent_prompt_required"):
+            result["consent_prompt_required"] = True
 
         return result
 
