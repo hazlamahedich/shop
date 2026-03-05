@@ -60,46 +60,101 @@ class RetentionPolicy:
     async def delete_expired_voluntary_data(
         db: "AsyncSession",
         days: int = 30,
+        batch_size: int = 1000,
+        timeout_seconds: int = 300,
     ) -> int:
         """Delete VOLUNTARY tier data older than retention period.
 
         Story 6-4: Automated retention enforcement
+        Story 6-5: Enhanced with audit logging and batch processing (AC5)
+
+        Performance: Processes in batches to handle 10K+ conversations
+        within 5-minute timeout requirement.
 
         Args:
             db: Database session
             days: Retention period in days (default: 30)
+            batch_size: Number of records to process per batch (default: 1000)
+            timeout_seconds: Maximum execution time in seconds (default: 300)
 
         Returns:
             Number of records deleted
         """
         from app.models.conversation import Conversation
-        from app.models.message import Message
+        from app.models.deletion_audit_log import DeletionAuditLog, DeletionTrigger
+        import asyncio
 
         cutoff_date = datetime.utcnow() - timedelta(days=days)
+        total_deleted = 0
+        start_time = datetime.utcnow()
 
         async with db as session:
-            # Delete expired conversations (messages cascade via FK)
-            conv_result = await session.execute(
-                delete(Conversation)
-                .where(Conversation.data_tier == DataTier.VOLUNTARY)
-                .where(Conversation.updated_at < cutoff_date)
-                .returning(Conversation.id)
-            )
-            deleted_conversations = conv_result.scalars().all()
+            # Process in batches to avoid timeout
+            while True:
+                # Check timeout
+                elapsed = (datetime.utcnow() - start_time).total_seconds()
+                if elapsed >= timeout_seconds:
+                    logger.warning(
+                        "retention_policy_timeout_reached",
+                        elapsed_seconds=elapsed,
+                        total_deleted=total_deleted,
+                        timeout_seconds=timeout_seconds,
+                    )
+                    break
 
-            # Note: Messages are cascade deleted via FK constraint (Conversation.messages relationship)
-            # No separate message deletion needed
+                # Fetch batch of expired conversations
+                conv_result = await session.execute(
+                    select(Conversation.id, Conversation.merchant_id)
+                    .where(Conversation.data_tier == DataTier.VOLUNTARY)
+                    .where(Conversation.updated_at < cutoff_date)
+                    .limit(batch_size)
+                )
+                batch = conv_result.fetchall()
 
-            await session.commit()
+                if not batch:
+                    break
 
-            total_deleted = len(deleted_conversations)
+                # Delete batch
+                conv_ids = [conv_id for conv_id, _ in batch]
+                await session.execute(delete(Conversation).where(Conversation.id.in_(conv_ids)))
+                await session.commit()
+
+                # Create audit logs for batch
+                for conv_id, merchant_id in batch:
+                    audit_log = DeletionAuditLog(
+                        session_id=f"retention-auto-{conv_id}",
+                        merchant_id=merchant_id,
+                        retention_period_days=days,
+                        deletion_trigger=DeletionTrigger.AUTO,
+                        conversations_deleted=1,
+                        messages_deleted=0,
+                        redis_keys_cleared=0,
+                    )
+                    audit_log.mark_completed(
+                        conversations=1,
+                        messages=0,
+                        redis_keys=0,
+                    )
+                    session.add(audit_log)
+
+                await session.commit()
+                total_deleted += len(batch)
+
+                logger.info(
+                    "retention_policy_batch_processed",
+                    batch_size=len(batch),
+                    total_deleted=total_deleted,
+                    elapsed_seconds=(datetime.utcnow() - start_time).total_seconds(),
+                )
 
             logger.info(
                 "retention_policy_executed",
                 tier=DataTier.VOLUNTARY.value,
                 retention_days=days,
-                deleted_conversations=len(deleted_conversations),
+                deleted_conversations=total_deleted,
                 cutoff_date=cutoff_date.isoformat(),
+                audit_logs_created=total_deleted,
+                elapsed_seconds=(datetime.utcnow() - start_time).total_seconds(),
             )
 
             return total_deleted

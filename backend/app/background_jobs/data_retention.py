@@ -9,6 +9,7 @@ Story 2-7: Persistent Cart Sessions
 
 from __future__ import annotations
 
+import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -18,7 +19,10 @@ from typing import Optional
 import structlog
 
 from app.core.database import async_session
-from app.services.data_retention import DataRetentionService
+from app.services.data_retention import (
+    DataRetentionService,
+)  # DEPRECATED: Story 6-5 - Use RetentionPolicy instead
+from app.services.privacy.retention_service import RetentionPolicy
 from app.services.cart.cart_retention import run_cart_retention_cleanup
 from app.tasks.handoff_followup_task import process_handoff_followups
 from app.tasks.queued_notification_task import process_queued_notifications
@@ -29,17 +33,19 @@ logger = structlog.get_logger(__name__)
 # Global scheduler instance
 scheduler: Optional[AsyncIOScheduler] = None
 
-# Retention service instance
+# Retention service instance (DEPRECATED: Story 6-5 - Retained for session cleanup)
 retention_service = DataRetentionService()
 
 
 async def run_retention_cleanup() -> dict:
     """Run daily data retention cleanup job.
 
-    Executes all retention cleanup tasks:
-    - Voluntary conversation data cleanup (30-day retention)
+    Story 6-5: Enhanced with retry logic (AC6)
+
+    Executes all retention cleanup tasks with automatic retry on failure:
+    - Voluntary conversation data cleanup (30-day retention) - Uses RetentionPolicy
     - Session data cleanup (24-hour retention)
-    - Cart retention cleanup (30-day extended retention) - Story 2-7
+    - Cart retention cleanup (30-day extended retention)
 
     Returns:
         Dictionary with cleanup results from all retention tasks
@@ -50,32 +56,88 @@ async def run_retention_cleanup() -> dict:
         "timestamp": datetime.utcnow().isoformat(),
         "voluntary_data": {},
         "sessions": {},
-        "cart_retention": {},  # Story 2-7: Cart retention cleanup
+        "cart_retention": {},
+        "retries": 0,
     }
 
+    # Story 6-5: Retry logic (AC6)
+    max_retries = 3
+    retry_delay_seconds = 10
+
     async with async_session() as db:
+        # Retry loop for voluntary data cleanup
+        for attempt in range(max_retries):
+            try:
+                deleted_count = await RetentionPolicy.delete_expired_voluntary_data(db, days=30)
+                results["voluntary_data"] = {
+                    "conversations_deleted": deleted_count,
+                    "retention_days": 30,
+                    "success": True,
+                }
+                break
+            except Exception as e:
+                logger.error(
+                    "voluntary_data_cleanup_failed",
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+
+                if attempt < max_retries - 1:
+                    results["retries"] += 1
+                    logger.info(
+                        "retrying_voluntary_data_cleanup", delay_seconds=retry_delay_seconds
+                    )
+                    await asyncio.sleep(retry_delay_seconds)
+                else:
+                    results["voluntary_data"] = {
+                        "error": str(e),
+                        "success": False,
+                        "attempts": attempt + 1,
+                    }
+                    logger.error("voluntary_data_cleanup_failed_permanently")
+
+        # Retry loop for session cleanup
+        for attempt in range(max_retries):
+            try:
+                session_result = await retention_service.cleanup_expired_sessions(db)
+                results["sessions"] = session_result
+                break
+            except Exception as e:
+                logger.error(
+                    "session_cleanup_failed",
+                    attempt=attempt + 1,
+                    error=str(e),
+                )
+
+                if attempt < max_retries - 1:
+                    results["retries"] += 1
+                    await asyncio.sleep(retry_delay_seconds)
+                else:
+                    results["sessions"] = {"error": str(e), "success": False}
+
+        logger.info("data_retention_job_completed", **results)
+
+    # Story 2-7: Cart retention cleanup (independent of DB)
+    for attempt in range(max_retries):
         try:
-            # Clean up voluntary data
-            voluntary_result = await retention_service.cleanup_voluntary_data(db)
-            results["voluntary_data"] = voluntary_result
-
-            # Clean up expired sessions
-            session_result = await retention_service.cleanup_expired_sessions(db)
-            results["sessions"] = session_result
-
-            logger.info("data_retention_job_completed", **results)
+            cart_result = await run_cart_retention_cleanup()
+            results["cart_retention"] = cart_result
+            break
         except Exception as e:
-            logger.error("data_retention_job_failed", error=str(e), error_type=type(e).__name__)
-            results["error"] = str(e)
-            raise
+            logger.error(
+                "cart_retention_job_failed",
+                attempt=attempt + 1,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
 
-    # Story 2-7: Clean up extended cart retention (independent of DB)
-    try:
-        cart_result = await run_cart_retention_cleanup()
-        results["cart_retention"] = cart_result
-    except Exception as e:
-        logger.error("cart_retention_job_failed", error=str(e), error_type=type(e).__name__)
-        results["cart_retention"] = {"error": str(e)}
+            if attempt < max_retries - 1:
+                results["retries"] += 1
+                await asyncio.sleep(retry_delay_seconds)
+            else:
+                results["cart_retention"] = {"error": str(e), "success": False}
 
     return results
 
@@ -138,6 +200,7 @@ def start_scheduler() -> None:
         id="data_retention_cleanup",
         name="Daily data retention cleanup",
         replace_existing=True,
+        max_instances=1,  # Story 6-5: Prevent concurrent execution
     )
 
     # Story 4-11: Schedule handoff follow-up task every 30 minutes

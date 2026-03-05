@@ -49,14 +49,8 @@ from app.api.widget_events import router as widget_events_router
 from app.api.widget_ws import router as widget_ws_router
 from app.api.analytics import router as analytics_router
 from app.api.consent import router as consent_router
-from app.middleware.security import setup_security_middleware
-from app.middleware.csrf import setup_csrf_middleware
-from app.middleware.auth import AuthenticationMiddleware
-from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
-from app.background_jobs.widget_cleanup import (
-    start_widget_cleanup_scheduler,
-    shutdown_widget_cleanup_scheduler,
-)
+from app.api.audit import router as audit_router
+
 from app.api import health as health_router
 
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
@@ -454,6 +448,7 @@ app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
 app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
 app.include_router(data_export_router, prefix="/api/v1", tags=["data-export"])
 app.include_router(consent_router, prefix="/api/v1/consent", tags=["consent"])
+app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

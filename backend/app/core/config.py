@@ -95,6 +95,12 @@ def settings() -> dict[str, Any]:
             "MESSENGER_FALLBACK_IMAGE_URL",
             "https://cdn.example.com/fallback-product.png",
         ),
+        # Data Retention (Story 6-5)
+        "RETENTION_VOLUNTARY_DAYS": int(os.getenv("RETENTION_VOLUNTARY_DAYS", "30")),
+        "RETENTION_BATCH_SIZE": int(os.getenv("RETENTION_BATCH_SIZE", "1000")),
+        "RETENTION_TIMEOUT_SECONDS": int(os.getenv("RETENTION_TIMEOUT_SECONDS", "300")),
+        "RETENTION_RETRY_MAX_ATTEMPTS": int(os.getenv("RETENTION_RETRY_MAX_ATTEMPTS", "3")),
+        "RETENTION_RETRY_DELAY_SECONDS": int(os.getenv("RETENTION_RETRY_DELAY_SECONDS", "10")),
         # LLM Provider
         "LLM_PROVIDER": os.getenv(
             "LLM_PROVIDER", "ollama"

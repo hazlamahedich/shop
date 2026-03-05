@@ -137,7 +137,7 @@ development_status:
   6-1-opt-in-consent-flow: done # 2026-02-25: Code review COMPLETE - All 8 issues fixed (1 CRITICAL dead code, 3 HIGH API mismatch/untracked migration/AC6, 4 MEDIUM/LOW). AC6 personality-aware consent prompts now integrated in frontend.
   6-2-request-data-deletion: done # 2026-02-26: Code review COMPLETE - 3 HIGH + 4 MEDIUM + 3 LOW issues found and fixed. Added: timing test, order preservation test, error handling fix, rate limit on commit success. 27 backend + 12 API + 5 E2E tests passing.
   6-3-merchant-csv-export: done # 2026-03-04: COMPLETE - Fixed 2 bugs (0-byte export, consent lookup), 12/12 API tests passing, committed and pushed
-  6-4-data-tier-separation: in-progress # 2026-03-05: Starting implementation
-  6-5-30-day-retention-enforcement: backlog
+  6-4-data-tier-separation: done # 2026-03-05: Code review complete - 2 HIGH + 3 MEDIUM issues fixed, 19/19 tests passing
+  6-5-30-day-retention-enforcement: done
   6-6-gdpr-deletion-processing: backlog
   epic-6-retrospective: optional

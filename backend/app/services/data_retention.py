@@ -2,10 +2,15 @@
 
 Implements automated cleanup of voluntary conversation data after configurable retention periods.
 Operational data (order references) is kept indefinitely per business requirements.
+
+⚠️ DEPRECATED (Story 6-5): This service does NOT use data tier filtering.
+Use `app.services.privacy.retention_service.RetentionPolicy` instead.
+Retained for session cleanup only until migration is complete.
 """
 
 from __future__ import annotations
 
+import warnings
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy import select, delete, func, and_
@@ -26,31 +31,36 @@ class DataRetentionService:
     Enforces NFR-S11: 30-day conversation retention limit with separate
     retention periods for different data tiers.
 
+    ⚠️ DEPRECATED (Story 6-5): Use RetentionPolicy instead.
+    This service does NOT filter by data tier and may delete operational data.
+
     Data Tiers:
     - Voluntary data (preferences, history): 30 days max
     - Operational data (order refs): Keep indefinitely
     - Session data (cart): 24 hours max
     """
 
-    def __init__(
-        self,
-        voluntary_days: int = 30,
-        session_hours: int = 24
-    ) -> None:
+    def __init__(self, voluntary_days: int = 30, session_hours: int = 24) -> None:
         """Initialize data retention service with configurable retention periods.
+
+        ⚠️ DEPRECATED (Story 6-5): Use RetentionPolicy instead.
 
         Args:
             voluntary_days: Days to retain voluntary conversation data (default: 30)
             session_hours: Hours to retain session/cart data (default: 24)
         """
+        warnings.warn(
+            "DataRetentionService is deprecated. Use RetentionPolicy from "
+            "app.services.privacy.retention_service instead. This service does not "
+            "filter by data tier and may delete operational data.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.voluntary_days = voluntary_days
         self.session_hours = session_hours
 
     async def cleanup_voluntary_data(
-        self,
-        db: AsyncSession,
-        dry_run: bool = False,
-        before_date: Optional[datetime] = None
+        self, db: AsyncSession, dry_run: bool = False, before_date: Optional[datetime] = None
     ) -> Dict[str, int | str]:
         """Clean up voluntary conversation data older than retention period.
 
@@ -79,11 +89,7 @@ class DataRetentionService:
         }
 
         # Find conversations to delete (older than cutoff)
-        result = await db.execute(
-            select(Conversation).where(
-                Conversation.updated_at < cutoff_date
-            )
-        )
+        result = await db.execute(select(Conversation).where(Conversation.updated_at < cutoff_date))
         conversations = result.scalars().all()
 
         if dry_run:
@@ -100,43 +106,26 @@ class DataRetentionService:
             else:
                 stats["messages_to_delete"] = 0
 
-            logger.info(
-                "data_retention_dry_run",
-                **stats
-            )
+            logger.info("data_retention_dry_run", **stats)
             return stats
 
         # Delete messages first (foreign key constraint)
         for conv in conversations:
-            result = await db.execute(
-                delete(Message).where(
-                    Message.conversation_id == conv.id
-                )
-            )
+            result = await db.execute(delete(Message).where(Message.conversation_id == conv.id))
             stats["messages_deleted"] += result.rowcount or 0
 
         # Delete conversations
-        result = await db.execute(
-            delete(Conversation).where(
-                Conversation.updated_at < cutoff_date
-            )
-        )
+        result = await db.execute(delete(Conversation).where(Conversation.updated_at < cutoff_date))
         stats["conversations_deleted"] = result.rowcount or 0
 
         await db.commit()
 
-        logger.info(
-            "data_retention_cleanup_completed",
-            **stats
-        )
+        logger.info("data_retention_cleanup_completed", **stats)
 
         return stats
 
     async def cleanup_expired_sessions(
-        self,
-        db: AsyncSession,
-        dry_run: bool = False,
-        before_date: Optional[datetime] = None
+        self, db: AsyncSession, dry_run: bool = False, before_date: Optional[datetime] = None
     ) -> Dict[str, int | str]:
         """Clean up expired session data (cart data, temporary state).
 
@@ -165,15 +154,12 @@ class DataRetentionService:
         logger.info(
             "data_retention_session_cleanup",
             note="Session data in Redis uses automatic TTL",
-            **stats
+            **stats,
         )
 
         return stats
 
-    async def get_retention_stats(
-        self,
-        db: AsyncSession
-    ) -> Dict[str, int | str]:
+    async def get_retention_stats(self, db: AsyncSession) -> Dict[str, int | str]:
         """Get statistics about data that would be affected by retention policy.
 
         Provides visibility into data volume by age for operational monitoring.
@@ -216,9 +202,7 @@ class DataRetentionService:
             if bracket_name == "0_7_days":
                 # Younger than 7 days
                 result = await db.execute(
-                    select(func.count(Conversation.id)).where(
-                        Conversation.updated_at >= cutoff
-                    )
+                    select(func.count(Conversation.id)).where(Conversation.updated_at >= cutoff)
                 )
             elif bracket_name == "7_30_days":
                 # 7-30 days old
@@ -226,7 +210,7 @@ class DataRetentionService:
                     select(func.count(Conversation.id)).where(
                         and_(
                             Conversation.updated_at >= age_brackets["30_90_days"],
-                            Conversation.updated_at < age_brackets["0_7_days"]
+                            Conversation.updated_at < age_brackets["0_7_days"],
                         )
                     )
                 )
@@ -236,16 +220,14 @@ class DataRetentionService:
                     select(func.count(Conversation.id)).where(
                         and_(
                             Conversation.updated_at >= age_brackets["90_plus_days"],
-                            Conversation.updated_at < age_brackets["30_90_days"]
+                            Conversation.updated_at < age_brackets["30_90_days"],
                         )
                     )
                 )
             else:  # 90_plus_days
                 # Older than 90 days (would be deleted)
                 result = await db.execute(
-                    select(func.count(Conversation.id)).where(
-                        Conversation.updated_at < cutoff
-                    )
+                    select(func.count(Conversation.id)).where(Conversation.updated_at < cutoff)
                 )
 
             stats["conversations_by_age"][bracket_name] = result.scalar() or 0
@@ -253,9 +235,7 @@ class DataRetentionService:
         return stats
 
     async def get_conversations_to_delete(
-        self,
-        db: AsyncSession,
-        limit: int = 100
+        self, db: AsyncSession, limit: int = 100
     ) -> List[Dict[str, int | str]]:
         """Get list of conversations that would be deleted by retention policy.
 
@@ -271,9 +251,7 @@ class DataRetentionService:
         cutoff_date = datetime.utcnow() - timedelta(days=self.voluntary_days)
 
         result = await db.execute(
-            select(Conversation).where(
-                Conversation.updated_at < cutoff_date
-            ).limit(limit)
+            select(Conversation).where(Conversation.updated_at < cutoff_date).limit(limit)
         )
         conversations = result.scalars().all()
 

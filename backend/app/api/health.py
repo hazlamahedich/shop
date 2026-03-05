@@ -74,3 +74,61 @@ async def polling_health(
             "errors_last_hour": 0,
             "merchant_status": [],
         }
+
+
+@router.get("/scheduler")
+async def scheduler_health(
+    request: Request,
+    x_internal_request: str | None = Header(None, alias="X-Internal-Request"),
+) -> dict[str, Any]:
+    """Get retention scheduler health status.
+
+    Story 6-5: Health check for retention job scheduler.
+
+    Returns scheduler status, job details, and next run time.
+    Protected by internal-only access check.
+
+    Args:
+        request: FastAPI request
+        x_internal_request: Header for internal request validation
+
+    Returns:
+        Health status dict with scheduler details
+
+    Raises:
+        HTTPException: 403 if not internal request, 503 if scheduler not running
+    """
+    if not _is_internal_request(request, x_internal_request):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "Forbidden", "message": "Internal endpoint only"},
+        )
+
+    try:
+        from app.background_jobs.data_retention import get_scheduler_status
+
+        status = get_scheduler_status()
+
+        if not status["running"]:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "Service Unavailable",
+                    "message": "Retention scheduler not running",
+                },
+            )
+
+        return {
+            "status": "healthy",
+            **status,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "running": False,
+            "error": str(e),
+            "job_count": 0,
+            "jobs": [],
+        }
