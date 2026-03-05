@@ -18,6 +18,7 @@ from app.core.database import async_session
 from app.core.errors import APIError, ErrorCode
 from app.middleware.auth import require_auth
 from app.models.order import Order
+from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 logger = structlog.get_logger(__name__)
@@ -50,6 +51,36 @@ class GeographicAnalyticsResponse(BaseModel):
     by_province: list[dict[str, Any]] = Field(default_factory=list)
     total_orders: int = Field(description="Total orders with geographic data")
     total_revenue: float = Field(description="Total revenue from orders with geographic data")
+
+
+class TierDistributionResponse(BaseModel):
+    """Response for tier distribution endpoint."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    conversations: dict[str, int] = Field(description="Conversation counts by tier")
+    messages: dict[str, int] = Field(description="Message counts by tier")
+    orders: dict[str, int] = Field(description="Order counts by tier")
+    summary: dict[str, int] = Field(description="Summary totals by tier")
+
+
+class AnonymizedSummaryResponse(BaseModel):
+    """Response for anonymized analytics summary."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    merchant_id: int = Field(description="Merchant ID")
+    tier_distribution: dict[str, Any] = Field(description="Tier distribution breakdown")
+    conversation_stats: dict[str, Any] = Field(description="Conversation statistics (30 days)")
+    order_stats: dict[str, Any] = Field(description="Order statistics (anonymized)")
+    generated_at: str = Field(description="Timestamp when summary was generated")
+    tier: str = Field(description="Data tier (always 'anonymized')", default="anonymized")
 
 
 COUNTRY_NAMES: dict[str, str] = {
@@ -194,4 +225,53 @@ async def get_geographic_analytics(
         raise APIError(
             ErrorCode.GEOGRAPHIC_QUERY_ERROR,
             f"Failed to retrieve geographic analytics: {str(e)}",
+        )
+
+
+@router.get("/summary", response_model=AnonymizedSummaryResponse)
+async def get_anonymized_summary(
+    request: Request,
+    db: AsyncSession = Depends(async_session),
+) -> AnonymizedSummaryResponse:
+    """Get anonymized analytics summary with tier distribution.
+
+    Story 6-4: Tier-aware analytics with PII stripping.
+
+    Returns:
+        - Tier distribution (voluntary/operational/anonymized counts)
+        - Conversation stats (30 days, no PII)
+        - Order stats (anonymized, no customer data)
+
+    All data is tier=ANONYMIZED with no personal identifiers.
+    """
+    merchant_id = require_auth(request)
+
+    log = logger.bind(merchant_id=merchant_id)
+    log.info("anonymized_summary_request")
+
+    try:
+        service = AggregatedAnalyticsService(db)
+        summary = await service.get_anonymized_summary(merchant_id)
+
+        log.info(
+            "anonymized_summary_success",
+            merchant_id=merchant_id,
+        )
+
+        return AnonymizedSummaryResponse(
+            merchant_id=summary["merchantId"],
+            tier_distribution=summary["tierDistribution"],
+            conversation_stats=summary["conversationStats"],
+            order_stats=summary["orderStats"],
+            generated_at=summary["generatedAt"],
+            tier=summary["tier"],
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        log.error("anonymized_summary_failed", error=str(e))
+        raise APIError(
+            ErrorCode.INTERNAL_ERROR,
+            f"Failed to retrieve anonymized summary: {str(e)}",
         )
