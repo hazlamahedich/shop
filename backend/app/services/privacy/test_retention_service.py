@@ -6,7 +6,7 @@ Task 7.2: Test retention policy execution for each tier
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -33,9 +33,10 @@ class TestRetentionPolicy:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that VOLUNTARY data older than 30 days is deleted."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create old voluntary conversation (35 days old)
         old_conv = Conversation(
@@ -45,8 +46,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_conv)
         await db_session.commit()
@@ -59,8 +60,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=15),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=15),
+            created_at=datetime.utcnow() - timedelta(days=15),
+            updated_at=datetime.utcnow() - timedelta(days=15),
         )
         db_session.add(recent_conv)
         await db_session.commit()
@@ -87,9 +88,10 @@ class TestRetentionPolicy:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that OPERATIONAL data is never deleted, regardless of age."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create very old operational conversation (100 days old)
         old_operational_conv = Conversation(
@@ -99,8 +101,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.OPERATIONAL,
-            created_at=datetime.now(timezone.utc) - timedelta(days=100),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=100),
+            created_at=datetime.utcnow() - timedelta(days=100),
+            updated_at=datetime.utcnow() - timedelta(days=100),
         )
         db_session.add(old_operational_conv)
         await db_session.commit()
@@ -121,9 +123,10 @@ class TestRetentionPolicy:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that ANONYMIZED data is never deleted, regardless of age."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create very old anonymized conversation
         old_anonymized_conv = Conversation(
@@ -133,8 +136,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.ANONYMIZED,
-            created_at=datetime.now(timezone.utc) - timedelta(days=200),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=200),
+            created_at=datetime.utcnow() - timedelta(days=200),
+            updated_at=datetime.utcnow() - timedelta(days=200),
         )
         db_session.add(old_anonymized_conv)
         await db_session.commit()
@@ -155,9 +158,10 @@ class TestRetentionPolicy:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that deleting conversations also deletes associated messages."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create old voluntary conversation with messages
         old_conv = Conversation(
@@ -167,8 +171,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_conv)
         await db_session.commit()
@@ -208,9 +212,10 @@ class TestRetentionPolicy:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that exactly 30-day-old data is deleted, not 29-day-old."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create conversation exactly 30 days old
         conv_30_days = Conversation(
@@ -220,8 +225,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=30),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=30),
+            created_at=datetime.utcnow() - timedelta(days=30),
+            updated_at=datetime.utcnow() - timedelta(days=30),
         )
         db_session.add(conv_30_days)
 
@@ -233,8 +238,8 @@ class TestRetentionPolicy:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=29),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=29),
+            created_at=datetime.utcnow() - timedelta(days=29),
+            updated_at=datetime.utcnow() - timedelta(days=29),
         )
         db_session.add(conv_29_days)
         await db_session.commit()
@@ -261,9 +266,10 @@ class TestRetentionPolicy:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that retention policy handles large datasets efficiently."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create 100 old voluntary conversations
         conversations = []
@@ -275,8 +281,8 @@ class TestRetentionPolicy:
                 status="active",
                 handoff_status="none",
                 data_tier=DataTier.VOLUNTARY,
-                created_at=datetime.now(timezone.utc) - timedelta(days=35),
-                updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+                created_at=datetime.utcnow() - timedelta(days=35),
+                updated_at=datetime.utcnow() - timedelta(days=35),
             )
             conversations.append(conv)
 
@@ -324,9 +330,10 @@ class TestRetentionPolicyEdgeCases:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test retention policy with mixed tier data."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Old voluntary (should delete)
         old_voluntary = Conversation(
@@ -336,8 +343,8 @@ class TestRetentionPolicyEdgeCases:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_voluntary)
 
@@ -349,8 +356,8 @@ class TestRetentionPolicyEdgeCases:
             status="active",
             handoff_status="none",
             data_tier=DataTier.OPERATIONAL,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_operational)
 
@@ -362,8 +369,8 @@ class TestRetentionPolicyEdgeCases:
             status="active",
             handoff_status="none",
             data_tier=DataTier.ANONYMIZED,
-            created_at=datetime.now(timezone.utc) - timedelta(days=35),
-            updated_at=datetime.now(timezone.utc) - timedelta(days=35),
+            created_at=datetime.utcnow() - timedelta(days=35),
+            updated_at=datetime.utcnow() - timedelta(days=35),
         )
         db_session.add(old_anonymized)
 
@@ -397,19 +404,21 @@ class TestRetentionPolicyEdgeCases:
         self,
         policy: RetentionPolicy,
         db_session: AsyncSession,
+        test_merchant,
     ) -> None:
         """Test that orders (operational data) are never deleted by retention."""
-        merchant_id = 1
+        merchant_id = test_merchant.id
 
         # Create very old order (should never delete)
         old_order = Order(
             merchant_id=merchant_id,
             order_number="ORD-OLD-001",
             platform_sender_id="old_customer",
+            subtotal=99.99,
             total=99.99,
             is_test=False,
             data_tier=DataTier.OPERATIONAL,
-            created_at=datetime.now(timezone.utc) - timedelta(days=365),
+            created_at=datetime.utcnow() - timedelta(days=365),
         )
         db_session.add(old_order)
         await db_session.commit()

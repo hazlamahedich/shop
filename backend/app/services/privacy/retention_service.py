@@ -114,8 +114,15 @@ class RetentionPolicy:
                 if not batch:
                     break
 
-                # Delete batch
+                # Delete batch (messages first due to foreign key constraint)
                 conv_ids = [conv_id for conv_id, _ in batch]
+
+                # Delete associated messages first
+                from app.models.message import Message
+
+                await session.execute(delete(Message).where(Message.conversation_id.in_(conv_ids)))
+
+                # Then delete conversations
                 await session.execute(delete(Conversation).where(Conversation.id.in_(conv_ids)))
                 await session.commit()
 
