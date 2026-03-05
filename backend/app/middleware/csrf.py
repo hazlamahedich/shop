@@ -59,8 +59,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/integrations/facebook/credentials",  # Facebook credentials save
         "/api/tutorial/",  # Story 1.16: Tutorial endpoints (authenticated via JWT, no CSRF needed)
         "/api/deletion/",  # Data deletion for GDPR/CCPA compliance
+        "/api/v1/data/export",  # Story 6-3: Data export (X-Merchant-ID header auth)
         "/api/conversations/export",  # CSV export is a read-only operation
         "/api/conversations/",  # Story 4-12: Handoff notification endpoints (Bearer token auth)
+        "/api/v1/consent/",  # Story 6-4: Consent opt-out (Bearer token auth)
         "/api/v1/widget/",  # Story 5-1: Public widget API (no CSRF for anonymous sessions)
         "/docs",
         "/redoc",

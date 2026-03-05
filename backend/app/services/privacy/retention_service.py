@@ -75,10 +75,10 @@ class RetentionPolicy:
         from app.models.conversation import Conversation
         from app.models.message import Message
 
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
 
         async with db as session:
-            # Delete expired conversations
+            # Delete expired conversations (messages cascade via FK)
             conv_result = await session.execute(
                 delete(Conversation)
                 .where(Conversation.data_tier == DataTier.VOLUNTARY)
@@ -87,25 +87,18 @@ class RetentionPolicy:
             )
             deleted_conversations = conv_result.scalars().all()
 
-            # Delete orphaned messages
-            msg_result = await session.execute(
-                delete(Message)
-                .where(Message.data_tier == DataTier.VOLUNTARY)
-                .where(Message.created_at < cutoff_date)
-                .returning(Message.id)
-            )
-            deleted_messages = msg_result.scalars().all()
+            # Note: Messages are cascade deleted via FK constraint (Conversation.messages relationship)
+            # No separate message deletion needed
 
             await session.commit()
 
-            total_deleted = len(deleted_conversations) + len(deleted_messages)
+            total_deleted = len(deleted_conversations)
 
             logger.info(
                 "retention_policy_executed",
                 tier=DataTier.VOLUNTARY.value,
                 retention_days=days,
                 deleted_conversations=len(deleted_conversations),
-                deleted_messages=len(deleted_messages),
                 cutoff_date=cutoff_date.isoformat(),
             )
 

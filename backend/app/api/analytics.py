@@ -14,13 +14,13 @@ from pydantic.alias_generators import to_camel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import async_session
+from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.middleware.auth import require_auth
 from app.models.order import Order
 from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
-router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics", tags=["analytics"])
 logger = structlog.get_logger(__name__)
 
 
@@ -106,7 +106,7 @@ COUNTRY_NAMES: dict[str, str] = {
 @router.get("/geographic", response_model=GeographicAnalyticsResponse)
 async def get_geographic_analytics(
     request: Request,
-    db: AsyncSession = Depends(async_session),
+    db: AsyncSession = Depends(get_db),
 ) -> GeographicAnalyticsResponse:
     """Get sales breakdown by country, city, and province.
 
@@ -231,7 +231,7 @@ async def get_geographic_analytics(
 @router.get("/summary", response_model=AnonymizedSummaryResponse)
 async def get_anonymized_summary(
     request: Request,
-    db: AsyncSession = Depends(async_session),
+    db: AsyncSession = Depends(get_db),
 ) -> AnonymizedSummaryResponse:
     """Get anonymized analytics summary with tier distribution.
 

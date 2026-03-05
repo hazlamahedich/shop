@@ -127,9 +127,10 @@ class Conversation(Base):
             DataTier,
             name="datatier",
             create_type=False,
+            values_callable=lambda obj: [e.value for e in obj],
         ),
         nullable=False,
-        default=DataTier.VOLUNTARY,
+        default=DataTier.VOLUNTARY.value,
         index=True,
     )
     # Encrypted conversation_data for storing sensitive conversation data

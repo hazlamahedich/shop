@@ -244,9 +244,10 @@ class Order(Base):
             DataTier,
             name="datatier",
             create_type=False,
+            values_callable=lambda obj: [e.value for e in obj],
         ),
         nullable=False,
-        default=DataTier.OPERATIONAL,
+        default=DataTier.OPERATIONAL.value,
         index=True,
     )
 

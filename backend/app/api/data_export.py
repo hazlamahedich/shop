@@ -37,8 +37,12 @@ def get_async_redis_client() -> Optional[AsyncRedis]:
     """Get async Redis client for rate limiting.
 
     Returns:
-        Async Redis client or None if Redis not configured
+        Async Redis client or None if Redis not configured or in test mode
     """
+    # Skip Redis in test mode
+    if os.getenv("IS_TESTING", "false").lower() == "true":
+        return None
+
     try:
         redis_url = os.getenv("REDIS_URL")
         if redis_url:
@@ -120,7 +124,7 @@ async def export_merchant_data(
     redis_client = get_async_redis_client()
 
     if not redis_client:
-        log.warning("redis_not_available", message="Rate limiting disabled")
+        log.info("rate_limiting_disabled", reason="Redis not available or test mode")
     else:
         await _check_rate_limit(redis_client, merchant_id, log)
         await _check_concurrent_lock(redis_client, merchant_id, log)

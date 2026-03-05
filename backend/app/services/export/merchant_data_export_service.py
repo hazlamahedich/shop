@@ -24,6 +24,7 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.merchant import Merchant
+from app.models.order import Order
 from app.models.data_export_audit_log import DataExportAuditLog
 from app.models.consent import Consent, ConsentType
 from app.models.handoff_alert import HandoffAlert
@@ -67,10 +68,16 @@ class MerchantDataExportService:
             total_messages = await self._count_messages(merchant_id)
             total_cost = await self._calculate_total_cost(merchant_id)
             total_handoffs = await self._count_handoffs(merchant_id)
+            total_orders = await self._count_orders(merchant_id)
 
             # Stream metadata section
             for chunk in self._generate_metadata_section(
-                merchant_id, total_conversations, total_messages, total_cost, total_handoffs
+                merchant_id,
+                total_conversations,
+                total_messages,
+                total_cost,
+                total_handoffs,
+                total_orders,
             ):
                 yield chunk
 
@@ -109,6 +116,10 @@ class MerchantDataExportService:
             async for chunk in self._generate_costs_section(merchant_id):
                 yield chunk
 
+            # Stream orders section
+            async for chunk in self._generate_orders_section(merchant_id):
+                yield chunk
+
             # Stream configuration section
             async for chunk in self._generate_configuration_section(merchant_id):
                 yield chunk
@@ -138,6 +149,7 @@ class MerchantDataExportService:
         total_messages: int,
         total_cost: float,
         total_handoffs: int,
+        total_orders: int,
     ):
         """Generate CSV metadata header."""
         yield "# Merchant Data Export\n"
@@ -147,6 +159,7 @@ class MerchantDataExportService:
         yield f"# Total Messages: {total_messages}\n"
         yield f"# Total LLM Cost: ${total_cost:.2f}\n"
         yield f"# Total Handoffs: {total_handoffs}\n"
+        yield f"# Total Orders: {total_orders}\n"
         yield "\n"
 
     async def _generate_conversations_section(
@@ -423,6 +436,49 @@ class MerchantDataExportService:
 
             offset += chunk_size
 
+    async def _generate_orders_section(
+        self,
+        merchant_id: int,
+    ) -> AsyncGenerator[str, None]:
+        """Generate orders section (filtered by data tier)."""
+        yield "\n## SECTION: ORDERS\n"
+        yield "order_id,order_number,customer_id,status,subtotal,total,currency,created_at\n"
+
+        offset = 0
+        chunk_size = 1000
+
+        while True:
+            result = await self.db.execute(
+                select(Order)
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
+                .order_by(Order.created_at)
+                .offset(offset)
+                .limit(chunk_size)
+            )
+            orders = result.scalars().all()
+
+            if not orders:
+                break
+
+            for order in orders:
+                row = self._sanitize_csv_row(
+                    [
+                        str(order.id),
+                        order.order_number or "",
+                        order.platform_sender_id or "",
+                        order.status or "",
+                        f"{order.subtotal:.2f}" if order.subtotal else "0.00",
+                        f"{order.total:.2f}" if order.total else "0.00",
+                        order.currency_code or "USD",
+                        order.created_at.isoformat() if order.created_at else "",
+                    ]
+                )
+
+                yield ",".join(row) + "\n"
+
+            offset += chunk_size
+
     async def _generate_configuration_section(
         self,
         merchant_id: int,
@@ -535,29 +591,31 @@ class MerchantDataExportService:
         return audit_log
 
     async def _count_conversations(self, merchant_id: int) -> int:
-        """Count total conversations for merchant.
+        """Count total conversations for merchant (filtered by data tier).
 
         Args:
             merchant_id: Merchant ID
 
         Returns:
-            Total conversation count
+            Total conversation count (VOLUNTARY + OPERATIONAL only)
         """
         from sqlalchemy import func
 
         result = await self.db.execute(
-            select(func.count(Conversation.id)).where(Conversation.merchant_id == merchant_id)
+            select(func.count(Conversation.id))
+            .where(Conversation.merchant_id == merchant_id)
+            .where(Conversation.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
         )
         return result.scalar() or 0
 
     async def _count_messages(self, merchant_id: int) -> int:
-        """Count total messages for merchant.
+        """Count total messages for merchant (filtered by data tier).
 
         Args:
             merchant_id: Merchant ID
 
         Returns:
-            Total message count
+            Total message count (VOLUNTARY + OPERATIONAL only)
         """
         from sqlalchemy import func
 
@@ -565,6 +623,7 @@ class MerchantDataExportService:
             select(func.count(Message.id))
             .join(Conversation, Message.conversation_id == Conversation.id)
             .where(Conversation.merchant_id == merchant_id)
+            .where(Message.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
         )
         return result.scalar() or 0
 
@@ -582,6 +641,22 @@ class MerchantDataExportService:
                 Conversation.merchant_id == merchant_id,
                 Conversation.handoff_status != "none",
             )
+        )
+        return result.scalar() or 0
+
+    async def _count_orders(self, merchant_id: int) -> int:
+        """Count orders for merchant (filtered by data tier).
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Total order count (VOLUNTARY + OPERATIONAL only)
+        """
+        result = await self.db.execute(
+            select(func.count(Order.id))
+            .where(Order.merchant_id == merchant_id)
+            .where(Order.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
         )
         return result.scalar() or 0
 

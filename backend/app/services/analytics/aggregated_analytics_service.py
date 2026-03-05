@@ -186,22 +186,24 @@ class AggregatedAnalyticsService:
             Dict with anonymized conversation stats
         """
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-            # Total conversations (no PII)
+            # Total conversations (no PII, exclude test data and anonymized tier)
             conv_count_result = await self.db.execute(
                 select(func.count(Conversation.id))
                 .where(Conversation.merchant_id == merchant_id)
                 .where(Conversation.created_at >= cutoff_date)
+                .where(Conversation.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
             )
             total_conversations = conv_count_result.scalar() or 0
 
-            # Total messages (no PII)
+            # Total messages (no PII, exclude test data and anonymized tier)
             msg_count_result = await self.db.execute(
                 select(func.count(Message.id))
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(Conversation.merchant_id == merchant_id)
                 .where(Message.created_at >= cutoff_date)
+                .where(Message.data_tier.in_([DataTier.VOLUNTARY, DataTier.OPERATIONAL]))
             )
             total_messages = msg_count_result.scalar() or 0
 
