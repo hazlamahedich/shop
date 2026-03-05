@@ -318,6 +318,8 @@ class ConversationConsentService:
             new_tier: New data tier value (voluntary/operational/anonymized)
         """
         from app.models.conversation import Conversation
+        from app.models.message import Message
+        from sqlalchemy import update
 
         if self.db is None:
             self.logger.warning("update_data_tier_no_db", session_id=session_id)
@@ -342,9 +344,21 @@ class ConversationConsentService:
             result = await self.db.execute(query)
             conversations = result.scalars().all()
 
+            if not conversations:
+                return
+
+            conversation_ids = [conv.id for conv in conversations]
+
             # Update tier for all matching conversations
             for conversation in conversations:
                 conversation.data_tier = DataTier(new_tier)
+
+            # Cascade update to all associated messages
+            await self.db.execute(
+                update(Message)
+                .where(Message.conversation_id.in_(conversation_ids))
+                .values(data_tier=DataTier(new_tier))
+            )
 
             await self.db.commit()
 

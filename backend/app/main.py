@@ -19,6 +19,11 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
 from app.core.database import init_db, close_db, engine
+from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
+from app.background_jobs.widget_cleanup import (
+    start_widget_cleanup_scheduler,
+    shutdown_widget_cleanup_scheduler,
+)
 from app.api.onboarding import router as onboarding_router
 from app.api.deployment import router as deployment_router
 from app.api.integrations import router as integrations_router

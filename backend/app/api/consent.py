@@ -61,9 +61,7 @@ async def opt_out(
             "merchant_id": merchant_id,
         }
 
-    from sqlalchemy import select, update
-    from app.models.conversation import Conversation
-    from app.models.message import Message
+    from app.services.privacy.data_tier_service import DataTier
 
     consent_service = ConversationConsentService(db=db)
 
@@ -75,37 +73,11 @@ async def opt_out(
         visitor_id=visitor_id,
     )
 
-    conv_result = await db.execute(
-        select(Conversation).where(
-            Conversation.merchant_id == merchant_id,
-            Conversation.platform_sender_id == session_id,
-        )
-    )
-    conversations = conv_result.scalars().all()
-
-    logger.info(
-        "consent_opt_out_conversations_found",
+    await consent_service.update_data_tier(
         session_id=session_id,
-        merchant_id=merchant_id,
-        conversations_count=len(conversations),
+        visitor_id=visitor_id,
+        new_tier=DataTier.ANONYMIZED.value,
     )
-
-    for conv in conversations:
-        logger.info(
-            "updating_conversation_tier",
-            conversation_id=conv.id,
-            old_tier=conv.data_tier,
-            new_tier=DataTier.ANONYMIZED,
-        )
-        conv.data_tier = DataTier.ANONYMIZED
-
-        await db.execute(
-            update(Message)
-            .where(Message.conversation_id == conv.id)
-            .values(data_tier=DataTier.ANONYMIZED)
-        )
-
-    await db.commit()
 
     logger.info(
         "consent_opt_out_completed",

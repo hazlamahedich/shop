@@ -84,6 +84,19 @@ class TestConsentTierIntegration:
             await session.commit()
             await session.refresh(conversation)
 
+            # Create message with VOLUNTARY tier
+            message = Message(
+                conversation_id=conversation.id,
+                message_id="msg123",
+                text="test message",
+                sender_type="user",
+                timestamp=datetime.now(timezone.utc),
+                data_tier=DataTier.VOLUNTARY,
+            )
+            session.add(message)
+            await session.commit()
+            await session.refresh(message)
+
             # Create consent record (opted out)
             consent = Consent(
                 merchant_id=merchant_id,
@@ -104,9 +117,11 @@ class TestConsentTierIntegration:
                 new_tier=DataTier.ANONYMIZED.value,
             )
             await session.refresh(conversation)
+            await session.refresh(message)
 
             # Verify tier is ANONYMIZED
             assert conversation.data_tier == DataTier.ANONYMIZED
+            assert message.data_tier == DataTier.ANONYMIZED
 
     @pytest.mark.asyncio
     async def test_update_data_tier_atomic_with_consent_change(
