@@ -1192,6 +1192,35 @@ None - all tests passing
 - Total new/enhanced tests: 15
 - AC coverage: 100% (5/5 acceptance criteria)
 
+**Test Account for Manual Testing (2026-03-06):** ✅
+
+Created seeded test account for manual testing across Epic 1-6:
+
+**Login Credentials:**
+- Email: test@test.com
+- Password: Test12345
+- Merchant ID: 4
+- Merchant Key: test-merchant
+
+**Seeded Data:**
+- Fully onboarded merchant account
+- LLM configuration (Anthropic)
+- Shopify integration (active)
+- Facebook integration (active)
+- Prerequisite checklist (completed)
+- Tutorial (completed)
+- 5 FAQs
+- 7 product pins
+- 4 conversations with 19 messages (includes 1 with handoff)
+- 232 LLM cost records (30 days)
+- 3 budget alerts (1 unread)
+- 4 handoff alerts (3 unread, 2 high urgency)
+
+**Seed Script:** `backend/seed_test_account.py`
+- Modified from `seed_demo_account.py` to use test@test.com credentials
+- Creates comprehensive test data for all Epic 1-6 features
+- Run with: `python seed_test_account.py`
+
 **Test Quality Improvements (2026-03-06):** ✅
 
 - TEA test quality review completed (91/100 → 96/100)
