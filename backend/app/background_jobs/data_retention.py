@@ -28,6 +28,7 @@ from app.tasks.handoff_followup_task import process_handoff_followups
 from app.tasks.queued_notification_task import process_queued_notifications
 from app.tasks.handoff_resolution_task import process_handoff_resolutions
 from app.background_jobs.gdpr_compliance_check import add_gdpr_job_to_scheduler
+from app.background_jobs.gdpr_email_sender import add_email_job_to_scheduler
 
 logger = structlog.get_logger(__name__)
 
@@ -233,6 +234,9 @@ def start_scheduler() -> None:
 
     # Story 6-6: Schedule GDPR compliance check daily at 9 AM UTC
     add_gdpr_job_to_scheduler(scheduler)
+
+    # Story 6-6: Schedule GDPR confirmation emails processing
+    add_email_job_to_scheduler(scheduler)
 
     scheduler.start()
 

@@ -215,28 +215,20 @@ class GDPRDeletionService:
             customer_email: Customer email address
             audit_log_id: Audit log ID for tracking
         """
-        # For MVP: Email will be sent by background job
-        # Production: Queue in Redis/BullMQ
+        # Story 6-6 Task 4.5: The background job `send_pending_gdpr_emails` checks
+        # for audit logs where confirmation_email_sent == False and customer_email is set.
 
-        email_task = {
-            "audit_log_id": audit_log_id,
-            "customer_id": customer_id,
-            "merchant_id": merchant_id,
-            "to_email": customer_email,
-            "type": "gdpr_confirmation",
-        }
+        audit_log = await db.get(DeletionAuditLog, audit_log_id)
+        if audit_log:
+            audit_log.customer_email = customer_email
+            await db.flush()
 
-        # Log email task for now (actual sending in Task 4)
         logger.info(
             "gdpr_confirmation_email_queued",
             audit_log_id=audit_log_id,
             customer_id=customer_id,
             to_email=customer_email,
-            email_task=json.dumps(email_task),
         )
-
-        # TODO Task 4: Actual email service integration
-        # asyncio.create_task(self._send_email_task(email_task))
 
     async def mark_deletion_complete(
         self,

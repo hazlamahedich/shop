@@ -196,3 +196,62 @@ async def test_mark_deletion_complete(async_session, gdpr_service, test_merchant
 
     await async_session.refresh(audit_log)
     assert audit_log.completion_date is not None
+
+
+@pytest.mark.asyncio
+async def test_email_confirmation_queued_with_email(async_session, gdpr_service, test_merchant):
+    """Test AC4: Email confirmation is queued when customer email is provided."""
+    merchant_id = test_merchant
+    customer_id = "email_test_customer"
+    customer_email = "customer@example.com"
+
+    audit_log = await gdpr_service.process_deletion_request(
+        db=async_session,
+        customer_id=customer_id,
+        merchant_id=merchant_id,
+        request_type=DeletionRequestType.GDPR_FORMAL,
+        customer_email=customer_email,
+    )
+
+    assert audit_log.confirmation_email_sent is False
+    assert audit_log.request_type == DeletionRequestType.GDPR_FORMAL.value
+    assert audit_log.processing_deadline is not None
+
+
+@pytest.mark.asyncio
+async def test_email_confirmation_not_queued_without_email(
+    async_session, gdpr_service, test_merchant
+):
+    """Test AC4: No email queued when customer email is not provided."""
+    merchant_id = test_merchant
+    customer_id = "no_email_customer"
+
+    audit_log = await gdpr_service.process_deletion_request(
+        db=async_session,
+        customer_id=customer_id,
+        merchant_id=merchant_id,
+        request_type=DeletionRequestType.GDPR_FORMAL,
+        customer_email=None,
+    )
+
+    assert audit_log.confirmation_email_sent is False
+    assert audit_log.email_sent_at is None
+
+
+@pytest.mark.asyncio
+async def test_email_confirmation_for_ccpa_request(async_session, gdpr_service, test_merchant):
+    """Test AC4: Email confirmation works for CCPA requests."""
+    merchant_id = test_merchant
+    customer_id = "ccpa_email_customer"
+    customer_email = "ccpa@example.com"
+
+    audit_log = await gdpr_service.process_deletion_request(
+        db=async_session,
+        customer_id=customer_id,
+        merchant_id=merchant_id,
+        request_type=DeletionRequestType.CCPA_REQUEST,
+        customer_email=customer_email,
+    )
+
+    assert audit_log.confirmation_email_sent is False
+    assert audit_log.request_type == DeletionRequestType.CCPA_REQUEST.value

@@ -103,6 +103,11 @@ class DeletionAuditLog(Base):
         index=True,
         comment="Customer ID for GDPR-level tracking (optional)",
     )
+    customer_email: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Queued email address for confirmation email (deleted after sending)",
+    )
     merchant_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

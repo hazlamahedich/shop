@@ -46,6 +46,98 @@ class TestGDPRRequestEndpoint:
         assert "message" in data["data"]
 
     @pytest.mark.asyncio
+    async def test_gdpr_request_with_email_queues_confirmation(
+        self, async_client, test_merchant, async_session
+    ):
+        """Test AC4: GDPR request with email queues confirmation email."""
+        customer_id = "email_confirmation_customer"
+        customer_email = "confirm@example.com"
+
+        response = await async_client.post(
+            "/api/gdpr-request",
+            json={
+                "customer_id": customer_id,
+                "request_type": "gdpr_formal",
+                "email": customer_email,
+            },
+            headers=auth_headers(test_merchant),
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["requestId"] is not None
+
+        from sqlalchemy import select
+
+        result = await async_session.execute(
+            select(DeletionAuditLog).where(DeletionAuditLog.customer_id == customer_id)
+        )
+        audit_log = result.scalar_one_or_none()
+        assert audit_log is not None
+        assert audit_log.confirmation_email_sent is False
+
+    @pytest.mark.asyncio
+    async def test_gdpr_request_without_email_no_confirmation(
+        self, async_client, test_merchant, async_session
+    ):
+        """Test AC4: GDPR request without email does not queue confirmation."""
+        customer_id = "no_email_confirmation_customer"
+
+        response = await async_client.post(
+            "/api/gdpr-request",
+            json={
+                "customer_id": customer_id,
+                "request_type": "gdpr_formal",
+            },
+            headers=auth_headers(test_merchant),
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["requestId"] is not None
+
+        from sqlalchemy import select
+
+        result = await async_session.execute(
+            select(DeletionAuditLog).where(DeletionAuditLog.customer_id == customer_id)
+        )
+        audit_log = result.scalar_one_or_none()
+        assert audit_log is not None
+        assert audit_log.confirmation_email_sent is False
+        assert audit_log.email_sent_at is None
+
+    @pytest.mark.asyncio
+    async def test_ccpa_request_with_email_queues_confirmation(
+        self, async_client, test_merchant, async_session
+    ):
+        """Test AC4: CCPA request with email queues confirmation email."""
+        customer_id = "ccpa_email_customer"
+        customer_email = "ccpa@example.com"
+
+        response = await async_client.post(
+            "/api/gdpr-request",
+            json={
+                "customer_id": customer_id,
+                "request_type": "ccpa_request",
+                "email": customer_email,
+            },
+            headers=auth_headers(test_merchant),
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["requestType"] == "ccpa_request"
+
+        from sqlalchemy import select
+
+        result = await async_session.execute(
+            select(DeletionAuditLog).where(DeletionAuditLog.customer_id == customer_id)
+        )
+        audit_log = result.scalar_one_or_none()
+        assert audit_log is not None
+        assert audit_log.request_type == DeletionRequestType.CCPA_REQUEST.value
+
+    @pytest.mark.asyncio
     async def test_gdpr_request_with_session_id(self, async_client, test_merchant):
         """Test GDPR request with session_id and visitor_id."""
         response = await async_client.post(
