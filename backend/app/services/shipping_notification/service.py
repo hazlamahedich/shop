@@ -28,6 +28,7 @@ from app.services.shipping_notification.rate_limiter import (
     ShippingRateLimiter,
 )
 from app.services.shipping_notification.tracking_formatter import TrackingFormatter
+from app.services.privacy.gdpr_service import GDPRDeletionService
 
 logger = structlog.get_logger(__name__)
 
@@ -41,6 +42,7 @@ class NotificationStatus(str, Enum):
     SKIPPED_NO_CONSENT = "skipped_no_consent"
     SKIPPED_DUPLICATE = "skipped_duplicate"
     SKIPPED_OLD_ORDER = "skipped_old_order"
+    SKIPPED_GDPR_REQUEST = "skipped_gdpr_request"
     FAILED = "failed"
 
 
@@ -145,6 +147,23 @@ class ShippingNotificationService:
                 status=NotificationStatus.FAILED,
                 order_number=order_number,
                 error_message="No PSID associated with order",
+            )
+
+        gdpr_service = GDPRDeletionService()
+        is_gdpr_restricted = await gdpr_service.is_customer_processing_restricted(
+            db, psid, order.merchant_id
+        )
+        if is_gdpr_restricted:
+            log.info(
+                "shipping_notification_skipped_gdpr",
+                psid=psid,
+                order_number=order_number,
+            )
+            return NotificationResult(
+                status=NotificationStatus.SKIPPED_GDPR_REQUEST,
+                psid=psid,
+                order_number=order_number,
+                error_code=ErrorCode.GDPR_REQUEST_PENDING,
             )
 
         if fulfillment_id and shopify_order_id:

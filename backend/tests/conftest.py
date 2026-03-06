@@ -123,6 +123,11 @@ async def _setup_enums():
                 "('voluntary', 'operational', 'anonymized')",
             ),  # Story 6-4: Data tier separation
             ("consent_type", "('conversation', 'marketing', 'analytics')"),  # Consent types
+            ("deletion_trigger", "('manual', 'auto')"),  # Story 6-5: Deletion trigger type
+            (
+                "deletion_request_type",
+                "('manual', 'gdpr_formal', 'ccpa_request')",
+            ),  # Story 6-6: GDPR request type
         ]
         for enum_name, enum_values in enums:
             try:
@@ -158,6 +163,16 @@ async def _reset_database():
     from sqlalchemy import text
 
     async with test_engine.begin() as conn:
+        # Check if deletion_audit_log table exists before truncating
+        result = await conn.execute(
+            text(
+                "SELECT EXISTS (SELECT FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'deletion_audit_log')"
+            )
+        )
+        if result.scalar():
+            await conn.execute(text("TRUNCATE TABLE deletion_audit_log CASCADE;"))
+
         # Truncate tables in correct order (child tables first, then parents)
         await conn.execute(text("TRUNCATE TABLE conversations CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE messages CASCADE;"))
