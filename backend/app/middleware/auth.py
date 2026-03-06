@@ -53,6 +53,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/login",
         "/api/v1/auth/logout",  # Idempotent - handles revoked sessions
         "/api/v1/csrf-token",
+        "/api/health/",  # Story 4-4: Health check endpoints (protected by internal-only check)
         "/health",
         "/api/webhooks/",  # Webhook endpoints (signature-based auth)
         "/api/v1/webhooks/",
@@ -69,6 +70,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/ws/widget/",  # WebSocket endpoint for widget real-time communication
         "/widget/",  # Static widget files for local development
         "/static/",  # Static files (widget JS, CSS, etc.)
+        "/api/deletion/",  # Story 6-2: Data deletion endpoints (authenticated via Bearer token)
+        "/api/gdpr-request",  # Story 6-6: GDPR request endpoint
+        "/api/compliance/",  # Story 6-6: Compliance status endpoint
+        "/api/customers/",  # Story 6-6: Customer GDPR revoke endpoint
     ]
 
     def __init__(self, app) -> None:
