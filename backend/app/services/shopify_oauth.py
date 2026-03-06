@@ -294,6 +294,12 @@ class ShopifyService:
         Raises:
             APIError: If merchant already has Shopify connected
         """
+        # Encrypt access tokens
+        encrypted_admin_token = encrypt_access_token(admin_token)
+        encrypted_storefront_token = (
+            encrypt_access_token(storefront_token) if storefront_token else None
+        )
+
         # Check if merchant already has Shopify integration
         result = await self.db.execute(
             select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
@@ -301,16 +307,16 @@ class ShopifyService:
         existing = result.scalars().first()
 
         if existing:
-            raise APIError(
-                ErrorCode.SHOPIFY_ALREADY_CONNECTED,
-                "Shopify store already connected to this merchant",
-            )
-
-        # Encrypt access tokens
-        encrypted_admin_token = encrypt_access_token(admin_token)
-        encrypted_storefront_token = (
-            encrypt_access_token(storefront_token) if storefront_token else None
-        )
+            # Update existing integration (reconnection)
+            existing.shop_domain = shop_domain
+            existing.shop_name = shop_name
+            existing.admin_token_encrypted = encrypted_admin_token
+            existing.storefront_token_encrypted = encrypted_storefront_token
+            existing.scopes = scopes
+            existing.status = "active"
+            await self.db.commit()
+            await self.db.refresh(existing)
+            return existing
 
         # Create integration record
         integration = ShopifyIntegration(
