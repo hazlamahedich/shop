@@ -139,5 +139,5 @@ development_status:
   6-3-merchant-csv-export: done # 2026-03-04: COMPLETE - Fixed 2 bugs (0-byte export, consent lookup), 12/12 API tests passing, committed and pushed
   6-4-data-tier-separation: done # 2026-03-05: Code review complete - 2 HIGH + 3 MEDIUM issues fixed, 19/19 tests passing
   6-5-30-day-retention-enforcement: done
-  6-6-gdpr-deletion-processing: backlog
+  6-6-gdpr-deletion-processing: done # Backend implementation complete (Tasks 1-5 done, Tasks 6-8 pending
   epic-6-retrospective: optional

@@ -264,6 +264,13 @@ class ErrorCode(IntEnum):
     RETENTION_POLICY_FAILED = 11022  # Failed to apply retention policy
     ANONYMIZATION_FAILED = 11023  # Failed to anonymize data
 
+    # Story 6-6: GDPR Deletion Processing (11100-11199)
+    GDPR_REQUEST_PENDING = 11100  # Deletion request already pending for this customer
+    GDPR_REQUEST_NOT_FOUND = 11101  # Deletion request not found
+    GDPR_COMPLIANCE_OVERDUE = 11102  # GDPR request past 30-day deadline
+    GDPR_EMAIL_SEND_FAILED = 11103  # Failed to send confirmation email
+    GDPR_DEADLINE_EXCEEDED = 11104  # Processing deadline exceeded
+
     # 12000-12999: Widget (owner: widget team)
     WIDGET_SESSION_NOT_FOUND = 12001
     WIDGET_SESSION_EXPIRED = 12002

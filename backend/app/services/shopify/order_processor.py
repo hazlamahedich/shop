@@ -23,6 +23,7 @@ from app.core.errors import APIError, ErrorCode
 from app.models.order import Order, OrderStatus
 from app.models.conversation import Conversation
 from app.services.privacy.data_tier_service import DataTier
+from app.services.privacy.gdpr_service import GDPRDeletionService
 
 logger = structlog.get_logger(__name__)
 
@@ -594,8 +595,12 @@ class ShopifyOrderProcessor:
         shop_domain: str,
         merchant_id: int,
         db: AsyncSession,
-    ) -> Order:
+    ) -> Order | None:
         """Process a Shopify order webhook payload.
+
+        Story 6-6: GDPR "do not process" check added.
+        If customer has active GDPR deletion request, order is skipped
+        (stored but not processed for proactive messaging).
 
         Args:
             payload: Raw Shopify webhook payload
@@ -604,7 +609,7 @@ class ShopifyOrderProcessor:
             db: Database session
 
         Returns:
-            Created or updated Order instance
+            Created or updated Order instance, or None if skipped due to GDPR
         """
         log = logger.bind(
             shop_domain=shop_domain,
@@ -623,6 +628,24 @@ class ShopifyOrderProcessor:
                 "shopify_webhook_psid_not_resolved",
                 email=order_data.get("customer_email"),
             )
+
+        # Story 6-6: Check if customer has active GDPR deletion request
+        # Skip proactive processing but still store the order for business records
+        if platform_sender_id and platform_sender_id != "unknown":
+            gdpr_service = GDPRDeletionService()
+            is_restricted = await gdpr_service.is_customer_processing_restricted(
+                db, platform_sender_id, merchant_id
+            )
+            if is_restricted:
+                log.info(
+                    "order_skipped_gdpr_do_not_process",
+                    customer_id=platform_sender_id,
+                    shopify_order_id=payload.get("id"),
+                )
+                # Still upsert order for business records (GDPR exception)
+                # but mark as skipped for proactive processing
+                order = await upsert_order(db, order_data, merchant_id, platform_sender_id)
+                return None  # Signal to skip proactive notifications
 
         order = await upsert_order(db, order_data, merchant_id, platform_sender_id)
 

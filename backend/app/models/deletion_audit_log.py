@@ -2,10 +2,12 @@
 
 Story 6-2: Request Data Deletion
 Story 6-5: 30-Day Retention Enforcement
+Story 6-6: GDPR Deletion Processing
 
 Persistent audit trail for data deletion requests (GDPR/CCPA compliance).
 Tracks all immediate "forget preferences" deletions for compliance auditing.
 Enhanced to track retention policy deletions (automated cleanup).
+Enhanced for GDPR/CCPA 30-day compliance window tracking.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Text, Index, Enum as SQLEnum
+from sqlalchemy import String, Integer, DateTime, Text, Index, Enum as SQLEnum, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -28,28 +30,51 @@ class DeletionTrigger(str, Enum):
     AUTO = "auto"  # Automated retention policy deletion
 
 
+class DeletionRequestType(str, Enum):
+    """Type of GDPR/CCPA deletion request."""
+
+    MANUAL = "manual"  # "forget my preferences"
+    GDPR_FORMAL = "gdpr_formal"  # Formal GDPR request via form/email
+    CCPA_REQUEST = "ccpa_request"  # CCPA deletion request
+
+
 class DeletionAuditLog(Base):
     """Persistent audit trail for data deletion requests.
 
     Story 6-2: Tracks immediate "forget preferences" deletions.
     Story 6-5: Enhanced to track automated retention policy deletions.
+    Story 6-6: Enhanced for GDPR/CCPA 30-day compliance window tracking.
 
     Stores:
     - session_id: Widget session ID or PSID
     - visitor_id: Cross-platform identifier (optional)
+    - customer_id: Customer ID for GDPR-level tracking (Story 6-6)
     - merchant_id: Merchant ID
     - deleted_counts: Number of conversations, messages, and Redis keys deleted
     - retention_period_days: Retention period for automated deletions (Story 6-5)
     - deletion_trigger: Whether deletion was manual or automated (Story 6-5)
+    - request_type: GDPR/CCPA request type (Story 6-6)
+    - request_timestamp: When GDPR request was received (Story 6-6)
+    - processing_deadline: 30-day deadline from request (Story 6-6)
+    - completion_date: When GDPR deletion was actually completed (Story 6-6)
+    - confirmation_email_sent: Whether confirmation email was sent (Story 6-6)
+    - email_sent_at: When confirmation email was sent (Story 6-6)
     - Timestamps and error tracking for compliance
 
     Attributes:
         id: Primary key
         session_id: Widget session ID or PSID that requested deletion
         visitor_id: Optional visitor identifier for cross-platform tracking
+        customer_id: Customer ID for GDPR-level tracking (optional, for GDPR requests)
         merchant_id: Merchant ID
         retention_period_days: Retention period in days (null for manual deletions)
         deletion_trigger: Whether deletion was manual or automated
+        request_type: Type of GDPR/CCPA request (manual, gdpr_formal, ccpa_request)
+        request_timestamp: When GDPR request was received
+        processing_deadline: 30-day deadline from request
+        completion_date: When deletion was actually completed
+        confirmation_email_sent: Whether confirmation email was sent
+        email_sent_at: When confirmation email was sent
         requested_at: When deletion was requested
         completed_at: When deletion completed (or failed)
         conversations_deleted: Count of conversations deleted
@@ -72,6 +97,12 @@ class DeletionAuditLog(Base):
         nullable=True,
         index=True,
     )
+    customer_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        comment="Customer ID for GDPR-level tracking (optional)",
+    )
     merchant_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -92,6 +123,43 @@ class DeletionAuditLog(Base):
         default=DeletionTrigger.MANUAL.value,
         nullable=False,
         comment="Whether deletion was manual (user-requested) or automated (retention policy)",
+    )
+    request_type: Mapped[Optional[str]] = mapped_column(
+        SQLEnum(
+            DeletionRequestType,
+            name="deletion_request_type",
+            create_type=False,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        nullable=True,
+        default=DeletionRequestType.MANUAL.value,
+        comment="Type of GDPR/CCPA deletion request",
+    )
+    request_timestamp: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When GDPR request was received",
+    )
+    processing_deadline: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="30-day deadline from request",
+    )
+    completion_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When GDPR deletion was actually completed",
+    )
+    confirmation_email_sent: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Whether confirmation email was sent",
+    )
+    email_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When confirmation email was sent",
     )
     requested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -129,19 +197,29 @@ class DeletionAuditLog(Base):
 
     __table_args__ = (
         Index("ix_deletion_audit_log_merchant_requested", "merchant_id", "requested_at"),
+        Index("ix_deletion_audit_log_gdpr_compliance", "processing_deadline", "completion_date"),
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<DeletionAuditLog("
-            f"id={self.id}, "
-            f"session_id={self.session_id[:16]}..., "
-            f"merchant_id={self.merchant_id}, "
-            f"conversations={self.conversations_deleted}, "
-            f"messages={self.messages_deleted}, "
-            f"trigger={self.deletion_trigger}"
-            f")>"
+        parts = [
+            f"<DeletionAuditLog(",
+            f"id={self.id}, ",
+            f"session_id={self.session_id[:16]}..., ",
+            f"merchant_id={self.merchant_id}, ",
+        ]
+        if self.customer_id:
+            parts.append(f"customer_id={self.customer_id}, ")
+        parts.extend(
+            [
+                f"conversations={self.conversations_deleted}, ",
+                f"messages={self.messages_deleted}, ",
+                f"trigger={self.deletion_trigger}",
+            ]
         )
+        if self.request_type:
+            parts.append(f", request_type={self.request_type}")
+        parts.append(")>")
+        return "".join(parts)
 
     def mark_completed(
         self,

@@ -27,6 +27,7 @@ from app.services.cart.cart_retention import run_cart_retention_cleanup
 from app.tasks.handoff_followup_task import process_handoff_followups
 from app.tasks.queued_notification_task import process_queued_notifications
 from app.tasks.handoff_resolution_task import process_handoff_resolutions
+from app.background_jobs.gdpr_compliance_check import add_gdpr_job_to_scheduler
 
 logger = structlog.get_logger(__name__)
 
@@ -229,6 +230,9 @@ def start_scheduler() -> None:
         name="Handoff Resolution Lifecycle",
         replace_existing=True,
     )
+
+    # Story 6-6: Schedule GDPR compliance check daily at 9 AM UTC
+    add_gdpr_job_to_scheduler(scheduler)
 
     scheduler.start()
 
