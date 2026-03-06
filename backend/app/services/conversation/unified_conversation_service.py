@@ -1398,15 +1398,18 @@ class UnifiedConversationService:
                     loop_count=result.loop_count,
                 )
 
+                handoff_message = await self._get_handoff_message(merchant)
+
                 await self._update_conversation_handoff_status(
                     db=db,
                     context=context,
                     merchant=merchant,
                     reason=result.reason.value if result.reason else "unknown",
                     confidence_count=result.confidence_count,
+                    user_message=message,
+                    bot_response=handoff_message,
                 )
 
-                handoff_message = await self._get_handoff_message(merchant)
                 return ConversationResponse(
                     message=handoff_message,
                     intent="human_handoff",
@@ -1475,6 +1478,8 @@ class UnifiedConversationService:
         merchant: Merchant,
         reason: str,
         confidence_count: int = 0,
+        user_message: str = "",
+        bot_response: str = "",
     ) -> None:
         """Update conversation status to handoff in database.
 
@@ -1484,20 +1489,40 @@ class UnifiedConversationService:
             merchant: Merchant model
             reason: Handoff reason
             confidence_count: Consecutive low confidence count
+            user_message: User's message that triggered handoff
+            bot_response: Bot's handoff response
         """
         try:
-            from app.models.conversation import Conversation
+            from app.models.conversation import Conversation, DataTier
+            from app.models.message import Message
 
             conversation = await self._get_conversation(db, context.session_id, merchant.id)
 
-            if conversation:
+            if not conversation:
+                conversation = Conversation(
+                    merchant_id=merchant.id,
+                    platform=context.channel,
+                    platform_sender_id=context.session_id,
+                    status="handoff",
+                    handoff_status="pending",
+                    handoff_triggered_at=datetime.utcnow(),
+                    handoff_reason=reason,
+                    consecutive_low_confidence_count=confidence_count,
+                    data_tier=DataTier.VOLUNTARY,
+                )
+                db.add(conversation)
+                await db.flush()
+                self.logger.info(
+                    "handoff_conversation_created",
+                    session_id=context.session_id,
+                    reason=reason,
+                )
+            else:
                 conversation.status = "handoff"
                 conversation.handoff_status = "pending"
-                conversation.handoff_triggered_at = datetime.now(timezone.utc)
+                conversation.handoff_triggered_at = datetime.utcnow()
                 conversation.handoff_reason = reason
                 conversation.consecutive_low_confidence_count = confidence_count
-                await db.flush()
-
                 self.logger.info(
                     "handoff_status_updated_unified",
                     conversation_id=conversation.id,
@@ -1505,6 +1530,118 @@ class UnifiedConversationService:
                     reason=reason,
                     confidence_count=confidence_count,
                 )
+
+            if user_message:
+                user_msg = Message(
+                    conversation_id=conversation.id,
+                    sender="customer",
+                    content=user_message,
+                    message_type="text",
+                    data_tier=DataTier.VOLUNTARY,
+                )
+                user_msg.set_encrypted_content(user_message, "customer")
+                db.add(user_msg)
+
+            if bot_response:
+                bot_msg = Message(
+                    conversation_id=conversation.id,
+                    sender="bot",
+                    content=bot_response,
+                    message_type="text",
+                    data_tier=DataTier.VOLUNTARY,
+                )
+                bot_msg.set_encrypted_content(bot_response, "bot")
+                db.add(bot_msg)
+
+            # Create handoff alert for queue visibility
+            try:
+                from app.models.handoff_alert import HandoffAlert
+                from sqlalchemy import select
+
+                # Check if alert already exists for this conversation
+                existing_alert = await db.execute(
+                    select(HandoffAlert).where(HandoffAlert.conversation_id == conversation.id)
+                )
+                if not existing_alert.scalars().first():
+                    # Determine urgency level
+                    urgency_level = "low"
+                    message_lower = (user_message or "").lower()
+
+                    high_priority_keywords = [
+                        "checkout",
+                        "payment",
+                        "charged",
+                        "refund",
+                        "cancel",
+                    ]
+                    medium_priority_keywords = [
+                        "order",
+                        "delivery",
+                        "shipping",
+                        "track",
+                        "where is",
+                    ]
+
+                    if any(kw in message_lower for kw in high_priority_keywords):
+                        urgency_level = "high"
+                    elif reason in ("low_confidence", "clarification_loop"):
+                        urgency_level = "medium"
+                    elif any(kw in message_lower for kw in medium_priority_keywords):
+                        urgency_level = "medium"
+
+                    # Get customer ID (masked)
+                    customer_id = None
+                    if conversation.platform_sender_id:
+                        if len(conversation.platform_sender_id) > 4:
+                            customer_id = f"{conversation.platform_sender_id[:4]}****"
+                        else:
+                            customer_id = conversation.platform_sender_id
+
+                    # Get conversation preview
+                    conversation_preview = user_message[:500] if user_message else None
+
+                    # Check if offline (outside business hours)
+                    is_offline = False
+                    try:
+                        from app.services.handoff.business_hours_handoff_service import (
+                            BusinessHoursHandoffService,
+                        )
+
+                        bh_service = BusinessHoursHandoffService()
+                        is_offline = bh_service.is_offline_handoff(merchant.business_hours_config)
+                    except Exception:
+                        pass  # Default to False if check fails
+
+                    # Create alert
+                    alert = HandoffAlert(
+                        conversation_id=conversation.id,
+                        merchant_id=merchant.id,
+                        urgency_level=urgency_level,
+                        customer_name=None,
+                        customer_id=customer_id,
+                        conversation_preview=conversation_preview,
+                        wait_time_seconds=0,
+                        is_read=False,
+                        is_offline=is_offline,
+                    )
+                    db.add(alert)
+                    await db.flush()
+
+                    self.logger.info(
+                        "handoff_alert_created",
+                        conversation_id=conversation.id,
+                        urgency_level=urgency_level,
+                        is_offline=is_offline,
+                    )
+            except Exception as e:
+                self.logger.warning(
+                    "handoff_alert_creation_failed",
+                    conversation_id=conversation.id,
+                    error=str(e),
+                )
+
+            await db.commit()
+
         except Exception as e:
             self.logger.error(
                 "handoff_status_update_failed_unified",
