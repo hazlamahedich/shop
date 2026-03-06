@@ -108,6 +108,31 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       const { data } = await response.json();
       const { authUrl } = data;
 
+      // Set up message handler BEFORE opening popup to avoid race condition
+      const frontendOrigin = window.location.origin;
+      const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const allowedOrigins = [frontendOrigin, backendOrigin];
+      let messageReceived = false;
+
+      const messageHandler = (event: MessageEvent) => {
+        if (!allowedOrigins.includes(event.origin)) return;
+
+        if (event.data.type === 'facebook-oauth-success') {
+          messageReceived = true;
+          window.removeEventListener('message', messageHandler);
+          get().checkFacebookStatus();
+        } else if (event.data.type === 'facebook-oauth-error') {
+          messageReceived = true;
+          window.removeEventListener('message', messageHandler);
+          set({
+            facebookStatus: 'error',
+            facebookError: event.data.error || 'Connection failed',
+          });
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+
       // Open popup window for OAuth
       const width = 600;
       const height = 700;
@@ -121,35 +146,21 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       );
 
       if (!popup) {
+        window.removeEventListener('message', messageHandler);
         throw new Error('Popup blocked - please allow popups for this site');
       }
 
-      // Listen for popup messages
-      const messageHandler = (event: MessageEvent) => {
-        // Verify origin - allow messages from backend (same host, different port in dev)
-        const frontendOrigin = window.location.origin;
-        const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const allowedOrigins = [frontendOrigin, backendOrigin];
-        
-        if (!allowedOrigins.includes(event.origin)) return;
-
-        if (event.data.type === 'facebook-oauth-success') {
-          // Connection successful - refresh status
-          get().checkFacebookStatus();
-        } else if (event.data.type === 'facebook-oauth-error') {
-          // Connection failed - show error
-          set({
-            facebookStatus: 'error',
-            facebookError: event.data.error || 'Connection failed',
-          });
+      // Poll for popup closure as fallback (in case message wasn't received)
+      const pollInterval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(pollInterval);
+          window.removeEventListener('message', messageHandler);
+          // If no message was received but popup closed, check status anyway
+          if (!messageReceived) {
+            get().checkFacebookStatus();
+          }
         }
-
-        // Clean up listener and close popup
-        window.removeEventListener('message', messageHandler);
-        popup?.close();
-      };
-
-      window.addEventListener('message', messageHandler);
+      }, 500);
     } catch (error) {
       set({
         facebookStatus: 'error',
@@ -321,6 +332,31 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       const { data } = await response.json();
       const { authUrl } = data;
 
+      // Set up message handler BEFORE opening popup to avoid race condition
+      const frontendOrigin = window.location.origin;
+      const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const allowedOrigins = [frontendOrigin, backendOrigin];
+      let messageReceived = false;
+
+      const messageHandler = (event: MessageEvent) => {
+        if (!allowedOrigins.includes(event.origin)) return;
+
+        if (event.data.type === 'shopify-oauth-success') {
+          messageReceived = true;
+          window.removeEventListener('message', messageHandler);
+          get().checkShopifyStatus();
+        } else if (event.data.type === 'shopify-oauth-error') {
+          messageReceived = true;
+          window.removeEventListener('message', messageHandler);
+          set({
+            shopifyStatus: 'error',
+            shopifyError: event.data.error || 'Connection failed',
+          });
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+
       // Open popup window for OAuth
       const width = 600;
       const height = 700;
@@ -334,35 +370,21 @@ export const useIntegrationsStore = create<IntegrationsState>((set, get) => ({
       );
 
       if (!popup) {
+        window.removeEventListener('message', messageHandler);
         throw new Error('Popup blocked - please allow popups for this site');
       }
 
-      // Listen for popup messages
-      const messageHandler = (event: MessageEvent) => {
-        // Verify origin - allow messages from backend (same host, different port in dev)
-        const frontendOrigin = window.location.origin;
-        const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const allowedOrigins = [frontendOrigin, backendOrigin];
-        
-        if (!allowedOrigins.includes(event.origin)) return;
-
-        if (event.data.type === 'shopify-oauth-success') {
-          // Connection successful - refresh status
-          get().checkShopifyStatus();
-        } else if (event.data.type === 'shopify-oauth-error') {
-          // Connection failed - show error
-          set({
-            shopifyStatus: 'error',
-            shopifyError: event.data.error || 'Connection failed',
-          });
+      // Poll for popup closure as fallback (in case message wasn't received)
+      const pollInterval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(pollInterval);
+          window.removeEventListener('message', messageHandler);
+          // If no message was received but popup closed, check status anyway
+          if (!messageReceived) {
+            get().checkShopifyStatus();
+          }
         }
-
-        // Clean up listener and close popup
-        window.removeEventListener('message', messageHandler);
-        popup?.close();
-      };
-
-      window.addEventListener('message', messageHandler);
+      }, 500);
     } catch (error) {
       set({
         shopifyStatus: 'error',
