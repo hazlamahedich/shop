@@ -42,7 +42,7 @@ from app.services.session import SessionService
 from app.services.shopify import ProductSearchService
 from app.services.shopify_storefront import ShopifyStorefrontClient
 from app.services.personality import BotResponseService
-from app.services.faq import match_faq
+from app.services.faq import match_faq, rephrase_faq_with_personality
 from app.services.cost_tracking.budget_alert_service import BudgetAlertService
 from app.services.business_hours import is_within_business_hours, get_formatted_hours
 from app.services.handoff.business_hours_handoff_service import BusinessHoursHandoffService
@@ -405,7 +405,7 @@ class MessageProcessor:
                 if conversation:
                     conversation.status = "handoff"
                     conversation.handoff_status = "pending"
-                    conversation.handoff_triggered_at = datetime.now(timezone.utc)
+                    conversation.handoff_triggered_at = datetime.utcnow()
                     conversation.handoff_reason = reason
                     conversation.consecutive_low_confidence_count = confidence_count
                     await db.commit()
@@ -432,6 +432,8 @@ class MessageProcessor:
     ) -> Optional[MessengerResponse]:
         """Check if message matches any FAQ (Story 1.11).
 
+        Applies personality rephrasing to FAQ answers for consistent bot tone.
+
         Args:
             message: Customer's message
 
@@ -444,8 +446,16 @@ class MessageProcessor:
         try:
             from app.core.database import async_session
             from sqlalchemy import select
+            from app.models.merchant import Merchant, PersonalityType
+            from app.services.llm.llm_factory import LLMProviderFactory
 
             async with async_session() as db:
+                # Get merchant with personality and LLM config
+                merchant_result = await db.execute(
+                    select(Merchant).where(Merchant.id == self.merchant_id)
+                )
+                merchant = merchant_result.scalars().first()
+
                 # Get merchant's FAQs
                 result = await db.execute(
                     select(self._get_faq_model())
@@ -467,21 +477,106 @@ class MessageProcessor:
                         faq_id=faq_match.faq.id,
                         confidence=faq_match.confidence,
                     )
+
+                    # Get merchant details for personality rephrasing
+                    business_name = merchant.business_name if merchant else None
+                    bot_name = (
+                        merchant.bot_name
+                        if merchant and merchant.bot_name
+                        else "Shopping Assistant"
+                    )
+                    personality_type = (
+                        merchant.personality
+                        if merchant and merchant.personality
+                        else PersonalityType.FRIENDLY
+                    )
+
+                    # Get LLM service for rephrasing
+                    faq_answer = faq_match.faq.answer
+                    try:
+                        llm_service = await self._get_llm_service_for_faq(merchant, db)
+                        if llm_service:
+                            faq_answer = await rephrase_faq_with_personality(
+                                llm_service=llm_service,
+                                faq_answer=faq_match.faq.answer,
+                                personality_type=personality_type,
+                                business_name=business_name or "our store",
+                                bot_name=bot_name,
+                            )
+                            self.logger.info(
+                                "faq_rephrased",
+                                merchant_id=self.merchant_id,
+                                faq_id=faq_match.faq.id,
+                            )
+                    except Exception as e:
+                        self.logger.warning(
+                            "faq_rephrase_failed_using_original",
+                            merchant_id=self.merchant_id,
+                            error=str(e),
+                        )
+
                     # Include business name in response if available
-                    business_name = await self._get_business_name(db)
                     if business_name:
                         return MessengerResponse(
-                            text=f"{business_name}\n\n{faq_match.faq.answer}",
+                            text=f"{business_name}\n\n{faq_answer}",
                             recipient_id="",  # Will be set by caller
                         )
                     return MessengerResponse(
-                        text=faq_match.faq.answer,
+                        text=faq_answer,
                         recipient_id="",  # Will be set by caller
                     )
         except Exception as e:
             self.logger.warning("faq_match_failed", error=str(e))
 
         return None
+
+    async def _get_llm_service_for_faq(self, merchant, db):
+        """Get LLM service for FAQ rephrasing.
+
+        Args:
+            merchant: Merchant model with LLM configuration
+            db: Database session
+
+        Returns:
+            LLM service instance or None if unavailable
+        """
+        from app.services.llm.llm_factory import LLMProviderFactory
+        from app.core.security import decrypt_access_token
+
+        try:
+            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                llm_config = merchant.llm_configuration
+                provider_name = llm_config.provider or "ollama"
+
+                config = {
+                    "model": llm_config.ollama_model or llm_config.cloud_model,
+                }
+
+                if provider_name == "ollama":
+                    config["ollama_url"] = llm_config.ollama_url
+                else:
+                    if llm_config.api_key_encrypted:
+                        config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
+
+                return LLMProviderFactory.create_provider(
+                    provider_name=provider_name,
+                    config=config,
+                )
+        except Exception as e:
+            self.logger.warning(
+                "faq_llm_service_failed",
+                merchant_id=merchant.id if merchant else None,
+                error=str(e),
+            )
+
+        # Fallback to default Ollama
+        try:
+            return LLMProviderFactory.create_provider(
+                provider_name="ollama",
+                config={"model": "llama3.2"},
+            )
+        except Exception:
+            return None
 
     def _get_faq_model(self):
         """Get FAQ model (lazy import to avoid circular dependency)."""

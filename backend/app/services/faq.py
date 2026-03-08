@@ -291,3 +291,85 @@ async def match_faq(
     """
     matcher = get_faq_matcher()
     return matcher.match_faq(customer_message, merchant_faqs)
+
+
+async def rephrase_faq_with_personality(
+    llm_service,
+    faq_answer: str,
+    personality_type,
+    business_name: str,
+    bot_name: str = "Shopping Assistant",
+    timeout_seconds: float = 3.0,
+) -> str:
+    """Rephrase FAQ answer with personality tone.
+
+    Passes the FAQ answer through LLM to rephrase it in the bot's personality.
+    Falls back to original answer on timeout or error.
+
+    Args:
+        llm_service: LLM service instance (BaseLLMService)
+        faq_answer: Original FAQ answer to rephrase
+        personality_type: PersonalityType enum value
+        business_name: Name of the business
+        bot_name: Name of the bot (default: "Shopping Assistant")
+        timeout_seconds: Timeout for LLM call (default: 3.0)
+
+    Returns:
+        Rephrased answer in personality tone, or original answer on failure
+    """
+    import asyncio
+
+    from app.services.llm.base_llm_service import LLMMessage
+    from app.services.personality.personality_prompts import get_personality_system_prompt
+
+    system_prompt = get_personality_system_prompt(
+        personality_type,
+        business_name=business_name,
+        bot_name=bot_name,
+    )
+
+    rephrase_prompt = f"""Rewrite this FAQ answer in a {personality_type.value if hasattr(personality_type, "value") else str(personality_type)} tone. Keep it brief.
+
+CRITICAL: Output ONLY the rephrased answer. Do NOT add:
+- Links, URLs, or placeholders like [text](url)
+- Mentions of pages, forms, or websites
+- Any information not in the original answer
+
+Original answer: {faq_answer}
+
+Rephrased answer:"""
+
+    messages = [
+        LLMMessage(role="system", content=system_prompt),
+        LLMMessage(role="user", content=rephrase_prompt),
+    ]
+
+    try:
+        response = await asyncio.wait_for(
+            llm_service.chat(messages, temperature=0.3, max_tokens=300),
+            timeout=timeout_seconds,
+        )
+        rephrased = response.content.strip()
+        logger.info(
+            "faq_rephrase_success",
+            original_length=len(faq_answer),
+            rephrased_length=len(rephrased),
+            personality=personality_type.value
+            if hasattr(personality_type, "value")
+            else str(personality_type),
+        )
+        return rephrased
+    except asyncio.TimeoutError:
+        logger.warning(
+            "faq_rephrase_timeout",
+            timeout_seconds=timeout_seconds,
+            fallback=True,
+        )
+        return faq_answer
+    except Exception as e:
+        logger.warning(
+            "faq_rephrase_failed",
+            error=str(e),
+            fallback=True,
+        )
+        return faq_answer

@@ -52,9 +52,31 @@ os.environ["MOCK_STORE_ENABLED"] = "true"
 # =============================================================================
 
 # Database connection string for testing - use environment variable or default
+# IMPORTANT: Tests now use shop_test database (separate from shop_dev)
 TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_dev"
+    "TEST_DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5432/shop_test"
 )
+
+# =============================================================================
+# SAFETY CHECK: Warn if running tests on development database
+# =============================================================================
+
+if "shop_dev" in TEST_DATABASE_URL:
+    print("\n" + "=" * 80)
+    print("⚠️  WARNING: RUNNING TESTS ON DEVELOPMENT DATABASE  ⚠️")
+    print("=" * 80)
+    print(f"Test database URL: {TEST_DATABASE_URL}")
+    print("\nThis will DELETE ALL DATA in your development database!")
+    print("Tests should use a separate test database (shop_test).")
+    print("\nTo fix this:")
+    print(
+        "  export TEST_DATABASE_URL='postgresql+asyncpg://developer:developer@localhost:5432/shop_test'"
+    )
+    print("\nWaiting 5 seconds before continuing...")
+    print("=" * 80 + "\n")
+    import time
+
+    time.sleep(5)
 
 # Create async engine for testing
 test_engine = create_async_engine(

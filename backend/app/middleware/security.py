@@ -59,7 +59,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Prevent clickjacking attacks
-        response.headers["X-Frame-Options"] = "DENY"
+        # Prevent clickjacking attacks but allow framing by Shopify
+        # Note: frame-ancestors in CSP takes precedence over X-Frame-Options in modern browsers
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
 
         # Prevent MIME type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -83,16 +85,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Content Security Policy to prevent XSS and data injection
-        # Note: 'unsafe-inline' and 'unsafe-eval' are needed for FastAPI docs
+        # Note: 'unsafe-inline' and 'unsafe-eval' are needed for FastAPI docs and some widget logic
+        # frame-ancestors: Allows being embedded in Shopify Admin and Storefront
+        # connect-src: Allows API calls and WebSockets to self and zrok
+        app_url = settings()["APP_URL"]
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
-            "connect-src 'self'; "
-            "frame-ancestors 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self';"
+            f"default-src 'self'; "
+            f"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            f"style-src 'self' 'unsafe-inline'; "
+            f"img-src 'self' data: https:; "
+            f"connect-src 'self' {app_url} wss://*.zrok.io; "
+            f"frame-ancestors 'self' https://*.myshopify.com https://admin.shopify.com; "
+            f"base-uri 'self'; "
+            f"form-action 'self';"
         )
 
         # HSTS header only in production (DEBUG=false)

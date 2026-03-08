@@ -282,6 +282,127 @@ now = datetime.now(UTC)  # AttributeError in Python 3.9/3.10
 
 ---
 
+## 🗄️ Database Architecture
+
+### Database Separation
+
+This project uses **3 separate PostgreSQL databases** to prevent data loss:
+
+| Database | Purpose | Data Persistence |
+|----------|---------|------------------|
+| `shop_prod` | **Production** | Permanent (never reset) |
+| `shop_dev` | **Development** | Semi-permanent (manual testing data) |
+| `shop_test` | **Testing** | Ephemeral (reset before each test) |
+
+### ⚠️ CRITICAL: Test Database Configuration
+
+**Integration tests use `shop_test` database (separate from `shop_dev`)**
+
+```python
+# tests/conftest.py
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL", 
+    "postgresql+asyncpg://developer:developer@localhost:5432/shop_test"
+)
+```
+
+**This prevents:**
+- ✅ Tests from deleting your manual development data
+- ✅ Accidental data loss during test runs
+- ✅ Conflicts between manual testing and automated tests
+
+### Database Reset Warning System
+
+**Automatic warning when running tests on `shop_dev`:**
+
+```
+================================================================================
+⚠️  WARNING: RUNNING TESTS ON DEVELOPMENT DATABASE  ⚠️
+================================================================================
+Test database URL: shop_dev
+
+This will DELETE ALL DATA in your development database!
+Tests should use a separate test database (shop_test).
+
+To fix this:
+  export TEST_DATABASE_URL='postgresql+asyncpg://developer:developer@localhost:5432/shop_test'
+
+Waiting 5 seconds before continuing...
+================================================================================
+```
+
+### Seeding Test Data
+
+**Use the seed script to quickly populate `shop_test` database:**
+
+```bash
+# Seed all test data (merchant + conversations + FAQs + tutorials)
+cd backend
+source venv/bin/activate
+python scripts/seed_test_data.py
+
+# Seed only merchants
+python scripts/seed_test_data.py --merchants
+
+# Seed conversations for specific merchant
+python scripts/seed_test_data.py --conversations --merchant-id 1 --count 5
+```
+
+**What gets seeded:**
+- ✅ Test merchant with widget configuration
+- ✅ Sample conversations (active + handoff)
+- ✅ FAQ pages (dynamically updated)
+- ✅ Tutorial pages (dynamically updated)
+- ✅ LLM and Shopify configuration
+
+### Best Practices
+
+**DO:**
+- ✅ Use `shop_test` for automated integration tests
+- ✅ Use `shop_dev` for manual development/testing
+- ✅ Run seed script after database resets
+- ✅ Set `TEST_DATABASE_URL` environment variable in CI/CD
+
+**DON'T:**
+- ❌ Run integration tests on `shop_dev` (will delete data)
+- ❌ Manually edit `shop_test` database (will be reset)
+- ❌ Skip the warning system when it appears
+
+### Database Recovery
+
+**If you accidentally lose `shop_dev` data:**
+
+1. **Re-seed test data:**
+   ```bash
+   python scripts/seed_test_data.py
+   ```
+
+2. **Re-connect Shopify manually:**
+   - Go through onboarding flow
+   - Connect your Shopify store
+   - Configure LLM settings
+
+3. **Update widget configuration:**
+   - Update merchant ID in widget config
+   - Test with new merchant ID
+
+### Test Commands
+
+```bash
+# Run integration tests (uses shop_test)
+cd backend
+source venv/bin/activate
+python -m pytest tests/integration/ -v
+
+# Run unit tests (no database required)
+python -m pytest app/services/handoff/test_handoff_resolution_service.py -v
+
+# Run all tests
+python -m pytest -v
+```
+
+---
+
 ## 📁 Project Structure
 
 ```

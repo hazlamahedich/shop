@@ -46,6 +46,7 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
     deleteFaq,
     reorderFaqs,
     clearError,
+    fetchFaqs,
   } = useBusinessInfoStore();
 
   const { toast } = useToast();
@@ -56,6 +57,20 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
   const [isSaving, setIsSaving] = React.useState(false);
   const [draggedItem, setDraggedItem] = React.useState<FaqItem | null>(null);
   const [dragOverItem, setDragOverItem] = React.useState<FaqItem | null>(null);
+
+  // Fetch FAQs on mount
+  React.useEffect(() => {
+    const loadFaqs = async () => {
+      try {
+        await fetchFaqs();
+      } catch (err) {
+        console.error('Failed to fetch FAQs:', err);
+        toast('Failed to load FAQs', 'error');
+      }
+    };
+
+    loadFaqs();
+  }, [fetchFaqs, toast]);
 
   // Handle add FAQ button click
   const handleAddClick = () => {

@@ -192,6 +192,11 @@ class UnifiedConversationService:
             if consent_response:
                 return consent_response
 
+            # Check for FAQ match before intent classification
+            faq_response = await self._check_faq_match(db, context, merchant, message)
+            if faq_response:
+                return faq_response
+
             llm_service = await self._get_merchant_llm(merchant, db, context)
 
             classification = await self._classify_intent(
@@ -1485,6 +1490,109 @@ class UnifiedConversationService:
                 error=str(e),
             )
             context.consent_state.can_store_conversation = False
+            return None
+
+    async def _check_faq_match(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Merchant,
+        message: str,
+    ) -> Optional[ConversationResponse]:
+        """Check for FAQ match before intent classification.
+
+        If FAQ matches with high confidence, return rephrased answer immediately.
+        This prevents handoff from being triggered for common questions.
+
+        Args:
+            db: Database session
+            context: Conversation context
+            merchant: Merchant model
+            message: User's message
+
+        Returns:
+            ConversationResponse with FAQ answer if matched, None otherwise
+        """
+        try:
+            from app.services.faq import match_faq, rephrase_faq_with_personality
+            from app.models.faq import Faq
+
+            # Get merchant's FAQs
+            result = await db.execute(
+                select(Faq).where(Faq.merchant_id == merchant.id).order_by(Faq.order_index)
+            )
+            faqs = list(result.scalars().all())
+
+            if not faqs:
+                return None
+
+            # Try to match FAQ
+            faq_match = await match_faq(message, faqs)
+
+            if not faq_match:
+                return None
+
+            self.logger.info(
+                "faq_matched_unified",
+                merchant_id=merchant.id,
+                session_id=context.session_id,
+                faq_id=faq_match.faq.id,
+                confidence=faq_match.confidence,
+                match_type=faq_match.match_type,
+            )
+
+            # Get personality settings
+            personality_type = (
+                merchant.personality if merchant.personality else PersonalityType.FRIENDLY
+            )
+            business_name = merchant.business_name or "our store"
+            bot_name = merchant.bot_name if merchant.bot_name else "Shopping Assistant"
+
+            # Get LLM service for rephrasing
+            llm_service = await self._get_merchant_llm(merchant, db, context)
+
+            # Rephrase with personality
+            faq_answer = faq_match.faq.answer
+            try:
+                faq_answer = await rephrase_faq_with_personality(
+                    llm_service=llm_service,
+                    faq_answer=faq_match.faq.answer,
+                    personality_type=personality_type,
+                    business_name=business_name,
+                    bot_name=bot_name,
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "faq_rephrase_failed_unified",
+                    faq_id=faq_match.faq.id,
+                    error=str(e),
+                )
+
+            return ConversationResponse(
+                message=faq_answer,
+                intent="faq",
+                confidence=faq_match.confidence,
+                checkout_url=None,
+                fallback=False,
+                fallback_url=None,
+                products=None,
+                cart=None,
+                order=None,
+                metadata={
+                    "faq_id": faq_match.faq.id,
+                    "faq_match_type": faq_match.match_type,
+                    "faq_question": faq_match.faq.question,
+                    "source": "faq_preprocessor_unified",
+                },
+            )
+
+        except Exception as e:
+            self.logger.warning(
+                "faq_check_failed_unified",
+                merchant_id=merchant.id,
+                session_id=context.session_id,
+                error=str(e),
+            )
             return None
 
     async def _check_handoff(

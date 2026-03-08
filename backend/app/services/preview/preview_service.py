@@ -364,8 +364,9 @@ class PreviewService:
 
         try:
             # Check for FAQ match first (higher confidence for FAQ responses)
-            from app.services.faq import match_faq
+            from app.services.faq import match_faq, rephrase_faq_with_personality
             from app.models.faq import Faq
+            from app.models.merchant import PersonalityType
 
             # Get merchant's FAQs (only if db is available)
             merchant_faqs = []
@@ -382,13 +383,66 @@ class PreviewService:
 
             # Determine response source and calculate confidence
             if faq_match:
-                # Use FAQ response
-                response_text = faq_match.faq.answer
+                # Use FAQ response with personality rephrasing
+                faq_answer = faq_match.faq.answer
+                llm_provider = None
+
+                # Try to rephrase with personality
+                try:
+                    llm_config = {}
+                    provider_name = "ollama"
+
+                    if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                        llm_config_obj = merchant.llm_configuration
+                        provider_name = llm_config_obj.provider or "ollama"
+                        llm_config = {
+                            "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+                        }
+                        if provider_name == "ollama":
+                            llm_config["ollama_url"] = llm_config_obj.ollama_url
+                        elif llm_config_obj.api_key_encrypted:
+                            from app.core.security import decrypt_access_token
+
+                            llm_config["api_key"] = decrypt_access_token(
+                                llm_config_obj.api_key_encrypted
+                            )
+
+                    llm_service = LLMProviderFactory.create_provider(
+                        provider_name=provider_name,
+                        config=llm_config,
+                    )
+                    llm_provider = provider_name
+
+                    personality_type = (
+                        merchant.personality if merchant.personality else PersonalityType.FRIENDLY
+                    )
+                    business_name = merchant.business_name or "our store"
+                    bot_name = merchant.bot_name if merchant.bot_name else "Shopping Assistant"
+
+                    faq_answer = await rephrase_faq_with_personality(
+                        llm_service=llm_service,
+                        faq_answer=faq_match.faq.answer,
+                        personality_type=personality_type,
+                        business_name=business_name,
+                        bot_name=bot_name,
+                    )
+                    logger.info(
+                        "preview_faq_rephrased",
+                        merchant_id=merchant.id,
+                        faq_id=faq_match.faq.id,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "preview_faq_rephrase_failed",
+                        merchant_id=merchant.id,
+                        error=str(e),
+                    )
+
+                response_text = faq_answer
                 confidence = int(faq_match.confidence * 100)  # Convert 0-1 to 0-100
                 faq_matched = True
                 intent = "faq_response"
                 products_found = 0
-                llm_provider = None
             else:
                 # Initialize llm_provider for the else branch
                 llm_provider = None

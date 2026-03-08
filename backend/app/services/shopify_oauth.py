@@ -162,10 +162,8 @@ class ShopifyService:
             # Default redirect URI - backend callback endpoint
             from app.core.config import is_testing
 
-            if is_testing():
-                redirect_uri = "http://localhost:8000/api/integrations/shopify/callback"
-            else:
-                redirect_uri = "http://localhost:8000/api/integrations/shopify/callback"
+            app_url = settings()["APP_URL"]
+            redirect_uri = f"{app_url}/api/integrations/shopify/callback"
             logger.info("using_default_redirect_uri", redirect_uri=redirect_uri)
 
         # Generate state token for CSRF protection (stores merchant_id)

@@ -53,6 +53,7 @@ def settings() -> dict[str, Any]:
         "IS_TESTING": os.getenv("IS_TESTING", "true").lower() == "true",
         # Application
         "APP_NAME": os.getenv("APP_NAME", "shop-backend"),
+        "APP_URL": os.getenv("APP_URL", "http://localhost:8000"),
         "APP_VERSION": "0.1.0",
         "DEBUG": is_debug,
         "API_PREFIX": "/api/v1",

@@ -283,28 +283,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             )
 
     def _add_security_headers(self, request: Request, response: Response) -> None:
-        """Add security headers to response (AC 4).
-
-        Args:
-            request: The incoming HTTP request
-            response: The response to add headers to
-        """
-        # CSP headers to prevent XSS
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
-            "font-src 'self'; "
-            "connect-src 'self'; "
-            "frame-ancestors 'none';"
-        )
-
-        # Other security headers
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        """Deprecated: Security headers are now handled by SecurityHeadersMiddleware."""
+        pass
 
 
 def get_request_merchant_id(request: Request) -> int:
