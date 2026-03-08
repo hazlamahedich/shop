@@ -43,10 +43,11 @@ class WidgetSessionService:
 
     SESSION_TTL_SECONDS = 3600
     VISITOR_TTL_SECONDS = 2592000  # 30 days
+    MESSAGE_HISTORY_TTL_SECONDS = 604800  # 7 days
     KEY_PREFIX = "widget:session"
     MESSAGES_KEY_PREFIX = "widget:messages"
     VISITOR_KEY_PREFIX = "widget:visitor"
-    MAX_MESSAGE_HISTORY = 10
+    MAX_MESSAGE_HISTORY = 100
 
     def __init__(
         self,
@@ -353,8 +354,8 @@ class WidgetSessionService:
             -1,
         )
 
-        # Set/refresh TTL
-        await self.redis.expire(messages_key, self.SESSION_TTL_SECONDS)
+        # Set/refresh TTL to 7 days for message persistence
+        await self.redis.expire(messages_key, self.MESSAGE_HISTORY_TTL_SECONDS)
 
     async def get_message_history(
         self,
@@ -379,6 +380,63 @@ class WidgetSessionService:
                 continue
 
         return result
+
+    async def get_message_history_status(
+        self,
+        session_id: str,
+    ) -> dict[str, Any]:
+        """Get message history status including expiration info.
+
+        Args:
+            session_id: Widget session identifier
+
+        Returns:
+            Dictionary with 'expired' boolean and 'expires_at' timestamp
+        """
+        messages_key = self._get_messages_key(session_id)
+        ttl = await self.redis.ttl(messages_key)
+
+        if ttl == -2:
+            # Key does not exist
+            return {"expired": True, "expires_at": None, "ttl": 0}
+
+        if ttl == -1:
+            # Key exists but no expiry (shouldn't happen, but handle gracefully)
+            return {"expired": False, "expires_at": None, "ttl": -1}
+
+        # Calculate expiration time
+        from datetime import datetime, timezone, timedelta
+
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+        return {
+            "expired": False,
+            "expires_at": expires_at.isoformat(),
+            "ttl": ttl,
+        }
+
+    async def clear_message_history(
+        self,
+        session_id: str,
+    ) -> bool:
+        """Clear message history for a session.
+
+        Args:
+            session_id: Widget session identifier
+
+        Returns:
+            True if history was cleared, False if no history existed
+        """
+        messages_key = self._get_messages_key(session_id)
+        deleted = await self.redis.delete(messages_key)
+
+        if deleted > 0:
+            self.logger.info(
+                "widget_message_history_cleared",
+                session_id=session_id,
+            )
+            return True
+
+        return False
 
     async def update_last_activity(self, session_id: str) -> bool:
         """Update only the last_activity_at timestamp without extending expiry.

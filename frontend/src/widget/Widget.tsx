@@ -28,6 +28,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     dismissError,
     retryLastAction,
     recordConsent,
+    clearHistory,
   } = useWidgetContext();
   const merchantTheme = state.config?.theme;
   const mergedTheme = React.useMemo(
@@ -114,6 +115,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                   connectionStatus={state.connectionStatus}
                   consentState={state.consentState}
                   onRecordConsent={recordConsent}
+                  onClearHistory={clearHistory}
                 />
               </React.Suspense>
             </WidgetErrorBoundary>

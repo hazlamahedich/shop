@@ -2,7 +2,18 @@ import * as React from 'react';
 import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus, ConsentState } from '../types/widget';
 import { createWidgetError } from '../types/errors';
 import { shopifyCartClient } from '../api/shopifyCartClient';
-import { safeStorage, SESSION_KEY, MERCHANT_KEY, getOrCreateVisitorId, getVisitorId, clearVisitorId } from '../utils/storage';
+import { 
+  safeStorage, 
+  SESSION_KEY, 
+  MERCHANT_KEY, 
+  getOrCreateVisitorId, 
+  getVisitorId, 
+  clearVisitorId,
+  cacheMessages,
+  getCachedMessages,
+  clearMessageCache,
+  type CachedMessage,
+} from '../utils/storage';
 
 const initialConsentState: ConsentState = {
   promptShown: false,
@@ -86,6 +97,7 @@ interface WidgetContextValue {
   connectionStatus: ConnectionStatus;
   recordConsent: (consented: boolean) => Promise<void>;
   forgetPreferences: () => Promise<void>;
+  clearHistory: () => Promise<void>;
 }
 
 const WidgetContext = React.createContext<WidgetContextValue | null>(null);
@@ -171,6 +183,12 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         if (session) {
           dispatch({ type: 'SET_SESSION', payload: session })
           
+          // Try to load messages from localStorage cache first (instant display)
+          const cachedMessages = getCachedMessages(sessionId);
+          if (cachedMessages && cachedMessages.length > 0) {
+            dispatch({ type: 'SET_MESSAGES', payload: cachedMessages });
+          }
+          
           // Load existing consent status if available
           try {
             const consentStatus = await widgetClient.getConsentStatus(sessionId, visitorId);
@@ -189,6 +207,48 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
             }
           } catch (error) {
             // Ignore consent status load errors - will prompt on first message
+          }
+          
+          // Fetch message history from backend
+          try {
+            const history = await widgetClient.getMessageHistory(sessionId);
+            if (history.expired) {
+              // History expired - clear cache and show message
+              clearMessageCache(sessionId);
+              dispatch({ type: 'SET_MESSAGES', payload: [] });
+              
+              // Show expired notification
+              if (cachedMessages && cachedMessages.length > 0) {
+                const expiredMessage = {
+                  messageId: 'session-expired',
+                  content: 'Your previous conversation has expired. Starting fresh!',
+                  sender: 'system' as const,
+                  createdAt: new Date().toISOString(),
+                };
+                dispatch({ type: 'SET_MESSAGES', payload: [expiredMessage] });
+              }
+            } else if (history.messages.length > 0) {
+              // Convert backend messages to widget format
+              const messages: CachedMessage[] = history.messages.map((msg, index) => ({
+                messageId: `history-${index}`,
+                content: msg.content,
+                sender: msg.role === 'user' ? 'user' : 'bot',
+                createdAt: msg.timestamp,
+              }));
+              
+              dispatch({ type: 'SET_MESSAGES', payload: messages });
+              
+              // Update cache
+              cacheMessages(sessionId, messages);
+              
+              // Mark greeting as shown if we have history
+              if (messages.length > 0) {
+                greetingShownRef.current = true;
+              }
+            }
+          } catch (error) {
+            // Failed to load history - keep cached messages if available
+            console.warn('[WidgetContext] Failed to load message history:', error);
           }
           
           dispatch({ type: 'SET_LOADING', payload: false })
@@ -274,13 +334,17 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         if (shopifyCartClient.isOnShopify() && botMessage.cart) {
           syncCartToShopify(botMessage.cart);
         }
+        
+        // Cache messages after successful send
+        const allMessages = [...state.messages, userMessage, botMessage];
+        cacheMessages(state.session.sessionId, allMessages as CachedMessage[]);
       } catch (error) {
         addError(error, { action: 'Try Again' });
       } finally {
         dispatch({ type: 'SET_TYPING', payload: false });
       }
     },
-    [state.session, addError]
+    [state.session, state.messages, addError]
   );
 
   const syncCartToShopify = React.useCallback(
@@ -566,6 +630,28 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     }
   }, [state.session, addError]);
 
+  const clearHistory = React.useCallback(async () => {
+    if (!state.session?.sessionId) return;
+
+    try {
+      const { widgetClient } = await import('../api/widgetClient');
+      await widgetClient.clearMessageHistory(state.session.sessionId);
+      
+      // Clear local cache
+      clearMessageCache(state.session.sessionId);
+      
+      // Clear messages from state
+      dispatch({ type: 'SET_MESSAGES', payload: [] });
+      
+      // Reset greeting flag so welcome message shows again
+      greetingShownRef.current = false;
+      
+      console.info('[WidgetContext] History cleared', { sessionId: state.session.sessionId });
+    } catch (error) {
+      addError(error, { action: 'Try Again' });
+    }
+  }, [state.session, addError]);
+
   const value = React.useMemo(
     () => ({
       state,
@@ -588,6 +674,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       connectionStatus: state.connectionStatus,
       recordConsent,
       forgetPreferences,
+      clearHistory,
     }),
     [
       state,
@@ -608,6 +695,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       retryLastAction,
       recordConsent,
       forgetPreferences,
+      clearHistory,
     ]
   );
 

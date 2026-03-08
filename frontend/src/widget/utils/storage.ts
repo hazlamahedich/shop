@@ -108,4 +108,95 @@ export function clearVisitorId(): void {
   safeLocalStorage.remove(VISITOR_KEY);
 }
 
+// Message History Cache Keys
+export const MESSAGE_CACHE_PREFIX = 'widget_msg_cache_';
+export const MESSAGE_CACHE_META_PREFIX = 'widget_msg_meta_';
+
+// 7 days in milliseconds
+const MESSAGE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface CachedMessage {
+  messageId: string;
+  content: string;
+  sender: 'user' | 'bot' | 'merchant' | 'system';
+  createdAt: string;
+  products?: unknown[];
+  cart?: unknown;
+  checkoutUrl?: string;
+}
+
+export interface MessageCacheMeta {
+  sessionId: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export function cacheMessages(sessionId: string, messages: CachedMessage[]): boolean {
+  try {
+    const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+    const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+    const now = Date.now();
+    
+    const meta: MessageCacheMeta = {
+      sessionId,
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + MESSAGE_CACHE_TTL_MS).toISOString(),
+    };
+    
+    safeLocalStorage.set(cacheKey, JSON.stringify(messages));
+    safeLocalStorage.set(metaKey, JSON.stringify(meta));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getCachedMessages(sessionId: string): CachedMessage[] | null {
+  try {
+    const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+    const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+    
+    const metaJson = safeLocalStorage.get(metaKey);
+    if (!metaJson) return null;
+    
+    const meta: MessageCacheMeta = JSON.parse(metaJson);
+    const expiresAt = new Date(meta.expiresAt).getTime();
+    
+    if (Date.now() > expiresAt) {
+      // Cache expired, clear it
+      clearMessageCache(sessionId);
+      return null;
+    }
+    
+    const messagesJson = safeLocalStorage.get(cacheKey);
+    if (!messagesJson) return null;
+    
+    return JSON.parse(messagesJson) as CachedMessage[];
+  } catch {
+    return null;
+  }
+}
+
+export function clearMessageCache(sessionId: string): void {
+  const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+  const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+  safeLocalStorage.remove(cacheKey);
+  safeLocalStorage.remove(metaKey);
+}
+
+export function isMessageCacheExpired(sessionId: string): boolean {
+  try {
+    const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+    const metaJson = safeLocalStorage.get(metaKey);
+    if (!metaJson) return true;
+    
+    const meta: MessageCacheMeta = JSON.parse(metaJson);
+    const expiresAt = new Date(meta.expiresAt).getTime();
+    
+    return Date.now() > expiresAt;
+  } catch {
+    return true;
+  }
+}
+
 export { safeStorage, safeLocalStorage };

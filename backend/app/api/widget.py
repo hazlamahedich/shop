@@ -40,6 +40,9 @@ from app.schemas.widget import (
     SuccessResponse,
     SuccessEnvelope,
     WidgetConfig,
+    WidgetMessageHistoryItem,
+    WidgetMessageHistoryResponse,
+    WidgetMessageHistoryEnvelope,
     create_meta,
 )
 from app.schemas.widget_search import (
@@ -312,6 +315,122 @@ async def get_widget_session(
             created_at=session.created_at,
             last_activity_at=session.last_activity_at,
         ),
+        meta=create_meta(),
+    )
+
+
+@router.get(
+    "/widget/session/{session_id}/messages",
+    response_model=WidgetMessageHistoryEnvelope,
+    summary="Get widget message history",
+    description="Retrieve message history for a widget session",
+)
+async def get_widget_message_history(
+    request: Request,
+    session_id: str,
+) -> WidgetMessageHistoryEnvelope:
+    """Get message history for a widget session.
+
+    Returns message history with expiration status. History persists
+    for 7 days, after which it is automatically cleared.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+
+    Returns:
+        WidgetMessageHistoryEnvelope with messages and expiration info
+
+    Raises:
+        APIError: If session ID format is invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    session_service = WidgetSessionService()
+
+    history_status = await session_service.get_message_history_status(session_id)
+
+    if history_status["expired"]:
+        return WidgetMessageHistoryEnvelope(
+            data=WidgetMessageHistoryResponse(
+                messages=[],
+                expired=True,
+                expires_at=None,
+            ),
+            meta=create_meta(),
+        )
+
+    messages = await session_service.get_message_history(session_id)
+
+    history_items = [
+        WidgetMessageHistoryItem(
+            role=msg.get("role", "user"),
+            content=msg.get("content", ""),
+            timestamp=msg.get("timestamp", ""),
+        )
+        for msg in messages
+    ]
+
+    logger.info(
+        "widget_message_history_retrieved",
+        session_id=session_id,
+        message_count=len(history_items),
+    )
+
+    return WidgetMessageHistoryEnvelope(
+        data=WidgetMessageHistoryResponse(
+            messages=history_items,
+            expired=False,
+            expires_at=history_status.get("expires_at"),
+        ),
+        meta=create_meta(),
+    )
+
+
+@router.delete(
+    "/widget/session/{session_id}/messages",
+    response_model=SuccessEnvelope,
+    summary="Clear widget message history",
+    description="Clear all message history for a widget session",
+)
+async def clear_widget_message_history(
+    request: Request,
+    session_id: str,
+) -> SuccessEnvelope:
+    """Clear message history for a widget session.
+
+    Permanently deletes all message history for the session.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+
+    Returns:
+        SuccessEnvelope confirming deletion
+
+    Raises:
+        APIError: If session ID format is invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    session_service = WidgetSessionService()
+    await session_service.clear_message_history(session_id)
+
+    logger.info(
+        "widget_message_history_cleared",
+        session_id=session_id,
+    )
+
+    return SuccessEnvelope(
+        data=SuccessResponse(success=True),
         meta=create_meta(),
     )
 

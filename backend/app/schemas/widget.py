@@ -252,6 +252,40 @@ class SuccessEnvelope(MinimalEnvelope):
     data: SuccessResponse
 
 
+class WidgetMessageHistoryItem(BaseSchema):
+    """Single message in widget history.
+
+    Attributes:
+        role: Message role ('user' or 'bot')
+        content: Message content
+        timestamp: Message timestamp
+    """
+
+    role: str
+    content: str
+    timestamp: str
+
+
+class WidgetMessageHistoryResponse(BaseSchema):
+    """Response for widget message history.
+
+    Attributes:
+        messages: List of message history items
+        expired: Whether the history has expired
+        expires_at: When the history will expire (ISO timestamp)
+    """
+
+    messages: list[WidgetMessageHistoryItem]
+    expired: bool
+    expires_at: Optional[str] = None
+
+
+class WidgetMessageHistoryEnvelope(MinimalEnvelope):
+    """Envelope for message history response."""
+
+    data: WidgetMessageHistoryResponse
+
+
 def create_meta() -> MetaData:
     """Create metadata for API response.
 

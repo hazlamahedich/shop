@@ -462,6 +462,34 @@ export class WidgetApiClient {
       clearVisitorId: data.data?.clear_visitor_id ?? true,
     };
   }
+
+  async getMessageHistory(sessionId: string): Promise<{
+    messages: Array<{
+      role: string;
+      content: string;
+      timestamp: string;
+    }>;
+    expired: boolean;
+    expiresAt: string | null;
+  }> {
+    const data = await this.request<{ data: unknown }>(`/session/${sessionId}/messages`);
+    const rawData = data.data as Record<string, unknown>;
+    return {
+      messages: (rawData.messages as Array<{ role: string; content: string; timestamp: string }>) || [],
+      expired: rawData.expired as boolean,
+      expiresAt: rawData.expires_at as string | null,
+    };
+  }
+
+  async clearMessageHistory(sessionId: string): Promise<{ success: boolean }> {
+    const data = await this.request<{ data: { success: boolean } }>(
+      `/session/${sessionId}/messages`,
+      { method: 'DELETE' }
+    );
+    return {
+      success: data.data?.success ?? true,
+    };
+  }
 }
 
 export const widgetClient = new WidgetApiClient();

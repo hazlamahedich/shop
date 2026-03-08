@@ -32,6 +32,7 @@ export interface ChatWindowProps {
   connectionStatus?: ConnectionStatus;
   consentState?: ConsentState;
   onRecordConsent?: (consented: boolean) => Promise<void>;
+  onClearHistory?: () => Promise<void>;
 }
 
 function ChatWindow({
@@ -56,11 +57,14 @@ function ChatWindow({
   connectionStatus = 'disconnected',
   consentState,
   onRecordConsent,
+  onClearHistory,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = React.useState(false);
+  const [showMenu, setShowMenu] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   const handleProductClick = (product: WidgetProduct) => {
     setSelectedProductId(product.id);
@@ -106,6 +110,25 @@ function ChatWindow({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMenu]);
+
+  const handleClearHistory = async () => {
+    if (onClearHistory) {
+      setShowMenu(false);
+      await onClearHistory();
+    }
+  };
 
   const handleSend = async () => {
     console.warn('[ChatWindow] handleSend called, inputValue:', inputValue);
@@ -162,33 +185,127 @@ function ChatWindow({
           <span className="chat-header-title" style={{ fontWeight: 600 }}>
             {config?.botName ?? 'Assistant'}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close chat window"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 4,
-              color: 'white',
-            }}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {onClearHistory && messages.length > 0 && (
+              <div style={{ position: 'relative' }} ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowMenu(!showMenu)}
+                  aria-label="Chat options"
+                  aria-haspopup="true"
+                  aria-expanded={showMenu}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 4,
+                    color: 'white',
+                  }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
+                {showMenu && (
+                  <div
+                    role="menu"
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: '4px',
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      minWidth: '150px',
+                      zIndex: 10,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleClearHistory}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        textAlign: 'left',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        color: theme.textColor,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.target as HTMLElement).style.backgroundColor = '#f3f4f6';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                      Clear History
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close chat window"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 4,
+                color: 'white',
+              }}
             >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Connection Status Indicator */}

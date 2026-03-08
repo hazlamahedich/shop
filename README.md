@@ -11,7 +11,23 @@ This is a monorepo containing backend (Python/FastAPI) and frontend (React/TypeS
 - **Optional E-Commerce** - Works with or without a store connected (Shopify optional)
 - **FAQ & Business Info** - Configure FAQs and business information for automated responses
 - **Human Handoff** - Route conversations to human support when needed
+- **Conversation History Persistence** - Chat history persists for 7 days with localStorage caching
 - **Pluggable Providers** - Extensible architecture for future integrations (WooCommerce, BigCommerce)
+
+## Recent Changes
+
+### v0.2.0 (2026-03-08)
+
+**Conversation History Persistence**
+- Added 7-day message history persistence in Redis
+- Instant message display from localStorage cache
+- Clear History button in widget header menu
+- Expired session notification message
+- Backend API endpoints:
+  - `GET /api/v1/widget/session/{session_id}/messages` - Retrieve message history
+  - `DELETE /api/v1/widget/session/{session_id}/messages` - Clear message history
+- Increased max message history from 10 to 100 messages
+- Messages now persist regardless of consent status
 
 ## Quick Start
 

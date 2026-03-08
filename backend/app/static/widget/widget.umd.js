@@ -7392,6 +7392,51 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   function clearVisitorId() {
     safeLocalStorage.remove(VISITOR_KEY);
   }
+  const MESSAGE_CACHE_PREFIX = "widget_msg_cache_";
+  const MESSAGE_CACHE_META_PREFIX = "widget_msg_meta_";
+  const MESSAGE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
+  function cacheMessages(sessionId, messages) {
+    try {
+      const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+      const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+      const now = Date.now();
+      const meta = {
+        sessionId,
+        createdAt: new Date(now).toISOString(),
+        expiresAt: new Date(now + MESSAGE_CACHE_TTL_MS).toISOString()
+      };
+      safeLocalStorage.set(cacheKey, JSON.stringify(messages));
+      safeLocalStorage.set(metaKey, JSON.stringify(meta));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function getCachedMessages(sessionId) {
+    try {
+      const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+      const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+      const metaJson = safeLocalStorage.get(metaKey);
+      if (!metaJson) return null;
+      const meta = JSON.parse(metaJson);
+      const expiresAt = new Date(meta.expiresAt).getTime();
+      if (Date.now() > expiresAt) {
+        clearMessageCache(sessionId);
+        return null;
+      }
+      const messagesJson = safeLocalStorage.get(cacheKey);
+      if (!messagesJson) return null;
+      return JSON.parse(messagesJson);
+    } catch {
+      return null;
+    }
+  }
+  function clearMessageCache(sessionId) {
+    const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+    const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+    safeLocalStorage.remove(cacheKey);
+    safeLocalStorage.remove(metaKey);
+  }
   const initialConsentState = {
     promptShown: false,
     canStoreConversation: false,
@@ -7518,6 +7563,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const session = await getSession(sessionId);
           if (session) {
             dispatch({ type: "SET_SESSION", payload: session });
+            const cachedMessages = getCachedMessages(sessionId);
+            if (cachedMessages && cachedMessages.length > 0) {
+              dispatch({ type: "SET_MESSAGES", payload: cachedMessages });
+            }
             try {
               const consentStatus = await widgetClient2.getConsentStatus(sessionId, visitorId);
               if (consentStatus) {
@@ -7532,6 +7581,36 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
                 }
               }
             } catch (error) {
+            }
+            try {
+              const history = await widgetClient2.getMessageHistory(sessionId);
+              if (history.expired) {
+                clearMessageCache(sessionId);
+                dispatch({ type: "SET_MESSAGES", payload: [] });
+                if (cachedMessages && cachedMessages.length > 0) {
+                  const expiredMessage = {
+                    messageId: "session-expired",
+                    content: "Your previous conversation has expired. Starting fresh!",
+                    sender: "system",
+                    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+                  };
+                  dispatch({ type: "SET_MESSAGES", payload: [expiredMessage] });
+                }
+              } else if (history.messages.length > 0) {
+                const messages = history.messages.map((msg, index) => ({
+                  messageId: `history-${index}`,
+                  content: msg.content,
+                  sender: msg.role === "user" ? "user" : "bot",
+                  createdAt: msg.timestamp
+                }));
+                dispatch({ type: "SET_MESSAGES", payload: messages });
+                cacheMessages(sessionId, messages);
+                if (messages.length > 0) {
+                  greetingShownRef.current = true;
+                }
+              }
+            } catch (error) {
+              console.warn("[WidgetContext] Failed to load message history:", error);
             }
             dispatch({ type: "SET_LOADING", payload: false });
             return;
@@ -7606,13 +7685,15 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           if (shopifyCartClient.isOnShopify() && botMessage.cart) {
             syncCartToShopify(botMessage.cart);
           }
+          const allMessages = [...state.messages, userMessage, botMessage];
+          cacheMessages(state.session.sessionId, allMessages);
         } catch (error) {
           addError(error, { action: "Try Again" });
         } finally {
           dispatch({ type: "SET_TYPING", payload: false });
         }
       },
-      [state.session, addError]
+      [state.session, state.messages, addError]
     );
     const syncCartToShopify = reactExports.useCallback(
       async (cart) => {
@@ -7852,6 +7933,20 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         addError(error, { action: "Try Again" });
       }
     }, [state.session, addError]);
+    const clearHistory = reactExports.useCallback(async () => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
+      try {
+        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+        await widgetClient2.clearMessageHistory(state.session.sessionId);
+        clearMessageCache(state.session.sessionId);
+        dispatch({ type: "SET_MESSAGES", payload: [] });
+        greetingShownRef.current = false;
+        console.info("[WidgetContext] History cleared", { sessionId: state.session.sessionId });
+      } catch (error) {
+        addError(error, { action: "Try Again" });
+      }
+    }, [state.session, addError]);
     const value = reactExports.useMemo(
       () => ({
         state,
@@ -7873,7 +7968,8 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         retryLastAction,
         connectionStatus: state.connectionStatus,
         recordConsent,
-        forgetPreferences
+        forgetPreferences,
+        clearHistory
       }),
       [
         state,
@@ -7893,7 +7989,8 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         clearErrors,
         retryLastAction,
         recordConsent,
-        forgetPreferences
+        forgetPreferences,
+        clearHistory
       ]
     );
     return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetContext.Provider, { value, children });
@@ -8343,7 +8440,8 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       isCheckingOut,
       dismissError,
       retryLastAction,
-      recordConsent
+      recordConsent,
+      clearHistory
     } = useWidgetContext();
     const merchantTheme = (_a2 = state.config) == null ? void 0 : _a2.theme;
     const mergedTheme = reactExports.useMemo(
@@ -8422,7 +8520,8 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
             sessionId: (_b = state.session) == null ? void 0 : _b.sessionId,
             connectionStatus: state.connectionStatus,
             consentState: state.consentState,
-            onRecordConsent: recordConsent
+            onRecordConsent: recordConsent,
+            onClearHistory: clearHistory
           }
         ) }) })
       ] })
@@ -8509,7 +8608,7 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
   }
   if (typeof window !== "undefined") {
     window.ShopBotWidget = {
-      version: "0.1.0",
+      version: "0.2.0",
       init: initWidget,
       unmount: unmountWidget,
       isMounted: isWidgetMounted
@@ -13118,6 +13217,25 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         clearVisitorId: ((_b = data.data) == null ? void 0 : _b.clear_visitor_id) ?? true
       };
     }
+    async getMessageHistory(sessionId) {
+      const data = await this.request(`/session/${sessionId}/messages`);
+      const rawData = data.data;
+      return {
+        messages: rawData.messages || [],
+        expired: rawData.expired,
+        expiresAt: rawData.expires_at
+      };
+    }
+    async clearMessageHistory(sessionId) {
+      var _a2;
+      const data = await this.request(
+        `/session/${sessionId}/messages`,
+        { method: "DELETE" }
+      );
+      return {
+        success: ((_a2 = data.data) == null ? void 0 : _a2.success) ?? true
+      };
+    }
   }
   const widgetClient = new WidgetApiClient();
   const widgetClient$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -16885,12 +17003,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     sessionId,
     connectionStatus = "disconnected",
     consentState,
-    onRecordConsent
+    onRecordConsent,
+    onClearHistory
   }) {
     const [inputValue, setInputValue] = reactExports.useState("");
     const [selectedProductId, setSelectedProductId] = reactExports.useState(null);
     const [isProductModalOpen, setIsProductModalOpen] = reactExports.useState(false);
+    const [showMenu, setShowMenu] = reactExports.useState(false);
     const inputRef = reactExports.useRef(null);
+    const menuRef = reactExports.useRef(null);
     const handleProductClick = (product) => {
       setSelectedProductId(product.id);
       setIsProductModalOpen(true);
@@ -16928,6 +17049,23 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       document.addEventListener("keydown", handleEscape);
       return () => document.removeEventListener("keydown", handleEscape);
     }, [isOpen, onClose]);
+    reactExports.useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (menuRef.current && !menuRef.current.contains(event.target)) {
+          setShowMenu(false);
+        }
+      };
+      if (showMenu) {
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }
+    }, [showMenu]);
+    const handleClearHistory = async () => {
+      if (onClearHistory) {
+        setShowMenu(false);
+        await onClearHistory();
+      }
+    };
     const handleSend = async () => {
       console.warn("[ChatWindow] handleSend called, inputValue:", inputValue);
       if (!inputValue.trim()) return;
@@ -16981,39 +17119,145 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 },
                 children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600 }, children: (config2 == null ? void 0 : config2.botName) ?? "Assistant" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "button",
-                    {
-                      type: "button",
-                      onClick: onClose,
-                      "aria-label": "Close chat window",
-                      style: {
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 4,
-                        color: "white"
-                      },
-                      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                        "svg",
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: [
+                    onClearHistory && messages.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative" }, ref: menuRef, children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
                         {
-                          width: "20",
-                          height: "20",
-                          viewBox: "0 0 24 24",
-                          fill: "none",
-                          stroke: "currentColor",
-                          strokeWidth: "2",
-                          strokeLinecap: "round",
-                          strokeLinejoin: "round",
-                          "aria-hidden": "true",
-                          children: [
-                            /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
-                          ]
+                          type: "button",
+                          onClick: () => setShowMenu(!showMenu),
+                          "aria-label": "Chat options",
+                          "aria-haspopup": "true",
+                          "aria-expanded": showMenu,
+                          style: {
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 4,
+                            color: "white"
+                          },
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                            "svg",
+                            {
+                              width: "20",
+                              height: "20",
+                              viewBox: "0 0 24 24",
+                              fill: "none",
+                              stroke: "currentColor",
+                              strokeWidth: "2",
+                              strokeLinecap: "round",
+                              strokeLinejoin: "round",
+                              "aria-hidden": "true",
+                              children: [
+                                /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "1" }),
+                                /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "5", r: "1" }),
+                                /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "19", r: "1" })
+                              ]
+                            }
+                          )
+                        }
+                      ),
+                      showMenu && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          role: "menu",
+                          style: {
+                            position: "absolute",
+                            top: "100%",
+                            right: 0,
+                            marginTop: "4px",
+                            backgroundColor: "white",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            minWidth: "150px",
+                            zIndex: 10,
+                            overflow: "hidden"
+                          },
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                            "button",
+                            {
+                              type: "button",
+                              role: "menuitem",
+                              onClick: handleClearHistory,
+                              style: {
+                                width: "100%",
+                                padding: "10px 14px",
+                                textAlign: "left",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                color: theme.textColor,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px"
+                              },
+                              onMouseEnter: (e) => {
+                                e.target.style.backgroundColor = "#f3f4f6";
+                              },
+                              onMouseLeave: (e) => {
+                                e.target.style.backgroundColor = "transparent";
+                              },
+                              children: [
+                                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                                  "svg",
+                                  {
+                                    width: "16",
+                                    height: "16",
+                                    viewBox: "0 0 24 24",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    strokeWidth: "2",
+                                    strokeLinecap: "round",
+                                    strokeLinejoin: "round",
+                                    "aria-hidden": "true",
+                                    children: [
+                                      /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "3 6 5 6 21 6" }),
+                                      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" })
+                                    ]
+                                  }
+                                ),
+                                "Clear History"
+                              ]
+                            }
+                          )
                         }
                       )
-                    }
-                  )
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: onClose,
+                        "aria-label": "Close chat window",
+                        style: {
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 4,
+                          color: "white"
+                        },
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                          "svg",
+                          {
+                            width: "20",
+                            height: "20",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            strokeWidth: "2",
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            "aria-hidden": "true",
+                            children: [
+                              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+                              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+                            ]
+                          }
+                        )
+                      }
+                    )
+                  ] })
                 ]
               }
             ),
