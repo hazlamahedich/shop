@@ -81,6 +81,7 @@ class WidgetSessionData(BaseSchema):
     """Widget session data stored in Redis.
 
     Story 5-10 Enhancement: Added visitor_id and is_returning_shopper.
+    Story 6-2 Enhancement: Added metadata for session state persistence.
 
     Attributes:
         session_id: Unique session identifier (UUID)
@@ -90,8 +91,9 @@ class WidgetSessionData(BaseSchema):
         expires_at: Session expiry timestamp
         visitor_ip: Optional visitor IP for analytics
         user_agent: Optional user agent for analytics
-        visitor_id: Optional visitor identifier for returning shopper detection
+        visitor_id: Optional visitor identifier for cross-session tracking
         is_returning_shopper: Whether this visitor has previous sessions
+        metadata: Optional metadata for session state (pending lookups, etc.)
     """
 
     session_id: str
@@ -103,6 +105,7 @@ class WidgetSessionData(BaseSchema):
     user_agent: Optional[str] = None
     visitor_id: Optional[str] = None
     is_returning_shopper: bool = False
+    metadata: Optional[dict[str, Any]] = None
 
 
 class CreateSessionRequest(BaseSchema):

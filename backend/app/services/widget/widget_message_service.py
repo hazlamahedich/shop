@@ -189,6 +189,40 @@ class WidgetMessageService:
             consent_state=ConsentState(visitor_id=session.visitor_id),
         )
 
+        # Load session metadata for pending lookup flags (Story 6-2)
+        session_metadata = await self.session_service.get_session_metadata(session.session_id)
+
+        # Merge with conversation_data
+        if session_metadata:
+            context.metadata = {**context.metadata, **session_metadata}
+
+        # Also load conversation_data from database
+        if self.db:
+            from app.models.conversation import Conversation
+
+            try:
+                result = await self.db.execute(
+                    select(Conversation)
+                    .where(
+                        Conversation.merchant_id == merchant.id,
+                        Conversation.platform_sender_id == session.session_id,
+                    )
+                    .order_by(Conversation.updated_at.desc())
+                    .limit(1)
+                )
+                conversation = result.scalars().first()
+                if conversation:
+                    context.conversation_data = conversation.decrypted_metadata
+                    # Merge with session metadata
+                    if session_metadata:
+                        context.metadata.update(conversation.decrypted_metadata or {})
+            except Exception as e:
+                self.logger.warning(
+                    "load_conversation_data_failed",
+                    session_id=session.session_id,
+                    error=str(e),
+                )
+
         assert self.db is not None  # We only reach here if db is set
         response = await unified_service.process_message(
             db=self.db,
@@ -232,9 +266,29 @@ class WidgetMessageService:
         if response.confidence is not None:
             result["confidence"] = response.confidence
 
-        # Story 6-1: Pass consent_prompt_required from metadata
-        if response.metadata.get("consent_prompt_required"):
-            result["consent_prompt_required"] = True
+        # Save response metadata to session for next request (Story 6-2)
+        # This preserves pending lookup flags and other state
+        if response.metadata:
+            try:
+                await self.session_service.update_session_metadata(
+                    session.session_id, response.metadata
+                )
+                self.logger.debug(
+                    "session_metadata_saved",
+                    session_id=session.session_id,
+                    metadata_keys=list(response.metadata.keys()),
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "save_session_metadata_failed",
+                    session_id=session.session_id,
+                    error=str(e),
+                )
+
+        # Handle consent prompt flag (stored in metadata by CheckConsentHandler)
+        consent_prompt = response.metadata.get("consent_prompt_required")
+        if consent_prompt:
+            result["consent_prompt_required"] = consent_prompt
 
         return result
 

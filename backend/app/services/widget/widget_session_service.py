@@ -438,22 +438,24 @@ class WidgetSessionService:
 
         return False
 
-    async def update_last_activity(self, session_id: str) -> bool:
-        """Update only the last_activity_at timestamp without extending expiry.
-
-        Story 5-2: Lightweight activity tracking for analytics.
+    async def update_session_metadata(self, session_id: str, metadata: dict[str, Any]) -> bool:
+        """Update session metadata by merging with existing metadata.
 
         Args:
             session_id: Widget session identifier
+            metadata: New metadata to merge
 
         Returns:
-            True if session was updated, False if not found
+            True if updated successfully, False if session not found
         """
         session = await self.get_session(session_id)
         if not session:
             return False
 
-        session.last_activity_at = datetime.now(timezone.utc)
+        # Merge metadata with existing
+        existing_metadata = session.metadata or {}
+        merged_metadata = {**existing_metadata, **metadata}
+        session.metadata = merged_metadata
 
         key = self._get_session_key(session_id)
         ttl = await self.redis.ttl(key)
@@ -471,8 +473,24 @@ class WidgetSessionService:
             )
 
         self.logger.debug(
-            "widget_activity_updated",
+            "widget_session_metadata_updated",
             session_id=session_id,
+            metadata_keys=list(metadata.keys()),
         )
 
         return True
+
+    async def get_session_metadata(self, session_id: str) -> Optional[dict[str, Any]]:
+        """Get session metadata.
+
+        Args:
+            session_id: Widget session identifier
+
+        Returns:
+            Metadata dict if session exists, None otherwise
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            return None
+
+        return session.metadata or {}

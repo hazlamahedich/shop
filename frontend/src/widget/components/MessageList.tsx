@@ -143,6 +143,63 @@ interface MessageBubbleProps {
   isCheckingOut?: boolean;
 }
 
+function renderMessageContent(content: string) {
+  const imageRegex = /(📷\s*Image:\s*)?(https?:\/\/[^\s]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s]*)?)/gi;
+  
+  const result: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = imageRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      result.push(content.slice(lastIndex, match.index));
+    }
+    
+    const fullMatch = match[0];
+    const imageUrl = match[2];
+    
+    if (fullMatch.startsWith('📷')) {
+      result.push(
+        <div key={match.index} style={{ marginTop: 8, marginBottom: 8 }}>
+          <img 
+            src={imageUrl} 
+            alt="Product" 
+            style={{ 
+              maxWidth: '100%', 
+              borderRadius: 8,
+              display: 'block'
+            }}
+            loading="lazy"
+          />
+        </div>
+      );
+    } else {
+      result.push(
+        <div key={match.index} style={{ marginTop: 8, marginBottom: 8 }}>
+          <img 
+            src={imageUrl} 
+            alt="Product" 
+            style={{ 
+              maxWidth: '100%', 
+              borderRadius: 8,
+              display: 'block'
+            }}
+            loading="lazy"
+          />
+        </div>
+      );
+    }
+    
+    lastIndex = match.index + fullMatch.length;
+  }
+  
+  if (lastIndex < content.length) {
+    result.push(content.slice(lastIndex));
+  }
+  
+  return result.length > 0 ? result : content;
+}
+
 function MessageBubble({
   message,
   botName,
@@ -197,7 +254,7 @@ function MessageBubble({
             </div>
           )}
           <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {message.content}
+            {renderMessageContent(message.content)}
           </div>
         </div>
       </div>

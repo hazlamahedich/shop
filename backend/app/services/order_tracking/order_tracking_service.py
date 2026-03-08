@@ -18,7 +18,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -35,6 +35,16 @@ logger = structlog.get_logger(__name__)
 PENDING_STATE_KEY = "order_tracking_pending"
 PENDING_STATE_TIMESTAMP_KEY = "order_tracking_requested_at"
 PENDING_STATE_TIMEOUT_SECONDS = 300
+
+
+ESTIMATED_DELIVERY_DAYS = {
+    OrderStatus.PENDING.value: 7,
+    OrderStatus.PROCESSING.value: 5,
+    OrderStatus.SHIPPED.value: 3,
+    OrderStatus.DELIVERED.value: 0,
+    OrderStatus.CANCELLED.value: 0,
+    OrderStatus.REFUNDED.value: 0,
+}
 
 
 class OrderLookupType(str, Enum):
@@ -56,56 +66,51 @@ class OrderTrackingResult:
 
 
 RESPONSE_TEMPLATES: dict[str, str] = {
-    OrderStatus.PENDING.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Pending\n"
-        "Your order has been received and will be processed soon.\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
-    OrderStatus.CONFIRMED.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Confirmed\n"
-        "Your order is confirmed and being prepared.\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
-    OrderStatus.PROCESSING.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Processing\n"
-        "Your order is being prepared for shipment.\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
-    OrderStatus.SHIPPED.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Shipped 🚚\n"
-        "{tracking_info}"
-        "Estimated delivery: {estimated_delivery}\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
-    OrderStatus.DELIVERED.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Delivered ✅\n"
-        "Your order was delivered.\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
-    OrderStatus.CANCELLED.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Cancelled\n"
-        "This order has been cancelled.\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
-    OrderStatus.REFUNDED.value: (
-        "📦 Order #{order_number}\n"
-        "Status: Refunded\n"
-        "Your refund has been processed.\n"
-        "{payment_breakdown}"
-        "\nNeed help? Just ask!"
-    ),
+    OrderStatus.PENDING.value: """📦 Order #{order_number}
+Status: Pending
+We're processing your order and will notify you when it ships.
+
+{product_details}
+{payment_breakdown}
+Need help? Just ask!
+""",
+    OrderStatus.PROCESSING.value: """📦 Order #{order_number}
+Status: Processing
+{tracking_info}
+Estimated Delivery: {estimated_delivery}
+{product_details}
+{payment_breakdown}
+Need help? Just ask!
+""",
+    OrderStatus.SHIPPED.value: """📦 Order #{order_number}
+Status: Shipped
+{tracking_info}
+Estimated Delivery: {estimated_delivery}
+{product_details}
+{payment_breakdown}
+""",
+    OrderStatus.DELIVERED.value: """📦 Order #{order_number}
+Status: Delivered
+{tracking_info}
+{product_details}
+{payment_breakdown}
+Enjoy! 🎉
+""",
+    OrderStatus.CANCELLED.value: """📦 Order #{order_number}
+Status: Cancelled
+Your order has been cancelled.
+Reason: {cancel_reason}
+
+{product_details}
+{payment_breakdown}
+Need help? Just ask!
+""",
+    OrderStatus.REFUNDED.value: """📦 Order #{order_number}
+Status: Refunded
+Your refund has been processed.
+{payment_breakdown}
+Need help? Just ask!
+""",
 }
 
 ORDER_NOT_FOUND_CUSTOMER = (
@@ -284,13 +289,17 @@ class OrderTrackingService:
                 error_message="Failed to lookup order by number",
             )
 
-    def format_order_response(self, order: Order) -> str:
+    def format_order_response(
+        self, order: Order, product_images: Optional[dict[str, str]] = None
+    ) -> str:
         """Format an order for Messenger response.
 
         Story 4-13: Added payment breakdown to response.
+        Story 5-13: Enhanced with product details and images.
 
         Args:
             order: Order to format
+            product_images: Dictionary mapping product ID to image URL
 
         Returns:
             Formatted message string for Messenger
@@ -306,9 +315,12 @@ class OrderTrackingService:
         elif order.tracking_number:
             tracking_info = f"Tracking #: {order.tracking_number}\n"
 
+        estimated_delivery_date = self.calculate_estimated_delivery(order)
         estimated_delivery = "Not available"
-        if order.estimated_delivery:
-            estimated_delivery = order.estimated_delivery.strftime("%B %d, %Y")
+        if estimated_delivery_date:
+            estimated_delivery = estimated_delivery_date.strftime("%B %d, %Y")
+
+        product_details = self._format_product_details(order, product_images or {})
 
         payment_breakdown = self._format_payment_breakdown(order)
 
@@ -316,8 +328,48 @@ class OrderTrackingService:
             order_number=order.order_number,
             tracking_info=tracking_info,
             estimated_delivery=estimated_delivery,
+            product_details=product_details,
             payment_breakdown=payment_breakdown,
         )
+
+    def _format_product_details(self, order: Order, product_images: dict[str, str] = None) -> str:
+        """Format product details with images for order response.
+
+        Story 5-13: Product details with images.
+
+        Args:
+            order: Order to format products for
+            product_images: Dictionary mapping product ID to image URL
+
+        Returns:
+            Formatted product details string with images
+        """
+        if not order.items:
+            return ""
+
+        product_images = product_images or {}
+        lines = ["\n📦 Order Items:"]
+
+        for idx, item in enumerate(order.items, 1):
+            title = item.get("title", "Unknown Product")
+            quantity = item.get("quantity", 1)
+            price = item.get("price", "0.00")
+            product_id = str(item.get("product_id") or item.get("id", ""))
+
+            try:
+                price_float = float(price)
+                formatted_price = f"${price_float:.2f}"
+            except (ValueError, TypeError):
+                formatted_price = f"${price}"
+
+            lines.append(f"\n{idx}. {title}")
+            lines.append(f"   Quantity: {quantity}")
+            lines.append(f"   Price: {formatted_price}")
+
+            if product_id and product_id in product_images:
+                lines.append(f"   📷 Image: {product_images[product_id]}")
+
+        return "\n".join(lines)
 
     def _format_payment_breakdown(self, order: Order) -> str:
         """Format payment breakdown for order response.
@@ -440,3 +492,34 @@ class OrderTrackingService:
         """
         sanitized = order_number.strip()
         return sanitized[:50]
+
+    def calculate_estimated_delivery(self, order: Order) -> Optional[datetime]:
+        """Calculate estimated delivery date based on order status.
+
+        Story 5-13: Estimated delivery calculation.
+
+        Args:
+            order: Order to calculate delivery for
+
+        Returns:
+            Estimated delivery date or None if already delivered/cancelled
+        """
+        if order.estimated_delivery:
+            return order.estimated_delivery
+
+        if order.status in (
+            OrderStatus.DELIVERED.value,
+            OrderStatus.CANCELLED.value,
+            OrderStatus.REFUNDED.value,
+        ):
+            return None
+
+        days_to_add = ESTIMATED_DELIVERY_DAYS.get(order.status, 7)
+        if days_to_add == 0:
+            return None
+
+        created_at = order.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+
+        return created_at + timedelta(days=days_to_add)

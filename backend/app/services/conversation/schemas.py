@@ -223,6 +223,10 @@ class ConversationContext(BaseModel):
         default_factory=dict,
         description="Additional context metadata (clarification state, etc.)",
     )
+    conversation_data: Optional[dict[str, Any]] = Field(
+        None,
+        description="Persistent conversation metadata from database (cross-device lookup state, etc.)",
+    )
 
     class Config:
         use_enum_values = True

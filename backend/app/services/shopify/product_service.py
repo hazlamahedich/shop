@@ -319,3 +319,43 @@ async def invalidate_product_cache(
         "product_cache_invalidated",
         merchant_id=merchant_id,
     )
+
+
+async def get_products_by_ids(
+    access_token: str,
+    merchant_id: int | str,
+    product_ids: list[str],
+    db: AsyncSession,
+) -> dict[str, dict]:
+    """Fetch multiple products by their IDs with images.
+
+    Args:
+        access_token: Unused (kept for compatibility)
+        merchant_id: Merchant ID (int or str)
+        product_ids: List of Shopify product IDs
+        db: Database session
+
+    Returns:
+        Dictionary mapping product_id to product data with images
+    """
+    if not product_ids:
+        return {}
+
+    merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
+
+    unique_ids = list(set(product_ids))
+
+    products = {}
+    for pid in unique_ids:
+        try:
+            product = await get_product_by_id(access_token, pid, merchant_id_int, db)
+            if product:
+                products[pid] = product
+        except Exception as e:
+            logger.warning(
+                "fetch_product_failed",
+                product_id=pid,
+                error=str(e),
+            )
+
+    return products

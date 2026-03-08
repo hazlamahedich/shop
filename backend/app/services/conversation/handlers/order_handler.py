@@ -19,6 +19,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
+from app.models.order import Order
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
@@ -75,8 +76,13 @@ class OrderHandler(BaseHandler):
         if entities:
             order_number = entities.get("order_number")
 
+        # Check both database-persisted conversation_data and in-memory metadata
+        # This allows cross-device lookup to work even before consent is granted
         conversation_data = context.conversation_data or {}
-        pending_lookup = conversation_data.get(PENDING_CROSS_DEVICE_KEY)
+        metadata = context.metadata or {}
+        pending_lookup = conversation_data.get(PENDING_CROSS_DEVICE_KEY) or metadata.get(
+            PENDING_CROSS_DEVICE_KEY
+        )
 
         if pending_lookup and not order_number:
             email_match = EMAIL_PATTERN.match(message.strip())
@@ -119,13 +125,17 @@ class OrderHandler(BaseHandler):
             )
 
         order = result.order
-        response_text = tracking_service.format_order_response(order)
+
+        product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
+
+        response_text = tracking_service.format_order_response(order, product_images)
 
         order_dict = {
             "order_number": order.order_number,
             "status": order.status,
             "tracking_number": order.tracking_number,
             "tracking_url": order.tracking_url,
+            "items": order.items,
         }
 
         logger.info(
@@ -186,7 +196,7 @@ class OrderHandler(BaseHandler):
         orders = await customer_service.get_customer_orders(
             db=db,
             customer_profile_id=profile.id,
-            limit=1,
+            limit=5,
         )
 
         if not orders:
@@ -202,8 +212,19 @@ class OrderHandler(BaseHandler):
                 confidence=1.0,
             )
 
-        order = orders[0]
-        response_text = tracking_service.format_order_response(order)
+        if len(orders) == 1:
+            order = orders[0]
+            product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
+            response_text = tracking_service.format_order_response(order, product_images)
+        else:
+            response_parts = []
+            for order in orders:
+                product_images = await self._fetch_product_images(
+                    db=db, merchant=merchant, order=order
+                )
+                formatted = tracking_service.format_order_response(order, product_images)
+                response_parts.append(formatted)
+            response_text = "\n\n---\n\n".join(response_parts)
 
         device_link_msg = PersonalityAwareResponseFormatter.format_response(
             "order_tracking",
@@ -225,22 +246,31 @@ class OrderHandler(BaseHandler):
             merchant_id=merchant.id,
             email=email,
             profile_id=profile.id,
-            order_number=order.order_number,
+            order_count=len(orders),
         )
 
-        order_dict = {
-            "order_number": order.order_number,
-            "status": order.status,
-            "tracking_number": order.tracking_number,
-            "tracking_url": order.tracking_url,
-        }
+        orders_data = [
+            {
+                "order_number": order.order_number,
+                "status": order.status,
+                "tracking_number": order.tracking_number,
+                "tracking_url": order.tracking_url,
+                "items": order.items,
+            }
+            for order in orders
+        ]
 
         return ConversationResponse(
             message=response_text + device_link_msg,
             intent="order_tracking",
             confidence=1.0,
-            order=order_dict,
-            conversation_data_update=updated_data,
+            order=orders_data[0] if len(orders_data) == 1 else None,
+            products=None,
+            cart=None,
+            checkout_url=None,
+            fallback=False,
+            fallback_url=None,
+            metadata=updated_data,
         )
 
     async def _handle_order_not_found(
@@ -280,14 +310,18 @@ class OrderHandler(BaseHandler):
             merchant.personality,
         )
 
+        # Set pending flag in both conversation_data (for persistence) and metadata (for current session)
         conversation_data = context.conversation_data or {}
         conversation_data[PENDING_CROSS_DEVICE_KEY] = True
+
+        metadata = context.metadata or {}
+        metadata[PENDING_CROSS_DEVICE_KEY] = True
 
         return ConversationResponse(
             message=response_text + cross_device_prompt,
             intent="order_tracking",
             confidence=1.0,
-            conversation_data_update=conversation_data,
+            metadata=metadata,
         )
 
     def _looks_like_order_number(self, message: str) -> bool:
@@ -303,3 +337,63 @@ class OrderHandler(BaseHandler):
         if len(cleaned) < 4 or len(cleaned) > 20:
             return False
         return bool(re.match(r"^[A-Za-z0-9\-]+$", cleaned))
+
+    async def _fetch_product_images(
+        self,
+        db: AsyncSession,
+        merchant: Merchant,
+        order: Order,
+    ) -> dict[str, str]:
+        """Fetch product images from Shopify for order items.
+
+        Story 5-13: Product images in order status.
+
+        Args:
+            db: Database session
+            merchant: Merchant configuration
+            order: Order with items
+
+        Returns:
+            Dictionary mapping product ID to image URL
+        """
+        if not order.items:
+            return {}
+
+        from app.services.shopify.product_service import get_products_by_ids
+
+        product_ids = []
+        for item in order.items:
+            product_id = item.get("product_id") or item.get("id")
+            if product_id:
+                product_ids.append(str(product_id))
+
+        if not product_ids:
+            return {}
+
+        try:
+            products = await get_products_by_ids(
+                access_token="",
+                merchant_id=merchant.id,
+                product_ids=product_ids,
+                db=db,
+            )
+
+            product_images = {}
+            for product_id, product_data in products.items():
+                image_url = product_data.get("image_url") or (
+                    product_data.get("images", [{}])[0].get("url")
+                    if product_data.get("images")
+                    else None
+                )
+                if image_url:
+                    product_images[product_id] = image_url
+
+            return product_images
+
+        except Exception as e:
+            logger.warning(
+                "fetch_product_images_failed",
+                order_id=order.id,
+                error=str(e),
+            )
+            return {}

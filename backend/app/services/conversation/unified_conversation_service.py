@@ -192,6 +192,38 @@ class UnifiedConversationService:
             if consent_response:
                 return consent_response
 
+            # Story 4-13: Check for pending cross-device order lookup
+            # If user is providing email/order number after being prompted, route to OrderHandler
+            from app.services.conversation.handlers.order_handler import PENDING_CROSS_DEVICE_KEY
+
+            conversation_data = context.conversation_data or {}
+            metadata = context.metadata or {}
+            pending_lookup = conversation_data.get(PENDING_CROSS_DEVICE_KEY) or metadata.get(
+                PENDING_CROSS_DEVICE_KEY
+            )
+
+            if pending_lookup:
+                # Check if message looks like email or order number
+                import re
+
+                email_pattern = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+                if email_pattern.match(message.strip()) or self._looks_like_order_number(message):
+                    self.logger.info(
+                        "pending_cross_device_lookup_routing_to_order_handler",
+                        merchant_id=merchant.id,
+                        message_preview=message[:20],
+                    )
+                    handler = self._handlers["order"]
+                    llm_service = await self._get_merchant_llm(merchant, db, context)
+                    return await handler.handle(
+                        db=db,
+                        merchant=merchant,
+                        llm_service=llm_service,
+                        message=message,
+                        context=context,
+                        entities=None,
+                    )
+
             # Check for FAQ match before intent classification
             faq_response = await self._check_faq_match(db, context, merchant, message)
             if faq_response:
@@ -1941,3 +1973,19 @@ class UnifiedConversationService:
                 error=str(e),
             )
             return "Connecting you to a human agent..."
+
+    def _looks_like_order_number(self, message: str) -> bool:
+        """Check if message looks like an order number.
+
+        Args:
+            message: User message
+
+        Returns:
+            True if message looks like an order number
+        """
+        import re
+
+        cleaned = message.strip().lstrip("#")
+        if len(cleaned) < 4 or len(cleaned) > 20:
+            return False
+        return bool(re.match(r"^[A-Za-z0-9\-]+$", cleaned))
