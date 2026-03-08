@@ -248,7 +248,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
             }
           } catch (error) {
             // Failed to load history - keep cached messages if available
-            console.warn('[WidgetContext] Failed to load message history:', error);
           }
           
           dispatch({ type: 'SET_LOADING', payload: false })
@@ -273,19 +272,12 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const recordConsent = React.useCallback(
     async (consented: boolean) => {
-      console.warn('[WidgetContext] recordConsent called:', consented);
-      if (!state.session?.sessionId) {
-        console.warn('[WidgetContext] No session, aborting recordConsent');
-        return;
-      }
+      if (!state.session?.sessionId) return;
 
       try {
-        console.warn('[WidgetContext] Getting widgetClient...');
         const { widgetClient } = await import('../api/widgetClient');
         const visitorId = getVisitorId() || undefined;
-        console.warn('[WidgetContext] Calling recordConsent API with visitorId:', visitorId);
         await widgetClient.recordConsent(state.session.sessionId, consented, visitorId);
-        console.warn('[WidgetContext] recordConsent API call succeeded');
 
         const newConsentState: ConsentState = {
           promptShown: true,
@@ -303,7 +295,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const sendMessage = React.useCallback(
     async (content: string) => {
-      console.warn('[WidgetContext] sendMessage called with:', content);
       if (!state.session || !content.trim()) return;
 
       lastActionRef.current = { type: 'sendMessage', payload: content };
@@ -318,15 +309,11 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       dispatch({ type: 'SET_TYPING', payload: true });
 
       try {
-        console.warn('[WidgetContext] Calling widgetClient.sendMessage...');
         const { widgetClient } = await import('../api/widgetClient');
         const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
-        console.warn('[WidgetContext] botMessage received:', botMessage);
-        console.warn('[WidgetContext] consent_prompt_required:', botMessage.consent_prompt_required);
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
         if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
-          console.warn('[WidgetContext] Setting consent prompt shown to true');
           consentPromptShownRef.current = true;
           dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
         }
@@ -420,6 +407,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const removeFromCart = React.useCallback(
     async (variantId: string) => {
+      if (!variantId) return;
+      
       setRemovingItemId(variantId);
       try {
         const { widgetClient } = await import('../api/widgetClient');
@@ -434,7 +423,27 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
           sessionId = newSession.sessionId;
         }
 
-        await widgetClient.removeFromCart(sessionId, variantId);
+        const updatedCart = await widgetClient.removeFromCart(sessionId, variantId);
+
+        const removedItem = state.messages
+          .flatMap(m => m.cart?.items || [])
+          .find(item => item.variantId === variantId);
+        const itemTitle = removedItem?.title || 'Item';
+
+        const itemWord = updatedCart.itemCount === 1 ? 'item' : 'items';
+        const confirmationMessage = {
+          messageId: crypto.randomUUID(),
+          content: updatedCart.itemCount > 0
+            ? `Removed "${itemTitle}" from your cart.\n\nYour cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.`
+            : `Removed "${itemTitle}" from your cart.\n\nYour cart is now empty.`,
+          sender: 'bot' as const,
+          createdAt: new Date().toISOString(),
+          cart: updatedCart,
+        };
+        dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
+
+        const allMessages = [...state.messages, confirmationMessage];
+        cacheMessages(sessionId, allMessages as CachedMessage[]);
 
         if (shopifyCartClient.isOnShopify()) {
           try {
@@ -449,7 +458,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         setRemovingItemId(null);
       }
     },
-    [state.session, addError, createSession]
+    [state.session, state.messages, addError, createSession]
   );
 
   const checkout = React.useCallback(async () => {
@@ -535,8 +544,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
       cleanup = connectWidgetWebSocket(state.session!.sessionId, {
         onMessage: (event) => {
-          console.warn('[WidgetContext] WebSocket message received:', event.type, event);
-          
           if (event.type === 'merchant_message') {
             const data = event.data as { id: number; content: string; createdAt: string };
             const merchantMessage = {
@@ -547,7 +554,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
             };
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
           } else if (event.type === 'handoff_resolved') {
-            // Handle handoff resolution message
             const data = event.data as { id: number; content: string; createdAt: string };
             const resolutionMessage = {
               messageId: `resolution-${data.id}`,
@@ -555,7 +561,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
               sender: 'bot' as const,
               createdAt: data.createdAt,
             };
-            console.warn('[WidgetContext] Adding handoff resolution message:', resolutionMessage);
             dispatch({ type: 'ADD_MESSAGE', payload: resolutionMessage });
           }
         },

@@ -161,6 +161,12 @@ interface CartItemViewProps {
 }
 
 function CartItemView({ item, onRemove, isRemoving }: CartItemViewProps) {
+  const handleRemove = () => {
+    if (onRemove && item.variantId) {
+      onRemove(item.variantId);
+    }
+  };
+
   return (
     <div
       className="cart-item"
@@ -195,7 +201,7 @@ function CartItemView({ item, onRemove, isRemoving }: CartItemViewProps) {
         {onRemove && (
           <button
             type="button"
-            onClick={() => onRemove(item.variantId)}
+            onClick={handleRemove}
             disabled={isRemoving}
             style={{
               padding: 4,

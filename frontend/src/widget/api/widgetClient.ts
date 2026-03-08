@@ -96,7 +96,8 @@ export class WidgetApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}, retries = 2): Promise<T> {
     try {
-      const response = await fetch(`${getWidgetApiBase()}${endpoint}`, {
+      const url = `${getWidgetApiBase()}${endpoint}`;
+      const response = await fetch(url, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
@@ -107,7 +108,7 @@ export class WidgetApiClient {
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         const error = parseApiError(data);
-        throw new WidgetApiException(error.error_code, error.message);
+        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
       }
 
       return response.json();
@@ -179,8 +180,6 @@ export class WidgetApiClient {
       body: JSON.stringify({ session_id: sessionId, message: message }),
     });
     const rawData = data.data as Record<string, unknown>;
-    console.warn('[WidgetClient] sendMessage raw response:', rawData);
-    console.warn('[WidgetClient] consentPromptRequired field:', rawData.consentPromptRequired, rawData.consent_prompt_required);
     const parsed = WidgetMessageSchema.safeParse(data.data);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid message response');
@@ -303,23 +302,34 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
-    const cartData = parsed.data as Record<string, unknown>;
+    return this.parseCartResponse(parsed.data);
+  }
+
+  private parseCartResponse(cartData: Record<string, unknown>): WidgetCart {
+    const items = (cartData.items as Record<string, unknown>[] ?? []).map((item) => {
+      const variantId = item.variant_id ?? item.variantId;
+      return {
+        variantId: variantId != null ? String(variantId) : '',
+        title: String(item.title ?? ''),
+        price: Number(item.price ?? 0),
+        quantity: Number(item.quantity ?? 0),
+      };
+    });
     return {
-      items: (cartData.items as Record<string, unknown>[]).map((item) => ({
-        variantId: (item.variant_id || item.variantId) as string,
-        title: item.title as string,
-        price: item.price as number,
-        quantity: item.quantity as number,
-      })),
-      itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
-      total: (cartData.total ?? cartData.subtotal ?? 0) as number,
+      items,
+      itemCount: Number(cartData.item_count ?? cartData.itemCount ?? 00),
+      total: Number(cartData.total ?? cartData.subtotal ?? 0),
       shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
     };
   }
 
   async removeFromCart(sessionId: string, variantId: string): Promise<WidgetCart> {
+    if (!variantId) {
+      throw new WidgetApiException(0, 'variantId is required');
+    }
+    const encodedVariantId = encodeURIComponent(variantId);
     const data = await this.request<{ data: unknown }>(
-      `/cart/${variantId}?session_id=${sessionId}`,
+      `/cart/${encodedVariantId}?session_id=${sessionId}`,
       {
         method: 'DELETE',
       }
@@ -328,18 +338,7 @@ export class WidgetApiClient {
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid cart response');
     }
-    const cartData = parsed.data as Record<string, unknown>;
-    return {
-      items: (cartData.items as Record<string, unknown>[]).map((item) => ({
-        variantId: (item.variant_id || item.variantId) as string,
-        title: item.title as string,
-        price: item.price as number,
-        quantity: item.quantity as number,
-      })),
-      itemCount: (cartData.item_count ?? cartData.itemCount ?? 0) as number,
-      total: (cartData.total ?? cartData.subtotal ?? 0) as number,
-      shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
-    };
+    return this.parseCartResponse(parsed.data);
   }
 
   async updateQuantity(
@@ -409,28 +408,24 @@ export class WidgetApiClient {
   }
 
   async recordConsent(sessionId: string, consented: boolean, visitorId?: string): Promise<ConsentPromptResponse> {
-    console.warn('[WidgetClient] recordConsent called:', { sessionId, consented, visitorId });
-    const body = JSON.stringify({
-      session_id: sessionId,
-      consent_granted: consented,
-      source: 'widget',
-      visitor_id: visitorId,
-    });
-    console.warn('[WidgetClient] recordConsent request body:', body);
-    const data = await this.request<{ data: unknown }>('/consent', {
-      method: 'POST',
-      body,
-    });
-    console.warn('[WidgetClient] recordConsent response:', data);
-    const parsed = ConsentPromptResponseSchema.safeParse(data.data);
-    if (!parsed.success) {
-      throw new WidgetApiException(0, 'Invalid consent response');
+    try {
+      const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : '';
+      const data = await this.request<{ data: unknown }>(`/consent/${sessionId}${queryParam}`);
+      const parsed = ConsentPromptResponseSchema.safeParse(data.data);
+      if (!parsed.success) {
+        return null;
+      }
+
+      return {
+        status: parsed.data.status,
+        can_store_conversation: parsed.data.can_store_conversation,
+        consent_message_shown: parsed.data.consent_message_shown,
+      };
+    } catch (error) {
+      console.error('[WidgetClient] recordConsent error:', error);
+      throw error;
     }
-    return {
-      status: parsed.data.status,
-      can_store_conversation: parsed.data.can_store_conversation,
-      consent_message_shown: parsed.data.consent_message_shown,
-    };
+  }
   }
 
   async getConsentStatus(sessionId: string, visitorId?: string): Promise<ConsentPromptResponse | null> {
@@ -441,6 +436,16 @@ export class WidgetApiClient {
       if (!parsed.success) {
         return null;
       }
+
+      return {
+        status: parsed.data.status,
+        can_store_conversation: parsed.data.can_store_conversation,
+      };
+    } catch (error) {
+      console.error('[WidgetClient] recordConsent error:', error);
+      throw error;
+    }
+  }
       return {
         status: parsed.data.status,
         can_store_conversation: parsed.data.can_store_conversation,

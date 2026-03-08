@@ -42,25 +42,27 @@ export function isOnShopify(): boolean {
   const hostname = window.location.hostname;
   const shopifyWindow = window as ShopifyWindow;
   
-  const result = (
+  return (
     hostname.includes('myshopify.com') ||
     shopifyWindow.Shopify?.routes?.root !== undefined ||
     shopifyWindow.Shopify?.shop !== undefined
   );
-  
-  console.log('[shopifyCartClient] isOnShopify check:', {
-    hostname,
-    hasShopify: !!shopifyWindow.Shopify,
-    result
-  });
-  
-  if (result) {
-    console.log('[shopifyCartClient] ✅ Running on Shopify - will sync cart');
-  } else {
-    console.warn('[shopifyCartClient] ⚠️ NOT on Shopify domain, hostname:', hostname);
+}
+
+function parseVariantId(variantId: number | string): number {
+  if (!variantId) {
+    throw new Error('Variant ID is required');
   }
-  
-  return result;
+
+  const numericId = typeof variantId === 'string' 
+    ? parseInt(variantId.replace(/\D/g, ''), 10) 
+    : variantId;
+
+  if (isNaN(numericId)) {
+    throw new Error(`Invalid variant ID format: ${variantId}`);
+  }
+
+  return numericId;
 }
 
 /**
@@ -70,9 +72,7 @@ export async function addToCart(
   variantId: number | string,
   quantity: number = 1
 ): Promise<void> {
-  const numericVariantId = typeof variantId === 'string' 
-    ? parseInt(variantId, 10) 
-    : variantId;
+  const numericVariantId = parseVariantId(variantId);
 
   const response = await fetch('/cart/add.js', {
     method: 'POST',
@@ -94,9 +94,7 @@ export async function addToCart(
  * Remove item from Shopify cart (sets quantity to 0).
  */
 export async function removeFromCart(variantId: number | string): Promise<void> {
-  const numericVariantId = typeof variantId === 'string' 
-    ? parseInt(variantId, 10) 
-    : variantId;
+  const numericVariantId = parseVariantId(variantId);
 
   const response = await fetch('/cart/update.js', {
     method: 'POST',
@@ -121,9 +119,7 @@ export async function updateQuantity(
   variantId: number | string,
   quantity: number
 ): Promise<void> {
-  const numericVariantId = typeof variantId === 'string' 
-    ? parseInt(variantId, 10) 
-    : variantId;
+  const numericVariantId = parseVariantId(variantId);
 
   const response = await fetch('/cart/update.js', {
     method: 'POST',
@@ -170,20 +166,76 @@ export async function getCart(): Promise<ShopifyCart> {
 }
 
 /**
+ * Shopify Section Rendering API - Re-render cart sections without page reload.
+ * Only fetches sections that commonly exist across themes to avoid 404 errors.
+ */
+async function refreshCartSections(): Promise<void> {
+  const cartSections = [
+    'cart-icon-bubble',
+    'cart-drawer',
+  ];
+
+  const sectionSelectors: Record<string, string[]> = {
+    'cart-icon-bubble': ['#cart-icon-bubble', '.cart-count-bubble', '[data-cart-count]'],
+    'cart-drawer': ['#cart-drawer', '.cart-drawer', '[data-cart-drawer]'],
+  };
+
+  const promises = cartSections.map(async (sectionId) => {
+    try {
+      const response = await fetch(`/?section_id=${sectionId}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+
+      // Silently skip sections that don't exist (404) or other errors
+      if (!response.ok) return;
+
+      const html = await response.text();
+      const selectors = sectionSelectors[sectionId] || [`#${sectionId}`];
+
+      for (const selector of selectors) {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach((element) => {
+          if (element && html) {
+            element.innerHTML = html;
+          }
+        });
+      }
+    } catch {
+      // Section fetch failed, continue with other refresh methods
+    }
+  });
+
+  await Promise.allSettled(promises);
+}
+
+let cartChannel: BroadcastChannel | null = null;
+
+function getCartChannel(): BroadcastChannel {
+  if (!cartChannel) {
+    cartChannel = new BroadcastChannel('shopify-cart-sync');
+  }
+  return cartChannel;
+}
+
+/**
  * Trigger cart UI refresh across different Shopify themes.
  * 
- * Different themes use different methods to update the cart drawer.
- * This tries multiple approaches to maximize compatibility.
+ * Tries multiple approaches in order of reliability:
+ * 1. Section Rendering API (most reliable for modern themes)
+ * 2. Standard Shopify events
+ * 3. Theme-specific refresh functions
+ * 4. BroadcastChannel for multi-tab sync
  */
 function refreshCartUI(): void {
   const shopifyWindow = window as ShopifyWindow;
 
-  // Method 1: Standard Shopify events (most themes)
+  refreshCartSections().catch(() => {});
+
   document.dispatchEvent(new CustomEvent('cart:refresh'));
   document.dispatchEvent(new CustomEvent('ajaxProduct:added'));
   document.dispatchEvent(new CustomEvent('product:added'));
 
-  // Method 2: Dawn/Online Store 2.0 themes
   if (typeof shopifyWindow.Shopify?.onCartUpdate === 'function') {
     try {
       shopifyWindow.Shopify.onCartUpdate();
@@ -192,7 +244,6 @@ function refreshCartUI(): void {
     }
   }
 
-  // Method 3: Common theme refresh functions
   if (typeof shopifyWindow.refreshCart === 'function') {
     try {
       shopifyWindow.refreshCart();
@@ -201,17 +252,48 @@ function refreshCartUI(): void {
     }
   }
 
-  // Method 4: Fetch cart and dispatch event with data (fallback)
   fetch('/cart.js')
     .then((r) => r.json())
     .then((cart) => {
       document.dispatchEvent(
         new CustomEvent('cart:updated', { detail: cart })
       );
+
+      try {
+        getCartChannel().postMessage({ type: 'CART_UPDATED', cart });
+      } catch {
+        // BroadcastChannel not supported
+      }
     })
     .catch(() => {
       // Ignore fetch errors
     });
+}
+
+export function subscribeToCartUpdates(callback: (cart: ShopifyCart) => void): () => void {
+  try {
+    const channel = getCartChannel();
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'CART_UPDATED' && event.data?.cart) {
+        callback(event.data.cart);
+      }
+    };
+    channel.addEventListener('message', handler);
+    return () => channel.removeEventListener('message', handler);
+  } catch {
+    return () => {};
+  }
+}
+
+export function subscribeToCartEvents(callback: (cart: ShopifyCart) => void): () => void {
+  const handler = (event: Event) => {
+    const customEvent = event as CustomEvent<ShopifyCart>;
+    if (customEvent.detail) {
+      callback(customEvent.detail);
+    }
+  };
+  document.addEventListener('cart:updated', handler);
+  return () => document.removeEventListener('cart:updated', handler);
 }
 
 export const shopifyCartClient = {
@@ -222,11 +304,8 @@ export const shopifyCartClient = {
   clearCart,
   getCart,
   refreshCartUI,
+  subscribeToCartUpdates,
+  subscribeToCartEvents,
 };
-
-// Expose to window for debugging
-if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>).shopifyCartClient = shopifyCartClient;
-}
 
 export default shopifyCartClient;

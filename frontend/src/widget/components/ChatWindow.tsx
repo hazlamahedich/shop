@@ -77,10 +77,10 @@ function ChatWindow({
   };
 
   const handleProductAddToCart = (product: WidgetProductDetail, _quantity: number) => {
-    if (onAddToCart) {
+    if (onAddToCart && product.variantId) {
       onAddToCart({
         id: product.id,
-        variantId: product.variantId || product.id,
+        variantId: product.variantId,
         title: product.title,
         description: product.description ?? undefined,
         price: product.price,
@@ -131,13 +131,10 @@ function ChatWindow({
   };
 
   const handleSend = async () => {
-    console.warn('[ChatWindow] handleSend called, inputValue:', inputValue);
     if (!inputValue.trim()) return;
     const message = inputValue.trim();
     setInputValue('');
-    console.warn('[ChatWindow] calling onSendMessage with:', message);
     await onSendMessage(message);
-    console.warn('[ChatWindow] onSendMessage completed');
   };
 
   if (!isOpen) return null;

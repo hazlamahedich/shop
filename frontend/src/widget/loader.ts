@@ -23,8 +23,7 @@ declare global {
   }
 }
 
-const capturedScript = document.currentScript as HTMLScriptElement | null;
-
+let capturedScript: HTMLScriptElement | null = null;
 let widgetRoot: ReactDOM.Root | null = null;
 let widgetContainer: HTMLDivElement | null = null;
 
@@ -46,7 +45,7 @@ function getConfig(): ShopBotConfig | null {
       try {
         theme = JSON.parse(capturedScript.dataset.theme);
       } catch {
-        console.warn('[ShopBot Widget] Invalid theme JSON in data-theme attribute');
+        // Invalid theme JSON - use defaults
       }
     }
     return {
@@ -60,25 +59,16 @@ function getConfig(): ShopBotConfig | null {
 
 function initWidget(): void {
   if (widgetContainer && widgetRoot) {
-    console.warn('[ShopBot Widget] Widget already initialized. Call unmountWidget() first to reinitialize.');
     return;
   }
 
   const config = getConfig();
 
   if (!config?.merchantId) {
-    console.error(
-      '[ShopBot Widget] Missing merchantId. Provide it via:\n' +
-        '  window.ShopBotConfig = { merchantId: "YOUR_ID" }\n' +
-        '  OR <script data-merchant-id="YOUR_ID" ...>'
-    );
     return;
   }
 
   if (!isValidMerchantId(config.merchantId)) {
-    console.error(
-      '[ShopBot Widget] Invalid merchantId format. Expected 1-64 alphanumeric characters, hyphens, or underscores.'
-    );
     return;
   }
 
@@ -108,6 +98,11 @@ function unmountWidget(): void {
 
 function isWidgetMounted(): boolean {
   return widgetContainer !== null && widgetRoot !== null;
+}
+
+// Capture the script element that loads the widget
+if (document.currentScript instanceof HTMLScriptElement) {
+  capturedScript = document.currentScript;
 }
 
 // Handle async script loading
