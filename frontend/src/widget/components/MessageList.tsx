@@ -3,6 +3,27 @@ import type { WidgetTheme, WidgetMessage, WidgetProduct } from '../types/widget'
 import { ProductList } from './ProductCard';
 import { CartView } from './CartView';
 
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString();
+}
+
+function formatAbsoluteTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export interface MessageListProps {
   messages: WidgetMessage[];
   botName: string;
@@ -179,6 +200,21 @@ function MessageBubble({
             {message.content}
           </div>
         </div>
+      </div>
+      <div
+        className="message-timestamp"
+        title={formatAbsoluteTime(message.createdAt)}
+        style={{
+          fontSize: 10,
+          color: theme.textColor,
+          opacity: 0.5,
+          textAlign: isUser ? 'right' : 'left',
+          marginTop: 2,
+          marginRight: isUser ? 4 : 0,
+          marginLeft: isUser ? 0 : 4,
+        }}
+      >
+        {formatRelativeTime(message.createdAt)}
       </div>
 
       {!isUser && message.products && message.products.length > 0 && (

@@ -84,27 +84,31 @@
   outline-offset: 2px;
 }
 
-@keyframes typing-bounce {
-  0%, 60%, 100% {
-    transform: translateY(0);
+@keyframes pulse-skeleton {
+  0%, 100% {
+    opacity: 0.4;
   }
-  30% {
-    transform: translateY(-4px);
+  50% {
+    opacity: 1;
   }
 }
 
-.typing-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #9ca3af;
-  animation: typing-bounce 1.4s infinite ease-in-out;
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-.typing-dot:nth-child(2) {
-  animation-delay: 0.15s;
+.skeleton-bar {
+  background: linear-gradient(90deg, #9ca3af 0%, #d1d5db 50%, #9ca3af 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite, pulse-skeleton 1.5s ease-in-out infinite;
 }
 
-.typing-dot:nth-child(3) {
-  animation-delay: 0.3s;
+.message-timestamp {
+  user-select: none;
+  cursor: default;
 }
