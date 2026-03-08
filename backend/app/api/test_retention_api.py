@@ -15,12 +15,12 @@ from app.models.deletion_audit_log import DeletionAuditLog, DeletionTrigger
 
 
 class TestSchedulerHealthEndpoint:
-    """Test GET /api/health/scheduler endpoint (Task 6.1)."""
+    """Test GET /api/v1/health/scheduler endpoint (Task 6.1)."""
 
     @pytest.mark.asyncio
     async def test_scheduler_health_endpoint_exists(self, async_client: AsyncClient):
         """Verify scheduler health endpoint returns 200 or 503."""
-        response = await async_client.get("/api/health/scheduler")
+        response = await async_client.get("/api/v1/health/scheduler")
 
         # Endpoint should exist (not 404)
         assert response.status_code in (200, 403, 503)
@@ -28,7 +28,7 @@ class TestSchedulerHealthEndpoint:
     @pytest.mark.asyncio
     async def test_scheduler_health_returns_json(self, async_client: AsyncClient):
         """Verify scheduler health returns JSON response."""
-        response = await async_client.get("/api/health/scheduler")
+        response = await async_client.get("/api/v1/health/scheduler")
 
         if response.status_code == 200:
             data = response.json()

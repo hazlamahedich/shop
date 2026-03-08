@@ -441,7 +441,7 @@ app.include_router(business_hours_router, prefix="/api/v1/merchant", tags=["busi
 app.include_router(handoff_alerts_router, prefix="/api/handoff-alerts", tags=["handoff-alerts"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 # Story 4-4: Polling health endpoint
-app.include_router(health_router.router, prefix="/api/health", tags=["health"])
+app.include_router(health_router.router, prefix="/api/v1/health", tags=["health"])
 # Story 1.13: Bot Preview Mode
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # Story 5-1: Widget API
