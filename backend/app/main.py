@@ -334,7 +334,7 @@ async def serve_widget_file(filename: str):
             media_type="application/javascript" if filename.endswith(".js") else "text/css",
             headers={
                 "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-cache",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
             },
         )
     return JSONResponse(status_code=404, content={"error": f"File not found: {filename}"})

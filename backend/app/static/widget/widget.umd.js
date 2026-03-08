@@ -7518,6 +7518,21 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const session = await getSession(sessionId);
           if (session) {
             dispatch({ type: "SET_SESSION", payload: session });
+            try {
+              const consentStatus = await widgetClient2.getConsentStatus(sessionId, visitorId);
+              if (consentStatus) {
+                const newConsentState = {
+                  promptShown: consentStatus.consent_message_shown || false,
+                  canStoreConversation: consentStatus.can_store_conversation,
+                  status: consentStatus.status
+                };
+                dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
+                if (consentStatus.consent_message_shown) {
+                  consentPromptShownRef.current = true;
+                }
+              }
+            } catch (error) {
+            }
             dispatch({ type: "SET_LOADING", payload: false });
             return;
           }
@@ -7538,11 +7553,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const recordConsent = reactExports.useCallback(
       async (consented) => {
         var _a3;
-        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
+        console.warn("[WidgetContext] recordConsent called:", consented);
+        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) {
+          console.warn("[WidgetContext] No session, aborting recordConsent");
+          return;
+        }
         try {
+          console.warn("[WidgetContext] Getting widgetClient...");
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           const visitorId = getVisitorId() || void 0;
+          console.warn("[WidgetContext] Calling recordConsent API with visitorId:", visitorId);
           await widgetClient2.recordConsent(state.session.sessionId, consented, visitorId);
+          console.warn("[WidgetContext] recordConsent API call succeeded");
           const newConsentState = {
             promptShown: true,
             canStoreConversation: consented,
@@ -7550,6 +7572,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           };
           dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
         } catch (error) {
+          console.error("[WidgetContext] recordConsent error:", error);
           addError(error, { action: "Try Again" });
         }
       },
@@ -7746,6 +7769,7 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         }
         cleanup = connectWidgetWebSocket2(state.session.sessionId, {
           onMessage: (event) => {
+            console.warn("[WidgetContext] WebSocket message received:", event.type, event);
             if (event.type === "merchant_message") {
               const data = event.data;
               const merchantMessage = {
@@ -7755,6 +7779,16 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
                 createdAt: data.createdAt
               };
               dispatch({ type: "ADD_MESSAGE", payload: merchantMessage });
+            } else if (event.type === "handoff_resolved") {
+              const data = event.data;
+              const resolutionMessage = {
+                messageId: `resolution-${data.id}`,
+                content: data.content,
+                sender: "bot",
+                createdAt: data.createdAt
+              };
+              console.warn("[WidgetContext] Adding handoff resolution message:", resolutionMessage);
+              dispatch({ type: "ADD_MESSAGE", payload: resolutionMessage });
             }
           },
           onStatusChange: (status) => {
@@ -13032,15 +13066,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       };
     }
     async recordConsent(sessionId, consented, visitorId) {
+      console.warn("[WidgetClient] recordConsent called:", { sessionId, consented, visitorId });
+      const body = JSON.stringify({
+        session_id: sessionId,
+        consent_granted: consented,
+        source: "widget",
+        visitor_id: visitorId
+      });
+      console.warn("[WidgetClient] recordConsent request body:", body);
       const data = await this.request("/consent", {
         method: "POST",
-        body: JSON.stringify({
-          session_id: sessionId,
-          consent_granted: consented,
-          source: "widget",
-          visitor_id: visitorId
-        })
+        body
       });
+      console.warn("[WidgetClient] recordConsent response:", data);
       const parsed = ConsentPromptResponseSchema.safeParse(data.data);
       if (!parsed.success) {
         throw new WidgetApiException(0, "Invalid consent response");
@@ -13135,6 +13173,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     };
     const connect = () => {
       if (isClosed) return;
+      console.warn("[WS] ========== WIDGET WS CLIENT v20260308-12-00 ==========");
       const wsBaseUrl = getWsBaseUrl();
       const url = `${wsBaseUrl}/ws/widget/${sessionId}`;
       console.warn("[WS] Connecting to:", url);
@@ -13154,25 +13193,49 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         startHeartbeat();
       };
       ws.onmessage = (event) => {
+        console.warn("[WS] onmessage triggered, data type:", typeof event.data);
         try {
           if (event.data === "pong") {
             console.warn("[WS] Heartbeat pong received");
             return;
           }
+          console.warn("[WS] Parsing JSON...");
           const parsed = JSON.parse(event.data);
           console.warn("[WS] Message received:", parsed);
+          console.warn("[WS] Message type:", parsed.type);
           if (parsed.type === "ping") {
+            console.warn("[WS] Handling ping, responding with pong");
             if ((ws == null ? void 0 : ws.readyState) === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: "pong" }));
             }
             return;
           }
           if (parsed.type === "pong") {
+            console.warn("[WS] Handling pong, ignoring");
             return;
           }
-          onMessage == null ? void 0 : onMessage(parsed);
+          console.warn("[WS] Not ping/pong, checking onMessage callback...");
+          console.warn("[WS] onMessage exists:", !!onMessage);
+          console.warn("[WS] onMessage type:", typeof onMessage);
+          if (onMessage) {
+            console.warn("[WS] Calling onMessage with:", parsed);
+            try {
+              onMessage(parsed);
+              console.warn("[WS] onMessage call completed successfully");
+            } catch (callbackError) {
+              console.error("[WS] Error in onMessage callback:", callbackError);
+            }
+          } else {
+            console.warn("[WS] ⚠️ onMessage callback is undefined!");
+            console.warn("[WS] Available callbacks:", {
+              onMessage: typeof onMessage,
+              onStatusChange: typeof onStatusChange,
+              onError: typeof onError
+            });
+          }
         } catch (e) {
-          console.warn("[WS] Failed to parse message:", e);
+          console.error("[WS] Failed to process message:", e);
+          console.error("[WS] Error stack:", e.stack);
         }
       };
       ws.onerror = (error) => {

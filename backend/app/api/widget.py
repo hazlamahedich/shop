@@ -1400,6 +1400,32 @@ async def record_widget_consent(
         visitor_id=visitor_id,
     )
 
+    # Story 6-1 Enhancement: Retroactively save conversation history when consent is granted
+    if consent_request.consent_granted:
+        try:
+            from app.services.widget.widget_message_service import WidgetMessageService
+
+            message_service = WidgetMessageService(db=db, session_service=session_service)
+            conversation_id = await message_service.retroactively_save_conversation_history(
+                session_id=consent_request.session_id,
+                merchant_id=session.merchant_id,
+            )
+
+            if conversation_id:
+                logger.info(
+                    "widget_conversation_retroactively_saved",
+                    session_id=consent_request.session_id,
+                    conversation_id=conversation_id,
+                    merchant_id=session.merchant_id,
+                )
+        except Exception as e:
+            logger.warning(
+                "widget_conversation_retroactive_save_failed",
+                session_id=consent_request.session_id,
+                merchant_id=session.merchant_id,
+                error=str(e),
+            )
+
     logger.info(
         "widget_consent_recorded",
         session_id=consent_request.session_id,

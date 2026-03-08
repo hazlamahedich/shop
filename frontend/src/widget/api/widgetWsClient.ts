@@ -17,12 +17,12 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'er
 export interface WSMerchantMessage {
   id: number;
   content: string;
-  sender: 'merchant';
+  sender: 'merchant' | 'bot';
   createdAt: string;
 }
 
 export interface WSMessageEvent {
-  type: 'merchant_message' | 'connected' | 'ping' | 'pong' | 'error';
+  type: 'merchant_message' | 'handoff_resolved' | 'connected' | 'ping' | 'pong' | 'error';
   data: WSMerchantMessage | Record<string, unknown> | string;
 }
 
@@ -109,6 +109,8 @@ export function connectWidgetWebSocket(
   const connect = () => {
     if (isClosed) return;
 
+    console.warn('[WS] ========== WIDGET WS CLIENT v20260308-12-00 ==========');
+    
     const wsBaseUrl = getWsBaseUrl();
     const url = `${wsBaseUrl}/ws/widget/${sessionId}`;
 
@@ -132,6 +134,7 @@ export function connectWidgetWebSocket(
     };
 
     ws.onmessage = (event) => {
+      console.warn('[WS] onmessage triggered, data type:', typeof event.data);
       try {
         // Handle plain text pong
         if (event.data === 'pong') {
@@ -139,11 +142,14 @@ export function connectWidgetWebSocket(
           return;
         }
 
+        console.warn('[WS] Parsing JSON...');
         const parsed = JSON.parse(event.data);
         console.warn('[WS] Message received:', parsed);
+        console.warn('[WS] Message type:', parsed.type);
 
         // Handle different message types
         if (parsed.type === 'ping') {
+          console.warn('[WS] Handling ping, responding with pong');
           // Respond to server ping
           if (ws?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'pong' }));
@@ -152,14 +158,35 @@ export function connectWidgetWebSocket(
         }
 
         if (parsed.type === 'pong') {
+          console.warn('[WS] Handling pong, ignoring');
           // Response to our ping - ignore
           return;
         }
 
+        console.warn('[WS] Not ping/pong, checking onMessage callback...');
+        console.warn('[WS] onMessage exists:', !!onMessage);
+        console.warn('[WS] onMessage type:', typeof onMessage);
+        
         // Pass to message handler
-        onMessage?.(parsed);
+        if (onMessage) {
+          console.warn('[WS] Calling onMessage with:', parsed);
+          try {
+            onMessage(parsed);
+            console.warn('[WS] onMessage call completed successfully');
+          } catch (callbackError) {
+            console.error('[WS] Error in onMessage callback:', callbackError);
+          }
+        } else {
+          console.warn('[WS] ⚠️ onMessage callback is undefined!');
+          console.warn('[WS] Available callbacks:', {
+            onMessage: typeof onMessage,
+            onStatusChange: typeof onStatusChange,
+            onError: typeof onError
+          });
+        }
       } catch (e) {
-        console.warn('[WS] Failed to parse message:', e);
+        console.error('[WS] Failed to process message:', e);
+        console.error('[WS] Error stack:', (e as Error).stack);
       }
     };
 

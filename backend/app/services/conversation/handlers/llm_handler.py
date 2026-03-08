@@ -289,3 +289,42 @@ class LLMHandler(BaseHandler):
         )
 
         return personality_prompt
+
+    def build_resolution_system_prompt(
+        self,
+        personality_type: PersonalityType,
+        business_name: str,
+    ) -> str:
+        """Build system prompt for handoff resolution message.
+
+        Creates a personality-aware prompt for generating context-aware
+        resolution messages when merchants resolve handoff items.
+
+        Args:
+            personality_type: Merchant's personality setting
+            business_name: Name of the business to include naturally
+
+        Returns:
+            Complete system prompt for resolution message generation
+        """
+        base_prompt = get_personality_system_prompt(personality_type)
+
+        resolution_context = f"""
+
+SPECIAL CONTEXT: You are transitioning a conversation back to bot mode after a human agent from {business_name} helped resolve the customer's issue.
+
+Your task is to generate a brief (1-3 sentences) message that:
+- Smoothly acknowledges that the issue has been resolved
+- Offers continued assistance from the bot
+- Matches your personality tone perfectly
+- Naturally mentions {business_name} if appropriate
+- Does NOT repeat what the human agent said (just transition smoothly)
+
+Examples by personality:
+- Friendly: "All set! {business_name} is here for you anytime! 😊"
+- Professional: "Thank you for your patience. {business_name} is available to assist you with any additional questions."
+- Enthusiastic: "YAY! {business_name} has got you covered! ✨ I'm SO ready to help you find more amazing stuff! 🎉"
+
+Generate your response now:"""
+
+        return base_prompt + resolution_context

@@ -20,6 +20,7 @@ Story 5-11: Messenger Unified Service Migration
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -29,7 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, PersonalityType
 from app.services.privacy.data_tier_service import DataTier
 from sqlalchemy.orm import selectinload
 from app.services.conversation.schemas import (
@@ -326,6 +327,165 @@ class UnifiedConversationService:
                 ErrorCode.LLM_PROVIDER_ERROR,
                 f"Failed to process message: {str(e)}",
             )
+
+    async def generate_handoff_resolution_message(
+        self,
+        db: AsyncSession,
+        conversation_id: int,
+        merchant_id: int,
+    ) -> dict[str, Any]:
+        """Generate context-aware handoff resolution message using LLM.
+
+        Story: LLM-powered handoff resolution messages for widget
+
+        Creates a personalized message when merchants resolve handoff items,
+        using conversation context and merchant's personality settings.
+
+        Args:
+            db: Database session
+            conversation_id: ID of the conversation being resolved
+            merchant_id: ID of the merchant
+
+        Returns:
+            {
+                "content": str,  # Generated message
+                "fallback": bool,  # True if used fallback message
+                "reason": str  # "llm_success" or error reason
+            }
+        """
+        from app.models.conversation import Conversation
+        from app.models.message import Message
+        from app.services.conversation.handlers.llm_handler import LLMHandler
+        from app.services.llm.base_llm_service import LLMMessage
+
+        start_time = time.time()
+
+        # Load merchant
+        merchant = await self._load_merchant(db, merchant_id)
+        if not merchant:
+            return {
+                "content": "Welcome back! Is there anything else I can help you with?",
+                "fallback": True,
+                "reason": "merchant_not_found",
+            }
+
+        # Load conversation
+        from app.models.conversation import Conversation
+
+        conversation_result = await db.execute(
+            select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.merchant_id == merchant_id,
+            )
+        )
+        conversation = conversation_result.scalars().first()
+
+        if not conversation:
+            return {
+                "content": "Welcome back! Is there anything else I can help you with?",
+                "fallback": True,
+                "reason": "conversation_not_found",
+            }
+
+        # Get last 5 messages for context
+        messages_query = (
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.desc())
+            .limit(5)
+        )
+        result = await db.execute(messages_query)
+        recent_messages = list(result.scalars().all())
+        recent_messages = list(reversed(recent_messages))  # Oldest first
+
+        # Build LLM messages
+        business_name = merchant.business_name or "our store"
+        personality_type = (
+            merchant.personality if merchant.personality else PersonalityType.FRIENDLY
+        )
+
+        # Get LLM service
+        llm_service = await self._get_merchant_llm(merchant, db, None)
+
+        # Build system prompt using LLMHandler's resolution prompt builder
+        llm_handler = LLMHandler()
+        system_prompt = llm_handler.build_resolution_system_prompt(
+            personality_type=personality_type,
+            business_name=business_name,
+        )
+
+        messages = [LLMMessage(role="system", content=system_prompt)]
+
+        # Add conversation history for context
+        for msg in recent_messages:
+            role = "user" if msg.sender == "customer" else "assistant"
+            messages.append(LLMMessage(role=role, content=msg.content or ""))
+
+        # Add final instruction
+        messages.append(
+            LLMMessage(role="user", content="Generate a brief transition message back to bot mode.")
+        )
+
+        try:
+            # Generate response with timeout
+            llm_response = await asyncio.wait_for(
+                llm_service.chat(messages=messages, temperature=0.7), timeout=5.0
+            )
+
+            response_content = llm_response.content.strip()
+
+            # Validate response length (1-3 sentences)
+            sentences = [s.strip() for s in response_content.split(".") if s.strip()]
+            if len(sentences) > 3:
+                # Truncate to 3 sentences
+                response_content = ". ".join(sentences[:3]) + "."
+
+            response_time_ms = int((time.time() - start_time) * 1000)
+
+            logger.info(
+                "handoff_resolution_llm_success",
+                conversation_id=conversation_id,
+                merchant_id=merchant_id,
+                business_name=business_name,
+                personality=personality_type,
+                message_length=len(response_content),
+                response_time_ms=response_time_ms,
+                sentence_count=len(sentences),
+            )
+
+            return {
+                "content": response_content,
+                "fallback": False,
+                "reason": "llm_success",
+                "response_time_ms": response_time_ms,
+            }
+
+        except asyncio.TimeoutError:
+            logger.warning(
+                "handoff_resolution_llm_timeout",
+                conversation_id=conversation_id,
+                merchant_id=merchant_id,
+                timeout_seconds=5.0,
+            )
+            return {
+                "content": "Welcome back! Is there anything else I can help you with?",
+                "fallback": True,
+                "reason": "llm_timeout",
+            }
+
+        except Exception as e:
+            logger.error(
+                "handoff_resolution_llm_failed",
+                conversation_id=conversation_id,
+                merchant_id=merchant_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            return {
+                "content": "Welcome back! Is there anything else I can help you with?",
+                "fallback": True,
+                "reason": f"llm_error: {type(e).__name__}",
+            }
 
     async def _load_merchant(
         self,

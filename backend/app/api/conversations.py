@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode, ValidationError
 from app.models.conversation import Conversation
+from app.models.merchant import Merchant
 from app.schemas.base import MetaData, MinimalEnvelope
 from app.schemas.conversation import (
     VALID_SENTIMENT_VALUES,
@@ -967,6 +968,40 @@ async def resolve_handoff(
     )
 
     await db.commit()
+
+    # Generate and send resolution message to widget
+    resolution_message_result = None
+    try:
+        # Fetch merchant for LLM configuration
+        merchant_result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        merchant = merchant_result.scalars().first()
+
+        if merchant and conversation.platform == "widget":
+            from app.services.handoff.handoff_resolution_service import (
+                HandoffResolutionService as MessageResolutionService,
+            )
+
+            message_service = MessageResolutionService(db)
+            resolution_message_result = await message_service.send_resolution_message(
+                conversation=conversation,
+                merchant=merchant,
+            )
+
+            logger.info(
+                "handoff_resolution_message_sent",
+                conversation_id=conversation.id,
+                sent=resolution_message_result.get("sent"),
+                message_id=resolution_message_result.get("message_id"),
+                fallback=resolution_message_result.get("fallback"),
+                reason=resolution_message_result.get("reason"),
+            )
+    except Exception as e:
+        logger.error(
+            "handoff_resolution_message_failed",
+            conversation_id=conversation.id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
 
     return ResolveHandoffEnvelope(
         data=ResolveHandoffResponse(

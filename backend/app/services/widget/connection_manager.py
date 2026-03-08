@@ -72,7 +72,16 @@ class WidgetConnectionManager:
             session_id: Widget session identifier
             websocket: WebSocket connection from FastAPI
         """
-        await websocket.accept()
+        try:
+            await websocket.accept()
+        except Exception as e:
+            self._logger.error(
+                "websocket_accept_failed",
+                session_id=session_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            return
 
         async with self._lock:
             if session_id not in self._connections:
@@ -87,19 +96,27 @@ class WidgetConnectionManager:
             "websocket_connected",
             session_id=session_id,
             connection_count=conn_count,
+            total_sessions=len(self._connections),
         )
 
         # Send connection confirmation
-        await self._send_to_websocket(
-            websocket,
-            {
-                "type": "connected",
-                "data": {
-                    "sessionId": session_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+        try:
+            await self._send_to_websocket(
+                websocket,
+                {
+                    "type": "connected",
+                    "data": {
+                        "sessionId": session_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
                 },
-            },
-        )
+            )
+        except Exception as e:
+            self._logger.error(
+                "websocket_send_confirmation_failed",
+                session_id=session_id,
+                error=str(e),
+            )
 
     async def disconnect(self, session_id: str, websocket: WebSocket) -> None:
         """Remove a WebSocket connection.
@@ -138,6 +155,24 @@ class WidgetConnectionManager:
         Returns:
             Number of connections the message was sent to
         """
+        # Check if there are any connections first
+        conn_count = self.get_connection_count(session_id)
+
+        self._logger.info(
+            "broadcast_to_session_start",
+            session_id=session_id,
+            message_type=message.get("type"),
+            connection_count=conn_count,
+        )
+
+        if conn_count == 0:
+            self._logger.warning(
+                "broadcast_to_session_no_connections",
+                session_id=session_id,
+                message_type=message.get("type"),
+            )
+            return 0
+
         # Publish to Redis for delivery (works for both local and cross-instance)
         redis_client = self._get_redis()
         channel = f"widget:{session_id}"
@@ -148,18 +183,20 @@ class WidgetConnectionManager:
                 "redis_message_published",
                 channel=channel,
                 message_type=message.get("type"),
+                connection_count=conn_count,
             )
         except Exception as e:
             self._logger.error(
                 "redis_publish_failed",
                 channel=channel,
                 error=str(e),
+                error_type=type(e).__name__,
             )
             # Fallback: deliver locally if Redis fails
             return await self._deliver_locally(session_id, message)
 
         # Return connection count (actual delivery happens via Redis listener)
-        return self.get_connection_count(session_id)
+        return conn_count
 
     async def _deliver_locally(
         self,
@@ -175,10 +212,22 @@ class WidgetConnectionManager:
         Returns:
             Number of connections message was sent to
         """
+        # Log delivery attempt
+        with open("/tmp/ws_connections.log", "a") as log_file:
+            log_file.write(
+                f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_start - session_id={session_id}, message_type={message.get('type')}\n"
+            )
+            log_file.flush()
+
         async with self._lock:
             connections = list(self._connections.get(session_id, set()))
 
         if not connections:
+            with open("/tmp/ws_connections.log", "a") as log_file:
+                log_file.write(
+                    f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_no_connections - session_id={session_id}\n"
+                )
+                log_file.flush()
             return 0
 
         sent_count = 0
@@ -186,12 +235,22 @@ class WidgetConnectionManager:
             try:
                 await self._send_to_websocket(websocket, message)
                 sent_count += 1
+                with open("/tmp/ws_connections.log", "a") as log_file:
+                    log_file.write(
+                        f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_sent - session_id={session_id}, sent_count={sent_count}\n"
+                    )
+                    log_file.flush()
             except Exception as e:
                 self._logger.warning(
                     "websocket_send_failed",
                     session_id=session_id,
                     error=str(e),
                 )
+                with open("/tmp/ws_connections.log", "a") as log_file:
+                    log_file.write(
+                        f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_failed - session_id={session_id}, error={str(e)}\n"
+                    )
+                    log_file.flush()
 
         self._logger.info(
             "websocket_broadcast",
@@ -213,7 +272,32 @@ class WidgetConnectionManager:
             websocket: WebSocket connection
             message: Message payload
         """
-        await websocket.send_text(json.dumps(message))
+        message_str = json.dumps(message)
+
+        # Log before send
+        with open("/tmp/ws_connections.log", "a") as log_file:
+            log_file.write(
+                f"{datetime.now(timezone.utc).isoformat()} - send_to_ws_start - message_type={message.get('type')}, size={len(message_str)}\n"
+            )
+            log_file.flush()
+
+        try:
+            await websocket.send_text(message_str)
+
+            # Log success
+            with open("/tmp/ws_connections.log", "a") as log_file:
+                log_file.write(
+                    f"{datetime.now(timezone.utc).isoformat()} - send_to_ws_success - message_type={message.get('type')}\n"
+                )
+                log_file.flush()
+        except Exception as e:
+            # Log failure
+            with open("/tmp/ws_connections.log", "a") as log_file:
+                log_file.write(
+                    f"{datetime.now(timezone.utc).isoformat()} - send_to_ws_failed - error={str(e)}, error_type={type(e).__name__}\n"
+                )
+                log_file.flush()
+            raise
 
     async def _start_redis_listener(self, session_id: str) -> None:
         """Start listening to Redis channel for a session.
@@ -287,10 +371,21 @@ class WidgetConnectionManager:
             pubsub: Redis pubsub instance
         """
         try:
+            with open("/tmp/ws_connections.log", "a") as log_file:
+                log_file.write(
+                    f"{datetime.now(timezone.utc).isoformat()} - redis_listener_started - session_id={session_id}\n"
+                )
+                log_file.flush()
+
             async for message in pubsub.listen():
                 if message["type"] == "message":
                     try:
                         data = json.loads(message["data"])
+                        with open("/tmp/ws_connections.log", "a") as log_file:
+                            log_file.write(
+                                f"{datetime.now(timezone.utc).isoformat()} - redis_listener_received - session_id={session_id}, message_type={data.get('type')}\n"
+                            )
+                            log_file.flush()
                         await self._deliver_locally(session_id, data)
                     except json.JSONDecodeError:
                         self._logger.warning(
@@ -305,6 +400,11 @@ class WidgetConnectionManager:
                 session_id=session_id,
                 error=str(e),
             )
+            with open("/tmp/ws_connections.log", "a") as log_file:
+                log_file.write(
+                    f"{datetime.now(timezone.utc).isoformat()} - redis_listener_error - session_id={session_id}, error={str(e)}\n"
+                )
+                log_file.flush()
 
     def get_connection_count(self, session_id: str) -> int:
         """Get the number of active connections for a session.
@@ -315,7 +415,24 @@ class WidgetConnectionManager:
         Returns:
             Number of active connections
         """
-        return len(self._connections.get(session_id, set()))
+        count = len(self._connections.get(session_id, set()))
+        self._logger.debug(
+            "get_connection_count",
+            session_id=session_id,
+            connection_count=count,
+            has_session=session_id in self._connections,
+        )
+        return count
+
+    def get_all_active_sessions(self) -> Dict[str, int]:
+        """Get all active sessions and their connection counts.
+
+        Returns:
+            Dict mapping session_id to connection count
+        """
+        return {
+            session_id: len(connections) for session_id, connections in self._connections.items()
+        }
 
     async def shutdown(self) -> None:
         """Gracefully shutdown all connections and listeners."""
@@ -337,13 +454,12 @@ class WidgetConnectionManager:
         self._connections.clear()
 
 
-# Global connection manager instance
-_manager: Optional[WidgetConnectionManager] = None
+# Global connection manager instance - use a module-level dict to ensure true singleton
+_manager_state = {"manager": None}
 
 
 def get_connection_manager() -> WidgetConnectionManager:
     """Get or create the global connection manager instance."""
-    global _manager
-    if _manager is None:
-        _manager = WidgetConnectionManager()
-    return _manager
+    if _manager_state["manager"] is None:
+        _manager_state["manager"] = WidgetConnectionManager()
+    return _manager_state["manager"]

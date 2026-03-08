@@ -64,6 +64,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/conversations/",  # Story 4-12: Handoff notification endpoints (Bearer token auth)
         "/api/v1/consent/",  # Story 6-4: Consent opt-out (Bearer token auth)
         "/api/v1/widget/",  # Story 5-1: Public widget API (no CSRF for anonymous sessions)
+        "/widget/",  # Widget API endpoints (no CSRF for anonymous sessions)
         "/docs",
         "/redoc",
         "/openapi.json",

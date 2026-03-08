@@ -471,6 +471,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
       cleanup = connectWidgetWebSocket(state.session!.sessionId, {
         onMessage: (event) => {
+          console.warn('[WidgetContext] WebSocket message received:', event.type, event);
+          
           if (event.type === 'merchant_message') {
             const data = event.data as { id: number; content: string; createdAt: string };
             const merchantMessage = {
@@ -480,6 +482,17 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
               createdAt: data.createdAt,
             };
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
+          } else if (event.type === 'handoff_resolved') {
+            // Handle handoff resolution message
+            const data = event.data as { id: number; content: string; createdAt: string };
+            const resolutionMessage = {
+              messageId: `resolution-${data.id}`,
+              content: data.content,
+              sender: 'bot' as const,
+              createdAt: data.createdAt,
+            };
+            console.warn('[WidgetContext] Adding handoff resolution message:', resolutionMessage);
+            dispatch({ type: 'ADD_MESSAGE', payload: resolutionMessage });
           }
         },
         onStatusChange: (status) => {

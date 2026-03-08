@@ -1,4 +1,4 @@
-import { W, g, i, a, u } from "./loader-u53HLsxj.js";
+import { W, g, i, a, u } from "./loader-CJWE8zz6.js";
 export {
   W as Widget,
   g as getConfig,

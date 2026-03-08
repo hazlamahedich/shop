@@ -62,9 +62,36 @@ async def widget_websocket(
 
     manager = get_connection_manager()
 
+    # Write to log file for persistent debugging
+    with open("/tmp/ws_connections.log", "a") as log_file:
+        log_file.write(
+            f"{datetime.now(timezone.utc).isoformat()} - websocket_connection_attempt - session_id={session_id}, manager_id={id(manager)}\n"
+        )
+        log_file.flush()
+
+    logger.info(
+        "websocket_connection_attempt",
+        session_id=session_id,
+        manager_id=id(manager),
+    )
+
     try:
         # Accept and register connection
         await manager.connect(session_id, websocket)
+
+        # Write to log file
+        with open("/tmp/ws_connections.log", "a") as log_file:
+            log_file.write(
+                f"{datetime.now(timezone.utc).isoformat()} - websocket_connection_accepted - session_id={session_id}, manager_id={id(manager)}, connection_count={manager.get_connection_count(session_id)}\n"
+            )
+            log_file.flush()
+
+        logger.info(
+            "websocket_connection_accepted",
+            session_id=session_id,
+            manager_id=id(manager),
+            connection_count=manager.get_connection_count(session_id),
+        )
 
         # Start heartbeat task
         heartbeat_task = asyncio.create_task(_heartbeat_loop(websocket, session_id))

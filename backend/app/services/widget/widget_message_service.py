@@ -17,6 +17,7 @@ from typing import Optional
 from uuid import uuid4
 
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
@@ -418,3 +419,118 @@ class WidgetMessageService:
                 pass
 
         return "\n".join(prompt_parts)
+
+    async def retroactively_save_conversation_history(
+        self,
+        session_id: str,
+        merchant_id: int,
+    ) -> Optional[int]:
+        """Retroactively save conversation history from Redis to PostgreSQL.
+
+        Story 6-1 Enhancement: Retroactive Save on Consent Grant
+        When consent is granted, save all previous messages from Redis to database.
+
+        Args:
+            session_id: Widget session ID
+            merchant_id: Merchant ID
+
+        Returns:
+            Conversation ID if saved, None on failure
+        """
+        if not self.db:
+            self.logger.warning(
+                "retroactive_save_no_db",
+                session_id=session_id,
+                merchant_id=merchant_id,
+            )
+            return None
+
+        try:
+            # Get message history from Redis
+            history = await self.session_service.get_message_history(session_id)
+
+            if not history:
+                self.logger.debug(
+                    "retroactive_save_no_history",
+                    session_id=session_id,
+                    merchant_id=merchant_id,
+                )
+                return None
+
+            # Check if conversation already exists
+            from app.models.conversation import Conversation
+            from app.models.message import Message
+            from app.services.privacy.data_tier_service import DataTier
+
+            result = await self.db.execute(
+                select(Conversation).where(
+                    Conversation.merchant_id == merchant_id,
+                    Conversation.platform_sender_id == session_id,
+                )
+            )
+            existing_conversation = result.scalars().first()
+
+            if existing_conversation:
+                self.logger.debug(
+                    "retroactive_save_already_exists",
+                    session_id=session_id,
+                    conversation_id=existing_conversation.id,
+                )
+                return existing_conversation.id
+
+            # Create new conversation
+            conversation = Conversation(
+                merchant_id=merchant_id,
+                platform="widget",
+                platform_sender_id=session_id,
+                status="active",
+                handoff_status="none",
+                data_tier=DataTier.VOLUNTARY,
+            )
+            self.db.add(conversation)
+            await self.db.flush()
+
+            # Save all messages from history
+            for msg in history:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                timestamp = msg.get("timestamp")
+
+                sender = "customer" if role == "user" else "bot"
+
+                message = Message(
+                    conversation_id=conversation.id,
+                    sender=sender,
+                    content=content,
+                    message_type="text",
+                    data_tier=DataTier.VOLUNTARY,
+                    message_metadata={
+                        "retroactively_saved": True,
+                        "original_timestamp": timestamp,
+                    },
+                )
+                message.set_encrypted_content(content, sender)
+                self.db.add(message)
+
+            await self.db.commit()
+
+            self.logger.info(
+                "retroactive_save_completed",
+                session_id=session_id,
+                conversation_id=conversation.id,
+                message_count=len(history),
+                merchant_id=merchant_id,
+            )
+
+            return conversation.id
+
+        except Exception as e:
+            self.logger.error(
+                "retroactive_save_failed",
+                session_id=session_id,
+                merchant_id=merchant_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            await self.db.rollback()
+            return None
