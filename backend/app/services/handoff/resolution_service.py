@@ -10,7 +10,7 @@ Handles the complete handoff lifecycle including:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import structlog
@@ -213,6 +213,7 @@ class HandoffResolutionService:
         - conversation.handoff_resolution_type = 'auto_timeout'
         - alert.resolved_at = now
         - alert.resolution_type = 'auto_timeout'
+        - alert.is_read = True
 
         Args:
             conversation: The conversation to auto-close
@@ -232,6 +233,7 @@ class HandoffResolutionService:
             if alert:
                 alert.resolved_at = now
                 alert.resolution_type = RESOLUTION_AUTO_TIMEOUT
+                alert.is_read = True
 
             await self.db.flush()
 
@@ -278,6 +280,7 @@ class HandoffResolutionService:
             if alert:
                 alert.resolved_at = now
                 alert.resolution_type = resolution_type
+                alert.is_read = True
 
             await self.db.flush()
 
