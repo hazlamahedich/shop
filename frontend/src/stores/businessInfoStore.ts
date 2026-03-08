@@ -196,7 +196,7 @@ export const useBusinessInfoStore = create<BusinessInfoState>()(
        */
       setBusinessName: (name: string) => {
         set({
-          businessName: name.trim() || null,
+          businessName: name || null,
           isDirty: true,
         });
       },
@@ -211,7 +211,7 @@ export const useBusinessInfoStore = create<BusinessInfoState>()(
        */
       setBusinessDescription: (description: string) => {
         set({
-          businessDescription: description.trim() || null,
+          businessDescription: description || null,
           isDirty: true,
         });
       },
@@ -226,7 +226,7 @@ export const useBusinessInfoStore = create<BusinessInfoState>()(
        */
       setBusinessHours: (hours: string) => {
         set({
-          businessHours: hours.trim() || null,
+          businessHours: hours || null,
           isDirty: true,
         });
       },

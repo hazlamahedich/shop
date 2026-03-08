@@ -61,9 +61,9 @@ describe('BusinessInfoStore', () => {
     describe('fetchBusinessInfo', () => {
       it('should fetch and set business info', async () => {
         const mockData = {
-          business_name: 'Test Business',
-          business_description: 'Test Description',
-          business_hours: '9-5',
+          businessName: 'Test Business',
+          businessDescription: 'Test Description',
+          businessHours: '9-5',
         };
         vi.mocked(businessInfoService.businessInfoApi.getBusinessInfo).mockResolvedValue(mockData);
 
@@ -99,9 +99,9 @@ describe('BusinessInfoStore', () => {
     describe('updateBusinessInfo', () => {
       it('should update business info', async () => {
         const mockData = {
-          business_name: 'Updated Business',
-          business_description: 'Updated Description',
-          business_hours: '10-6',
+          businessName: 'Updated Business',
+          businessDescription: 'Updated Description',
+          businessHours: '10-6',
         };
         vi.mocked(businessInfoService.businessInfoApi.updateBusinessInfo).mockResolvedValue(mockData);
 
@@ -149,17 +149,17 @@ describe('BusinessInfoStore', () => {
         expect(state.isDirty).toBe(true);
       });
 
-      it('should trim whitespace from business name', () => {
+      it('should preserve whitespace in business name (backend handles trimming on save)', () => {
         act(() => {
-          useBusinessInfoStore.getState().setBusinessName('  Test  ');
+          useBusinessInfoStore.getState().setBusinessName('  Test Name  ');
         });
 
-        expect(useBusinessInfoStore.getState().businessName).toBe('Test');
+        expect(useBusinessInfoStore.getState().businessName).toBe('  Test Name  ');
       });
 
       it('should set to null if empty string', () => {
         act(() => {
-          useBusinessInfoStore.getState().setBusinessName('   ');
+          useBusinessInfoStore.getState().setBusinessName('');
         });
 
         expect(useBusinessInfoStore.getState().businessName).toBeNull();
