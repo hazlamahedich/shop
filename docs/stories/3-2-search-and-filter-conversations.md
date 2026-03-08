@@ -383,3 +383,93 @@ Backend must support query parameters listed in API Integration section.
 |------|------|------|--------|
 | Developer | Claude | 2025-02-07 | ✅ Complete |
 | QA | Automated E2E Tests | 2025-02-07 | ✅ All Passing |
+
+---
+
+## Enhancement: Global Header Search (March 8, 2026)
+
+### Overview
+Added a global search bar in the header that provides unified search across conversations and FAQs from any page in the dashboard.
+
+### Implementation
+
+#### Backend Changes
+
+| File | Description |
+|------|-------------|
+| `backend/app/schemas/search.py` | Search response schemas |
+| `backend/app/api/search.py` | `GET /api/v1/search?q={query}` endpoint |
+| `backend/app/main.py` | Router registration |
+
+#### Frontend Changes
+
+| File | Description |
+|------|-------------|
+| `frontend/src/services/searchService.ts` | API client for search |
+| `frontend/src/components/layout/GlobalSearch.tsx` | Search component with dropdown |
+| `frontend/src/components/layout/Header.tsx` | Integrated GlobalSearch component |
+
+### API Endpoint
+
+```
+GET /api/v1/search?q={query}
+```
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `q` | string | Search query (min 2 chars, max 100) |
+
+**Response:**
+```json
+{
+  "data": {
+    "conversations": [
+      {
+        "id": 123,
+        "platformSenderIdMasked": "cus***123",
+        "lastMessage": "Where is my order?",
+        "status": "active",
+        "updatedAt": "2026-03-08T10:00:00Z"
+      }
+    ],
+    "faqs": [
+      {
+        "id": 1,
+        "question": "What is your return policy?",
+        "answer": "We offer 30-day returns..."
+      }
+    ],
+    "total": 2
+  },
+  "meta": {
+    "requestId": "...",
+    "timestamp": "..."
+  }
+}
+```
+
+### Features
+
+- **Debounced search** (300ms delay)
+- **Searches across**:
+  - Conversations (customer ID, bot message content)
+  - FAQs (question, answer, keywords)
+- **Dropdown UI** with grouped results
+- **Keyboard navigation** (↑/↓/Enter/Esc)
+- **Click to navigate** to results
+- **Loading spinner** during search
+- **Empty state** for no results
+
+### Navigation
+
+| Result Type | Navigation Target |
+|-------------|------------------|
+| Conversation | `/conversations/{id}/history` |
+| FAQ | `/business-info-faq#faq-{id}` |
+
+### Status: ✅ COMPLETED
+
+| Role | Name | Date | Status |
+|------|------|------|--------|
+| Developer | Claude | 2026-03-08 | ✅ Complete |

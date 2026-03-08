@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, LogOut, User, X } from 'lucide-react';
+import { Bell, LogOut, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useHandoffAlertsStore } from '../../stores/handoffAlertStore';
 import { HelpMenu } from './HelpMenu';
+import { GlobalSearch } from './GlobalSearch';
 
 const URGENCY_STYLES = {
   high: { emoji: '🔴', label: 'High Priority', bg: 'bg-red-50', border: 'border-red-200' },
@@ -68,16 +69,7 @@ const Header = () => {
 
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 pl-72 fixed top-0 right-0 w-full z-10">
-      <div className="flex items-center w-full max-w-md">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-        </div>
-      </div>
+      <GlobalSearch />
 
       <div className="flex items-center space-x-4">
         {isAuthenticated && merchant && (
