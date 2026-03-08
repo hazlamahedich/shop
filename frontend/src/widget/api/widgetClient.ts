@@ -317,7 +317,7 @@ export class WidgetApiClient {
     });
     return {
       items,
-      itemCount: Number(cartData.item_count ?? cartData.itemCount ?? 00),
+      itemCount: Number(cartData.item_count ?? cartData.itemCount ?? 0),
       total: Number(cartData.total ?? cartData.subtotal ?? 0),
       shopifyCartUrl: cartData.shopify_cart_url as string | undefined,
     };
@@ -410,7 +410,10 @@ export class WidgetApiClient {
   async recordConsent(sessionId: string, consented: boolean, visitorId?: string): Promise<ConsentPromptResponse> {
     try {
       const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : '';
-      const data = await this.request<{ data: unknown }>(`/consent/${sessionId}${queryParam}`);
+      const data = await this.request<{ data: unknown }>(`/consent/${sessionId}${queryParam}`, {
+        method: 'POST',
+        body: JSON.stringify({ consented }),
+      });
       const parsed = ConsentPromptResponseSchema.safeParse(data.data);
       if (!parsed.success) {
         return null;
@@ -426,7 +429,6 @@ export class WidgetApiClient {
       throw error;
     }
   }
-  }
 
   async getConsentStatus(sessionId: string, visitorId?: string): Promise<ConsentPromptResponse | null> {
     try {
@@ -437,15 +439,6 @@ export class WidgetApiClient {
         return null;
       }
 
-      return {
-        status: parsed.data.status,
-        can_store_conversation: parsed.data.can_store_conversation,
-      };
-    } catch (error) {
-      console.error('[WidgetClient] recordConsent error:', error);
-      throw error;
-    }
-  }
       return {
         status: parsed.data.status,
         can_store_conversation: parsed.data.can_store_conversation,

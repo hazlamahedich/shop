@@ -21,6 +21,19 @@
   animation: slideUp 0.2s ease-out;
 }
 
+.chat-window.dragging {
+  animation: none;
+  user-select: none;
+}
+
+.chat-header {
+  cursor: grab;
+}
+
+.chat-header:active {
+  cursor: grabbing;
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -30,6 +43,15 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.has-unread {
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .widget-loading {

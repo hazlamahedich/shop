@@ -68,6 +68,11 @@ export interface WidgetMessage {
   confidence?: number;
 }
 
+export interface WidgetPosition {
+  x: number;
+  y: number;
+}
+
 export interface WidgetState {
   isOpen: boolean;
   isLoading: boolean;
@@ -79,6 +84,10 @@ export interface WidgetState {
   errors: WidgetError[];
   connectionStatus: ConnectionStatus;
   consentState: ConsentState;
+  position: WidgetPosition;
+  isDragging: boolean;
+  isMinimized: boolean;
+  unreadCount: number;
 }
 
 export interface WidgetApiError {
@@ -102,6 +111,10 @@ export type WidgetAction =
   | { type: 'SET_CONNECTION_STATUS'; payload: ConnectionStatus }
   | { type: 'SET_CONSENT_STATE'; payload: ConsentState }
   | { type: 'SET_CONSENT_PROMPT_SHOWN'; payload: boolean }
+  | { type: 'SET_POSITION'; payload: WidgetPosition }
+  | { type: 'SET_DRAGGING'; payload: boolean }
+  | { type: 'TOGGLE_MINIMIZED' }
+  | { type: 'SET_UNREAD_COUNT'; payload: number }
   | { type: 'RESET' };
 
 export interface WidgetProduct {

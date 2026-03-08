@@ -6,9 +6,10 @@ export interface ChatBubbleProps {
   onClick: () => void;
   theme: WidgetTheme;
   onPrefetch?: () => void;
+  unreadCount?: number;
 }
 
-export function ChatBubble({ isOpen, onClick, theme, onPrefetch }: ChatBubbleProps) {
+export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0 }: ChatBubbleProps) {
   const positionStyle = theme.position === 'bottom-left'
     ? { left: 20 }
     : { right: 20 };
@@ -26,10 +27,12 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch }: ChatBubblePro
     }
   };
 
+  const showBadge = !isOpen && unreadCount > 0;
+
   return (
     <button
       type="button"
-      className="shopbot-chat-bubble"
+      className={`shopbot-chat-bubble ${showBadge ? 'has-unread' : ''}`}
       data-testid="chat-bubble"
       onClick={onClick}
       onKeyDown={handleKeyDown}
@@ -83,6 +86,29 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch }: ChatBubblePro
         >
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
+      )}
+      {showBadge && (
+        <span
+          className="bubble-badge"
+          style={{
+            position: 'absolute',
+            top: -5,
+            right: -5,
+            backgroundColor: '#ef4444',
+            color: 'white',
+            borderRadius: '50%',
+            minWidth: 20,
+            height: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontWeight: 600,
+            padding: '0 4px',
+          }}
+        >
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
       )}
     </button>
   );

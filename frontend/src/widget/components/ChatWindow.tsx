@@ -1,6 +1,6 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -33,6 +33,11 @@ export interface ChatWindowProps {
   consentState?: ConsentState;
   onRecordConsent?: (consented: boolean) => Promise<void>;
   onClearHistory?: () => Promise<void>;
+  position?: WidgetPosition;
+  isDragging?: boolean;
+  isMinimized?: boolean;
+  onDragStart?: (e: React.MouseEvent | React.TouchEvent) => void;
+  onMinimize?: () => void;
 }
 
 function ChatWindow({
@@ -58,6 +63,11 @@ function ChatWindow({
   consentState,
   onRecordConsent,
   onClearHistory,
+  position = { x: 0, y: 0 },
+  isDragging = false,
+  isMinimized: _isMinimized = false,
+  onDragStart,
+  onMinimize,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
@@ -90,10 +100,6 @@ function ChatWindow({
       });
     }
   };
-
-  const positionStyle = theme.position === 'bottom-left'
-    ? { left: 20 }
-    : { right: 20 };
 
   React.useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -139,6 +145,45 @@ function ChatWindow({
 
   if (!isOpen) return null;
 
+  const positionStyle = theme.position === 'bottom-left'
+    ? { left: 20, right: 'auto' as const }
+    : { right: 20, left: 'auto' as const };
+
+  const windowStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: 90,
+    ...positionStyle,
+    width: theme.width,
+    height: theme.height,
+    maxWidth: 'calc(100vw - 40px)',
+    maxHeight: 'calc(100vh - 120px)',
+    backgroundColor: theme.backgroundColor,
+    borderRadius: theme.borderRadius,
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    zIndex: 2147483646,
+    fontFamily: theme.fontFamily,
+    fontSize: theme.fontSize,
+    color: theme.textColor,
+    transform: position.x !== 0 || position.y !== 0 
+      ? `translate(${position.x}px, ${position.y}px)` 
+      : undefined,
+    transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+    userSelect: isDragging ? 'none' : 'auto',
+  };
+
+  const handleHeaderMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    onDragStart?.(e);
+  };
+
+  const handleHeaderTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    onDragStart?.(e);
+  };
+
   return (
     <>
     <FocusTrap active={isOpen && !isProductModalOpen}>
@@ -146,43 +191,30 @@ function ChatWindow({
         role="dialog"
         aria-modal="true"
         aria-label="Chat window"
-        className="shopbot-chat-window"
-        style={{
-          position: 'fixed',
-          bottom: 90,
-          ...positionStyle,
-          width: theme.width,
-          height: theme.height,
-          maxWidth: 'calc(100vw - 40px)',
-          maxHeight: 'calc(100vh - 120px)',
-          backgroundColor: theme.backgroundColor,
-          borderRadius: theme.borderRadius,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          zIndex: 2147483646,
-          fontFamily: theme.fontFamily,
-          fontSize: theme.fontSize,
-          color: theme.textColor,
-        }}
+        className={`shopbot-chat-window ${isDragging ? 'dragging' : ''}`}
+        style={windowStyle}
       >
         <div
-          className="chat-header"
+          className="chat-header chat-header-drag-handle"
+          onMouseDown={handleHeaderMouseDown}
+          onTouchStart={handleHeaderTouchStart}
           style={{
-            padding: '16px',
+            padding: '12px 16px',
             backgroundColor: theme.primaryColor,
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             borderRadius: `${theme.borderRadius}px ${theme.borderRadius}px 0 0`,
+            cursor: isDragging ? 'grabbing' : 'grab',
           }}
         >
-          <span className="chat-header-title" style={{ fontWeight: 600 }}>
-            {config?.botName ?? 'Assistant'}
-          </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="chat-header-title" style={{ fontWeight: 600, pointerEvents: 'none' }}>
+              {config?.botName ?? 'Assistant'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {onClearHistory && messages.length > 0 && (
               <div style={{ position: 'relative' }} ref={menuRef}>
                 <button
@@ -192,16 +224,20 @@ function ChatWindow({
                   aria-haspopup="true"
                   aria-expanded={showMenu}
                   style={{
-                    background: 'none',
+                    background: 'rgba(255, 255, 255, 0.2)',
                     border: 'none',
                     cursor: 'pointer',
-                    padding: 4,
+                    padding: '8px',
                     color: 'white',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
                   <svg
-                    width="20"
-                    height="20"
+                    width="18"
+                    height="18"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -275,25 +311,69 @@ function ChatWindow({
                 )}
               </div>
             )}
+            {onMinimize && (
+              <button
+                type="button"
+                onClick={onMinimize}
+                aria-label="Minimize chat window"
+                title="Minimize"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  color: 'white',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)')}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
               aria-label="Close chat window"
+              title="Close"
               style={{
-                background: 'none',
+                background: 'rgba(255, 255, 255, 0.2)',
                 border: 'none',
                 cursor: 'pointer',
-                padding: 4,
+                padding: '8px',
                 color: 'white',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.15s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)')}
             >
               <svg
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"

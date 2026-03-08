@@ -29,12 +29,17 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     retryLastAction,
     recordConsent,
     clearHistory,
+    updatePosition,
+    toggleMinimized,
   } = useWidgetContext();
   const merchantTheme = state.config?.theme;
   const mergedTheme = React.useMemo(
     () => mergeThemes(merchantTheme, theme),
     [merchantTheme, theme]
   );
+
+  const dragStartRef = React.useRef({ x: 0, y: 0, windowX: 0, windowY: 0 });
+  const [isDraggingLocal, setIsDraggingLocal] = React.useState(false);
 
   const prefetchChatWindow = React.useCallback(() => {
     import('./components/ChatWindow');
@@ -43,6 +48,77 @@ function WidgetInner({ theme }: WidgetInnerProps) {
   React.useEffect(() => {
     initWidget(merchantId);
   }, [initWidget, merchantId]);
+
+  const handleDragStart = React.useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsDraggingLocal(true);
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    dragStartRef.current = {
+      x: clientX,
+      y: clientY,
+      windowX: state.position.x,
+      windowY: state.position.y,
+    };
+  }, [state.position]);
+
+  React.useEffect(() => {
+    if (!isDraggingLocal) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - dragStartRef.current.x;
+      const deltaY = e.clientY - dragStartRef.current.y;
+
+      const newX = dragStartRef.current.windowX + deltaX;
+      const newY = dragStartRef.current.windowY + deltaY;
+
+      const boundedX = Math.max(-window.innerWidth + 200, Math.min(newX, window.innerWidth - 200));
+      const boundedY = Math.max(-window.innerHeight + 200, Math.min(newY, window.innerHeight - 200));
+
+      updatePosition({ x: boundedX, y: boundedY });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - dragStartRef.current.x;
+      const deltaY = touch.clientY - dragStartRef.current.y;
+
+      const newX = dragStartRef.current.windowX + deltaX;
+      const newY = dragStartRef.current.windowY + deltaY;
+
+      const boundedX = Math.max(-window.innerWidth + 200, Math.min(newX, window.innerWidth - 200));
+      const boundedY = Math.max(-window.innerHeight + 200, Math.min(newY, window.innerHeight - 200));
+
+      updatePosition({ x: boundedX, y: boundedY });
+    };
+
+    const handleEnd = () => {
+      setIsDraggingLocal(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, [isDraggingLocal, updatePosition]);
+
+  const handleBubbleClick = React.useCallback(() => {
+    if (state.isMinimized) {
+      toggleMinimized();
+    } else {
+      toggleChat();
+    }
+  }, [state.isMinimized, toggleMinimized, toggleChat]);
 
   return (
     <>
@@ -60,9 +136,25 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         .shopbot-chat-window {
           animation: shopbot-slideUp 0.2s ease-out;
         }
+        .shopbot-chat-window.dragging {
+          animation: none;
+        }
         @keyframes shopbot-slideUp {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shopbot-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .shopbot-chat-bubble.has-unread {
+          animation: shopbot-pulse 2s ease-in-out infinite;
+        }
+        .chat-header-drag-handle {
+          cursor: grab;
+        }
+        .chat-header-drag-handle:active {
+          cursor: grabbing;
         }
       `}</style>
       {state.isLoading ? (
@@ -85,16 +177,17 @@ function WidgetInner({ theme }: WidgetInnerProps) {
       ) : (
         <>
           <ChatBubble
-            isOpen={state.isOpen}
-            onClick={toggleChat}
+            isOpen={state.isOpen && !state.isMinimized}
+            onClick={handleBubbleClick}
             theme={mergedTheme}
             onPrefetch={prefetchChatWindow}
+            unreadCount={state.unreadCount}
           />
-          {state.isOpen && (
+          {state.isOpen && !state.isMinimized && (
             <WidgetErrorBoundary fallback={<div style={{position:'fixed',bottom:100,right:20,zIndex:2147483647}}>Failed to load chat.</div>}>
               <React.Suspense fallback={<LoadingSpinner />}>
                 <ChatWindow
-                  isOpen={state.isOpen}
+                  isOpen={state.isOpen && !state.isMinimized}
                   onClose={toggleChat}
                   theme={mergedTheme}
                   config={state.config}
@@ -116,6 +209,11 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                   consentState={state.consentState}
                   onRecordConsent={recordConsent}
                   onClearHistory={clearHistory}
+                  position={state.position}
+                  isDragging={isDraggingLocal}
+                  isMinimized={state.isMinimized}
+                  onDragStart={handleDragStart}
+                  onMinimize={toggleMinimized}
                 />
               </React.Suspense>
             </WidgetErrorBoundary>

@@ -199,4 +199,25 @@ export function isMessageCacheExpired(sessionId: string): boolean {
   }
 }
 
+const WIDGET_POSITION_KEY = 'shopbot_widget_position';
+
+export interface WidgetPosition {
+  x: number;
+  y: number;
+}
+
+export function saveWidgetPosition(position: WidgetPosition): boolean {
+  return safeLocalStorage.set(WIDGET_POSITION_KEY, JSON.stringify(position));
+}
+
+export function loadWidgetPosition(): WidgetPosition | null {
+  const saved = safeLocalStorage.get(WIDGET_POSITION_KEY);
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved) as WidgetPosition;
+  } catch {
+    return null;
+  }
+}
+
 export { safeStorage, safeLocalStorage };

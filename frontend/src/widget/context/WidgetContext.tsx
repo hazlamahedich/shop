@@ -12,13 +12,24 @@ import {
   cacheMessages,
   getCachedMessages,
   clearMessageCache,
+  saveWidgetPosition,
+  loadWidgetPosition,
   type CachedMessage,
+  type WidgetPosition,
 } from '../utils/storage';
 
 const initialConsentState: ConsentState = {
   promptShown: false,
   canStoreConversation: false,
   status: 'pending',
+};
+
+const getInitialPosition = (): { x: number; y: number } => {
+  const saved = loadWidgetPosition();
+  if (saved) {
+    return saved;
+  }
+  return { x: 0, y: 0 };
 };
 
 const initialState: WidgetState = {
@@ -32,6 +43,10 @@ const initialState: WidgetState = {
   errors: [],
   connectionStatus: 'disconnected',
   consentState: initialConsentState,
+  position: getInitialPosition(),
+  isDragging: false,
+  isMinimized: false,
+  unreadCount: 0,
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -45,7 +60,10 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
     case 'SET_SESSION':
       return { ...state, session: action.payload };
     case 'ADD_MESSAGE':
-      return { ...state, messages: [...state.messages, action.payload] };
+      const newUnreadCount = state.isMinimized && action.payload.sender !== 'user' 
+        ? state.unreadCount + 1 
+        : state.unreadCount;
+      return { ...state, messages: [...state.messages, action.payload], unreadCount: newUnreadCount };
     case 'SET_MESSAGES':
       return { ...state, messages: action.payload };
     case 'SET_CONFIG':
@@ -69,6 +87,14 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, consentState: action.payload };
     case 'SET_CONSENT_PROMPT_SHOWN':
       return { ...state, consentState: { ...state.consentState, promptShown: action.payload } };
+    case 'SET_POSITION':
+      return { ...state, position: action.payload };
+    case 'SET_DRAGGING':
+      return { ...state, isDragging: action.payload };
+    case 'TOGGLE_MINIMIZED':
+      return { ...state, isMinimized: !state.isMinimized, unreadCount: !state.isMinimized ? 0 : state.unreadCount };
+    case 'SET_UNREAD_COUNT':
+      return { ...state, unreadCount: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -98,6 +124,8 @@ interface WidgetContextValue {
   recordConsent: (consented: boolean) => Promise<void>;
   forgetPreferences: () => Promise<void>;
   clearHistory: () => Promise<void>;
+  updatePosition: (position: WidgetPosition) => void;
+  toggleMinimized: () => void;
 }
 
 const WidgetContext = React.createContext<WidgetContextValue | null>(null);
@@ -657,6 +685,15 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     }
   }, [state.session, addError]);
 
+  const updatePosition = React.useCallback((position: { x: number; y: number }) => {
+    dispatch({ type: 'SET_POSITION', payload: position });
+    saveWidgetPosition(position);
+  }, []);
+
+  const toggleMinimized = React.useCallback(() => {
+    dispatch({ type: 'TOGGLE_MINIMIZED' });
+  }, []);
+
   const value = React.useMemo(
     () => ({
       state,
@@ -680,6 +717,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       recordConsent,
       forgetPreferences,
       clearHistory,
+      updatePosition,
+      toggleMinimized,
     }),
     [
       state,
@@ -701,6 +740,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       recordConsent,
       forgetPreferences,
       clearHistory,
+      updatePosition,
+      toggleMinimized,
     ]
   );
 
