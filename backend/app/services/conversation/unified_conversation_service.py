@@ -206,6 +206,7 @@ class UnifiedConversationService:
             if response is None:
                 from app.services.conversation.handlers.order_handler import (
                     PENDING_CROSS_DEVICE_KEY,
+                    OrderHandler,
                 )
 
                 conversation_data = context.conversation_data or {}
@@ -215,16 +216,14 @@ class UnifiedConversationService:
                 )
 
                 if pending_lookup:
-                    import re
-
-                    email_pattern = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
-                    if email_pattern.match(message.strip()) or self._looks_like_order_number(
-                        message
-                    ):
+                    order_handler = OrderHandler()
+                    normalized_email = order_handler._normalize_email(message)
+                    if normalized_email or self._looks_like_order_number(message):
                         self.logger.info(
                             "pending_cross_device_lookup_routing_to_order_handler",
                             merchant_id=merchant.id,
                             message_preview=message[:20],
+                            normalized_email=normalized_email,
                         )
                         handler = self._handlers["order"]
                         llm_service = await self._get_merchant_llm(merchant, db, context)
@@ -805,18 +804,61 @@ class UnifiedConversationService:
                     processing_time_ms=0,
                 )
 
-        # Order tracking patterns
+        # Order tracking patterns with order number extraction
+        # Pattern matches: #1003, order 1003, order #1003, order ORD-123, etc.
+        # Requires: starts with digit OR letter+hyphen OR letter+digit (to avoid matching 'order status')
+        order_number_pattern = r"(?:^|\s)(?:#|order\s*(?:#|number|no\.?)?\s*)((?:[0-9][A-Za-z0-9\-]*|[A-Za-z]+[-][A-Za-z0-9\-]+|[A-Za-z]+[0-9][A-Za-z0-9\-]*))(?:\b|$)"
+        order_number_match = re.search(order_number_pattern, lower_msg)
+
         order_patterns = [
             r"(where\s+is\s+my|track\s+my|check\s+my)\s+order",
             r"(order\s+status|shipping\s+status)",
             r"^order$",
+            r"(?:^|\s)(?:#|order\s*(?:#|number|no\.?)?\s*)(?:[0-9][A-Za-z0-9\-]*|[A-Za-z]+[-][A-Za-z0-9\-]+|[A-Za-z]+[0-9][A-Za-z0-9\-]*)",
         ]
         for pattern in order_patterns:
             if re.search(pattern, lower_msg):
+                entities = ExtractedEntities()
+                if order_number_match:
+                    order_number = order_number_match.group(1).strip().lstrip("#")
+                    entities = ExtractedEntities(order_number=order_number)
+                    self.logger.info(
+                        "order_number_extracted",
+                        order_number=order_number,
+                        raw_message=message,
+                    )
                 return ClassificationResult(
                     intent=ClassifierIntentType.ORDER_TRACKING,
                     confidence=0.95,
-                    entities=ExtractedEntities(),
+                    entities=entities,
+                    raw_message=message,
+                    llm_provider="pattern",
+                    model="regex",
+                    processing_time_ms=0,
+                )
+        order_number_match = re.search(order_number_pattern, lower_msg)
+
+        order_patterns = [
+            r"(where\s+is\s+my|track\s+my|check\s+my)\s+order",
+            r"(order\s+status|shipping\s+status)",
+            r"^order$",
+            r"(?:order\s*(?:number|#|no\.?)?\s*|#)\s*[A-Za-z0-9\-]{4,20}",
+        ]
+        for pattern in order_patterns:
+            if re.search(pattern, lower_msg):
+                entities = ExtractedEntities()
+                if order_number_match:
+                    order_number = order_number_match.group(1).strip().lstrip("#")
+                    entities = ExtractedEntities(order_number=order_number)
+                    self.logger.info(
+                        "order_number_extracted",
+                        order_number=order_number,
+                        raw_message=message,
+                    )
+                return ClassificationResult(
+                    intent=ClassifierIntentType.ORDER_TRACKING,
+                    confidence=0.95,
+                    entities=entities,
                     raw_message=message,
                     llm_provider="pattern",
                     model="regex",

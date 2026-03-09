@@ -71,12 +71,15 @@ class LLMHandler(BaseHandler):
         business_name = merchant.business_name or "our store"
         personality_type: PersonalityType = merchant.personality or PersonalityType.FRIENDLY
 
+        pending_state = self._get_pending_state(context)
+
         system_prompt = await self._build_system_prompt(
             db=db,
             merchant=merchant,
             bot_name=bot_name,
             business_name=business_name,
             personality_type=personality_type,
+            pending_state=pending_state,
         )
 
         messages = [LLMMessage(role="system", content=system_prompt)]
@@ -238,11 +241,13 @@ class LLMHandler(BaseHandler):
         bot_name: str,
         business_name: str,
         personality_type: PersonalityType,
+        pending_state: Optional[dict] = None,
     ) -> str:
         """Build system prompt with personality and context.
 
         Story 5-10: Fixed positional args bug - now passes all parameters correctly.
         Includes business_hours, custom_greeting, business_description, and product context.
+        Added pending_state for conversation state awareness.
 
         Args:
             db: Database session
@@ -250,6 +255,7 @@ class LLMHandler(BaseHandler):
             bot_name: Bot's name
             business_name: Business name
             personality_type: Personality type
+            pending_state: Optional pending state context
 
         Returns:
             Complete system prompt
@@ -286,9 +292,31 @@ class LLMHandler(BaseHandler):
             bot_name,
             product_context,
             order_context,
+            pending_state,
         )
 
         return personality_prompt
+
+    def _get_pending_state(self, context: ConversationContext) -> Optional[dict]:
+        """Extract pending state from conversation context.
+
+        Args:
+            context: Conversation context
+
+        Returns:
+            Dictionary with pending state flags, or None if no pending state
+        """
+        conversation_data = context.conversation_data or {}
+        metadata = context.metadata or {}
+
+        pending_state = {}
+
+        if conversation_data.get("pending_cross_device_lookup") or metadata.get(
+            "pending_cross_device_lookup"
+        ):
+            pending_state["pending_cross_device_lookup"] = True
+
+        return pending_state if pending_state else None
 
     def build_resolution_system_prompt(
         self,

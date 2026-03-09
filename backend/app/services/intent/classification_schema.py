@@ -62,6 +62,10 @@ class ExtractedEntities(BaseModel):
         None,
         description="Anaphoric reference to previously shown product (e.g., 'that one', 'first', 'it')",
     )
+    order_number: Optional[str] = Field(
+        None,
+        description="Order number for tracking (e.g., '#1003', 'ORD-123', '1003')",
+    )
     constraints: dict[str, Any] = Field(default_factory=dict, description="Additional constraints")
 
     class Config:

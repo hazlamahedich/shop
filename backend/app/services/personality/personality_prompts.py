@@ -107,12 +107,14 @@ def get_personality_system_prompt(
     bot_name: Optional[str] = None,
     product_context: Optional[str] = None,
     order_context: Optional[str] = None,
+    pending_state: Optional[dict] = None,
 ) -> str:
     """Get system prompt based on merchant's personality type.
 
     Story 1.12: Added bot_name parameter for bot naming integration.
     Added product_context for Shopify product/category awareness.
     Added order_context for order tracking capabilities.
+    Added pending_state for conversation state awareness (order lookup flow).
 
     Args:
         personality: Merchant's selected personality type
@@ -123,6 +125,7 @@ def get_personality_system_prompt(
         bot_name: Optional custom bot name (Story 1.12)
         product_context: Optional product context (categories, pinned products)
         order_context: Optional order context (recent orders, tracking info)
+        pending_state: Optional pending state context (e.g., waiting for email)
 
     Returns:
         System prompt string with personality-appropriate tone
@@ -162,6 +165,19 @@ def get_personality_system_prompt(
     if order_context and order_context.strip():
         full_prompt += "ORDER TRACKING:\n" + order_context + "\n\n"
 
+    if pending_state:
+        pending_context_parts = []
+        if pending_state.get("pending_cross_device_lookup"):
+            pending_context_parts.append(
+                "IMPORTANT - ONGOING ORDER LOOKUP:\n"
+                "You are in the middle of helping the customer check their order status. "
+                "You previously asked for their email address or order number. "
+                "If they provide an email or order number, acknowledge it and help them with their order. "
+                "Do NOT ask about budgets, products, or other topics - stay focused on the order lookup."
+            )
+        if pending_context_parts:
+            full_prompt += "CONVERSATION STATE:\n" + "\n".join(pending_context_parts) + "\n\n"
+
     full_prompt += f"COMMUNICATION STYLE:\n{personality_prompt}"
 
     return full_prompt
@@ -190,6 +206,7 @@ class PersonalityPromptService:
         bot_name: Optional[str] = None,
         product_context: Optional[str] = None,
         order_context: Optional[str] = None,
+        pending_state: Optional[dict] = None,
     ) -> str:
         """Get system prompt for the given personality.
 
@@ -202,6 +219,7 @@ class PersonalityPromptService:
             bot_name: Optional custom bot name (Story 1.12)
             product_context: Optional product context (categories, pinned products)
             order_context: Optional order context (recent orders, tracking info)
+            pending_state: Optional pending state context (e.g., waiting for email)
 
         Returns:
             System prompt string with personality-appropriate tone
@@ -215,6 +233,7 @@ class PersonalityPromptService:
             bot_name,
             product_context,
             order_context,
+            pending_state,
         )
 
     def get_prompt_description(self, personality: PersonalityType) -> str:

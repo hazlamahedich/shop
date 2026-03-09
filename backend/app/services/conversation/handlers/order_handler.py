@@ -34,6 +34,19 @@ logger = structlog.get_logger(__name__)
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 PENDING_CROSS_DEVICE_KEY = "pending_cross_device_lookup"
 
+COMMON_DOMAIN_TYPOS = {
+    "gmial": "gmail",
+    "gmal": "gmail",
+    "gamil": "gmail",
+    "gamial": "gmail",
+    "hotmal": "hotmail",
+    "hotmai": "hotmail",
+    "yaho": "yahoo",
+    "yaoo": "yahoo",
+    "outloo": "outlook",
+    "outlok": "outlook",
+}
+
 
 class OrderHandler(BaseHandler):
     """Handler for ORDER_TRACKING intent.
@@ -85,19 +98,31 @@ class OrderHandler(BaseHandler):
         )
 
         if pending_lookup and not order_number:
-            email_match = EMAIL_PATTERN.match(message.strip())
-            if email_match:
+            normalized_email = self._normalize_email(message)
+            if normalized_email:
                 return await self._handle_cross_device_email_lookup(
                     db=db,
                     merchant=merchant,
                     customer_service=customer_service,
                     tracking_service=tracking_service,
-                    email=message.strip(),
+                    email=normalized_email,
                     context=context,
                 )
 
             if self._looks_like_order_number(message):
                 order_number = message.strip()
+
+            if not order_number:
+                email_from_history = self._extract_email_from_history(context)
+                if email_from_history:
+                    return await self._handle_cross_device_email_lookup(
+                        db=db,
+                        merchant=merchant,
+                        customer_service=customer_service,
+                        tracking_service=tracking_service,
+                        email=email_from_history,
+                        context=context,
+                    )
 
         if order_number:
             result = await tracking_service.track_order_by_number(
@@ -337,6 +362,83 @@ class OrderHandler(BaseHandler):
         if len(cleaned) < 4 or len(cleaned) > 20:
             return False
         return bool(re.match(r"^[A-Za-z0-9\-]+$", cleaned))
+
+    def _normalize_email(self, message: str) -> Optional[str]:
+        """Normalize and correct common email typos.
+
+        Handles common mistakes like:
+        - Comma instead of period (gmail,com -> gmail.com)
+        - Double dots (gmail..com -> gmail.com)
+        - Common domain typos (gmial -> gmail)
+
+        Args:
+            message: Raw message that might be an email
+
+        Returns:
+            Normalized email if valid, None otherwise
+        """
+        email = message.strip().lower()
+
+        while ".." in email:
+            email = email.replace("..", ".")
+
+        email = email.replace(",", ".")
+
+        if "@" not in email:
+            return None
+
+        parts = email.split("@")
+        if len(parts) != 2:
+            return None
+
+        local, domain = parts
+
+        domain_parts = domain.split(".")
+        if len(domain_parts) < 2:
+            return None
+
+        domain_name = domain_parts[0]
+        if domain_name in self._get_domain_typos():
+            domain_parts[0] = self._get_domain_typos()[domain_name]
+            domain = ".".join(domain_parts)
+
+        normalized = f"{local}@{domain}"
+
+        if EMAIL_PATTERN.match(normalized):
+            return normalized
+
+        return None
+
+    def _get_domain_typos(self) -> dict[str, str]:
+        """Get common domain typo corrections."""
+        return COMMON_DOMAIN_TYPOS
+
+    def _extract_email_from_history(self, context: ConversationContext) -> Optional[str]:
+        """Scan conversation history for previously provided email.
+
+        Looks through recent messages for any valid email that was provided
+        but may not have been processed correctly (e.g., due to typos).
+
+        Args:
+            context: Conversation context with message history
+
+        Returns:
+            First valid email found in history, None otherwise
+        """
+        history = context.conversation_history or []
+
+        for msg in reversed(history[-5:]):
+            if msg.get("role") == "user":
+                content = msg.get("content", "")
+                normalized = self._normalize_email(content)
+                if normalized:
+                    logger.info(
+                        "email_extracted_from_history",
+                        email=normalized,
+                    )
+                    return normalized
+
+        return None
 
     async def _fetch_product_images(
         self,
