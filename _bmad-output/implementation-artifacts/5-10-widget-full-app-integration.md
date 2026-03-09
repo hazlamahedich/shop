@@ -2,6 +2,77 @@
 
 Status: ✅ **COMPLETE**
 
+## Recent Fixes (2026-03-09)
+
+### Widget Message Persistence Fix
+
+**Status:** ✅ **FIXED** (2026-03-09)
+
+Fixed bot responses not persisting in the widget after page refresh.
+
+**Description:** When users refreshed the page, some bot responses were not shown when reopening the widget. This affected:
+- Bot responses sent before page refresh
+- Cart confirmation messages (add/remove from cart)
+- Checkout messages
+- Greeting messages
+- WebSocket-delivered merchant messages
+- Handoff resolution messages
+
+**Root Causes:**
+
+| Issue | Location | Description |
+|-------|----------|-------------|
+| **Race condition** | `sendMessage()` line 372 | `state.messages` was stale when `cacheMessages()` was called due to async state updates |
+| **Missing cache calls** | `addToCart()`, `checkout()`, greeting useEffect, WebSocket handlers | These message additions never called `cacheMessages()` |
+| **Stale closure** | `removeFromCart()` line 495 | Used `state.messages` which was stale |
+
+**Fix:** Replaced manual `cacheMessages()` calls with automatic synchronization via `useEffect`:
+
+```typescript
+const lastCachedLengthRef = React.useRef<number>(0);
+
+React.useEffect(() => {
+  if (!state.session?.sessionId || state.messages.length === 0) {
+    return;
+  }
+
+  if (state.messages.length !== lastCachedLengthRef.current) {
+    lastCachedLengthRef.current = state.messages.length;
+    cacheMessages(state.session.sessionId, state.messages as CachedMessage[]);
+  }
+}, [state.messages, state.session?.sessionId]);
+```
+
+**Benefits:**
+
+| Before | After |
+|--------|-------|
+| Manual `cacheMessages()` calls in 6+ locations | Automatic sync in 1 useEffect |
+| Race conditions with stale state | No race conditions |
+| Future message types need manual caching | Future message types auto-cached |
+| Easy to forget caching | Impossible to forget |
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `frontend/src/widget/context/WidgetContext.tsx` | Added `lastCachedLengthRef` + auto-sync useEffect; removed manual `cacheMessages()` calls from `sendMessage()` and `removeFromCart()` |
+
+**Verification:**
+
+| Test Case | Result |
+|-----------|--------|
+| Send message → refresh → reopen | ✅ Message appears |
+| Rapid messages → refresh → reopen | ✅ All messages appear |
+| Add to cart → refresh → reopen | ✅ Cart confirmation appears |
+| Remove from cart → refresh → reopen | ✅ Removal confirmation appears |
+| Checkout → refresh → reopen | ✅ Checkout message appears |
+| Greeting message → refresh → reopen | ✅ Greeting appears |
+
+**Lesson Learned:** When caching derived state, prefer automatic synchronization via `useEffect` over manual calls. This prevents race conditions and ensures all message types (current and future) are cached correctly.
+
+---
+
 ## Recent Fixes (2026-02-24)
 
 ### Handoff Wait Time Calculation Fix

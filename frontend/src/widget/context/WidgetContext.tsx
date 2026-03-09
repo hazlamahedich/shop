@@ -14,6 +14,7 @@ import {
   clearMessageCache,
   saveWidgetPosition,
   loadWidgetPosition,
+  isValidSessionId,
   type CachedMessage,
   type WidgetPosition,
 } from '../utils/storage';
@@ -151,6 +152,18 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   const lastActionRef = React.useRef<{ type: string; payload?: unknown } | null>(null);
   const greetingShownRef = React.useRef(false);
   const consentPromptShownRef = React.useRef(false);
+  const lastCachedLengthRef = React.useRef<number>(0);
+
+  React.useEffect(() => {
+    if (!state.session?.sessionId || state.messages.length === 0) {
+      return;
+    }
+
+    if (state.messages.length !== lastCachedLengthRef.current) {
+      lastCachedLengthRef.current = state.messages.length;
+      cacheMessages(state.session.sessionId, state.messages as CachedMessage[]);
+    }
+  }, [state.messages, state.session?.sessionId]);
 
   const addError = React.useCallback(
     (error: unknown, context?: { action?: string; fallbackUrl?: string }) => {
@@ -206,7 +219,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       const visitorId = getOrCreateVisitorId();
 
       const sessionId = safeStorage.get(SESSION_KEY);
-      if (sessionId) {
+      
+      // Validate session ID format before attempting to use it
+      if (sessionId && isValidSessionId(sessionId)) {
         const session = await getSession(sessionId)
         if (session) {
           dispatch({ type: 'SET_SESSION', payload: session })
@@ -300,7 +315,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const recordConsent = React.useCallback(
     async (consented: boolean) => {
-      if (!state.session?.sessionId) return;
+      if (!state.session?.sessionId || !isValidSessionId(state.session.sessionId)) return;
 
       try {
         const { widgetClient } = await import('../api/widgetClient');
@@ -323,7 +338,22 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
   const sendMessage = React.useCallback(
     async (content: string) => {
-      if (!state.session || !content.trim()) return;
+      if (!content.trim()) return;
+
+      // Validate session exists and has valid UUID format
+      if (!state.session?.sessionId || !isValidSessionId(state.session.sessionId)) {
+        // Clear invalid session from storage
+        safeStorage.remove(SESSION_KEY);
+        
+        // Create new session
+        const visitorId = getVisitorId() || undefined;
+        const newSession = await createSession(visitorId);
+        dispatch({ type: 'SET_SESSION', payload: newSession });
+        safeStorage.set(SESSION_KEY, newSession.sessionId);
+        
+        // Use new session ID
+        state.session = newSession;
+      }
 
       lastActionRef.current = { type: 'sendMessage', payload: content };
 
@@ -338,7 +368,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
       try {
         const { widgetClient } = await import('../api/widgetClient');
-        const botMessage = await widgetClient.sendMessage(state.session.sessionId, content);
+        const botMessage = await widgetClient.sendMessage(state.session!.sessionId, content);
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
         if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
@@ -349,17 +379,13 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         if (shopifyCartClient.isOnShopify() && botMessage.cart) {
           syncCartToShopify(botMessage.cart);
         }
-        
-        // Cache messages after successful send
-        const allMessages = [...state.messages, userMessage, botMessage];
-        cacheMessages(state.session.sessionId, allMessages as CachedMessage[]);
       } catch (error) {
         addError(error, { action: 'Try Again' });
       } finally {
         dispatch({ type: 'SET_TYPING', payload: false });
       }
     },
-    [state.session, state.messages, addError]
+    [state.session, addError]
   );
 
   const syncCartToShopify = React.useCallback(
@@ -397,7 +423,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         
         let sessionId = state.session?.sessionId;
         
-        if (!sessionId) {
+        // Validate session ID format
+        if (!sessionId || !isValidSessionId(sessionId)) {
+          safeStorage.remove(SESSION_KEY);
           const visitorId = getVisitorId() || undefined;
           const newSession = await createSession(visitorId);
           dispatch({ type: 'SET_SESSION', payload: newSession });
@@ -443,7 +471,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
         
         let sessionId = state.session?.sessionId;
         
-        if (!sessionId) {
+        // Validate session ID format
+        if (!sessionId || !isValidSessionId(sessionId)) {
+          safeStorage.remove(SESSION_KEY);
           const visitorId = getVisitorId() || undefined;
           const newSession = await createSession(visitorId);
           dispatch({ type: 'SET_SESSION', payload: newSession });
@@ -469,9 +499,6 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
           cart: updatedCart,
         };
         dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
-
-        const allMessages = [...state.messages, confirmationMessage];
-        cacheMessages(sessionId, allMessages as CachedMessage[]);
 
         if (shopifyCartClient.isOnShopify()) {
           try {
@@ -628,7 +655,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   }, [initWidget, sendMessage, addToCart, checkout]);
 
   const endSession = React.useCallback(async () => {
-    if (state.session) {
+    if (state.session?.sessionId && isValidSessionId(state.session.sessionId)) {
       try {
         await endWidgetSession(state.session.sessionId);
       } catch {
@@ -641,7 +668,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   }, [state.session, endWidgetSession]);
 
   const forgetPreferences = React.useCallback(async () => {
-    if (!state.session?.sessionId) return;
+    if (!state.session?.sessionId || !isValidSessionId(state.session.sessionId)) return;
 
     try {
       const { widgetClient } = await import('../api/widgetClient');
@@ -664,7 +691,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   }, [state.session, addError]);
 
   const clearHistory = React.useCallback(async () => {
-    if (!state.session?.sessionId) return;
+    if (!state.session?.sessionId || !isValidSessionId(state.session.sessionId)) return;
 
     try {
       const { widgetClient } = await import('../api/widgetClient');
