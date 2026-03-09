@@ -420,12 +420,14 @@ async def handle_fulfillment_event(payload: dict, shop_domain: str, log, topic: 
     order_id = payload.get("order_id")
     tracking_number = payload.get("tracking_number")
     tracking_url = payload.get("tracking_url")
+    tracking_company = payload.get("tracking_company")
 
     log.info(
         "shopify_fulfillment_event",
         fulfillment_id=fulfillment_id,
         order_id=order_id,
         tracking_number=tracking_number,
+        tracking_company=tracking_company,
         topic=topic,
     )
 
@@ -465,6 +467,7 @@ async def handle_fulfillment_event(payload: dict, shop_domain: str, log, topic: 
             if order:
                 order.tracking_number = tracking_number
                 order.tracking_url = tracking_url
+                order.tracking_company = tracking_company
                 if tracking_number:
                     order.status = "shipped"
                     order.fulfillment_status = "fulfilled"
@@ -476,6 +479,7 @@ async def handle_fulfillment_event(payload: dict, shop_domain: str, log, topic: 
                     order_number=order.order_number,
                     tracking_number=tracking_number,
                     tracking_url=tracking_url,
+                    tracking_company=tracking_company,
                 )
             else:
                 log.warning(

@@ -8,6 +8,7 @@ import Costs from '../pages/Costs';
 import Settings from '../pages/Settings';
 import WidgetSettings from '../pages/WidgetSettings';
 import { ProviderSettings } from '../pages/ProviderSettings';
+import ShippingCarriers from '../pages/ShippingCarriers';
 import PersonalityConfig from '../pages/PersonalityConfig';
 import Onboarding from '../pages/Onboarding';
 import OnboardingSuccess from '../pages/OnboardingSuccess';
@@ -54,6 +55,7 @@ export function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/widget" element={<WidgetSettings />} />
         <Route path="/settings/provider" element={<ProviderSettings />} />
+        <Route path="/settings/shipping" element={<ShippingCarriers />} />
         <Route path="/personality" element={<PersonalityConfig />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/onboarding/success" element={<OnboardingSuccess />} />

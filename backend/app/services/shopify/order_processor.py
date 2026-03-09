@@ -142,6 +142,7 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
     tracking_number = tracking_numbers[0] if tracking_numbers else payload.get("tracking_number")
 
     tracking_url = payload.get("tracking_url")
+    tracking_company = payload.get("tracking_company")
 
     fulfillments = payload.get("fulfillments", [])
     if not tracking_number and fulfillments:
@@ -149,6 +150,17 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
             fulfillment_tracking = fulfillment.get("tracking_number")
             if fulfillment_tracking:
                 tracking_number = fulfillment_tracking
+                tracking_url = fulfillment.get("tracking_url") or fulfillment.get(
+                    "tracking_company_url"
+                )
+                company = fulfillment.get("tracking_company")
+                if company and not tracking_company:
+                    tracking_company = company
+                break
+
+    if not tracking_url and tracking_number:
+        for fulfillment in fulfillments:
+            if fulfillment.get("tracking_number") == tracking_number:
                 tracking_url = fulfillment.get("tracking_url") or fulfillment.get(
                     "tracking_company_url"
                 )

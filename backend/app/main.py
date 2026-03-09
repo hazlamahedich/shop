@@ -30,6 +30,7 @@ from app.api.integrations import router as integrations_router
 from app.api.data_deletion import router as data_deletion_router
 from app.api.merchant import router as merchant_router
 from app.api.business_info import router as business_info_router
+from app.api.carriers import router as carriers_router
 from app.api.bot_config import router as bot_config_router
 from app.api.product_pins import router as product_pins_router
 from app.api.faqs import router as faqs_router
@@ -460,6 +461,8 @@ app.include_router(data_export_router, prefix="/api/v1", tags=["data-export"])
 app.include_router(consent_router, prefix="/api/v1/consent", tags=["consent"])
 app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(search_router, prefix="/api/v1", tags=["search"])
+# Epic 6: Carrier Configuration API
+app.include_router(carriers_router, tags=["carriers"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])

@@ -112,6 +112,11 @@ class Order(Base):
         String(500),
         nullable=True,
     )
+    tracking_company: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Carrier/shipping company name from Shopify (Epic 6)",
+    )
     estimated_delivery: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,

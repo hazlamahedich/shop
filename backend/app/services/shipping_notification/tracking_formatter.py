@@ -2,20 +2,29 @@
 
 Story 4-3 AC5: Tracking link formatting
 Story 5-12: Bot Personality Consistency - Task 3.3
+Story 6.2: International carrier support
 
 Detects carriers from tracking number format and generates tracking URLs.
+Supports 290+ international carriers with priority-based detection.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import structlog
 
 from app.models.merchant import PersonalityType
+from app.services.carrier.carrier_patterns import detect_carrier_by_pattern
+from app.services.carrier.shopify_carriers import get_shopify_carrier_url
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models.order import Order
 
 logger = structlog.get_logger(__name__)
 
@@ -113,17 +122,20 @@ class TrackingFormatter:
         tracking_number: Optional[str],
         tracking_url: Optional[str] = None,
         personality: PersonalityType = PersonalityType.FRIENDLY,
+        tracking_company: Optional[str] = None,
     ) -> str:
         """Format the tracking portion of the shipping notification.
 
         AC5: Include tracking number link to carrier website
         Story 5-12: Uses PersonalityAwareResponseFormatter for personality-based messages.
+        Story 6.2: Supports tracking_company for better carrier detection.
 
         Args:
             order_number: The order number for display
             tracking_number: The tracking number
             tracking_url: Optional tracking URL (takes precedence)
             personality: Merchant's personality type for message formatting
+            tracking_company: Optional carrier name from webhook
 
         Returns:
             Formatted message string
@@ -142,9 +154,17 @@ class TrackingFormatter:
                 tracking_info="Tracking information not yet available",
             )
 
-        carrier_info = TrackingFormatter.detect_carrier(tracking_number)
-        tracking_link = tracking_url or (carrier_info.tracking_url if carrier_info else None)
-        carrier_name = carrier_info.name if carrier_info else None
+        tracking_link = TrackingFormatter.get_tracking_link(
+            tracking_number,
+            tracking_url,
+            tracking_company,
+        )
+
+        if tracking_company:
+            carrier_name = tracking_company
+        else:
+            carrier_info = TrackingFormatter.detect_carrier(tracking_number)
+            carrier_name = carrier_info.name if carrier_info else None
 
         if tracking_link:
             tracking_info = (
@@ -165,12 +185,19 @@ class TrackingFormatter:
     def get_tracking_link(
         tracking_number: str,
         tracking_url: Optional[str] = None,
+        tracking_company: Optional[str] = None,
     ) -> Optional[str]:
         """Get the tracking URL for a tracking number.
+
+        Priority order:
+        1. tracking_url parameter (from webhook)
+        2. Shopify carrier mapping (if tracking_company provided)
+        3. Pattern detection (290+ carriers)
 
         Args:
             tracking_number: The tracking number
             tracking_url: Optional tracking URL (takes precedence)
+            tracking_company: Optional carrier name from webhook
 
         Returns:
             Tracking URL or None if cannot determine
@@ -178,8 +205,117 @@ class TrackingFormatter:
         if tracking_url:
             return tracking_url
 
+        if tracking_company:
+            shopify_url = get_shopify_carrier_url(tracking_company, tracking_number)
+            if shopify_url:
+                return shopify_url
+
+        detected = detect_carrier_by_pattern(tracking_number)
+        if detected:
+            return detected.url_template.format(tracking_number=tracking_number)
+
         carrier_info = TrackingFormatter.detect_carrier(tracking_number)
         if carrier_info:
             return carrier_info.tracking_url
 
+        return None
+
+    @staticmethod
+    async def get_tracking_link_with_custom_carriers(
+        db: AsyncSession,
+        order: Order,
+    ) -> Optional[str]:
+        """Get tracking URL with support for merchant's custom carriers.
+
+        Priority order:
+        1. tracking_url from webhook (if set on order)
+        2. Merchant's custom carrier config (from database)
+        3. Shopify carrier mapping (if tracking_company provided)
+        4. Pattern detection (290+ carriers)
+        5. Fallback: None (no link)
+
+        Args:
+            db: Database session for querying custom carrier configs
+            order: Order with tracking information
+
+        Returns:
+            Tracking URL or None if cannot determine
+        """
+        if not order.tracking_number:
+            return None
+
+        if order.tracking_url:
+            logger.debug(
+                "Using webhook tracking_url",
+                order_number=order.order_number,
+            )
+            return order.tracking_url
+
+        from sqlalchemy import select
+
+        from app.models.carrier_config import CarrierConfig
+
+        if order.merchant_id:
+            result = await db.execute(
+                select(CarrierConfig)
+                .where(
+                    CarrierConfig.merchant_id == order.merchant_id,
+                    CarrierConfig.is_active == True,
+                )
+                .order_by(CarrierConfig.priority.desc()),
+            )
+            custom_carriers = result.scalars().all()
+
+            for carrier in custom_carriers:
+                if carrier.tracking_number_pattern:
+                    try:
+                        pattern = re.compile(
+                            carrier.tracking_number_pattern,
+                            re.IGNORECASE,
+                        )
+                        if pattern.match(order.tracking_number):
+                            logger.debug(
+                                "Using custom carrier URL",
+                                order_number=order.order_number,
+                                carrier_name=carrier.carrier_name,
+                            )
+                            return carrier.tracking_url_template.format(
+                                tracking_number=order.tracking_number,
+                            )
+                    except re.error:
+                        logger.warning(
+                            "Invalid regex pattern for custom carrier",
+                            carrier_id=carrier.id,
+                            pattern=carrier.tracking_number_pattern,
+                        )
+                        continue
+
+        if order.tracking_company:
+            shopify_url = get_shopify_carrier_url(
+                order.tracking_company,
+                order.tracking_number,
+            )
+            if shopify_url:
+                logger.debug(
+                    "Using Shopify carrier URL",
+                    order_number=order.order_number,
+                    carrier_name=order.tracking_company,
+                )
+                return shopify_url
+
+        detected = detect_carrier_by_pattern(order.tracking_number)
+        if detected:
+            logger.debug(
+                "Detected carrier via pattern",
+                order_number=order.order_number,
+                carrier_name=detected.name,
+            )
+            return detected.url_template.format(
+                tracking_number=order.tracking_number,
+            )
+
+        logger.debug(
+            "No carrier detected",
+            order_number=order.order_number,
+        )
         return None

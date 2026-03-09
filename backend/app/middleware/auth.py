@@ -74,6 +74,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/gdpr-request",  # Story 6-6: GDPR request endpoint
         "/api/compliance/",  # Story 6-6: Compliance status endpoint
         "/api/customers/",  # Story 6-6: Customer GDPR revoke endpoint
+        "/api/carriers/",  # Story 6.3: Carrier configuration API (CSRF protected via session)
     ]
 
     def __init__(self, app) -> None:

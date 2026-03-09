@@ -1,7 +1,7 @@
 """Merchant ORM model - Personality Type Fix."""
 
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, TYPE_CHECKING
 from enum import Enum
 
 from sqlalchemy import String, Integer, DateTime, Text, Boolean
@@ -9,6 +9,18 @@ from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.carrier_config import CarrierConfig
+    from app.models.llm_configuration import LLMConfiguration
+    from app.models.tutorial import Tutorial
+    from app.models.faq import Faq
+    from app.models.product_pin import ProductPin, ProductPinAnalytics
+    from app.models.budget_alert import BudgetAlert
+    from app.models.handoff_alert import HandoffAlert
+    from app.models.order import Order
+    from app.models.customer_profile import CustomerProfile
+    from app.models.dispute import Dispute
 
 
 class PersonalityType(str, Enum):
@@ -197,6 +209,12 @@ class Merchant(Base):
         cascade="all, delete-orphan",
         order_by="Dispute.created_at.desc()",
     )
+    carrier_configs: Mapped[list["CarrierConfig"]] = relationship(
+        "CarrierConfig",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="CarrierConfig.priority.desc()",
+    )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(
         String(100),
@@ -208,13 +226,13 @@ class Merchant(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 

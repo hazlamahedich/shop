@@ -193,65 +193,82 @@ async def get_conversation_history(
     Raises:
         APIError: If authentication fails or conversation not found
     """
-    merchant_id = getattr(request.state, "merchant_id", None)
-    if not merchant_id:
-        if settings()["DEBUG"]:
-            merchant_id_header = request.headers.get("X-Merchant-Id")
-            if merchant_id_header:
-                merchant_id = int(merchant_id_header)
+    try:
+        merchant_id = getattr(request.state, "merchant_id", None)
+        if not merchant_id:
+            if settings()["DEBUG"]:
+                merchant_id_header = request.headers.get("X-Merchant-Id")
+                if merchant_id_header:
+                    merchant_id = int(merchant_id_header)
+                else:
+                    merchant_id = 1
             else:
-                merchant_id = 1
-        else:
-            raise APIError(
-                ErrorCode.AUTH_FAILED,
-                "Authentication required",
-            )
+                raise APIError(
+                    ErrorCode.AUTH_FAILED,
+                    "Authentication required",
+                )
 
-    history_data = await conversation_service.get_conversation_history(
-        db=db,
-        conversation_id=conversation_id,
-        merchant_id=merchant_id,
-    )
-
-    if not history_data:
-        raise APIError(
-            ErrorCode.CONVERSATION_NOT_FOUND,
-            "Conversation not found or access denied",
+        history_data = await conversation_service.get_conversation_history(
+            db=db,
+            conversation_id=conversation_id,
+            merchant_id=merchant_id,
         )
 
-    context = ConversationContext(
-        cart_state=history_data["context"]["cart_state"],
-        extracted_constraints=history_data["context"]["extracted_constraints"],
-    )
+        if not history_data:
+            raise APIError(
+                ErrorCode.CONVERSATION_NOT_FOUND,
+                "Conversation not found or access denied",
+            )
 
-    handoff = HandoffContext(
-        trigger_reason=history_data["handoff"]["trigger_reason"],
-        triggered_at=history_data["handoff"]["triggered_at"],
-        urgency_level=history_data["handoff"]["urgency_level"],
-        wait_time_seconds=history_data["handoff"]["wait_time_seconds"],
-    )
+        context = ConversationContext(
+            cart_state=history_data["context"]["cart_state"],
+            extracted_constraints=history_data["context"]["extracted_constraints"],
+        )
 
-    customer = CustomerInfo(
-        masked_id=history_data["customer"]["masked_id"],
-        order_count=history_data["customer"]["order_count"],
-    )
+        handoff = HandoffContext(
+            trigger_reason=history_data["handoff"]["trigger_reason"],
+            triggered_at=history_data["handoff"]["triggered_at"],
+            urgency_level=history_data["handoff"]["urgency_level"],
+            wait_time_seconds=history_data["handoff"]["wait_time_seconds"],
+        )
 
-    data = ConversationHistoryData(
-        conversation_id=history_data["conversation_id"],
-        platform_sender_id=history_data["platform_sender_id"],
-        platform=history_data["platform"],
-        messages=history_data["messages"],
-        context=context,
-        handoff=handoff,
-        customer=customer,
-    )
+        customer = CustomerInfo(
+            masked_id=history_data["customer"]["masked_id"],
+            order_count=history_data["customer"]["order_count"],
+        )
 
-    meta = ConversationHistoryMeta(
-        request_id=str(uuid4()),
-        timestamp=datetime.now(UTC).isoformat(),
-    )
+        data = ConversationHistoryData(
+            conversation_id=history_data["conversation_id"],
+            platform_sender_id=history_data["platform_sender_id"],
+            platform=history_data["platform"],
+            messages=history_data["messages"],
+            context=context,
+            handoff=handoff,
+            customer=customer,
+        )
 
-    return ConversationHistoryResponse(data=data, meta=meta)
+        meta = ConversationHistoryMeta(
+            request_id=str(uuid4()),
+            timestamp=datetime.now(UTC).isoformat(),
+        )
+
+        return ConversationHistoryResponse(data=data, meta=meta)
+    except APIError:
+        # Re-raise APIError as-is
+        raise
+    except Exception as e:
+        # Log the actual error for debugging
+        import structlog
+
+        logger = structlog.get_logger()
+        logger.exception(
+            "conversation_history_error",
+            conversation_id=conversation_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        # Re-raise to let global handler deal with it
+        raise
 
 
 @router.patch(
