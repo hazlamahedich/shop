@@ -216,6 +216,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       const config = await widgetClient.getConfig(merchantId);
       dispatch({ type: 'SET_CONFIG', payload: config });
 
+      // Register the shop domain so isOnShopify() correctly detects custom-domain stores
+      shopifyCartClient.setShopDomain(config.shopDomain);
+
       const visitorId = getOrCreateVisitorId();
 
       const sessionId = safeStorage.get(SESSION_KEY);

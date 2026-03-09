@@ -25,6 +25,17 @@ export interface ShopifyCart {
   currency: string;
 }
 
+let configuredShopDomain: string | null = null;
+
+/**
+ * Register the merchant's shop domain from the widget config.
+ * Call this once after getConfig() returns so isOnShopify() can also
+ * match stores that use a custom domain and don't expose window.Shopify.
+ */
+export function setShopDomain(domain: string | null | undefined): void {
+  configuredShopDomain = domain ?? null;
+}
+
 interface ShopifyWindow extends Window {
   Shopify?: {
     shop?: string;
@@ -41,7 +52,16 @@ interface ShopifyWindow extends Window {
 export function isOnShopify(): boolean {
   const hostname = window.location.hostname;
   const shopifyWindow = window as ShopifyWindow;
-  
+
+  // Match when the current hostname equals the merchant's configured shop domain.
+  // This covers custom-domain stores where window.Shopify is not defined.
+  if (configuredShopDomain) {
+    const domain = configuredShopDomain.toLowerCase().replace(/^https?:\/\//, '');
+    if (hostname === domain || hostname.endsWith('.' + domain)) {
+      return true;
+    }
+  }
+
   return (
     hostname.includes('myshopify.com') ||
     shopifyWindow.Shopify?.routes?.root !== undefined ||
@@ -298,6 +318,7 @@ export function subscribeToCartEvents(callback: (cart: ShopifyCart) => void): ()
 
 export const shopifyCartClient = {
   isOnShopify,
+  setShopDomain,
   addToCart,
   removeFromCart,
   updateQuantity,
