@@ -142,6 +142,47 @@ CREATE INDEX idx_carrier_configs_active ON carrier_configs(merchant_id, is_activ
 
 ```
 
+## Code Review & Security Fixes (2026-03-09)
+
+### 🔴 Critical Issues Fixed
+1. **Missing Database Relationship** - Added `Merchant.carrier_configs` relationship
+2. **SQL Injection Risk (ReDoS)** - Added regex pattern validation to prevent dangerous nesting
+3. **XSS Vulnerability** - Added URL protocol whitelist (http/https only)
+4. **Failing Tests** - Fixed all 15 failing tests (63/63 now passing)
+
+### 🟡 High Priority Fixes
+5. **Priority System Inconsistency** - Fixed frontend text to match backend sorting
+6. **Missing Error Handling** - Added try/except blocks to all API endpoints
+7. **Performance** - Added pattern caching to avoid re-sorting on every request
+8. **Datetime Deprecation** - Updated to `datetime.now(timezone.utc)`
+
+### 🟢 Medium Priority Fixes
+9. **Frontend Validation** - Added null safety checks in components
+10. **Loading States** - Improved loading state handling in UI
+11. **User Guidance** - Added helpful tips for tracking number format and URL template
+
+### Test Results After Fixes
+```bash
+# All tests passing
+test_carrier_patterns.py: 40 passed ✅
+test_carrier_service.py: 23 passed ✅
+Total: 63/63 passing (was 48/63 with 15 failures)
+```
+
+### Security Improvements
+- **URL Validation:** Only allows http:// and https:// protocols
+- **Regex Validation:** Blocks dangerous patterns that could cause ReDoS
+- **Input Length Limits:** Maximum 150 characters for regex patterns
+- **Error Handling:** Proper rollback on database errors
+
+### UI Improvements
+- Added helpful guidance boxes in AddCarrierModal:
+  - Tracking number format examples
+  - URL template instructions
+  - Regex pattern tips
+- Better loading states and error messages
+- Fixed "0 carriers in 0 regions" bug
+
 ## Known Issues & Future Improvements
 1. **Pattern Conflicts:** Some tracking numbers match multiple carriers (e.g., 12-digit numbers). The priority system resolves this, but merchants should be aware of potential conflicts.
 
