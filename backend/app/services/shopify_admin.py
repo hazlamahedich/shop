@@ -219,11 +219,15 @@ class ShopifyAdminClient(ShopifyBaseClient):
         except Exception as e:
             raise APIError(ErrorCode.SHOPIFY_API_ERROR, f"Failed to verify shop access: {str(e)}")
 
-    async def list_products(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def list_products(
+        self, limit: int = 100, status_filter: str | None = "active"
+    ) -> List[Dict[str, Any]]:
         """List products via Admin REST API.
 
         Args:
             limit: Maximum number of products to fetch
+            status_filter: Product status to filter by. Defaults to "active".
+                          Pass None to include all statuses (draft, archived, etc).
 
         Returns:
             List of product dictionaries
@@ -252,6 +256,9 @@ class ShopifyAdminClient(ShopifyBaseClient):
 
             products = []
             for p in data.get("products", []):
+                if status_filter and p.get("status") != status_filter:
+                    continue
+
                 images = p.get("images", [])
                 variants = p.get("variants", [])
 
@@ -289,6 +296,7 @@ class ShopifyAdminClient(ShopifyBaseClient):
                         "variant_id": variant_id,
                         "vendor": p.get("vendor"),
                         "product_type": p.get("product_type"),
+                        "status": p.get("status", "active"),
                     }
                 )
 

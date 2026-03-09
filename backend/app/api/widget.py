@@ -795,14 +795,19 @@ async def widget_search(
     try:
         from app.services.shopify.product_service import fetch_products
 
-        products = await fetch_products(search_request.query, merchant.id, db)
+        products = await fetch_products("", merchant.id, db)
+
+        logger.info(
+            "widget_search_products_raw",
+            merchant_id=merchant.id,
+            product_count=len(products),
+            first_product_variant_id=products[0].get("variant_id") if products else None,
+        )
 
         product_summaries = [
             ProductSummary(
                 product_id=str(p.get("id", "")),
-                variant_id=(
-                    str(p.get("variants", [{}])[0].get("id", "")) if p.get("variants") else ""
-                ),
+                variant_id=str(p.get("variant_id", "") or ""),
                 title=p.get("title", ""),
                 price=float(p.get("price", 0) or 0),
                 currency=p.get("currency_code", "USD"),

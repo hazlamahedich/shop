@@ -27,6 +27,7 @@ type ProductPinItem = {
   isPinned: boolean;
   pinnedOrder?: number;
   pinnedAt?: string;
+  status?: string;
 };
 
 type PaginationMeta = {
@@ -170,7 +171,13 @@ export function ProductPinList() {
   }, []); // Empty deps - callback never changes
 
   // Toggle product pin
-  const handleTogglePin = async (productId: string, currentlyPinned: boolean) => {
+  const handleTogglePin = async (productId: string, currentlyPinned: boolean, status?: string) => {
+    // Prevent pinning draft products
+    if (status === 'draft') {
+      toast('Draft products cannot be pinned. Publish the product in Shopify first.', 'warning');
+      return;
+    }
+
     if (currentlyPinned) {
       try {
         await unpinProduct(productId);
@@ -300,7 +307,12 @@ export function ProductPinList() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {productPins.map((product) => (
+            {productPins.map((product) => {
+              // Debug: Log draft products
+              if (product.title?.toLowerCase().includes('draft')) {
+                console.log('Draft product data:', { productId: product.productId, title: product.title, status: product.status });
+              }
+              return (
               <div
                 key={product.productId}
                 className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all duration-200 relative"
@@ -309,15 +321,22 @@ export function ProductPinList() {
                 {/* Pin Toggle Button */}
                 <button
                   type="button"
-                  onClick={() => handleTogglePin(product.productId, product.isPinned)}
-                  disabled={productsLoading}
+                  onClick={() => handleTogglePin(product.productId, product.isPinned, product.status)}
+                  disabled={productsLoading || product.status === 'draft'}
                   className={`absolute top-3 right-3 p-2 rounded-full transition-colors duration-200 ${
-                    product.isPinned
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    product.status === 'draft'
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : product.isPinned
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  aria-label={`${product.isPinned ? 'Unpin' : 'Pin'} ${product.title || product.productId}`}
+                  aria-label={
+                    product.status === 'draft'
+                      ? 'Cannot pin draft products'
+                      : `${product.isPinned ? 'Unpin' : 'Pin'} ${product.title || product.productId}`
+                  }
                   aria-pressed={product.isPinned}
+                  title={product.status === 'draft' ? 'Draft products cannot be pinned. Publish the product in Shopify first.' : undefined}
                 >
                   <Pin size={20} />
                 </button>
@@ -339,14 +358,29 @@ export function ProductPinList() {
                     {product.title || product.productId}
                   </h3>
 
-                  {/* Pin Status Badge */}
-                  {product.isPinned && (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-full mt-2">
-                      <Pin size={12} />
-                      Pinned
-                      {product.pinnedOrder && ` #${product.pinnedOrder}`}
-                    </span>
-                  )}
+                  {/* Status Badges */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {/* Draft Status Badge */}
+                    {product.status === 'draft' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-300">
+                        Draft
+                      </span>
+                    )}
+                    {/* Archived Status Badge */}
+                    {product.status === 'archived' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded-full border border-gray-300">
+                        Archived
+                      </span>
+                    )}
+                    {/* Pin Status Badge */}
+                    {product.isPinned && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
+                        <Pin size={12} />
+                        Pinned
+                        {product.pinnedOrder && ` #${product.pinnedOrder}`}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Product ID (for reference) */}
                   <p className="text-xs text-gray-500 mt-2">
@@ -354,7 +388,8 @@ export function ProductPinList() {
                   </p>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
 
@@ -393,7 +428,7 @@ export function ProductPinList() {
       {/* Help Section */}
       <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
         <h3 className="text-lg font-semibold text-blue-900 mb-3">About Product Highlight Pins</h3>
-        <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
+        <div className="grid md:grid-cols-3 gap-6 text-sm text-blue-800">
           <div>
             <h4 className="font-medium mb-2">Pin Important Products</h4>
             <p className="text-blue-700">
@@ -406,6 +441,15 @@ export function ProductPinList() {
             <p className="text-blue-700">
               Products pinned earlier in the list appear first when the bot recommends items.
               Use the pin number to control priority.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-medium mb-2">Product Status</h4>
+            <p className="text-blue-700">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded border border-amber-300 mr-1">Draft</span>
+              and
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs font-medium rounded border border-gray-300 mx-1">Archived</span>
+              products are shown but cannot be purchased. Publish them in Shopify to make them available.
             </p>
           </div>
         </div>

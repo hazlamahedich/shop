@@ -73,16 +73,44 @@ async def pin_product(
             f"Maximum pinned products reached ({MAX_PINNED_PRODUCTS}). Unpin a product first.",
         )
 
-    # Fetch product details from Shopify to populate title and image
-    # NOTE: Shopify integration deferred (AC 6), using mock data
-    from app.services.shopify.product_service import MOCK_PRODUCTS
+    # Fetch product details from Shopify to check status and populate title/image
+    from app.services.shopify.product_service import fetch_products, MOCK_PRODUCTS
+    from app.models.merchant import Merchant
 
-    # Find product in mock data by ID
+    merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
+
+    # Get merchant's Shopify access token
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == merchant_id_int))
+    merchant = merchant_result.scalars().first()
+    shopify_access_token = None
+    if merchant and merchant.config:
+        shopify_access_token = merchant.config.get("shopify_access_token")
+
+    # Fetch product from Shopify (including drafts for validation)
+    all_products = await fetch_products(
+        shopify_access_token or "", merchant_id_int, db, status_filter=None
+    )
+
+    # Find the specific product
     product = None
-    for p in MOCK_PRODUCTS:
-        if p["id"] == product_id:
+    for p in all_products:
+        if str(p.get("id")) == str(product_id):
             product = p
             break
+
+    # Check if product is a draft
+    if product and product.get("status") == "draft":
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Draft products cannot be pinned. Publish the product in Shopify first.",
+        )
+
+    # Fallback to mock data if product not found in Shopify
+    if not product:
+        for p in MOCK_PRODUCTS:
+            if p["id"] == product_id:
+                product = p
+                break
 
     product_title = product["title"] if product else product_id
     product_image_url = product.get("image_url") if product else None
@@ -206,10 +234,12 @@ async def get_pinned_products(
     if merchant and merchant.config:
         shopify_access_token = merchant.config.get("shopify_access_token")
 
-    # Fetch all products from Shopify (mock data for now)
+    # Fetch all products from Shopify (including drafts for admin management)
     # NOTE: Shopify integration deferred per Story 1.15 AC 6
-    # Always use mock products for development/testing
-    all_products = await fetch_products(shopify_access_token or "", merchant_id_int, db)
+    # Pass status_filter=None to include draft/archived products
+    all_products = await fetch_products(
+        shopify_access_token or "", merchant_id_int, db, status_filter=None
+    )
 
     # Store original product count for pagination (before search filter)
     original_product_count = len(all_products)
@@ -241,6 +271,16 @@ async def get_pinned_products(
         is_pinned = product_id in pinned_map
         pin_data = pinned_map.get(product_id)
 
+        # Debug: Log draft products
+        if "draft" in product.get("title", "").lower():
+            logger.info(
+                "draft_product_debug",
+                product_id=product_id,
+                title=product.get("title"),
+                status=product.get("status"),
+                all_keys=list(product.keys()),
+            )
+
         merged_products.append(
             {
                 "product_id": product_id,
@@ -249,6 +289,7 @@ async def get_pinned_products(
                 "is_pinned": is_pinned,
                 "pinned_order": pin_data.pinned_order if is_pinned else None,
                 "pinned_at": pin_data.pinned_at.isoformat() if is_pinned else None,
+                "status": product.get("status", "active"),
             }
         )
 

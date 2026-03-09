@@ -252,6 +252,7 @@ export interface ProductPinItem {
   isPinned: boolean;
   pinnedOrder?: number;
   pinnedAt?: string;
+  status?: string;
 }
 
 /**

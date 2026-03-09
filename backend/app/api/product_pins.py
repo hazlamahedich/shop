@@ -116,6 +116,7 @@ async def get_product_pins(
                     is_pinned=p["is_pinned"],
                     pinned_order=p.get("pinned_order"),
                     pinned_at=p.get("pinned_at"),
+                    status=p.get("status"),
                 )
                 for p in products
             ],
@@ -302,6 +303,7 @@ async def reorder_pinned_products(
     # Validate max 10 products can be reordered
     if len(reorder_data.product_orders) > 10:
         from app.services.product_pin_service import MAX_PINNED_PRODUCTS
+
         raise APIError(
             ErrorCode.PRODUCT_PIN_LIMIT_REACHED,
             f"Cannot reorder more than {MAX_PINNED_PRODUCTS} products",

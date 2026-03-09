@@ -218,6 +218,7 @@ async def fetch_products(
     access_token: str,
     merchant_id: int | str,
     db: AsyncSession,
+    status_filter: str | None = "active",
 ) -> list[dict]:
     """Fetch products from Shopify Admin API.
 
@@ -225,6 +226,8 @@ async def fetch_products(
         access_token: Unused (kept for compatibility)
         merchant_id: Merchant ID for database lookup (int or str)
         db: Database session
+        status_filter: Product status to filter by. Defaults to "active".
+                      Pass None to include all statuses (draft, archived, etc).
 
     Returns:
         List of product dictionaries with id, title, image_url
@@ -235,10 +238,24 @@ async def fetch_products(
     merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
 
     try:
+        logger.info(
+            "fetch_products_start",
+            merchant_id=merchant_id,
+            status_filter=status_filter,
+            db_type=type(db).__name__,
+        )
         result = await db.execute(
             select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id_int)
         )
         integration = result.scalars().first()
+
+        logger.info(
+            "fetch_products_integration_check",
+            merchant_id=merchant_id,
+            has_integration=integration is not None,
+            integration_status=integration.status if integration else None,
+            has_token=integration.admin_token_encrypted if integration else None,
+        )
 
         if integration and integration.status == "active" and integration.admin_token_encrypted:
             admin_token = decrypt_access_token(integration.admin_token_encrypted)
@@ -249,7 +266,7 @@ async def fetch_products(
                 is_testing=is_testing(),
             )
 
-            shopify_products = await client.list_products(limit=100)
+            shopify_products = await client.list_products(limit=100, status_filter=status_filter)
 
             logger.info(
                 "shopify_products_fetched",

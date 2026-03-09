@@ -21,6 +21,7 @@ class ProductPinRequest(BaseSchema):
     Attributes:
         product_id: Shopify product ID to pin
     """
+
     product_id: str = Field(
         default=...,
         min_length=1,
@@ -45,6 +46,7 @@ class ReorderPinsRequest(BaseSchema):
 
     Story 1.15 AC 1: Pin Products List Management.
     """
+
     product_orders: list[dict[str, int]] = Field(
         default=...,
         min_length=1,
@@ -61,6 +63,7 @@ class ProductPinItem(BaseSchema):
 
     Story 1.15 AC 1: Pin Products List Management.
     """
+
     product_id: str = Field(
         default=...,
         description="Shopify product ID",
@@ -85,6 +88,10 @@ class ProductPinItem(BaseSchema):
         default=None,
         description="ISO-8601 timestamp when product was pinned",
     )
+    status: Optional[str] = Field(
+        default="active",
+        description="Product status (active, draft, archived)",
+    )
 
 
 class ProductListResponse(BaseSchema):
@@ -98,6 +105,7 @@ class ProductListResponse(BaseSchema):
         pin_limit: Maximum pinned products allowed
         pinned_count: Current number of pinned products
     """
+
     products: list[ProductPinItem] = Field(
         default=[],
         description="List of products with pin status",
@@ -121,6 +129,7 @@ class PaginationMeta(BaseSchema):
 
     Story 1.15 AC 1: Pin Products List Management.
     """
+
     page: int = Field(
         default=1,
         description="Current page number",
@@ -146,6 +155,7 @@ class ProductPinEnvelope(MinimalEnvelope):
 
     Uses Minimal Envelope pattern for consistent API responses.
     """
+
     data: ProductListResponse
 
     class Config:
@@ -159,6 +169,7 @@ class ProductPinResponse(BaseSchema):
 
     Story 1.15 AC 2: Pin and Unpin Products.
     """
+
     product_id: str = Field(
         default=...,
         description="Shopify product ID",
@@ -182,6 +193,7 @@ class ProductPinDetailEnvelope(MinimalEnvelope):
 
     Story 1.15 AC 2: Pin and Unpin Products.
     """
+
     data: ProductPinResponse
 
 
