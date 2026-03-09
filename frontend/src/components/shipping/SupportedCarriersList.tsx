@@ -7,17 +7,19 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Search, Globe } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, Globe, Plus } from 'lucide-react';
 import type { SupportedCarrier } from '../../services/shippingCarriers';
 
 interface SupportedCarriersListProps {
   carriers: SupportedCarrier[];
   isLoading?: boolean;
+  onCarrierClick?: (carrier: SupportedCarrier) => void;
 }
 
 export const SupportedCarriersList: React.FC<SupportedCarriersListProps> = ({
   carriers,
   isLoading = false,
+  onCarrierClick,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,10 +103,15 @@ export const SupportedCarriersList: React.FC<SupportedCarriersListProps> = ({
                     {regionCarriers.map((carrier, idx) => (
                       <div
                         key={`${carrier.name}-${idx}`}
-                        className="px-3 py-2 bg-white text-sm text-gray-700 hover:bg-gray-50"
+                        className="group px-3 py-2 bg-white text-sm text-gray-700 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-colors"
                         title={carrier.tracking_url_template}
+                        onClick={() => onCarrierClick?.(carrier)}
                       >
-                        {carrier.name}
+                        <span>{carrier.name}</span>
+                        <Plus 
+                          size={14} 
+                          className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
                       </div>
                     ))}
                   </div>

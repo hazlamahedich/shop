@@ -11,13 +11,14 @@ import { X, HelpCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
-import type { CarrierConfig, CreateCarrierRequest, UpdateCarrierRequest } from '../../services/shippingCarriers';
+import type { CarrierConfig, CreateCarrierRequest, UpdateCarrierRequest, SupportedCarrier } from '../../services/shippingCarriers';
 
 interface AddCarrierModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: CreateCarrierRequest | UpdateCarrierRequest) => Promise<void>;
   carrier?: CarrierConfig | null;
+  prefillData?: SupportedCarrier | null;
   isLoading?: boolean;
 }
 
@@ -26,6 +27,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
   onClose,
   onSave,
   carrier,
+  prefillData,
   isLoading = false,
 }) => {
   const [carrierName, setCarrierName] = useState('');
@@ -37,14 +39,29 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
 
   const isEditing = !!carrier;
 
+  const getModalTitle = () => {
+    if (carrier) return 'Edit Carrier';
+    if (prefillData) return `Add Custom ${prefillData.name} Carrier`;
+    return 'Add Custom Carrier';
+  };
+
   useEffect(() => {
     if (carrier) {
-      setCarrierName(carrier.carrier_name);
-      setTrackingUrlTemplate(carrier.tracking_url_template);
+      // Editing existing custom carrier
+      setCarrierName(carrier.carrier_name || '');
+      setTrackingUrlTemplate(carrier.tracking_url_template || '');
       setTrackingNumberPattern(carrier.tracking_number_pattern || '');
-      setPriority(String(carrier.priority));
-      setIsActive(carrier.is_active);
+      setPriority(String(carrier.priority || 100));
+      setIsActive(carrier.is_active ?? true);
+    } else if (prefillData) {
+      // Pre-filling from supported carrier
+      setCarrierName(prefillData.name || '');
+      setTrackingUrlTemplate(prefillData.tracking_url_template || '');
+      setTrackingNumberPattern(prefillData.pattern || '');
+      setPriority('100');
+      setIsActive(true);
     } else {
+      // Creating new carrier from scratch
       setCarrierName('');
       setTrackingUrlTemplate('');
       setTrackingNumberPattern('');
@@ -52,17 +69,17 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
       setIsActive(true);
     }
     setError(null);
-  }, [carrier, isOpen]);
+  }, [carrier, prefillData, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!carrierName.trim()) {
+    if (!carrierName?.trim()) {
       setError('Carrier name is required');
       return;
     }
-    if (!trackingUrlTemplate.trim()) {
+    if (!trackingUrlTemplate?.trim()) {
       setError('Tracking URL template is required');
       return;
     }
@@ -71,7 +88,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
       return;
     }
 
-    const priorityNum = parseInt(priority, 10);
+    const priorityNum = parseInt(priority || '100', 10);
     if (isNaN(priorityNum) || priorityNum < 1 || priorityNum > 100) {
       setError('Priority must be between 1 and 100');
       return;
@@ -81,7 +98,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
       const data: CreateCarrierRequest | UpdateCarrierRequest = {
         carrier_name: carrierName.trim(),
         tracking_url_template: trackingUrlTemplate.trim(),
-        tracking_number_pattern: trackingNumberPattern.trim() || null,
+        tracking_number_pattern: trackingNumberPattern?.trim() || null,
         is_active: isActive,
         priority: priorityNum,
       };
@@ -102,7 +119,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
           <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                {isEditing ? 'Edit Carrier' : 'Add Custom Carrier'}
+                {getModalTitle()}
               </h3>
               <button
                 onClick={onClose}

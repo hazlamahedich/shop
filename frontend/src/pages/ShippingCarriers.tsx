@@ -15,7 +15,7 @@ import { AddCarrierModal } from '../components/shipping/AddCarrierModal';
 import { SupportedCarriersList } from '../components/shipping/SupportedCarriersList';
 import { useShippingCarriersStore } from '../stores/shippingCarriersStore';
 import { useAuthStore } from '../stores/authStore';
-import type { CarrierConfig, CreateCarrierRequest, UpdateCarrierRequest } from '../services/shippingCarriers';
+import type { CarrierConfig, CreateCarrierRequest, UpdateCarrierRequest, SupportedCarrier } from '../services/shippingCarriers';
 
 const ShippingCarriers: React.FC = () => {
   const merchant = useAuthStore((state) => state.merchant);
@@ -35,6 +35,7 @@ const ShippingCarriers: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCarrier, setEditingCarrier] = useState<CarrierConfig | null>(null);
+  const [prefillCarrier, setPrefillCarrier] = useState<SupportedCarrier | null>(null);
   const [deletingCarrierId, setDeletingCarrierId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -46,11 +47,19 @@ const ShippingCarriers: React.FC = () => {
 
   const handleAddCarrier = () => {
     setEditingCarrier(null);
+    setPrefillCarrier(null);
     setIsModalOpen(true);
   };
 
   const handleEditCarrier = (carrier: CarrierConfig) => {
     setEditingCarrier(carrier);
+    setPrefillCarrier(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSupportedCarrierClick = (carrier: SupportedCarrier) => {
+    setPrefillCarrier(carrier);
+    setEditingCarrier(null);
     setIsModalOpen(true);
   };
 
@@ -93,6 +102,7 @@ const ShippingCarriers: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingCarrier(null);
+    setPrefillCarrier(null);
     clearError();
   };
 
@@ -163,9 +173,20 @@ const ShippingCarriers: React.FC = () => {
           <SupportedCarriersList
             carriers={supportedCarriers || []}
             isLoading={loadingState === 'loading'}
+            onCarrierClick={handleSupportedCarrierClick}
           />
         )}
       </div>
+
+      {/* Add/Edit Carrier Modal */}
+      <AddCarrierModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSaveCarrier}
+        carrier={editingCarrier}
+        prefillData={prefillCarrier}
+        isLoading={carriersLoadingState === 'loading'}
+      />
     </div>
   );
 };

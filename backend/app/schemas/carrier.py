@@ -9,8 +9,10 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.base import BaseSchema
 
-class CarrierConfigBase(BaseModel):
+
+class CarrierConfigBase(BaseSchema):
     """Base schema for carrier configuration."""
 
     carrier_name: str = Field(
@@ -100,7 +102,7 @@ class CarrierConfigCreate(CarrierConfigBase):
     pass
 
 
-class CarrierConfigUpdate(BaseModel):
+class CarrierConfigUpdate(BaseSchema):
     """Schema for updating an existing carrier configuration."""
 
     carrier_name: Optional[str] = Field(
@@ -133,7 +135,7 @@ class CarrierConfigResponse(CarrierConfigBase):
         from_attributes = True
 
 
-class SupportedCarrier(BaseModel):
+class SupportedCarrier(BaseSchema):
     """Information about a supported carrier."""
 
     name: str = Field(..., description="Carrier name")
@@ -142,7 +144,7 @@ class SupportedCarrier(BaseModel):
     tracking_url_template: str = Field(..., description="URL template for tracking")
 
 
-class CarrierDetectionRequest(BaseModel):
+class CarrierDetectionRequest(BaseSchema):
     """Request for carrier detection from tracking number."""
 
     tracking_number: str = Field(..., description="Tracking number to detect carrier for")
@@ -150,7 +152,7 @@ class CarrierDetectionRequest(BaseModel):
     tracking_company: Optional[str] = Field(None, description="Optional carrier name from Shopify")
 
 
-class CarrierDetectionResult(BaseModel):
+class CarrierDetectionResult(BaseSchema):
     """Result of carrier detection from tracking number."""
 
     carrier_name: Optional[str] = Field(None, description="Detected carrier name")

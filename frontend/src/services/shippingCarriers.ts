@@ -28,7 +28,7 @@ import { apiClient } from './api';
 export interface SupportedCarrier {
   name: string;
   region: string;
-  pattern?: number;
+  pattern?: string;
   tracking_url_template: string;
 }
 

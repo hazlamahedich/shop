@@ -195,3 +195,71 @@ Total: 63/63 passing (was 48/63 with 15 failures)
 2. Add integration tests with actual database
 3. Monitor carrier detection accuracy in production
 4. Gather feedback on missing carriers for future additions
+
+---
+
+## Enhancements (2026-03-09)
+
+### 🔧 API Response Format Fix
+**Issue:** Carriers API endpoints were returning plain arrays instead of MinimalEnvelope format, causing frontend to receive undefined data.
+
+**Files Modified:**
+- `backend/app/api/carriers.py` - Updated all endpoints to return MinimalEnvelope
+- `backend/app/schemas/carrier.py` - Changed schemas to extend BaseSchema for camelCase support
+
+**Changes:**
+- Added `_create_meta()` helper function for consistent metadata generation
+- Updated all carrier endpoints to wrap responses in MinimalEnvelope:
+  - `GET /api/carriers/supported` - Returns `{data: [...], meta: {...}}`
+  - `GET /api/carriers/shopify` - Returns `{data: [...], meta: {...}}`
+  - `POST /api/carriers/detect` - Returns `{data: {...}, meta: {...}}`
+  - `GET /api/carriers/merchants/{id}/carriers` - Returns `{data: [...], meta: {...}}`
+  - `POST /api/carriers/merchants/{id}/carriers` - Returns `{data: {...}, meta: {...}}`
+  - `GET /api/carriers/merchants/{id}/carriers/{cid}` - Returns `{data: {...}, meta: {...}}`
+  - `PUT /api/carriers/merchants/{id}/carriers/{cid}` - Returns `{data: {...}, meta: {...}}`
+
+**Result:** Frontend now correctly displays "290 carriers across 13 regions" instead of "0 carriers across 0 regions"
+
+### ✨ Click-to-Prefill Feature
+**Feature:** Merchants can now click any supported carrier from the reference list to quickly add it as a custom carrier configuration.
+
+**Files Modified:**
+- `frontend/src/components/shipping/SupportedCarriersList.tsx` - Added click handler and visual feedback
+- `frontend/src/pages/ShippingCarriers.tsx` - Added prefill state management
+- `frontend/src/components/shipping/AddCarrierModal.tsx` - Added prefill data support
+- `frontend/src/services/shippingCarriers.ts` - Fixed `pattern` type from `number` to `string`
+
+**User Experience:**
+1. User browses supported carriers list (290 carriers, collapsible by region)
+2. Hovers over carrier → sees blue background + plus icon
+3. Clicks carrier → modal opens pre-filled with carrier data:
+   - Carrier Name: Pre-filled
+   - Tracking URL Template: Pre-filled
+   - Tracking Number Pattern: Pre-filled (when available)
+   - Priority: 100 (high priority)
+   - Active: Checked
+4. Modal title shows: "Add Custom [Carrier Name] Carrier"
+5. User can customize any field before saving
+6. Click "Add Carrier" → saves to custom carriers list
+
+**Benefits:**
+- Eliminates manual data entry for known carriers
+- Reduces errors in tracking URL templates
+- Makes it easy to customize carrier priority
+- Provides clear visual feedback (hover states, icons)
+
+**Technical Implementation:**
+- Added `onCarrierClick` callback to `SupportedCarriersList`
+- Added `prefillCarrier` state to `ShippingCarriers` page
+- Updated `AddCarrierModal` to support 3 modes:
+  1. Edit mode (existing carrier with ID)
+  2. Prefill mode (supported carrier without ID)
+  3. New mode (blank form)
+- Added defensive null checks with optional chaining (`?.`)
+- Fixed controlled/uncontrolled input warning
+
+**Edge Cases Handled:**
+- Pattern field is optional (some carriers don't have patterns)
+- Clear prefill state on both save and cancel
+- Edit mode takes precedence over prefill mode
+- Allows creating multiple configs for same carrier (different priorities/patterns)
