@@ -59,23 +59,29 @@ class OrderTrackingResult:
     """Result of an order tracking lookup."""
 
     order: Optional[Order] = None
+    orders: list[Order] = None  # type: ignore[assignment]  # all orders found by customer lookup
     found: bool = False
     lookup_type: Optional[OrderLookupType] = None
     error_code: Optional[ErrorCode] = None
     error_message: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.orders is None:
+            self.orders = []
 
 
 RESPONSE_TEMPLATES: dict[str, str] = {
     OrderStatus.PENDING.value: """📦 Order #{order_number}
 Status: Pending
 We're processing your order and will notify you when it ships.
-
+{fulfillment_status}
 {product_details}
 {payment_breakdown}
 Need help? Just ask!
 """,
     OrderStatus.PROCESSING.value: """📦 Order #{order_number}
 Status: Processing
+{fulfillment_status}
 {tracking_info}
 Estimated Delivery: {estimated_delivery}
 {product_details}
@@ -84,6 +90,7 @@ Need help? Just ask!
 """,
     OrderStatus.SHIPPED.value: """📦 Order #{order_number}
 Status: Shipped
+{fulfillment_status}
 {tracking_info}
 Estimated Delivery: {estimated_delivery}
 {product_details}
@@ -91,6 +98,7 @@ Estimated Delivery: {estimated_delivery}
 """,
     OrderStatus.DELIVERED.value: """📦 Order #{order_number}
 Status: Delivered
+{fulfillment_status}
 {tracking_info}
 {product_details}
 {payment_breakdown}
@@ -141,16 +149,22 @@ class OrderTrackingService:
         db: AsyncSession,
         merchant_id: int,
         platform_sender_id: str,
+        limit: int = 5,
     ) -> OrderTrackingResult:
-        """Track the most recent order for a customer.
+        """Track recent orders for a customer (up to `limit`).
+
+        Returns all recent non-test orders so the bot can display all of
+        them when a customer asks about their order status.
 
         Args:
             db: Database session
             merchant_id: Merchant ID to scope the search
             platform_sender_id: Customer's platform sender ID (Facebook PSID)
+            limit: Maximum number of recent orders to return (default 5)
 
         Returns:
-            OrderTrackingResult with order if found, or error details
+            OrderTrackingResult with orders list if found, or error details.
+            `order` is set to the most recent order for backward compatibility.
         """
         start_time = datetime.now(timezone.utc)
 
@@ -161,27 +175,28 @@ class OrderTrackingService:
                 .where(Order.platform_sender_id == platform_sender_id)
                 .where(Order.is_test == False)
                 .order_by(Order.created_at.desc())
-                .limit(1)
+                .limit(limit)
             )
 
             result = await db.execute(stmt)
-            order = result.scalars().first()
+            orders = list(result.scalars().all())
 
             response_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
-            if order:
+            if orders:
                 logger.info(
                     "order_tracking_lookup",
                     merchant_id=merchant_id,
                     platform_sender_id=platform_sender_id,
-                    order_id=order.id,
-                    order_number=order.order_number,
+                    order_count=len(orders),
+                    order_numbers=[o.order_number for o in orders],
                     found=True,
                     lookup_type=OrderLookupType.BY_CUSTOMER.value,
                     response_time_ms=round(response_time_ms, 2),
                 )
                 return OrderTrackingResult(
-                    order=order,
+                    order=orders[0],  # most recent, for backward compat
+                    orders=orders,
                     found=True,
                     lookup_type=OrderLookupType.BY_CUSTOMER,
                 )
@@ -296,6 +311,7 @@ class OrderTrackingService:
 
         Story 4-13: Added payment breakdown to response.
         Story 5-13: Enhanced with product details and images.
+        Bug fix: Added fulfillment_status display from Shopify webhook data.
 
         Args:
             order: Order to format
@@ -324,13 +340,28 @@ class OrderTrackingService:
 
         payment_breakdown = self._format_payment_breakdown(order)
 
-        return template.format(
-            order_number=order.order_number,
-            tracking_info=tracking_info,
-            estimated_delivery=estimated_delivery,
-            product_details=product_details,
-            payment_breakdown=payment_breakdown,
-        )
+        fulfillment_status = self._format_fulfillment_status(order)
+
+        # CANCELLED and REFUNDED templates don't include fulfillment_status placeholder
+        if order.status in (OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value):
+            formatted = template.format(
+                order_number=order.order_number,
+                tracking_info=tracking_info,
+                estimated_delivery=estimated_delivery,
+                product_details=product_details,
+                payment_breakdown=payment_breakdown,
+                cancel_reason=getattr(order, "cancel_reason", "") or "",
+            )
+        else:
+            formatted = template.format(
+                order_number=order.order_number,
+                tracking_info=tracking_info,
+                estimated_delivery=estimated_delivery,
+                product_details=product_details,
+                payment_breakdown=payment_breakdown,
+                fulfillment_status=fulfillment_status,
+            )
+        return formatted
 
     def _format_product_details(self, order: Order, product_images: dict[str, str] = None) -> str:
         """Format product details with images for order response.
@@ -403,6 +434,38 @@ class OrderTrackingService:
             lines.append(f"Paid via: {order.payment_method}")
 
         return "\n".join(lines)
+
+    def _format_fulfillment_status(self, order: Order) -> str:
+        """Format Shopify fulfillment status for order response.
+
+        Bug fix: Surface fulfillment_status from Shopify webhook data
+        so the bot can tell customers when their order has been fulfilled.
+
+        Shopify fulfillment_status values:
+            None / null  - not yet fulfilled (show nothing extra)
+            "fulfilled"  - all items fulfilled
+            "partial"    - some items fulfilled
+            "restocked"  - items restocked (after cancellation)
+
+        Args:
+            order: Order to format fulfillment status for
+
+        Returns:
+            Formatted fulfillment status line, or empty string if not set
+        """
+        fulfillment = getattr(order, "fulfillment_status", None)
+        if not fulfillment:
+            return ""
+
+        fulfillment_lower = fulfillment.lower()
+        if fulfillment_lower == "fulfilled":
+            return "✅ Fulfillment: Fulfilled\n"
+        elif fulfillment_lower == "partial":
+            return "⚡ Fulfillment: Partially Fulfilled\n"
+        elif fulfillment_lower == "restocked":
+            return "🔄 Fulfillment: Restocked\n"
+        else:
+            return f"Fulfillment: {fulfillment}\n"
 
     def format_order_not_found_response(
         self,

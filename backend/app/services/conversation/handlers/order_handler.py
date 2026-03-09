@@ -149,24 +149,40 @@ class OrderHandler(BaseHandler):
                 context=context,
             )
 
-        order = result.order
+        # Use all orders from customer lookup (result.orders), fall back to
+        # single order for by-number lookups (result.order only).
+        orders = result.orders if result.orders else [result.order]
 
-        product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
-
-        response_text = tracking_service.format_order_response(order, product_images)
-
-        order_dict = {
-            "order_number": order.order_number,
-            "status": order.status,
-            "tracking_number": order.tracking_number,
-            "tracking_url": order.tracking_url,
-            "items": order.items,
-        }
+        if len(orders) == 1:
+            order = orders[0]
+            product_images = await self._fetch_product_images(
+                db=db, merchant=merchant, order=order
+            )
+            response_text = tracking_service.format_order_response(order, product_images)
+            order_dict = {
+                "order_number": order.order_number,
+                "status": order.status,
+                "fulfillment_status": order.fulfillment_status,
+                "tracking_number": order.tracking_number,
+                "tracking_url": order.tracking_url,
+                "items": order.items,
+            }
+        else:
+            response_parts = []
+            for order in orders:
+                product_images = await self._fetch_product_images(
+                    db=db, merchant=merchant, order=order
+                )
+                formatted = tracking_service.format_order_response(order, product_images)
+                response_parts.append(formatted)
+            response_text = "\n\n---\n\n".join(response_parts)
+            order_dict = None  # multiple orders; caller uses the message text
 
         logger.info(
             "order_tracking_success",
             merchant_id=merchant.id,
-            order_number=order.order_number,
+            order_count=len(orders),
+            order_numbers=[o.order_number for o in orders],
             lookup_type=result.lookup_type.value if result.lookup_type else "unknown",
         )
 
