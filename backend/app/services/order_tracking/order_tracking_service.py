@@ -150,6 +150,7 @@ class OrderTrackingService:
         merchant_id: int,
         platform_sender_id: str,
         limit: int = 5,
+        customer_email: str | None = None,
     ) -> OrderTrackingResult:
         """Track recent orders for a customer (up to `limit`).
 
@@ -180,6 +181,19 @@ class OrderTrackingService:
 
             result = await db.execute(stmt)
             orders = list(result.scalars().all())
+
+            # Fallback to customer email if no orders found by PSID
+            if not orders and customer_email:
+                email_stmt = (
+                    select(Order)
+                    .where(Order.merchant_id == merchant_id)
+                    .where(Order.customer_email == customer_email)
+                    .where(Order.is_test == False)
+                    .order_by(Order.created_at.desc())
+                    .limit(limit)
+                )
+                email_result = await db.execute(email_stmt)
+                orders = list(email_result.scalars().all())
 
             response_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
@@ -567,9 +581,6 @@ class OrderTrackingService:
         Returns:
             Estimated delivery date or None if already delivered/cancelled
         """
-        if order.estimated_delivery:
-            return order.estimated_delivery
-
         if order.status in (
             OrderStatus.DELIVERED.value,
             OrderStatus.CANCELLED.value,
@@ -577,12 +588,30 @@ class OrderTrackingService:
         ):
             return None
 
-        days_to_add = ESTIMATED_DELIVERY_DAYS.get(order.status, 7)
+        effective_status = order.status
+        if order.fulfillment_status == "fulfilled":
+            if effective_status not in (
+                OrderStatus.DELIVERED.value,
+                OrderStatus.CANCELLED.value,
+                OrderStatus.REFUNDED.value,
+            ):
+                effective_status = OrderStatus.SHIPPED.value
+        elif order.fulfillment_status == "partial":
+            if effective_status == OrderStatus.PENDING.value:
+                effective_status = OrderStatus.PROCESSING.value
+
+        days_to_add = ESTIMATED_DELIVERY_DAYS.get(effective_status, 7)
         if days_to_add == 0:
             return None
 
-        created_at = order.created_at
-        if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
+        if order.fulfillment_status == "fulfilled":
+            base_date = order.updated_at or order.created_at
+        elif order.estimated_delivery:
+            return order.estimated_delivery
+        else:
+            base_date = order.created_at
 
-        return created_at + timedelta(days=days_to_add)
+        if base_date.tzinfo is None:
+            base_date = base_date.replace(tzinfo=timezone.utc)
+
+        return base_date + timedelta(days=days_to_add)

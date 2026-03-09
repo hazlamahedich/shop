@@ -96,7 +96,7 @@ class TestTrackOrderByCustomer:
         """Test that order is returned when it exists for customer."""
         mock_db = AsyncMock()
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = sample_order
+        mock_result.scalars.return_value.all.return_value = [sample_order]
         mock_db.execute.return_value = mock_result
 
         result = await service.track_order_by_customer(mock_db, 1, "psid_123456")
@@ -106,11 +106,40 @@ class TestTrackOrderByCustomer:
         assert result.lookup_type == OrderLookupType.BY_CUSTOMER
 
     @pytest.mark.asyncio
+    async def test_returns_multiple_orders_when_exist(
+        self, service: OrderTrackingService, sample_order: Order
+    ) -> None:
+        """Test that multiple orders are returned when they exist for customer."""
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+
+        order2 = Order(
+            id=2,
+            order_number="ORD-67890",
+            merchant_id=1,
+            status="pending",
+            platform_sender_id="psid_123456",
+            is_test=False,
+        )
+
+        mock_result.scalars.return_value.all.return_value = [sample_order, order2]
+        mock_db.execute.return_value = mock_result
+
+        result = await service.track_order_by_customer(mock_db, 1, "psid_123456")
+
+        assert result.found is True
+        assert len(result.orders) == 2
+        assert result.order == sample_order  # First order is set as main
+        assert result.orders[0] == sample_order
+        assert result.orders[1] == order2
+        assert result.lookup_type == OrderLookupType.BY_CUSTOMER
+
+    @pytest.mark.asyncio
     async def test_returns_not_found_when_no_orders(self, service: OrderTrackingService) -> None:
         """Test that not found is returned when customer has no orders."""
         mock_db = AsyncMock()
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = None
+        mock_result.scalars.return_value.all.return_value = []
         mock_db.execute.return_value = mock_result
 
         result = await service.track_order_by_customer(mock_db, 1, "psid_nonexistent")
@@ -191,6 +220,7 @@ class TestFormatOrderResponse:
             status=OrderStatus.PENDING.value,
             subtotal=Decimal("50.00"),
             total=Decimal("55.00"),
+            created_at=datetime.now(timezone.utc),
         )
 
         response = service.format_order_response(order)
@@ -205,9 +235,10 @@ class TestFormatOrderResponse:
             status=OrderStatus.SHIPPED.value,
             tracking_number="TRACK-123",
             tracking_url="https://tracking.example.com/TRACK-123",
-            estimated_delivery=datetime(2026, 2, 20, 12, 0, 0),
+            estimated_delivery=datetime(2026, 2, 20, 12, 0, 0, tzinfo=timezone.utc),
             subtotal=Decimal("100.00"),
             total=Decimal("110.00"),
+            created_at=datetime.now(timezone.utc),
         )
 
         response = service.format_order_response(order)
@@ -225,6 +256,7 @@ class TestFormatOrderResponse:
             status=OrderStatus.DELIVERED.value,
             subtotal=Decimal("75.00"),
             total=Decimal("80.00"),
+            created_at=datetime.now(timezone.utc),
         )
 
         response = service.format_order_response(order)
@@ -239,6 +271,7 @@ class TestFormatOrderResponse:
             status=OrderStatus.CANCELLED.value,
             subtotal=Decimal("50.00"),
             total=Decimal("55.00"),
+            created_at=datetime.now(timezone.utc),
         )
 
         response = service.format_order_response(order)
@@ -259,6 +292,58 @@ class TestFormatOrderResponse:
 
         assert "ORD-REFUND" in response
         assert "Refunded" in response
+
+    def test_formats_shipped_order_with_fulfillment_status(
+        self, service: OrderTrackingService
+    ) -> None:
+        """Test formatting of shipped order with fulfillment status."""
+        order = Order(
+            order_number="ORD-555",
+            status=OrderStatus.SHIPPED.value,
+            fulfillment_status="fulfilled",
+            subtotal=Decimal("10.00"),
+            total=Decimal("15.00"),
+            created_at=datetime.now(timezone.utc),
+        )
+
+        response = service.format_order_response(order)
+
+        assert "ORD-555" in response
+        assert "✅ Fulfillment: Fulfilled" in response
+
+    def test_formats_shipped_order_with_partial_fulfillment_status(
+        self, service: OrderTrackingService
+    ) -> None:
+        """Test formatting of shipped order with partial fulfillment."""
+        order = Order(
+            order_number="ORD-666",
+            status=OrderStatus.SHIPPED.value,
+            fulfillment_status="partial",
+            subtotal=Decimal("10.00"),
+            total=Decimal("15.00"),
+            created_at=datetime.now(timezone.utc),
+        )
+
+        response = service.format_order_response(order)
+
+        assert "ORD-666" in response
+        assert "⚡ Fulfillment: Partially Fulfilled" in response
+
+    def test_formats_order_without_fulfillment_status(self, service: OrderTrackingService) -> None:
+        """Test formatting does not include fulfillment status if none."""
+        order = Order(
+            order_number="ORD-777",
+            status=OrderStatus.SHIPPED.value,
+            fulfillment_status=None,
+            subtotal=Decimal("10.00"),
+            total=Decimal("15.00"),
+            created_at=datetime.now(timezone.utc),
+        )
+
+        response = service.format_order_response(order)
+
+        assert "ORD-777" in response
+        assert "Fulfillment Status" not in response
 
 
 class TestFormatOrderNotFoundResponse:
@@ -389,7 +474,7 @@ class TestOrderIsolation:
         """Test that track_order_by_customer excludes test orders."""
         mock_db = AsyncMock()
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = sample_order
+        mock_result.scalars.return_value.all.return_value = [sample_order]
         mock_db.execute.return_value = mock_result
 
         result = await service.track_order_by_customer(mock_db, 1, "psid_123456")
@@ -406,7 +491,7 @@ class TestOrderIsolation:
         """Test that not found is returned when only test orders exist for customer."""
         mock_db = AsyncMock()
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = None
+        mock_result.scalars.return_value.all.return_value = []
         mock_db.execute.return_value = mock_result
 
         result = await service.track_order_by_customer(mock_db, 1, "psid_with_only_test_orders")
@@ -496,3 +581,112 @@ class TestOrderModelIsTestField:
         assert test_order.is_test is True
         assert real_order.platform_sender_id != "unknown"
         assert test_order.platform_sender_id == "unknown"
+
+
+class TestCalculateEstimatedDelivery:
+    """Tests for calculate_estimated_delivery method."""
+
+    def test_uses_existing_estimated_delivery_first(self, service: OrderTrackingService) -> None:
+        """Test it prioritizes an existing estimated_delivery on the order."""
+        estimated = datetime.now(timezone.utc) + timedelta(days=10)
+        order = Order(
+            order_number="123",
+            merchant_id=1,
+            platform_sender_id="test",
+            subtotal=Decimal("10"),
+            total=Decimal("10"),
+            estimated_delivery=estimated,
+            status=OrderStatus.PENDING.value,
+        )
+        result = service.calculate_estimated_delivery(order)
+        assert result == estimated
+
+    def test_returns_none_for_terminal_status(self, service: OrderTrackingService) -> None:
+        """Test it returns None for delivered or higher status."""
+        for status in [
+            OrderStatus.DELIVERED.value,
+            OrderStatus.CANCELLED.value,
+            OrderStatus.REFUNDED.value,
+        ]:
+            order = Order(
+                order_number="123",
+                merchant_id=1,
+                platform_sender_id="test",
+                subtotal=Decimal("10"),
+                total=Decimal("10"),
+                status=status,
+                created_at=datetime.now(timezone.utc),
+            )
+            result = service.calculate_estimated_delivery(order)
+            assert result is None
+
+    def test_calculates_based_on_status(self, service: OrderTrackingService) -> None:
+        """Test calculation based on regular status."""
+        created_at = datetime.now(timezone.utc)
+        order = Order(
+            order_number="123",
+            merchant_id=1,
+            platform_sender_id="test",
+            subtotal=Decimal("10"),
+            total=Decimal("10"),
+            status=OrderStatus.PROCESSING.value,
+            created_at=created_at,
+        )
+        result = service.calculate_estimated_delivery(order)
+        assert result == created_at + timedelta(days=5)
+
+    def test_adjusts_for_fulfilled_status(self, service: OrderTrackingService) -> None:
+        """Test calculation overrides status if fulfillment_status is fulfilled."""
+        created_at = datetime.now(timezone.utc)
+        order = Order(
+            order_number="123",
+            merchant_id=1,
+            platform_sender_id="test",
+            subtotal=Decimal("10"),
+            total=Decimal("10"),
+            status=OrderStatus.PENDING.value,
+            fulfillment_status="fulfilled",
+            created_at=created_at,
+        )
+        result = service.calculate_estimated_delivery(order)
+        assert result == created_at + timedelta(days=3)  # SHIPPED logic
+
+    def test_adjusts_for_partial_fulfilled_status(self, service: OrderTrackingService) -> None:
+        """Test calculation overrides pending if fulfillment_status is partial."""
+        created_at = datetime.now(timezone.utc)
+        order = Order(
+            order_number="123",
+            merchant_id=1,
+            platform_sender_id="test",
+            subtotal=Decimal("10"),
+            total=Decimal("10"),
+            status=OrderStatus.PENDING.value,
+            fulfillment_status="partial",
+            created_at=created_at,
+        )
+        result = service.calculate_estimated_delivery(order)
+        assert result == created_at + timedelta(days=5)  # PROCESSING logic
+
+    def test_fulfilled_uses_updated_at_not_stored_estimate(
+        self, service: OrderTrackingService
+    ) -> None:
+        """Test that fulfilled orders recalculate from updated_at, ignoring stored estimate."""
+        created_at = datetime(2026, 3, 6, 12, 0, 0, tzinfo=timezone.utc)
+        updated_at = datetime(2026, 3, 9, 12, 0, 0, tzinfo=timezone.utc)
+        stale_estimate = created_at + timedelta(days=7)  # March 13
+
+        order = Order(
+            order_number="123",
+            merchant_id=1,
+            platform_sender_id="test",
+            subtotal=Decimal("10"),
+            total=Decimal("10"),
+            status=OrderStatus.PROCESSING.value,
+            fulfillment_status="fulfilled",
+            created_at=created_at,
+            updated_at=updated_at,
+            estimated_delivery=stale_estimate,
+        )
+        result = service.calculate_estimated_delivery(order)
+        assert result == updated_at + timedelta(days=3)  # March 12, not March 13
+        assert result != stale_estimate

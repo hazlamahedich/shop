@@ -47,6 +47,19 @@ COMMON_DOMAIN_TYPOS = {
     "outlok": "outlook",
 }
 
+COMMON_EMAIL_DOMAINS = {
+    "gmail.com",
+    "yahoo.com",
+    "hotmail.com",
+    "outlook.com",
+    "icloud.com",
+    "aol.com",
+    "protonmail.com",
+    "live.com",
+    "msn.com",
+    "mail.com",
+}
+
 
 class OrderHandler(BaseHandler):
     """Handler for ORDER_TRACKING intent.
@@ -132,10 +145,16 @@ class OrderHandler(BaseHandler):
             )
         else:
             platform_sender_id = context.platform_sender_id or context.session_id
+
+            customer_email = None
+            if context.conversation_data:
+                customer_email = context.conversation_data.get("customer_email")
+
             result = await tracking_service.track_order_by_customer(
                 db=db,
                 merchant_id=merchant.id,
                 platform_sender_id=platform_sender_id,
+                customer_email=customer_email,
             )
 
         if not result.found or not result.order:
@@ -155,9 +174,7 @@ class OrderHandler(BaseHandler):
 
         if len(orders) == 1:
             order = orders[0]
-            product_images = await self._fetch_product_images(
-                db=db, merchant=merchant, order=order
-            )
+            product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
             response_text = tracking_service.format_order_response(order, product_images)
             order_dict = {
                 "order_number": order.order_number,
@@ -383,6 +400,7 @@ class OrderHandler(BaseHandler):
         """Normalize and correct common email typos.
 
         Handles common mistakes like:
+        - Missing @ symbol (usergmail.com -> user@gmail.com)
         - Comma instead of period (gmail,com -> gmail.com)
         - Double dots (gmail..com -> gmail.com)
         - Common domain typos (gmial -> gmail)
@@ -401,7 +419,9 @@ class OrderHandler(BaseHandler):
         email = email.replace(",", ".")
 
         if "@" not in email:
-            return None
+            email = self._try_insert_at_symbol(email)
+            if not email:
+                return None
 
         parts = email.split("@")
         if len(parts) != 2:
@@ -423,6 +443,29 @@ class OrderHandler(BaseHandler):
         if EMAIL_PATTERN.match(normalized):
             return normalized
 
+        return None
+
+    def _try_insert_at_symbol(self, email: str) -> Optional[str]:
+        """Try to insert @ before a known email domain.
+
+        Args:
+            email: Email string without @ symbol
+
+        Returns:
+            Email with @ inserted if a known domain is found, None otherwise
+        """
+        sorted_domains = sorted(COMMON_EMAIL_DOMAINS, key=len, reverse=True)
+        for domain in sorted_domains:
+            if email.endswith(domain):
+                local_part = email[: -len(domain)]
+                if local_part:
+                    return f"{local_part}@{domain}"
+        for typo, correct in COMMON_DOMAIN_TYPOS.items():
+            typo_domain = f"{typo}.com"
+            if email.endswith(typo_domain):
+                local_part = email[: -len(typo_domain)]
+                if local_part:
+                    return f"{local_part}@{correct}.com"
         return None
 
     def _get_domain_typos(self) -> dict[str, str]:
