@@ -165,6 +165,10 @@ class UnifiedConversationService:
             APIError: If processing fails
         """
         start_time = time.time()
+        response = None
+        intent_name = None
+        confidence = None
+        entities = None
 
         try:
             merchant = await self._load_merchant(db, context.merchant_id)
@@ -177,129 +181,151 @@ class UnifiedConversationService:
             # GAP-6: Check if bot is paused due to budget limit
             budget_paused_response = await self._check_budget_pause(db, context, merchant)
             if budget_paused_response:
-                return budget_paused_response
+                response = budget_paused_response
+                intent_name = response.intent or "bot_paused"
+                confidence = response.confidence or 1.0
 
             # GAP-5: Check hybrid mode - if active, only respond to @bot mentions
-            hybrid_mode_response = await self._check_hybrid_mode(db, context, message)
-            if hybrid_mode_response:
-                return hybrid_mode_response
+            if response is None:
+                hybrid_mode_response = await self._check_hybrid_mode(db, context, message)
+                if hybrid_mode_response:
+                    response = hybrid_mode_response
+                    intent_name = response.intent or "hybrid_mode_silent"
+                    confidence = response.confidence or 1.0
 
             # GAP-7: Check for returning shopper and send welcome
-            await self._check_returning_shopper(db, context)
+            if response is None:
+                await self._check_returning_shopper(db, context)
 
             # Story 6-1: Check consent status and prompt if needed
-            consent_response = await self._check_and_prompt_consent(db, context, merchant)
-            if consent_response:
-                return consent_response
+            if response is None:
+                await self._check_and_prompt_consent(db, context, merchant)
 
             # Story 4-13: Check for pending cross-device order lookup
             # If user is providing email/order number after being prompted, route to OrderHandler
-            from app.services.conversation.handlers.order_handler import PENDING_CROSS_DEVICE_KEY
+            if response is None:
+                from app.services.conversation.handlers.order_handler import (
+                    PENDING_CROSS_DEVICE_KEY,
+                )
 
-            conversation_data = context.conversation_data or {}
-            metadata = context.metadata or {}
-            pending_lookup = conversation_data.get(PENDING_CROSS_DEVICE_KEY) or metadata.get(
-                PENDING_CROSS_DEVICE_KEY
-            )
+                conversation_data = context.conversation_data or {}
+                metadata = context.metadata or {}
+                pending_lookup = conversation_data.get(PENDING_CROSS_DEVICE_KEY) or metadata.get(
+                    PENDING_CROSS_DEVICE_KEY
+                )
 
-            if pending_lookup:
-                # Check if message looks like email or order number
-                import re
+                if pending_lookup:
+                    import re
 
-                email_pattern = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
-                if email_pattern.match(message.strip()) or self._looks_like_order_number(message):
-                    self.logger.info(
-                        "pending_cross_device_lookup_routing_to_order_handler",
-                        merchant_id=merchant.id,
-                        message_preview=message[:20],
-                    )
-                    handler = self._handlers["order"]
-                    llm_service = await self._get_merchant_llm(merchant, db, context)
-                    return await handler.handle(
-                        db=db,
-                        merchant=merchant,
-                        llm_service=llm_service,
-                        message=message,
-                        context=context,
-                        entities=None,
-                    )
+                    email_pattern = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+                    if email_pattern.match(message.strip()) or self._looks_like_order_number(
+                        message
+                    ):
+                        self.logger.info(
+                            "pending_cross_device_lookup_routing_to_order_handler",
+                            merchant_id=merchant.id,
+                            message_preview=message[:20],
+                        )
+                        handler = self._handlers["order"]
+                        llm_service = await self._get_merchant_llm(merchant, db, context)
+                        response = await handler.handle(
+                            db=db,
+                            merchant=merchant,
+                            llm_service=llm_service,
+                            message=message,
+                            context=context,
+                            entities=None,
+                        )
+                        intent_name = "order_tracking"
+                        confidence = 1.0
 
             # Check for FAQ match before intent classification
-            faq_response = await self._check_faq_match(db, context, merchant, message)
-            if faq_response:
-                return faq_response
+            if response is None:
+                faq_response = await self._check_faq_match(db, context, merchant, message)
+                if faq_response:
+                    response = faq_response
+                    intent_name = response.intent or "faq"
+                    confidence = response.confidence or 1.0
 
-            llm_service = await self._get_merchant_llm(merchant, db, context)
+            # Normal flow: intent classification and handler routing
+            if response is None:
+                llm_service = await self._get_merchant_llm(merchant, db, context)
 
-            classification = await self._classify_intent(
-                llm_service=llm_service,
-                message=message,
-                context=context,
-            )
+                classification = await self._classify_intent(
+                    llm_service=llm_service,
+                    message=message,
+                    context=context,
+                )
 
-            intent_name = classification.intent.value if classification.intent else "unknown"
-            confidence = classification.confidence
+                intent_name = classification.intent.value if classification.intent else "unknown"
+                confidence = classification.confidence
 
-            self.logger.info(
-                "unified_conversation_classified",
-                merchant_id=merchant.id,
-                channel=context.channel,
-                intent=intent_name,
-                confidence=confidence,
-            )
-
-            # GAP-1: Check for handoff triggers (low confidence + clarification loop)
-            handoff_response = await self._check_handoff(
-                db=db,
-                context=context,
-                merchant=merchant,
-                message=message,
-                confidence=confidence,
-                intent_name=intent_name,
-            )
-            if handoff_response:
-                return handoff_response
-
-            if confidence < self.INTENT_CONFIDENCE_THRESHOLD:
-                self.logger.debug(
-                    "unified_conversation_low_confidence_fallback",
+                self.logger.info(
+                    "unified_conversation_classified",
                     merchant_id=merchant.id,
+                    channel=context.channel,
+                    intent=intent_name,
                     confidence=confidence,
-                    threshold=self.INTENT_CONFIDENCE_THRESHOLD,
                 )
-                handler = self._handlers["llm"]
-                entities = None
-                response = await handler.handle(
+
+                # GAP-1: Check for handoff triggers (low confidence + clarification loop)
+                handoff_response = await self._check_handoff(
                     db=db,
-                    merchant=merchant,
-                    llm_service=llm_service,
-                    message=message,
                     context=context,
-                    entities=entities,
-                )
-            else:
-                handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
-                handler = self._handlers.get(handler_name, self._handlers["llm"])
-
-                entities = None
-                if classification.entities:
-                    entities = classification.entities.model_dump(exclude_none=True)
-
-                if handler_name == "cart":
-                    entities = entities or {}
-                    cart_action = self._determine_cart_action(intent_name)
-                    entities["cart_action"] = cart_action
-
-                response = await handler.handle(
-                    db=db,
                     merchant=merchant,
-                    llm_service=llm_service,
                     message=message,
-                    context=context,
-                    entities=entities,
+                    confidence=confidence,
+                    intent_name=intent_name,
                 )
+                if handoff_response:
+                    response = handoff_response
+                    intent_name = response.intent or "human_handoff"
+                    confidence = response.confidence or 1.0
 
+                if response is None:
+                    if confidence < self.INTENT_CONFIDENCE_THRESHOLD:
+                        self.logger.debug(
+                            "unified_conversation_low_confidence_fallback",
+                            merchant_id=merchant.id,
+                            confidence=confidence,
+                            threshold=self.INTENT_CONFIDENCE_THRESHOLD,
+                        )
+                        handler = self._handlers["llm"]
+                        entities = None
+                        response = await handler.handle(
+                            db=db,
+                            merchant=merchant,
+                            llm_service=llm_service,
+                            message=message,
+                            context=context,
+                            entities=entities,
+                        )
+                    else:
+                        handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
+                        handler = self._handlers.get(handler_name, self._handlers["llm"])
+
+                        entities = None
+                        if classification.entities:
+                            entities = classification.entities.model_dump(exclude_none=True)
+
+                        if handler_name == "cart":
+                            entities = entities or {}
+                            cart_action = self._determine_cart_action(intent_name)
+                            entities["cart_action"] = cart_action
+
+                        response = await handler.handle(
+                            db=db,
+                            merchant=merchant,
+                            llm_service=llm_service,
+                            message=message,
+                            context=context,
+                            entities=entities,
+                        )
+
+            # Single exit point: ALWAYS persist and return
             processing_time_ms = (time.time() - start_time) * 1000
+            if response.metadata is None:
+                response.metadata = {}
             response.metadata["processing_time_ms"] = round(processing_time_ms, 2)
             response.intent = intent_name
             response.confidence = confidence
