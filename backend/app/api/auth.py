@@ -49,6 +49,8 @@ from app.core.auth import (
     create_jwt,
     validate_jwt,
     hash_token,
+    hash_password,
+    validate_password_requirements,
 )
 from app.core.errors import ErrorCode
 from app.core.config import settings
@@ -56,6 +58,7 @@ from app.core.rate_limiter import RateLimiter
 from app.models.session import Session
 from app.models.merchant import Merchant
 from app.schemas.base import MinimalEnvelope, MetaData
+from app.schemas.auth import RegisterRequest
 
 
 router = APIRouter(tags=["Authentication"])
@@ -263,6 +266,135 @@ async def login(
     )
 
     # Sprint Change 2026-02-13: Include store provider info
+    store_provider = getattr(merchant, "store_provider", "none") or "none"
+    has_store_connected = store_provider != "none"
+
+    return MinimalEnvelope(
+        data=LoginResponse(
+            merchant=MerchantResponse(
+                id=merchant.id,
+                email=merchant.email or "",
+                merchant_key=merchant.merchant_key,
+                store_provider=store_provider,
+                has_store_connected=has_store_connected,
+            ),
+            session=SessionResponse(expiresAt=expires_at.isoformat() + "Z"),
+        ),
+        meta=_create_meta(),
+    )
+
+
+@router.post(
+    "/register",
+    response_model=MinimalEnvelope,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "Email already registered or invalid password",
+        },
+        429: {"model": ErrorResponse, "description": "Rate limited"},
+    },
+)
+async def register(
+    request: Request,
+    credentials: RegisterRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> MinimalEnvelope:
+    """Register a new merchant account.
+
+    Creates merchant, session, and sets httpOnly cookie for auto-login.
+    Rate limits registration attempts (5 per 15 minutes per IP/email).
+
+    Args:
+        request: FastAPI request
+        credentials: Email and password
+        response: FastAPI response (for cookie)
+        db: Database session
+
+    Returns:
+        Merchant info and session expiration
+
+    Raises:
+        HTTPException: If email exists, password invalid, or rate limit exceeded
+    """
+    RateLimiter.check_auth_rate_limit(request, email=credentials.email)
+
+    is_valid, errors = validate_password_requirements(credentials.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": ErrorCode.PASSWORD_REQUIREMENTS_NOT_MET,
+                "message": "Password requirements not met",
+                "details": ", ".join(errors),
+            },
+        )
+
+    result = await db.execute(select(Merchant).where(Merchant.email == credentials.email))
+    existing = result.scalars().first()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": ErrorCode.MERCHANT_ALREADY_EXISTS,
+                "message": "Email already registered",
+                "details": "Please log in or use a different email address",
+            },
+        )
+
+    password_hash = hash_password(credentials.password)
+
+    import uuid
+
+    merchant_key = uuid.uuid4().hex[:12]
+
+    merchant = Merchant(
+        merchant_key=merchant_key,
+        platform="shopify",
+        status="active",
+        email=credentials.email,
+        password_hash=password_hash,
+    )
+
+    db.add(merchant)
+    await db.commit()
+    await db.refresh(merchant)
+
+    session_id = Session.generate_session_id()
+
+    token = create_jwt(
+        merchant_id=merchant.id,
+        session_id=session_id,
+        key_version=1,
+        expiration_hours=24,
+    )
+
+    token_hash = hash_token(token)
+
+    new_session = Session.create(
+        merchant_id=merchant.id,
+        token_hash=token_hash,
+        hours=24,
+    )
+    db.add(new_session)
+
+    await db.commit()
+
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=COOKIE_MAX_AGE,
+        path="/",
+        secure=not settings()["DEBUG"],
+        httponly=True,
+        samesite="strict",
+    )
+
     store_provider = getattr(merchant, "store_provider", "none") or "none"
     has_store_connected = store_provider != "none"
 

@@ -117,6 +117,10 @@ import app.models.deployment_log
 import app.models.webhook_verification_log
 import app.models.faq  # Story 1.11: FAQ model
 
+# Re-assert environment variables after importing app modules,
+# because app.core.config loads .env with override=True which might overwrite them.
+os.environ["IS_TESTING"] = "true"
+
 
 # =============================================================================
 # FIXTURE: Database Setup (Session Scope, Autouse)

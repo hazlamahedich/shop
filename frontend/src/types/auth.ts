@@ -38,6 +38,14 @@ export interface LoginRequest {
 }
 
 /**
+ * Registration request credentials.
+ */
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+/**
  * Successful login response.
  */
 export interface LoginResponse {

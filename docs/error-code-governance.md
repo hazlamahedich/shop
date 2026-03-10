@@ -103,12 +103,14 @@ Error codes that have been removed:
 | 2008 | DEPLOYMENT_CANCELLED      | Deployment was cancelled by user                 | 2026-02-03 |
 | 2009 | DEPLOYMENT_TIMEOUT        | Deployment exceeded time limit (15 minutes)      | 2026-02-03 |
 | 2010 | MERCHANT_ALREADY_EXISTS   | Merchant with this key already exists            | 2026-02-03 |
+| 2011 | AUTH_SESSION_REVOKED     | Session revoked or not found                    | 2026-02-03 |
+| 2012 | PASSWORD_REQUIREMENTS_NOT_MET | Password requirements not met during registration | 2026-03-10 |
+
+| 2013 | EMAIL_ALREADY_REGISTERED  | Email address already registered                  | 2026-03-10 |
 
 ### 3000-3999: LLM Provider
 
 | Code | Name               | Description                 | Added      |
-| ---- | ------------------ | --------------------------- | ---------- |
-| 3000 | LLM_PROVIDER_ERROR | LLM provider returned error | 2024-02-03 |
 | 3001 | LLM_RATE_LIMIT     | LLM rate limit exceeded     | 2024-02-03 |
 | 3002 | LLM_TIMEOUT        | LLM request timeout         | 2024-02-03 |
 | 3003 | LLM_QUOTA_EXCEEDED | LLM quota exceeded          | 2024-02-03 |

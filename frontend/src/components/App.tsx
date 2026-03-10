@@ -16,6 +16,7 @@ import BusinessInfoFaqConfig from '../pages/BusinessInfoFaqConfig';
 import BotConfig from '../pages/BotConfig';
 import { BotPreview } from '../pages/BotPreview';
 import Login from '../pages/Login';
+import Register from '../pages/Register';
 import WidgetTestPage from '../pages/WidgetTestPage';
 import AuditLogs from '../pages/AuditLogs';
 import { OnboardingGuard, AuthGuard } from './RouteGuards';
@@ -41,6 +42,16 @@ export function App() {
         element={
           <AuthGuard isAuthenticated={isAuthenticated}>
             <Login />
+          </AuthGuard>
+        }
+      />
+
+      {/* Registration route - no auth required */}
+      <Route
+        path="/register"
+        element={
+          <AuthGuard isAuthenticated={isAuthenticated}>
+            <Register />
           </AuthGuard>
         }
       />

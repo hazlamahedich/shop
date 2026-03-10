@@ -37,6 +37,7 @@ class ErrorCode(IntEnum):
     DEPLOYMENT_CANCELLED = 2008
     DEPLOYMENT_TIMEOUT = 2009
     MERCHANT_ALREADY_EXISTS = 2010
+    PASSWORD_REQUIREMENTS_NOT_MET = 2012  # Password validation failed
 
     # 3000-3999: LLM Provider (owner: llm team)
     LLM_PROVIDER_ERROR = 3000

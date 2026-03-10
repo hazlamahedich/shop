@@ -83,6 +83,60 @@ class AnonymizedSummaryResponse(BaseModel):
     tier: str = Field(description="Data tier (always 'anonymized')", default="anonymized")
 
 
+class TopProduct(BaseModel):
+    """Top selling product details."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    product_id: str = Field(description="Shopify product ID")
+    title: str = Field(description="Product title")
+    quantity_sold: int = Field(description="Total quantity sold")
+    total_revenue: float = Field(description="Total revenue from product")
+    image_url: str | None = Field(None, description="Product image URL from Shopify")
+
+
+class TopProductsResponse(BaseModel):
+    """Response for top products endpoint."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    items: list[TopProduct] = Field(default_factory=list, description="List of top products")
+    merchant_id: int = Field(description="Merchant ID")
+    days: int = Field(description="Number of days included in aggregation")
+
+class PendingOrder(BaseModel):
+    """Pending order details."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    order_number: str = Field(description="Order number")
+    status: str = Field(description="Order status")
+    total: float = Field(description="Order total amount")
+    currency_code: str = Field(description="Currency code")
+    estimated_delivery: str | None = Field(None, description="Estimated delivery date ISO string")
+    created_at: str | None = Field(None, description="Creation date ISO string")
+
+
+class PendingOrdersResponse(BaseModel):
+    """Response for pending orders endpoint."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    items: list[PendingOrder] = Field(default_factory=list, description="List of pending orders")
+    merchant_id: int = Field(description="Merchant ID")
+
 COUNTRY_NAMES: dict[str, str] = {
     "US": "United States",
     "CA": "Canada",
@@ -274,4 +328,84 @@ async def get_anonymized_summary(
         raise APIError(
             ErrorCode.INTERNAL_ERROR,
             f"Failed to retrieve anonymized summary: {str(e)}",
+        )
+
+@router.get("/top-products", response_model=TopProductsResponse)
+async def get_top_products(
+    request: Request,
+    days: int = 30,
+    limit: int = 5,
+    db: AsyncSession = Depends(get_db),
+) -> TopProductsResponse:
+    """Get top products for dashboard.
+
+    Story 7: Dashboard Widgets.
+
+    Returns the top products for the last N days by quantity sold,
+    including total revenue and Shopify images.
+    """
+    merchant_id = require_auth(request)
+    log = logger.bind(merchant_id=merchant_id, days=days, limit=limit)
+    log.info("top_products_request")
+
+    try:
+        service = AggregatedAnalyticsService(db)
+        products = await service.get_top_products(
+            merchant_id=merchant_id,
+            days=days,
+            limit=limit,
+        )
+
+        return TopProductsResponse(
+            items=[TopProduct(**p) for p in products],
+            merchant_id=merchant_id,
+            days=days,
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        log.error("top_products_error", error=str(e))
+        raise APIError(
+            ErrorCode.INTERNAL_ERROR,
+            f"Failed to fetch top products: {str(e)}"
+        )
+
+
+@router.get("/pending-orders", response_model=PendingOrdersResponse)
+async def get_pending_orders(
+    request: Request,
+    limit: int = 5,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+) -> PendingOrdersResponse:
+    """Get pending orders for dashboard.
+
+    Returns the unresolved orders (not delivered or cancelled),
+    sorted by estimated delivery date ascending.
+    """
+    merchant_id = require_auth(request)
+    log = logger.bind(merchant_id=merchant_id, limit=limit)
+    log.info("pending_orders_request")
+
+    try:
+        service = AggregatedAnalyticsService(db)
+        orders = await service.get_pending_orders(
+            merchant_id=merchant_id,
+            limit=limit,
+            offset=offset,
+        )
+
+        return PendingOrdersResponse(
+            items=[PendingOrder(**o) for o in orders],
+            merchant_id=merchant_id,
+        )
+
+    except APIError:
+        raise
+    except Exception as e:
+        log.error("pending_orders_error", error=str(e))
+        raise APIError(
+            ErrorCode.INTERNAL_ERROR,
+            f"Failed to fetch pending orders: {str(e)}"
         )

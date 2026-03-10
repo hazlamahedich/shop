@@ -18,6 +18,7 @@
 import { create } from 'zustand';
 import {
   login as loginApi,
+  register as registerApi,
   logout as logoutApi,
   getMe as getMeApi,
   refreshToken as refreshTokenApi,
@@ -28,6 +29,7 @@ import type {
   Merchant,
   AuthState,
   LoginRequest,
+  RegisterRequest,
   StoreProvider,
 } from '../types/auth';
 import { hasStoreConnected as checkStoreConnected } from '../types/auth';
@@ -47,6 +49,7 @@ let globalBroadcastChannel: BroadcastChannel | null = null;
 export interface AuthStore extends AuthState {
   // Actions
   login: (credentials: LoginRequest) => Promise<void>;
+  register: (credentials: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -126,6 +129,47 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         get()._startRefreshTimer();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Login failed';
+        set({
+          isAuthenticated: false,
+          merchant: null,
+          sessionExpiresAt: null,
+          isLoading: false,
+          error: errorMessage,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Register a new merchant account.
+     *
+     * Creates merchant, session, and sets httpOnly cookie for auto-login.
+     * Redirects to onboarding after successful registration.
+     */
+    register: async (credentials: RegisterRequest) => {
+      set({ isLoading: true, error: null });
+
+      try {
+        const response = await registerApi(credentials);
+
+        const authState = {
+          isAuthenticated: true,
+          merchant: response.data.merchant,
+          sessionExpiresAt: response.data.session.expiresAt,
+          isLoading: false,
+          error: null,
+        };
+
+        set(authState);
+
+        localStorage.setItem('shop_auth_state', JSON.stringify(authState));
+
+        useOnboardingPhaseStore.getState().resetOnboarding();
+        useTutorialStore.getState().reset();
+
+        get()._startRefreshTimer();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Registration failed';
         set({
           isAuthenticated: false,
           merchant: null,

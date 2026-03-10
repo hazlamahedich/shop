@@ -271,10 +271,18 @@ class ConversationService:
 
         if context_data:
             cart_data = context_data.get("cart", {})
-            if cart_data:
-                cart_state = {
-                    "items": cart_data.get("items", []),
-                }
+            if cart_data and cart_data.get("items"):
+                # Transform cart items to match CartState schema
+                cart_items = []
+                for item in cart_data.get("items", []):
+                    cart_items.append(
+                        {
+                            "product_id": str(item.get("variant_id", "")),
+                            "name": item.get("title", ""),
+                            "quantity": item.get("quantity", 0),
+                        }
+                    )
+                cart_state = {"items": cart_items}
 
             constraints_data = context_data.get("constraints", {})
             if constraints_data:

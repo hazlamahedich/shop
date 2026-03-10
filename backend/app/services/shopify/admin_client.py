@@ -339,3 +339,94 @@ class ShopifyAdminClient:
                 wait_seconds=wait_time,
             )
             await asyncio.sleep(wait_time)
+
+    async def get_products_by_ids(
+        self,
+        product_ids: list[int | str],
+        max_retries: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Get product details by their IDs using the Admin API.
+
+        Args:
+            product_ids: List of product IDs to fetch. Max 250.
+            max_retries: Maximum retry attempts for 429 responses.
+
+        Returns:
+            List of product dictionaries.
+        """
+        if not product_ids:
+            return []
+
+        # Convert IDs to strings and filter out non-numeric/null values
+        valid_ids = [str(pid) for pid in product_ids if pid is not None and str(pid).isdigit()]
+        if not valid_ids:
+            return []
+
+        # Admin API supports max 250 IDs per request
+        ids_param = ",".join(valid_ids[:250])
+        fields_param = "id,title,image"
+        url = f"{self.base_url}/products.json"
+
+        params = {
+            "ids": ids_param,
+            "fields": fields_param,
+        }
+
+        retry_count = 0
+        base_delay = 1.0
+
+        while True:
+            session = await self._get_session()
+
+            try:
+                async with session.get(
+                    url,
+                    headers=self._get_headers(),
+                    params=params,
+                ) as response:
+                    self._update_rate_limit_from_headers(dict(response.headers))
+
+                    if response.status == 200:
+                        data = await response.json()
+                        products = data.get("products", [])
+                        
+                        logger.info(
+                            "shopify_admin_products_fetched",
+                            shop_domain=self.shop_domain,
+                            count=len(products),
+                            requested_count=len(valid_ids),
+                        )
+                        return products
+
+                    elif response.status == 401:
+                        raise ShopifyAuthError()
+
+                    elif response.status == 429:
+                        retry_after = int(
+                            response.headers.get("Retry-After", base_delay * (2**retry_count))
+                        )
+                        if retry_count >= max_retries:
+                            raise ShopifyRateLimitError(retry_after=retry_after)
+
+                        await asyncio.sleep(retry_after)
+                        retry_count += 1
+                        continue
+
+                    else:
+                        error_text = await response.text()
+                        logger.error(
+                            "shopify_admin_api_error",
+                            shop_domain=self.shop_domain,
+                            status_code=response.status,
+                            error=error_text[:500],
+                        )
+                        raise ShopifyAPIError(
+                            f"Shopify API error: {response.status}",
+                            status_code=response.status,
+                            error_code=7050,
+                        )
+
+            except TimeoutError:
+                raise ShopifyAPIError("Shopify API request timed out", error_code=7050)
+            except aiohttp.ClientError as e:
+                raise ShopifyAPIError(f"Shopify API client error: {str(e)}", error_code=7050)

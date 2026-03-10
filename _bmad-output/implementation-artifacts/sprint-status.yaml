@@ -146,3 +146,17 @@ development_status:
   # Epic 7: Interactive Dashboard & Analytics (approved 2026-03-10)
   epic-7: in-progress
   7-1-interactive-dashboard: done # 2026-03-10: COMPLETE - All hardcoded stubs replaced with live Shopify data. 7 new frontend components, analyticsService.ts, Dashboard.tsx rewritten. Zero new TS errors. Commit c7d9b08e.
+
+  # Epic 8: Standalone Chatbot Mode (approved 2026-03-10)
+  # See: docs/epic-8-standalone-chatbot-mode.md
+  epic-8: backlog
+  8-1-merchant-mode-field-api: backlog
+  8-2-onboarding-mode-selection: backlog
+  8-3-knowledge-base-models-storage: backlog
+  8-4-rag-service-document-processing: backlog
+  8-5-rag-integration-conversation: backlog
+  8-6-frontend-onboarding-mode-selection: backlog
+  8-7-frontend-settings-mode-toggle: backlog
+  8-8-frontend-knowledge-base-page: backlog
+  8-9-testing-quality-assurance: backlog
+  epic-8-retrospective: optional

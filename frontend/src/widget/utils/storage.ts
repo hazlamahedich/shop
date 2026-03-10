@@ -220,4 +220,15 @@ export function loadWidgetPosition(): WidgetPosition | null {
   }
 }
 
+/**
+ * Validate session ID format (UUID v4)
+ * Matches the backend validation in backend/app/core/validators.py
+ */
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidSessionId(sessionId: string | null | undefined): boolean {
+  if (!sessionId || typeof sessionId !== 'string') return false;
+  return UUID_V4_PATTERN.test(sessionId.trim());
+}
+
 export { safeStorage, safeLocalStorage };

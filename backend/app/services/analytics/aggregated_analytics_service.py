@@ -326,3 +326,199 @@ class AggregatedAnalyticsService:
                 error=str(e),
             )
             raise
+
+    async def get_top_products(
+        self,
+        merchant_id: int,
+        days: int = 30,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Get top selling products for a merchant.
+
+        Story 7: Dashboard Widgets.
+
+        Fetches orders from the last N days, aggregates product
+        quantity and revenue, and fetches images from Shopify.
+
+        Args:
+            merchant_id: Merchant ID
+            days: Number of days to aggregate (default 30)
+            limit: Maximum number of products to return
+
+        Returns:
+            List of top products
+        """
+        from app.models.shopify_integration import ShopifyIntegration
+        from app.core.security import decrypt_access_token
+        from app.services.shopify.admin_client import ShopifyAdminClient
+
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+            # Fetch all non-test orders for the merchant in the given time period
+            result = await self.db.execute(
+                select(Order.items)
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.created_at >= cutoff_date)
+                .where(Order.is_test.is_(False))
+            )
+
+            order_items_lists = result.scalars().all()
+
+            # Aggregate product data
+            product_stats = {}
+
+            for items_list in order_items_lists:
+                if not items_list:
+                    continue
+
+                for item in items_list:
+                    product_id = item.get("product_id")
+                    if not product_id:
+                        continue
+
+                    # ensure product_id is a string for consistent hashing
+                    product_id_str = str(product_id)
+
+                    if product_id_str not in product_stats:
+                        product_stats[product_id_str] = {
+                            "productId": product_id_str,
+                            "title": item.get("name") or item.get("title") or f"Product {product_id_str}",
+                            "quantitySold": 0,
+                            "totalRevenue": 0.0,
+                            "imageUrl": None,
+                        }
+
+                    quantity = int(item.get("quantity", 0))
+                    # Handle price which might be a string or number
+                    try:
+                        price = float(item.get("price", 0.0))
+                    except (ValueError, TypeError):
+                        price = 0.0
+
+                    product_stats[product_id_str]["quantitySold"] += quantity
+                    product_stats[product_id_str]["totalRevenue"] += quantity * price
+
+            if not product_stats:
+                return []
+
+            # Sort by quantity sold descending
+            top_products = sorted(
+                product_stats.values(),
+                key=lambda x: x["quantitySold"],
+                reverse=True
+            )[:limit]
+
+            # Fetch product images from Shopify
+            product_ids = [str(p["productId"]) for p in top_products]
+
+            # Get integration details
+            integration_result = await self.db.execute(
+                select(ShopifyIntegration)
+                .where(ShopifyIntegration.merchant_id == merchant_id)
+            )
+            integration = integration_result.scalars().first()
+
+            if integration and integration.status == "active" and integration.admin_token_encrypted:
+                admin_token = decrypt_access_token(integration.admin_token_encrypted)
+                
+                async with ShopifyAdminClient(
+                    shop_domain=integration.shop_domain,
+                    access_token=admin_token,
+                ) as client:
+                    shopify_products = await client.get_products_by_ids(product_ids)
+                    
+                    # Map images to our top products
+                    shopify_map = {str(p.get("id")): p for p in shopify_products}
+                    for product in top_products:
+                        shopify_data = shopify_map.get(str(product["productId"]))
+                        if shopify_data:
+                            # Use title from Shopify if available (more reliable)
+                            product["title"] = shopify_data.get("title", product["title"])
+                            image = shopify_data.get("image")
+                            if image and isinstance(image, dict) and "src" in image:
+                                product["imageUrl"] = image["src"]
+
+            logger.info(
+                "top_products_retrieved",
+                merchant_id=merchant_id,
+                days=days,
+                limit=limit,
+                product_count=len(top_products)
+            )
+
+            # Round revenue
+            for p in top_products:
+                p["totalRevenue"] = round(p["totalRevenue"], 2)
+
+            return top_products
+
+        except Exception as e:
+            logger.error(
+                "top_products_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            return []
+
+    async def get_pending_orders(
+        self,
+        merchant_id: int,
+        limit: int = 5,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get pending orders for a merchant.
+
+        Returns orders that are not delivered or cancelled,
+        sorted by estimated delivery date ascending (nulls last).
+
+        Args:
+            merchant_id: Merchant ID
+            limit: Maximum number of orders to return
+
+        Returns:
+            List of pending orders
+        """
+        try:
+            # Statuses that imply the order is still pending/active
+            active_statuses = ["pending", "confirmed", "processing", "shipped"]
+
+            result = await self.db.execute(
+                select(Order)
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.is_test.is_(False))
+                .where(Order.status.in_(active_statuses))
+                .order_by(Order.estimated_delivery.asc().nulls_last())
+                .limit(limit)
+                .offset(offset)
+            )
+
+            orders = result.scalars().all()
+
+            pending_orders = []
+            for order in orders:
+                pending_orders.append({
+                    "orderNumber": order.order_number,
+                    "status": order.status,
+                    "total": float(order.total),
+                    "currencyCode": order.currency_code,
+                    "estimatedDelivery": order.estimated_delivery.isoformat() if order.estimated_delivery else None,
+                    "createdAt": order.created_at.isoformat() if order.created_at else None,
+                })
+
+            logger.info(
+                "pending_orders_retrieved",
+                merchant_id=merchant_id,
+                limit=limit,
+                order_count=len(pending_orders)
+            )
+
+            return pending_orders
+
+        except Exception as e:
+            logger.error(
+                "pending_orders_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            return []

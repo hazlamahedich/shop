@@ -26,6 +26,7 @@ from app.models.customer_profile import CustomerProfile
 from app.models.dispute import Dispute
 from app.models.deletion_audit_log import DeletionAuditLog
 from app.models.data_export_audit_log import DataExportAuditLog
+from app.models.carrier_config import CarrierConfig
 
 __all__ = [
     "Merchant",
@@ -54,4 +55,5 @@ __all__ = [
     "Dispute",
     "DeletionAuditLog",
     "DataExportAuditLog",
+    "CarrierConfig",
 ]

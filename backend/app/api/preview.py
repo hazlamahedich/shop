@@ -327,7 +327,7 @@ async def search_preview_products(
     merchant_id = get_merchant_id(request)
     merchant = await verify_merchant_exists(merchant_id, db)
 
-    all_products = await fetch_products("", merchant_id, db)
+    all_products = await fetch_products("", merchant_id, db, status_filter=None)
 
     filtered = all_products
 
@@ -427,7 +427,7 @@ async def get_preview_product(
     merchant_id = get_merchant_id(request)
     await verify_merchant_exists(merchant_id, db)
 
-    all_products = await fetch_products("", merchant_id, db)
+    all_products = await fetch_products("", merchant_id, db, status_filter=None)
 
     product = None
     for p in all_products:

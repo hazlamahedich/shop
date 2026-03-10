@@ -310,7 +310,7 @@ class TestOrderStatusFormats:
 
         assert "Shipped" in response
         assert "tracking.example.com" in response
-        assert "Estimated delivery" in response
+        assert "Estimated Delivery" in response
 
     @pytest.mark.asyncio
     async def test_pending_order_format(
@@ -331,7 +331,7 @@ class TestOrderStatusFormats:
         response = order_tracking_service.format_order_response(result.order)
 
         assert "Pending" in response
-        assert "processed soon" in response
+        assert "processing your order" in response
 
 
 class TestMultipleOrders:

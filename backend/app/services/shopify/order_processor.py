@@ -106,6 +106,7 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
     fulfillment_status = payload.get("fulfillment_status")
 
     status = map_shopify_status_to_order_status(financial_status, fulfillment_status)
+    is_test = payload.get("test", False)
 
     customer = payload.get("customer", {})
     customer_email = payload.get("email") or customer.get("email")
@@ -322,6 +323,7 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
         # Story 4-13: Cancellation
         "cancel_reason": cancel_reason,
         "cancelled_at": cancelled_at,
+        "is_test": is_test,
     }
 
 
@@ -535,7 +537,7 @@ async def upsert_order(
             order_number=order_number,
             merchant_id=merchant_id,
             platform_sender_id=platform_sender_id or "unknown",
-            is_test=platform_sender_id is None or platform_sender_id == "unknown",
+            is_test=order_data.get("is_test", False),
             status=order_data.get("status", OrderStatus.PENDING.value),
             items=order_data.get("items"),
             subtotal=order_data.get("subtotal", Decimal("0")),

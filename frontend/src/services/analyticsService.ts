@@ -99,6 +99,20 @@ export interface TopProductsResponse {
   days: number;
 }
 
+export interface PendingOrder {
+  orderNumber: string;
+  status: string;
+  total: number;
+  currencyCode: string;
+  estimatedDelivery: string | null;
+  createdAt: string | null;
+}
+
+export interface PendingOrdersResponse {
+  items: PendingOrder[];
+  merchantId: number;
+}
+
 export const analyticsService = {
   /**
    * Get sales breakdown by country, city, and province.
@@ -138,5 +152,19 @@ export const analyticsService = {
       `/api/v1/analytics/top-products?days=${days}&limit=${limit}`
     );
     return response as unknown as TopProductsResponse;
+  },
+
+  /**
+   * Get pending orders including unfulfilled orders and estimated delivery dates.
+   *
+   * @param limit Number of pending orders to return (default 10)
+   * @param offset Offset for pagination (default 0)
+   * @returns PendingOrdersResponse
+   */
+  async getPendingOrders(limit = 10, offset = 0): Promise<PendingOrdersResponse> {
+    const response = await apiClient.get<PendingOrdersResponse>(
+      `/api/v1/analytics/pending-orders?limit=${limit}&offset=${offset}`
+    );
+    return response as unknown as PendingOrdersResponse;
   },
 };

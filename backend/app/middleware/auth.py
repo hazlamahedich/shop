@@ -51,6 +51,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     # Paths that bypass authentication
     BYPASS_PATHS = [
         "/api/v1/auth/login",
+        "/api/v1/auth/register",
         "/api/v1/auth/logout",  # Idempotent - handles revoked sessions
         "/api/v1/csrf-token",
         "/api/health/",  # Story 4-4: Health check endpoints (protected by internal-only check)

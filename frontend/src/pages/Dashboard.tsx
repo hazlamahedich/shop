@@ -12,6 +12,7 @@ import { HandoffQueueWidget } from '../components/dashboard/HandoffQueueWidget';
 import { AICostWidget } from '../components/dashboard/AICostWidget';
 import { GeographicSnapshotWidget } from '../components/dashboard/GeographicSnapshotWidget';
 import { TopProductsWidget } from '../components/dashboard/TopProductsWidget';
+import { PendingOrdersWidget } from '../components/dashboard/PendingOrdersWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -111,6 +112,13 @@ const Dashboard = () => {
 
           <div data-testid="geographic-widget-container">
             <GeographicSnapshotWidget />
+          </div>
+        </div>
+
+        {/* ── Row 4: Pending Orders ─────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2" data-testid="pending-orders-widget-container">
+            <PendingOrdersWidget />
           </div>
         </div>
 

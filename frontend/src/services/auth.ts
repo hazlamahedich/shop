@@ -15,6 +15,7 @@
 import { apiClient } from './api';
 import type {
   LoginRequest,
+  RegisterRequest,
   LoginResponse,
   RefreshResponse,
   MeResponse,
@@ -51,6 +52,41 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     const errorData = data?.detail || data || {
       error_code: 2000,
       message: 'Authentication failed',
+    };
+    const error = new Error(errorData.message);
+    (error as any).code = errorData.error_code;
+    (error as any).details = errorData.details;
+    throw error;
+  }
+
+  return response.json();
+}
+
+/**
+ * Register a new merchant account.
+ *
+ * Creates merchant, session, and sets httpOnly cookie for auto-login.
+ * Rate limits registration attempts (5 per 15 minutes per IP/email).
+ *
+ * @param credentials - Email and password
+ * @returns Merchant info and session expiration
+ * @throws ApiError with error_code on failure
+ */
+export async function register(credentials: RegisterRequest): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(credentials),
+  });
+
+  if (!response.ok) {
+    const data: any = await response.json().catch(() => null);
+    const errorData = data?.detail || data || {
+      error_code: 2000,
+      message: 'Registration failed',
     };
     const error = new Error(errorData.message);
     (error as any).code = errorData.error_code;
