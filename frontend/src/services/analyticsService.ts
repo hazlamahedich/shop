@@ -85,6 +85,20 @@ export interface AnonymizedSummaryResponse {
 // Service Methods
 // ────────────────────────────────────────────────────────────────
 
+export interface TopProduct {
+  productId: string;
+  title: string;
+  quantitySold: number;
+  totalRevenue: number;
+  imageUrl: string | null;
+}
+
+export interface TopProductsResponse {
+  items: TopProduct[];
+  merchantId: number;
+  days: number;
+}
+
 export const analyticsService = {
   /**
    * Get sales breakdown by country, city, and province.
@@ -110,5 +124,19 @@ export const analyticsService = {
       '/api/v1/analytics/summary'
     );
     return response as unknown as AnonymizedSummaryResponse;
+  },
+
+  /**
+   * Get top products sold in the last N days.
+   *
+   * @param days Number of days to include (default 30)
+   * @param limit Number of top products to return (default 5)
+   * @returns TopProductsResponse
+   */
+  async getTopProducts(days = 30, limit = 5): Promise<TopProductsResponse> {
+    const response = await apiClient.get<TopProductsResponse>(
+      `/api/v1/analytics/top-products?days=${days}&limit=${limit}`
+    );
+    return response as unknown as TopProductsResponse;
   },
 };

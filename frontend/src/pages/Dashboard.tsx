@@ -11,10 +11,8 @@ import { ConversationOverviewWidget } from '../components/dashboard/Conversation
 import { HandoffQueueWidget } from '../components/dashboard/HandoffQueueWidget';
 import { AICostWidget } from '../components/dashboard/AICostWidget';
 import { GeographicSnapshotWidget } from '../components/dashboard/GeographicSnapshotWidget';
+import { TopProductsWidget } from '../components/dashboard/TopProductsWidget';
 import { analyticsService } from '../services/analyticsService';
-
-// The auto-refresh interval shown in the "Last updated" label
-const REFRESH_INTERVAL_MS = 60_000;
 
 function LastUpdatedBadge() {
   // Rerender every minute to show a live "Last updated" time
@@ -105,9 +103,15 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Row 3: Geographic Snapshot ────────────────────────── */}
-        <div data-testid="geographic-widget-container">
-          <GeographicSnapshotWidget />
+        {/* ── Row 3: Top Products + Geographic Snapshot ─────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2" data-testid="top-products-widget-container">
+            <TopProductsWidget />
+          </div>
+
+          <div data-testid="geographic-widget-container">
+            <GeographicSnapshotWidget />
+          </div>
         </div>
 
         {/* ── GDPR / Data Retention Status ─────────────────────── */}
