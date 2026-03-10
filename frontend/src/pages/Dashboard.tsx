@@ -11,13 +11,18 @@ import { ConversationOverviewWidget } from '../components/dashboard/Conversation
 import { HandoffQueueWidget } from '../components/dashboard/HandoffQueueWidget';
 import { AICostWidget } from '../components/dashboard/AICostWidget';
 import { GeographicSnapshotWidget } from '../components/dashboard/GeographicSnapshotWidget';
+import { analyticsService } from '../services/analyticsService';
 
 // The auto-refresh interval shown in the "Last updated" label
 const REFRESH_INTERVAL_MS = 60_000;
 
 function LastUpdatedBadge() {
   // Rerender every minute to show a live "Last updated" time
-  const { dataUpdatedAt } = useQuery({ queryKey: ['analytics', 'summary'], enabled: false });
+  const { dataUpdatedAt } = useQuery({ 
+    queryKey: ['analytics', 'summary'], 
+    queryFn: () => analyticsService.getSummary(),
+    enabled: false 
+  });
 
   const label = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

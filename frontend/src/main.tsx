@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './components/App';
 import { ToastProvider } from './context/ToastContext';
 import { initializeAuth, cleanupAuth, useAuthStore } from './stores/authStore';
@@ -9,6 +10,15 @@ import { initializeAuth, cleanupAuth, useAuthStore } from './stores/authStore';
 import './index.css';
 
 import { BrowserRouter } from 'react-router-dom';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 const AuthInitializer: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -54,11 +64,13 @@ if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <React.StrictMode>
-      <ToastProvider>
-        <BrowserRouter>
-          <AuthInitializer />
-        </BrowserRouter>
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <BrowserRouter>
+            <AuthInitializer />
+          </BrowserRouter>
+        </ToastProvider>
+      </QueryClientProvider>
     </React.StrictMode>
   );
 }
