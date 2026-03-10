@@ -42,17 +42,24 @@ export default function ConversationHistory() {
   const backDestination = (location.state as { from?: string })?.from || '/conversations';
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!conversationId) return;
+    if (!conversationId) return;
 
-      setIsLoading(true);
-      setError(null);
+    let isMounted = true;
+
+    const fetchData = async (isPolling = false) => {
+      if (!isPolling) {
+        setIsLoading(true);
+        setError(null);
+      }
 
       try {
         const [historyResponse, pageResponse] = await Promise.all([
           conversationsService.getConversationHistory(parseInt(conversationId, 10)),
           conversationsService.getFacebookPageInfo().catch(() => ({ data: { pageId: null, pageName: null, isConnected: false } })),
         ]);
+
+        if (!isMounted) return;
+
         setHistory(historyResponse);
         setFacebookPage(pageResponse.data);
         setMessages(historyResponse.data.messages);
@@ -62,15 +69,35 @@ export default function ConversationHistory() {
         };
         if (conversationData.hybridMode) {
           setHybridMode(conversationData.hybridMode);
+        } else {
+          setHybridMode(null);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load conversation history');
+        if (!isMounted) return;
+        if (!isPolling) {
+          setError(err instanceof Error ? err.message : 'Failed to load conversation history');
+        } else {
+          console.error('Background polling error:', err);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted && !isPolling) {
+          setIsLoading(false);
+        }
       }
     };
 
+    // Initial fetch
     fetchData();
+
+    // Setup polling every 10 seconds
+    const intervalId = setInterval(() => {
+      fetchData(true);
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, [conversationId]);
 
   const handleHybridModeChange = async (enabled: boolean) => {
@@ -127,8 +154,6 @@ export default function ConversationHistory() {
 
       setSuccessMessage('Message sent successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      throw err;
     } finally {
       setIsReplyLoading(false);
     }
