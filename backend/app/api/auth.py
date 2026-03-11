@@ -68,6 +68,48 @@ SESSION_COOKIE_NAME = "session_token"
 COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
 
 
+# Helper Functions
+
+
+async def _get_merchant_connection_status(merchant: Merchant, db: AsyncSession) -> dict:
+    """Get store and Facebook connection status based on mode and actual connections.
+
+    Story 8.2: Consolidates connection status logic for auth endpoints.
+
+    Args:
+        merchant: Merchant model instance
+        db: Database session for querying FacebookIntegration
+
+    Returns:
+        dict with onboarding_mode, store_provider, has_store_connected, has_facebook_connected
+    """
+    from app.models.facebook_integration import FacebookIntegration
+
+    onboarding_mode = getattr(merchant, "onboarding_mode", "general") or "general"
+    store_provider = getattr(merchant, "store_provider", None)
+
+    # Facebook connection status - check if FacebookIntegration exists
+    fb_result = await db.execute(
+        select(FacebookIntegration).where(FacebookIntegration.merchant_id == merchant.id)
+    )
+    fb_integration = fb_result.scalars().first()
+    has_facebook = fb_integration is not None
+
+    # General mode merchants don't have Shopify features
+    has_store = (
+        store_provider is not None and store_provider != "none"
+        if onboarding_mode == "ecommerce"
+        else False
+    )
+
+    return {
+        "onboarding_mode": onboarding_mode,
+        "store_provider": store_provider or "none",
+        "has_store_connected": has_store,
+        "has_facebook_connected": has_facebook,
+    }
+
+
 # Request/Response Schemas
 
 
@@ -81,12 +123,15 @@ class LoginRequest(BaseModel):
 class MerchantResponse(BaseModel):
     """Merchant information response."""
 
+    model_config = {"populate_by_name": True, "serialize_by_alias": True}
+
     id: int
     email: str
-    merchant_key: str
-    store_provider: str = "none"  # Sprint Change 2026-02-13: E-commerce provider type
-    has_store_connected: bool = False  # Sprint Change 2026-02-13: Convenience flag
-    onboarding_mode: str = "general"  # Story 8.1: Onboarding mode (general/ecommerce)
+    merchant_key: str = Field(alias="merchantKey")
+    store_provider: str = Field(default="none", alias="storeProvider")
+    has_store_connected: bool = Field(default=False, alias="hasStoreConnected")
+    has_facebook_connected: bool = Field(default=False, alias="hasFacebookConnected")
+    onboarding_mode: str = Field(default="general", alias="onboardingMode")
 
 
 class SessionResponse(BaseModel):
@@ -266,9 +311,8 @@ async def login(
         samesite="strict",  # Prevent CSRF
     )
 
-    # Sprint Change 2026-02-13: Include store provider info
-    store_provider = getattr(merchant, "store_provider", "none") or "none"
-    has_store_connected = store_provider != "none"
+    # Story 8.2: Use helper to get connection status
+    conn_status = await _get_merchant_connection_status(merchant, db)
 
     return MinimalEnvelope(
         data=LoginResponse(
@@ -276,8 +320,10 @@ async def login(
                 id=merchant.id,
                 email=merchant.email or "",
                 merchant_key=merchant.merchant_key,
-                store_provider=store_provider,
-                has_store_connected=has_store_connected,
+                store_provider=conn_status["store_provider"],
+                has_store_connected=conn_status["has_store_connected"],
+                has_facebook_connected=conn_status["has_facebook_connected"],
+                onboarding_mode=conn_status["onboarding_mode"],
             ),
             session=SessionResponse(expiresAt=expires_at.isoformat() + "Z"),
         ),
@@ -352,12 +398,16 @@ async def register(
 
     merchant_key = uuid.uuid4().hex[:12]
 
+    # Extract mode from request (default to "general" if not provided)
+    mode = getattr(credentials, "mode", "general") or "general"
+
     merchant = Merchant(
         merchant_key=merchant_key,
         platform="shopify",
         status="active",
         email=credentials.email,
         password_hash=password_hash,
+        onboarding_mode=mode,  # Story 8.2: Store mode during registration
     )
 
     db.add(merchant)
@@ -396,8 +446,10 @@ async def register(
         samesite="strict",
     )
 
-    store_provider = getattr(merchant, "store_provider", "none") or "none"
-    has_store_connected = store_provider != "none"
+    # Story 8.2: Use helper to get connection status
+    conn_status = await _get_merchant_connection_status(merchant, db)
+
+    expires_at = datetime.utcnow() + timedelta(hours=24)
 
     return MinimalEnvelope(
         data=LoginResponse(
@@ -405,8 +457,10 @@ async def register(
                 id=merchant.id,
                 email=merchant.email or "",
                 merchant_key=merchant.merchant_key,
-                store_provider=store_provider,
-                has_store_connected=has_store_connected,
+                store_provider=conn_status["store_provider"],
+                has_store_connected=conn_status["has_store_connected"],
+                has_facebook_connected=conn_status["has_facebook_connected"],
+                onboarding_mode=conn_status["onboarding_mode"],
             ),
             session=SessionResponse(expiresAt=expires_at.isoformat() + "Z"),
         ),
@@ -546,11 +600,8 @@ async def get_current_merchant(
             },
         )
 
-    # Sprint Change 2026-02-13: Include store provider info
-    store_provider = getattr(merchant, "store_provider", "none") or "none"
-    has_store_connected = store_provider != "none"
-
-    onboarding_mode = getattr(merchant, "onboarding_mode", "general") or "general"
+    # Get connection status using helper (Story 8.2)
+    conn_status = await _get_merchant_connection_status(merchant, db)
 
     return MinimalEnvelope(
         data=MeResponse(
@@ -558,9 +609,10 @@ async def get_current_merchant(
                 id=merchant.id,
                 email=merchant.email or "",
                 merchant_key=merchant.merchant_key,
-                store_provider=store_provider,
-                has_store_connected=has_store_connected,
-                onboarding_mode=onboarding_mode,
+                store_provider=conn_status["store_provider"],
+                has_store_connected=conn_status["has_store_connected"],
+                has_facebook_connected=conn_status["has_facebook_connected"],
+                onboarding_mode=conn_status["onboarding_mode"],
             )
         ),
         meta=_create_meta(),
