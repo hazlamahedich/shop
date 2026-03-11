@@ -147,6 +147,8 @@ backend/app/middleware/auth.py       # Added /api/merchant/mode to CSRF bypass
 
 ## Story 8.2: Backend - Onboarding Mode Selection
 
+**Status: ✅ COMPLETE** (2026-03-11)
+
 ### User Story
 
 As a **new user registering**, I want to choose my use case during registration, so I'm not forced through irrelevant setup steps.
@@ -189,14 +191,14 @@ backend/app/api/auth.py
 
 **Status:** ✅ COMPLETE
 
-**Test File:** `backend/tests/api/test_merchant_mode.py` (706 lines)
+**Test File:** `backend/tests/api/test_merchant_mode.py` (751 lines)
 
 **Test Framework:** pytest (API-level tests)
 
 **Coverage Summary:**
-- **Total Tests:** 10 (Story 8.2 specific)
+- **Total Tests:** 11 (Story 8.2 specific)
 - **Test ID Format:** 8.2-API-XXX
-- **Execution Time:** ~5 seconds
+- **Execution Time:** ~9 seconds
 - **Test Level:** API (appropriate for backend story)
 
 **Acceptance Criteria → Test Mapping:**
@@ -212,8 +214,8 @@ backend/app/api/auth.py
 
 | Priority | Count | Tests | Coverage |
 |----------|-------|-------|----------|
-| **P0 (Critical)** | 6 | Registration happy paths, connection flags | AC1, AC2, AC3, AC4 |
-| **P1 (High)** | 3 | Integration scenarios (Shopify, Facebook) | AC2 edge cases |
+| **P0 (Critical)** | 8 | Registration happy paths, connection flags | AC1, AC2, AC3, AC4 |
+| **P1 (High)** | 2 | Integration scenarios (Shopify, Facebook) | AC2 edge cases |
 | **P2 (Medium)** | 1 | Input validation (invalid mode) | Error handling |
 
 **Test Quality Metrics:**
