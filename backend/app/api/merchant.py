@@ -1254,11 +1254,14 @@ async def update_merchant_mode(
             f"Failed to update mode: {str(e)}",
         )
 
+    from datetime import timezone
+
     logger.info(
         "merchant_mode_changed",
         merchant_id=merchant_id,
         old_mode=old_mode,
         new_mode=new_mode,
+        changed_at=datetime.now(timezone.utc).isoformat(),
     )
 
     return MinimalEnvelope(

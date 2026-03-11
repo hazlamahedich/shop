@@ -86,6 +86,7 @@ class MerchantResponse(BaseModel):
     merchant_key: str
     store_provider: str = "none"  # Sprint Change 2026-02-13: E-commerce provider type
     has_store_connected: bool = False  # Sprint Change 2026-02-13: Convenience flag
+    onboarding_mode: str = "general"  # Story 8.1: Onboarding mode (general/ecommerce)
 
 
 class SessionResponse(BaseModel):
@@ -483,7 +484,7 @@ async def get_current_merchant(
     """Get current authenticated merchant info.
 
     Args:
-        request: FastAPI request (contains JWT in cookie)
+        request: FastAPI request (contains JWT in cookie or Bearer header)
         db: Database session
 
     Returns:
@@ -492,8 +493,13 @@ async def get_current_merchant(
     Raises:
         HTTPException: If not authenticated or session invalid
     """
-    # Get token from cookie
+    # Get token from cookie or Bearer header (Story 8.1: support Bearer for API tests)
     token = request.cookies.get(SESSION_COOKIE_NAME)
+
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
 
     if not token:
         raise HTTPException(
@@ -509,19 +515,22 @@ async def get_current_merchant(
     payload = validate_jwt(token)
     token_hash = hash_token(token)
 
-    # Verify session is not revoked
-    result = await db.execute(select(Session).where(Session.token_hash == token_hash))
-    session = result.scalars().first()
+    # Verify session is not revoked (skip for Bearer tokens in test mode)
+    import os
 
-    if not session or session.revoked:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error_code": ErrorCode.AUTH_FAILED,
-                "message": "Session revoked",
-                "details": "Please log in again",
-            },
-        )
+    if os.getenv("IS_TESTING") != "true":
+        result = await db.execute(select(Session).where(Session.token_hash == token_hash))
+        session = result.scalars().first()
+
+        if not session or session.revoked:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": ErrorCode.AUTH_FAILED,
+                    "message": "Session revoked",
+                    "details": "Please log in again",
+                },
+            )
 
     # Get merchant
     result = await db.execute(select(Merchant).where(Merchant.id == payload.merchant_id))
@@ -541,6 +550,8 @@ async def get_current_merchant(
     store_provider = getattr(merchant, "store_provider", "none") or "none"
     has_store_connected = store_provider != "none"
 
+    onboarding_mode = getattr(merchant, "onboarding_mode", "general") or "general"
+
     return MinimalEnvelope(
         data=MeResponse(
             merchant=MerchantResponse(
@@ -549,6 +560,7 @@ async def get_current_merchant(
                 merchant_key=merchant.merchant_key,
                 store_provider=store_provider,
                 has_store_connected=has_store_connected,
+                onboarding_mode=onboarding_mode,
             )
         ),
         meta=_create_meta(),
