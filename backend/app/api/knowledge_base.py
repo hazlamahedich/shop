@@ -52,11 +52,30 @@ def _ensure_upload_dir(merchant_id: int) -> str:
     return merchant_dir
 
 
+# MIME type mapping for security validation
+MIME_TYPE_MAP = {
+    ".pdf": {"application/pdf"},
+    ".txt": {"text/plain"},
+    ".md": {"text/plain", "text/markdown"},
+    ".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+}
+
+
 def _validate_file(file: UploadFile) -> tuple[bool, str]:
-    """Validate file type and size."""
+    """Validate file type (extension + MIME type) and size.
+
+    Security: Checks BOTH extension and MIME type to prevent malicious file uploads.
+    """
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         return False, f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+
+    # Validate MIME type for security
+    if file.content_type and ext in MIME_TYPE_MAP:
+        allowed_mime_types = MIME_TYPE_MAP[ext]
+        if file.content_type not in allowed_mime_types:
+            return False, f"Invalid file content type for {ext} file"
+
     return True, ""
 
 
