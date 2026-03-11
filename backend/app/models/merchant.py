@@ -43,6 +43,17 @@ class StoreProvider(str, Enum):
     BIGCOMMERCE = "bigcommerce"  # Future: BigCommerce integration
 
 
+class OnboardingMode(str, Enum):
+    """Merchant onboarding mode (Epic 8).
+
+    - general: General chatbot mode (no Shopify, knowledge base Q&A)
+    - ecommerce: E-commerce mode (Shopify integration, product search, orders)
+    """
+
+    GENERAL = "general"
+    ECOMMERCE = "ecommerce"
+
+
 class Merchant(Base):
     """Merchant account model.
 
@@ -146,6 +157,15 @@ class Merchant(Base):
         index=True,  # Index for common query pattern
     )
 
+    # Onboarding mode (Epic 8, Story 8.1)
+    onboarding_mode: Mapped[str] = mapped_column(
+        String(20),
+        default=OnboardingMode.GENERAL.value,
+        nullable=False,
+        server_default="general",
+        index=True,
+    )
+
     # Widget configuration (Story 5-1)
     widget_config: Mapped[Optional[dict]] = mapped_column(
         JSONB,
@@ -237,4 +257,4 @@ class Merchant(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Merchant(id={self.id}, merchant_key={self.merchant_key}, status={self.status}, personality={self.personality})>"
+        return f"<Merchant(id={self.id}, merchant_key={self.merchant_key}, status={self.status}, personality={self.personality}, onboarding_mode={self.onboarding_mode})>"

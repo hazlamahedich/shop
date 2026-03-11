@@ -21,7 +21,7 @@ import structlog
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode, ValidationError
-from app.models.merchant import Merchant, PersonalityType
+from app.models.merchant import Merchant, PersonalityType, OnboardingMode
 from app.schemas.base import MinimalEnvelope, MetaData
 
 
@@ -78,6 +78,29 @@ class PersonalityConfigurationResponse(BaseModel):
         None,
         description="Custom greeting message",
     )
+
+
+class MerchantModeUpdate(BaseModel):
+    """Request schema for updating onboarding mode (Story 8.1)."""
+
+    mode: str = Field(
+        ...,
+        pattern="^(general|ecommerce)$",
+        description="Onboarding mode: 'general' or 'ecommerce'",
+    )
+
+
+class MerchantModeResponse(BaseModel):
+    """Response schema for onboarding mode (Story 8.1)."""
+
+    onboarding_mode: str = Field(
+        ...,
+        serialization_alias="onboardingMode",
+        description="Current onboarding mode",
+    )
+
+    class Config:
+        populate_by_name = True
 
 
 # Helper Functions
@@ -1136,6 +1159,110 @@ Rewrite this greeting in the {target_personality.value} personality tone, preser
             personality=target_personality,
             original_greeting=original_greeting,
         ),
+        meta=_create_meta(),
+    )
+
+
+@router.get(
+    "/mode",
+    response_model=MinimalEnvelope,
+)
+async def get_merchant_mode(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> MinimalEnvelope:
+    """Get merchant's onboarding mode.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        db: Database session
+
+    Returns:
+        MinimalEnvelope with onboarding mode
+
+    Raises:
+        APIError: If authentication fails or merchant not found
+    """
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant with ID {merchant_id} not found",
+        )
+
+    return MinimalEnvelope(
+        data=MerchantModeResponse(onboarding_mode=merchant.onboarding_mode),
+        meta=_create_meta(),
+    )
+
+
+@router.patch(
+    "/mode",
+    response_model=MinimalEnvelope,
+)
+async def update_merchant_mode(
+    request: Request,
+    update: MerchantModeUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> MinimalEnvelope:
+    """Update merchant's onboarding mode.
+
+    Args:
+        request: FastAPI request with merchant authentication
+        db: Database session
+        update: Mode update data
+
+    Returns:
+        MinimalEnvelope with updated mode
+
+    Raises:
+        APIError: If authentication fails, merchant not found, or invalid mode
+    """
+    merchant_id = _get_merchant_id(request)
+
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant with ID {merchant_id} not found",
+        )
+
+    old_mode = merchant.onboarding_mode
+    new_mode = update.mode
+
+    if new_mode not in (OnboardingMode.GENERAL.value, OnboardingMode.ECOMMERCE.value):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid onboarding mode. Must be 'general' or 'ecommerce'.",
+        )
+
+    merchant.onboarding_mode = new_mode
+
+    try:
+        await db.commit()
+        await db.refresh(merchant)
+    except Exception as e:
+        await db.rollback()
+        raise APIError(
+            ErrorCode.INTERNAL_ERROR,
+            f"Failed to update mode: {str(e)}",
+        )
+
+    logger.info(
+        "merchant_mode_changed",
+        merchant_id=merchant_id,
+        old_mode=old_mode,
+        new_mode=new_mode,
+    )
+
+    return MinimalEnvelope(
+        data=MerchantModeResponse(onboarding_mode=merchant.onboarding_mode),
         meta=_create_meta(),
     )
 

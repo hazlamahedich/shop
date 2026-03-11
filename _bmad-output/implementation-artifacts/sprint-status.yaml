@@ -147,10 +147,12 @@ development_status:
   epic-7: in-progress
   7-1-interactive-dashboard: done # 2026-03-10: COMPLETE - All hardcoded stubs replaced with live Shopify data. 7 new frontend components, analyticsService.ts, Dashboard.tsx rewritten. Zero new TS errors. Commit c7d9b08e.
 
-  # Epic 8: Standalone Chatbot Mode (approved 2026-03-10)
-  # See: docs/epic-8-standalone-chatbot-mode.md
-  epic-8: backlog
-  8-1-merchant-mode-field-api: backlog
+  # Epic 8: General Chatbot Mode (approved 2026-03-10)
+  # See: docs/epic-8-general-chatbot-mode.md
+  # Mode Selection: "general" (no Shopify) vs "ecommerce" (with Shopify)
+  # Facebook is OPTIONAL in both modes - it's a communication channel, not a mode
+  epic-8: in-progress # 2026-03-11: Story 8-1 created, ready for development
+  8-1-merchant-mode-field-api: in-progress
   8-2-onboarding-mode-selection: backlog
   8-3-knowledge-base-models-storage: backlog
   8-4-rag-service-document-processing: backlog
@@ -159,4 +161,5 @@ development_status:
   8-7-frontend-settings-mode-toggle: backlog
   8-8-frontend-knowledge-base-page: backlog
   8-9-testing-quality-assurance: backlog
+  8-10-frontend-dashboard-mode-aware-widgets: backlog
   epic-8-retrospective: optional
