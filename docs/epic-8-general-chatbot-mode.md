@@ -161,17 +161,17 @@ As a **new user registering**, I want to choose my use case during registration,
 
 ### Tasks
 
-- [ ] Update registration schema (AC: 1, 3)
-  - [ ] Update `backend/app/schemas/auth.py`
-  - [ ] Add optional `mode: Optional[str]` to `RegisterRequest`
-- [ ] Update registration endpoint (AC: 1, 3)
-  - [ ] Update `backend/app/api/auth.py`
-  - [ ] Store mode on merchant creation
-  - [ ] Default to `"General"` if not provided
-- [ ] Update auth status response (AC: 2)
-  - [ ] Update `backend/app/api/auth.py`
-  - [ ] Include `onboarding_mode` in login/status response
-  - [ ] Derive `has_store_connected` and `has_facebook_connected` from mode + integrations
+- [x] Update registration schema (AC: 1, 3)
+  - [x] Update `backend/app/schemas/auth.py`
+  - [x] Add optional `mode: Optional[str]` to `RegisterRequest`
+- [x] Update registration endpoint (AC: 1, 3)
+  - [x] Update `backend/app/api/auth.py`
+  - [x] Store mode on merchant creation
+  - [x] Default to `"General"` if not provided
+- [x] Update auth status response (AC: 2)
+  - [x] Update `backend/app/api/auth.py`
+  - [x] Include `onboarding_mode` in login/status response
+  - [x] Derive `has_store_connected` and `has_facebook_connected` from mode + integrations
 
 ### Dev Notes
 
@@ -184,6 +184,87 @@ As a **new user registering**, I want to choose my use case during registration,
 backend/app/schemas/auth.py
 backend/app/api/auth.py
 ```
+
+### Test Coverage
+
+**Status:** ✅ COMPLETE
+
+**Test File:** `backend/tests/api/test_merchant_mode.py` (706 lines)
+
+**Test Framework:** pytest (API-level tests)
+
+**Coverage Summary:**
+- **Total Tests:** 10 (Story 8.2 specific)
+- **Test ID Format:** 8.2-API-XXX
+- **Execution Time:** ~5 seconds
+- **Test Level:** API (appropriate for backend story)
+
+**Acceptance Criteria → Test Mapping:**
+
+| AC | Test Coverage | Test IDs | Priority | Status |
+|----|---------------|----------|----------|--------|
+| **AC1** | Mode stored on registration | 8.2-API-001, 8.2-API-002 | P0 | ✅ Pass |
+| **AC2** | Connection flags reflect mode | 8.2-API-007, 8.2-API-009, 8.2-API-010 | P0/P1 | ✅ Pass |
+| **AC3** | Default to "General" | 8.2-API-003 | P0 | ✅ Pass |
+| **AC4** | Flags in auth responses | 8.2-API-005, 8.2-API-006 | P0 | ✅ Pass |
+
+**Test Distribution by Priority:**
+
+| Priority | Count | Tests | Coverage |
+|----------|-------|-------|----------|
+| **P0 (Critical)** | 6 | Registration happy paths, connection flags | AC1, AC2, AC3, AC4 |
+| **P1 (High)** | 3 | Integration scenarios (Shopify, Facebook) | AC2 edge cases |
+| **P2 (Medium)** | 1 | Input validation (invalid mode) | Error handling |
+
+**Test Quality Metrics:**
+
+- ✅ **Deterministic:** No hard waits, uses explicit assertions
+- ✅ **Isolated:** Each test uses unique email addresses via faker
+- ✅ **Explicit Assertions:** All expectations visible in test bodies
+- ✅ **< 300 lines:** Test classes appropriately scoped
+- ✅ **Self-Cleaning:** Tests use fixtures with proper cleanup
+- ✅ **Parallel-Safe:** No shared state between tests
+- ✅ **API-Level:** Fast execution, no browser overhead
+
+**Edge Cases Covered:**
+
+1. ✅ Registration with `mode='general'` → stores correctly (8.2-API-001)
+2. ✅ Registration with `mode='ecommerce'` → stores correctly (8.2-API-002)
+3. ✅ Registration without mode → defaults to 'general' (8.2-API-003)
+4. ✅ Registration with invalid mode → returns 422 (8.2-API-004)
+5. ✅ General mode merchant → has false connection flags (8.2-API-007)
+6. ✅ E-commerce mode + Shopify → has true store flag (8.2-API-009)
+7. ✅ Any mode + Facebook → has true facebook flag (8.2-API-010)
+
+**Test Automation Workflow:**
+
+- **Workflow:** TEA Test Architect - Automate v5.0
+- **Execution Mode:** BMad-Integrated
+- **Analysis Date:** 2026-03-11
+- **Result:** No new tests required (existing coverage comprehensive)
+- **Rationale:** All acceptance criteria have P0 test coverage, edge cases covered at P1/P2
+
+**Execution Commands:**
+
+```bash
+# Run Story 8.2 tests
+cd backend
+source venv/bin/activate
+python -m pytest tests/api/test_merchant_mode.py -v
+
+# Run specific test class
+python -m pytest tests/api/test_merchant_mode.py::TestRegistrationWithMode -v
+
+# Run P0 tests only
+python -m pytest tests/api/test_merchant_mode.py -v -m p0
+```
+
+**Integration Notes:**
+
+- Tests integrated with Story 8.1 (Merchant Mode API)
+- Shared fixtures with other auth flow tests
+- CSRF bypass configured for mode endpoint (verified in test)
+- Database cleanup handled automatically by test fixtures
 
 ---
 
