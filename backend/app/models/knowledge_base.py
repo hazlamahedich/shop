@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -119,9 +120,9 @@ class DocumentChunk(Base):
         nullable=False,
     )
     # Vector(1536) for OpenAI text-embedding-3-small dimension
-    # Note: Vector column type added via Alembic migration with pgvector
-    embedding: Mapped[str | None] = mapped_column(
-        Text,  # Will be altered to VECTOR(1536) in migration
+    # Uses pgvector.sqlalchemy.Vector for proper type handling
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(

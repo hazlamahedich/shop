@@ -27,6 +27,10 @@ dependencies = [
     "PyPDF2>=3.0.0",
     "python-docx>=0.8.11",
     "pgvector>=0.2.0",
+    "apscheduler>=3.10.0",
+    "aiohttp>=3.9.0",
+    "bcrypt>=4.0.0",
+    "email-validator>=2.1.0",
 ]
 
 [project.optional-dependencies]

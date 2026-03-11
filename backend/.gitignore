@@ -15,3 +15,9 @@ htmlcov
 .venv
 .mypy_cache
 .pytest_cache
+
+# Story 8.3: Knowledge Base test uploads
+backend/uploads/knowledge-base/**/*.pdf
+backend/uploads/knowledge-base/**/*.txt
+backend/uploads/knowledge-base/**/*.md
+backend/uploads/knowledge-base/**/*.docx

@@ -52,20 +52,21 @@ Enable merchants to:
 
 ## Story List
 
-| Story | Title | Priority | Est. Time | Dependencies |
-|-------|-------|----------|-----------|--------------|
-| 8.1 | Backend: Merchant Mode Field & API | P0 | 1.5h | None |
-| 8.2 | Backend: Onboarding Mode Selection | P0 | 1h | 8.1 |
-| 8.3 | Backend: Knowledge Base Models & Storage | P0 | 2h | 8.1 |
-| 8.4 | Backend: RAG Service (Document Processing) | P1 | 3h | 8.3 |
-| 8.5 | Backend: RAG Integration in Conversation | P1 | 2h | 8.4 |
-| 8.6 | Frontend: Onboarding Mode Selection UI | P0 | 2h | 8.2 |
-| 8.7 | Frontend: Settings Mode Toggle | P1 | 1.5h | 8.1 |
-| 8.8 | Frontend: Knowledge Base Page | P1 | 3h | 8.3 |
-| 8.9 | Testing & Quality Assurance | P1 | 2h | All |
-| 8.10 | Frontend: Dashboard Mode-Aware Widgets | P1 | 2h | 8.1 |
+| Story | Title | Priority | Est. Time | Dependencies | Status |
+|-------|-------|----------|-----------|--------------|--------|
+| 8.1 | Backend: Merchant Mode Field & API | P0 | 1.5h | None | ✅ |
+| 8.2 | Backend: Onboarding Mode Selection | P0 | 1h | 8.1 | ✅ |
+| 8.3 | Backend: Knowledge Base Models & Storage | P0 | 2h | 8.1 | ✅ |
+| 8.4 | Backend: RAG Service (Document Processing) | P1 | 3h | 8.3 | ✅ |
+| 8.5 | Backend: RAG Integration in Conversation | P1 | 2h | 8.4 | |
+| 8.6 | Frontend: Onboarding Mode Selection UI | P0 | 2h | 8.2 | |
+| 8.7 | Frontend: Settings Mode Toggle | P1 | 1.5h | 8.1 | |
+| 8.8 | Frontend: Knowledge Base Page | P1 | 3h | 8.3 | |
+| 8.9 | Testing & Quality Assurance | P1 | 2h | All | |
+| 8.10 | Frontend: Dashboard Mode-Aware Widgets | P1 | 2h | 8.1 | |
+| 8.11 | LLM Embedding Provider Integration & Re-embedding | P1 | 3h | 8.1, 8.4 | |
 
-**Total: ~20 hours**
+**Total: ~23 hours**
 
 ---
 
@@ -272,8 +273,9 @@ python -m pytest tests/api/test_merchant_mode.py -v -m p0
 
 ## Story 8.3: Backend - Knowledge Base Models & Storage
 
-### User Story
+**Status: ✅ COMPLETE** (2026-03-11)
 
+### User Story
 As a **merchant**, I want to upload documents that the chatbot can learn from, so it can answer questions about my business.
 
 ### Acceptance Criteria
@@ -288,33 +290,35 @@ As a **merchant**, I want to upload documents that the chatbot can learn from, s
 
 ### Tasks
 
-- [ ] Create KnowledgeDocument model (AC: 1)
-  - [ ] Create `backend/app/models/knowledge_base.py`
-  - [ ] Fields: id, merchant_id, filename, file_type, file_size, status, error_message, created_at, updated_at
-- [ ] Create DocumentChunk model (AC: 2)
-  - [ ] Add to `backend/app/models/knowledge_base.py`
-  - [ ] Fields: id, document_id, chunk_index, content, embedding (vector), created_at
-- [ ] Create database migration (AC: 1, 2)
-  - [ ] Create `alembic/versions/XXX_add_knowledge_base.py`
-  - [ ] Enable pgvector extension
-  - [ ] Create vector index for similarity search
-- [ ] Create knowledge base schemas (AC: 1, 3)
-  - [ ] Create `backend/app/schemas/knowledge_base.py`
-  - [ ] `DocumentUploadResponse`, `DocumentListResponse`, `DocumentDetail`
-- [ ] Create document upload endpoint (AC: 1)
-  - [ ] Create `backend/app/api/knowledge_base.py`
-  - [ ] `POST /api/knowledge-base/upload`
-  - [ ] Validate file type and size (max 10MB)
-  - [ ] Store file and create document record
-- [ ] Create document chunking service (AC: 2)
-  - [ ] Create `backend/app/services/knowledge/chunker.py`
-  - [ ] Split documents into 500-1000 char chunks with overlap
-  - [ ] Handle different file types (PDF, TXT, MD, DOCX)
-- [ ] Create document list/delete endpoints (AC: 3, 4)
-  - [ ] Add to `backend/app/api/knowledge_base.py`
-  - [ ] `GET /api/knowledge-base`, `DELETE /api/knowledge-base/{id}`
-- [ ] Add CSRF bypass for new endpoints (AC: 1, 3, 4)
-  - [ ] Update `backend/app/middleware/auth.py`
+- [x] Create KnowledgeDocument model (AC: 1)
+  - [x] Create `backend/app/models/knowledge_base.py`
+  - [x] Fields: id, merchant_id, filename, file_type, file_size, status, error_message, created_at, updated_at
+- [x] Create DocumentChunk model (AC: 2)
+  - [x] Add to `backend/app/models/knowledge_base.py`
+  - [x] Fields: id, document_id, chunk_index, content, embedding (vector), created_at
+- [x] Create database migration (AC: 1, 2)
+  - [x] Create `alembic/versions/XXX_add_knowledge_base.py`
+  - [x] Enable pgvector extension
+  - [x] Create vector index for similarity search
+- [x] Create knowledge base schemas (AC: 1, 3)
+  - [x] Create `backend/app/schemas/knowledge_base.py`
+  - [x] `DocumentUploadResponse`, `DocumentListResponse`, `DocumentDetail`
+- [x] Create document upload endpoint (AC: 1)
+  - [x] Create `backend/app/api/knowledge_base.py`
+  - [x] `POST /api/knowledge-base/upload`
+  - [x] Validate file type and size (max 10MB)
+  - [x] Store file and create document record
+- [x] Create document chunking service (AC: 2)
+  - [x] Create `backend/app/services/knowledge/chunker.py`
+  - [x] Split documents into 500-1000 char chunks with overlap
+  - [x] Handle different file types (PDF, TXT, MD, DOCX)
+- [x] Create document list/delete endpoints (AC: 3, 4)
+  - [x] Add to `backend/app/api/knowledge_base.py`
+  - [x] `GET /api/knowledge-base`, `DELETE /api/knowledge-base/{id}`
+- [x] Add CSRF bypass for new endpoints (AC: 1, 3, 4)
+  - [x] Update `backend/app/middleware/auth.py`
+- [x] Write comprehensive tests
+  - [x] Create `backend/tests/api/test_knowledge_base.py` - 21 tests, all passing
 
 ### Dev Notes
 
@@ -344,6 +348,18 @@ backend/alembic/versions/XXX_add_knowledge_base.py
 backend/tests/api/test_knowledge_base.py
 ```
 
+### Files Created (Actual)
+
+```
+backend/app/models/knowledge_base.py         # KnowledgeDocument + DocumentChunk models
+backend/app/schemas/knowledge_base.py        # Pydantic schemas for API
+backend/app/api/knowledge_base.py            # Upload, list, delete endpoints
+backend/app/services/knowledge/__init__.py    # Service module init
+backend/app/services/knowledge/chunker.py    # Document chunking service
+backend/alembic/versions/add_knowledge_base.py  # Database migration
+backend/tests/api/test_knowledge_base.py     # 21 comprehensive tests
+```
+
 ### Files to Modify
 
 ```
@@ -351,9 +367,108 @@ backend/app/middleware/auth.py
 backend/app/main.py (add router)
 ```
 
+### Files Modified (Actual)
+
+```
+backend/app/middleware/auth.py    # Added /api/knowledge-base/* to CSRF bypass
+backend/app/main.py               # Added knowledge_base router
+backend/tests/api/test_knowledge_base.py  # Extended with 7 new tests (+274 lines)
+```
+
+### Test Coverage
+
+**Status:** ✅ COMPLETE
+
+**Test File:** `backend/tests/api/test_knowledge_base.py` (653 lines)
+
+**Test Framework:** pytest (API-level tests)
+
+**Coverage Summary:**
+- **Total Tests:** 21 (14 existing + 7 new)
+- **Test ID Format:** 8.3-API-XXX, 8.3-UNIT-XXX
+- **Execution Time:** ~4.2 seconds
+- **Test Level:** API + Unit (appropriate for backend story)
+
+**Acceptance Criteria → Test Mapping:**
+
+| AC | Test Coverage | Test IDs | Priority | Status |
+|----|---------------|----------|----------|--------|
+| **AC1** | Document upload (all types) | test_upload_document_pdf, test_upload_document_txt, test_upload_document_md, test_upload_document_docx | P0 | ✅ Pass |
+| **AC2** | Document chunking (500-1000 chars) | test_chunk_text_file, test_chunk_markdown_file, test_chunk_size_bounds, test_chunk_docx_file, test_chunk_quality_validation, test_chunk_empty_file | P1 | ✅ Pass |
+| **AC3** | Document list endpoint | test_list_documents, test_list_documents_empty | P0/P2 | ✅ Pass |
+| **AC4** | Document deletion with chunks | test_delete_document, test_delete_nonexistent_document | P0/P1 | ✅ Pass |
+
+**Security Tests:**
+
+| Test ID | Priority | Description | Status |
+|---------|----------|-------------|--------|
+| test_unauthorized_access | P0 | All endpoints require authentication | ✅ Pass |
+| test_cross_merchant_isolation | P0 | IDOR prevention (merchants can't access others' docs) | ✅ Pass |
+
+**Test Distribution by Priority:**
+
+| Priority | Count | Tests | Coverage |
+|----------|-------|-------|----------|
+| **P0 (Critical)** | 11 | Upload (4), List (1), Delete (1), Security (2), Chunking basics (3) | All ACs |
+| **P1 (High)** | 7 | Chunking edge cases (3), Error handling (4) | Edge cases |
+| **P2 (Medium)** | 3 | Empty list, Empty file, Quality validation | Edge cases |
+
+**Test Quality Metrics:**
+
+- ✅ **Deterministic:** No hard waits, uses explicit assertions
+- ✅ **Isolated:** Each test uses unique merchant data
+- ✅ **Self-Cleaning:** Database reset before each test
+- ✅ **Parallel-Safe:** No shared state between tests
+- ✅ **Fast Execution:** < 5 seconds total
+
+**Edge Cases Covered:**
+
+1. ✅ PDF file upload → stored with metadata (AC1)
+2. ✅ TXT file upload → stored with metadata (AC1)
+3. ✅ MD file upload → stored with metadata (AC1)
+4. ✅ DOCX file upload → stored with metadata (AC1)
+5. ✅ Invalid file type → returns 400 error
+6. ✅ File too large (>10MB) → returns 413 error
+7. ✅ Empty file → chunking raises error
+8. ✅ Whitespace-only chunks → filtered out
+9. ✅ Unauthorized access → returns 401 on all endpoints
+10. ✅ Cross-merchant access → returns 404 (IDOR prevention)
+
+**Test Automation Workflow:**
+
+- **Workflow:** TEA Test Architect - Automate v5.0
+- **Execution Mode:** BMad-Integrated
+- **Analysis Date:** 2026-03-11
+- **Result:** 7 new tests added (existing 14 tests preserved)
+- **Rationale:** All acceptance criteria have P0 test coverage, security tests added, edge cases covered
+
+**Execution Commands:**
+
+```bash
+# Run Story 8.3 tests
+cd backend
+source venv/bin/activate
+python -m pytest tests/api/test_knowledge_base.py -v
+
+# Run P0 tests only
+python -m pytest tests/api/test_knowledge_base.py -v -k "P0"
+
+# Run security tests
+python -m pytest tests/api/test_knowledge_base.py -v -k "unauthorized or isolation"
+```
+
+**Files Created:**
+
+```
+backend/tests/api/test_knowledge_base.py (updated, +274 lines)
+_bmad-output/automation-summary-story-8-3-2026-03-11.md
+```
+
 ---
 
 ## Story 8.4: Backend - RAG Service (Document Processing)
+
+**Status: ✅ COMPLETE** (2026-03-12)
 
 ### User Story
 
@@ -361,38 +476,38 @@ As a **chatbot user**, I want the bot to answer questions based on uploaded docu
 
 ### Acceptance Criteria
 
-**AC1:** Given a document is uploaded, when processing completes, then embeddings are generated for each chunk using the configured LLM provider
+**AC1:** ✅ Given a document is uploaded, when processing completes, then embeddings are generated for each chunk using the configured LLM provider
 
-**AC2:** Given a user question, when RAG retrieval runs, then the top 5 most relevant chunks are returned with similarity scores
+**AC2:** ✅ Given a user question, when RAG retrieval runs, then the top 5 most relevant chunks are returned with similarity scores
 
-**AC3:** Given no relevant documents exist (similarity < 0.7), when retrieval runs, then an empty list is returned (no hallucination)
+**AC3:** ✅ Given no relevant documents exist (similarity < 0.7), when retrieval runs, then an empty list is returned (no hallucination)
 
-**AC4:** Given document processing fails, when error occurs, then the document status is updated to "error" with error message
+**AC4:** ✅ Given document processing fails, when error occurs, then the document status is updated to "error" with error message
 
 ### Tasks
 
-- [ ] Create embedding service (AC: 1)
-  - [ ] Create `backend/app/services/rag/embedding_service.py`
-  - [ ] Generate embeddings using configured LLM provider
-  - [ ] Support OpenAI, Anthropic, local (Ollama) embedding models
-  - [ ] Batch embedding for multiple chunks
-- [ ] Create retrieval service (AC: 2, 3)
-  - [ ] Create `backend/app/services/rag/retrieval_service.py`
-  - [ ] Vector similarity search using pgvector
-  - [ ] Return top-k chunks with similarity threshold (0.7)
-  - [ ] Filter by merchant_id for multi-tenant isolation
-- [ ] Create document processor (AC: 1, 4)
-  - [ ] Create `backend/app/services/rag/document_processor.py`
-  - [ ] Orchestrate: upload → chunk → embed → store
-  - [ ] Update document status throughout pipeline
-  - [ ] Handle errors gracefully with status update
-- [ ] Create background task for processing (AC: 1)
-  - [ ] Create `backend/app/services/rag/processing_task.py`
-  - [ ] Async processing of uploaded documents
-  - [ ] Update document status: pending → processing → ready/error
-- [ ] Integrate with knowledge base API (AC: 1, 4)
-  - [ ] Update `backend/app/api/knowledge_base.py`
-  - [ ] Trigger background processing on upload
+- [x] Create embedding service (AC: 1)
+  - [x] Create `backend/app/services/rag/embedding_service.py`
+  - [x] Generate embeddings using configured LLM provider
+  - [x] Support OpenAI, Ollama embedding models (Anthropic rejected - no embedding API)
+  - [x] Batch embedding for multiple chunks
+- [x] Create retrieval service (AC: 2, 3)
+  - [x] Create `backend/app/services/rag/retrieval_service.py`
+  - [x] Vector similarity search using pgvector
+  - [x] Return top-k chunks with similarity threshold (0.7)
+  - [x] Filter by merchant_id for multi-tenant isolation
+- [x] Create document processor (AC: 1, 4)
+  - [x] Create `backend/app/services/rag/document_processor.py`
+  - [x] Orchestrate: upload → chunk → embed → store
+  - [x] Update document status throughout pipeline
+  - [x] Handle errors gracefully with status update
+- [x] Create background task for processing (AC: 1)
+  - [x] Create `backend/app/services/rag/processing_task.py`
+  - [x] Async processing of uploaded documents
+  - [x] Update document status: pending → processing → ready/error
+- [x] Integrate with knowledge base API (AC: 1, 4)
+  - [x] Update `backend/app/api/knowledge_base.py`
+  - [x] Trigger background processing on upload
 
 ### Dev Notes
 
@@ -402,7 +517,7 @@ As a **chatbot user**, I want the bot to answer questions based on uploaded docu
 - **Threshold**: 0.7 minimum similarity (tunable per merchant)
 - **Performance Target**: <500ms for retrieval
 
-### Files to Create
+### Files Created
 
 ```
 backend/app/services/rag/__init__.py
@@ -410,8 +525,41 @@ backend/app/services/rag/embedding_service.py
 backend/app/services/rag/retrieval_service.py
 backend/app/services/rag/document_processor.py
 backend/app/services/rag/processing_task.py
-backend/tests/services/rag/test_retrieval.py
-backend/tests/services/rag/test_embedding.py
+```
+
+### Test Coverage
+
+**Status:** ✅ COMPLETE
+
+**Test Files:**
+- `backend/tests/services/rag/test_embedding_service.py` (19 tests, 360 lines)
+- `backend/tests/services/rag/test_retrieval_service.py` (13 tests, 334 lines)
+- `backend/tests/services/rag/test_document_processor.py` (12 tests, 377 lines)
+- `backend/tests/services/rag/test_processing_task.py` (9 tests, 320 lines)
+- `backend/tests/integration/test_rag_pipeline.py` (7 tests, 237 lines)
+
+**Total Tests:** 60 (53 unit + 7 integration)
+**Execution Time:** 3.20s
+**All Passing:** ✅
+
+**Acceptance Criteria → Test Mapping:**
+
+| AC | Test Coverage | Test IDs | Status |
+|----|---------------|----------|--------|
+| AC1 | Embedding generation for chunks | test_process_document_success, test_embed_texts_openai_success, test_embed_texts_ollama_success | ✅ Pass |
+| AC2 | Top 5 chunks with similarity scores | test_retrieve_returns_top_k_chunks | ✅ Pass |
+| AC3 | Empty list when similarity < 0.7 | test_retrieve_filters_by_threshold | ✅ Pass |
+| AC4 | Error status update on failure | test_process_document_chunking_failure, test_process_document_embedding_failure | ✅ Pass |
+
+**Execution Commands:**
+
+```bash
+# Run all RAG tests
+cd backend
+source venv/bin/activate
+python -m pytest tests/services/rag/ tests/integration/test_rag_pipeline.py -v
+
+# Results: 60 passed in 3.20s
 ```
 
 ---
@@ -1023,3 +1171,41 @@ CREATE INDEX ix_document_chunks_embedding ON document_chunks
 | RAG retrieval latency (P95) | <500ms |
 | RAG accuracy (relevance score) | >0.7 |
 | Mode switch requests | <10% of users |
+---
+
+## Story 8.11: LLM Embedding Provider Integration & Re-embedding
+
+**Status: ready-for-dev**
+
+### User Story
+
+As a **merchant**, I want the chatbot to use my chosen LLM provider for embeddings and automatically update them if I switch providers, so that the knowledge base remains functional and accurate regardless of my AI configuration.
+
+### Acceptance Criteria
+
+**AC1:** Given the LLM service layer, when an embedding is requested, then the configured provider (OpenAI, Gemini, Ollama, or GLM) generates the vector using its native model.
+
+**AC2:** Given different embedding dimensions (e.g., Gemini 768 vs OpenAI 1536), when storing vectors, then the system uses zero-padding to maintain consistent 1536-dimensional storage in the database.
+
+**AC3:** Given a merchant switches their LLM provider, when the switch is saved, then a background process is triggered to re-embed all existing documents for that merchant.
+
+**AC4:** Given a provider that does not support embeddings (e.g., Anthropic), when selected, then RAG features are gracefully disabled or a warning is shown.
+
+### Tasks
+
+- [ ] Add abstract `embed` method to `BaseLLMService`
+- [ ] Implement `embed` in `OpenAIService` (text-embedding-3-small)
+- [ ] Implement `embed` in `GeminiService` (text-embedding-004)
+- [ ] Implement `embed` in `OllamaService` (nomic-embed-text)
+- [ ] Implement `embed` in `GLMService` (embedding-3)
+- [ ] Implement vector padding utility for 768 -> 1536 dimensions
+- [ ] Update `ProviderSwitchService` to trigger re-embedding logic
+- [ ] Implement re-embedding background task
+- [ ] Write tests for multi-provider embedding and padding
+
+### Dev Notes
+
+- **Dimension Alignment**: Database `document_chunks.embedding` is `VECTOR(1536)`.
+- **Gemini/Ollama**: Usually 768 dimensions. Pad with zeros to 1536.
+- **Provider Switch**: Essential because vector spaces are not compatible between models.
+- **Anthropic**: Currently lacks a native embedding API; users must select another provider for RAG or use a default.

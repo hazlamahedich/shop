@@ -227,6 +227,19 @@ class ErrorCode(IntEnum):
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002
 
+    # 11000-11999: Knowledge Base (owner: knowledge team)
+    KNOWLEDGE_BASE_FILE_TOO_LARGE = 11001  # File exceeds 10MB limit
+    KNOWLEDGE_BASE_INVALID_FILE_TYPE = 11002  # File type not supported
+    KNOWLEDGE_BASE_DOCUMENT_NOT_FOUND = 11003  # Document ID not found
+    KNOWLEDGE_BASE_CHUNKING_FAILED = 11004  # Document chunking failed
+    KNOWLEDGE_BASE_STORAGE_ERROR = 11005  # File storage error
+    # Story 8-4: RAG Service
+    EMBEDDING_GENERATION_FAILED = 11006  # Failed to generate embeddings
+    EMBEDDING_RATE_LIMITED = 11007  # Rate limit exceeded
+    EMBEDDING_INVALID_PROVIDER = 11008  # Provider doesn't support embeddings
+    RETRIEVAL_TIMEOUT = 11009  # Retrieval exceeded 500ms timeout
+    DOCUMENT_PROCESSING_FAILED = 11010  # Document processing pipeline failed
+
     # 9000-9999: Tutorial (owner: onboarding team)
     TUTORIAL_NOT_STARTED = 9001
     TUTORIAL_ALREADY_COMPLETED = 9002

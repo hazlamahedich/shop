@@ -79,6 +79,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/merchant/mode",  # Story 8.1: Mode update uses CSRF token from client
         "/api/knowledge-base/upload",  # Story 8.3: Knowledge base upload (CSRF protected)
         "/api/knowledge-base/",  # Story 8.3: Knowledge base list (CSRF protected)
+        "/api/knowledge-base/reprocess",  # Story 8-4: Reprocess endpoint (CSRF protected)
     ]
 
     def __init__(self, app) -> None:
