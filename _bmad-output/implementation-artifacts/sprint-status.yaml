@@ -151,10 +151,10 @@ development_status:
   # See: docs/epic-8-general-chatbot-mode.md
   # Mode Selection: "general" (no Shopify) vs "ecommerce" (with Shopify)
   # Facebook is OPTIONAL in both modes - it's a communication channel, not a mode
-  epic-8: in-progress # 2026-03-11: Story 8-1 code review complete
+  epic-8: in-progress # 2026-03-11: Story 8-3 ready for development
   8-1-merchant-mode-field-api: done # 2026-03-11: Code review COMPLETE - 3 HIGH + 4 MEDIUM issues fixed (endpoint path, logging timestamp, duplicate tests, file list accuracy)
-  8-2-onboarding-mode-selection: review # 2026-03-11: Implementation complete, all tests passing
-  8-3-knowledge-base-models-storage: backlog
+  8-2-onboarding-mode-selection: done # 2026-03-11: Code review COMPLETE - 2 HIGH + 3 MEDIUM issues fixed (facebook_page_id doc, /me test coverage, backup file, epic docs, performance note). 23/23 tests passing.
+  8-3-knowledge-base-models-storage: ready-for-dev # 2026-03-11: Ultimate context engine analysis completed - comprehensive developer guide created
   8-4-rag-service-document-processing: backlog
   8-5-rag-integration-conversation: backlog
   8-6-frontend-onboarding-mode-selection: backlog

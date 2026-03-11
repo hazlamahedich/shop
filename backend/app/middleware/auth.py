@@ -77,6 +77,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/customers/",  # Story 6-6: Customer GDPR revoke endpoint
         "/api/carriers/",  # Story 6.3: Carrier configuration API (CSRF protected via session)
         "/api/merchant/mode",  # Story 8.1: Mode update uses CSRF token from client
+        "/api/knowledge-base/upload",  # Story 8.3: Knowledge base upload (CSRF protected)
+        "/api/knowledge-base/",  # Story 8.3: Knowledge base list (CSRF protected)
     ]
 
     def __init__(self, app) -> None:

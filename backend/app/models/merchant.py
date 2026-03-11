@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from app.models.order import Order
     from app.models.customer_profile import CustomerProfile
     from app.models.dispute import Dispute
+    from app.models.knowledge_base import KnowledgeDocument
 
 
 class PersonalityType(str, Enum):
@@ -234,6 +235,12 @@ class Merchant(Base):
         back_populates="merchant",
         cascade="all, delete-orphan",
         order_by="CarrierConfig.priority.desc()",
+    )
+    knowledge_documents: Mapped[list["KnowledgeDocument"]] = relationship(
+        "KnowledgeDocument",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="KnowledgeDocument.created_at.desc()",
     )
 
     secret_key_hash: Mapped[Optional[str]] = mapped_column(

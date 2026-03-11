@@ -27,6 +27,7 @@ from app.models.dispute import Dispute
 from app.models.deletion_audit_log import DeletionAuditLog
 from app.models.data_export_audit_log import DataExportAuditLog
 from app.models.carrier_config import CarrierConfig
+from app.models.knowledge_base import KnowledgeDocument, DocumentChunk, DocumentStatus
 
 __all__ = [
     "Merchant",
@@ -56,4 +57,7 @@ __all__ = [
     "DeletionAuditLog",
     "DataExportAuditLog",
     "CarrierConfig",
+    "KnowledgeDocument",
+    "DocumentChunk",
+    "DocumentStatus",
 ]

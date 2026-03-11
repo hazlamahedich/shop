@@ -58,6 +58,7 @@ from app.api.consent import router as consent_router
 from app.api.health import router as health_router
 from app.api.audit import router as audit_router
 from app.api.search import router as search_router
+from app.api.knowledge_base import router as knowledge_base_router
 from app.middleware.security import setup_security_middleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.auth import AuthenticationMiddleware
@@ -463,6 +464,8 @@ app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(search_router, prefix="/api/v1", tags=["search"])
 # Epic 6: Carrier Configuration API
 app.include_router(carriers_router, tags=["carriers"])
+# Epic 8: Knowledge Base API
+app.include_router(knowledge_base_router, prefix="/api", tags=["knowledge-base"])
 # These will be added as features are implemented:
 # from app.api.routes import chat, cart, checkout
 # app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
