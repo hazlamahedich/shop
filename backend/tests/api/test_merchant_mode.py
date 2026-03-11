@@ -539,6 +539,51 @@ class TestConnectionStatusInAuthResponses:
 
     @pytest.mark.asyncio
     @pytest.mark.p0
+    async def test_me_response_includes_all_connection_flags(
+        self,
+        async_client: AsyncClient,
+    ) -> None:
+        """Test ID: 8.2-API-011 | Priority: P0
+
+        AC4: Verify /me endpoint includes onboarding_mode and connection flags.
+
+        Given: A registered and logged-in merchant
+        When: GET /api/v1/auth/me is called with auth headers
+        Then: Response should include onboardingMode, hasStoreConnected, hasFacebookConnected
+        """
+        # Register and login
+        register_response = await async_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "me-flags@test.com",
+                "password": "TestPass123",
+                "mode": "general",
+            },
+        )
+
+        assert register_response.status_code == 201
+
+        # Extract session token from cookie
+        session_token = register_response.cookies.get("session_token")
+        assert session_token is not None
+
+        # Call /me endpoint with session cookie
+        response = await async_client.get(
+            "/api/v1/auth/me",
+            cookies={"session_token": session_token},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "data" in data
+        assert "merchant" in data["data"]
+        merchant = data["data"]["merchant"]
+        assert "onboardingMode" in merchant
+        assert "hasStoreConnected" in merchant
+        assert "hasFacebookConnected" in merchant
+
+    @pytest.mark.asyncio
+    @pytest.mark.p0
     async def test_general_mode_merchant_has_false_connection_flags(
         self,
         async_client: AsyncClient,
