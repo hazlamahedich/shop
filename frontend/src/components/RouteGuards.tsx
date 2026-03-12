@@ -38,8 +38,8 @@ export function OnboardingGuard({ children, requireAuth = true, isAuthenticated 
     isSkipped,
   });
 
-  // Allow public routes
-  if (location.pathname.startsWith('/onboarding/') || location.pathname === '/') {
+  // Allow public routes (including /onboarding without trailing slash)
+  if (location.pathname.startsWith('/onboarding') || location.pathname === '/') {
     return <>{children}</>;
   }
 

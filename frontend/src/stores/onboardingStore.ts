@@ -2,15 +2,17 @@
 
 Story 1.2 (implemented): Syncs prerequisite state with PostgreSQL backend
 while keeping localStorage as fallback for offline scenarios.
+Story 8.6: Added onboarding mode support for mode-aware prerequisite tracking.
 
 Features:
 - Primary storage: PostgreSQL (via API)
 - Fallback storage: localStorage (for offline)
 - Auto-sync: Changes saved to both backend and localStorage
 - Migration: Loads from localStorage and syncs to backend on first load
+- Mode-aware: Different prerequisites required based on onboarding mode
 
 Key: shop_onboarding_prerequisites
-Schema: { cloudAccount, facebookAccount, shopifyAccess, llmProviderChoice, updatedAt }
+Schema: { cloudAccount, facebookAccount, shopifyAccess, llmProviderChoice, onboardingMode, updatedAt }
 */
 
 import { create } from "zustand";
@@ -20,8 +22,15 @@ import {
   syncPrerequisiteState as syncPrerequisiteStateApi,
   toBackendFormat,
   fromBackendFormat,
+  getOnboardingMode,
   type PrerequisiteSyncRequest,
 } from "../services/onboarding";
+import { csrfManager } from "../services/csrf";
+import {
+  OnboardingMode,
+  DEFAULT_ONBOARDING_MODE,
+  isValidOnboardingMode,
+} from "../types/onboarding";
 
 const STORAGE_KEY = "shop_onboarding_prerequisites";
 const DEFAULT_MERCHANT_ID = 1;
@@ -37,12 +46,14 @@ export interface PrerequisiteState {
   facebookAccount: boolean;
   shopifyAccess: boolean;
   llmProviderChoice: boolean;
+  onboardingMode: OnboardingMode | null;
   updatedAt: string | null;
 }
 
 export interface OnboardingStore extends PrerequisiteState {
   // Actions
   togglePrerequisite: (key: PrerequisiteKey) => void;
+  setOnboardingMode: (mode: OnboardingMode) => void;
   reset: () => void;
   loadFromStorage: () => void;
   syncToBackend: () => Promise<void>;
@@ -50,7 +61,7 @@ export interface OnboardingStore extends PrerequisiteState {
   // Computed values
   isComplete: () => boolean;
   completedCount: () => number;
-  totalCount: number;
+  totalCount: () => number;
 }
 
 const initialState: PrerequisiteState = {
@@ -58,6 +69,7 @@ const initialState: PrerequisiteState = {
   facebookAccount: false,
   shopifyAccess: false,
   llmProviderChoice: false,
+  onboardingMode: null,
   updatedAt: null,
 };
 
@@ -68,7 +80,8 @@ const loadFromStorage = (): PrerequisiteState => {
     }
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored) as PrerequisiteState;
+      const parsed = JSON.parse(stored) as PrerequisiteState;
+      return parsed;
     }
   } catch (error) {
     console.warn("Failed to load onboarding state from localStorage:", error);
@@ -105,6 +118,34 @@ const syncToBackend = async (state: PrerequisiteState): Promise<void> => {
   }
 };
 
+/**
+ * Sync onboarding mode to backend via merchant mode endpoint.
+ * Includes CSRF protection for the PATCH request.
+ */
+const syncModeToBackend = async (mode: OnboardingMode): Promise<void> => {
+  try {
+    const csrfToken = await csrfManager.getToken();
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+    const response = await fetch(`${API_BASE_URL}/api/merchant/mode`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken,
+      },
+      credentials: "include",
+      body: JSON.stringify({ mode }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to sync mode: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("Failed to sync onboarding mode to backend:", error);
+    // Re-throw so caller can handle UI feedback
+    throw error;
+  }
+};
+
 export const onboardingStore = create<OnboardingStore>((set, get) => ({
   ...initialState,
 
@@ -118,6 +159,21 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
     saveToStorage(newState);
     // Sync to backend asynchronously (don't await)
     syncToBackend(newState);
+  },
+
+  setOnboardingMode: async (mode: OnboardingMode) => {
+    // Sync mode to backend FIRST - throw error on failure so UI can handle it
+    // Only update store after successful API call
+    await syncModeToBackend(mode);
+    
+    // API call succeeded - now update store and localStorage
+    const currentState = get();
+    const newState = {
+      ...currentState,
+      onboardingMode: mode,
+    };
+    set(newState);
+    saveToStorage(newState);
   },
 
   reset: () => {
@@ -147,16 +203,21 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
   },
 
   /**
-   * Load state from backend (Story 1.2 migration).
+   * Load state from backend (Story 1.2 migration, Story 8.6 mode loading).
+   * Fetches both prerequisites and onboarding mode from backend.
    * If backend has data, use it; otherwise keep localStorage data.
    */
   loadFromBackend: async () => {
     try {
-      const backendData = await getPrerequisiteState(DEFAULT_MERCHANT_ID);
+      // Fetch both prerequisites and mode in parallel
+      const [backendData, mode] = await Promise.all([
+        getPrerequisiteState(DEFAULT_MERCHANT_ID),
+        getOnboardingMode(),
+      ]);
 
       if (backendData) {
-        // Backend has data - use it
-        const frontendState = fromBackendFormat(backendData);
+        // Backend has data - use it with the fetched mode
+        const frontendState = fromBackendFormat(backendData, mode);
         set(frontendState);
         saveToStorage(frontendState);
       } else {
@@ -180,11 +241,15 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
           };
           const syncedState = await syncPrerequisiteStateApi(syncData, DEFAULT_MERCHANT_ID);
           if (syncedState) {
-            const migratedState = fromBackendFormat(syncedState);
+            const migratedState = fromBackendFormat(syncedState, mode);
             set(migratedState);
             saveToStorage(migratedState);
           }
-        }
+      } else if (mode) {
+        // No prerequisites but mode exists - just set the mode
+        set({ ...get(), onboardingMode: mode });
+        saveToStorage(get());
+      }
       }
     } catch (error) {
       console.warn("Failed to load onboarding state from backend:", error);
@@ -192,27 +257,51 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
     }
   },
 
+  /**
+   * Check if prerequisites are complete (Story 8.6: mode-aware).
+   * - General mode: only cloud + LLM required
+   * - E-commerce mode: all 4 prerequisites required
+   * - No mode selected: e-commerce requirements (default)
+   */
   isComplete: () => {
     const state = get();
+    const baseComplete = state.cloudAccount && state.llmProviderChoice;
+
+    // General mode: only cloud + LLM required
+    if (state.onboardingMode === "general") {
+      return baseComplete;
+    }
+
+    // E-commerce mode (default): all prerequisites required
+    return baseComplete && state.facebookAccount && state.shopifyAccess;
+  },
+
+  /**
+   * Count completed prerequisites (Story 8.6: mode-aware).
+   */
+  completedCount: () => {
+    const state = get();
+    const baseCount = [state.cloudAccount, state.llmProviderChoice].filter(Boolean).length;
+
+    if (state.onboardingMode === "general") {
+      return baseCount;
+    }
+
     return (
-      state.cloudAccount &&
-      state.facebookAccount &&
-      state.shopifyAccess &&
-      state.llmProviderChoice
+      baseCount +
+      [state.facebookAccount, state.shopifyAccess].filter(Boolean).length
     );
   },
 
-  completedCount: () => {
+  /**
+   * Total prerequisites count (Story 8.6: mode-aware).
+   * - General mode: 2 prerequisites (cloud + LLM)
+   * - E-commerce mode (or no mode selected): 4 prerequisites
+   */
+  totalCount: () => {
     const state = get();
-    return [
-      state.cloudAccount,
-      state.facebookAccount,
-      state.shopifyAccess,
-      state.llmProviderChoice,
-    ].filter(Boolean).length;
+    return state.onboardingMode === "general" ? 2 : 4;
   },
-
-  totalCount: 4,
 }));
 
 // Initialize from localStorage on import (only in browser, not during tests)

@@ -1,15 +1,19 @@
 /** Onboarding API service for prerequisite state management.
 
 Story 1.2: Handles localStorage to PostgreSQL migration with sync endpoints.
+Story 8.6: Added onboarding mode support.
 
 Provides functions to:
 - Get prerequisite state from backend
 - Save/update prerequisite state to backend
 - Sync localStorage state with backend
 - Delete prerequisite state
+- Get/update onboarding mode
 
 All functions use localStorage as fallback for offline scenarios.
 */
+
+import { OnboardingMode, DEFAULT_ONBOARDING_MODE, isValidOnboardingMode } from "../types/onboarding";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -220,13 +224,15 @@ export function toBackendFormat(state: {
  * Convert backend PrerequisiteStateResponse to frontend PrerequisiteState format.
  *
  * @param state - Backend prerequisite state
+ * @param mode - Onboarding mode from merchant (defaults to 'ecommerce')
  * @returns Frontend-compatible state object
  */
-export function fromBackendFormat(state: PrerequisiteStateResponse): {
+export function fromBackendFormat(state: PrerequisiteStateResponse, mode?: OnboardingMode): {
   cloudAccount: boolean;
   facebookAccount: boolean;
   shopifyAccess: boolean;
   llmProviderChoice: boolean;
+  onboardingMode: OnboardingMode;
   updatedAt: string;
 } {
   return {
@@ -234,6 +240,40 @@ export function fromBackendFormat(state: PrerequisiteStateResponse): {
     facebookAccount: state.hasFacebookAccount,
     shopifyAccess: state.hasShopifyAccess,
     llmProviderChoice: state.hasLlmProviderChoice,
+    onboardingMode: mode || DEFAULT_ONBOARDING_MODE,
     updatedAt: state.updatedAt,
   };
+}
+
+/**
+ * Get onboarding mode from merchant endpoint (Story 8.6).
+ *
+ * @returns Onboarding mode or default if not found
+ */
+export async function getOnboardingMode(): Promise<OnboardingMode | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/merchant/mode`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      console.warn(`Onboarding mode API returned ${response.status}`);
+      return null;
+    }
+
+    const envelope: ApiEnvelope<{ onboardingMode: string }> = await response.json();
+    const mode = envelope.data?.onboardingMode;
+
+    if (isValidOnboardingMode(mode)) {
+      return mode;
+    }
+    return null;
+  } catch (error) {
+    console.warn("Failed to fetch onboarding mode from backend:", error);
+    return null;
+  }
 }

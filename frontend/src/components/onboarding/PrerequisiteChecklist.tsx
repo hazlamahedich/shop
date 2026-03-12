@@ -2,6 +2,7 @@
 
 Displays onboarding prerequisites with checkboxes and help sections.
 Deploys only when all items are checked (guard logic).
+Story 8.6: Mode-aware prerequisite display.
 
 Features:
 - shadcn/ui components (Card, Checkbox, Button, Collapsible, Progress)
@@ -9,6 +10,7 @@ Features:
 - WCAG AA accessibility compliance
 - Keyboard navigation support
 - Screen reader announcements
+- Mode-aware prerequisite filtering (general vs ecommerce)
 */
 
 import * as React from "react";
@@ -25,6 +27,7 @@ import { Button } from "../ui/Button";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "../ui/Collapsible";
 import { Progress } from "../ui/Progress";
 import { onboardingStore, PrerequisiteKey } from "../../stores/onboardingStore";
+import { OnboardingMode } from "../../types/onboarding";
 
 export interface PrerequisiteItem {
   key: PrerequisiteKey;
@@ -32,6 +35,11 @@ export interface PrerequisiteItem {
   description: string;
   helpUrl: string;
   helpContent: string[];
+  showInModes: OnboardingMode[];
+}
+
+export interface PrerequisiteChecklistProps {
+  mode?: OnboardingMode;
 }
 
 const PREREQUISITES: PrerequisiteItem[] = [
@@ -46,6 +54,7 @@ const PREREQUISITES: PrerequisiteItem[] = [
       "3. Verify your email address",
       "4. Keep your API credentials handy for deployment",
     ],
+    showInModes: ["general", "ecommerce"],
   },
   {
     key: "facebookAccount",
@@ -58,6 +67,7 @@ const PREREQUISITES: PrerequisiteItem[] = [
       "3. Note your Page ID for configuration",
       "4. You'll need this during bot setup",
     ],
+    showInModes: ["ecommerce"],
   },
   {
     key: "shopifyAccess",
@@ -70,6 +80,7 @@ const PREREQUISITES: PrerequisiteItem[] = [
       "3. Ensure you have admin-level permissions",
       "4. Have your store URL ready (e.g., mystore.myshopify.com)",
     ],
+    showInModes: ["ecommerce"],
   },
   {
     key: "llmProviderChoice",
@@ -87,12 +98,23 @@ const PREREQUISITES: PrerequisiteItem[] = [
       "  - Anthropic: Get API key from console.anthropic.com",
       "  - Google: Get API key from console.cloud.google.com",
     ],
+    showInModes: ["general", "ecommerce"],
   },
 ];
 
-export function PrerequisiteChecklist(): React.ReactElement {
-  const { isComplete, completedCount, totalCount, cloudAccount, facebookAccount, shopifyAccess, llmProviderChoice, togglePrerequisite } =
-    onboardingStore();
+export function PrerequisiteChecklist({
+  mode = "ecommerce",
+}: PrerequisiteChecklistProps): React.ReactElement {
+  const {
+    isComplete,
+    completedCount,
+    totalCount,
+    cloudAccount,
+    facebookAccount,
+    shopifyAccess,
+    llmProviderChoice,
+    togglePrerequisite,
+  } = onboardingStore();
 
   const stateMap: Record<PrerequisiteKey, boolean> = {
     cloudAccount,
@@ -101,17 +123,34 @@ export function PrerequisiteChecklist(): React.ReactElement {
     llmProviderChoice,
   };
 
+  // Filter prerequisites based on mode
+  const visiblePrerequisites = PREREQUISITES.filter((p) =>
+    p.showInModes.includes(mode),
+  );
+
   const progressPercentage = (completedCount() / totalCount) * 100;
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4" data-theme="onboarding" data-testid="prerequisite-checklist">
+    <div
+      className="w-full max-w-2xl mx-auto p-4"
+      data-theme="onboarding"
+      data-testid="prerequisite-checklist"
+    >
       <Card>
         <CardHeader>
           <CardTitle>Setup Prerequisites</CardTitle>
           <CardDescription>
-            Complete these items before deploying your bot. <strong>Setup time: 30-60 minutes</strong>
+            Complete these items before deploying your bot.{" "}
+            <strong>
+              Setup time: {mode === "general" ? "15-30" : "30-60"} minutes
+            </strong>
           </CardDescription>
-          <div className="mt-4" role="status" aria-live="polite" aria-atomic="true">
+          <div
+            className="mt-4"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <p className="text-sm text-slate-600 mb-2" data-testid="progress-text">
               Progress: {completedCount()} of {totalCount} items completed
             </p>
@@ -121,8 +160,11 @@ export function PrerequisiteChecklist(): React.ReactElement {
 
         <CardContent>
           <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-            {PREREQUISITES.map((item) => (
-              <div key={item.key} className="border-b border-slate-100 pb-4 last:border-0">
+            {visiblePrerequisites.map((item) => (
+              <div
+                key={item.key}
+                className="border-b border-slate-100 pb-4 last:border-0"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <Checkbox
@@ -142,7 +184,10 @@ export function PrerequisiteChecklist(): React.ReactElement {
                       Get help
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2">
-                      <div className="bg-slate-50 rounded-md p-3 text-sm text-slate-700" data-testid={`help-section-${item.key}`}>
+                      <div
+                        className="bg-slate-50 rounded-md p-3 text-sm text-slate-700"
+                        data-testid={`help-section-${item.key}`}
+                      >
                         <p className="font-medium mb-2">Setup Instructions:</p>
                         <ul className="list-disc list-inside space-y-1">
                           {item.helpContent.map((line, idx) => (
