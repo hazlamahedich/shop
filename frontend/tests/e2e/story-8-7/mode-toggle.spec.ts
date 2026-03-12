@@ -33,7 +33,7 @@ class SettingsModeTogglePO {
   readonly dialogConfirmButton = () => this.dialog().getByRole('button', { name: /switch to/i });
   readonly acknowledgmentCheckbox = () => this.dialog().locator('input[type="checkbox"]');
   readonly toast = () => this.page.locator('[role="alert"]');
-  readonly loadingIndicator = () => this.page.locator('text=/updating...|loading.../i');
+  readonly loadingIndicator = () => this.page.locator('button:has-text("Updating")');
 
   async navigateToSettings() {
     await this.page.goto('/settings');
@@ -77,8 +77,8 @@ async function setupMocks(page: Page, options: {
 } = {}) {
   const mode = options.onboardingMode || 'ecommerce';
   
-  // Mock authentication state
-  await page.addInitScript(() => {
+  // Mock authentication state - pass mode as argument to init script
+  await page.addInitScript((initMode: string) => {
     const mockAuthState = {
       isAuthenticated: true,
       merchant: {
@@ -87,7 +87,7 @@ async function setupMocks(page: Page, options: {
         name: 'Test Merchant',
         has_store_connected: true,
         store_provider: 'shopify',
-        onboardingMode: '${mode}',
+        onboardingMode: initMode,
       },
       sessionExpiresAt: new Date(Date.now() + 3600000).toISOString(),
       isLoading: false,
@@ -95,7 +95,7 @@ async function setupMocks(page: Page, options: {
     };
     localStorage.setItem('shop_auth_state', JSON.stringify(mockAuthState));
     localStorage.removeItem('onboarding-storage');
-  });
+  }, mode);
 
   // Mock CSRF token endpoint
   await page.route('**/api/v1/csrf-token', async (route) => {
@@ -121,7 +121,7 @@ async function setupMocks(page: Page, options: {
             name: 'Test Merchant',
             has_store_connected: true,
             store_provider: 'shopify',
-            onboardingMode: '${mode}',
+            onboardingMode: mode,
           },
         },
       }),
@@ -140,7 +140,7 @@ async function setupMocks(page: Page, options: {
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            onboardingMode: '${mode}',
+            onboardingMode: mode,
           },
         }),
       });
@@ -426,16 +426,10 @@ test.describe('Story 8-7: Settings Mode Toggle @settings @story-8-7', () => {
     await po.acknowledgeWarning();
     await po.confirmModeChange();
 
-    // Should show error toast
-    await expect(po.toast()).toBeVisible({ timeout: 3000 });
+    // Should show error toast - use longer timeout to account for retry logic (3 retries with backoff)
+    await expect(po.toast()).toBeVisible({ timeout: 15000 });
     await expect(po.toast()).toContainText(/failed|error/i);
-
-  readonly toast = () => this.page.locator('[role="alert"], [data-testid="error"], [data-testid="success"], [data-testid="warning"]');
-
-  readonly errorToast = () => this.page.locator('[data-testid="error"], [data-testid="success"], [data-testid="warning"]');
-  readonly successToast = () => this.page.locator('[data-testid="success"], [data-testid="warning"]');
-  readonly warningToast = () => this.page.locator('[data-testid="warning"]');
-  ` as });
+  });
 
 
   // ========================================
