@@ -88,6 +88,7 @@ markers = [
     "p3: Low priority tests (run weekly)",
     "test_id: Test ID for traceability (format: STORY-LEVEL-SEQ)",
     "smoke: Smoke tests for quick validation",
+    "priority: Test priority level (P0/P1/P2/P3) for risk-based testing",
 ]
 
 [tool.mypy]

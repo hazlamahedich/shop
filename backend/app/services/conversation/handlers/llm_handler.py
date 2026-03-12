@@ -67,6 +67,11 @@ class LLMHandler(BaseHandler):
         Returns:
             ConversationResponse with LLM-generated message
         """
+        # Story 8-5: Extract RAG context from metadata (set by UnifiedConversationService)
+        rag_context = None
+        if context.metadata:
+            rag_context = context.metadata.get("rag_context")
+
         bot_name = merchant.bot_name or "Shopping Assistant"
         business_name = merchant.business_name or "our store"
         personality_type: PersonalityType = merchant.personality or PersonalityType.FRIENDLY
@@ -81,6 +86,10 @@ class LLMHandler(BaseHandler):
             personality_type=personality_type,
             pending_state=pending_state,
         )
+
+        # Story 8-5: Inject RAG context if available
+        if rag_context:
+            system_prompt = self._inject_rag_context(system_prompt, rag_context)
 
         messages = [LLMMessage(role="system", content=system_prompt)]
 
@@ -317,6 +326,30 @@ class LLMHandler(BaseHandler):
             pending_state["pending_cross_device_lookup"] = True
 
         return pending_state if pending_state else None
+
+    def _inject_rag_context(self, base_prompt: str, rag_context: str) -> str:
+        """Inject RAG context into system prompt with citation instructions.
+
+        Story 8-5: RAG Integration in Conversation
+
+        Args:
+            base_prompt: Original system prompt
+            rag_context: RAG context string with document chunks
+
+        Returns:
+            System prompt with RAG context and citation instructions
+        """
+        return f"""{base_prompt}
+
+KNOWLEDGE BASE CONTEXT:
+{rag_context}
+
+INSTRUCTIONS:
+- Use the knowledge base context to answer questions accurately
+- When referencing information from the knowledge base, cite the source document
+- Example: "According to [Document Name], ..."
+- If the question is outside the knowledge base scope, provide a helpful general response
+"""
 
     def build_resolution_system_prompt(
         self,

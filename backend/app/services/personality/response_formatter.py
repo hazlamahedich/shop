@@ -208,6 +208,17 @@ class PersonalityAwareResponseFormatter:
                 "confirmed": 'OMG YOUR ORDER IS CONFIRMED!!! 🎉🎉🎉\n\nOrder #{order_number}\nEst. delivery: {delivery_date}\n\nWant to track it?! Just type "Where\'s my order?" anytime! ✨',
             },
         },
+        "general_mode_fallback": {
+            PersonalityType.FRIENDLY: {
+                "ecommerce_not_supported": "I'm a general assistant right now! 😊 For product search, cart, and orders, please connect a Shopify store in Settings. I'm still here to help with general questions!",
+            },
+            PersonalityType.PROFESSIONAL: {
+                "ecommerce_not_supported": "I'm currently operating in general assistant mode. For product search, cart management, and order tracking, please connect a Shopify store via Settings. I'm available to assist with general inquiries.",
+            },
+            PersonalityType.ENTHUSIASTIC: {
+                "ecommerce_not_supported": "I'm your general AI assistant! ✨ For shopping features like product search and orders, connect a Shopify store in Settings. I'm super excited to help with any other questions!",
+            },
+        },
     }
 
     _custom_templates: ClassVar[dict[str, dict[PersonalityType, dict[str, str]]]] = {}

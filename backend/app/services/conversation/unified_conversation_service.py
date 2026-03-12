@@ -23,7 +23,7 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import structlog
 from sqlalchemy import select
@@ -51,6 +51,10 @@ from app.services.conversation.handlers import (
     ForgetPreferencesHandler,
     CheckConsentHandler,
 )
+from app.services.conversation.handlers.general_mode_fallback import (
+    GeneralModeFallbackHandler,
+)
+from app.services.rag.context_builder import RAGContextBuilder
 from app.services.intent.intent_classifier import IntentClassifier
 from app.services.intent.classification_schema import (
     ClassificationResult,
@@ -113,16 +117,21 @@ class UnifiedConversationService:
         self,
         db: Optional[AsyncSession] = None,
         track_costs: bool = True,
+        rag_context_builder: Optional[RAGContextBuilder] = None,
     ) -> None:
         """Initialize unified conversation service.
 
         Args:
             db: Database session for loading merchant config
             track_costs: Whether to track LLM costs (default True)
+            rag_context_builder: RAG context builder for General mode (Story 8-5)
         """
         self.db = db
         self.track_costs = track_costs
+        self.rag_context_builder = rag_context_builder
         self.logger = structlog.get_logger(__name__)
+
+        self.general_mode_fallback_handler = GeneralModeFallbackHandler()
 
         self._handlers = {
             "greeting": GreetingHandler(),
@@ -135,6 +144,7 @@ class UnifiedConversationService:
             "clarification": ClarificationHandler(),
             "forget_preferences": ForgetPreferencesHandler(),
             "check_consent": CheckConsentHandler(),
+            "general_mode_fallback": self.general_mode_fallback_handler,
         }
 
     async def process_message(
@@ -177,6 +187,26 @@ class UnifiedConversationService:
                     ErrorCode.MERCHANT_NOT_FOUND,
                     f"Merchant {context.merchant_id} not found",
                 )
+
+            # Story 8-5: Build RAG context for General mode merchants
+            rag_context = None
+            rag_sources: List[str] = []
+            if merchant.onboarding_mode == "general" and self.rag_context_builder:
+                rag_context = await self.rag_context_builder.build_rag_context(
+                    merchant_id=merchant.id, user_query=message
+                )
+                # Store in context for handlers to access
+                if context.metadata is None:
+                    context.metadata = {}
+                context.metadata["rag_context"] = rag_context
+
+                # Extract source document names from RAG context for tracking
+                if rag_context:
+                    # Extract document names from "From \"Document Name\":" pattern
+                    import re
+
+                    doc_names = re.findall(r'From "([^"]+)":', rag_context)
+                    rag_sources = doc_names
 
             # GAP-6: Check if bot is paused due to budget limit
             budget_paused_response = await self._check_budget_pause(db, context, merchant)
@@ -300,26 +330,51 @@ class UnifiedConversationService:
                             entities=entities,
                         )
                     else:
-                        handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
-                        handler = self._handlers.get(handler_name, self._handlers["llm"])
+                        # Story 8-5: Check for e-commerce intent in General mode
+                        if (
+                            merchant.onboarding_mode == "general"
+                            and intent_name.upper() in GeneralModeFallbackHandler.ECOMMERCE_INTENTS
+                        ):
+                            self.logger.info(
+                                "general_mode_ecommerce_fallback",
+                                merchant_id=merchant.id,
+                                intent=intent_name,
+                            )
+                            handler = self.general_mode_fallback_handler
+                            entities = None
+                            if classification.entities:
+                                entities = classification.entities.model_dump(exclude_none=True)
+                                entities["original_intent"] = intent_name
+                            response = await handler.handle(
+                                db=db,
+                                merchant=merchant,
+                                llm_service=llm_service,
+                                message=message,
+                                context=context,
+                                entities=entities,
+                            )
+                            intent_name = "general_mode_fallback"
+                        else:
+                            handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
+                            handler = self._handlers.get(handler_name, self._handlers["llm"])
 
-                        entities = None
-                        if classification.entities:
-                            entities = classification.entities.model_dump(exclude_none=True)
+                            entities = None
+                            if classification.entities:
+                                entities = classification.entities.model_dump(exclude_none=True)
 
-                        if handler_name == "cart":
-                            entities = entities or {}
-                            cart_action = self._determine_cart_action(intent_name)
-                            entities["cart_action"] = cart_action
+                            if handler_name == "cart":
+                                entities = entities or {}
+                                cart_action = self._determine_cart_action(intent_name)
+                                entities["cart_action"] = cart_action
 
-                        response = await handler.handle(
-                            db=db,
-                            merchant=merchant,
-                            llm_service=llm_service,
-                            message=message,
-                            context=context,
-                            entities=entities,
-                        )
+                            response = await handler.handle(
+                                db=db,
+                                merchant=merchant,
+                                llm_service=llm_service,
+                                message=message,
+                                context=context,
+                                entities=entities,
+                            )
 
             # Single exit point: ALWAYS persist and return
             processing_time_ms = (time.time() - start_time) * 1000
@@ -344,6 +399,12 @@ class UnifiedConversationService:
                     consent_status=context.consent_state.status,
                     prompt_shown=context.consent_state.prompt_shown,
                 )
+
+            # Story 8-5: Include RAG enabled flag in response metadata
+            if rag_context:
+                response.metadata["rag_enabled"] = True
+                if rag_sources:
+                    response.metadata["rag_sources"] = rag_sources
 
             if response.products:
                 response.products = self._deduplicate_products(response.products)
