@@ -149,17 +149,18 @@ development_status:
 
   # Epic 8: General Chatbot Mode (approved 2026-03-10)
   # See: docs/epic-8-general-chatbot-mode.md
-  # Mode Selection: "general" (no Shopify) vs "ecommerce" (with Shopify)
-  # Facebook is OPTIONAL in both modes - it's a communication channel, not a mode
-  epic-8: in-progress # 2026-03-11: Story 8-3 ready for development
-  8-1-merchant-mode-field-api: done # 2026-03-11: Code review COMPLETE - 3 HIGH + 4 MEDIUM issues fixed (endpoint path, logging timestamp, duplicate tests, file list accuracy)
-  8-2-onboarding-mode-selection: done # 2026-03-11: Code review COMPLETE - 2 HIGH + 3 MEDIUM issues fixed (facebook_page_id doc, /me test coverage, backup file, epic docs, performance note). 23/23 tests passing.
-  8-3-knowledge-base-models-storage: ready-for-dev # 2026-03-11: Ultimate context engine analysis completed - comprehensive developer guide created
-  8-4-rag-service-document-processing: backlog
-  8-5-rag-integration-conversation: backlog
-  8-6-frontend-onboarding-mode-selection: backlog
-  8-7-frontend-settings-mode-toggle: backlog
-  8-8-frontend-knowledge-base-page: backlog
+  
+  epic-8: in-progress # 2026-03-11: Story 8-4 complete (RAG Service)
+  
+  8-1-general-chatbot-mode-setup: done # 2026-03-10: Complete - Added onboarding_mode field, mode selection in registration
+  8-2-knowledge-base-api: done # 2026-03-10: Complete - Document upload/download/list/delete/status endpoints
+  8-3-knowledge-base-document-chunking: done # 2026-03-10: Complete - Document chunking with LangChain, chunk storage
+  8-4-rag-service-document-processing: done # 2026-03-11: Complete - Embedding service (OpenAI/Ollama), retrieval with pgvector, background processing
+  8-5-rag-integration-conversation: review
+  8-6-frontend-onboarding-mode-selection: done # 2026-03-12: Code review COMPLETE - 3 HIGH + 4 MEDIUM issues fixed (CSRF, getOnboardingMode integration, type hack, loading state, E2E route mock)
+  8-7-frontend-settings-mode-toggle: done # 2026-03-12: Code review COMPLETE - 3 HIGH + 4 MEDIUM issues fixed (retry logic, API envelope, focus restoration, fetching state)
+  8-8-frontend-knowledge-base-page: done # 2026-03-13: Code review COMPLETE - 9 HIGH/MEDIUM issues fixed (CSRF tokens, retry logic, mode-aware nav, type fixes), build verified
   8-9-testing-quality-assurance: backlog
   8-10-frontend-dashboard-mode-aware-widgets: backlog
+  8-11-llm-embedding-provider-integration-reembedding: ready-for-dev
   epic-8-retrospective: optional

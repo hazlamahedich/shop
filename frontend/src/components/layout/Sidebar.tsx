@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut, Package, ShoppingCart, Users } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, DollarSign, Settings, Cpu, Smile, Info, Bot, TestTube, LogOut, Package, ShoppingCart, Users, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useHasStoreConnected } from '../../stores/authStore';
 import { useHandoffAlertsStore } from '../../stores/handoffAlertStore';
@@ -45,7 +45,8 @@ const Sidebar = () => {
     badgeType?: 'conversations' | 'handoff'; // Which badge to show
   }
 
-  const navItems: NavItem[] = [
+  // Build nav items array based on mode
+  const baseNavItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TestTube, label: 'Test Your Bot', path: '/bot-preview' },
     { icon: MessageSquare, label: 'Conversations', path: '/conversations', badgeType: 'conversations' },
@@ -56,11 +57,22 @@ const Sidebar = () => {
     // { icon: Package, label: 'Products', path: '/products', requiresStore: true },
     // { icon: ShoppingCart, label: 'Orders', path: '/orders', requiresStore: true },
     { icon: Info, label: 'Business Info & FAQ', path: '/business-info-faq' },
+  ];
+
+  // Story 8-8: Add Knowledge Base only in General mode
+  if (merchant?.onboardingMode === 'general') {
+    baseNavItems.push({ icon: BookOpen, label: 'Knowledge Base', path: '/knowledge-base' });
+  }
+
+  // Add remaining items
+  baseNavItems.push(
     { icon: Smile, label: 'Bot Personality', path: '/personality' },
     { icon: Bot, label: 'Bot Config', path: '/bot-config' },
     { icon: Settings, label: 'Settings', path: '/settings' },
-    { icon: Cpu, label: 'LLM Settings', path: '/settings/provider' },
-  ];
+    { icon: Cpu, label: 'LLM Settings', path: '/settings/provider' }
+  );
+
+  const navItems = baseNavItems;
 
   // Filter nav items based on store connection
   const visibleNavItems = navItems.filter((item) =>

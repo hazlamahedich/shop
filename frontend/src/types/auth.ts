@@ -20,6 +20,8 @@ export interface Merchant {
   merchant_key: string;
   store_provider: StoreProvider;  // Sprint Change 2026-02-13
   has_store_connected: boolean;   // Sprint Change 2026-02-13: Convenience flag
+  onboardingMode?: 'general' | 'ecommerce';  // Story 8.1: Bot mode (optional for backward compatibility)
+  bot_name?: string;  // Optional bot name
 }
 
 /**
