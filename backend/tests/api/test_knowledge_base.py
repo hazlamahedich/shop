@@ -17,6 +17,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import patch
 
 from app.main import app
 from app.core.database import get_db
@@ -41,8 +42,9 @@ async def test_merchant(async_session: AsyncSession) -> int:
         status="active",
     )
     async_session.add(merchant)
+    await async_session.flush()  # Ensure ID is generated before commit
     await async_session.commit()
-    await async_session.refresh(merchant)
+    assert merchant.id is not None, "Merchant ID should be populated after flush"
     return merchant.id
 
 
@@ -58,12 +60,19 @@ async def auth_headers(test_merchant: int) -> dict[str, str]:
 
 
 @pytest.fixture
-async def client(async_session: AsyncSession):
-    """Create async HTTP client for testing."""
+async def client(async_session: AsyncSession, test_merchant: int):
+    """Create async HTTP client for testing.
+
+    Note: Must depend on test_merchant to ensure merchant is created before
+    the client is used.
+    """
+    from app.core.database import get_db
+    from app.main import app
 
     async def override_get_db():
         yield async_session
 
+    # Override the database dependency to use our test session
     app.dependency_overrides[get_db] = override_get_db
 
     async with AsyncClient(
@@ -145,14 +154,18 @@ class TestKnowledgeBaseAPI:
         auth_headers: dict,
     ) -> None:
         """8.3-API-007 [P0]: AC1 - Test document upload with TXT file."""
-        txt_content = b"This is a test document for the knowledge base."
+        txt_content = b"This is a test document for the knowledge base. It must be at least 50 characters long to pass the quality check."
 
-        data = await upload_document_helper(
-            client, auth_headers, "test.txt", txt_content, "text/plain"
-        )
+        # Mock the background task directly to avoid event loop issues
+        with patch("app.services.rag.processing_task.process_document_background") as mock_task:
+            data = await upload_document_helper(
+                client, auth_headers, "test.txt", txt_content, "text/plain"
+            )
 
-        assert data["filename"] == "test.txt"
-        assert data["fileType"] == "txt"
+            assert data["filename"] == "test.txt"
+            assert data["fileType"] == "txt"
+            # Verify background task was triggered
+            assert mock_task.called
 
     @pytest.mark.asyncio
     async def test_upload_invalid_file_type(
@@ -363,28 +376,28 @@ class TestKnowledgeBaseAPI:
         """8.3-API-001 [P0]: AC1 - Test document upload with Markdown file."""
         md_content = b"""# Knowledge Base Document
 
-This is a **markdown** document for testing.
+This is a **markdown** document for testing. It has more than 50 characters to ensure that it passes the quality validation check.
 
 ## Section 1
 - Item 1
 - Item 2
-
-## Section 2
-Some more content here.
 """
+        # Mock the background task directly to avoid event loop issues
+        with patch("app.services.rag.processing_task.process_document_background") as mock_task:
+            response = await client.post(
+                "/api/knowledge-base/upload",
+                files={"file": ("test.md", md_content, "text/markdown")},
+                headers=auth_headers,
+            )
 
-        response = await client.post(
-            "/api/knowledge-base/upload",
-            files={"file": ("test.md", md_content, "text/markdown")},
-            headers=auth_headers,
-        )
-
-        assert response.status_code == 200
-        data = response.json()["data"]
-        assert data["filename"] == "test.md"
-        assert data["fileType"] == "md"
-        assert "id" in data
-        assert "status" in data
+            assert response.status_code == 200
+            data = response.json()["data"]
+            assert data["filename"] == "test.md"
+            assert data["fileType"] == "md"
+            assert "id" in data
+            assert "status" in data
+            # Verify background task was triggered
+            assert mock_task.called
 
     @pytest.mark.asyncio
     async def test_upload_document_docx(
@@ -400,31 +413,39 @@ Some more content here.
 
         doc = Document()
         doc.add_heading("Test Document", 0)
-        doc.add_paragraph("This is a test DOCX file for the knowledge base.")
-        doc.add_paragraph("It contains multiple paragraphs of text.")
+        doc.add_paragraph(
+            "This is a test DOCX file for the knowledge base. It contains enough content to pass the quality check for chunking."
+        )
+        doc.add_paragraph(
+            "It has several paragraphs of text to ensure it meets the minimum character requirement of 50 chars."
+        )
 
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)
         docx_content = buffer.read()
 
-        response = await client.post(
-            "/api/knowledge-base/upload",
-            files={
-                "file": (
-                    "test.docx",
-                    docx_content,
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                )
-            },
-            headers=auth_headers,
-        )
+        # Mock the background task directly to avoid event loop issues
+        with patch("app.services.rag.processing_task.process_document_background") as mock_task:
+            response = await client.post(
+                "/api/knowledge-base/upload",
+                files={
+                    "file": (
+                        "test.docx",
+                        docx_content,
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
+                },
+                headers=auth_headers,
+            )
 
-        assert response.status_code == 200
-        data = response.json()["data"]
-        assert data["filename"] == "test.docx"
-        assert data["fileType"] == "docx"
-        assert "id" in data
+            assert response.status_code == 200
+            data = response.json()["data"]
+            assert data["filename"] == "test.docx"
+            assert data["fileType"] == "docx"
+            assert "id" in data
+            # Verify background task was triggered
+            assert mock_task.called
 
     @pytest.mark.asyncio
     async def test_unauthorized_access(

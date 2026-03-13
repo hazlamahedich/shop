@@ -30,8 +30,9 @@ async def merchant_for_mode_tests(async_session: AsyncSession) -> Merchant:
         email="mode-fixture@test.com",
     )
     async_session.add(merchant)
+    await async_session.flush()  # Ensure ID is generated before commit
     await async_session.commit()
-    await async_session.refresh(merchant)
+    assert merchant.id is not None, "Merchant ID should be populated after flush"
     return merchant
 
 

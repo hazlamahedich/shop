@@ -253,7 +253,7 @@ async def test_merchant(async_session: AsyncSession):
     """Create a test merchant for integration tests.
 
     Returns:
-        Merchant instance with test data
+        Merchant ID (int) for use in tests
     """
     from app.models.merchant import Merchant
 
@@ -264,8 +264,9 @@ async def test_merchant(async_session: AsyncSession):
         status="active",
     )
     async_session.add(merchant)
-    await async_session.commit()
-    await async_session.refresh(merchant)
+    await async_session.flush()  # Flush to get the ID without committing
+    assert merchant.id is not None, "Merchant ID should be set after flush"
+    await async_session.commit()  # Now commit to make it visible to other sessions
     return merchant.id  # Return merchant_id (int) for test compatibility
 
 

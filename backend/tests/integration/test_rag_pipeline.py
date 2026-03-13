@@ -46,6 +46,8 @@ class TestRAGPipelineIntegration:
     """Integration tests for the complete RAG pipeline."""
 
     @pytest.mark.asyncio
+    @pytest.mark.test_id("8-9-INT-009")
+    @pytest.mark.priority("P0")
     async def test_upload_creates_pending_document(
         self,
         async_client: AsyncClient,
@@ -80,6 +82,8 @@ class TestRAGPipelineIntegration:
         assert document.merchant_id == merchant_id
 
     @pytest.mark.asyncio
+    @pytest.mark.test_id("8-9-INT-010")
+    @pytest.mark.priority("P0")
     async def test_document_status_endpoint(
         self,
         async_client: AsyncClient,
@@ -111,7 +115,9 @@ class TestRAGPipelineIntegration:
         assert data["status"] == "ready"
 
     @pytest.mark.asyncio
-    async def test_multi_tenant_isolation(
+    @pytest.mark.test_id("8-9-INT-011")
+    @pytest.mark.priority("P0")
+    async def test_cross_merchant_document_isolation(
         self,
         async_client: AsyncClient,
         async_session: AsyncSession,
@@ -149,6 +155,8 @@ class TestRAGPipelineIntegration:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
+    @pytest.mark.test_id("8-9-INT-012")
+    @pytest.mark.priority("P1")
     async def test_reprocess_document_endpoint(
         self,
         async_client: AsyncClient,
@@ -187,6 +195,8 @@ class TestRAGServiceUnit:
     """Unit tests for RAG service components."""
 
     @pytest.mark.asyncio
+    @pytest.mark.test_id("8-9-UNIT-001")
+    @pytest.mark.priority("P2")
     async def test_embedding_service_initialization(self):
         """Test embedding service can be initialized."""
         from app.services.rag.embedding_service import EmbeddingService
@@ -198,6 +208,8 @@ class TestRAGServiceUnit:
         assert service.dimension == 1536
 
     @pytest.mark.asyncio
+    @pytest.mark.test_id("8-9-UNIT-002")
+    @pytest.mark.priority("P2")
     async def test_retrieval_service_initialization(
         self,
         async_session: AsyncSession,
@@ -216,6 +228,8 @@ class TestRAGServiceUnit:
         assert retrieval_service.embedding_service == embedding_service
 
     @pytest.mark.asyncio
+    @pytest.mark.test_id("8-9-UNIT-003")
+    @pytest.mark.priority("P2")
     async def test_document_processor_initialization(
         self,
         async_session: AsyncSession,
