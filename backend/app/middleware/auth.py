@@ -79,6 +79,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/merchant/mode",  # Story 8.1: Mode update uses CSRF token from client
         "/api/knowledge-base/upload",  # Story 8.3: Knowledge base upload (CSRF protected)
         "/api/knowledge-base/",  # Story 8.3: Knowledge base list (CSRF protected)
+        "/api/knowledge-base/stats",  # Story 8-10: Knowledge base stats for dashboard widget (CSRF protected)
         "/api/knowledge-base/reprocess",  # Story 8-4: Reprocess endpoint (CSRF protected)
     ]
 
@@ -297,7 +298,7 @@ def get_request_merchant_id(request: Request) -> int:
     """Get merchant_id from authenticated request.
 
     Dependency for use in protected endpoints.
-    In test mode, tries to extract from Bearer token if not in request.state.
+    In test mode, tries to extract from Bearer token or X-Merchant-Id header if not in request.state.
 
     Args:
         request: FastAPI request object
@@ -313,8 +314,14 @@ def get_request_merchant_id(request: Request) -> int:
     print(f"DEBUG get_request_merchant_id: merchant_id from state = {merchant_id}")
 
     if merchant_id is None and os.getenv("IS_TESTING", "false").lower() == "true":
-        print(f"DEBUG: In test mode, trying to extract from token")
-        # In test mode, try to extract from Bearer token
+        print(f"DEBUG: In test mode, trying to extract from token or header")
+        # In test mode, first try X-Merchant-Id header (for integration tests)
+        merchant_id_header = request.headers.get("X-Merchant-Id")
+        if merchant_id_header:
+            print(f"DEBUG: Found X-Merchant-Id header: {merchant_id_header}")
+            return int(merchant_id_header)
+
+        # Then try to extract from Bearer token
         token = request.cookies.get(SESSION_COOKIE_NAME)
         if not token:
             auth_header = request.headers.get("Authorization", "")
