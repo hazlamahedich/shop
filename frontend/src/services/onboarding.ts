@@ -14,6 +14,7 @@ All functions use localStorage as fallback for offline scenarios.
 */
 
 import { OnboardingMode, DEFAULT_ONBOARDING_MODE, isValidOnboardingMode } from "../types/onboarding";
+import { csrfManager } from "./csrf";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -83,6 +84,7 @@ export async function getPrerequisiteState(
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       },
     );
 
@@ -110,13 +112,16 @@ export async function savePrerequisiteState(
   merchantId: number = 1,
 ): Promise<PrerequisiteStateResponse | null> {
   try {
+    const csrfToken = await csrfManager.getToken();
     const response = await fetch(
       `${API_BASE_URL}/api/onboarding/prerequisites?merchant_id=${merchantId}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
         },
+        credentials: "include",
         body: JSON.stringify(state),
       },
     );
@@ -145,13 +150,16 @@ export async function syncPrerequisiteState(
   merchantId: number = 1,
 ): Promise<PrerequisiteStateResponse | null> {
   try {
+    const csrfToken = await csrfManager.getToken();
     const response = await fetch(
       `${API_BASE_URL}/api/onboarding/prerequisites/sync?merchant_id=${merchantId}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
         },
+        credentials: "include",
         body: JSON.stringify(state),
       },
     );
@@ -178,13 +186,16 @@ export async function deletePrerequisiteState(
   merchantId: number = 1,
 ): Promise<boolean> {
   try {
+    const csrfToken = await csrfManager.getToken();
     const response = await fetch(
       `${API_BASE_URL}/api/onboarding/prerequisites?merchant_id=${merchantId}`,
       {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
         },
+        credentials: "include",
       },
     );
 

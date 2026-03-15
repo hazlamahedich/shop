@@ -81,6 +81,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/knowledge-base/",  # Story 8.3: Knowledge base list (CSRF protected)
         "/api/knowledge-base/stats",  # Story 8-10: Knowledge base stats for dashboard widget (CSRF protected)
         "/api/knowledge-base/reprocess",  # Story 8-4: Reprocess endpoint (CSRF protected)
+        "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
+        "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
     ]
 
     def __init__(self, app) -> None:

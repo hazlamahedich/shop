@@ -92,7 +92,13 @@ class LLMConfiguration(Base):
 
     # Configuration metadata
     status: Mapped[str] = mapped_column(
-        String(20),
+        ENUM(
+            "pending",
+            "active",
+            "error",
+            name="llm_status",
+            create_type=False,
+        ),
         default="pending",
         nullable=False,
         index=True,

@@ -152,9 +152,9 @@ export function PrerequisiteChecklist({
             aria-atomic="true"
           >
             <p className="text-sm text-slate-600 mb-2" data-testid="progress-text">
-              Progress: {completedCount()} of {totalCount} items completed
+              Progress: {completedCount()} of {totalCount()} items completed
             </p>
-            <Progress value={completedCount()} max={totalCount} />
+            <Progress value={completedCount()} max={totalCount()} />
           </div>
         </CardHeader>
 

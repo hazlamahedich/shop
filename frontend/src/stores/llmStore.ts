@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { LLMProvider, LLMStatus } from '../types/enums';
+import { csrfManager } from '../services/csrf';
 
 export interface LLMConfiguration {
   provider: LLMProvider | null;
@@ -41,7 +42,6 @@ interface LLMState {
   isConfiguring: boolean;
   isTesting: boolean;
 
-  // Actions
   setConfiguration: (config: Partial<LLMConfiguration>) => void;
   configureLLM: (provider: string, config: any) => Promise<void>;
   getLLMStatus: () => Promise<void>;
@@ -54,6 +54,31 @@ interface LLMState {
 }
 
 const API_BASE = '/api/llm';
+const MERCHANT_ID = '1';
+
+function getHeaders(csrfToken?: string): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'X-Merchant-Id': MERCHANT_ID,
+  };
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+  return headers;
+}
+
+function parseError(data: any): string {
+  if (typeof data.detail === 'string') {
+    return data.detail;
+  }
+  if (data.detail?.error) {
+    return data.detail.error;
+  }
+  if (data.message) {
+    return data.message;
+  }
+  return 'An error occurred';
+}
 
 export const useLLMStore = create<LLMState>()(
   persist(
@@ -73,9 +98,11 @@ export const useLLMStore = create<LLMState>()(
       configureLLM: async (provider, config) => {
         set({ isConfiguring: true, error: undefined });
         try {
+          const csrfToken = await csrfManager.getToken();
           const response = await fetch(`${API_BASE}/configure`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(csrfToken),
+            credentials: 'include',
             body: JSON.stringify({
               provider,
               ...(provider === 'ollama'
@@ -89,7 +116,7 @@ export const useLLMStore = create<LLMState>()(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.detail || 'Configuration failed');
+            throw new Error(parseError(data));
           }
 
           await get().getLLMStatus();
@@ -103,10 +130,12 @@ export const useLLMStore = create<LLMState>()(
 
       getLLMStatus: async () => {
         try {
-          const response = await fetch(`${API_BASE}/status`);
+          const response = await fetch(`${API_BASE}/status`, {
+            headers: getHeaders(),
+            credentials: 'include',
+          });
 
           if (!response.ok) {
-            // Not configured is expected state
             if (response.status === 404) {
               set({ configuration: { provider: null, status: 'pending' } });
               return;
@@ -124,9 +153,11 @@ export const useLLMStore = create<LLMState>()(
       testLLM: async (testPrompt) => {
         set({ isTesting: true, error: undefined });
         try {
+          const csrfToken = await csrfManager.getToken();
           const response = await fetch(`${API_BASE}/test`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(csrfToken),
+            credentials: 'include',
             body: JSON.stringify({ test_prompt: testPrompt }),
           });
 
@@ -142,16 +173,18 @@ export const useLLMStore = create<LLMState>()(
 
       updateLLM: async (updates) => {
         try {
+          const csrfToken = await csrfManager.getToken();
           const response = await fetch(`${API_BASE}/update`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(csrfToken),
+            credentials: 'include',
             body: JSON.stringify(updates),
           });
 
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.detail || 'Update failed');
+            throw new Error(parseError(data));
           }
 
           await get().getLLMStatus();
@@ -163,8 +196,11 @@ export const useLLMStore = create<LLMState>()(
 
       clearLLM: async () => {
         try {
+          const csrfToken = await csrfManager.getToken();
           const response = await fetch(`${API_BASE}/clear`, {
             method: 'DELETE',
+            headers: getHeaders(csrfToken),
+            credentials: 'include',
           });
 
           if (!response.ok) {
@@ -180,7 +216,10 @@ export const useLLMStore = create<LLMState>()(
 
       getProviders: async () => {
         try {
-          const response = await fetch(`${API_BASE}/providers`);
+          const response = await fetch(`${API_BASE}/providers`, {
+            headers: getHeaders(),
+            credentials: 'include',
+          });
           const data = await response.json();
           set({ providers: data.data.providers });
         } catch (error) {
@@ -190,7 +229,10 @@ export const useLLMStore = create<LLMState>()(
 
       getHealth: async () => {
         try {
-          const response = await fetch(`${API_BASE}/health`);
+          const response = await fetch(`${API_BASE}/health`, {
+            headers: getHeaders(),
+            credentials: 'include',
+          });
           const data = await response.json();
           return data.data;
         } catch (error) {
@@ -202,9 +244,11 @@ export const useLLMStore = create<LLMState>()(
       switchProvider: async (providerId: string, apiKey: string, model?: string) => {
         set({ isConfiguring: true });
         try {
+          const csrfToken = await csrfManager.getToken();
           const response = await fetch(`${API_BASE}/switch-provider`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(csrfToken),
+            credentials: 'include',
             body: JSON.stringify({
               provider_id: providerId,
               api_key: apiKey,
@@ -215,7 +259,7 @@ export const useLLMStore = create<LLMState>()(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.detail || data.message || 'Failed to switch provider');
+            throw new Error(parseError(data));
           }
 
           await get().getLLMStatus();

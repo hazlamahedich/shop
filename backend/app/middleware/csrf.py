@@ -67,6 +67,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/widget/",  # Widget API endpoints (no CSRF for anonymous sessions)
         "/api/knowledge-base/upload",  # Story 8-4: Upload uses CSRF token from client
         "/api/knowledge-base/reprocess",  # Story 8-4: Reprocess endpoint (CSRF protected via session)
+        "/api/knowledge-base/re-embed",  # Story 8-11: Manual re-embed trigger
+        "/api/settings/embedding-provider",  # Story 8-11: Embedding provider settings
+        "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
+        "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
         "/docs",
         "/redoc",
         "/openapi.json",
