@@ -2,6 +2,8 @@ import type { WidgetError } from './errors';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
+export type ThemeMode = 'light' | 'dark' | 'auto';
+
 export type ConsentStatus = 'pending' | 'opted_in' | 'opted_out';
 
 export interface ConsentState {
@@ -34,6 +36,7 @@ export interface WidgetTheme {
   height: number;
   fontFamily: string;
   fontSize: number;
+  mode?: ThemeMode;
 }
 
 export type PersonalityType = 'friendly' | 'professional' | 'enthusiastic';
@@ -88,6 +91,7 @@ export interface WidgetState {
   isDragging: boolean;
   isMinimized: boolean;
   unreadCount: number;
+  themeMode: ThemeMode;
 }
 
 export interface WidgetApiError {
@@ -115,6 +119,7 @@ export type WidgetAction =
   | { type: 'SET_DRAGGING'; payload: boolean }
   | { type: 'TOGGLE_MINIMIZED' }
   | { type: 'SET_UNREAD_COUNT'; payload: number }
+  | { type: 'SET_THEME_MODE'; payload: ThemeMode }
   | { type: 'RESET' };
 
 export interface WidgetProduct {

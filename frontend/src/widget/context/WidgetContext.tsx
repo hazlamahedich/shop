@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus, ConsentState } from '../types/widget';
+import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus, ConsentState, ThemeMode } from '../types/widget';
 import { createWidgetError } from '../types/errors';
 import { shopifyCartClient } from '../api/shopifyCartClient';
 import { 
@@ -15,6 +15,8 @@ import {
   saveWidgetPosition,
   loadWidgetPosition,
   isValidSessionId,
+  getStoredTheme,
+  setStoredTheme,
   type CachedMessage,
   type WidgetPosition,
 } from '../utils/storage';
@@ -48,6 +50,7 @@ const initialState: WidgetState = {
   isDragging: false,
   isMinimized: false,
   unreadCount: 0,
+  themeMode: 'auto',
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -96,6 +99,8 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, isMinimized: !state.isMinimized, unreadCount: !state.isMinimized ? 0 : state.unreadCount };
     case 'SET_UNREAD_COUNT':
       return { ...state, unreadCount: action.payload };
+    case 'SET_THEME_MODE':
+      return { ...state, themeMode: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -127,6 +132,7 @@ interface WidgetContextValue {
   clearHistory: () => Promise<void>;
   updatePosition: (position: WidgetPosition) => void;
   toggleMinimized: () => void;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const WidgetContext = React.createContext<WidgetContextValue | null>(null);
@@ -153,6 +159,14 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   const greetingShownRef = React.useRef(false);
   const consentPromptShownRef = React.useRef(false);
   const lastCachedLengthRef = React.useRef<number>(0);
+
+  // Load theme synchronously on mount (before async initWidget completes)
+  React.useEffect(() => {
+    const storedTheme = getStoredTheme(merchantId);
+    if (storedTheme && storedTheme !== state.themeMode) {
+      dispatch({ type: 'SET_THEME_MODE', payload: storedTheme });
+    }
+  }, [merchantId]);
 
   React.useEffect(() => {
     if (!state.session?.sessionId || state.messages.length === 0) {
@@ -218,6 +232,10 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
 
       // Register the shop domain so isOnShopify() correctly detects custom-domain stores
       shopifyCartClient.setShopDomain(config.shopDomain);
+
+      // Load stored theme preference
+      const storedTheme = getStoredTheme(merchantId);
+      dispatch({ type: 'SET_THEME_MODE', payload: storedTheme || 'auto' });
 
       const visitorId = getOrCreateVisitorId();
 
@@ -724,6 +742,11 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
     dispatch({ type: 'TOGGLE_MINIMIZED' });
   }, []);
 
+  const setThemeMode = React.useCallback((mode: ThemeMode) => {
+    dispatch({ type: 'SET_THEME_MODE', payload: mode });
+    setStoredTheme(merchantId, mode);
+  }, [merchantId]);
+
   const value = React.useMemo(
     () => ({
       state,
@@ -749,6 +772,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       clearHistory,
       updatePosition,
       toggleMinimized,
+      setThemeMode,
     }),
     [
       state,
@@ -772,6 +796,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       clearHistory,
       updatePosition,
       toggleMinimized,
+      setThemeMode,
     ]
   );
 

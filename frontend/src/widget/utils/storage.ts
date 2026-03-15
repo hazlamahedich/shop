@@ -232,3 +232,21 @@ export function isValidSessionId(sessionId: string | null | undefined): boolean 
 }
 
 export { safeStorage, safeLocalStorage };
+
+import type { ThemeMode } from '../types/widget';
+
+export const THEME_KEY_PREFIX = 'shopbot-widget-theme-';
+
+export function getStoredTheme(merchantId: string): ThemeMode | null {
+  const key = THEME_KEY_PREFIX + merchantId;
+  const stored = safeLocalStorage.get(key);
+  if (stored === 'light' || stored === 'dark' || stored === 'auto') {
+    return stored;
+  }
+  return null;
+}
+
+export function setStoredTheme(merchantId: string, mode: ThemeMode): boolean {
+  const key = THEME_KEY_PREFIX + merchantId;
+  return safeLocalStorage.set(key, mode);
+}

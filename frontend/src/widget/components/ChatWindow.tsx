@@ -1,6 +1,6 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -9,6 +9,7 @@ import { ErrorToast } from './ErrorToast';
 import { ProductDetailModal } from './ProductDetailModal';
 import { ConnectionStatusIndicator } from './ConnectionStatus';
 import { ConsentPrompt } from './ConsentPrompt';
+import { ThemeToggle } from './ThemeToggle';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -38,6 +39,8 @@ export interface ChatWindowProps {
   isMinimized?: boolean;
   onDragStart?: (e: React.MouseEvent | React.TouchEvent) => void;
   onMinimize?: () => void;
+  themeMode?: ThemeMode;
+  onThemeToggle?: () => void;
 }
 
 function ChatWindow({
@@ -68,6 +71,8 @@ function ChatWindow({
   isMinimized: _isMinimized = false,
   onDragStart,
   onMinimize,
+  themeMode = 'auto',
+  onThemeToggle,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
@@ -310,6 +315,12 @@ function ChatWindow({
                   </div>
                 )}
               </div>
+            )}
+            {onThemeToggle && (
+              <ThemeToggle
+                themeMode={themeMode}
+                onToggle={onThemeToggle}
+              />
             )}
             {onMinimize && (
               <button

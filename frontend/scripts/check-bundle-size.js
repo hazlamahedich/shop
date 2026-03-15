@@ -21,12 +21,13 @@ async function checkBundleSize() {
   console.log(`UMD gzipped: ${(umdGzipped / 1024).toFixed(1)} KB`);
   console.log(`ES gzipped: ${(esGzipped / 1024).toFixed(1)} KB`);
 
-  const limit = 100 * 1024;
+  const limit = 150 * 1024; // Story 9-1 budget: 150KB
   if (umdGzipped > limit || esGzipped > limit) {
-    console.error('❌ Bundle exceeds 100KB limit!');
+    console.error('❌ Bundle exceeds 150KB limit!');
     process.exit(1);
   }
-  console.log('✅ Bundle within size budget');
+  console.log('✅ Bundle within size budget (150KB)');
+  console.log(`   Headroom: ${((limit - umdGzipped) / 1024).toFixed(1)} KB remaining`);
 }
 
 checkBundleSize();

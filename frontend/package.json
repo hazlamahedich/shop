@@ -29,7 +29,15 @@
     "security:check": "snyk test",
     "outdated": "npm outdated",
     "build:widget": "vite build --config vite.widget.config.ts",
-    "build:widget:size": "npm run build:widget && node scripts/check-bundle-size.js"
+    "build:widget:size": "npm run build:widget && node scripts/check-bundle-size.js",
+    "test:story-9-1": "npm run test:unit:9-1 && npm run test:e2e:9-1",
+    "test:unit:9-1": "vitest run src/widget",
+    "test:e2e:9-1": "playwright test tests/e2e/story-9-1-*.spec.ts",
+    "test:a11y": "playwright test tests/e2e/story-9-1-accessibility-audit.spec.ts",
+    "lighthouse": "lhci autorun",
+    "lighthouse:collect": "lhci collect",
+    "lighthouse:assert": "lhci assert",
+    "perf": "npm run build && npm run lighthouse"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.18",
@@ -41,10 +49,12 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.13.0",
+    "web-vitals": "^5.1.0",
     "zod": "^4.3.6",
     "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@faker-js/faker": "^10.2.0",
     "@lhci/cli": "^0.15.1",
     "@playwright/experimental-ct-react": "^1.58.2",

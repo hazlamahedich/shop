@@ -1,0 +1,164 @@
+/* Glassmorphism Theme Styles for ShopBot Widget */
+
+:root {
+  --widget-glass-blur: 16px;
+  --widget-glass-bg-dark: rgba(15, 23, 42, 0.8);
+  --widget-glass-bg-light: rgba(255, 255, 255, 0.7);
+  --widget-glass-border-dark: rgba(255, 255, 255, 0.1);
+  --widget-glass-border-light: rgba(0, 0, 0, 0.05);
+  --widget-glow-color: var(--widget-primary);
+}
+
+/* Dark Mode Glassmorphism - targets child .shopbot-chat-window inside wrapper */
+.glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+  background: var(--widget-glass-bg-dark);
+  -webkit-backdrop-filter: blur(var(--widget-glass-blur));
+  backdrop-filter: blur(var(--widget-glass-blur));
+  border: 1px solid var(--widget-glass-border-dark);
+}
+
+.glassmorphism-wrapper.dark-mode .chat-header {
+  background: rgba(15, 23, 42, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.glassmorphism-wrapper.dark-mode .message-list {
+  background: transparent;
+}
+
+/* Light Mode Glassmorphism */
+.glassmorphism-wrapper.light-mode .shopbot-chat-window {
+  background: var(--widget-glass-bg-light);
+  -webkit-backdrop-filter: blur(var(--widget-glass-blur));
+  backdrop-filter: blur(var(--widget-glass-blur));
+  border: 1px solid var(--widget-glass-border-light);
+}
+
+.glassmorphism-wrapper.light-mode .chat-header {
+  background: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.glassmorphism-wrapper.light-mode .message-list {
+  background: transparent;
+}
+
+/* User Message Glow Effect */
+.glassmorphism-wrapper .user-message {
+  background: linear-gradient(135deg, var(--widget-primary), var(--widget-glow-color));
+  box-shadow: 0 0 20px rgba(var(--widget-glow-color-rgb, 99, 102, 241), 0.3);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(var(--widget-glow-color-rgb, 99, 102, 241), 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(var(--widget-glow-color-rgb, 99, 102, 241), 0.4);
+  }
+}
+
+/* Theme Transitions */
+.glassmorphism-wrapper .shopbot-chat-window,
+.glassmorphism-wrapper .shopbot-chat-window *,
+.glassmorphism-wrapper .shopbot-chat-window *::before,
+.glassmorphism-wrapper .shopbot-chat-window *::after {
+  transition: background 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .glassmorphism-wrapper .shopbot-chat-window,
+  .glassmorphism-wrapper .shopbot-chat-window *,
+  .glassmorphism-wrapper .shopbot-chat-window *::before,
+  .glassmorphism-wrapper .shopbot-chat-window *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .glassmorphism-wrapper .user-message {
+    animation: none !important;
+  }
+}
+
+/* Browser Fallback - No backdrop-filter support */
+@supports not (backdrop-filter: blur(1px)) {
+  .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+    background: rgba(15, 23, 42, 0.95);
+  }
+  
+  .glassmorphism-wrapper.light-mode .shopbot-chat-window {
+    background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .glassmorphism-wrapper .chat-header {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* WCAG AA Contrast - Dark Mode Text */
+.glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+  color: #f8fafc;
+}
+
+.glassmorphism-wrapper.dark-mode .message-timestamp {
+  color: #94a3b8;
+}
+
+.glassmorphism-wrapper.dark-mode .bot-message {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+}
+
+/* WCAG AA Contrast - Light Mode Text */
+.glassmorphism-wrapper.light-mode .shopbot-chat-window {
+  color: #1e293b;
+}
+
+.glassmorphism-wrapper.light-mode .message-timestamp {
+  color: #64748b;
+}
+
+.glassmorphism-wrapper.light-mode .bot-message {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1e293b;
+}
+
+/* User Message - High Contrast Text */
+.glassmorphism-wrapper .user-message {
+  color: #ffffff;
+}
+
+/* Theme Toggle Button Styles */
+.shopbot-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+  transition: background 0.15s ease;
+  padding: 0;
+}
+
+.shopbot-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.shopbot-theme-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.shopbot-theme-toggle svg {
+  width: 18px;
+  height: 18px;
+}
