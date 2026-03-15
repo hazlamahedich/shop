@@ -199,19 +199,59 @@ export function isMessageCacheExpired(sessionId: string): boolean {
   }
 }
 
-const WIDGET_POSITION_KEY = 'shopbot_widget_position';
+import type { WidgetPosition } from '../types/widget';
 
-export interface WidgetPosition {
-  x: number;
-  y: number;
+export const POSITION_KEY_PREFIX = 'shopbot-widget-position-';
+
+function isValidPosition(position: unknown): position is WidgetPosition {
+  if (!position || typeof position !== 'object') return false;
+  const pos = position as Record<string, unknown>;
+  return (
+    typeof pos.x === 'number' &&
+    typeof pos.y === 'number' &&
+    !isNaN(pos.x) &&
+    !isNaN(pos.y)
+  );
+}
+
+function isPositionWithinViewport(position: WidgetPosition): boolean {
+  if (typeof window === 'undefined') return true;
+  const padding = 10;
+  const minSize = 100;
+  return (
+    position.x >= -window.innerWidth + minSize + padding &&
+    position.x <= window.innerWidth - padding &&
+    position.y >= -window.innerHeight + minSize + padding &&
+    position.y <= window.innerHeight - padding
+  );
+}
+
+export function getStoredPosition(merchantId: string): WidgetPosition | null {
+  const key = POSITION_KEY_PREFIX + merchantId;
+  const saved = safeLocalStorage.get(key);
+  if (!saved) return null;
+  try {
+    const parsed = JSON.parse(saved);
+    if (!isValidPosition(parsed)) return null;
+    if (!isPositionWithinViewport(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredPosition(merchantId: string, position: WidgetPosition): boolean {
+  if (!isValidPosition(position)) return false;
+  const key = POSITION_KEY_PREFIX + merchantId;
+  return safeLocalStorage.set(key, JSON.stringify(position));
 }
 
 export function saveWidgetPosition(position: WidgetPosition): boolean {
-  return safeLocalStorage.set(WIDGET_POSITION_KEY, JSON.stringify(position));
+  return safeLocalStorage.set('shopbot_widget_position', JSON.stringify(position));
 }
 
 export function loadWidgetPosition(): WidgetPosition | null {
-  const saved = safeLocalStorage.get(WIDGET_POSITION_KEY);
+  const saved = safeLocalStorage.get('shopbot_widget_position');
   if (!saved) return null;
   try {
     return JSON.parse(saved) as WidgetPosition;

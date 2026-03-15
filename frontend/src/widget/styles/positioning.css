@@ -1,0 +1,64 @@
+.draggable-chat-window {
+  position: absolute;
+  transition: left 200ms ease-out, top 200ms ease-out;
+  will-change: left, top;
+}
+
+.draggable-chat-window.dragging {
+  transition: none;
+  user-select: none;
+}
+
+.chat-header-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.chat-header-drag-handle:active {
+  cursor: grabbing;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .draggable-chat-window {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+@media (max-width: 767px) {
+  .draggable-chat-window {
+    position: fixed;
+    left: 5% !important;
+    top: 15% !important;
+    width: 90%;
+    height: 80%;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draggable-chat-window {
+    transition: none !important;
+  }
+}
+
+.widget-position-warning {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 2147483646;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  pointer-events: none;
+}
+
+.widget-position-warning.visible {
+  opacity: 1;
+}

@@ -71,10 +71,27 @@ export interface WidgetMessage {
   confidence?: number;
 }
 
+export type WidgetEdge = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+
 export interface WidgetPosition {
   x: number;
   y: number;
+  edge?: WidgetEdge;
 }
+
+export interface PositioningConfig {
+  avoidElements: string[];
+  minClearance: number;
+  edgeSnapThreshold: number;
+  viewportPadding: number;
+}
+
+export const DEFAULT_POSITIONING_CONFIG: PositioningConfig = {
+  avoidElements: ['[data-important="true"]'],
+  minClearance: 20,
+  edgeSnapThreshold: 30,
+  viewportPadding: 10,
+};
 
 export interface WidgetState {
   isOpen: boolean;

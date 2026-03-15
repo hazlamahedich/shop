@@ -8,6 +8,7 @@ import { mergeThemes } from './utils/themeMerge';
 import { useThemeDetection } from './hooks/useThemeDetection';
 import { GlassmorphismChatWindow } from './components/GlassmorphismChatWindow';
 import { getNextThemeMode } from './components/ThemeToggle';
+import { positioningStyles } from './utils/styles';
 
 const ChatWindow = React.lazy(() => import('./components/ChatWindow'));
 
@@ -32,7 +33,6 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     retryLastAction,
     recordConsent,
     clearHistory,
-    updatePosition,
     toggleMinimized,
     setThemeMode,
   } = useWidgetContext();
@@ -48,9 +48,6 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     setThemeMode(nextMode);
   }, [state.themeMode, setThemeMode]);
 
-  const dragStartRef = React.useRef({ x: 0, y: 0, windowX: 0, windowY: 0 });
-  const [isDraggingLocal, setIsDraggingLocal] = React.useState(false);
-
   const prefetchChatWindow = React.useCallback(() => {
     import('./components/ChatWindow');
   }, []);
@@ -58,69 +55,6 @@ function WidgetInner({ theme }: WidgetInnerProps) {
   React.useEffect(() => {
     initWidget(merchantId);
   }, [initWidget, merchantId]);
-
-  const handleDragStart = React.useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    setIsDraggingLocal(true);
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    dragStartRef.current = {
-      x: clientX,
-      y: clientY,
-      windowX: state.position.x,
-      windowY: state.position.y,
-    };
-  }, [state.position]);
-
-  React.useEffect(() => {
-    if (!isDraggingLocal) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - dragStartRef.current.x;
-      const deltaY = e.clientY - dragStartRef.current.y;
-
-      const newX = dragStartRef.current.windowX + deltaX;
-      const newY = dragStartRef.current.windowY + deltaY;
-
-      const boundedX = Math.max(-window.innerWidth + 200, Math.min(newX, window.innerWidth - 200));
-      const boundedY = Math.max(-window.innerHeight + 200, Math.min(newY, window.innerHeight - 200));
-
-      updatePosition({ x: boundedX, y: boundedY });
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - dragStartRef.current.x;
-      const deltaY = touch.clientY - dragStartRef.current.y;
-
-      const newX = dragStartRef.current.windowX + deltaX;
-      const newY = dragStartRef.current.windowY + deltaY;
-
-      const boundedX = Math.max(-window.innerWidth + 200, Math.min(newX, window.innerWidth - 200));
-      const boundedY = Math.max(-window.innerHeight + 200, Math.min(newY, window.innerHeight - 200));
-
-      updatePosition({ x: boundedX, y: boundedY });
-    };
-
-    const handleEnd = () => {
-      setIsDraggingLocal(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleEnd);
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleEnd);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleEnd);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleEnd);
-    };
-  }, [isDraggingLocal, updatePosition]);
 
   const handleBubbleClick = React.useCallback(() => {
     if (state.isMinimized) {
@@ -166,6 +100,9 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         .chat-header-drag-handle:active {
           cursor: grabbing;
         }
+        
+        /* Smart Positioning Styles */
+        ${positioningStyles}
         
         /* Glassmorphism Styles */
         .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
@@ -300,9 +237,9 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                     onRecordConsent={recordConsent}
                     onClearHistory={clearHistory}
                     position={state.position}
-                    isDragging={isDraggingLocal}
+                    isDragging={state.isDragging}
                     isMinimized={state.isMinimized}
-                    onDragStart={handleDragStart}
+                    onDragStart={() => {}}
                     onMinimize={toggleMinimized}
                     themeMode={state.themeMode}
                     onThemeToggle={handleThemeToggle}

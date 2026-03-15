@@ -14,12 +14,14 @@ import {
   clearMessageCache,
   saveWidgetPosition,
   loadWidgetPosition,
+  getStoredPosition,
+  setStoredPosition,
   isValidSessionId,
   getStoredTheme,
   setStoredTheme,
   type CachedMessage,
-  type WidgetPosition,
 } from '../utils/storage';
+import type { WidgetPosition } from '../types/widget';
 
 const initialConsentState: ConsentState = {
   promptShown: false,
@@ -27,12 +29,28 @@ const initialConsentState: ConsentState = {
   status: 'pending',
 };
 
-const getInitialPosition = (): { x: number; y: number } => {
+const getInitialPosition = (merchantId?: string): { x: number; y: number } => {
+  if (merchantId) {
+    const stored = getStoredPosition(merchantId);
+    if (stored) {
+      return stored;
+    }
+  }
   const saved = loadWidgetPosition();
   if (saved) {
     return saved;
   }
   return { x: 0, y: 0 };
+};
+
+const getDefaultPosition = (): { x: number; y: number } => {
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 0 };
+  }
+  return {
+    x: window.innerWidth - 420,
+    y: window.innerHeight - 600,
+  };
 };
 
 const initialState: WidgetState = {
@@ -46,7 +64,7 @@ const initialState: WidgetState = {
   errors: [],
   connectionStatus: 'disconnected',
   consentState: initialConsentState,
-  position: getInitialPosition(),
+  position: getDefaultPosition(),
   isDragging: false,
   isMinimized: false,
   unreadCount: 0,
@@ -736,7 +754,8 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   const updatePosition = React.useCallback((position: { x: number; y: number }) => {
     dispatch({ type: 'SET_POSITION', payload: position });
     saveWidgetPosition(position);
-  }, []);
+    setStoredPosition(merchantId, position);
+  }, [merchantId]);
 
   const toggleMinimized = React.useCallback(() => {
     dispatch({ type: 'TOGGLE_MINIMIZED' });

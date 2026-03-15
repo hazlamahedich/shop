@@ -26,3 +26,50 @@ export function applyTheme(root: HTMLElement, theme: WidgetTheme): void {
   };
   root.style.setProperty('--widget-glow-color-rgb', hexToRgb(theme.primaryColor));
 }
+
+export const positioningStyles = `
+.draggable-chat-window {
+  position: absolute;
+  transition: left 200ms ease-out, top 200ms ease-out;
+  will-change: left, top;
+}
+
+.draggable-chat-window.dragging {
+  transition: none;
+  user-select: none;
+}
+
+.chat-header-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.chat-header-drag-handle:active {
+  cursor: grabbing;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .draggable-chat-window {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+@media (max-width: 767px) {
+  .draggable-chat-window {
+    position: fixed;
+    left: 5% !important;
+    top: 15% !important;
+    width: 90%;
+    height: 80%;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draggable-chat-window {
+    transition: none !important;
+  }
+}
+`;
