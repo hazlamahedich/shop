@@ -1007,36 +1007,9 @@ class AggregatedAnalyticsService:
         try:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-            result = await self.db.execute(
-                select(
-                    Message.intent,
-                    func.count(Message.id).label("count"),
-                    func.max(Message.created_at).label("last_occurrence"),
-                )
-                .join(Conversation, Message.conversation_id == Conversation.id)
-                .where(Conversation.merchant_id == merchant_id)
-                .where(Message.created_at >= cutoff_date)
-                .where(Message.role == "user")
-                .where(Message.confidence_score < 0.7)
-                .where(Message.intent.isnot(None))
-                .group_by(Message.intent)
-                .order_by(func.count(Message.id).desc())
-                .limit(limit)
-            )
-            rows = result.all()
-
-            gaps = [
-                {
-                    "id": f"gap-{i}",
-                    "intent": row.intent or "Unknown",
-                    "count": row.count,
-                    "lastOccurrence": row.last_occurrence.isoformat()
-                    if row.last_occurrence
-                    else "",
-                    "suggestedAction": "Add FAQ" if row.count > 5 else "Monitor",
-                }
-                for i, row in enumerate(rows)
-            ]
+            # TODO: Implement knowledge gap detection when intent/confidence
+            # tracking is added to messages or a separate analytics table
+            # Currently returning empty gaps as Message model lacks intent/confidence_score columns
 
             return {
                 "period": {
@@ -1044,8 +1017,8 @@ class AggregatedAnalyticsService:
                     "startDate": cutoff_date.isoformat(),
                     "endDate": datetime.now(timezone.utc).isoformat(),
                 },
-                "gaps": gaps,
-                "totalGaps": len(gaps),
+                "gaps": [],
+                "totalGaps": 0,
             }
 
         except Exception as e:

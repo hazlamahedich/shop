@@ -7,7 +7,7 @@
 
 import { apiClient } from './api';
 import { getCsrfToken } from '../stores/csrfStore';
-import type { KnowledgeDocument, DocumentListResponse, DocumentUploadResponse, DocumentStatusResponse } from '../types/knowledgeBase';
+import type { KnowledgeDocument, DocumentListResponse, DocumentUploadResponse, DocumentStatusResponse, KnowledgeBaseStats } from '../types/knowledgeBase';
 
 const BASE_PATH = '/api/knowledge-base';
 
@@ -55,6 +55,16 @@ export const knowledgeBaseApi = {
     }
 
     throw lastError || new Error('Failed to fetch documents');
+  },
+
+  async getStats(): Promise<KnowledgeBaseStats> {
+    try {
+      const response = await apiClient.get<KnowledgeBaseStats>(`${BASE_PATH}/stats`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch knowledge base stats:', error);
+      throw error;
+    }
   },
 
   uploadDocument(
