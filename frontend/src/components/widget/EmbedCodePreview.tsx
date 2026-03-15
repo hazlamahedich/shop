@@ -22,7 +22,7 @@ type Platform = 'html' | 'shopify' | 'react' | 'wordpress';
 
 function generateEmbedCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
-  const baseUrl = apiBaseUrl || 'https://shopdevsherwingor.share.zrok.io/api/v1/widget';
+  const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
   const scriptUrl = baseUrl.replace('/api/v1/widget', '/widget/widget.umd.js?v=20260308-17-40');
   return `<script>
   window.ShopBotConfig = {
@@ -36,7 +36,7 @@ function generateEmbedCode(merchantId: number | null, primaryColor: string, apiB
 
 function generateReactCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
-  const baseUrl = apiBaseUrl || 'https://shopdevsherwingor.share.zrok.io/api/v1/widget';
+  const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
   const scriptUrl = baseUrl.replace('/api/v1/widget', '/widget/widget.umd.js?v=20260308-17-40');
   return `// In your root layout or _app.tsx file:
 
@@ -59,7 +59,7 @@ useEffect(() => {
 
 function generateWordPressCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
-  const baseUrl = apiBaseUrl || 'https://shopdevsherwingor.share.zrok.io/api/v1/widget';
+  const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
   const scriptUrl = baseUrl.replace('/api/v1/widget', '/widget/widget.umd.js?v=20260308-17-40');
   return `// Add this to your theme's functions.php file:
 
