@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { WidgetTheme, WidgetMessage, WidgetProduct } from '../types/widget';
 import { ProductList } from './ProductCard';
+import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
 
 function formatRelativeTime(dateString: string): string {
@@ -67,6 +68,7 @@ export function MessageList({
         aria-live="polite"
         style={{
           flex: 1,
+          minHeight: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -106,6 +108,7 @@ export function MessageList({
       aria-busy={isLoading ? 'true' : 'false'}
       style={{
         flex: 1,
+        minHeight: 0,
         overflowY: 'auto',
         padding: 16,
       }}
@@ -276,13 +279,23 @@ function MessageBubble({
 
       {!isUser && message.products && message.products.length > 0 && (
         <div style={{ maxWidth: '100%', marginTop: 8 }}>
-          <ProductList
-            products={message.products}
-            theme={theme}
-            onAddToCart={onAddToCart}
-            onProductClick={onProductClick}
-            addingProductId={addingProductId}
-          />
+          {message.products.length >= 3 ? (
+            <ProductCarousel
+              products={message.products}
+              theme={theme}
+              onAddToCart={onAddToCart}
+              onProductClick={onProductClick}
+              addingProductId={addingProductId}
+            />
+          ) : (
+            <ProductList
+              products={message.products}
+              theme={theme}
+              onAddToCart={onAddToCart}
+              onProductClick={onProductClick}
+              addingProductId={addingProductId}
+            />
+          )}
         </div>
       )}
 

@@ -142,6 +142,7 @@ export type WidgetAction =
 export interface WidgetProduct {
   id: string;
   variantId: string;
+  handle?: string;
   title: string;
   description?: string;
   price: number;
@@ -188,3 +189,17 @@ export interface WidgetProductDetail {
   vendor?: string | null;
   variantId?: string | null;
 }
+
+export interface CarouselConfig {
+  visibleCards: { mobile: number; desktop: number };
+  cardWidth: number;
+  cardGap: number;
+  scrollDuration: number;
+}
+
+export const DEFAULT_CAROUSEL_CONFIG: CarouselConfig = {
+  visibleCards: { mobile: 2, desktop: 3 },
+  cardWidth: 140,
+  cardGap: 12,
+  scrollDuration: 300,
+};

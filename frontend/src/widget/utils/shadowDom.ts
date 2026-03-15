@@ -1,8 +1,10 @@
 import type { WidgetTheme } from '../types/widget';
 import glassmorphismStyles from '../styles/glassmorphism.css?inline';
+import carouselStyles from '../styles/carousel.css?inline';
 
 const THEME_STYLE_ID = 'widget-theme-variables';
 const GLASSMORPHISM_STYLE_ID = 'widget-glassmorphism-styles';
+const CAROUSEL_STYLE_ID = 'widget-carousel-styles';
 
 export function createShadowContainer(target: HTMLElement): ShadowRoot {
   return target.attachShadow({ mode: 'open' });
@@ -19,6 +21,18 @@ export function injectGlassmorphismStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', GLASSMORPHISM_STYLE_ID);
   style.textContent = glassmorphismStyles;
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectCarouselStyles(shadow: ShadowRoot): void {
+  const existingStyle = shadow.querySelector(`style[data-id="${CAROUSEL_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', CAROUSEL_STYLE_ID);
+  style.textContent = carouselStyles;
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {
