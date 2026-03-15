@@ -237,6 +237,23 @@ bd sync && git push
    - Frontend/API: `camelCase` (e.g., `createdAt`)
    - Use Pydantic `alias_generator` for transformation
    - Reference: Story 5-10 stored `isOpen` but expected `is_open`
+
+□ **API Envelope**: Using correct response access pattern?
+   - apiClient returns full envelope: `{ data: T, meta: any }`
+   - Use `response.data` to get payload (NOT `response.data.data`)
+   - Reference: Stories 8-7, 8-11 had `response.data.data` bugs
+   - See: `docs/api-envelope-pattern.md`
+
+□ **Embedding Storage**: Using flexible dimensions?
+   - Use JSONB with `embedding_dimension` column (not fixed `Vector(1536)`)
+   - Cast at query time: `embedding::jsonb::float[]::vector(dimension)`
+   - Reference: Story 8-11 migrated from fixed to flexible dimensions
+
+□ **E2E Tests**: Using correct addInitScript pattern?
+   - Template literals don't work in browser context
+   - Pass values as 2nd argument: `addInitScript((val) => {...}, value)`
+   - Use helpers: `setLocalStorageValue(page, key, value)`
+   - Reference: Stories 8-6, 8-7, 8-11 had interpolation bugs
 ```
 
 ### Quick Reference
@@ -247,6 +264,9 @@ bd sync && git push
 | venv | `source backend/venv/bin/activate` | Using system Python (3.12+) instead of venv (3.11) |
 | Schema | Compare `frontend/src/types/*.ts` with `backend/app/schemas/*.py` | Adding field to one side only |
 | Naming | Pydantic `Field(alias="...")` | Using wrong case for API field names |
+| Envelope | Use `response.data` | Using `response.data.data` (double unwrap) |
+| Embedding | Use JSONB + dimension column | Using fixed `Vector(N)` dimension |
+| E2E | `addInitScript((v) => {...}, val)` | Using template literal `${val}` in browser context |
 
 ---
 

@@ -1,12 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, AlertTriangle, Zap, ChevronRight } from 'lucide-react';
+import { DollarSign, AlertTriangle, Zap, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { costTrackingService } from '../../services/costTracking';
 import type { CostSummary } from '../../types/cost';
-
-// ──────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────
 
 function formatUSD(value: number): string {
   if (value < 0.001) return '$0.00';
@@ -41,14 +37,9 @@ const PROVIDER_COLORS = [
   'bg-orange-500',
 ];
 
-// ──────────────────────────────────────────────────────
-// Component
-// ──────────────────────────────────────────────────────
-
 export function AICostWidget() {
   const navigate = useNavigate();
 
-  // Get this month's date range
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     .toISOString()
@@ -61,7 +52,6 @@ export function AICostWidget() {
     staleTime: 30_000,
   });
 
-  // The response is wrapped in an ApiEnvelope<CostSummary>
   const summaryData = envelope?.data as CostSummary | undefined;
 
   const totalCost: number =
@@ -69,7 +59,11 @@ export function AICostWidget() {
   const requestCount: number =
     typeof summaryData?.requestCount === 'number' ? summaryData.requestCount : 0;
 
-  // Budget info: not in CostSummary, always null unless we add budget endpoint
+  const previousCost = summaryData?.previousPeriodSummary?.totalCostUsd;
+  const momChangePercent = previousCost && previousCost > 0
+    ? ((totalCost - previousCost) / previousCost) * 100
+    : null;
+
   const budgetCap: number | null = null;
   const budgetPct = budgetCap && budgetCap > 0 ? (totalCost / budgetCap) * 100 : null;
 
@@ -90,7 +84,6 @@ export function AICostWidget() {
       className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm"
       data-testid="ai-cost-widget"
     >
-      {/* Top accent strip */}
       <div
         className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${
           isNearBudget ? 'from-red-400 to-orange-400' : 'from-blue-400 to-indigo-400'
@@ -98,7 +91,6 @@ export function AICostWidget() {
       />
 
       <div className="p-5">
-        {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div>
             <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
@@ -109,9 +101,25 @@ export function AICostWidget() {
             ) : isError ? (
               <p className="mt-1 text-2xl font-bold text-gray-400">N/A</p>
             ) : (
-              <p className="mt-1 text-3xl font-bold text-gray-900 tracking-tight">
-                {formatUSD(totalCost)}
-              </p>
+              <div className="flex items-baseline gap-2">
+                <p className="mt-1 text-3xl font-bold text-gray-900 tracking-tight">
+                  {formatUSD(totalCost)}
+                </p>
+                {momChangePercent !== null && (
+                  <span
+                    className={`text-xs font-medium flex items-center gap-0.5 ${
+                      momChangePercent >= 0 ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    {momChangePercent >= 0 ? (
+                      <TrendingUp size={12} />
+                    ) : (
+                      <TrendingDown size={12} />
+                    )}
+                    {Math.abs(momChangePercent).toFixed(1)}% MoM
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <div
@@ -123,7 +131,6 @@ export function AICostWidget() {
           </div>
         </div>
 
-        {/* Sub info */}
         {!isLoading && !isError && (
           <p className="text-sm text-gray-500 mb-3">
             {requestCount} AI requests
@@ -131,7 +138,6 @@ export function AICostWidget() {
           </p>
         )}
 
-        {/* Budget progress bar */}
         {budgetPct !== null && !isLoading && (
           <div className="mb-3">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -155,7 +161,6 @@ export function AICostWidget() {
           </div>
         )}
 
-        {/* Provider breakdown */}
         {providers.length > 0 && !isLoading && (
           <div className="space-y-1.5 mb-3">
             {providers.map(({ provider, cost, percentage }, i) => (
@@ -173,7 +178,6 @@ export function AICostWidget() {
           </div>
         )}
 
-        {/* View full costs link */}
         <button
           onClick={() => navigate('/costs')}
           className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"

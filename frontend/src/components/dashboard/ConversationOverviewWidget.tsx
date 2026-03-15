@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, TrendingUp, TrendingDown } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { handoffAlertsService } from '../../services/handoffAlerts';
 import { conversationsService } from '../../services/conversations';
@@ -9,15 +9,29 @@ function MiniStat({
   label,
   value,
   color = 'text-gray-900',
+  trend,
 }: {
   label: string;
   value: string | number;
   color?: string;
+  trend?: number | null;
 }) {
   return (
     <div className="flex justify-between items-center py-1 border-b border-gray-50 last:border-0">
       <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-xs font-semibold ${color}`}>{value}</span>
+      <div className="flex items-center gap-1.5">
+        <span className={`text-xs font-semibold ${color}`}>{value}</span>
+        {trend !== null && trend !== undefined && (
+          <span
+            className={`text-[10px] font-medium flex items-center ${
+              trend >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {trend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+            {Math.abs(trend).toFixed(0)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -47,14 +61,16 @@ export function ConversationOverviewWidget() {
   const isLoading = summaryLoading || activeLoading || unreadLoading;
 
   const convStats = summaryData?.conversationStats;
+  const orderStats = summaryData?.orderStats;
   const activeCount = activeData?.activeCount ?? 0;
   const unreadCount = unreadData?.unreadCount ?? 0;
-  const total30d = typeof convStats?.total === 'number' ? convStats.total : 0;
+  const total30d = convStats?.conversations?.total ?? (typeof convStats?.total === 'number' ? convStats.total : 0);
   const handoffCount = typeof convStats?.handoff === 'number' ? convStats.handoff : 0;
   const satisfactionRate =
     typeof convStats?.satisfactionRate === 'number'
       ? `${Math.round(convStats.satisfactionRate * 100)}%`
       : 'N/A';
+  const momTrend = orderStats?.momComparison?.conversationsChangePercent ?? null;
 
   return (
     <StatCard
@@ -64,6 +80,7 @@ export function ConversationOverviewWidget() {
       icon={<MessageSquare size={18} />}
       accentColor="green"
       isLoading={isLoading}
+      trend={momTrend ?? undefined}
       data-testid="conversation-overview-widget"
     >
       <div className="space-y-0.5">

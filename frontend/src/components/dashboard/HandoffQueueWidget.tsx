@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Bell, AlertTriangle, CheckCheck, Clock, ChevronRight } from 'lucide-react';
+import { Bell, AlertTriangle, CheckCheck, Clock, ChevronRight, Crown } from 'lucide-react';
 import { handoffAlertsService, HandoffAlert } from '../../services/handoffAlerts';
 
 const URGENCY_CONFIG = {
@@ -56,6 +56,12 @@ function AlertRow({
           >
             {urgency.label}
           </span>
+          {alert.isVip && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+              <Crown size={9} />
+              VIP
+            </span>
+          )}
           {alert.handoffReason && (
             <span className="text-[10px] text-gray-400 capitalize">
               · {alert.handoffReason.replace(/_/g, ' ')}
@@ -65,9 +71,16 @@ function AlertRow({
         <p className="text-sm text-gray-700 truncate">
           {alert.conversationPreview ?? 'No preview available'}
         </p>
-        <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-400">
-          <Clock size={10} />
-          <span>Waiting {formatWaitTime(alert.waitTimeSeconds)}</span>
+        <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+          <div className="flex items-center gap-1">
+            <Clock size={10} />
+            <span>Waiting {formatWaitTime(alert.waitTimeSeconds)}</span>
+          </div>
+          {alert.customerLtv !== null && alert.customerLtv > 0 && (
+            <span className="text-gray-500">
+              ${alert.customerLtv.toFixed(0)} LTV
+            </span>
+          )}
         </div>
       </div>
 

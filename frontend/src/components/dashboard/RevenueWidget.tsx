@@ -35,12 +35,17 @@ export function RevenueWidget() {
   const orderStats = data?.orderStats;
   const totalRevenue = typeof orderStats?.totalRevenue === 'number' ? orderStats.totalRevenue : 0;
   const totalOrders = typeof orderStats?.total === 'number' ? orderStats.total : 0;
-  const avgOrder =
-    totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const avgOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const byStatus: Record<string, number> =
     orderStats?.byStatus && typeof orderStats.byStatus === 'object'
       ? (orderStats.byStatus as Record<string, number>)
       : {};
+
+  const momComparison = orderStats?.momComparison;
+  const revenueTrend =
+    momComparison?.revenueChangePercent !== null && momComparison?.revenueChangePercent !== undefined
+      ? momComparison.revenueChangePercent
+      : undefined;
 
   const topStatuses = Object.entries(byStatus)
     .filter(([, count]) => (count as number) > 0)
@@ -59,6 +64,7 @@ export function RevenueWidget() {
           : 'No orders yet'
       }
       icon={<TrendingUp size={18} />}
+      trend={revenueTrend}
       accentColor="purple"
       isLoading={isLoading}
       data-testid="revenue-widget"

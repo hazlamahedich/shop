@@ -52,6 +52,10 @@ export interface ConversationStats {
   handoff: number;
   closed: number;
   satisfactionRate: number | null;
+  conversations?: {
+    total: number;
+    avgMessagesPerConversation: number;
+  };
   // Additional fields the backend may return
   [key: string]: unknown;
 }
@@ -61,6 +65,16 @@ export interface OrderStats {
   totalRevenue: number;
   byStatus: Record<string, number>;
   avgOrderValue: number | null;
+  // MoM comparison fields
+  previousPeriod?: {
+    total: number;
+    totalRevenue: number;
+  };
+  momComparison?: {
+    revenueChangePercent: number | null;
+    ordersChangePercent: number | null;
+    conversationsChangePercent: number | null;
+  };
   // Additional fields the backend may return
   [key: string]: unknown;
 }
@@ -111,6 +125,30 @@ export interface PendingOrder {
 export interface PendingOrdersResponse {
   items: PendingOrder[];
   merchantId: number;
+}
+
+export interface BotQualityMetrics {
+  merchantId: number;
+  period: {
+    days: number;
+    startDate: string;
+    endDate: string;
+  };
+  avgResponseTimeSeconds: number;
+  fallbackRate: number;
+  resolutionRate: number;
+  csatScore: number | null;
+  csatChange: number | null;
+  satisfactionRate: number | null;
+  totalConversations: number;
+  healthStatus: 'healthy' | 'warning' | 'critical';
+  metrics: {
+    totalConversations: number;
+    fallbackConversations: number;
+    resolvedConversations: number;
+    satisfiedCount: number;
+    unsatisfiedCount: number;
+  };
 }
 
 export const analyticsService = {
@@ -166,5 +204,47 @@ export const analyticsService = {
       `/api/v1/analytics/pending-orders?limit=${limit}&offset=${offset}`
     );
     return response as unknown as PendingOrdersResponse;
+  },
+
+  async getBotQuality(days = 30): Promise<BotQualityMetrics> {
+    const response = await apiClient.get<BotQualityMetrics>(
+      `/api/v1/analytics/bot-quality?days=${days}`
+    );
+    return response as unknown as BotQualityMetrics;
+  },
+
+  async getPeakHours(days = 30): Promise<unknown> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/peak-hours?days=${days}`
+    );
+    return response as unknown;
+  },
+
+  async getConversionFunnel(days = 30): Promise<unknown> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/conversion-funnel?days=${days}`
+    );
+    return response as unknown;
+  },
+
+  async getKnowledgeGaps(days = 30, limit = 10): Promise<unknown> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
+    );
+    return response as unknown;
+  },
+
+  async getBenchmarks(days = 30): Promise<unknown> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/benchmarks?days=${days}`
+    );
+    return response as unknown;
+  },
+
+  async getSentimentTrend(days = 30): Promise<unknown> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/sentiment-trend?days=${days}`
+    );
+    return response as unknown;
   },
 };

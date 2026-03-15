@@ -144,23 +144,24 @@ development_status:
   epic-6-retrospective: optional
 
   # Epic 7: Interactive Dashboard & Analytics (approved 2026-03-10)
-  epic-7: in-progress
-  7-1-interactive-dashboard: done # 2026-03-10: COMPLETE - All hardcoded stubs replaced with live Shopify data. 7 new frontend components, analyticsService.ts, Dashboard.tsx rewritten. Zero new TS errors. Commit c7d9b08e.
+  epic-7: done # 2026-03-15: ALL STORIES COMPLETE - Interactive dashboard with live Shopify data
+  7-1-interactive-dashboard: done # 2026-03-10: COMPLETE - All hardcoded stubs replaced with live Shopify data. 9 frontend widgets, analyticsService.ts, Dashboard.tsx rewritten. Zero new TS errors. Commit c7d9b08e.
+  epic-7-retrospective: done # 2026-03-15: Retrospective complete. Key outcomes: Widget utility research needed, layout optimization proposed, process improvements maintained.
 
   # Epic 8: General Chatbot Mode (approved 2026-03-10)
   # See: docs/epic-8-general-chatbot-mode.md
   
-  epic-8: in-progress # 2026-03-11: Story 8-4 complete (RAG Service)
+  epic-8: done # 2026-03-11: Story 8-4 complete (RAG Service)
   
   8-1-general-chatbot-mode-setup: done # 2026-03-10: Complete - Added onboarding_mode field, mode selection in registration
   8-2-knowledge-base-api: done # 2026-03-10: Complete - Document upload/download/list/delete/status endpoints
   8-3-knowledge-base-document-chunking: done # 2026-03-10: Complete - Document chunking with LangChain, chunk storage
   8-4-rag-service-document-processing: done # 2026-03-11: Complete - Embedding service (OpenAI/Ollama), retrieval with pgvector, background processing
-  8-5-rag-integration-conversation: review
+  8-5-rag-integration-conversation: done
   8-6-frontend-onboarding-mode-selection: done # 2026-03-12: Code review COMPLETE - 3 HIGH + 4 MEDIUM issues fixed (CSRF, getOnboardingMode integration, type hack, loading state, E2E route mock)
   8-7-frontend-settings-mode-toggle: done # 2026-03-12: Code review COMPLETE - 3 HIGH + 4 MEDIUM issues fixed (retry logic, API envelope, focus restoration, fetching state)
   8-8-frontend-knowledge-base-page: done # 2026-03-13: Code review COMPLETE - 9 HIGH/MEDIUM issues fixed (CSRF tokens, retry logic, mode-aware nav, type fixes), build verified
-  8-9-testing-quality-assurance: backlog
-  8-10-frontend-dashboard-mode-aware-widgets: backlog
-  8-11-llm-embedding-provider-integration-reembedding: ready-for-dev
-  epic-8-retrospective: optional
+  8-9-testing-quality-assurance: done # 2026-03-13: COMPLETE. All 10 tasks finished. Created 4 integration test files, 1 performance template, 2 E2E test files, and test helpers. Final coverage report generated at _bmad-output/test-artifacts/epic-8-test-coverage-report.md.
+  8-10-frontend-dashboard-mode-aware-widgets: done # 2026-03-13: Implementation complete, all tests passing (7 backend + 5 frontend + 11 config)
+  8-11-llm-embedding-provider-integration-reembedding: done # 2026-03-14: Implementation complete - Gemini provider, dimension handler, re-embedding worker, frontend settings, tests created
+  epic-8-retrospective: done
