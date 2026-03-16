@@ -233,7 +233,10 @@ class ConversationContext(BaseModel):
 
 
 class ConversationResponse(BaseModel):
-    """Response from UnifiedConversationService.process_message()."""
+    """Response from UnifiedConversationService.process_message().
+
+    Story 9-4: Added quick_replies for quick reply buttons.
+    """
 
     message: str = Field(description="Response message text")
     intent: Optional[str] = Field(None, description="Classified intent")
@@ -247,6 +250,10 @@ class ConversationResponse(BaseModel):
     )
     cart: Optional[dict[str, Any]] = Field(None, description="Cart state if applicable")
     order: Optional[dict[str, Any]] = Field(None, description="Order info if applicable")
+    quick_replies: Optional[list[dict[str, Any]]] = Field(
+        None,
+        description="Quick reply buttons for user response (Story 9-4)",
+    )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",

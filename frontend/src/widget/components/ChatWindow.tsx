@@ -1,6 +1,6 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode, QuickReply } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -10,6 +10,7 @@ import { ProductDetailModal } from './ProductDetailModal';
 import { ConnectionStatusIndicator } from './ConnectionStatus';
 import { ConsentPrompt } from './ConsentPrompt';
 import { ThemeToggle } from './ThemeToggle';
+import { QuickReplyButtons } from './QuickReplyButtons';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -78,6 +79,7 @@ function ChatWindow({
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = React.useState(false);
   const [showMenu, setShowMenu] = React.useState(false);
+  const [activeQuickReplies, setActiveQuickReplies] = React.useState<QuickReply[] | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
@@ -146,6 +148,19 @@ function ChatWindow({
     const message = inputValue.trim();
     setInputValue('');
     await onSendMessage(message);
+  };
+
+  const handleQuickReply = async (reply: QuickReply) => {
+    setActiveQuickReplies(null);
+    await onSendMessage(reply.payload ?? reply.text);
+  };
+
+  const handleQuickRepliesAvailable = (replies: QuickReply[]) => {
+    if (replies && replies.length > 0) {
+      setActiveQuickReplies(replies);
+    } else {
+      setActiveQuickReplies(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -398,7 +413,7 @@ function ChatWindow({
 
         {/* Connection Status Indicator */}
         {connectionStatus !== 'connected' && (
-          <div style={{ padding: '8px 12px' }}>
+          <div style={{ padding: '8px 12px', flexShrink: 0 }}>
             <ConnectionStatusIndicator status={connectionStatus} />
           </div>
         )}
@@ -416,10 +431,22 @@ function ChatWindow({
           addingProductId={addingProductId}
           removingItemId={removingItemId}
           isCheckingOut={isCheckingOut}
+          onQuickRepliesAvailable={handleQuickRepliesAvailable}
         />
 
+        {activeQuickReplies && activeQuickReplies.length > 0 && (
+          <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
+            <QuickReplyButtons
+              quickReplies={activeQuickReplies}
+              onReply={handleQuickReply}
+              theme={theme}
+              dismissOnSelect={true}
+            />
+          </div>
+        )}
+
         {consentState && onRecordConsent && (
-          <div style={{ padding: '8px 12px' }}>
+          <div style={{ padding: '8px 12px', flexShrink: 0 }}>
             <ConsentPrompt
               isOpen={isOpen}
               isLoading={false}
@@ -441,11 +468,13 @@ function ChatWindow({
         )}
 
         {isTyping && (
-          <TypingIndicator
-            isVisible={isTyping}
-            botName={config?.botName ?? 'Assistant'}
-            theme={theme}
-          />
+          <div style={{ flexShrink: 0 }}>
+            <TypingIndicator
+              isVisible={isTyping}
+              botName={config?.botName ?? 'Assistant'}
+              theme={theme}
+            />
+          </div>
         )}
 
         {(errors.length > 0 || error) && (
@@ -455,6 +484,7 @@ function ChatWindow({
               padding: '8px',
               maxHeight: '150px',
               overflowY: 'auto',
+              flexShrink: 0,
             }}
           >
             {errors.filter((e) => !e.dismissed).map((widgetError) => (

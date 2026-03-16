@@ -392,6 +392,72 @@ function WidgetInner({ theme }: WidgetInnerProps) {
             transition: none;
           }
         }
+        
+        /* Quick Reply Buttons Styles */
+        .quick-reply-buttons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 8px 16px;
+        }
+        .quick-reply-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-height: 44px;
+          min-width: 44px;
+          padding: 10px 16px;
+          border: 1px solid var(--widget-primary, #6366f1);
+          border-radius: 20px;
+          background-color: transparent;
+          color: var(--widget-primary, #6366f1);
+          font-weight: 500;
+          font-size: 14px;
+          cursor: pointer;
+          transition: transform 100ms ease, background-color 150ms ease, opacity 150ms ease, border-color 150ms ease;
+          white-space: nowrap;
+        }
+        .quick-reply-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        .quick-reply-button:active:not(:disabled) {
+          transform: scale(0.95);
+          background-color: rgba(99, 102, 241, 0.15);
+        }
+        .quick-reply-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .quick-reply-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        @media (max-width: 479px) {
+          .quick-reply-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+          .quick-reply-button {
+            width: 100%;
+          }
+        }
+        @media (min-width: 480px) {
+          .quick-reply-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .quick-reply-button {
+            transition: none;
+          }
+          .quick-reply-button:active:not(:disabled) {
+            transform: none;
+          }
+        }
       `}</style>
       {state.isLoading ? (
         <div style={{

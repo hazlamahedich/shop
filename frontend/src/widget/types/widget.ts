@@ -59,6 +59,24 @@ export interface WidgetSession {
   lastActivityAt: string;
 }
 
+export interface QuickReply {
+  id: string;
+  text: string;
+  icon?: string;
+  payload?: string;
+}
+
+export interface QuickReplyConfig {
+  replies: QuickReply[];
+  dismissOnSelect?: boolean;
+}
+
+export const DEFAULT_QUICK_REPLIES: QuickReply[] = [
+  { id: '1', text: 'Yes', icon: '✓' },
+  { id: '2', text: 'No', icon: '✗' },
+  { id: '3', text: 'Tell me more' },
+];
+
 export interface WidgetMessage {
   messageId: string;
   content: string;
@@ -69,6 +87,7 @@ export interface WidgetMessage {
   checkoutUrl?: string;
   intent?: string;
   confidence?: number;
+  quick_replies?: QuickReply[];
 }
 
 export type WidgetEdge = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';

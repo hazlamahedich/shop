@@ -217,6 +217,7 @@ export class WidgetApiClient {
       checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
       intent: parsed.data.intent ?? undefined,
       confidence: parsed.data.confidence ?? undefined,
+      quick_replies: parsed.data.quick_replies ?? undefined,
       consent_prompt_required: (rawData.consentPromptRequired ?? rawData.consent_prompt_required) as boolean | undefined,
     };
   }

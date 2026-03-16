@@ -11,12 +11,32 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 from uuid import UUID
 
 from pydantic import Field, field_validator
 
 from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+
+
+class QuickReply(BaseSchema):
+    """Quick reply button for bot messages.
+
+    Story 9-4: Quick Reply Buttons
+
+    Attributes:
+        id: Unique identifier for the quick reply
+        text: Display text for the button
+        icon: Optional icon/emoji to display before text
+        payload: Optional payload to send when clicked (defaults to text)
+    """
+
+    id: str = Field(description="Unique identifier")
+    text: str = Field(max_length=50, description="Button display text")
+    icon: Optional[str] = Field(default=None, max_length=10, description="Optional icon/emoji")
+    payload: Optional[str] = Field(
+        default=None, max_length=100, description="Optional payload string"
+    )
 
 
 class WidgetTheme(BaseSchema):
@@ -182,6 +202,7 @@ class WidgetMessageResponse(BaseSchema):
     """Response for widget message.
 
     Story 6-1: Added consent_prompt_required for opt-in consent flow.
+    Story 9-4: Added quick_replies for quick reply buttons.
 
     Attributes:
         message_id: Unique message identifier
@@ -189,6 +210,7 @@ class WidgetMessageResponse(BaseSchema):
         sender: Message sender (always 'bot')
         created_at: Message timestamp
         consent_prompt_required: Whether to show consent prompt (Story 6-1)
+        quick_replies: Optional quick reply buttons (Story 9-4)
     """
 
     message_id: str
@@ -200,6 +222,9 @@ class WidgetMessageResponse(BaseSchema):
     checkout_url: Optional[str] = None
     consent_prompt_required: Optional[bool] = Field(
         default=None, description="Whether to show consent prompt (Story 6-1)"
+    )
+    quick_replies: Optional[list[QuickReply]] = Field(
+        default=None, description="Quick reply buttons for user response (Story 9-4)"
     )
 
 

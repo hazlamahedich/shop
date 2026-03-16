@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetTheme, WidgetMessage, WidgetProduct } from '../types/widget';
+import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply } from '../types/widget';
 import { ProductList } from './ProductCard';
 import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
@@ -38,6 +38,7 @@ export interface MessageListProps {
   addingProductId?: string | null;
   removingItemId?: string | null;
   isCheckingOut?: boolean;
+  onQuickRepliesAvailable?: (replies: QuickReply[]) => void;
 }
 
 export function MessageList({
@@ -53,12 +54,22 @@ export function MessageList({
   addingProductId,
   removingItemId,
   isCheckingOut,
+  onQuickRepliesAvailable,
 }: MessageListProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  React.useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.sender === 'bot' && lastMessage.quick_replies) {
+      onQuickRepliesAvailable?.(lastMessage.quick_replies);
+    } else if (lastMessage?.sender === 'user') {
+      onQuickRepliesAvailable?.([]);
+    }
+  }, [messages, onQuickRepliesAvailable]);
 
   if (messages.length === 0) {
     return (

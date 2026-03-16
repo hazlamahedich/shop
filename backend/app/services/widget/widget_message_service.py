@@ -266,6 +266,10 @@ class WidgetMessageService:
         if response.confidence is not None:
             result["confidence"] = response.confidence
 
+        # Story 9-4: Pass through quick_replies if present
+        if response.quick_replies:
+            result["quick_replies"] = response.quick_replies
+
         # Save response metadata to session for next request (Story 6-2)
         # This preserves pending lookup flags and other state
         if response.metadata:

@@ -50,6 +50,13 @@ export const WidgetSessionSchema = z
     message: 'Either session_id or sessionId must be present',
   });
 
+export const QuickReplySchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  icon: z.string().optional(),
+  payload: z.string().optional(),
+});
+
 export const WidgetMessageSchema = z.object({
   messageId: z.string().optional(),
   message_id: z.string().optional(),
@@ -63,7 +70,8 @@ export const WidgetMessageSchema = z.object({
   checkout_url: z.string().nullable().optional(),
   intent: z.string().nullable().optional(),
   confidence: z.number().nullable().optional(),
-});
+  quick_replies: z.array(QuickReplySchema).nullable().optional(),
+}).passthrough();
 
 export const WidgetApiErrorSchema = z.object({
   error_code: z.number(),

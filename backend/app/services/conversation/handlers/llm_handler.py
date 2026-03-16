@@ -5,6 +5,7 @@ Task 1: Create UnifiedConversationService
 
 Handles GENERAL and UNKNOWN intents with LLM-powered responses.
 Enhanced with automatic product mention detection for product cards.
+Story 9-4: Added quick reply generation for conversation continuation.
 """
 
 from __future__ import annotations
@@ -122,11 +123,14 @@ class LLMHandler(BaseHandler):
                 db=db,
             )
 
+        quick_replies = self._generate_quick_replies(message, response_text)
+
         return ConversationResponse(
             message=response_text,
             intent="general",
             confidence=1.0,
             products=products,
+            quick_replies=quick_replies,
             metadata={"bot_name": bot_name, "business_name": business_name},
         )
 
@@ -242,6 +246,60 @@ class LLMHandler(BaseHandler):
                 error=str(e),
             )
             return None
+
+    def _generate_quick_replies(
+        self, user_message: str, response_text: str
+    ) -> Optional[list[dict[str, Any]]]:
+        """Generate contextual quick replies based on conversation.
+
+        Story 9-4: Quick Reply Buttons
+
+        Generates appropriate quick reply options based on the
+        conversation context and response content.
+
+        Args:
+            user_message: The user's message
+            response_text: The bot's response
+
+        Returns:
+            List of quick reply dicts, or None if not applicable
+        """
+        lower_msg = user_message.lower().strip()
+        lower_response = response_text.lower()
+
+        if "?" in lower_response and (
+            "would you" in lower_response
+            or "do you" in lower_response
+            or "are you" in lower_response
+        ):
+            return [
+                {"id": "1", "text": "Yes", "icon": "✓"},
+                {"id": "2", "text": "No", "icon": "✗"},
+            ]
+
+        if any(word in lower_msg for word in ["hello", "hi", "hey", "greet"]):
+            return [
+                {"id": "1", "text": "Show products", "icon": "🛍️"},
+                {"id": "2", "text": "Check my cart", "icon": "🛒"},
+                {"id": "3", "text": "Track my order", "icon": "📦"},
+            ]
+
+        if "product" in lower_msg or "item" in lower_msg or "search" in lower_msg:
+            return [
+                {"id": "1", "text": "Show more", "icon": "🔍"},
+                {"id": "2", "text": "Add to cart", "icon": "🛒"},
+            ]
+
+        if "cart" in lower_msg or "checkout" in lower_msg:
+            return [
+                {"id": "1", "text": "Checkout", "icon": "💳"},
+                {"id": "2", "text": "Continue shopping", "icon": "🛍️"},
+            ]
+
+        return [
+            {"id": "1", "text": "Show products", "icon": "🛍️"},
+            {"id": "2", "text": "Check my cart", "icon": "🛒"},
+        ]
 
     async def _build_system_prompt(
         self,
