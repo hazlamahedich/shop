@@ -73,7 +73,9 @@ function setDismissedTrigger(type: TriggerType): void {
 }
 
 function trackTriggerFired(type: TriggerType): void {
-  console.debug('[Proactive]', type, 'triggered');
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('[Proactive]', type, 'triggered');
+  }
 }
 
 export function useProactiveTriggers(
@@ -215,8 +217,6 @@ export function useProactiveTriggers(
     const productViewTrigger = triggers.find((t) => t.type === 'product_view');
     if (!productViewTrigger || !productViewTrigger.threshold) return;
 
-    console.debug(`[Proactive] product_view check: productViewCount=${productViewCount}, threshold=${productViewTrigger.threshold}, hasFired=${hasFiredRef.current.has('product_view')}`);
-
     if (
       productViewCount >= productViewTrigger.threshold &&
       !hasFiredRef.current.has('product_view')
@@ -231,15 +231,26 @@ export function useProactiveTriggers(
 
     const handleMouseLeave = (e: MouseEvent) => {
       if (e.clientY <= 0) {
-        console.debug('[Proactive] Mouseleave detected. cartHasItems:', cartHasItems, 'hasFired:', hasFiredRef.current.has('cart_abandonment'));
         if (cartHasItems && !hasFiredRef.current.has('cart_abandonment')) {
           fireTrigger(cartTrigger);
         }
       }
     };
 
+    const handleBeforeUnload = () => {
+      if (cartHasItems && !hasFiredRef.current.has('cart_abandonment')) {
+        setCooldown('cart_abandonment', cartTrigger.cooldown);
+        setDismissedTrigger('cart_abandonment');
+        hasFiredRef.current.add('cart_abandonment');
+      }
+    };
+
     document.addEventListener('mouseleave', handleMouseLeave);
-    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [cartHasItems, triggers, fireTrigger]);
 
   return {

@@ -94,6 +94,8 @@ export function ProactiveModal({
         role="dialog"
         aria-modal="true"
         aria-live="assertive"
+        aria-labelledby="proactive-title"
+        aria-describedby="proactive-message"
         className="proactive-modal-overlay"
         onClick={(e) => {
           if (e.target === e.currentTarget) onDismiss();

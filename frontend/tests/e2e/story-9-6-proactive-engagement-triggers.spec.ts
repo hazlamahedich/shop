@@ -162,9 +162,13 @@ async function loadWidgetPage(page: Page, options: WidgetMockConfig = {}): Promi
   }, TEST_SESSION_ID);
   
   await setupWidgetMocks(page, options);
+  
+  // Wait for config API response before proceeding (network-first pattern)
+  const configPromise = page.waitForResponse('**/api/v1/widget/config/*');
   await page.goto(`/widget-test?sessionId=${TEST_SESSION_ID}`);
-  await page.waitForLoadState('networkidle');
+  await configPromise;
 
+  // Wait for chat bubble to be visible (deterministic wait for UI ready)
   const chatBubble = page.locator('.shopbot-chat-bubble');
   await chatBubble.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -176,8 +180,11 @@ async function loadWidgetPage(page: Page, options: WidgetMockConfig = {}): Promi
 
 async function loadWidgetPageWithHistory(page: Page, options: WidgetMockConfig = {}): Promise<void> {
   await loadWidgetPage(page, options);
-  // Add a small delay to ensure history is loaded and triggers can fire
-  await page.waitForTimeout(1000);
+  // Wait for widget initialization to complete (deterministic)
+  await page.waitForFunction(() => {
+    const bubble = document.querySelector('.shopbot-chat-bubble');
+    return bubble !== null && document.readyState === 'complete';
+  }, { timeout: 5000 });
 }
 
 async function waitForProactiveModal(page: Page): Promise<Locator> {
@@ -196,6 +203,121 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()
+    })
+  })
+
+  test.describe('AC2: Time on Page Trigger', () => {
+    test('9.6-E2E-002: should trigger after time threshold [P2]', async ({ page }) => {
+      // Install clock before loading page to control time
+      await page.clock.install({ time: new Date('2024-01-01T00:00:00Z') });
+      
+      await loadWidgetPage(page, {
+        proactiveEngagementConfig: {
+          enabled: true,
+          triggers: [
+            {
+              type: 'time_on_page',
+              enabled: true,
+              threshold: 5, // 5 seconds for faster test
+              message: 'Still here? Can we help you find something?',
+              actions: [{ text: 'Get Help', prePopulatedMessage: 'I need assistance.' }],
+              cooldown: 30
+            }
+          ]
+        }
+      })
+
+      // Fast-forward time past the threshold
+      await page.clock.fastForward(6000);
+
+      const modal = page.locator('[data-testid="proactive-modal"]');
+      await expect(modal).toBeVisible({ timeout: 5000 })
+    })
+
+    test('9.6-E2E-003: should not trigger before time threshold [P2]', async ({ page }) => {
+      await page.clock.install({ time: new Date('2024-01-01T00:00:00Z') });
+      
+      await loadWidgetPage(page, {
+        proactiveEngagementConfig: {
+          enabled: true,
+          triggers: [
+            {
+              type: 'time_on_page',
+              enabled: true,
+              threshold: 30, // 30 seconds
+              message: 'Still here?',
+              actions: [{ text: 'OK' }],
+              cooldown: 30
+            }
+          ]
+        }
+      })
+
+      // Fast-forward only 10 seconds (less than 30 second threshold)
+      await page.clock.fastForward(10000);
+
+      const modal = page.locator('[data-testid="proactive-modal"]');
+      await expect(modal).not.toBeVisible({ timeout: 1000 })
+    })
+  })
+
+  test.describe('AC3: Scroll Depth Trigger', () => {
+    test('9.6-E2E-004: should trigger at scroll threshold [P2]', async ({ page }) => {
+      await loadWidgetPage(page, {
+        proactiveEngagementConfig: {
+          enabled: true,
+          triggers: [
+            {
+              type: 'scroll_depth',
+              enabled: true,
+              threshold: 50, // 50% scroll
+              message: 'Finding what you need?',
+              actions: [{ text: 'Get Help', prePopulatedMessage: 'I have a question.' }],
+              cooldown: 30
+            }
+          ]
+        }
+      })
+
+      // Simulate scroll to 60% (past 50% threshold)
+      await page.evaluate(() => {
+        // Create scrollable content
+        document.body.style.height = '3000px';
+        window.scrollTo(0, 1800); // 60% of 3000px
+        // Dispatch scroll event
+        window.dispatchEvent(new Event('scroll', { bubbles: true }));
+      });
+
+      const modal = page.locator('[data-testid="proactive-modal"]');
+      await expect(modal).toBeVisible({ timeout: 5000 })
+    })
+
+    test('9.6-E2E-005: should not trigger before scroll threshold [P2]', async ({ page }) => {
+      await loadWidgetPage(page, {
+        proactiveEngagementConfig: {
+          enabled: true,
+          triggers: [
+            {
+              type: 'scroll_depth',
+              enabled: true,
+              threshold: 75, // 75% scroll
+              message: 'Finding what you need?',
+              actions: [{ text: 'OK' }],
+              cooldown: 30
+            }
+          ]
+        }
+      })
+
+      // Simulate scroll to only 30% (less than 75% threshold)
+      await page.evaluate(() => {
+        document.body.style.height = '3000px';
+        window.scrollTo(0, 900); // 30% of 3000px
+        window.dispatchEvent(new Event('scroll', { bubbles: true }));
+      });
+
+      const modal = page.locator('[data-testid="proactive-modal"]');
+      await expect(modal).not.toBeVisible({ timeout: 1000 })
     })
   })
 
@@ -254,6 +376,107 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
 
       const modal = page.locator('[data-testid="proactive-modal"]');
       await expect(modal).toBeVisible({ timeout: 5000 })
+    })
+  })
+
+  test.describe('AC8: Modal Actions', () => {
+    test('9.6-E2E-021: should open chat with pre-populated message on action click [P1]', async ({ page }) => {
+      await loadWidgetPage(page)
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      const modal = await waitForProactiveModal(page);
+      await expect(modal).toBeVisible()
+
+      await page.click('[data-testid="proactive-action-button-0"]')
+
+      const chatWindow = page.locator('.shopbot-chat-window')
+      await expect(chatWindow).toBeVisible({ timeout: 5000 })
+
+      await expect(modal).not.toBeVisible({ timeout: 2000 })
+    })
+  })
+
+  test.describe('AC9: Dismiss Functionality', () => {
+    test('9.6-E2E-022: should close modal on dismiss and keep chat closed [P1]', async ({ page }) => {
+      await loadWidgetPage(page)
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      const modal = await waitForProactiveModal(page);
+      await expect(modal).toBeVisible()
+
+      await page.click('[data-testid="proactive-dismiss-button"]')
+
+      await expect(modal).not.toBeVisible({ timeout: 2000 })
+
+      const chatWindow = page.locator('.shopbot-chat-window')
+      await expect(chatWindow).not.toBeVisible()
+    })
+
+    test('9.6-E2E-023: should not re-trigger after dismiss in same session [P1]', async ({ page }) => {
+      await loadWidgetPage(page)
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      const modal = await waitForProactiveModal(page);
+      await expect(modal).toBeVisible()
+
+      await page.click('[data-testid="proactive-dismiss-button"]')
+      await expect(modal).not.toBeVisible({ timeout: 2000 })
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      await page.waitForTimeout(500)
+      await expect(modal).not.toBeVisible()
+    })
+  })
+
+  test.describe('AC10: Accessibility Compliance', () => {
+    test('9.6-E2E-024: should have correct aria attributes [P1]', async ({ page }) => {
+      await loadWidgetPage(page)
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      const modal = await waitForProactiveModal(page);
+
+      await expect(modal).toHaveAttribute('role', 'dialog')
+      await expect(modal).toHaveAttribute('aria-modal', 'true')
+      await expect(modal).toHaveAttribute('aria-labelledby', 'proactive-title')
+      await expect(modal).toHaveAttribute('aria-describedby', 'proactive-message')
+    })
+
+    test('9.6-E2E-025: should close on Escape key [P1]', async ({ page }) => {
+      await loadWidgetPage(page)
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      const modal = await waitForProactiveModal(page);
+      await expect(modal).toBeVisible()
+
+      await page.keyboard.press('Escape')
+
+      await expect(modal).not.toBeVisible({ timeout: 2000 })
+    })
+
+    test('9.6-E2E-026: should close on overlay click [P2]', async ({ page }) => {
+      await loadWidgetPage(page)
+
+      await page.mouse.move(100, 100)
+      await page.mouse.move(100, -10)
+
+      const modal = await waitForProactiveModal(page);
+      await expect(modal).toBeVisible()
+
+      await modal.click({ position: { x: 5, y: 5 } })
+
+      await expect(modal).not.toBeVisible({ timeout: 2000 })
     })
   })
 })
