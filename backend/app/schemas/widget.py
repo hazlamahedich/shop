@@ -39,6 +39,24 @@ class QuickReply(BaseSchema):
     )
 
 
+class VoiceInputConfig(BaseSchema):
+    """Voice input configuration for widget.
+
+    Story 9-5: Voice Input Interface
+
+    Attributes:
+        enabled: Whether voice input is enabled
+        language: BCP 47 language tag (e.g., 'en-US')
+        continuous: Whether to continuously listen
+        interim_results: Whether to show interim results
+    """
+
+    enabled: bool = Field(default=True, description="Whether voice input is enabled")
+    language: str = Field(default="en-US", max_length=10, description="BCP 47 language tag")
+    continuous: bool = Field(default=False, description="Continuous listening mode")
+    interim_results: bool = Field(default=True, description="Show interim results")
+
+
 class WidgetTheme(BaseSchema):
     """Theme configuration for widget appearance.
 
@@ -238,6 +256,7 @@ class WidgetConfigResponse(BaseSchema):
     """Response for widget configuration.
 
     Story 5-10 Enhancement: Added personality and business_hours for frontend context.
+    Story 9-5: Added voice_input_config for voice input interface.
 
     Attributes:
         bot_name: Display name for the bot
@@ -247,6 +266,7 @@ class WidgetConfigResponse(BaseSchema):
         personality: Bot personality type (friendly, professional, enthusiastic)
         business_hours: Business hours string for display (e.g., "Mon-Fri 9am-5pm")
         shop_domain: Shopify shop domain for checkout URL construction
+        voice_input_config: Voice input configuration (Story 9-5)
     """
 
     bot_name: str
@@ -256,6 +276,9 @@ class WidgetConfigResponse(BaseSchema):
     personality: Optional[str] = Field(default=None, description="Bot personality type")
     business_hours: Optional[str] = Field(default=None, description="Business hours for display")
     shop_domain: Optional[str] = Field(default=None, description="Shopify shop domain for checkout")
+    voice_input_config: Optional[VoiceInputConfig] = Field(
+        default=None, description="Voice input configuration (Story 9-5)"
+    )
 
 
 class WidgetConfigEnvelope(MinimalEnvelope):

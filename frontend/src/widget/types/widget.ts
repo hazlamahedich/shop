@@ -222,3 +222,35 @@ export const DEFAULT_CAROUSEL_CONFIG: CarouselConfig = {
   cardGap: 12,
   scrollDuration: 300,
 };
+
+export interface VoiceInputConfig {
+  enabled: boolean;
+  language: string;
+  continuous: boolean;
+  interimResults: boolean;
+}
+
+export interface VoiceInputState {
+  isListening: boolean;
+  isProcessing: boolean;
+  error: string | null;
+  interimTranscript: string;
+  finalTranscript: string;
+}
+
+export const DEFAULT_VOICE_CONFIG: VoiceInputConfig = {
+  enabled: true,
+  language: 'en-US',
+  continuous: false,
+  interimResults: true,
+};
+
+export const SUPPORTED_VOICE_LANGUAGES = [
+  { code: 'en-US', name: 'English (US)' },
+  { code: 'en-GB', name: 'English (UK)' },
+  { code: 'es-ES', name: 'Spanish' },
+  { code: 'fr-FR', name: 'French' },
+  { code: 'de-DE', name: 'German' },
+  { code: 'zh-CN', name: 'Chinese (Simplified)' },
+  { code: 'ja-JP', name: 'Japanese' },
+] as const;

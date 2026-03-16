@@ -2,11 +2,13 @@ import type { WidgetTheme } from '../types/widget';
 import glassmorphismStyles from '../styles/glassmorphism.css?inline';
 import carouselStyles from '../styles/carousel.css?inline';
 import quickReplyStyles from '../styles/quick-reply.css?inline';
+import voiceInputStyles from '../styles/voice-input.css?inline';
 
 const THEME_STYLE_ID = 'widget-theme-variables';
 const GLASSMORPHISM_STYLE_ID = 'widget-glassmorphism-styles';
 const CAROUSEL_STYLE_ID = 'widget-carousel-styles';
 const QUICK_REPLY_STYLE_ID = 'widget-quick-reply-styles';
+const VOICE_INPUT_STYLE_ID = 'widget-voice-input-styles';
 
 export function createShadowContainer(target: HTMLElement): ShadowRoot {
   return target.attachShadow({ mode: 'open' });
@@ -47,6 +49,18 @@ export function injectQuickReplyStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', QUICK_REPLY_STYLE_ID);
   style.textContent = quickReplyStyles;
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectVoiceInputStyles(shadow: ShadowRoot): void {
+  const existingStyle = shadow.querySelector(`style[data-id="${VOICE_INPUT_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', VOICE_INPUT_STYLE_ID);
+  style.textContent = voiceInputStyles;
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {

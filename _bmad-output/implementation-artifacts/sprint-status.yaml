@@ -117,7 +117,7 @@ development_status:
 
   # Epic 5: Embeddable Widget (NEW - approved 2026-02-17)
   # See: sprint-change-proposal-2026-02-17.md, docs/embeddable-widget-plan.md
-  epic-5: in-progress # 2026-02-25: Story 5-11 ready for code review (29/29 tests passing)
+  epic-5: done # 2026-03-15: ALL 13 STORIES COMPLETE - Embeddable widget with Shadow DOM, WebSocket, unified conversation service
   5-1-backend-widget-api: done # 2026-02-17: Code review COMPLETE - 4 issues fixed (LLM timeout, domain whitelist, sanitization, test endpoint), 35 tests passing
   5-2-widget-session-management: done # 2026-02-21: Implementation complete - 13 tests passing (7 unit + 6 integration)
   5-3-widget-frontend-components: done # 2026-02-18: Code review COMPLETE - 7 issues fixed (Shadow DOM, merchantId, typing animation, aria-busy, session persistence), 44 tests passing
@@ -134,7 +134,7 @@ development_status:
   epic-5-retrospective: done
 
   # Epic 6: Data Privacy & Compliance (Renumbered from Epic 5 - approved 2026-02-17)
-  epic-6: in-progress # 2026-02-25: Story 6-1 created, ready for development
+  epic-6: done # 2026-03-15: ALL 6 STORIES COMPLETE - GDPR/CCPA compliance, data tier separation, 30-day retention
   6-1-opt-in-consent-flow: done # 2026-02-25: Code review COMPLETE - All 8 issues fixed (1 CRITICAL dead code, 3 HIGH API mismatch/untracked migration/AC6, 4 MEDIUM/LOW). AC6 personality-aware consent prompts now integrated in frontend.
   6-2-request-data-deletion: done # 2026-02-26: Code review COMPLETE - 3 HIGH + 4 MEDIUM + 3 LOW issues found and fixed. Added: timing test, order preservation test, error handling fix, rate limit on commit success. 27 backend + 12 API + 5 E2E tests passing.
   6-3-merchant-csv-export: done # 2026-03-04: COMPLETE - Fixed 2 bugs (0-byte export, consent lookup), 12/12 API tests passing, committed and pushed
@@ -165,3 +165,38 @@ development_status:
   8-10-frontend-dashboard-mode-aware-widgets: done # 2026-03-13: Implementation complete, all tests passing (7 backend + 5 frontend + 11 config)
   8-11-llm-embedding-provider-integration-reembedding: done # 2026-03-14: Implementation complete - Gemini provider, dimension handler, re-embedding worker, frontend settings, tests created
   epic-8-retrospective: done
+
+  # Epic 9: Widget UI/UX Enhancements (approved 2026-03-15)
+  # See: docs/widget-ui-ux-prototypes.md, epic-9: in-progress
+  
+  epic-9: in-progress
+  9-1-dark-mode-glassmorphism: done # Code review complete: 4 HIGH + 3 MEDIUM issues fixed (unit tests, CSS selectors, type safety)
+  9-2-smart-positioning-system: done # Code review complete: 3 HIGH + 4 MEDIUM issues fixed (positioningStyles injection, debounce timing, haptic feedback, E2E test auto-correction)
+  9-3-product-carousel: done # Code review complete: 2 HIGH + 4 MEDIUM issues fixed (uncommitted files, Task 9 docs, File List, E2E mock camelCase, handle field)
+  9-4-quick-reply-buttons: done # Code review complete - 7 issues fixed, reduced-motion, E2E force: true, git status updated
+  9-5-voice-input-interface: done # Code review complete - 28 unit tests, 16 E2E tests passing, Escape key handler added
+  9-6-proactive-engagement-triggers: backlog
+  9-7-message-grouping-avatars: backlog
+  9-8-animated-microinteractions: backlog
+  9-9-demo-page-documentation: done
+  9-10-analytics-ab-testing: backlog
+  
+  epic-9-retrospective: optional
+
+  # Epic 10: General Mode Widgets (approved 2026-03-15)
+  # See: _bmad-output/planning-artifacts/epics/epic-10-general-mode-widgets.md
+  # Interactive Demo: http://localhost:5175/general-mode-demo
+  
+  epic-10: backlog
+  10-1-source-citations-widget: backlog # Chat widget: Display RAG sources in messages
+  10-2-faq-quick-buttons-widget: backlog # Chat widget: Clickable FAQ chips at conversation start
+  10-3-quick-reply-chips-widget: backlog # Chat widget: Suggested follow-up questions
+  10-4-feedback-rating-widget: backlog # Chat widget: Thumbs up/down on bot responses
+  10-5-contact-card-widget: backlog # Chat widget: Contact options for escalation
+  10-6-enable-existing-widgets-general-mode: backlog # Dashboard: Configure widget visibility by mode
+  10-7-knowledge-effectiveness-widget: backlog # Dashboard: RAG match rate, confidence metrics
+  10-8-top-topics-widget: backlog # Dashboard: Most queried topics with trends
+  10-9-response-time-distribution-widget: backlog # Dashboard: P50/P95/P99 response times
+  10-10-faq-usage-widget: backlog # Dashboard: FAQ click frequency and optimization
+  
+  epic-10-retrospective: optional
