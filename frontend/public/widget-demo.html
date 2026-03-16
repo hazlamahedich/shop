@@ -233,6 +233,131 @@
       color: #374151;
     }
     
+    /* Proactive Engagement Documentation Styles */
+    .proactive-docs {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .proactive-docs h2 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+    
+    .proactive-docs h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 24px 0 16px;
+      color: #374151;
+    }
+    
+    .docs-intro {
+      font-size: 16px;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    
+    .trigger-types {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .trigger-item {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .trigger-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .trigger-icon {
+      font-size: 24px;
+    }
+    
+    .trigger-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    
+    .trigger-desc {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    
+    .trigger-config {
+      font-size: 13px;
+      color: #4b5563;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .config-label {
+      font-weight: 500;
+      color: #374151;
+    }
+    
+    .config-example {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+    
+    .config-example pre {
+      margin: 0;
+    }
+    
+    .config-example code {
+      font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e5e7eb;
+    }
+    
+    .docs-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .docs-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      color: #4b5563;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    
+    .docs-list li:last-child {
+      border-bottom: none;
+    }
+    
+    .docs-list li::before {
+      content: '→';
+      color: #6366f1;
+      font-weight: bold;
+      margin-right: 12px;
+    }
+    
     @media (max-width: 768px) {
       .header h1 {
         font-size: 32px;
@@ -385,6 +510,140 @@
         </p>
         <span class="feature-tag">Accessibility</span>
       </div>
+    </div>
+    
+    <!-- Proactive Engagement Documentation -->
+    <div class="proactive-docs">
+      <h2>🎪 Proactive Engagement Triggers</h2>
+      <p class="docs-intro">
+        Automatically engage visitors at key moments to increase conversions. 
+        Configure triggers based on user behavior with custom messages and cooldowns.
+      </p>
+      
+      <h3>Available Trigger Types</h3>
+      <div class="trigger-types">
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">🚪</span>
+            <span class="trigger-name">Exit Intent</span>
+          </div>
+          <p class="trigger-desc">Detects when visitor moves mouse to leave the page (clientY ≤ 0)</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Cooldown:</span> 30 minutes
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">⏱️</span>
+            <span class="trigger-name">Time on Page</span>
+          </div>
+          <p class="trigger-desc">Triggers after visitor spends specified time on page</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Threshold:</span> 30 seconds |
+            <span class="config-label">Range:</span> 1-100 seconds
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">📜</span>
+            <span class="trigger-name">Scroll Depth</span>
+          </div>
+          <p class="trigger-desc">Triggers when visitor scrolls to specified page percentage</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Threshold:</span> 50% |
+            <span class="config-label">Range:</span> 1-100%
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">🛒</span>
+            <span class="trigger-name">Cart Abandonment</span>
+          </div>
+          <p class="trigger-desc">Triggers when visitor attempts to leave with items in cart</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Cooldown:</span> 30 minutes |
+            <span class="config-label">Requires:</span> Cart items in conversation
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">👁️</span>
+            <span class="trigger-name">Product View</span>
+          </div>
+          <p class="trigger-desc">Triggers after viewing specified number of unique products</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Threshold:</span> 3 products |
+            <span class="config-label">Range:</span> 1-100
+          </div>
+        </div>
+      </div>
+      
+      <h3>Example Configuration</h3>
+      <div class="config-example">
+        <pre><code>{
+  "proactiveEngagementConfig": {
+    "enabled": true,
+    "triggers": [
+      {
+        "type": "exit_intent",
+        "enabled": true,
+        "message": "Wait! Before you go, can we help you find something?",
+        "actions": [
+          { "text": "Get Help", "prePopulatedMessage": "I need help finding a product." },
+          { "text": "No thanks" }
+        ],
+        "cooldown": 30
+      },
+      {
+        "type": "time_on_page",
+        "enabled": true,
+        "threshold": 30,
+        "message": "Finding what you need? Our assistant can help!",
+        "actions": [
+          { "text": "Chat Now", "prePopulatedMessage": "Hi! Can you help me?" },
+          { "text": "Not now" }
+        ],
+        "cooldown": 60
+      },
+      {
+        "type": "scroll_depth",
+        "enabled": true,
+        "threshold": 50,
+        "message": "Looks like you're browsing! Need any recommendations?",
+        "actions": [
+          { "text": "Yes, please!", "prePopulatedMessage": "Can you recommend some products?" },
+          { "text": "No thanks" }
+        ],
+        "cooldown": 30
+      },
+      {
+        "type": "product_view",
+        "enabled": true,
+        "threshold": 3,
+        "message": "I noticed you've viewed several products. Can I help you decide?",
+        "actions": [
+          { "text": "Compare Products", "prePopulatedMessage": "Can you help me compare products?" },
+          { "text": "Not now" }
+        ],
+        "cooldown": 60
+      }
+    ]
+  }
+}</code></pre>
+      </div>
+      
+      <h3>How It Works</h3>
+      <ul class="docs-list">
+        <li><strong>Cooldown System:</strong> Once a trigger fires, it won't fire again for the specified cooldown period (stored in sessionStorage)</li>
+        <li><strong>Dismiss Persistence:</strong> Dismissed triggers are remembered for the session to avoid annoying visitors</li>
+        <li><strong>Pre-populated Messages:</strong> Action buttons can pre-fill the chat input with custom messages</li>
+        <li><strong>Accessibility:</strong> Modal includes focus trap, Escape key support, and ARIA attributes</li>
+        <li><strong>Mobile Friendly:</strong> Responsive design with touch-friendly buttons</li>
+      </ul>
     </div>
     
     <!-- Instructions -->
