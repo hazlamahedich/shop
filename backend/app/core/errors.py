@@ -239,6 +239,11 @@ class ErrorCode(IntEnum):
     EMBEDDING_INVALID_PROVIDER = 11008  # Provider doesn't support embeddings
     RETRIEVAL_TIMEOUT = 11009  # Retrieval exceeded 500ms timeout
     DOCUMENT_PROCESSING_FAILED = 11010  # Document processing pipeline failed
+    # Story 8-11: Embedding Provider & Re-embedding
+    EMBEDDING_PROVIDER_CHANGED = 11015  # Provider change detected
+    EMBEDDING_REEMBED_FAILED = 11016  # Re-embedding task failed
+    EMBEDDING_DIMENSION_MISMATCH = 11017  # Mixed dimensions in retrieval
+    EMBEDDING_GEMINI_ERROR = 11018  # Gemini-specific error
 
     # 9000-9999: Tutorial (owner: onboarding team)
     TUTORIAL_NOT_STARTED = 9001

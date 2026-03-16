@@ -254,6 +254,13 @@ bd sync && git push
    - Pass values as 2nd argument: `addInitScript((val) => {...}, value)`
    - Use helpers: `setLocalStorageValue(page, key, value)`
    - Reference: Stories 8-6, 8-7, 8-11 had interpolation bugs
+
+□ **E2E Hard Waits**: Using deterministic waits only?
+   - ❌ NEVER: `page.waitForTimeout()`, `time.sleep()`, `.wait(number)`
+   - ✅ INSTEAD: `expect(locator).toBeVisible()`, `page.waitForResponse()`
+   - ✅ INSTEAD: `expect(page).toHaveURL()`, `expect(locator).toHaveCSS()`
+   - Pattern: Set up `waitForResponse()` BEFORE triggering the action
+   - Helpers: `waitForApiResponse()`, `waitForDocumentStatus()` in `tests/helpers/`
 ```
 
 ### Quick Reference
@@ -267,6 +274,7 @@ bd sync && git push
 | Envelope | Use `response.data` | Using `response.data.data` (double unwrap) |
 | Embedding | Use JSONB + dimension column | Using fixed `Vector(N)` dimension |
 | E2E | `addInitScript((v) => {...}, val)` | Using template literal `${val}` in browser context |
+| Hard Waits | `expect().toBeVisible()` | Using `waitForTimeout()` or `sleep()` |
 
 ---
 

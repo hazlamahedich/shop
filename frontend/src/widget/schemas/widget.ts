@@ -25,6 +25,8 @@ export const WidgetConfigSchema = z.object({
   shopDomain: z.string().nullable().optional(),
   shop_domain: z.string().nullable().optional(),
   personality: z.enum(['friendly', 'professional', 'enthusiastic']).nullable().optional(),
+  proactiveEngagementConfig: z.any().optional(),
+  proactive_engagement_config: z.any().optional(),
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
   botName: data.botName || data.bot_name || 'Assistant',
@@ -33,6 +35,7 @@ export const WidgetConfigSchema = z.object({
   allowedDomains: data.allowedDomains || [],
   shopDomain: data.shopDomain || data.shop_domain || undefined,
   personality: data.personality || undefined,
+  proactiveEngagementConfig: data.proactiveEngagementConfig || data.proactive_engagement_config || undefined,
 }));
 
 export const WidgetSessionSchema = z

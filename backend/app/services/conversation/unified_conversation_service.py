@@ -192,8 +192,15 @@ class UnifiedConversationService:
             rag_context = None
             rag_sources: List[str] = []
             if merchant.onboarding_mode == "general" and self.rag_context_builder:
+                # Story 8-11 AC6: Construct embedding version for dimension consistency
+                embedding_version = None
+                if merchant.embedding_provider and merchant.embedding_model:
+                    embedding_version = f"{merchant.embedding_provider}-{merchant.embedding_model}"
+
                 rag_context = await self.rag_context_builder.build_rag_context(
-                    merchant_id=merchant.id, user_query=message
+                    merchant_id=merchant.id,
+                    user_query=message,
+                    embedding_version=embedding_version,
                 )
                 # Store in context for handlers to access
                 if context.metadata is None:

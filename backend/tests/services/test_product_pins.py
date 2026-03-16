@@ -28,64 +28,7 @@ from app.core.errors import ErrorCode, APIError
 # Test Fixtures
 # =============================================================================
 
-@pytest.fixture(scope="function")
-async def db_session() -> AsyncSession:
-    """Create a fresh database session for testing.
-
-    This fixture creates a fresh async session for each test function.
-    Tables are dropped and recreated before each test for complete isolation.
-    """
-    from app.core.database import Base
-
-    # List of custom enum types
-    enum_types = [
-        "message_sender",
-        "message_type",
-        "conversation_status",
-        "shopify_status",
-        "facebook_status",
-        "llm_provider",
-        "merchant_status",
-        "personality_type",
-        "verification_platform",
-        "test_type",
-        "verification_status",
-    ]
-
-    # Clean up and recreate schema in a single transaction
-    async with db_session.begin() as conn:
-        # First, drop all custom enum types (they may block table drops)
-        for enum_type in enum_types:
-            await conn.execute(text(f"DROP TYPE IF EXISTS {enum_type} CASCADE;"))
-
-        # Recreate enum types
-        await conn.execute(text("""
-            CREATE TYPE merchant_status AS ENUM (
-                'pending', 'active', 'failed'
-            );
-        """))
-
-        await conn.execute(text("""
-            CREATE TYPE personality_type AS ENUM (
-                'friendly', 'professional', 'enthusiastic'
-            );
-        """))
-
-        await conn.execute(text("""
-            CREATE TYPE llm_provider AS ENUM (
-                'ollama', 'openai', 'anthropic', 'gemini', 'glm'
-            );
-        """))
-
-        # Create all tables fresh
-        await conn.run_sync(Base.metadata.create_all, conn))
-
-    # Create session
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        await session.close()
+# Note: db_session fixture is provided by tests/conftest.py
 
 
 @pytest.fixture
@@ -101,16 +44,17 @@ def mock_merchant():
 
 
 @pytest.fixture
-def mock_request_with_merchant(merchant):
+def mock_request_with_merchant(mock_merchant):
     """Create a mock request with merchant already set in state."""
     request = AsyncMock()
-    request.state.merchant_id = merchant.id
+    request.state.merchant_id = mock_merchant.id
     return request
 
 
 # =============================================================================
 # Test Pin Product
 # =============================================================================
+
 
 class TestProductPinning:
     """Test product pin operations."""
@@ -126,6 +70,7 @@ class TestProductPinning:
 
         # Act
         from app.services.product_pin_service import pin_product
+
         result = await pin_product(
             db_session,
             mock_merchant.id,
@@ -250,6 +195,7 @@ class TestProductPinning:
 
         # Assert: Unpin removes the pin record
         from app.services.product_pin_service import get_pinned_products
+
         pins_result = await get_pinned_products(
             db_session,
             mock_merchant.id,
@@ -282,6 +228,7 @@ class TestProductPinning:
 # =============================================================================
 # Test Get Pinned Products (with Shopify merge)
 # =============================================================================
+
 
 class TestGetPinnedProducts:
     """Test get_pinned_products with Shopify data merge."""
@@ -377,6 +324,7 @@ class TestGetPinnedProducts:
 # Test Search Products
 # =============================================================================
 
+
 class TestSearchProducts:
     """Test product search functionality."""
 
@@ -399,13 +347,16 @@ class TestSearchProducts:
         assert len(products) > 0
         # All mock products with "shoes" or "Shoes" in title should match
         expected_matches = ["Running Shoes Pro", "Wireless Earbuds"]
-        actual_matches = [p["product_id"] for p in products if "shoes".lower() in p["title"].lower()]
+        actual_matches = [
+            p["product_id"] for p in products if "shoes".lower() in p["title"].lower()
+        ]
         assert len(actual_matches) == len(expected_matches)
 
 
 # =============================================================================
 # Test Pin Limit
 # =============================================================================
+
 
 class TestPinLimit:
     """Test pin limit enforcement."""
@@ -444,6 +395,7 @@ class TestPinLimit:
 # Test Error Handling
 # =============================================================================
 
+
 class TestErrorHandling:
     """Test error handling in service functions."""
 
@@ -459,7 +411,9 @@ class TestErrorHandling:
         async def mock_get_pinned_products_fail(*args, **kwargs):
             raise APIError(ErrorCode.INTERNAL_ERROR, "Database connection failed")
 
-        with patch("app.services.product_pin_service.get_pinned_products", mock_get_pinned_products_fail):
+        with patch(
+            "app.services.product_pin_service.get_pinned_products", mock_get_pinned_products_fail
+        ):
             # Act & Assert
             with pytest.raises(APIError) as exc_info:
                 await get_pinned_products(
@@ -474,6 +428,7 @@ class TestErrorHandling:
 # =============================================================================
 # Test Shopify Integration
 # =============================================================================
+
 
 class TestShopifyIntegration:
     """Test Shopify product fetch service."""

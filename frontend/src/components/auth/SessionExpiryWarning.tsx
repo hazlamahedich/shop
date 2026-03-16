@@ -110,11 +110,7 @@ const SessionExpiryWarning: React.FC<SessionExpiryWarningProps> = ({
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <AlertCircle
-            className="text-amber-600 flex-shrink-0"
-            size={20}
-            aria-hidden="true"
-          />
+          <AlertCircle className="text-amber-600 flex-shrink-0" size={20} aria-hidden="true" />
           <div className="flex flex-col">
             <p className="text-sm font-medium text-amber-800">
               Your session will expire in {formatTimeRemaining(timeRemaining)}

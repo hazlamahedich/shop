@@ -3,7 +3,10 @@ import { WidgetProvider, useWidgetContext } from './context/WidgetContext';
 import { ChatBubble } from './components/ChatBubble';
 import { WidgetErrorBoundary } from './components/WidgetErrorBoundary';
 import { LoadingSpinner } from './components/LoadingSpinner';
-import type { WidgetTheme } from './types/widget';
+import { ProactiveModal } from './components/ProactiveModal';
+import { useProactiveTriggers } from './hooks/useProactiveTriggers';
+import type { WidgetTheme, ProactiveTriggerAction } from './types/widget';
+import { DEFAULT_PROACTIVE_CONFIG } from './types/widget';
 import { mergeThemes } from './utils/themeMerge';
 import { useThemeDetection } from './hooks/useThemeDetection';
 import { GlassmorphismChatWindow } from './components/GlassmorphismChatWindow';
@@ -42,6 +45,59 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     () => mergeThemes(merchantTheme, theme),
     [merchantTheme, theme]
   );
+
+  const [prePopulatedMessage, setPrePopulatedMessage] = React.useState<string | null>(null);
+  
+  const productViewCount = React.useMemo(() => {
+    const productIds = new Set<string>();
+    state.messages.forEach((m) => {
+      m.products?.forEach((p) => {
+        const id = p.id || p.variantId;
+        if (id) productIds.add(id);
+      });
+    });
+    return productIds.size;
+  }, [state.messages]);
+
+  const proactiveConfig = state.config?.proactiveEngagementConfig ?? DEFAULT_PROACTIVE_CONFIG;
+
+
+  const cartHasItems = React.useMemo(() => {
+    return state.messages.some((m) => (m.cart?.items?.length ?? 0) > 0);
+  }, [state.messages]);
+
+  const {
+    activeTrigger,
+    dismissTrigger: dismissProactive,
+    isActive: isProactiveActive,
+  } = useProactiveTriggers({
+    config: proactiveConfig,
+    productViewCount,
+    cartHasItems,
+  });
+
+  const handleProactiveAction = React.useCallback(
+    (action: ProactiveTriggerAction) => {
+      if (action.prePopulatedMessage) {
+        setPrePopulatedMessage(action.prePopulatedMessage);
+      }
+      if (!state.isOpen) {
+        toggleChat();
+      }
+      dismissProactive();
+    },
+    [state.isOpen, toggleChat, dismissProactive]
+  );
+
+
+  React.useEffect(() => {
+    if (prePopulatedMessage && state.isOpen) {
+      const timer = setTimeout(() => {
+        setPrePopulatedMessage(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [prePopulatedMessage, state.isOpen]);
 
   const handleThemeToggle = React.useCallback(() => {
     const nextMode = getNextThemeMode(state.themeMode);
@@ -598,6 +654,155 @@ function WidgetInner({ theme }: WidgetInnerProps) {
             transform: scaleY(0.75);
           }
         }
+        
+        /* Proactive Modal Styles */
+        .proactive-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2147483646;
+          animation: proactive-fade-in 0.2s ease-out;
+        }
+        .proactive-modal-container {
+          background-color: var(--widget-bg, #ffffff);
+          border-radius: var(--widget-radius, 16px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+          max-width: 400px;
+          width: 90%;
+          padding: 24px;
+          position: relative;
+          color: var(--widget-text, #1f2937);
+          animation: proactive-scale-in 0.2s ease-out;
+        }
+        .proactive-modal-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 16px;
+          border-radius: 50%;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+        }
+        @keyframes proactive-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes proactive-scale-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .proactive-modal-close {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          min-height: 32px;
+          border: none;
+          border-radius: 50%;
+          background-color: transparent;
+          color: var(--widget-text, #6b7280);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 150ms ease;
+        }
+        .proactive-modal-close:hover {
+          background-color: rgba(0, 0, 0, 0.05);
+        }
+        .proactive-modal-close:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .proactive-modal-title {
+          font-size: 18px;
+          font-weight: 600;
+          margin: 0 0 12px 0;
+          padding-right: 32px;
+          color: inherit;
+        }
+        .proactive-modal-message {
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0 0 20px 0;
+          color: inherit;
+        }
+        .proactive-modal-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .proactive-action-button {
+          flex: 1;
+          min-width: 100px;
+          min-height: 44px;
+          padding: 12px 16px;
+          border: 1px solid var(--widget-primary, #6366f1);
+          border-radius: 8px;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 150ms ease, transform 100ms ease;
+        }
+        .proactive-action-button:hover:not(:disabled) {
+          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+        }
+        .proactive-action-button:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .proactive-action-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .proactive-action-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .proactive-action-button.proactive-action-secondary {
+          background-color: transparent;
+          color: var(--widget-primary, #6366f1);
+        }
+        .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        @media (max-width: 479px) {
+          .proactive-modal-container {
+            max-width: 90%;
+            padding: 20px;
+            margin: 16px;
+          }
+          .proactive-modal-actions {
+            flex-direction: column;
+          }
+          .proactive-action-button {
+            width: 100%;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .proactive-modal-overlay,
+          .proactive-modal-container {
+            animation: none;
+          }
+          .proactive-modal-close,
+          .proactive-action-button {
+            transition: none;
+          }
+          .proactive-action-button:active:not(:disabled) {
+            transform: none;
+          }
+        }
       `}</style>
       {state.isLoading ? (
         <div style={{
@@ -624,6 +829,17 @@ function WidgetInner({ theme }: WidgetInnerProps) {
             theme={mergedTheme}
             onPrefetch={prefetchChatWindow}
             unreadCount={state.unreadCount}
+          />
+          <ProactiveModal
+            trigger={activeTrigger!}
+            isOpen={isProactiveActive && !state.isOpen}
+            onAction={handleProactiveAction}
+            onDismiss={dismissProactive}
+            theme={{
+              primaryColor: mergedTheme.primaryColor,
+              backgroundColor: mergedTheme.backgroundColor,
+              textColor: mergedTheme.textColor,
+            }}
           />
           {state.isOpen && !state.isMinimized && (
             <WidgetErrorBoundary fallback={<div style={{position:'fixed',bottom:100,right:20,zIndex:2147483647}}>Failed to load chat.</div>}>
@@ -676,12 +892,13 @@ function WidgetInner({ theme }: WidgetInnerProps) {
 interface WidgetProps {
   merchantId: string;
   theme?: Partial<WidgetTheme>;
+  initialSessionId?: string;
 }
 
-export function Widget({ merchantId, theme }: WidgetProps) {
+export function Widget({ merchantId, theme, initialSessionId }: WidgetProps) {
   return (
     <WidgetErrorBoundary>
-      <WidgetProvider merchantId={merchantId}>
+      <WidgetProvider merchantId={merchantId} initialSessionId={initialSessionId}>
         <WidgetInner theme={theme} />
       </WidgetProvider>
     </WidgetErrorBoundary>

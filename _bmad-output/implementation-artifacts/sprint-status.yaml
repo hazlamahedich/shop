@@ -175,7 +175,7 @@ development_status:
   9-3-product-carousel: done # Code review complete: 2 HIGH + 4 MEDIUM issues fixed (uncommitted files, Task 9 docs, File List, E2E mock camelCase, handle field)
   9-4-quick-reply-buttons: done # Code review complete - 7 issues fixed, reduced-motion, E2E force: true, git status updated
   9-5-voice-input-interface: done # Code review complete - 28 unit tests, 16 E2E tests passing, Escape key handler added
-  9-6-proactive-engagement-triggers: backlog
+  9-6-proactive-engagement-triggers: review
   9-7-message-grouping-avatars: backlog
   9-8-animated-microinteractions: backlog
   9-9-demo-page-documentation: done

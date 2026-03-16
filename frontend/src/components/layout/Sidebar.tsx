@@ -90,7 +90,7 @@ const Sidebar = () => {
   return (
     <aside className="w-64 bg-gray-50 border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-primary">Shop</h1>
+        <div className="text-2xl font-bold text-primary">Shop</div>
       </div>
 
       <nav className="flex-1 px-4 space-y-2">

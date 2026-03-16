@@ -42,9 +42,17 @@ function getMerchantId() {
   return params.get('merchantId') || '4';
 }
 
+function getSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('sessionId') || undefined;
+}
+
 export default function WidgetTestPage() {
   const theme = { ...defaultTheme, ...parseThemeFromUrl() };
   const merchantId = getMerchantId();
+  const sessionId = getSessionId();
+
+  console.log('[WidgetTestPage] Rendering with:', { merchantId, sessionId });
 
   return (
     <div style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
@@ -79,7 +87,7 @@ export default function WidgetTestPage() {
           </li>
         </ul>
       </div>
-      <Widget merchantId={merchantId} theme={theme} />
+      <Widget merchantId={merchantId} theme={theme} initialSessionId={sessionId} />
     </div>
   );
 }

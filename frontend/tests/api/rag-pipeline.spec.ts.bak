@@ -1,0 +1,603 @@
+/**
+ * API Tests for Story 8.4: Backend - RAG Service (Document Processing)
+ *
+ * Tests Knowledge Base API endpoints for RAG pipeline:
+ * - POST /api/knowledge-base/upload
+ * - GET /api/knowledge-base/{document_id}/status
+ * - POST /api/knowledge-base/{document_id}/reprocess
+ * - GET /api/knowledge-base/documents
+ *
+ * Acceptance Criteria:
+ * - AC1: Embedding generation for document chunks
+ * - AC2: Vector similarity search returns top 5 chunks
+ * - AC3: Threshold filtering (similarity < 0.7 returns empty)
+ * - AC4: Error handling updates document status
+ *
+ * Prerequisites:
+ * - Backend API running on http://localhost:8000
+ * - Test merchant account exists
+ * - PostgreSQL + pgvector extension available
+ */
+
+import { test, expect } from '@playwright/test';
+import * as path from 'path';
+import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const API_URL = process.env.API_URL || 'http://localhost:8000';
+
+// Test merchant credentials
+const TEST_MERCHANT = {
+  email: 'e2e-test@example.com',
+  password: 'TestPass123',
+};
+
+// Sample document content for testing
+const SAMPLE_FAQ_CONTENT = `
+Q: What is your return policy?
+A: We accept returns within 30 days of purchase. Items must be unused and in original packaging.
+
+Q: How long does shipping take?
+A: Standard shipping takes 3-5 business days. Express shipping is 1-2 business days.
+
+Q: Do you offer international shipping?
+A: Yes, we ship to over 50 countries. International shipping takes 7-14 business days.
+`;
+
+/**
+ * Helper: Create test merchant account via API
+ */
+async function createTestMerchant() {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/test/create-merchant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Test-Mode': 'true',
+      },
+      body: JSON.stringify(TEST_MERCHANT),
+    });
+
+    if (!response.ok && response.status !== 409) {
+      // 409 means already exists, which is fine
+      console.warn('Failed to create test merchant:', await response.text());
+    }
+  } catch (error) {
+    console.warn('Could not create test merchant:', error);
+  }
+}
+
+/**
+ * Helper: Authenticate test merchant
+ */
+async function authenticateMerchant(request: any): Promise<void> {
+  const response = await request.post(`${API_URL}/api/v1/auth/login`, {
+    data: TEST_MERCHANT,
+  });
+
+  if (!response.ok()) {
+    throw new Error('Failed to authenticate test merchant');
+  }
+  
+  // Session cookie is automatically stored in request context
+}
+
+/**
+ * Helper: Create sample document file for upload
+ */
+function createSampleDocument(): string {
+  const tempPath = path.join(__dirname, `test-doc-${Date.now()}.txt`);
+  fs.writeFileSync(tempPath, SAMPLE_FAQ_CONTENT);
+  return tempPath;
+}
+
+/**
+ * Helper: Clean up temporary test file
+ */
+function cleanupTestFile(filePath: string) {
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+test.describe('Story 8.4: Knowledge Base API - Document Upload [P0]', () => {
+  test.describe.configure({ mode: 'serial' }); // Run tests serially to avoid state conflicts
+  
+  let testFilePath: string;
+
+  test.beforeAll(async ({ request }) => {
+    await createTestMerchant();
+    await authenticateMerchant(request);
+  });
+
+  test.beforeEach(async ({ request }) => {
+    // Reset rate limits before each test
+    await request.post(`${API_URL}/api/v1/test/reset-rate-limits`, {
+      headers: { 'X-Test-Mode': 'true' },
+    });
+  });
+
+  test.afterEach(() => {
+    if (testFilePath) {
+      cleanupTestFile(testFilePath);
+    }
+  });
+
+  test('[P0] should upload document and create pending status - AC1', async ({ request }) => {
+    // Given: Valid document file
+    testFilePath = createSampleDocument();
+
+    // When: Upload document via API
+    const fileBuffer = fs.readFileSync(testFilePath);
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      multipart: {
+        file: {
+          name: 'test-faq.txt',
+          mimeType: 'text/plain',
+          buffer: fileBuffer,
+        },
+      },
+    });
+
+    // Then: Response should be 200 OK
+    expect(response.status()).toBe(200);
+
+    // And: Response body should contain document metadata
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(body.data).toHaveProperty('id');
+    expect(body.data).toHaveProperty('filename');
+    expect(body.data).toHaveProperty('status');
+
+    // And: Document status should be 'pending' (background processing triggered)
+    expect(body.data.status).toBe('pending');
+    expect(body.data.filename).toBe('test-faq.txt');
+  });
+
+  test('[P0] should reject invalid file type - Security', async ({ request }) => {
+    // Given: Invalid file type (e.g., .exe)
+    const invalidContent = Buffer.from('invalid executable content');
+    
+    // When: Attempt to upload invalid file type
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      headers: {
+      },
+      multipart: {
+        file: {
+          name: 'malicious.exe',
+          mimeType: 'application/octet-stream',
+          buffer: invalidContent,
+        },
+      },
+    });
+
+    // Then: Response should be 400 Bad Request
+    expect(response.status()).toBe(400);
+
+    // And: Error message should indicate invalid file type
+    const body = await response.json();
+    expect(body).toHaveProperty('detail');
+    expect(body.detail.message.toLowerCase()).toContain('invalid file type');
+  });
+
+  test('[P0] should reject file exceeding size limit - Security', async ({ request }) => {
+    // Given: File exceeding size limit (e.g., 11MB)
+    const largeContent = Buffer.alloc(11 * 1024 * 1024, 'x'); // 11MB
+
+    // When: Attempt to upload oversized file
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      headers: {
+      },
+      multipart: {
+        file: {
+          name: 'large-file.txt',
+          mimeType: 'text/plain',
+          buffer: largeContent,
+        },
+      },
+    });
+
+    // Then: Response should be 400 Bad Request
+    expect(response.status()).toBe(400);
+
+    // And: Error message should indicate file too large
+    const body = await response.json();
+    expect(body).toHaveProperty('detail');
+    expect(body.detail.message.toLowerCase()).toContain('file too large');
+  });
+
+  test('[P1] should reject upload without authentication - Security', async ({ request }) => {
+    // Given: No auth token provided
+    testFilePath = createSampleDocument();
+    const fileBuffer = fs.readFileSync(testFilePath);
+
+    // When: Upload without auth header
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      multipart: {
+        file: {
+          name: 'test-faq.txt',
+          mimeType: 'text/plain',
+          buffer: fileBuffer,
+        },
+      },
+    });
+
+    // Then: Response should be 401 Unauthorized
+    expect(response.status()).toBe(401);
+  });
+});
+
+test.describe('Story 8.4: Knowledge Base API - Document Status [P0]', () => {
+  let authToken: string;
+  let documentId: number;
+
+  test.beforeAll(async ({ request }) => {
+    await createTestMerchant();
+    authToken = await getAuthToken(request);
+    
+    // Upload a test document for status checks
+    const testFilePath = createSampleDocument();
+    const fileBuffer = fs.readFileSync(testFilePath);
+    
+    const uploadResponse = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      multipart: {
+        file: {
+          name: 'status-test.txt',
+          mimeType: 'text/plain',
+          buffer: fileBuffer,
+        },
+      },
+    });
+
+    const body = await uploadResponse.json();
+    documentId = body.data.id;
+    
+    cleanupTestFile(testFilePath);
+  });
+
+  test('[P0] should return document status and processing metadata - AC1, AC4', async ({ request }) => {
+    // Given: Existing document ID
+    // When: GET document status
+    const response = await request.get(
+      `${API_URL}/api/knowledge-base/${documentId}/status`,
+      {
+      }
+    );
+
+    // Then: Response should be 200 OK
+    expect(response.status()).toBe(200);
+
+    // And: Response should contain status and metadata
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(body.data).toHaveProperty('status');
+    expect(['pending', 'processing', 'ready', 'error']).toContain(body.data.status);
+
+    // And: If processing complete, should have chunk count
+    if (body.data.status === 'ready') {
+      expect(body.data).toHaveProperty('chunkCount');
+      expect(body.data.chunkCount).toBeGreaterThan(0);
+    }
+
+    // And: If error, should have error message
+    if (body.data.status === 'error') {
+      expect(body.data).toHaveProperty('errorMessage');
+      expect(body.data.errorMessage).toBeTruthy();
+    }
+  });
+
+  test('[P0] should enforce multi-tenant isolation - Security', async ({ request }) => {
+    // Given: Document belonging to another merchant (simulated)
+    const otherMerchantDocId = 99999; // Non-existent or other merchant's doc
+
+    // When: Attempt to access other merchant's document
+    const response = await request.get(
+      `${API_URL}/api/knowledge-base/${otherMerchantDocId}/status`,
+      {
+      }
+    );
+
+    // Then: Response should be 404 Not Found (not 403 - prevents enumeration)
+    expect(response.status()).toBe(404);
+  });
+
+  test('[P1] should return 404 for non-existent document', async ({ request }) => {
+    // Given: Non-existent document ID
+    const nonExistentId = 999999;
+
+    // When: GET status for non-existent document
+    const response = await request.get(
+      `${API_URL}/api/knowledge-base/${nonExistentId}/status`,
+      {
+      }
+    );
+
+    // Then: Response should be 404 Not Found
+    expect(response.status()).toBe(404);
+  });
+});
+
+test.describe('Story 8.4: Knowledge Base API - Document Reprocess [P1]', () => {
+  let authToken: string;
+  let documentId: number;
+
+  test.beforeAll(async ({ request }) => {
+    await createTestMerchant();
+    authToken = await getAuthToken(request);
+  });
+
+  test('[P1] should trigger document reprocessing - AC1', async ({ request }) => {
+    // Given: Existing document (upload first)
+    const testFilePath = createSampleDocument();
+    const fileBuffer = fs.readFileSync(testFilePath);
+
+    const uploadResponse = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      multipart: {
+        file: {
+          name: 'reprocess-test.txt',
+          mimeType: 'text/plain',
+          buffer: fileBuffer,
+        },
+      },
+    });
+
+    const uploadBody = await uploadResponse.json();
+    documentId = uploadBody.data.id;
+    cleanupTestFile(testFilePath);
+
+    // When: Trigger reprocessing
+    const response = await request.post(
+      `${API_URL}/api/knowledge-base/${documentId}/reprocess`,
+      {
+      }
+    );
+
+    // Then: Response should be 200 OK
+    expect(response.status()).toBe(200);
+
+    // And: Response should confirm reprocessing started
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(body.data).toHaveProperty('status');
+    expect(['pending', 'processing']).toContain(body.data.status);
+  });
+
+  test('[P1] should reject reprocess for other merchant document - Security', async ({ request }) => {
+    // Given: Document belonging to another merchant
+    const otherMerchantDocId = 99999;
+
+    // When: Attempt to reprocess other merchant's document
+    const response = await request.post(
+      `${API_URL}/api/knowledge-base/${otherMerchantDocId}/reprocess`,
+      {
+      }
+    );
+
+    // Then: Response should be 404 Not Found
+    expect(response.status()).toBe(404);
+  });
+});
+
+test.describe('Story 8.4: Knowledge Base API - Document List [P2]', () => {
+  let authToken: string;
+
+  test.beforeAll(async ({ request }) => {
+    await createTestMerchant();
+    authToken = await getAuthToken(request);
+  });
+
+  test('[P2] should list all documents for merchant', async ({ request }) => {
+    // When: GET document list
+    const response = await request.get(`${API_URL}/api/knowledge-base/documents`, {
+    });
+
+    // Then: Response should be 200 OK
+    expect(response.status()).toBe(200);
+
+    // And: Response should contain array of documents
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(Array.isArray(body.data)).toBe(true);
+
+    // And: Each document should have required fields
+    if (body.data.length > 0) {
+      const doc = body.data[0];
+      expect(doc).toHaveProperty('id');
+      expect(doc).toHaveProperty('filename');
+      expect(doc).toHaveProperty('status');
+      expect(doc).toHaveProperty('createdAt');
+    }
+  });
+
+  test('[P2] should filter documents by status', async ({ request }) => {
+    // When: GET documents with status filter
+    const response = await request.get(`${API_URL}/api/knowledge-base/documents?status=ready`, {
+    });
+
+    // Then: Response should be 200 OK
+    expect(response.status()).toBe(200);
+
+    // And: All returned documents should have 'ready' status
+    const body = await response.json();
+    expect(Array.isArray(body.data)).toBe(true);
+
+    body.data.forEach((doc: any) => {
+      expect(doc.status).toBe('ready');
+    });
+  });
+
+  test('[P2] should paginate document list', async ({ request }) => {
+    // When: GET documents with pagination
+    const response = await request.get(
+      `${API_URL}/api/knowledge-base/documents?page=1&limit=10`,
+      {
+      }
+    );
+
+    // Then: Response should be 200 OK
+    expect(response.status()).toBe(200);
+
+    // And: Response should contain pagination metadata
+    const body = await response.json();
+    expect(body).toHaveProperty('meta');
+    expect(body.meta).toHaveProperty('page');
+    expect(body.meta).toHaveProperty('limit');
+    expect(body.meta).toHaveProperty('total');
+    expect(body.data.length).toBeLessThanOrEqual(10);
+  });
+});
+
+test.describe('Story 8.4: Knowledge Base API - Error Handling [P1]', () => {
+  let authToken: string;
+
+  test.beforeAll(async ({ request }) => {
+    await createTestMerchant();
+    authToken = await getAuthToken(request);
+  });
+
+  test('[P1] should handle malformed multipart upload gracefully - AC4', async ({ request }) => {
+    // Given: Malformed multipart request (missing file field)
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      data: 'malformed data',
+    });
+
+    // Then: Response should be 400 Bad Request
+    expect(response.status()).toBe(400);
+
+    // And: Error message should be user-friendly
+    const body = await response.json();
+    expect(body).toHaveProperty('detail');
+  });
+
+  test('[P1] should handle concurrent uploads gracefully - Performance', async ({ request }) => {
+    // Given: Multiple concurrent upload requests
+    const testFilePath = createSampleDocument();
+    const fileBuffer = fs.readFileSync(testFilePath);
+
+    // When: Upload 3 documents concurrently
+    const uploadPromises = Array(3)
+      .fill(null)
+      .map((_, i) =>
+        request.post(`${API_URL}/api/knowledge-base/upload`, {
+          multipart: {
+            file: {
+              name: `concurrent-test-${i}.txt`,
+              mimeType: 'text/plain',
+              buffer: fileBuffer,
+            },
+          },
+        })
+      );
+
+    const responses = await Promise.all(uploadPromises);
+
+    // Then: All uploads should succeed
+    responses.forEach((response) => {
+      expect(response.status()).toBe(200);
+    });
+
+    cleanupTestFile(testFilePath);
+  });
+
+  test('[P1] should handle rate limiting gracefully - Performance', async ({ request }) => {
+    // Given: Rate limit threshold (assume 10 requests/minute)
+    const testFilePath = createSampleDocument();
+    const fileBuffer = fs.readFileSync(testFilePath);
+
+    // When: Exceed rate limit
+    const uploadPromises = Array(15)
+      .fill(null)
+      .map(() =>
+        request.post(`${API_URL}/api/knowledge-base/upload`, {
+          multipart: {
+            file: {
+              name: 'rate-limit-test.txt',
+              mimeType: 'text/plain',
+              buffer: fileBuffer,
+            },
+          },
+        })
+      );
+
+    const responses = await Promise.all(uploadPromises);
+
+    // Then: At least one request should be rate limited (429)
+    const rateLimitedResponses = responses.filter((r) => r.status() === 429);
+    expect(rateLimitedResponses.length).toBeGreaterThan(0);
+
+    cleanupTestFile(testFilePath);
+  });
+});
+
+test.describe('Story 8.4: Knowledge Base API - Contract Validation [P2]', () => {
+  let authToken: string;
+
+  test.beforeAll(async ({ request }) => {
+    await createTestMerchant();
+    authToken = await getAuthToken(request);
+  });
+
+  test('[P2] should validate response envelope structure', async ({ request }) => {
+    // When: GET document list
+    const response = await request.get(`${API_URL}/api/knowledge-base/documents`, {
+    });
+
+    // Then: Response should follow MinimalEnvelope structure
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(body).toHaveProperty('meta');
+    expect(body.meta).toHaveProperty('requestId');
+    expect(body.meta).toHaveProperty('timestamp');
+  });
+
+  test('[P2] should validate error response structure', async ({ request }) => {
+    // Given: Invalid request (missing file)
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+    });
+
+    // Then: Error should follow APIError structure
+    const body = await response.json();
+    expect(body).toHaveProperty('detail');
+    expect(body.detail).toHaveProperty('message');
+    expect(body.detail).toHaveProperty('code');
+    expect(body.detail).toHaveProperty('requestId');
+  });
+
+  test('[P2] should validate camelCase field naming in API responses', async ({ request }) => {
+    // When: Upload document
+    const testFilePath = createSampleDocument();
+    const fileBuffer = fs.readFileSync(testFilePath);
+
+    const response = await request.post(`${API_URL}/api/knowledge-base/upload`, {
+      multipart: {
+        file: {
+          name: 'naming-test.txt',
+          mimeType: 'text/plain',
+          buffer: fileBuffer,
+        },
+      },
+    });
+
+    // Then: Response fields should use camelCase (not snake_case)
+    const body = await response.json();
+    const data = body.data;
+
+    // Check for camelCase fields (not snake_case)
+    expect(data).toHaveProperty('createdAt'); // NOT created_at
+    expect(data).toHaveProperty('fileSize'); // NOT file_size
+    expect(data).toHaveProperty('fileType'); // NOT file_type
+
+    // Ensure no snake_case fields present
+    expect(data).not.toHaveProperty('created_at');
+    expect(data).not.toHaveProperty('file_size');
+    expect(data).not.toHaveProperty('file_type');
+
+    cleanupTestFile(testFilePath);
+  });
+});

@@ -27,7 +27,7 @@ import logging
 import json
 
 revision = "030_fix_business_hours_keys"
-down_revision = "029_resolution_fields"
+down_revision = "029a_add_business_hours_config"
 branch_labels = None
 depends_on = None
 

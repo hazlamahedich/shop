@@ -28,6 +28,9 @@ export interface HandoffAlert {
   isOffline: boolean;
   createdAt: string;
   handoffReason: 'keyword' | 'low_confidence' | 'clarification_loop' | null;
+  customerLtv: number | null;
+  orderCount: number | null;
+  isVip: boolean | null;
 }
 
 export interface HandoffAlertListMeta {
@@ -141,7 +144,8 @@ export const handoffAlertsService = {
    */
   async markAsRead(alertId: number): Promise<MarkReadResponse> {
     const response = await apiClient.post<MarkReadResponse>(
-      `/api/handoff-alerts/${alertId}/read`
+      `/api/handoff-alerts/${alertId}/read`,
+      {}
     );
     return response as unknown as MarkReadResponse;
   },
@@ -153,7 +157,8 @@ export const handoffAlertsService = {
    */
   async markAllAsRead(): Promise<MarkAllReadResponse> {
     const response = await apiClient.post<MarkAllReadResponse>(
-      '/api/handoff-alerts/mark-all-read'
+      '/api/handoff-alerts/mark-all-read',
+      {}
     );
     return response as unknown as MarkAllReadResponse;
   },

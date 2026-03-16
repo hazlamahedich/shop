@@ -49,6 +49,7 @@ export interface WidgetConfig {
   allowedDomains: string[];
   shopDomain?: string;
   personality?: PersonalityType;
+  proactiveEngagementConfig?: ProactiveEngagementConfig;
 }
 
 export interface WidgetSession {
@@ -80,7 +81,7 @@ export const DEFAULT_QUICK_REPLIES: QuickReply[] = [
 export interface WidgetMessage {
   messageId: string;
   content: string;
-  sender: 'user' | 'bot' | 'merchant';
+  sender: 'user' | 'bot' | 'merchant' | 'system';
   createdAt: string;
   products?: WidgetProduct[];
   cart?: WidgetCart;
@@ -254,3 +255,86 @@ export const SUPPORTED_VOICE_LANGUAGES = [
   { code: 'zh-CN', name: 'Chinese (Simplified)' },
   { code: 'ja-JP', name: 'Japanese' },
 ] as const;
+
+export type TriggerType =
+  | 'exit_intent'
+  | 'time_on_page'
+  | 'scroll_depth'
+  | 'cart_abandonment'
+  | 'product_view';
+
+export interface ProactiveTriggerAction {
+  text: string;
+  prePopulatedMessage?: string;
+}
+
+export interface ProactiveTrigger {
+  type: TriggerType;
+  enabled: boolean;
+  threshold?: number;
+  message: string;
+  actions: ProactiveTriggerAction[];
+  cooldown: number;
+}
+
+export interface ProactiveEngagementConfig {
+  enabled: boolean;
+  triggers: ProactiveTrigger[];
+}
+
+export const DEFAULT_PROACTIVE_THRESHOLDS: Record<TriggerType, number | undefined> = {
+  exit_intent: undefined,
+  time_on_page: 30,
+  scroll_depth: 50,
+  cart_abandonment: undefined,
+  product_view: 3,
+};
+
+export const DEFAULT_PROACTIVE_CONFIG: ProactiveEngagementConfig = {
+  enabled: true,
+  triggers: [
+    {
+      type: 'exit_intent',
+      enabled: true,
+      message: 'Wait! Before you go, can we help you find something?',
+      actions: [
+        { text: 'Get Help', prePopulatedMessage: 'I need help finding a product.' },
+        { text: 'No thanks' },
+      ],
+      cooldown: 30,
+    },
+    {
+      type: 'time_on_page',
+      enabled: true,
+      threshold: 30,
+      message: 'Finding what you need? Our assistant can help!',
+      actions: [
+        { text: 'Chat Now', prePopulatedMessage: 'Hi! Can you help me?' },
+        { text: 'Not now' },
+      ],
+      cooldown: 60,
+    },
+    {
+      type: 'scroll_depth',
+      enabled: true,
+      threshold: 50,
+      message: 'Looks like you\'re browsing! Need any recommendations?',
+      actions: [
+        { text: 'Yes, please!', prePopulatedMessage: 'Can you recommend some products?' },
+        { text: 'No thanks' },
+      ],
+      cooldown: 30,
+    },
+    {
+      type: 'product_view',
+      enabled: true,
+      threshold: 3,
+      message: 'I noticed you\'ve viewed several products. Can I help you decide?',
+      actions: [
+        { text: 'Compare Products', prePopulatedMessage: 'Can you help me compare products?' },
+        { text: 'Not now' },
+      ],
+      cooldown: 60,
+    },
+  ],
+};

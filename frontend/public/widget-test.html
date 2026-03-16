@@ -82,10 +82,20 @@
         return params.get('merchantId') || '4';
       }
 
+      function getSessionId() {
+        const params = new URLSearchParams(window.location.search);
+        const sid = params.get('sessionId');
+        console.log('PARENT getSessionId:', sid);
+        return sid;
+      } 
+
       // Initialize widget when DOM is ready
       document.addEventListener('DOMContentLoaded', () => {
+        console.log('PARENT DOMContentLoaded fired');
         const theme = parseThemeFromUrl();
         const merchantId = getMerchantId();
+        const sessionId = getSessionId();
+        console.log('PARENT creating widget with sessionId:', sessionId);
 
         // For development, we'll create a mock widget that simulates the real behavior
         // In production, this would load the actual widget bundle
@@ -95,7 +105,10 @@
         const iframe = document.createElement('iframe');
         iframe.style.cssText =
           'position:fixed;bottom:0;right:0;width:100%;height:100%;border:none;pointer-events:none;';
-        iframe.srcdoc = createWidgetHtml(theme, merchantId);
+        
+        const html = createWidgetHtml(theme, merchantId, sessionId);
+        console.log('PARENT iframe HTML length:', html.length, 'includes sessionId:', html.includes('sessionId'));
+        iframe.srcdoc = html;
         container.appendChild(iframe);
 
         // Make iframe interactive
@@ -104,7 +117,7 @@
         }, 100);
       });
 
-      function createWidgetHtml(theme, merchantId) {
+      function createWidgetHtml(theme, merchantId, sessionId) {
         const mergedTheme = {
           primaryColor: '#6366f1',
           backgroundColor: '#ffffff',
@@ -137,8 +150,10 @@
     window.ShopBotConfig = {
       merchantId: '${merchantId}',
       container: '#chat-widget',
-      theme: ${JSON.stringify(mergedTheme)}
+      theme: ${JSON.stringify(mergedTheme)}${sessionId ? `,
+      sessionId: '${sessionId}'` : ''}
     };
+    console.log('ShopBotConfig set:', JSON.stringify(window.ShopBotConfig));
   <\/script>
   <script src="http://localhost:5173/dist/widget/widget.umd.js"><\/script>
 </body>

@@ -1,14 +1,17 @@
 """Knowledge Base ORM models for RAG document storage.
 
 Implements document storage and chunking for the knowledge base feature (Epic 8).
+
+Story 8-11: Changed embedding column from Vector(1536) to JSONB for flexible
+dimension support (768 for Gemini/Ollama, 1536 for OpenAI).
 """
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -68,6 +71,23 @@ class KnowledgeDocument(Base):
         Text,
         nullable=True,
     )
+    # Re-embedding status fields (Story 8-11)
+    re_embedding_status: Mapped[str | None] = mapped_column(
+        String(20),
+        default="none",
+        nullable=True,
+        server_default="none",
+    )
+    re_embedding_progress: Mapped[int | None] = mapped_column(
+        Integer,
+        default=0,
+        nullable=True,
+        server_default="0",
+    )
+    embedding_version: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=_utcnow_naive,
@@ -100,6 +120,12 @@ class DocumentChunk(Base):
     """Document chunk model for RAG retrieval.
 
     Stores text chunks extracted from documents with optional embeddings.
+
+    Story 8-11: Changed embedding from Vector(1536) to JSONB for flexible
+    dimension support. Different providers have different dimensions:
+    - OpenAI text-embedding-3-small: 1536
+    - Gemini text-embedding-004: 768
+    - Ollama nomic-embed-text: 768
     """
 
     __tablename__ = "document_chunks"
@@ -119,10 +145,14 @@ class DocumentChunk(Base):
         Text,
         nullable=False,
     )
-    # Vector(1536) for OpenAI text-embedding-3-small dimension
-    # Uses pgvector.sqlalchemy.Vector for proper type handling
-    embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536),
+    # Story 8-11: JSONB for flexible embedding dimensions (768 or 1536)
+    # Cast to vector at query time: embedding::jsonb::float[]::vector(N)
+    embedding: Mapped[Optional[list[float]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    embedding_dimension: Mapped[Optional[int]] = mapped_column(
+        Integer,
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -140,5 +170,5 @@ class DocumentChunk(Base):
     def __repr__(self) -> str:
         return (
             f"<DocumentChunk(id={self.id}, doc_id={self.document_id}, "
-            f"chunk_idx={self.chunk_index})>"
+            f"chunk_idx={self.chunk_index}, dim={self.embedding_dimension})>"
         )

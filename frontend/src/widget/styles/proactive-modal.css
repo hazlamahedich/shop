@@ -1,0 +1,211 @@
+/* Proactive Modal Styles */
+/* Story 9-6: Proactive Engagement Triggers */
+/* CRITICAL: NO transform on modal container - breaks overlay positioning */
+
+.proactive-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483646;
+  animation: proactive-fade-in 0.2s ease-out;
+}
+
+.proactive-modal-container {
+  background-color: var(--widget-bg, #ffffff);
+  border-radius: var(--widget-radius, 16px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  width: 90%;
+  padding: 24px;
+  position: relative;
+  color: var(--widget-text, #1f2937);
+  animation: proactive-scale-in 0.2s ease-out;
+}
+
+.proactive-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background-color: var(--widget-primary, #6366f1);
+  color: white;
+}
+
+/* Glassmorphism support for dark/light modes */
+.glassmorphism-wrapper.dark-mode .proactive-modal-container {
+  background: rgba(15, 23, 42, 0.9);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+.glassmorphism-wrapper.light-mode .proactive-modal-container {
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: #1e293b;
+}
+
+/* Fade animation - opacity only, no transform on container */
+@keyframes proactive-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes proactive-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.proactive-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--widget-text, #6b7280);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 150ms ease;
+}
+
+.proactive-modal-close:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.proactive-modal-close:focus-visible {
+  outline: 2px solid var(--widget-primary, #6366f1);
+  outline-offset: 2px;
+}
+
+.proactive-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  padding-right: 32px;
+  color: inherit;
+}
+
+.proactive-modal-message {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+  color: inherit;
+}
+
+.proactive-modal-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.proactive-action-button {
+  flex: 1;
+  min-width: 100px;
+  min-height: 44px;
+  padding: 12px 16px;
+  border: 1px solid var(--widget-primary, #6366f1);
+  border-radius: 8px;
+  background-color: var(--widget-primary, #6366f1);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+
+.proactive-action-button:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+}
+
+/* Transform OK on button itself (not container) */
+.proactive-action-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.proactive-action-button:focus-visible {
+  outline: 2px solid var(--widget-primary, #6366f1);
+  outline-offset: 2px;
+}
+
+.proactive-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.proactive-action-button.proactive-action-secondary {
+  background-color: transparent;
+  color: var(--widget-primary, #6366f1);
+}
+
+.proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 479px) {
+  .proactive-modal-container {
+    max-width: 90%;
+    padding: 20px;
+    margin: 16px;
+  }
+
+  .proactive-modal-actions {
+    flex-direction: column;
+  }
+
+  .proactive-action-button {
+    width: 100%;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .proactive-modal-overlay {
+    animation: none;
+  }
+
+  .proactive-modal-container {
+    animation: none;
+  }
+
+  .proactive-modal-close,
+  .proactive-action-button {
+    transition: none;
+  }
+
+  .proactive-action-button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Dark mode text adjustments */
+.glassmorphism-wrapper.dark-mode .proactive-modal-close {
+  color: #94a3b8;
+}
+
+.glassmorphism-wrapper.dark-mode .proactive-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.glassmorphism-wrapper.dark-mode .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+}

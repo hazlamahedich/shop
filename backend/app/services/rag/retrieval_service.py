@@ -77,6 +77,7 @@ class RetrievalService:
         query: str,
         top_k: Optional[int] = None,
         threshold: Optional[float] = None,
+        embedding_version: Optional[str] = None,
     ) -> List[RetrievedChunk]:
         """Retrieve most relevant chunks for a query.
 
@@ -85,6 +86,8 @@ class RetrievalService:
             query: User's question or search query
             top_k: Override default number of chunks to retrieve
             threshold: Override default similarity threshold
+            embedding_version: Filter by embedding version (e.g., "openai-text-embedding-3-small")
+                              Prevents mixing embeddings from different dimensions (AC6)
 
         Returns:
             List of RetrievedChunk sorted by similarity (descending)
@@ -93,6 +96,8 @@ class RetrievalService:
         Performance:
             - Target: <500ms end-to-end
             - Uses asyncio.wait_for() for timeout handling
+
+        Story 8-11 AC6: Vector Consistency - only search embeddings from active model
         """
         top_k = top_k or self.top_k
         threshold = threshold or self.similarity_threshold
@@ -123,6 +128,7 @@ class RetrievalService:
                         embedding_str=embedding_str,
                         threshold=threshold,
                         top_k=top_k,
+                        embedding_version=embedding_version,
                     ),
                     timeout=0.2,  # 200ms for search
                 )
@@ -164,6 +170,7 @@ class RetrievalService:
         embedding_str: str,
         threshold: float,
         top_k: int,
+        embedding_version: Optional[str] = None,
     ) -> List[RetrievedChunk]:
         """Execute pgvector similarity search query.
 
@@ -171,36 +178,45 @@ class RetrievalService:
         Filters by:
         - merchant_id (multi-tenant isolation)
         - document status = 'ready' (only processed documents)
+        - embedding_version (prevents dimension mixing - Story 8-11 AC6)
         - similarity >= threshold
         """
-        query = text(
-            """
+        base_query = """
             SELECT
                 dc.id AS chunk_id,
                 dc.content,
                 dc.chunk_index,
                 kd.filename AS document_name,
                 kd.id AS document_id,
-                1 - (dc.embedding <=> :embedding::vector) AS similarity
+                1 - (dc.embedding::jsonb::float[]::vector(dc.embedding_dimension) <=> :embedding::vector) AS similarity
             FROM document_chunks dc
             JOIN knowledge_documents kd ON dc.document_id = kd.id
             WHERE kd.merchant_id = :merchant_id
               AND kd.status = 'ready'
-              AND 1 - (dc.embedding <=> :embedding::vector) >= :threshold
-            ORDER BY dc.embedding <=> :embedding::vector
-            LIMIT :top_k
-            """
-        )
+              AND dc.embedding IS NOT NULL
+              AND dc.embedding_dimension IS NOT NULL
+        """
 
-        result = await self.db.execute(
-            query,
-            {
-                "embedding": embedding_str,
-                "merchant_id": merchant_id,
-                "threshold": threshold,
-                "top_k": top_k,
-            },
-        )
+        params = {
+            "embedding": embedding_str,
+            "merchant_id": merchant_id,
+            "threshold": threshold,
+            "top_k": top_k,
+        }
+
+        if embedding_version:
+            base_query += "\n              AND kd.embedding_version = :embedding_version"
+            params["embedding_version"] = embedding_version
+
+        base_query += """
+              AND 1 - (dc.embedding::jsonb::float[]::vector(dc.embedding_dimension) <=> :embedding::vector) >= :threshold
+            ORDER BY dc.embedding::jsonb::float[]::vector(dc.embedding_dimension) <=> :embedding::vector
+            LIMIT :top_k
+        """
+
+        query = text(base_query)
+
+        result = await self.db.execute(query, params)
 
         rows = result.fetchall()
 

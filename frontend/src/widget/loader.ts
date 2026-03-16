@@ -9,6 +9,8 @@ interface ShopBotConfig {
   merchantId: string;
   theme?: Partial<WidgetTheme>;
   apiBaseUrl?: string;
+  /** Optional session ID for testing purposes - allows pre-seeding session state */
+  sessionId?: string;
 }
 
 declare global {

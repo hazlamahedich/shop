@@ -5,13 +5,14 @@ messaging, and configuration endpoints.
 
 Story 5.1: Backend Widget API
 Story 5.5: Theme Customization System
+Story 9-6: Proactive Engagement Triggers
 """
 
 from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional, Any, Literal
+from typing import Optional, Any, Literal, List
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -55,6 +56,73 @@ class VoiceInputConfig(BaseSchema):
     language: str = Field(default="en-US", max_length=10, description="BCP 47 language tag")
     continuous: bool = Field(default=False, description="Continuous listening mode")
     interim_results: bool = Field(default=True, description="Show interim results")
+
+
+TriggerType = Literal[
+    'exit_intent',
+    'time_on_page',
+    'scroll_depth',
+    'cart_abandonment',
+    'product_view'
+]
+
+
+class ProactiveTriggerActionSchema(BaseSchema):
+    """Action button for proactive engagement modal.
+
+    Story 9-6: Proactive Engagement Triggers
+
+    Attributes:
+        text: Button display text
+        pre_populated_message: Optional message to pre-fill in chat input
+    """
+
+    text: str = Field(min_length=1, max_length=100, description="Button display text")
+    pre_populated_message: Optional[str] = Field(
+        default=None, max_length=500, description="Message to pre-fill in chat input"
+    )
+
+
+class ProactiveTriggerSchema(BaseSchema):
+    """Configuration for a single proactive trigger.
+
+    Story 9-6: Proactive Engagement Triggers
+
+    Attributes:
+        type: Trigger type (exit_intent, time_on_page, scroll_depth, cart_abandonment, product_view)
+        enabled: Whether this trigger is enabled
+        threshold: Threshold value (varies by type: seconds for time_on_page, percent for scroll_depth, count for product_view)
+        message: Message to display when trigger fires
+        actions: Action buttons to show in the modal
+        cooldown: Cooldown period in minutes (1-1440)
+    """
+
+    type: TriggerType = Field(description="Trigger type")
+    enabled: bool = Field(default=True, description="Whether this trigger is enabled")
+    threshold: Optional[int] = Field(
+        default=None, ge=1, le=100, description="Threshold value (varies by type)"
+    )
+    message: str = Field(min_length=1, max_length=500, description="Message to display")
+    actions: List[ProactiveTriggerActionSchema] = Field(
+        default_factory=list, description="Action buttons"
+    )
+    cooldown: int = Field(ge=1, le=1440, default=30, description="Cooldown in minutes (1 min - 24 hours)"
+
+
+class ProactiveEngagementConfigSchema(BaseSchema):
+    """Configuration for proactive engagement feature.
+
+    Story 9-6: Proactive Engagement Triggers
+
+    Attributes:
+        enabled: Whether proactive engagement is enabled
+        triggers: List of trigger configurations
+    """
+
+    enabled: bool = Field(default=True, description="Whether proactive engagement is enabled")
+    triggers: List[ProactiveTriggerSchema] = Field(
+        default_factory=list, description="List of trigger configurations"
+    )
 
 
 class WidgetTheme(BaseSchema):
@@ -257,6 +325,9 @@ class WidgetConfigResponse(BaseSchema):
 
     Story 5-10 Enhancement: Added personality and business_hours for frontend context.
     Story 9-5: Added voice_input_config for voice input interface.
+    Story 9-6: Added proactive_engagement_config for proactive engagement triggers.
+
+    Story 9-6: Added proactive_engagement_config for proactive engagement triggers.
 
     Attributes:
         bot_name: Display name for the bot
@@ -267,6 +338,7 @@ class WidgetConfigResponse(BaseSchema):
         business_hours: Business hours string for display (e.g., "Mon-Fri 9am-5pm")
         shop_domain: Shopify shop domain for checkout URL construction
         voice_input_config: Voice input configuration (Story 9-5)
+        proactive_engagement_config: Proactive engagement configuration (Story 9-6)
     """
 
     bot_name: str
@@ -278,6 +350,9 @@ class WidgetConfigResponse(BaseSchema):
     shop_domain: Optional[str] = Field(default=None, description="Shopify shop domain for checkout")
     voice_input_config: Optional[VoiceInputConfig] = Field(
         default=None, description="Voice input configuration (Story 9-5)"
+    )
+    proactive_engagement_config: Optional[ProactiveEngagementConfigSchema] = Field(
+        default=None, description="Proactive engagement configuration (Story 9-6)"
     )
 
 

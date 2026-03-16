@@ -139,8 +139,17 @@ class PollingScheduler:
 
         if database_url:
             try:
-                jobstores = {"default": SQLAlchemyJobStore(url=database_url)}
-                job_store_type = "sqlalchemy"
+                # SQLAlchemyJobStore requires a synchronous driver. 
+                # If we have an async driver (like +asyncpg), we must fallback to memory.
+                if "+asyncpg" in database_url or "+aiopg" in database_url:
+                    logger.warning(
+                        "polling_scheduler_sync_driver_required",
+                        url=database_url,
+                        fallback="memory",
+                    )
+                else:
+                    jobstores = {"default": SQLAlchemyJobStore(url=database_url)}
+                    job_store_type = "sqlalchemy"
             except Exception as e:
                 logger.warning(
                     "polling_scheduler_jobstore_fallback",

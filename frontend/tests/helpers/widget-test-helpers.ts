@@ -82,6 +82,13 @@ export async function mockWidgetSession(page: Page, sessionId?: string) {
     }
   });
 
+  await page.route('**/api/v1/health*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      body: JSON.stringify({ status: 'ok' }),
+    });
+  });
+
   return id;
 }
 
@@ -177,7 +184,9 @@ export async function openWidgetChat(page: Page) {
 export async function sendMessage(page: Page, message: string) {
   const input = page.getByPlaceholder('Type a message...');
   await input.fill(message);
-  await input.press('Enter');
+  const sendButton = page.getByRole('button', { name: 'Send message' });
+  await sendButton.scrollIntoViewIfNeeded();
+  await sendButton.click({ force: true });
 }
 
 export async function createApiSession(request: APIRequestContext, merchantId = 1): Promise<string | null> {

@@ -64,3 +64,16 @@ class DocumentDeleteResponse(BaseModel):
 
     deleted: bool
     message: str = "Document deleted successfully"
+
+
+class KnowledgeBaseStatsResponse(BaseModel):
+    """Response schema for knowledge base statistics."""
+
+    total_docs: int = Field(..., alias="totalDocs")
+    processing_count: int = Field(..., alias="processingCount")
+    ready_count: int = Field(..., alias="readyCount")
+    error_count: int = Field(..., alias="errorCount")
+    last_upload_date: datetime | None = Field(None, alias="lastUploadDate")
+
+    class Config:
+        populate_by_name = True

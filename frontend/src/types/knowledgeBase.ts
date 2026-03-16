@@ -38,3 +38,11 @@ export interface DocumentStatusResponse {
   chunkCount: number;
   errorMessage?: string;
 }
+
+export interface KnowledgeBaseStats {
+  totalDocs: number;
+  processingCount: number;
+  readyCount: number;
+  errorCount: number;
+  lastUploadDate: string | null;
+}

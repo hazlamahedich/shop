@@ -1,0 +1,1126 @@
+/**
+ * API Tests: Story 8-11 - LLM Embedding Provider Integration & Re-embedding
+ *
+ * Coverage:
+ * - POST /api/settings/embedding-provider (update provider settings)
+ * - GET /api/settings/embedding-provider (get provider settings)
+ * - POST /api/knowledge-base/re-embed (manual re-embedding trigger)
+ * - GET /api/knowledge-base/re-embed/status (re-embedding progress)
+ * - Provider switching workflow (OpenAI → Gemini → Ollama)
+ * - Error handling (invalid API key, rate limits, dimension mismatch)
+ *
+ * @tags api integration story-8-11 embedding-provider re-embedding
+ */
+
+import { test, expect, APIRequestContext } from '@playwright/test';
+import { faker } from '@faker-js/faker';
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
+type EmbeddingProvider = 'openai' | 'gemini' | 'ollama';
+
+interface EmbeddingProviderSettings {
+  provider: EmbeddingProvider;
+  model: string;
+}
+
+interface EmbeddingProviderSettingsData {
+  provider: string;
+  model: string;
+  dimension: number;
+  re_embedding_required: boolean;
+  document_count: number;
+}
+
+interface EmbeddingProviderSettingsResponse {
+  data: EmbeddingProviderSettingsData;
+  meta: {
+    request_id: string;
+    timestamp: string;
+  };
+}
+
+interface ReembeddingStatusData {
+  status_counts: {
+    none: number;
+    queued: number;
+    in_progress: number;
+    completed: number;
+    failed: number;
+  };
+  total_documents: number;
+  completed_documents: number;
+  progress_percent: number;
+}
+
+interface ReembeddingStatusResponse {
+  data: ReembeddingStatusData;
+  meta: {
+    request_id: string;
+    timestamp: string;
+  };
+}
+
+interface ReembedTriggerResponse {
+  data: {
+    message: string;
+    documentCount: number;
+  };
+  meta: {
+    requestId: string;
+    timestamp: string;
+  };
+}
+
+// ============================================================================
+// TEST CONFIGURATION
+// ============================================================================
+
+const API_URL = process.env.API_URL || 'http://localhost:8000';
+const AUTH_TOKEN = process.env.TEST_AUTH_TOKEN || 'test-token';
+
+const EMBEDDING_PROVIDERS = {
+  OPENAI: 'openai',
+  GEMINI: 'gemini',
+  OLLAMA: 'ollama',
+} as const;
+
+const EMBEDDING_DIMENSIONS: Record<string, number> = {
+  openai: 1536,
+  gemini: 768,
+  ollama: 768,
+};
+
+const EMBEDDING_MODELS: Record<string, string> = {
+  openai: 'text-embedding-3-small',
+  gemini: 'text-embedding-004',
+  ollama: 'nomic-embed-text',
+};
+
+// ============================================================================
+// DATA FACTORIES
+// ============================================================================
+
+/**
+ * Factory: Create embedding provider settings
+ */
+function createEmbeddingProviderSettings(
+  overrides: Partial<EmbeddingProviderSettings> = {}
+): EmbeddingProviderSettings {
+  const providers: EmbeddingProvider[] = ['openai', 'gemini', 'ollama'];
+  const defaultProvider = faker.helpers.arrayElement(providers);
+
+  return {
+    provider: defaultProvider,
+    model: EMBEDDING_MODELS[defaultProvider],
+    ...overrides,
+  };
+}
+
+/**
+ * Factory: Create OpenAI settings
+ */
+function createOpenAISettings(): EmbeddingProviderSettings {
+  return {
+    provider: 'openai',
+    model: 'text-embedding-3-small',
+  };
+}
+
+/**
+ * Factory: Create Gemini settings
+ */
+function createGeminiSettings(): EmbeddingProviderSettings {
+  return {
+    provider: 'gemini',
+    model: 'text-embedding-004',
+  };
+}
+
+/**
+ * Factory: Create Ollama settings
+ */
+function createOllamaSettings(): EmbeddingProviderSettings {
+  return {
+    provider: 'ollama',
+    model: 'nomic-embed-text',
+  };
+}
+
+/**
+ * Helper: Get authenticated request headers
+ */
+function getAuthHeaders(merchantId: number = 1): Record<string, string> {
+  return {
+    Authorization: `Bearer ${AUTH_TOKEN}`,
+    'Content-Type': 'application/json',
+    'X-Test-Mode': 'true',
+    'X-Merchant-Id': String(merchantId),
+  };
+}
+
+// ============================================================================
+// TEST SUITE: Embedding Provider Settings
+// ============================================================================
+
+test.describe('Story 8-11: Embedding Provider API @api @story-8-11', () => {
+  test.describe.configure({ mode: 'parallel' });
+
+  let authenticatedContext: APIRequestContext;
+
+  test.beforeAll(async ({ playwright }) => {
+    authenticatedContext = await playwright.request.newContext({
+      baseURL: API_URL,
+    });
+  });
+
+  test.afterAll(async () => {
+    await authenticatedContext?.dispose();
+  });
+
+  // ==========================================================================
+  // GET /api/settings/embedding-provider
+  // ==========================================================================
+
+  test.describe('GET /api/settings/embedding-provider', () => {
+    /**
+     * [P0][SMOKE] Get embedding provider settings - authentication required
+     * Given an unauthenticated request
+     * When GET /api/settings/embedding-provider is called
+     * Then the endpoint should return 401 or 403
+     */
+    test('[8.11-API-001][P0] @smoke should require authentication', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider');
+
+      expect([401, 403, 422, 500]).toContain(response.status());
+
+      if (response.status() === 401) {
+        const body = await response.json();
+        expect(body).toHaveProperty('detail');
+      }
+    });
+
+    /**
+     * [P0][SMOKE] Get embedding provider settings - success
+     * Given an authenticated merchant
+     * When GET /api/settings/embedding-provider is called
+     * Then the endpoint should return 200 with provider settings
+     */
+    test('[8.11-API-002][P0] @smoke should return provider settings', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data).toHaveProperty('provider');
+      expect(body.data).toHaveProperty('model');
+      expect(body.data).toHaveProperty('dimension');
+      expect(body.data).toHaveProperty('re_embedding_required');
+      expect(body.data).toHaveProperty('document_count');
+      expect(body.meta).toHaveProperty('request_id');
+      expect(body.meta).toHaveProperty('timestamp');
+    });
+
+    /**
+     * [P1] Get embedding provider settings - validates dimension
+     * Given an authenticated merchant
+     * When GET /api/settings/embedding-provider is called
+     * Then the dimension should match the provider
+     */
+    test('[8.11-API-003][P1] should return correct dimension for provider', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+      const provider = body.data.provider.toLowerCase();
+      const expectedDimension = EMBEDDING_DIMENSIONS[provider] || 1536;
+
+      expect(body.data.dimension).toBe(expectedDimension);
+    });
+
+    /**
+     * [P1] Get embedding provider settings - default values
+     * Given a merchant with no custom embedding settings
+     * When GET /api/settings/embedding-provider is called
+     * Then default values should be returned
+     */
+    test('[8.11-API-004][P1] should return default values for new merchant', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(999),
+      });
+
+      if (response.status() === 200) {
+        const body: EmbeddingProviderSettingsResponse = await response.json();
+
+        expect(['openai', 'gemini', 'ollama']).toContain(body.data.provider);
+        expect(body.data.dimension).toBeGreaterThan(0);
+        expect(typeof body.data.re_embedding_required).toBe('boolean');
+        expect(typeof body.data.document_count).toBe('number');
+      }
+    });
+
+    /**
+     * [P1] Get embedding provider settings - response format
+     * Given an authenticated merchant
+     * When GET /api/settings/embedding-provider is called
+     * Then response should have correct envelope structure
+     */
+    test('[8.11-API-005][P1] should return correct envelope structure', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body = await response.json();
+
+      expect(body).toHaveProperty('data');
+      expect(body).toHaveProperty('meta');
+      expect(body.meta.request_id).toBeDefined();
+      expect(body.meta.timestamp).toBeDefined();
+
+      const timestamp = new Date(body.meta.timestamp);
+      expect(!isNaN(timestamp.getTime())).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // PATCH /api/settings/embedding-provider
+  // ==========================================================================
+
+  test.describe('PATCH /api/settings/embedding-provider', () => {
+    /**
+     * [P0][SMOKE] Update embedding provider settings - authentication required
+     * Given an unauthenticated request
+     * When PATCH /api/settings/embedding-provider is called
+     * Then the endpoint should return 401 or 403
+     */
+    test('[8.11-API-006][P0] @smoke should require authentication', async () => {
+      const settings = createOpenAISettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        data: settings,
+      });
+
+      expect([401, 403, 422, 500]).toContain(response.status());
+    });
+
+    /**
+     * [P0][SMOKE] Update embedding provider to OpenAI
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with OpenAI settings
+     * Then the endpoint should return 200 with updated settings
+     */
+    test('[8.11-API-007][P0] @smoke should update to OpenAI provider', async () => {
+      const settings = createOpenAISettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: settings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('openai');
+      expect(body.data.model).toBe('text-embedding-3-small');
+      expect(body.data.dimension).toBe(1536);
+    });
+
+    /**
+     * [P0][SMOKE] Update embedding provider to Gemini
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with Gemini settings
+     * Then the endpoint should return 200 with updated settings
+     */
+    test('[8.11-API-008][P0] @smoke should update to Gemini provider', async () => {
+      const settings = createGeminiSettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: settings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('gemini');
+      expect(body.data.model).toBe('text-embedding-004');
+      expect(body.data.dimension).toBe(768);
+    });
+
+    /**
+     * [P0][SMOKE] Update embedding provider to Ollama
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with Ollama settings
+     * Then the endpoint should return 200 with updated settings
+     */
+    test('[8.11-API-009][P0] @smoke should update to Ollama provider', async () => {
+      const settings = createOllamaSettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: settings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('ollama');
+      expect(body.data.model).toBe('nomic-embed-text');
+      expect(body.data.dimension).toBe(768);
+    });
+
+    /**
+     * [P1] Update embedding provider - validates provider parameter
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with invalid provider
+     * Then the endpoint should return 422 validation error
+     */
+    test('[8.11-API-010][P1] should validate provider parameter', async () => {
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: {
+          provider: 'invalid-provider',
+          model: 'some-model',
+        },
+      });
+
+      expect([400, 422]).toContain(response.status());
+
+      if (response.status() === 422) {
+        const body = await response.json();
+        expect(body.detail).toBeDefined();
+      }
+    });
+
+    /**
+     * [P1] Update embedding provider - accepts custom model
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with custom model
+     * Then the endpoint should accept the custom model parameter
+     */
+    test('[8.11-API-011][P1] should accept custom model parameter', async () => {
+      const settings: EmbeddingProviderSettings = {
+        provider: 'openai',
+        model: 'text-embedding-3-large',
+      };
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: settings,
+      });
+
+      expect([200, 400, 422]).toContain(response.status());
+
+      if (response.status() === 200) {
+        const body: EmbeddingProviderSettingsResponse = await response.json();
+        expect(body.data.model).toBe('text-embedding-3-large');
+      }
+    });
+
+    /**
+     * [P1] Update embedding provider - case insensitive
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with uppercase provider
+     * Then the endpoint should handle case-insensitive provider name
+     */
+    test('[8.11-API-012][P1] should handle case-insensitive provider name', async () => {
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: {
+          provider: 'OPENAI',
+          model: 'text-embedding-3-small',
+        },
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('openai');
+    });
+
+    /**
+     * [P1] Update embedding provider - missing required fields
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called without required fields
+     * Then the endpoint should return 422 validation error
+     */
+    test('[8.11-API-013][P1] should require provider and model fields', async () => {
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: {},
+      });
+
+      expect(response.status()).toBe(422);
+
+      const body = await response.json();
+      expect(body.detail).toBeDefined();
+    });
+  });
+
+  // ==========================================================================
+  // POST /api/knowledge-base/re-embed
+  // ==========================================================================
+
+  test.describe('POST /api/knowledge-base/re-embed', () => {
+    /**
+     * [P0][SMOKE] Trigger re-embedding - authentication required
+     * Given an unauthenticated request
+     * When POST /api/knowledge-base/re-embed is called
+     * Then the endpoint should return 401 or 403
+     */
+    test('[8.11-API-014][P0] @smoke should require authentication', async () => {
+      const response = await authenticatedContext.post('/api/knowledge-base/re-embed');
+
+      expect([401, 403, 422, 500]).toContain(response.status());
+    });
+
+    /**
+     * [P0][SMOKE] Trigger re-embedding - success
+     * Given an authenticated merchant with documents
+     * When POST /api/knowledge-base/re-embed is called
+     * Then the endpoint should return 200 with document count
+     */
+    test('[8.11-API-015][P0] @smoke should trigger re-embedding', async () => {
+      const response = await authenticatedContext.post('/api/knowledge-base/re-embed', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: ReembedTriggerResponse = await response.json();
+
+      expect(body.data).toHaveProperty('message');
+      expect(body.data).toHaveProperty('documentCount');
+      expect(typeof body.data.documentCount).toBe('number');
+      expect(body.data.documentCount).toBeGreaterThanOrEqual(0);
+    });
+
+    /**
+     * [P1] Trigger re-embedding - no documents
+     * Given an authenticated merchant with no documents
+     * When POST /api/knowledge-base/re-embed is called
+     * Then the endpoint should return 200 with documentCount = 0
+     */
+    test('[8.11-API-016][P1] should handle merchant with no documents', async () => {
+      const response = await authenticatedContext.post('/api/knowledge-base/re-embed', {
+        headers: getAuthHeaders(9999),
+      });
+
+      if (response.status() === 200) {
+        const body: ReembedTriggerResponse = await response.json();
+
+        expect(body.data.documentCount).toBeGreaterThanOrEqual(0);
+        expect(body.data.message).toBeDefined();
+      }
+    });
+
+    /**
+     * [P1] Trigger re-embedding - response structure
+     * Given an authenticated merchant
+     * When POST /api/knowledge-base/re-embed is called
+     * Then response should have correct envelope structure
+     */
+    test('[8.11-API-017][P1] should return correct response structure', async () => {
+      const response = await authenticatedContext.post('/api/knowledge-base/re-embed', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body = await response.json();
+
+      expect(body).toHaveProperty('data');
+      expect(body).toHaveProperty('meta');
+      expect(body.meta.requestId).toBeDefined();
+      expect(body.meta.timestamp).toBeDefined();
+    });
+
+    /**
+     * [P1] Trigger re-embedding - idempotent
+     * Given an authenticated merchant
+     * When POST /api/knowledge-base/re-embed is called multiple times
+     * Then each call should succeed without error
+     */
+    test('[8.11-API-018][P1] should be idempotent', async () => {
+      const responses = await Promise.all([
+        authenticatedContext.post('/api/knowledge-base/re-embed', {
+          headers: getAuthHeaders(),
+        }),
+        authenticatedContext.post('/api/knowledge-base/re-embed', {
+          headers: getAuthHeaders(),
+        }),
+      ]);
+
+      for (const response of responses) {
+        expect(response.status()).toBe(200);
+      }
+    });
+  });
+
+  // ==========================================================================
+  // GET /api/knowledge-base/re-embed/status
+  // ==========================================================================
+
+  test.describe('GET /api/knowledge-base/re-embed/status', () => {
+    /**
+     * [P0][SMOKE] Get re-embedding status - authentication required
+     * Given an unauthenticated request
+     * When GET /api/knowledge-base/re-embed/status is called
+     * Then the endpoint should return 401 or 403
+     */
+    test('[8.11-API-019][P0] @smoke should require authentication', async () => {
+      const response = await authenticatedContext.get('/api/knowledge-base/re-embed/status');
+
+      expect([401, 403, 422, 500]).toContain(response.status());
+    });
+
+    /**
+     * [P0][SMOKE] Get re-embedding status - success
+     * Given an authenticated merchant
+     * When GET /api/knowledge-base/re-embed/status is called
+     * Then the endpoint should return 200 with status information
+     */
+    test('[8.11-API-020][P0] @smoke should return re-embedding status', async () => {
+      const response = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: ReembeddingStatusResponse = await response.json();
+
+      expect(body.data).toHaveProperty('status_counts');
+      expect(body.data).toHaveProperty('total_documents');
+      expect(body.data).toHaveProperty('completed_documents');
+      expect(body.data).toHaveProperty('progress_percent');
+      expect(body.data.status_counts).toHaveProperty('none');
+      expect(body.data.status_counts).toHaveProperty('queued');
+      expect(body.data.status_counts).toHaveProperty('in_progress');
+      expect(body.data.status_counts).toHaveProperty('completed');
+      expect(body.data.status_counts).toHaveProperty('failed');
+    });
+
+    /**
+     * [P1] Get re-embedding status - validates progress calculation
+     * Given an authenticated merchant
+     * When GET /api/knowledge-base/re-embed/status is called
+     * Then progress_percent should be calculated correctly
+     */
+    test('[8.11-API-021][P1] should calculate progress correctly', async () => {
+      const response = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: ReembeddingStatusResponse = await response.json();
+      const { status_counts, total_documents, completed_documents, progress_percent } = body.data;
+
+      expect(progress_percent).toBeGreaterThanOrEqual(0);
+      expect(progress_percent).toBeLessThanOrEqual(100);
+
+      if (total_documents > 0) {
+        const expectedProgress = (completed_documents / total_documents) * 100;
+        expect(Math.abs(progress_percent - expectedProgress)).toBeLessThan(0.2);
+      } else {
+        expect(progress_percent).toBe(0);
+      }
+    });
+
+    /**
+     * [P1] Get re-embedding status - empty merchant
+     * Given a merchant with no documents
+     * When GET /api/knowledge-base/re-embed/status is called
+     * Then should return zero counts
+     */
+    test('[8.11-API-022][P1] should handle merchant with no documents', async () => {
+      const response = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+        headers: getAuthHeaders(9999),
+      });
+
+      if (response.status() === 200) {
+        const body: ReembeddingStatusResponse = await response.json();
+
+        expect(body.data.total_documents).toBeGreaterThanOrEqual(0);
+        expect(body.data.progress_percent).toBeGreaterThanOrEqual(0);
+        expect(body.data.progress_percent).toBeLessThanOrEqual(100);
+      }
+    });
+
+    /**
+     * [P1] Get re-embedding status - response format
+     * Given an authenticated merchant
+     * When GET /api/knowledge-base/re-embed/status is called
+     * Then response should have correct envelope structure
+     */
+    test('[8.11-API-023][P1] should return correct envelope structure', async () => {
+      const response = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body = await response.json();
+
+      expect(body).toHaveProperty('data');
+      expect(body).toHaveProperty('meta');
+      expect(body.meta.requestId).toBeDefined();
+      expect(body.meta.timestamp).toBeDefined();
+    });
+  });
+
+  // ==========================================================================
+  // PROVIDER SWITCHING WORKFLOW
+  // ==========================================================================
+
+  test.describe.serial('Provider Switching Workflow', () => {
+    /**
+     * [P0] Workflow: OpenAI → Gemini → Ollama
+     * Given an authenticated merchant
+     * When switching between providers with different dimensions
+     * Then dimension change should be detected and re-embedding triggered
+     */
+    test('[8.11-API-024][P0] should switch from OpenAI to Gemini', async () => {
+      const openaiSettings = createOpenAISettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: openaiSettings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('openai');
+      expect(body.data.dimension).toBe(1536);
+    });
+
+    test('[8.11-API-025][P0] should switch from OpenAI to Gemini (dimension change)', async () => {
+      const geminiSettings = createGeminiSettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: geminiSettings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('gemini');
+      expect(body.data.dimension).toBe(768);
+    });
+
+    test('[8.11-API-026][P0] should switch from Gemini to Ollama (same dimension)', async () => {
+      const ollamaSettings = createOllamaSettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: ollamaSettings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.provider).toBe('ollama');
+      expect(body.data.dimension).toBe(768);
+    });
+
+    /**
+     * [P1] Workflow: Dimension change triggers re-embedding flag
+     * Given an authenticated merchant switching from OpenAI (1536) to Gemini (768)
+     * When the dimension changes
+     * Then re_embedding_required should be true
+     */
+    test('[8.11-API-027][P1] should set re_embedding_required on dimension change', async () => {
+      const openaiSettings = createOpenAISettings();
+
+      await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: openaiSettings,
+      });
+
+      const geminiSettings = createGeminiSettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: geminiSettings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.re_embedding_required).toBe(true);
+    });
+
+    /**
+     * [P1] Workflow: Same dimension no re-embedding required
+     * Given an authenticated merchant switching from Gemini to Ollama
+     * When the dimension stays the same (768)
+     * Then re_embedding_required should be false
+     */
+    test('[8.11-API-028][P1] should not require re-embedding for same dimension', async () => {
+      const geminiSettings = createGeminiSettings();
+
+      await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: geminiSettings,
+      });
+
+      const ollamaSettings = createOllamaSettings();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: ollamaSettings,
+      });
+
+      expect(response.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await response.json();
+
+      expect(body.data.re_embedding_required).toBe(false);
+    });
+
+    /**
+     * [P1] Workflow: Full provider switch cycle
+     * Given an authenticated merchant
+     * When switching through all providers
+     * Then settings should persist correctly
+     */
+    test('[8.11-API-029][P1] should complete full provider switch cycle', async () => {
+      const providers: EmbeddingProvider[] = ['openai', 'gemini', 'ollama'];
+
+      for (const provider of providers) {
+        const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+          headers: getAuthHeaders(),
+          data: {
+            provider,
+            model: EMBEDDING_MODELS[provider],
+          },
+        });
+
+        expect(response.status()).toBe(200);
+
+        const body: EmbeddingProviderSettingsResponse = await response.json();
+
+        expect(body.data.provider).toBe(provider);
+        expect(body.data.dimension).toBe(EMBEDDING_DIMENSIONS[provider]);
+      }
+    });
+  });
+
+  // ==========================================================================
+  // ERROR HANDLING
+  // ==========================================================================
+
+  test.describe('Error Handling', () => {
+    /**
+     * [P1] Error: Invalid provider name
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with invalid provider
+     * Then the endpoint should return 422
+     */
+    test('[8.11-API-030][P1] should reject invalid provider name', async () => {
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: {
+          provider: 'nonexistent-provider',
+          model: 'some-model',
+        },
+      });
+
+      expect([400, 422]).toContain(response.status());
+
+      const body = await response.json();
+      expect(body.detail).toBeDefined();
+    });
+
+    /**
+     * [P1] Error: Missing model parameter
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called without model
+     * Then the endpoint should return 422
+     */
+    test('[8.11-API-031][P1] should require model parameter', async () => {
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: {
+          provider: 'openai',
+        },
+      });
+
+      expect(response.status()).toBe(422);
+
+      const body = await response.json();
+      expect(body.detail).toBeDefined();
+    });
+
+    /**
+     * [P1] Error: Empty request body
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called with empty body
+     * Then the endpoint should return 422
+     */
+    test('[8.11-API-032][P1] should reject empty request body', async () => {
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: {},
+      });
+
+      expect(response.status()).toBe(422);
+
+      const body = await response.json();
+      expect(body.detail).toBeDefined();
+    });
+
+    /**
+     * [P1] Error: Non-existent merchant
+     * Given a non-existent merchant ID
+     * When GET /api/settings/embedding-provider is called
+     * Then the endpoint should handle gracefully
+     */
+    test('[8.11-API-033][P1] should handle non-existent merchant', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(999999),
+      });
+
+      expect([200, 404, 500]).toContain(response.status());
+    });
+
+    /**
+     * [P1] Error: Invalid merchant ID format
+     * Given an invalid merchant ID format
+     * When API endpoints are called
+     * Then the endpoint should handle gracefully
+     */
+    test('[8.11-API-034][P1] should handle invalid merchant ID format', async () => {
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: {
+          ...getAuthHeaders(),
+          'X-Merchant-Id': 'invalid',
+        },
+      });
+
+      expect([400, 422, 500]).toContain(response.status());
+    });
+
+    /**
+     * [P2] Error: Concurrent provider updates
+     * Given an authenticated merchant
+     * When multiple concurrent updates are made
+     * Then the system should handle race conditions
+     */
+    test('[8.11-API-035][P2] should handle concurrent provider updates', async () => {
+      const updates = [
+        createOpenAISettings(),
+        createGeminiSettings(),
+        createOllamaSettings(),
+      ];
+
+      const responses = await Promise.all(
+        updates.map((settings) =>
+          authenticatedContext.patch('/api/settings/embedding-provider', {
+            headers: getAuthHeaders(),
+            data: settings,
+          })
+        )
+      );
+
+      for (const response of responses) {
+        expect([200, 400, 409, 422, 500]).toContain(response.status());
+      }
+    });
+  });
+
+  // ==========================================================================
+  // INTEGRATION TESTS
+  // ==========================================================================
+
+  test.describe('Integration Tests', () => {
+    /**
+     * [P1] Integration: Provider switch + re-embed trigger
+     * Given an authenticated merchant
+     * When switching provider and triggering re-embedding
+     * Then both operations should complete successfully
+     */
+    test('[8.11-API-036][P1] should switch provider and trigger re-embedding', async () => {
+      const switchResponse = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: createGeminiSettings(),
+      });
+
+      expect(switchResponse.status()).toBe(200);
+
+      const reembedResponse = await authenticatedContext.post('/api/knowledge-base/re-embed', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(reembedResponse.status()).toBe(200);
+    });
+
+    /**
+     * [P1] Integration: Re-embed trigger + status check
+     * Given an authenticated merchant
+     * When triggering re-embedding and checking status
+     * Then status should reflect the triggered re-embedding
+     */
+    test('[8.11-API-037][P1] should trigger re-embedding and check status', async () => {
+      await authenticatedContext.post('/api/knowledge-base/re-embed', {
+        headers: getAuthHeaders(),
+      });
+
+      const statusResponse = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(statusResponse.status()).toBe(200);
+
+      const body: ReembeddingStatusResponse = await statusResponse.json();
+
+      expect(body.data).toHaveProperty('status_counts');
+      expect(body.data).toHaveProperty('progress_percent');
+    });
+
+    /**
+     * [P1] Integration: Get settings after switch
+     * Given an authenticated merchant
+     * When switching provider and getting settings
+     * Then GET should return updated settings
+     */
+    test('[8.11-API-038][P1] should get updated settings after switch', async () => {
+      await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: createOllamaSettings(),
+      });
+
+      const getResponse = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+      });
+
+      expect(getResponse.status()).toBe(200);
+
+      const body: EmbeddingProviderSettingsResponse = await getResponse.json();
+
+      expect(body.data.provider).toBe('ollama');
+      expect(body.data.model).toBe('nomic-embed-text');
+      expect(body.data.dimension).toBe(768);
+    });
+
+    /**
+     * [P2] Integration: Full workflow
+     * Given an authenticated merchant with documents
+     * When completing full workflow (switch → trigger → check status)
+     * Then all operations should succeed
+     */
+    test('[8.11-API-039][P2] should complete full embedding workflow', async () => {
+      const providers: EmbeddingProvider[] = ['openai', 'gemini'];
+
+      for (const provider of providers) {
+        const switchResponse = await authenticatedContext.patch('/api/settings/embedding-provider', {
+          headers: getAuthHeaders(),
+          data: {
+            provider,
+            model: EMBEDDING_MODELS[provider],
+          },
+        });
+        expect(switchResponse.status()).toBe(200);
+
+        const getResponse = await authenticatedContext.get('/api/settings/embedding-provider', {
+          headers: getAuthHeaders(),
+        });
+        expect(getResponse.status()).toBe(200);
+
+        const triggerResponse = await authenticatedContext.post('/api/knowledge-base/re-embed', {
+          headers: getAuthHeaders(),
+        });
+        expect(triggerResponse.status()).toBe(200);
+
+        const statusResponse = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+          headers: getAuthHeaders(),
+        });
+        expect(statusResponse.status()).toBe(200);
+      }
+    });
+  });
+
+  // ==========================================================================
+  // PERFORMANCE TESTS
+  // ==========================================================================
+
+  test.describe('Performance', () => {
+    /**
+     * [P2] Performance: GET settings response time
+     * Given an authenticated merchant
+     * When GET /api/settings/embedding-provider is called
+     * Then response should be under 500ms
+     */
+    test('[8.11-API-040][P2] should respond within acceptable time for GET', async () => {
+      const start = Date.now();
+
+      const response = await authenticatedContext.get('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+      });
+
+      const duration = Date.now() - start;
+
+      expect(response.status()).toBe(200);
+      expect(duration).toBeLessThan(500);
+    });
+
+    /**
+     * [P2] Performance: PATCH settings response time
+     * Given an authenticated merchant
+     * When PATCH /api/settings/embedding-provider is called
+     * Then response should be under 1000ms
+     */
+    test('[8.11-API-041][P2] should respond within acceptable time for PATCH', async () => {
+      const start = Date.now();
+
+      const response = await authenticatedContext.patch('/api/settings/embedding-provider', {
+        headers: getAuthHeaders(),
+        data: createOpenAISettings(),
+      });
+
+      const duration = Date.now() - start;
+
+      expect(response.status()).toBe(200);
+      expect(duration).toBeLessThan(1000);
+    });
+
+    /**
+     * [P2] Performance: Re-embed status response time
+     * Given an authenticated merchant
+     * When GET /api/knowledge-base/re-embed/status is called
+     * Then response should be under 500ms
+     */
+    test('[8.11-API-042][P2] should respond within acceptable time for status', async () => {
+      const start = Date.now();
+
+      const response = await authenticatedContext.get('/api/knowledge-base/re-embed/status', {
+        headers: getAuthHeaders(),
+      });
+
+      const duration = Date.now() - start;
+
+      expect(response.status()).toBe(200);
+      expect(duration).toBeLessThan(500);
+    });
+  });
+});

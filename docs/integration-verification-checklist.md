@@ -118,3 +118,45 @@ Before deploying to production with real merchants:
 ---
 
 *Generated from Epic 4 Retrospective Action Item #3*
+
+---
+
+## Epic 8: Pre-Implementation Verification (Added 2026-03-15)
+
+**Source:** Epic 8 Retrospective
+
+Before starting ANY story, verify:
+
+```markdown
+□ **CSRF**: Is CSRF required? Check middleware/auth.py bypass list
+□ **Python**: Activate venv (`source backend/venv/bin/activate`)
+□ **Schema**: Compare frontend TypeScript + backend Pydantic
+□ **Naming**: API uses snake_case, Frontend expects camelCase
+□ **API Envelope**: Check if apiClient unwraps `data` envelope (use response.data)
+□ **Embedding**: Use JSONB for flexible vector dimensions (not fixed Vector(N))
+□ **E2E Tests**: Use addInitScript((var) => {...}, var) pattern for variable injection
+```
+
+### Common Integration Patterns
+
+| Pattern | Correct Usage | Common Mistake |
+|---------|---------------|----------------|
+| API Response | `response.data` | `response.data.data` (double unwrap) |
+| Embedding Storage | JSONB + `embedding_dimension` column | Fixed `Vector(1536)` |
+| E2E Variable Injection | `addInitScript((v) => {...}, val)` | Template literal `${val}` in browser |
+| Embedding Version | Filter by `{provider}-{model}` | No filter (dimension mixing) |
+
+### Verification Commands
+
+```bash
+# Run all Story 8 tests
+cd frontend && npx playwright test tests/api/story-8-* tests/e2e/story-8-*
+
+# Backend embedding tests
+cd backend && source venv/bin/activate
+python -m pytest tests/services/rag/ tests/integration/test_provider_switching.py -v
+```
+
+---
+
+*Updated from Epic 8 Retrospective Action Item #6*

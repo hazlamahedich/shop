@@ -12,10 +12,10 @@ export interface ToastProps {
 }
 
 const icons = {
-  success: <CheckCircle className="w-5 h-5 text-green-500" />,
-  error: <AlertCircle className="w-5 h-5 text-red-500" />,
-  info: <Info className="w-5 h-5 text-blue-500" />,
-  warning: <AlertCircle className="w-5 h-5 text-yellow-500" />,
+  success: <CheckCircle className="w-5 h-5 text-green-500" aria-hidden="true" role="img" />,
+  error: <AlertCircle className="w-5 h-5 text-red-500" aria-hidden="true" role="img" />,
+  info: <Info className="w-5 h-5 text-blue-500" aria-hidden="true" role="img" />,
+  warning: <AlertCircle className="w-5 h-5 text-yellow-500" aria-hidden="true" role="img" />,
 };
 
 const styles = {

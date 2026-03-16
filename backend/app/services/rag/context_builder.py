@@ -49,6 +49,7 @@ class RAGContextBuilder:
         user_query: str,
         top_k: int = 5,
         similarity_threshold: float = 0.7,
+        embedding_version: Optional[str] = None,
     ) -> Optional[str]:
         """Retrieve relevant chunks and format as LLM context.
 
@@ -57,6 +58,8 @@ class RAGContextBuilder:
             user_query: User's question or search query
             top_k: Number of chunks to retrieve (default 5)
             similarity_threshold: Minimum similarity score (default 0.7)
+            embedding_version: Filter by embedding version (e.g., "openai-text-embedding-3-small")
+                              Prevents dimension mixing when provider changes (Story 8-11 AC6)
 
         Returns:
             Formatted context string with citations, or None if:
@@ -76,6 +79,7 @@ class RAGContextBuilder:
                     query=user_query,
                     top_k=top_k,
                     threshold=similarity_threshold,
+                    embedding_version=embedding_version,
                 ),
                 timeout=self.RETRIEVAL_TIMEOUT_MS / 1000.0,
             )

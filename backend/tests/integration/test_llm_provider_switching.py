@@ -7,6 +7,8 @@ Tests the complete flow of switching LLM providers, including:
 - Actual provider switching with rollback on failure
 - Provider-specific conversation routing
 - Cost calculation accuracy
+
+Note: Uses test_merchant fixture (merchant-scoped, not user-scoped).
 """
 
 import pytest
@@ -15,8 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.conversation import Conversation
-from app.models.user import User
+from app.models.merchant import Merchant
 from app.core.config import settings
+from tests.conftest import auth_headers
 
 
 class TestLLMProviderSwitchingIntegration:
@@ -24,12 +27,11 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_list_providers_shows_current_indicator(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test that provider list correctly identifies the active provider."""
         response = await async_client.get(
-            f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            f"{settings.API_V1_STR}/llm/providers", headers=auth_headers(test_merchant)
         )
 
         assert response.status_code == 200
@@ -51,18 +53,22 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_validate_provider_before_switching(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test provider validation before committing to switch."""
         # First get available providers
         list_response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
         providers = list_response.json()["providers"]
 
         # Find a non-current provider to test validation
-        current_id = list_response.json()["currentProvider"]["id"] if list_response.json()["currentProvider"] else None
+        current_id = (
+            list_response.json()["currentProvider"]["id"]
+            if list_response.json()["currentProvider"]
+            else None
+        )
         test_provider = next((p for p in providers if p["id"] != current_id), None)
 
         if not test_provider:
@@ -71,11 +77,8 @@ class TestLLMProviderSwitchingIntegration:
         # Validate the provider
         response = await async_client.post(
             f"{settings.API_V1_STR}/llm/validate",
-            json={
-                "providerId": test_provider["id"],
-                "apiKey": "test-key-for-validation"
-            },
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            json={"providerId": test_provider["id"], "apiKey": "test-key-for-validation"},
+            headers=auth_headers(test_merchant),
         )
 
         assert response.status_code == 200
@@ -88,16 +91,18 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_switch_provider_success_flow(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test successful provider switching flow."""
         # Get current state
         list_response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
         original_data = list_response.json()
-        original_provider_id = original_data["currentProvider"]["id"] if original_data["currentProvider"] else None
+        original_provider_id = (
+            original_data["currentProvider"]["id"] if original_data["currentProvider"] else None
+        )
 
         providers = original_data["providers"]
         target_provider = next((p for p in providers if p["id"] != original_provider_id), None)
@@ -109,7 +114,7 @@ class TestLLMProviderSwitchingIntegration:
         switch_response = await async_client.post(
             f"{settings.API_V1_STR}/llm/switch",
             json={"providerId": target_provider["id"]},
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
         assert switch_response.status_code == 200
@@ -121,7 +126,7 @@ class TestLLMProviderSwitchingIntegration:
         # Verify the switch persisted
         verify_response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
         verify_data = verify_response.json()
 
@@ -131,21 +136,18 @@ class TestLLMProviderSwitchingIntegration:
         await async_client.post(
             f"{settings.API_V1_STR}/llm/switch",
             json={"providerId": original_provider_id or "ollama"},
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
     @pytest.mark.asyncio
     async def test_switch_provider_with_invalid_credentials_fails(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test that switching with invalid credentials fails gracefully."""
         response = await async_client.post(
             f"{settings.API_V1_STR}/llm/switch",
-            json={
-                "providerId": "openai",
-                "apiKey": "invalid-key-should-fail"
-            },
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            json={"providerId": "openai", "apiKey": "invalid-key-should-fail"},
+            headers=auth_headers(test_merchant),
         )
 
         # Should fail with appropriate error
@@ -156,14 +158,14 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_provider_switching_preserves_conversation_history(
-        self, async_client: AsyncClient, test_user: User, async_session: AsyncSession
+        self, async_client: AsyncClient, test_merchant: int, async_session: AsyncSession
     ):
         """Test that switching providers doesn't affect conversation history."""
         # Create a test conversation
         conversation = Conversation(
-            user_id=str(test_user.id),
+            merchant_id=test_merchant,
             title="Test Conversation for Provider Switch",
-            llm_provider="ollama"
+            llm_provider="ollama",
         )
         async_session.add(conversation)
         await async_session.commit()
@@ -174,26 +176,24 @@ class TestLLMProviderSwitchingIntegration:
         await async_client.post(
             f"{settings.API_V1_STR}/llm/switch",
             json={"providerId": "openai"},
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
         # Verify conversation still exists
-        result = await async_session.execute(
-            select(Conversation).where(Conversation.id == conv_id)
-        )
+        result = await async_session.execute(select(Conversation).where(Conversation.id == conv_id))
         still_exists = result.scalar_one_or_none() is not None
 
         assert still_exists, "Conversation should be preserved after provider switch"
 
     @pytest.mark.asyncio
     async def test_new_conversation_uses_current_provider(
-        self, async_client: AsyncClient, test_user: User, async_session: AsyncSession
+        self, async_client: AsyncClient, test_merchant: int, async_session: AsyncSession
     ):
         """Test that new conversations use the current provider."""
         # First, ensure we know the current provider
         list_response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
         current_provider_id = list_response.json()["currentProvider"]["id"]
 
@@ -201,7 +201,7 @@ class TestLLMProviderSwitchingIntegration:
         response = await async_client.post(
             f"{settings.API_V1_STR}/conversations",
             json={"title": "Test Provider Association"},
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
         assert response.status_code == 201
@@ -217,12 +217,12 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_provider_comparison_data_accuracy(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test that provider comparison returns accurate data."""
         response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
         assert response.status_code == 200
@@ -245,12 +245,12 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_savings_calculation_accuracy(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test that savings calculations are accurate."""
         response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
         data = response.json()
@@ -268,10 +268,9 @@ class TestLLMProviderSwitchingIntegration:
         test_output_tokens = 50000
 
         for provider in data["providers"]:
-            expected_cost = (
-                (test_input_tokens / 1_000_000) * provider["pricing"]["inputCost"] +
-                (test_output_tokens / 1_000_000) * provider["pricing"]["outputCost"]
-            )
+            expected_cost = (test_input_tokens / 1_000_000) * provider["pricing"]["inputCost"] + (
+                test_output_tokens / 1_000_000
+            ) * provider["pricing"]["outputCost"]
 
             # If provider has estimatedMonthlyCost, verify it's reasonable
             if "estimatedMonthlyCost" in provider:
@@ -280,7 +279,7 @@ class TestLLMProviderSwitchingIntegration:
 
     @pytest.mark.asyncio
     async def test_concurrent_switch_requests_handled_safely(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test that concurrent switch requests are handled safely."""
         import asyncio
@@ -288,10 +287,14 @@ class TestLLMProviderSwitchingIntegration:
         # Get current provider
         list_response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
         providers = list_response.json()["providers"]
-        current_id = list_response.json()["currentProvider"]["id"] if list_response.json()["currentProvider"] else None
+        current_id = (
+            list_response.json()["currentProvider"]["id"]
+            if list_response.json()["currentProvider"]
+            else None
+        )
 
         # Create multiple switch requests concurrently
         tasks = []
@@ -300,7 +303,7 @@ class TestLLMProviderSwitchingIntegration:
                 task = async_client.post(
                     f"{settings.API_V1_STR}/llm/switch",
                     json={"providerId": provider["id"]},
-                    headers={"Authorization": f"Bearer {test_user.access_token}"}
+                    headers=auth_headers(test_merchant),
                 )
                 tasks.append(task)
 
@@ -308,17 +311,17 @@ class TestLLMProviderSwitchingIntegration:
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         # At least one should succeed
-        successful = [r for r in responses if hasattr(r, 'status_code') and r.status_code == 200]
+        successful = [r for r in responses if hasattr(r, "status_code") and r.status_code == 200]
         assert len(successful) >= 1, "At least one switch request should succeed"
 
     @pytest.mark.asyncio
     async def test_provider_features_listed_correctly(
-        self, async_client: AsyncClient, test_user: User
+        self, async_client: AsyncClient, test_merchant: int
     ):
         """Test that provider features are listed and accurate."""
         response = await async_client.get(
             f"{settings.API_V1_STR}/llm/providers",
-            headers={"Authorization": f"Bearer {test_user.access_token}"}
+            headers=auth_headers(test_merchant),
         )
 
         data = response.json()

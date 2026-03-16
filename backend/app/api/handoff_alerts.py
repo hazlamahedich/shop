@@ -2,6 +2,7 @@
 
 Story 4-6: Handoff Notifications
 Story 4-7: Handoff Queue with Urgency
+Story 7 Sprint 1: VIPHandoffIndicator enhancement
 
 Provides endpoints for:
 - Listing handoff alerts with pagination and urgency filtering
@@ -26,6 +27,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.models.handoff_alert import HandoffAlert
+from app.models.order import Order
 from app.schemas.base import BaseSchema
 from app.schemas.handoff import UrgencyLevel
 
@@ -56,6 +58,15 @@ class HandoffAlertResponse(BaseSchema):
     created_at: str = Field(description="ISO 8601 timestamp")
     handoff_reason: str | None = Field(
         default=None, description="Reason for handoff: keyword, low_confidence, clarification_loop"
+    )
+    customer_ltv: float | None = Field(
+        default=None, description="Customer lifetime value (total spend)"
+    )
+    order_count: int | None = Field(
+        default=None, description="Total number of orders from this customer"
+    )
+    is_vip: bool | None = Field(
+        default=None, description="True if customer is high-value (3+ orders or $500+ spend)"
     )
 
 
@@ -100,17 +111,7 @@ class MarkAllReadResponse(BaseSchema):
 
 
 def _get_merchant_id(request: Request) -> int:
-    """Extract merchant ID from request state or headers.
-
-    Args:
-        request: FastAPI request object
-
-    Returns:
-        Merchant ID
-
-    Raises:
-        APIError: If authentication fails
-    """
+    """Extract merchant ID from request state or headers."""
     merchant_id = getattr(request.state, "merchant_id", None)
     if not merchant_id:
         if settings()["DEBUG"]:
@@ -125,15 +126,56 @@ def _get_merchant_id(request: Request) -> int:
     return merchant_id
 
 
-def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
-    """Convert HandoffAlert model to response schema.
+async def _calculate_customer_ltv(
+    customer_id: str,
+    merchant_id: int,
+    db: AsyncSession,
+) -> tuple[float, int, bool]:
+    """Calculate customer LTV and VIP status from orders.
 
     Args:
-        alert: HandoffAlert model instance
+        customer_id: Customer platform ID
+        merchant_id: Merchant ID
+        db: Database session
 
     Returns:
-        HandoffAlertResponse schema
+        Tuple ofcustomer_ltv, order_count, is_vip]
     """
+    customer_ltv = 0.0
+    order_count = 0
+    is_vip = False
+
+    if not customer_id:
+        return customer_ltv, order_count, is_vip
+
+    try:
+        result = await db.execute(
+            select(
+                func.count(Order.id).label("order_count"),
+                func.sum(Order.total).label("total_spend"),
+            )
+            .where(Order.customer_id == customer_id)
+            .where(Order.merchant_id == merchant_id)
+            .where(Order.is_test == False)
+        )
+        row = result.first()
+
+        if row:
+            order_count = row.order_count or 0
+            total_spend = float(row.total_spend or 0.0)
+            customer_ltv = total_spend
+            is_vip = order_count >= 3 or total_spend >= 500
+    except Exception:
+        pass
+
+    return customer_ltv, order_count, is_vip
+
+
+async def _alert_to_response(
+    alert: HandoffAlert,
+    db: AsyncSession,
+) -> HandoffAlertResponse:
+    """Convert HandoffAlert model into response schema with LTV calculation."""
     handoff_reason = None
     platform_sender_id = None
     wait_time_seconds = alert.wait_time_seconds
@@ -149,6 +191,17 @@ def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
             elapsed = datetime.now(timezone.utc) - triggered_at
             wait_time_seconds = int(elapsed.total_seconds())
 
+    customer_ltv = 0.0
+    order_count = 0
+    is_vip = False
+
+    if alert.customer_id:
+        customer_ltv, order_count, is_vip = await _calculate_customer_ltv(
+            alert.customer_id,
+            alert.merchant_id,
+            db,
+        )
+
     return HandoffAlertResponse(
         id=alert.id,
         conversation_id=alert.conversation_id,
@@ -162,6 +215,9 @@ def _alert_to_response(alert: HandoffAlert) -> HandoffAlertResponse:
         is_offline=getattr(alert, "is_offline", False),
         created_at=alert.created_at.isoformat() if alert.created_at else "",
         handoff_reason=handoff_reason,
+        customer_ltv=customer_ltv,
+        order_count=order_count,
+        is_vip=is_vip,
     )
 
 
@@ -187,6 +243,7 @@ async def list_handoff_alerts(
 
     Story 4-6: Notifications view (default) - shows all alerts, sorted by created_at DESC
     Story 4-7: Queue view - shows active handoffs only, sorted by urgency then wait time
+    Story 7 Sprint 1: Includes customer LTV and VIP status
 
     Supports filtering by urgency level and pagination.
 
@@ -289,7 +346,7 @@ async def list_handoff_alerts(
     alerts = result.scalars().unique().all()
 
     return HandoffAlertListResponse(
-        data=[_alert_to_response(alert) for alert in alerts],
+        data=[await _alert_to_response(alert, db) for alert in alerts],
         meta=HandoffAlertListMeta(
             total=total,
             page=page,
@@ -305,15 +362,7 @@ async def get_unread_count(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UnreadCountResponse:
-    """Get count of unread handoff alerts for dashboard badge.
-
-    Args:
-        request: FastAPI request
-        db: Database session
-
-    Returns:
-        Unread count for the authenticated merchant
-    """
+    """Get count of unread handoff alerts for dashboard badge."""
     merchant_id = _get_merchant_id(request)
 
     query = select(func.count()).where(
@@ -333,19 +382,7 @@ async def mark_alert_as_read(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MarkReadResponse:
-    """Mark a single handoff alert as read.
-
-    Args:
-        alert_id: ID of the alert to mark as read
-        request: FastAPI request
-        db: Database session
-
-    Returns:
-        Success status and alert ID
-
-    Raises:
-        APIError: If alert not found or not owned by merchant
-    """
+    """Mark a single handoff alert as read."""
     merchant_id = _get_merchant_id(request)
 
     query = select(HandoffAlert).where(
@@ -373,15 +410,7 @@ async def mark_all_alerts_as_read(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MarkAllReadResponse:
-    """Mark all handoff alerts as read for the authenticated merchant.
-
-    Args:
-        request: FastAPI request
-        db: Database session
-
-    Returns:
-        Success status and number of alerts updated
-    """
+    """Mark all handoff alerts as read for the authenticated merchant."""
     merchant_id = _get_merchant_id(request)
 
     stmt = (

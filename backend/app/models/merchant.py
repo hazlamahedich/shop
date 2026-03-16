@@ -167,6 +167,26 @@ class Merchant(Base):
         index=True,
     )
 
+    # Embedding provider configuration (Story 8-11)
+    embedding_provider: Mapped[str] = mapped_column(
+        String(20),
+        default="openai",
+        nullable=False,
+        server_default="openai",
+    )
+    embedding_model: Mapped[str] = mapped_column(
+        String(50),
+        default="text-embedding-3-small",
+        nullable=False,
+        server_default="text-embedding-3-small",
+    )
+    embedding_dimension: Mapped[int] = mapped_column(
+        Integer,
+        default=1536,
+        nullable=False,
+        server_default="1536",
+    )
+
     # Widget configuration (Story 5-1)
     widget_config: Mapped[Optional[dict]] = mapped_column(
         JSONB,

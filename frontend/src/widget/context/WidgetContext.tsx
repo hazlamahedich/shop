@@ -166,9 +166,10 @@ export function useWidgetContext(): WidgetContextValue {
 interface WidgetProviderProps {
   children: React.ReactNode;
   merchantId: string;
+  initialSessionId?: string;
 }
 
-export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
+export function WidgetProvider({ children, merchantId, initialSessionId }: WidgetProviderProps) {
   const [state, dispatch] = React.useReducer(widgetReducer, initialState);
   const [addingProductId, setAddingProductId] = React.useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = React.useState<string | null>(null);
@@ -239,13 +240,16 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
   );
 
   const initWidget = React.useCallback(async () => {
+    console.log('[WidgetContext] initWidget starting...');
     lastActionRef.current = { type: 'initWidget' };
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
 
     try {
       const { widgetClient } = await import('../api/widgetClient');
+      console.log('[WidgetContext] Fetching config for merchant:', merchantId);
       const config = await widgetClient.getConfig(merchantId);
+      console.log('[WidgetContext] Config loaded:', !!config);
       dispatch({ type: 'SET_CONFIG', payload: config });
 
       // Register the shop domain so isOnShopify() correctly detects custom-domain stores
@@ -255,13 +259,36 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       const storedTheme = getStoredTheme(merchantId);
       dispatch({ type: 'SET_THEME_MODE', payload: storedTheme || 'auto' });
 
+      // Check for provided session ID (injection for tests)
+      let sessionId = initialSessionId;
+      
+      if (!sessionId) {
+        // Find existing session in storage
+        console.log('[WidgetContext] Checking storage for key:', SESSION_KEY);
+        console.log('[WidgetContext] sessionStorage value:', sessionStorage.getItem(SESSION_KEY));
+        console.log('[WidgetContext] localStorage value:', localStorage.getItem(SESSION_KEY));
+        
+        sessionId = safeStorage.get(SESSION_KEY);
+        console.log('[WidgetContext] safeStorage.get result:', sessionId);
+      } else {
+        console.log('[WidgetContext] Using injected sessionId:', sessionId);
+      }
+      
       const visitorId = getOrCreateVisitorId();
-
-      const sessionId = safeStorage.get(SESSION_KEY);
+      console.log('[WidgetContext] sessionId from safeStorage.get:', sessionId);
+      
+      // Validate session ID format before attempting to use it
+      if (sessionId && !isValidSessionId(sessionId)) {
+        console.warn('[WidgetContext] Invalid session ID format, clearing:', sessionId);
+        safeStorage.remove(SESSION_KEY);
+        sessionId = undefined;
+      }
       
       // Validate session ID format before attempting to use it
       if (sessionId && isValidSessionId(sessionId)) {
+        console.log('[WidgetContext] Valid session found:', sessionId);
         const session = await getSession(sessionId)
+        console.log('[WidgetContext] Session fetched:', !!session);
         if (session) {
           dispatch({ type: 'SET_SESSION', payload: session })
           
@@ -293,7 +320,9 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
           
           // Fetch message history from backend
           try {
+            console.log('[WidgetContext] Fetching message history for session:', sessionId);
             const history = await widgetClient.getMessageHistory(sessionId);
+            console.log('[WidgetContext] Received history:', history.messages.length, 'messages');
             if (history.expired) {
               // History expired - clear cache and show message
               clearMessageCache(sessionId);
@@ -316,8 +345,26 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
                 content: msg.content,
                 sender: msg.role === 'user' ? 'user' : 'bot',
                 createdAt: msg.timestamp,
+                products: msg.products ? msg.products.map((p: any) => ({
+                  id: p.id || p.product_id,
+                  variantId: p.variantId || p.variant_id,
+                  title: p.title,
+                  price: p.price,
+                  available: p.available ?? true,
+                })) : undefined,
+                cart: msg.cart ? {
+                  items: (msg.cart.items || []).map((item: any) => ({
+                    variantId: item.variant_id || item.variantId,
+                    title: item.title,
+                    price: item.price,
+                    quantity: item.quantity,
+                  })),
+                  itemCount: msg.cart.item_count ?? msg.cart.itemCount,
+                  total: msg.cart.total,
+                } : undefined,
               }));
               
+              console.log('[WidgetContext] Dispatching', messages.length, 'messages to state');
               dispatch({ type: 'SET_MESSAGES', payload: messages });
               
               // Update cache
@@ -329,6 +376,7 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
               }
             }
           } catch (error) {
+            console.error('[WidgetContext] Failed to load history:', error);
             // Failed to load history - keep cached messages if available
           }
           
@@ -342,11 +390,12 @@ export function WidgetProvider({ children, merchantId }: WidgetProviderProps) {
       safeStorage.set(SESSION_KEY, newSession.sessionId)
       safeStorage.set(MERCHANT_KEY, merchantId)
     } catch (error) {
-      addError(error, { action: 'Retry' })
+      console.error('[WidgetContext] initWidget error:', error);
+      addError(error, { action: 'Retry' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false })
     }
-  }, [merchantId, createSession, getSession, addError])
+  }, [merchantId, initialSessionId, createSession, getSession, addError])
 
   const toggleChat = React.useCallback(() => {
     dispatch({ type: 'SET_OPEN', payload: !state.isOpen });

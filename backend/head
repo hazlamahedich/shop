@@ -1,0 +1,8 @@
+  File "<string>", line 1
+    python -c "from app.schemas.widget import WidgetConfigResponse"
+  File "<string>", line 1
+    python -c "from app.schemas.widget import WidgetConfigResponse"
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax

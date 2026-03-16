@@ -1,0 +1,3 @@
+Product: Widget Pro
+Description: High-quality widget for all your needs
+Features: Durable, lightweight, eco-friendly

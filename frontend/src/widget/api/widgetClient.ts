@@ -235,6 +235,7 @@ export class WidgetApiClient {
       theme: parsed.data.theme,
       allowedDomains: parsed.data.allowedDomains,
       shopDomain: parsed.data.shopDomain,
+      proactiveEngagementConfig: parsed.data.proactiveEngagementConfig,
     };
   }
 
@@ -467,6 +468,8 @@ export class WidgetApiClient {
       role: string;
       content: string;
       timestamp: string;
+      products?: any[];
+      cart?: any;
     }>;
     expired: boolean;
     expiresAt: string | null;
@@ -474,7 +477,7 @@ export class WidgetApiClient {
     const data = await this.request<{ data: unknown }>(`/session/${sessionId}/messages`);
     const rawData = data.data as Record<string, unknown>;
     return {
-      messages: (rawData.messages as Array<{ role: string; content: string; timestamp: string }>) || [],
+      messages: (rawData.messages as Array<{ role: string; content: string; timestamp: string; products?: any[]; cart?: any }>) || [],
       expired: rawData.expired as boolean,
       expiresAt: rawData.expires_at as string | null,
     };

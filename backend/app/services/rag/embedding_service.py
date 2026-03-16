@@ -25,12 +25,14 @@ logger = structlog.get_logger(__name__)
 EMBEDDING_DIMENSIONS = {
     "openai": 1536,  # text-embedding-3-small
     "ollama": 768,  # nomic-embed-text
+    "gemini": 768,  # text-embedding-004
 }
 
 # Default models by provider
 EMBEDDING_MODELS = {
     "openai": "text-embedding-3-small",
     "ollama": "nomic-embed-text",
+    "gemini": "text-embedding-004",
 }
 
 # Rate limiting configuration
@@ -74,6 +76,7 @@ class EmbeddingService:
     Supports:
     - OpenAI: text-embedding-3-small (1536 dimensions)
     - Ollama: nomic-embed-text (768 dimensions)
+    - Gemini: text-embedding-004 (768 dimensions) - Story 8-11
     - Anthropic: NOT supported (raises EMBEDDING_INVALID_PROVIDER)
 
     Features:

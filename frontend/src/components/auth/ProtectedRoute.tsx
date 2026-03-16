@@ -37,7 +37,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       sessionStorage.setItem('intendedDestination', location.pathname);
       navigate('/login', {
         replace: true,
-        state: { from: { pathname: location.pathname } }
+        state: { from: { pathname: location.pathname } },
       });
     }
   }, [isAuthenticated, isLoading, navigate, location]);

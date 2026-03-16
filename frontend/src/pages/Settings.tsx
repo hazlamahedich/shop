@@ -8,6 +8,11 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { ExportButton } from '../components/ExportButton';
+import { ModeToggle } from '../components/settings/ModeToggle';
+import { ModeChangeDialog } from '../components/settings/ModeChangeDialog';
+import { merchantApi } from '../services/merchant';
+import { useToast } from '../context/ToastContext';
+import type { OnboardingMode } from '../types/onboarding';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('integrations');
@@ -22,6 +27,14 @@ const Settings = () => {
   const [isSavingShopify, setIsSavingShopify] = useState(false);
   const [shopifyCredentialsStatus, setShopifyCredentialsStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [shopifyCredentialsMessage, setShopifyCredentialsMessage] = useState('');
+  
+  // Mode toggle state (Story 8.7)
+  const [currentMode, setCurrentMode] = useState<OnboardingMode>('ecommerce');
+  const [modeDialogOpen, setModeDialogOpen] = useState(false);
+  const [targetMode, setTargetMode] = useState<OnboardingMode | null>(null);
+  const [modeLoading, setModeLoading] = useState(false);
+  const [modeFetching, setModeFetching] = useState(true);
+  const { toast } = useToast();
 
   const merchant = useAuthStore((state) => state.merchant);
 
@@ -51,10 +64,60 @@ const Settings = () => {
     }
   }, [merchant?.id, setMerchantId]);
 
+  // Load current mode on mount (Story 8.7)
+  useEffect(() => {
+    const loadMode = async () => {
+      setModeFetching(true);
+      try {
+        const response = await merchantApi.getMerchantMode();
+        setCurrentMode(response.onboardingMode);
+      } catch (error) {
+        console.error('Failed to load merchant mode:', error);
+        // Use default mode if loading fails
+      } finally {
+        setModeFetching(false);
+      }
+    };
+    loadMode();
+  }, []);
+
   React.useEffect(() => {
     checkFacebookStatus();
     checkShopifyStatus();
   }, [checkFacebookStatus, checkShopifyStatus]);
+
+  // Mode change handlers (Story 8.7)
+  const handleModeChangeRequest = (newMode: OnboardingMode) => {
+    setTargetMode(newMode);
+    setModeDialogOpen(true);
+  };
+
+  const handleModeChangeConfirm = async () => {
+    if (!targetMode) return;
+    
+    setModeLoading(true);
+    try {
+      await merchantApi.updateMerchantMode(targetMode);
+      
+      const successMessage = targetMode === 'general'
+        ? 'Mode updated! E-commerce features disabled. Your store data is preserved. Refreshing page...'
+        : 'Mode updated! E-commerce features are now enabled. Refreshing page...';
+      
+      toast(successMessage, 'success', 3000);
+      
+      setModeDialogOpen(false);
+      
+      // Reload page after a short delay to show toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update mode. Please try again later.';
+      toast(errorMessage, 'error');
+    } finally {
+      setModeLoading(false);
+    }
+  };
 
   const handleFacebookConnect = () => {
     clearError();
@@ -671,6 +734,33 @@ const Settings = () => {
 
       {activeTab === 'general' && (
         <div className="space-y-6 max-w-4xl">
+          {/* Mode Toggle Section (Story 8.7) */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-start space-x-4">
+              <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-gray-900">Bot Mode</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Choose between a general chatbot or e-commerce assistant mode.
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Mode changes will refresh the page to update all features.
+                </p>
+                <div className="mt-4">
+                  <ModeToggle
+                    currentMode={currentMode}
+                    onModeChange={handleModeChangeRequest}
+                    loading={modeLoading}
+                    fetching={modeFetching}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Export Section */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <div className="flex items-start space-x-4">
               <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
@@ -729,6 +819,21 @@ const Settings = () => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Mode Change Dialog (Story 8.7) */}
+      {targetMode && (
+        <ModeChangeDialog
+          isOpen={modeDialogOpen}
+          onClose={() => {
+            setModeDialogOpen(false);
+            setTargetMode(null);
+          }}
+          onConfirm={handleModeChangeConfirm}
+          currentMode={currentMode}
+          targetMode={targetMode}
+          loading={modeLoading}
+        />
       )}
     </div>
   );

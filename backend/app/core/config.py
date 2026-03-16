@@ -57,9 +57,9 @@ def settings() -> dict[str, Any]:
         "APP_VERSION": "0.1.0",
         "DEBUG": is_debug,
         "API_PREFIX": "/api/v1",
-        # Database
+        # Database (Docker PostgreSQL 17 with pgvector on port 5433)
         "DATABASE_URL": os.getenv(
-            "DATABASE_URL", "postgresql+asyncpg://developer:@localhost:5432/shop_dev"
+            "DATABASE_URL", "postgresql+asyncpg://developer:developer@localhost:5433/shop_dev"
         ),
         "DATABASE_ECHO": os.getenv("DATABASE_ECHO", "false").lower() == "true",
         # Redis
@@ -128,6 +128,13 @@ def settings() -> dict[str, Any]:
         # GLM-4.7 Configuration
         "GLM_API_KEY": os.getenv("GLM_API_KEY", ""),
         "GLM_DEFAULT_MODEL": os.getenv("GLM_DEFAULT_MODEL", "glm-4-flash"),
+        # Embedding Service Configuration (Story 8-4)
+        "EMBEDDING_PROVIDER": os.getenv("EMBEDDING_PROVIDER", "openai"),
+        "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+        "EMBEDDING_DIMENSION": int(os.getenv("EMBEDDING_DIMENSION", "1536")),
+        "EMBEDDING_RATE_LIMIT_RPM": int(os.getenv("EMBEDDING_RATE_LIMIT_RPM", "3000")),
+        "EMBEDDING_RETRY_MAX_ATTEMPTS": int(os.getenv("EMBEDDING_RETRY_MAX_ATTEMPTS", "3")),
+        "EMBEDDING_RETRY_BACKOFF_FACTOR": float(os.getenv("EMBEDDING_RETRY_BACKOFF_FACTOR", "2.0")),
         # CORS
         "CORS_ORIGINS": os.getenv(
             "CORS_ORIGINS",

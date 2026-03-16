@@ -93,3 +93,75 @@ export async function completePrerequisites(page: Page) {
   // Note: expect is available in test context, not here
   // Tests should verify the button state separately
 }
+
+/**
+ * Set a value in localStorage using addInitScript with proper variable interpolation.
+ *
+ * CRITICAL: Playwright's addInitScript runs in browser context.
+ * Template literals like `${value}` won't interpolate - pass values as 2nd argument.
+ *
+ * @param page - Playwright Page object
+ * @param key - localStorage key
+ * @param value - Value to store (will be JSON.stringified)
+ *
+ * @example
+ * // ✅ CORRECT - Pass value as 2nd argument
+ * await setLocalStorageValue(page, 'onboardingMode', 'general');
+ *
+ * @example
+ * // ❌ WRONG - Template literal won't work
+ * await page.addInitScript(() => {
+ *   localStorage.setItem('mode', `${mode}`); // mode is undefined in browser!
+ * });
+ */
+export async function setLocalStorageValue(page: Page, key: string, value: unknown): Promise<void> {
+  await page.addInitScript(
+    ({ key, value }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+    },
+    { key, value }
+  );
+}
+
+/**
+ * Set multiple localStorage values using addInitScript.
+ *
+ * @param page - Playwright Page object
+ * @param values - Object with key-value pairs to store
+ *
+ * @example
+ * await setLocalStorageValues(page, {
+ *   onboardingMode: 'general',
+ *   merchantId: 123,
+ *   token: 'abc123'
+ * });
+ */
+export async function setLocalStorageValues(page: Page, values: Record<string, unknown>): Promise<void> {
+  await page.addInitScript(
+    (values) => {
+      Object.entries(values).forEach(([key, value]) => {
+        localStorage.setItem(key, JSON.stringify(value));
+      });
+    },
+    values
+  );
+}
+
+/**
+ * Mock a global variable in the browser window using addInitScript.
+ *
+ * @param page - Playwright Page object
+ * @param key - Window property name
+ * @param value - Value to assign
+ *
+ * @example
+ * await setWindowValue(page, '__TEST_MERCHANT_ID__', 123);
+ */
+export async function setWindowValue(page: Page, key: string, value: unknown): Promise<void> {
+  await page.addInitScript(
+    ({ key, value }) => {
+      (window as Record<string, unknown>)[key] = value;
+    },
+    { key, value }
+  );
+}

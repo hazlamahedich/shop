@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import structlog
 from fastapi import (
@@ -39,6 +39,7 @@ from app.schemas.knowledge_base import (
     DocumentDetail,
     DocumentStatusResponse,
     DocumentUploadResponse,
+    KnowledgeBaseStatsResponse,
 )
 from app.services.knowledge.chunker import ChunkingError, DocumentChunker
 
@@ -178,7 +179,7 @@ async def upload_document(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "upload",
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -292,7 +293,7 @@ async def list_documents(
             "data": {"documents": documents},
             "meta": {
                 "requestId": "list",
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -301,6 +302,66 @@ async def list_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list documents: {str(e)}",
+        )
+
+
+@router.get("/stats")
+async def get_knowledge_base_stats(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get knowledge base statistics for dashboard widget.
+
+    Returns total document count, status breakdown, and last upload date.
+    """
+    merchant_id = get_request_merchant_id(request)
+
+    try:
+        # Count documents by status
+        status_result = await db.execute(
+            select(KnowledgeDocument.status, func.count(KnowledgeDocument.id).label("count"))
+            .where(KnowledgeDocument.merchant_id == merchant_id)
+            .group_by(KnowledgeDocument.status)
+        )
+
+        status_counts = {row.status: row.count for row in status_result}
+        total_docs = sum(status_counts.values())
+
+        # Get last upload date
+        last_upload_result = await db.execute(
+            select(KnowledgeDocument.created_at)
+            .where(KnowledgeDocument.merchant_id == merchant_id)
+            .order_by(KnowledgeDocument.created_at.desc())
+            .limit(1)
+        )
+        last_upload_date = last_upload_result.scalar_one_or_none()
+
+        logger.info(
+            "kb_stats_fetched",
+            merchant_id=merchant_id,
+            total_docs=total_docs,
+            status_breakdown=status_counts,
+        )
+
+        return {
+            "data": KnowledgeBaseStatsResponse(
+                total_docs=total_docs,
+                processing_count=status_counts.get("processing", 0),
+                ready_count=status_counts.get("ready", 0),
+                error_count=status_counts.get("error", 0),
+                last_upload_date=last_upload_date,
+            ).model_dump(by_alias=True),
+            "meta": {
+                "requestId": "stats",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        }
+
+    except Exception as e:
+        logger.error("kb_stats_failed", merchant_id=merchant_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get knowledge base stats: {str(e)}",
         )
 
 
@@ -352,7 +413,7 @@ async def get_document(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "get",
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -420,7 +481,7 @@ async def get_document_status(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "status",
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -493,7 +554,7 @@ async def delete_document(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "delete",
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -512,80 +573,77 @@ async def delete_document(
         )
 
 
-@router.post("/{document_id}/reprocess")
-async def reprocess_document(
-    document_id: int,
+@router.post("/re-embed")
+async def trigger_reembedding(
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Manually trigger document reprocessing.
+    """Manually trigger re-embedding of all knowledge base documents.
 
-    Resets document status and triggers background embedding processing.
-    Useful for:
-    - Re-trying after embedding failures
-    - Re-processing with updated LLM configuration
+    This endpoint allows merchants to force re-embedding when:
+    - Testing embedding provider changes
+    - Recovering from embedding errors
+    - Preparing for a provider switch
     """
     merchant_id = get_request_merchant_id(request)
 
-    try:
-        # Query document
-        result = await db.execute(
-            select(KnowledgeDocument).where(
-                KnowledgeDocument.id == document_id,
-                KnowledgeDocument.merchant_id == merchant_id,
-            )
-        )
-        doc = result.scalar_one_or_none()
+    from app.services.rag.dimension_handler import DimensionHandler
+    from app.services.rag.reembedding_worker import trigger_reembedding_for_merchant
 
-        if not doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found",
-            )
+    # Mark all documents for re-embedding
+    doc_count = await DimensionHandler.mark_documents_for_reembedding(
+        db=db,
+        merchant_id=merchant_id,
+    )
 
-        # Reset status to pending
-        doc.status = DocumentStatus.PENDING.value
-        doc.error_message = None
-        await db.commit()
-
-        # Trigger background embedding processing
-        from app.services.rag.processing_task import process_document_background
-
+    if doc_count > 0:
+        # Trigger background task
         background_tasks.add_task(
-            process_document_background,
-            document_id=document_id,
+            trigger_reembedding_for_merchant,
             merchant_id=merchant_id,
         )
 
-        logger.info(
-            "document_reprocessing_triggered",
-            merchant_id=merchant_id,
-            document_id=document_id,
-        )
+    logger.info(
+        "reembedding_triggered",
+        merchant_id=merchant_id,
+        document_count=doc_count,
+    )
 
-        return {
-            "data": {
-                "reprocessing": True,
-                "document_id": document_id,
-                "message": "Document reprocessing triggered",
-            },
-            "meta": {
-                "requestId": "reprocess",
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
-        }
+    return {
+        "data": {
+            "message": f"Re-embedding triggered for {doc_count} documents",
+            "documentCount": doc_count,
+        },
+        "meta": {
+            "requestId": "reembed",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    }
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            "document_reprocess_failed",
-            merchant_id=merchant_id,
-            document_id=document_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to reprocess document: {str(e)}",
-        )
+
+@router.get("/re-embed/status")
+async def get_reembedding_status(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get re-embedding progress for merchant.
+
+    Returns status counts and progress information for all documents.
+    """
+    merchant_id = get_request_merchant_id(request)
+
+    from app.services.rag.dimension_handler import DimensionHandler
+
+    status = await DimensionHandler.get_reembedding_status(
+        db=db,
+        merchant_id=merchant_id,
+    )
+
+    return {
+        "data": status,
+        "meta": {
+            "requestId": "reembed-status",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    }
