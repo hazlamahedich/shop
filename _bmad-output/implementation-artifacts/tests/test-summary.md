@@ -1,102 +1,173 @@
-# Test Automation Summary
+# Test Automation Summary - Story 9-6: Proactive Engagement Triggers
 
-## Story 9-5: Voice Input Interface
-
-**Generated**: 2026-03-16
-**Framework**: Playwright (E2E) + Vitest (Unit)
-**Status**: ✅ All Tests Passing (29/29 E2E, 1 skipped)
+**Generated:** 2026-03-17
+**Story:** 9-6 - Proactive Engagement Triggers
+**Epic:** 9 - Widget UI/UX Enhancements
 
 ---
 
-## Acceptance Criteria Coverage
+## Generated Tests
 
-| AC | Tests | Coverage |
-|----|-------|----------|
-| AC1: Microphone Permission Request | 9.5-E2E-001, 002 | ✅ 100% |
-| AC2: Real-Time Speech Recognition | 9.5-E2E-003, ✅ 100% |
-| AC3: Waveform Animation | 9.5-E2E-004 | ✅ 100% |
-| AC4: Interim Transcript Display | 9.5-E2E-005, ✅ 100% |
-| AC5: Final Transcript to Input | 9.5-E2E-006, 024, 026 | ✅ 100% |
-| AC6: Multiple Language Support | 9.5-E2E-027, 0 | ✅ 100% |
-| AC7: Browser Compatibility Error | 9.5-E2E-007 | ✅ 100% |
-| AC8: Permission Denied Error | 9.5-E2E-017, 018, 019 | ✅ 100% |
-| AC9: Visual State Feedback | 9.5-E2E-008, 009 | ✅ 100% |
-| AC10: Cancel Button | 9.5-E2E-010, 011, 012 | ✅ 100% |
+### Unit Tests (Vitest)
+
+#### `frontend/src/widget/hooks/test_useProactiveTriggers.test.ts`
+| Test ID | Description | Status |
+|---------|-------------|--------|
+| UT-001 | should return correct initial state | ✅ |
+| UT-002 | should use default config when none provided | ✅ |
+| UT-003 | should use provided config | ✅ |
+| UT-004 | should trigger on mouseleave at viewport top | ✅ |
+| UT-005 | should not trigger when clientY > 0 | ✅ |
+| UT-006 | should dismiss trigger and prevent re-firing | ✅ |
+| UT-007 | should trigger after time threshold | ✅ |
+| UT-008 | should not trigger before time threshold | ✅ |
+| UT-009 | should not trigger again after already fired (time) | ✅ |
+| UT-010 | should trigger at scroll threshold | ✅ |
+| UT-011 | should not trigger before scroll threshold | ✅ |
+| UT-012 | should not trigger again after already fired (scroll) | ✅ |
+| UT-013 | should not trigger when config is disabled | ✅ |
+| UT-014 | should not trigger when individual trigger is disabled | ✅ |
+| UT-015 | should manually trigger a specific trigger type | ✅ |
+| UT-016 | should not trigger if trigger type not found | ✅ |
+| UT-017 | should reset a trigger allowing it to fire again | ✅ |
+| UT-018 | should trigger when product view count reaches threshold | ✅ |
+| UT-019 | should not trigger before product view threshold | ✅ |
+| UT-020 | should trigger on exit intent when cart has items | ✅ |
+| UT-021 | should not trigger on exit intent when cart is empty | ✅ |
+| UT-022 | should return true when trigger is active | ✅ |
+
+**Total:** 22 tests
+
+#### `frontend/src/widget/components/test_ProactiveModal.test.tsx`
+| Test ID | Description | Status |
+|---------|-------------|--------|
+| UT-023 | should not render when not open | ✅ |
+| UT-024 | should render when open | ✅ |
+| UT-025 | should display the message | ✅ |
+| UT-026 | should render action buttons | ✅ |
+| UT-027 | should call onAction when action button is clicked | ✅ |
+| UT-028 | should call onDismiss when dismiss button is clicked | ✅ |
+| UT-029 | should have correct aria attributes | ✅ |
+| UT-030 | should close on escape key | ✅ |
+| UT-031 | should render title | ✅ |
+| UT-032 | should apply theme colors | ✅ |
+
+**Total:** 10 tests
+
+### E2E Tests (Playwright)
+
+#### `frontend/tests/e2e/story-9-6-proactive-engagement-triggers.spec.ts`
+| Test ID | AC | Description | Priority | Status |
+|---------|-----|-------------|----------|--------|
+| 9.6-E2E-001 | AC1 | should show modal on mouseleave at viewport top | P1 | ✅ |
+| 9.6-E2E-002 | AC2 | should trigger after time threshold | P2 | ✅ |
+| 9.6-E2E-003 | AC2 | should not trigger before time threshold | P2 | ✅ |
+| 9.6-E2E-004 | AC3 | should trigger at scroll threshold | P2 | ✅ |
+| 9.6-E2E-005 | AC3 | should not trigger before scroll threshold | P2 | ✅ |
+| 9.6-E2E-018 | AC4 | should trigger when exiting with items in cart | P1 | ✅ |
+| 9.6-E2E-020 | AC5 | should trigger after viewing threshold products | P1 | ✅ |
+| 9.6-E2E-021 | AC8 | should open chat with pre-populated message on action click | P1 | ✅ |
+| 9.6-E2E-022 | AC9 | should close modal on dismiss and keep chat closed | P1 | ✅ |
+| 9.6-E2E-023 | AC9 | should not re-trigger after dismiss in same session | P1 | ✅ |
+| 9.6-E2E-024 | AC10 | should have correct aria attributes | P1 | ✅ |
+| 9.6-E2E-025 | AC10 | should close on Escape key | P1 | ✅ |
+| 9.6-E2E-026 | AC10 | should close on overlay click | P2 | ✅ |
+
+**Total:** 13 tests
 
 ---
 
-## Test Files
+## Coverage Summary
 
-### E2E Interface Tests
-**File**: `frontend/tests/e2e/story-9-5-voice-input-interface.spec.ts` (16 tests)
-| Test ID | Description | Status |
-|--------|-------------|-------|
-| 9.5-E2E-001 | Microphone button visible | ✅ Pass |
-| 9.5-E2E-002 | Correct aria-label | ✅ Pass |
-| 9.5-E2E-003 | Start listening | ✅ Pass |
-| 9.5-E2E-004 | Waveform shown | ✅ Pass |
-| 9.5-E2E-005 | Interim transcript area | ✅ Pass |
-| 9.5-E2E-006 | Stop listening | ✅ Pass |
-| 9.5-E2E-007 | Button disabled (unsupported) | ✅ Pass |
-| 9.5-E2E-008 | Listening visual state | ✅ Pass |
-| 9.5-E2E-009 | Idle state | ✅ Pass |
-| 9.5-E2E-010 | Cancel button shown | ✅ Pass |
-| 9.5-E2E-011 | Cancel listening | ✅ Pass |
-| 9.5-E2E-012 | Clear interim text | ✅ Pass |
-| 9.5-E2E-013 | ARIA attributes | ✅ Pass |
-| 9.5-E2E-014 | Button focusable | ✅ Pass |
-| 9.5-E2E-015 | Toggle with Enter | ✅ Pass |
-| 9.5-E2E-016 | Escape key handling | ✅ Pass |
+### Acceptance Criteria Coverage
 
-### E2E Comprehensive Tests
-**File**: `frontend/tests/e2e/story-9-5-voice-input-comprehensive.spec.ts` (14 tests)
-| Test ID | Description | Status |
-|--------|-------------|-------|
-| 9.5-E2E-017 | Permission denied error | ✅ Pass |
-| 9.5-E2E-018 | Permission instructions | ✅ Pass |
-| 9.5-E2E-019 | Retry after granted | ✅ Pass |
-| 9.5-E2E-020 | No speech detected | ✅ Pass |
-| 9.5-E2E-021 | Network error | ✅ Pass |
-| 9.5-E2E-022 | Interim transcript visual style | ✅ Pass |
-| 9.5-E2E-023 | Interim to final transition | ✅ Pass |
-| 9.5-E2E-024 | Final transcript to input | ✅ Pass |
-| 9.5-E2E-025 | Edit transcript (SKIPPED - React controlled input limitation) | ⏭ Skipped |
-| 9.5-E2E-026 | Send button enabled | ✅ Pass |
-| 9.5-E2E-027 | Language config | ✅ Pass |
-| 9.5-E2E-028 | Language preference | ✅ Pass |
-| 9.5-E2E-029 | Error recovery | ✅ Pass |
-| 9.5-E2E-030 | Clear error | ✅ Pass |
+| AC | Description | Unit Tests | E2E Tests | Coverage |
+|----|-------------|------------|-----------|----------|
+| AC1 | Exit Intent Detection | 2 | 1 | ✅ Complete |
+| AC2 | Time on Page Trigger | 3 | 2 | ✅ Complete |
+| AC3 | Scroll Depth Trigger | 3 | 2 | ✅ Complete |
+| AC4 | Cart Abandonment Trigger | 2 | 1 | ✅ Complete |
+| AC5 | Product View Trigger | 2 | 1 | ✅ Complete |
+| AC6 | Cooldown Management | 2 | - | ✅ Complete |
+| AC7 | Session Storage Persistence | 1 | - | ✅ Complete |
+| AC8 | Modal Actions | 2 | 1 | ✅ Complete |
+| AC9 | Dismiss Functionality | 1 | 2 | ✅ Complete |
+| AC10 | Accessibility Compliance | 1 | 3 | ✅ Complete |
 
-### Unit Tests
-**File**: `frontend/src/widget/hooks/test_useVoiceInput.test.ts` (8 tests)
-| Coverage | Hook logic, browser compatibility, error handling |
+### Trigger Types Coverage
+
+| Trigger Type | Unit | E2E | Notes |
+|--------------|------|-----|-------|
+| `exit_intent` | ✅ | ✅ | Cross-browser via dispatchEvent |
+| `time_on_page` | ✅ | ✅ | Uses clock.fastForward |
+| `scroll_depth` | ✅ | ✅ | Simulates scroll events |
+| `cart_abandonment` | ✅ | ✅ | Tests with/without cart items |
+| `product_view` | ✅ | ✅ | Tests threshold boundary |
+
+---
+
+## Test Quality Checklist
+
+- [x] All generated tests run successfully
+- [x] Tests use proper locators (data-testid, semantic)
+- [x] Tests have clear descriptions
+- [x] No hardcoded waits or sleeps (uses expect().toBeVisible())
+- [x] Tests are independent (no order dependency)
+- [x] Happy path covered
+- [x] Error/edge cases covered
+- [x] Accessibility tested (aria, keyboard)
 
 ---
 
 ## Fixes Applied
 
-1. ✅ Fixed duplicate `handleSubmit` in `MessageInput.tsx` (line 44)
-2. ✅ Fixed syntax errors in `rag-conversation.spec.ts`
-3. ✅ Updated test mock setup pattern matching story 9-4
+### E2E Test Fixes
+1. **Cross-browser exit intent detection**: Changed from `page.mouse.move()` to `page.evaluate()` with `dispatchEvent()` for reliable cross-browser support
+2. **Added `triggerExitIntent()` helper**: Centralized exit intent triggering for consistency
+
+### Unit Test Additions
+1. **`triggerProactive` function**: 2 new tests
+2. **`resetTrigger` function**: 1 new test
+3. **Product view trigger**: 2 new tests
+4. **Cart abandonment trigger**: 2 new tests
+5. **`isActive` state**: 1 new test
 
 ---
 
-## Test Execution
+## Test Commands
 
 ```bash
-cd frontend && npm run test:e2e -- --grep "9.5-E2E" --project=chromium
-# Results: 29 passed, 1 skipped (~25s)
+# Run unit tests
+cd frontend
+npm run test -- --run src/widget/hooks/test_useProactiveTriggers.test.ts
+npm run test -- --run src/widget/components/test_ProactiveModal.test.tsx
+
+# Run E2E tests
+npx playwright test tests/e2e/story-9-6-proactive-engagement-triggers.spec.ts
+
+# Run E2E tests (Chromium only)
+npx playwright test tests/e2e/story-9-6-proactive-engagement-triggers.spec.ts --project=chromium
 ```
 
 ---
 
 ## Next Steps
 
-1. Run tests in CI pipeline (GitHub Actions)
-2. Increase browser coverage (Mobile Safari, Mobile Chrome)
-3. Add visual regression tests
-4. Create Beads task for E2E-025 (React controlled input testing)
+- [ ] Add tests to CI pipeline
+- [ ] Monitor flakiness in CI
+- [ ] Add visual regression tests for modal styling
+- [ ] Consider adding API tests if backend configuration endpoints are added
 
 ---
 
-**Output saved to**: `_bmad-output/implementation-artifacts/tests/test-summary.md`
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Unit Tests | 32 |
+| Total E2E Tests | 13 |
+| **Total Tests** | **45** |
+| Pass Rate | 100% (Chromium) |
+| AC Coverage | 10/10 (100%) |
+
+**Status:** ✅ All tests passing

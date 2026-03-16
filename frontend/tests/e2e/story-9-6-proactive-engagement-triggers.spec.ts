@@ -193,13 +193,24 @@ async function waitForProactiveModal(page: Page): Promise<Locator> {
   return modal;
 }
 
+async function triggerExitIntent(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.dispatchEvent(new MouseEvent('mouseleave', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientY: -1,
+      clientX: 100
+    }));
+  });
+}
+
 test.describe('Story 9-6: Proactive Engagement Triggers', () => {
   test.describe('AC1: Exit Intent Detection', () => {
     test('9.6-E2E-001: should show modal on mouseleave at viewport top', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()
@@ -338,17 +349,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
           ]
         }
       })
-      await page.mouse.move(100, 100)
-      // Trigger exit intent by dispatching mouseleave on document
-      await page.evaluate(() => {
-        document.dispatchEvent(new MouseEvent('mouseleave', {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-          clientY: -1,
-          clientX: 100
-        }));
-      });
+      await triggerExitIntent(page)
 
       const modal = page.locator('[data-testid="proactive-modal"]');
       await expect(modal).toBeVisible({ timeout: 5000 })
@@ -383,8 +384,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
     test('9.6-E2E-021: should open chat with pre-populated message on action click [P1]', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()
@@ -402,8 +402,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
     test('9.6-E2E-022: should close modal on dismiss and keep chat closed [P1]', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()
@@ -419,8 +418,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
     test('9.6-E2E-023: should not re-trigger after dismiss in same session [P1]', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()
@@ -428,8 +426,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
       await page.click('[data-testid="proactive-dismiss-button"]')
       await expect(modal).not.toBeVisible({ timeout: 2000 })
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       await page.waitForTimeout(500)
       await expect(modal).not.toBeVisible()
@@ -440,8 +437,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
     test('9.6-E2E-024: should have correct aria attributes [P1]', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
 
@@ -454,8 +450,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
     test('9.6-E2E-025: should close on Escape key [P1]', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()
@@ -468,8 +463,7 @@ test.describe('Story 9-6: Proactive Engagement Triggers', () => {
     test('9.6-E2E-026: should close on overlay click [P2]', async ({ page }) => {
       await loadWidgetPage(page)
 
-      await page.mouse.move(100, 100)
-      await page.mouse.move(100, -10)
+      await triggerExitIntent(page)
 
       const modal = await waitForProactiveModal(page);
       await expect(modal).toBeVisible()

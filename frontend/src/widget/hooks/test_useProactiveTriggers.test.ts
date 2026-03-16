@@ -457,4 +457,257 @@ describe('useProactiveTriggers', () => {
       expect(result.current.activeTrigger).toBeNull();
     });
   });
+
+  describe('triggerProactive function', () => {
+    it('should manually trigger a specific trigger type', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'exit_intent',
+            enabled: true,
+            message: 'Test exit intent',
+            actions: [{ text: 'OK' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result } = renderHook(() => useProactiveTriggers({ config }));
+
+      act(() => {
+        result.current.triggerProactive('exit_intent');
+      });
+
+      expect(result.current.activeTrigger).not.toBeNull();
+      expect(result.current.activeTrigger?.type).toBe('exit_intent');
+    });
+
+    it('should not trigger if trigger type not found', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'exit_intent',
+            enabled: true,
+            message: 'Test exit intent',
+            actions: [{ text: 'OK' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result } = renderHook(() => useProactiveTriggers({ config }));
+
+      act(() => {
+        result.current.triggerProactive('time_on_page');
+      });
+
+      expect(result.current.activeTrigger).toBeNull();
+    });
+  });
+
+  describe('resetTrigger function', () => {
+    it('should reset a trigger allowing it to fire again', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'exit_intent',
+            enabled: true,
+            message: 'Test exit intent',
+            actions: [{ text: 'OK' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result } = renderHook(() => useProactiveTriggers({ config }));
+
+      const mouseLeaveEvent = new MouseEvent('mouseleave', {
+        bubbles: true,
+        cancelable: true,
+        clientY: -10,
+      } as MouseEventInit);
+      Object.defineProperty(mouseLeaveEvent, 'clientY', { value: -10, writable: false });
+
+      act(() => {
+        document.dispatchEvent(mouseLeaveEvent);
+      });
+
+      expect(result.current.activeTrigger).not.toBeNull();
+
+      act(() => {
+        result.current.dismissTrigger();
+      });
+
+      expect(result.current.dismissedTriggers.has('exit_intent')).toBe(true);
+
+      act(() => {
+        result.current.resetTrigger('exit_intent');
+      });
+
+      expect(result.current.dismissedTriggers.has('exit_intent')).toBe(false);
+    });
+  });
+
+  describe('product view trigger', () => {
+    it('should trigger when product view count reaches threshold', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'product_view',
+            enabled: true,
+            threshold: 3,
+            message: 'You viewed 3 products!',
+            actions: [{ text: 'Get Help' }],
+            cooldown: 60,
+          },
+        ],
+      };
+
+      const { result, rerender } = renderHook(
+        ({ productViewCount }) => useProactiveTriggers({ config, productViewCount }),
+        { initialProps: { productViewCount: 0 } }
+      );
+
+      expect(result.current.activeTrigger).toBeNull();
+
+      act(() => {
+        rerender({ productViewCount: 3 });
+      });
+
+      expect(result.current.activeTrigger).not.toBeNull();
+      expect(result.current.activeTrigger?.type).toBe('product_view');
+    });
+
+    it('should not trigger before product view threshold', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'product_view',
+            enabled: true,
+            threshold: 5,
+            message: 'Keep shopping!',
+            actions: [{ text: 'OK' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result, rerender } = renderHook(
+        ({ productViewCount }) => useProactiveTriggers({ config, productViewCount }),
+        { initialProps: { productViewCount: 0 } }
+      );
+
+      act(() => {
+        rerender({ productViewCount: 3 });
+      });
+
+      expect(result.current.activeTrigger).toBeNull();
+    });
+  });
+
+  describe('cart abandonment trigger', () => {
+    it('should trigger on exit intent when cart has items', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'cart_abandonment',
+            enabled: true,
+            message: 'Items in cart!',
+            actions: [{ text: 'Checkout' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result } = renderHook(() =>
+        useProactiveTriggers({ config, cartHasItems: true })
+      );
+
+      const mouseLeaveEvent = new MouseEvent('mouseleave', {
+        bubbles: true,
+        cancelable: true,
+        clientY: -10,
+      } as MouseEventInit);
+      Object.defineProperty(mouseLeaveEvent, 'clientY', { value: -10, writable: false });
+
+      act(() => {
+        document.dispatchEvent(mouseLeaveEvent);
+      });
+
+      expect(result.current.activeTrigger).not.toBeNull();
+      expect(result.current.activeTrigger?.type).toBe('cart_abandonment');
+    });
+
+    it('should not trigger on exit intent when cart is empty', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'cart_abandonment',
+            enabled: true,
+            message: 'Items in cart!',
+            actions: [{ text: 'Checkout' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result } = renderHook(() =>
+        useProactiveTriggers({ config, cartHasItems: false })
+      );
+
+      const mouseLeaveEvent = new MouseEvent('mouseleave', {
+        bubbles: true,
+        cancelable: true,
+        clientY: -10,
+      } as MouseEventInit);
+      Object.defineProperty(mouseLeaveEvent, 'clientY', { value: -10, writable: false });
+
+      act(() => {
+        document.dispatchEvent(mouseLeaveEvent);
+      });
+
+      expect(result.current.activeTrigger).toBeNull();
+    });
+  });
+
+  describe('isActive state', () => {
+    it('should return true when trigger is active', () => {
+      const config: ProactiveEngagementConfig = {
+        enabled: true,
+        triggers: [
+          {
+            type: 'exit_intent',
+            enabled: true,
+            message: 'Test exit intent',
+            actions: [{ text: 'OK' }],
+            cooldown: 30,
+          },
+        ],
+      };
+
+      const { result } = renderHook(() => useProactiveTriggers({ config }));
+
+      expect(result.current.isActive).toBe(false);
+
+      const mouseLeaveEvent = new MouseEvent('mouseleave', {
+        bubbles: true,
+        cancelable: true,
+        clientY: -10,
+      } as MouseEventInit);
+      Object.defineProperty(mouseLeaveEvent, 'clientY', { value: -10, writable: false });
+
+      act(() => {
+        document.dispatchEvent(mouseLeaveEvent);
+      });
+
+      expect(result.current.isActive).toBe(true);
+    });
+  });
 });
