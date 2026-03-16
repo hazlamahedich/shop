@@ -458,6 +458,146 @@ function WidgetInner({ theme }: WidgetInnerProps) {
             transform: none;
           }
         }
+        
+        /* Voice Input Styles */
+        .voice-input-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .voice-input-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          border: none;
+          border-radius: 50%;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+          cursor: pointer;
+          transition: background-color 150ms ease, opacity 150ms ease;
+        }
+        .voice-input-button:hover:not(:disabled) {
+          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+        }
+        .voice-input-button:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .voice-input-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .voice-input-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .voice-input-button.listening {
+          background-color: #ef4444;
+          animation: voice-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes voice-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+          50% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        }
+        .voice-input-button.processing {
+          background-color: var(--widget-primary, #6366f1);
+        }
+        .voice-input-button.error {
+          background-color: #ef4444;
+        }
+        .waveform-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          height: 24px;
+        }
+        .waveform-bar {
+          width: 3px;
+          height: 24px;
+          background-color: white;
+          border-radius: 2px;
+          animation: waveform-pulse 1s ease-in-out infinite;
+        }
+        .waveform-bar:nth-child(1) { animation-delay: 0s; }
+        .waveform-bar:nth-child(2) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(5) { animation-delay: 0s; }
+        @keyframes waveform-pulse {
+          0%, 100% { transform: scaleY(0.5); }
+          50% { transform: scaleY(1); }
+        }
+        .voice-interim-transcript {
+          font-style: italic;
+          color: #6b7280;
+          font-size: 14px;
+          padding: 4px 12px;
+          min-height: 24px;
+        }
+        .voice-error-message {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          background-color: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+          color: #dc2626;
+          font-size: 13px;
+        }
+        .voice-cancel-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border: none;
+          border-radius: 50%;
+          background-color: #f3f4f6;
+          color: #6b7280;
+          cursor: pointer;
+          transition: background-color 150ms ease;
+        }
+        .voice-cancel-button:hover {
+          background-color: #e5e7eb;
+        }
+        .voice-cancel-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .voice-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: voice-spin 0.8s linear infinite;
+        }
+        @keyframes voice-spin {
+          to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .voice-input-button,
+          .voice-cancel-button,
+          .waveform-bar,
+          .voice-spinner {
+            animation: none !important;
+            transition: none !important;
+          }
+          .voice-input-button:active:not(:disabled) {
+            transform: none;
+          }
+          .voice-input-button.listening {
+            animation: none;
+          }
+          .waveform-bar {
+            transform: scaleY(0.75);
+          }
+        }
       `}</style>
       {state.isLoading ? (
         <div style={{

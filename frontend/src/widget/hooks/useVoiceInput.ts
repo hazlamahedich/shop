@@ -8,6 +8,7 @@ interface UseVoiceInputReturn {
   startListening: () => Promise<void>;
   stopListening: () => void;
   cancelListening: () => void;
+  setLanguage: (language: string) => void;
 }
 
 interface SpeechRecognitionEvent {
@@ -57,8 +58,37 @@ declare global {
   }
 }
 
+const VOICE_LANGUAGE_STORAGE_KEY = 'widget-voice-language';
+
+function getStoredLanguage(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(VOICE_LANGUAGE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredLanguage(language: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(VOICE_LANGUAGE_STORAGE_KEY, language);
+  } catch {
+    // localStorage not available
+  }
+}
+
 export function useVoiceInput(config: Partial<VoiceInputConfig> = {}): UseVoiceInputReturn {
-  const mergedConfig: VoiceInputConfig = { ...DEFAULT_VOICE_CONFIG, ...config };
+  // Load language from localStorage if not explicitly provided
+  const storedLanguage = React.useMemo(() => getStoredLanguage(), []);
+  const mergedConfig: VoiceInputConfig = React.useMemo(() => {
+    const base = { ...DEFAULT_VOICE_CONFIG, ...config };
+    // Use stored language if not explicitly provided in config
+    if (!config.language && storedLanguage) {
+      base.language = storedLanguage;
+    }
+    return base;
+  }, [config, storedLanguage]);
   
   const [state, setState] = React.useState<VoiceInputState>({
     isListening: false,
@@ -191,6 +221,14 @@ export function useVoiceInput(config: Partial<VoiceInputConfig> = {}): UseVoiceI
     }
   }, [isSupported, getSpeechRecognition, mergedConfig]);
   
+  const setLanguage = React.useCallback((language: string) => {
+    setStoredLanguage(language);
+    // Update recognition instance if active
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = language;
+    }
+  }, []);
+  
   const stopListening = React.useCallback(() => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
@@ -201,7 +239,7 @@ export function useVoiceInput(config: Partial<VoiceInputConfig> = {}): UseVoiceI
   const cancelListening = React.useCallback(() => {
     if (recognitionRef.current) {
       recognitionRef.current.abort();
-      recognitionRef.current = null;
+        recognitionRef.current = null;
     }
     setState(prev => ({
       ...prev,
@@ -226,5 +264,6 @@ export function useVoiceInput(config: Partial<VoiceInputConfig> = {}): UseVoiceI
     startListening,
     stopListening,
     cancelListening,
+    setLanguage,
   };
 }

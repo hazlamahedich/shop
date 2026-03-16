@@ -13,6 +13,7 @@ export interface VoiceInputProps {
     backgroundColor?: string;
     textColor?: string;
   };
+  onLanguageChange?: (language: string) => void;
 }
 
 function MicrophoneIcon({ className }: { className?: string }) {
@@ -31,20 +32,6 @@ function MicrophoneIcon({ className }: { className?: string }) {
       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
       <line x1="12" x2="12" y1="19" y2="22" />
-    </svg>
-  );
-}
-
-function StopIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-    >
-      <rect x="6" y="6" width="12" height="12" rx="2" />
     </svg>
   );
 }
@@ -89,10 +76,19 @@ export function VoiceInput({
   onInterimTranscript,
   onError,
   disabled = false,
-  theme,
+  theme: _theme,
+  onLanguageChange,
 }: VoiceInputProps) {
-  const { state, isSupported, startListening, stopListening, cancelListening } = useVoiceInput(config);
+  const { state, isSupported, startListening, stopListening, cancelListening, setLanguage } = useVoiceInput(config);
   const [showError, setShowError] = React.useState(false);
+  
+  // Expose setLanguage for parent components
+  React.useEffect(() => {
+    if (onLanguageChange) {
+      // Create a handler that can be called externally
+      (window as unknown as { __voiceInputSetLanguage?: (lang: string) => void }).__voiceInputSetLanguage = setLanguage;
+    }
+  }, [onLanguageChange, setLanguage]);
   
   React.useEffect(() => {
     if (state.error) {
@@ -216,6 +212,15 @@ export function VoiceInput({
         >
           <ErrorIcon />
           <span>{state.error}</span>
+          {state.error.toLowerCase().includes('permission') && (
+            <div
+              data-testid="voice-permission-instructions"
+              className="voice-permission-instructions"
+              style={{ fontSize: '0.75rem', marginTop: '4px' }}
+            >
+              To enable microphone access, please check your browser settings and allow microphone permissions for this site.
+            </div>
+          )}
           <button
             type="button"
             onClick={handleDismissError}

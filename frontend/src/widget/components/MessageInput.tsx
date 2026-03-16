@@ -31,14 +31,12 @@ export function MessageInput({
   
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
-      console.warn('[MessageInput] Enter key pressed, calling onSend');
       event.preventDefault();
       onSend();
     }
   };
 
   const handleSubmit = (event: React.FormEvent) => {
-    console.warn('[MessageInput] Form submitted, calling onSend');
     event.preventDefault();
     onSend();
   };
@@ -99,6 +97,7 @@ export function MessageInput({
         <input
           ref={inputRef}
           type="text"
+          data-testid="message-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -119,6 +118,7 @@ export function MessageInput({
         />
         <button
           type="submit"
+          data-testid="send-message-button"
           disabled={disabled || !value.trim()}
           aria-label="Send message"
           style={{
