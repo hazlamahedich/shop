@@ -1,29 +1,11 @@
 import * as React from 'react';
-import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply } from '../types/widget';
+import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup } from '../types/widget';
 import { ProductList } from './ProductCard';
 import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return date.toLocaleDateString();
-}
-
-function formatAbsoluteTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
+import { MessageAvatar } from './MessageAvatar';
+import { groupMessages, getGroupPosition } from '../utils/messageGrouping';
+import { formatRelativeTime, formatAbsoluteTime } from '../utils/timeFormatting';
 
 export interface MessageListProps {
   messages: WidgetMessage[];
@@ -57,6 +39,8 @@ export function MessageList({
   onQuickRepliesAvailable,
 }: MessageListProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  const groups = React.useMemo(() => groupMessages(messages), [messages]);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,10 +108,10 @@ export function MessageList({
         padding: 16,
       }}
     >
-      {messages.map((message) => (
-        <MessageBubble
-          key={message.messageId}
-          message={message}
+      {groups.map((group) => (
+        <MessageGroupComponent
+          key={group.id}
+          group={group}
           botName={botName}
           theme={theme}
           onAddToCart={onAddToCart}
@@ -144,8 +128,8 @@ export function MessageList({
   );
 }
 
-interface MessageBubbleProps {
-  message: WidgetMessage;
+interface MessageGroupComponentProps {
+  group: MessageGroup;
   botName: string;
   theme: WidgetTheme;
   onAddToCart?: (product: WidgetProduct) => void;
@@ -157,65 +141,8 @@ interface MessageBubbleProps {
   isCheckingOut?: boolean;
 }
 
-function renderMessageContent(content: string) {
-  const imageRegex = /(📷\s*Image:\s*)?(https?:\/\/[^\s]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s]*)?)/gi;
-  
-  const result: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match;
-  
-  while ((match = imageRegex.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      result.push(content.slice(lastIndex, match.index));
-    }
-    
-    const fullMatch = match[0];
-    const imageUrl = match[2];
-    
-    if (fullMatch.startsWith('📷')) {
-      result.push(
-        <div key={match.index} style={{ marginTop: 8, marginBottom: 8 }}>
-          <img 
-            src={imageUrl} 
-            alt="Product" 
-            style={{ 
-              maxWidth: '100%', 
-              borderRadius: 8,
-              display: 'block'
-            }}
-            loading="lazy"
-          />
-        </div>
-      );
-    } else {
-      result.push(
-        <div key={match.index} style={{ marginTop: 8, marginBottom: 8 }}>
-          <img 
-            src={imageUrl} 
-            alt="Product" 
-            style={{ 
-              maxWidth: '100%', 
-              borderRadius: 8,
-              display: 'block'
-            }}
-            loading="lazy"
-          />
-        </div>
-      );
-    }
-    
-    lastIndex = match.index + fullMatch.length;
-  }
-  
-  if (lastIndex < content.length) {
-    result.push(content.slice(lastIndex));
-  }
-  
-  return result.length > 0 ? result : content;
-}
-
-function MessageBubble({
-  message,
+function MessageGroupComponent({
+  group,
   botName,
   theme,
   onAddToCart,
@@ -225,71 +152,206 @@ function MessageBubble({
   addingProductId,
   removingItemId,
   isCheckingOut,
-}: MessageBubbleProps) {
-  const isUser = message.sender === 'user';
-  const isMerchant = message.sender === 'merchant';
-  const displayName = isMerchant ? 'Merchant' : botName;
+}: MessageGroupComponentProps) {
+  const isUser = group.sender === 'user';
+  const isSystem = group.sender === 'system';
+  const showAvatar = !isUser && !isSystem;
+  const displayName = group.sender === 'merchant' ? 'Merchant' : botName;
+
+  if (isSystem) {
+    return (
+      <div
+        data-testid="message-group"
+        className="message-group"
+        role="listitem"
+        style={{ marginBottom: 12 }}
+      >
+        {group.messages.map((message) => (
+          <div
+            key={message.messageId}
+            data-testid="message-bubble"
+            className="message-bubble message-bubble--system"
+            style={{
+              textAlign: 'center',
+              color: theme.textColor,
+              opacity: 0.7,
+              fontSize: 12,
+              padding: '4px 8px',
+            }}
+          >
+            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {renderMessageContent(message.content)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`message-bubble message-bubble--${message.sender}`}
+      data-testid="message-group"
+      className="message-group"
       role="listitem"
-      style={{
-        marginBottom: 12,
-      }}
+      style={{ marginBottom: 12 }}
     >
       <div
+        className={`message-group__row ${isUser ? 'message-group__row--user' : ''}`}
         style={{
           display: 'flex',
-          justifyContent: isUser ? 'flex-end' : 'flex-start',
+          alignItems: 'flex-end',
+          gap: 8,
+          flexDirection: isUser ? 'row-reverse' : 'row',
         }}
       >
+        {showAvatar && (
+          <div className="message-group__avatar" style={{ flexShrink: 0 }}>
+            <MessageAvatar
+              sender={group.sender as 'bot' | 'merchant'}
+              botName={botName}
+              theme={theme}
+              size={32}
+            />
+          </div>
+        )}
         <div
+          className="message-group__content"
           style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
             maxWidth: '75%',
-            padding: '10px 14px',
-            borderRadius: 16,
-            backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
-            color: isUser ? 'white' : theme.textColor,
-            borderBottomRightRadius: isUser ? 4 : 16,
-            borderBottomLeftRadius: isUser ? 16 : 4,
           }}
         >
-          {!isUser && (
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                marginBottom: 4,
-                opacity: 0.8,
-              }}
-            >
-              {displayName}
-            </div>
-          )}
-          <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {renderMessageContent(message.content)}
-          </div>
+          {group.messages.map((message, index) => {
+            const position = getGroupPosition(group, index);
+            const isFirst = position === 'first' || position === 'single';
+            const isLast = position === 'last' || position === 'single';
+
+            return (
+              <div key={message.messageId}>
+                <MessageBubbleInGroup
+                  message={message}
+                  sender={group.sender}
+                  position={position}
+                  displayName={isFirst ? displayName : undefined}
+                  theme={theme}
+                  showRichContent={isLast}
+                  onAddToCart={onAddToCart}
+                  onProductClick={onProductClick}
+                  onRemoveFromCart={onRemoveFromCart}
+                  onCheckout={onCheckout}
+                  addingProductId={addingProductId}
+                  removingItemId={removingItemId}
+                  isCheckingOut={isCheckingOut}
+                />
+                {isLast && (
+                  <div
+                    data-testid="message-timestamp"
+                    className={`message-bubble__timestamp message-bubble__timestamp--${isUser ? 'user' : 'bot'}`}
+                    title={formatAbsoluteTime(message.createdAt)}
+                    style={{
+                      fontSize: 10,
+                      color: theme.textColor,
+                      opacity: 0.5,
+                      marginTop: 2,
+                      textAlign: isUser ? 'right' : 'left',
+                      marginRight: isUser ? 4 : 0,
+                      marginLeft: isUser ? 0 : 4,
+                    }}
+                  >
+                    <span data-testid="relative-time">{formatRelativeTime(message.createdAt)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface MessageBubbleInGroupProps {
+  message: WidgetMessage;
+  sender: 'user' | 'bot' | 'merchant' | 'system';
+  position: 'first' | 'middle' | 'last' | 'single';
+  displayName?: string;
+  theme: WidgetTheme;
+  showRichContent: boolean;
+  onAddToCart?: (product: WidgetProduct) => void;
+  onProductClick?: (product: WidgetProduct) => void;
+  onRemoveFromCart?: (variantId: string) => void;
+  onCheckout?: () => void;
+  addingProductId?: string | null;
+  removingItemId?: string | null;
+  isCheckingOut?: boolean;
+}
+
+function MessageBubbleInGroup({
+  message,
+  sender,
+  position,
+  displayName,
+  theme,
+  showRichContent,
+  onAddToCart,
+  onProductClick,
+  onRemoveFromCart,
+  onCheckout,
+  addingProductId,
+  removingItemId,
+  isCheckingOut,
+}: MessageBubbleInGroupProps) {
+  const isUser = sender === 'user';
+
+  const getBorderRadius = (): string => {
+    if (position === 'single') return '16px';
+    if (position === 'first') return isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px';
+    if (position === 'middle') return '4px';
+    if (position === 'last') return isUser ? '16px 4px 4px 16px' : '4px 4px 16px 16px';
+    return '16px';
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div
-        className="message-timestamp"
-        title={formatAbsoluteTime(message.createdAt)}
+        data-testid="message-bubble"
+        className={`message-bubble message-bubble--${position} message-bubble--${isUser ? 'user' : 'bot'}`}
         style={{
-          fontSize: 10,
-          color: theme.textColor,
-          opacity: 0.5,
-          textAlign: isUser ? 'right' : 'left',
-          marginTop: 2,
-          marginRight: isUser ? 4 : 0,
-          marginLeft: isUser ? 0 : 4,
+          padding: '10px 14px',
+          borderRadius: getBorderRadius(),
+          backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
+          color: isUser ? 'white' : theme.textColor,
+          wordBreak: 'break-word',
         }}
       >
-        {formatRelativeTime(message.createdAt)}
+        {displayName && (
+          <div
+            className="message-bubble__sender"
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              marginBottom: 4,
+              opacity: 0.8,
+            }}
+          >
+            {displayName}
+          </div>
+        )}
+        <div
+          className="message-bubble__content"
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        >
+          {renderMessageContent(message.content)}
+        </div>
       </div>
 
-      {!isUser && message.products && message.products.length > 0 && (
-        <div style={{ maxWidth: '100%', marginTop: 8 }}>
+      {showRichContent && !isUser && message.products && message.products.length > 0 && (
+        <div
+          className="message-bubble__rich-content"
+          style={{ maxWidth: '100%', marginTop: 8 }}
+        >
           {message.products.length >= 3 ? (
             <ProductCarousel
               products={message.products}
@@ -310,8 +372,11 @@ function MessageBubble({
         </div>
       )}
 
-      {!isUser && message.cart && (
-        <div style={{ maxWidth: '100%', marginTop: 8 }}>
+      {showRichContent && !isUser && message.cart && (
+        <div
+          className="message-bubble__rich-content"
+          style={{ maxWidth: '100%', marginTop: 8 }}
+        >
           <CartView
             cart={message.cart}
             theme={theme}
@@ -323,7 +388,7 @@ function MessageBubble({
         </div>
       )}
 
-      {!isUser && message.checkoutUrl && (
+      {showRichContent && !isUser && message.checkoutUrl && (
         <div style={{ marginTop: 8 }}>
           <a
             href={message.checkoutUrl}
@@ -346,4 +411,44 @@ function MessageBubble({
       )}
     </div>
   );
+}
+
+function renderMessageContent(content: string) {
+  const imageRegex = /(📷\s*Image:\s*)?(https?:\/\/[^\s]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s]*)?)/gi;
+
+  const result: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = imageRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      result.push(content.slice(lastIndex, match.index));
+    }
+
+    const fullMatch = match[0];
+    const imageUrl = match[2];
+
+    result.push(
+      <div key={match.index} style={{ marginTop: 8, marginBottom: 8 }}>
+        <img
+          src={imageUrl}
+          alt="Product"
+          style={{
+            maxWidth: '100%',
+            borderRadius: 8,
+            display: 'block',
+          }}
+          loading="lazy"
+        />
+      </div>
+    );
+
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  if (lastIndex < content.length) {
+    result.push(content.slice(lastIndex));
+  }
+
+  return result.length > 0 ? result : content;
 }

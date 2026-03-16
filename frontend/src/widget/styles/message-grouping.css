@@ -1,0 +1,126 @@
+.message-group {
+  margin-bottom: 12px;
+}
+
+.message-group__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.message-group__row--user {
+  flex-direction: row-reverse;
+}
+
+.message-group__avatar {
+  flex-shrink: 0;
+}
+
+.message-group__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 75%;
+}
+
+.message-bubble {
+  padding: 10px 14px;
+  word-break: break-word;
+  animation: message-fade-in 0.2s ease-out;
+}
+
+.message-bubble--first.message-bubble--bot {
+  border-radius: 16px 16px 16px 4px;
+}
+
+.message-bubble--first.message-bubble--user {
+  border-radius: 16px 16px 4px 16px;
+}
+
+.message-bubble--middle.message-bubble--bot,
+.message-bubble--middle.message-bubble--user {
+  border-radius: 4px;
+}
+
+.message-bubble--last.message-bubble--bot {
+  border-radius: 4px 4px 16px 16px;
+}
+
+.message-bubble--last.message-bubble--user {
+  border-radius: 16px 4px 4px 16px;
+}
+
+.message-bubble--single.message-bubble--bot,
+.message-bubble--single.message-bubble--user {
+  border-radius: 16px;
+}
+
+.message-bubble--bot {
+  background-color: var(--widget-bot-bubble);
+  color: var(--widget-text);
+}
+
+.message-bubble--user {
+  background-color: var(--widget-user-bubble);
+  color: white;
+}
+
+.message-bubble--system {
+  background-color: transparent;
+  color: var(--widget-text);
+  opacity: 0.7;
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 8px;
+}
+
+.message-bubble__sender {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.message-bubble__content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-bubble__timestamp {
+  font-size: 10px;
+  color: var(--widget-text);
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+.message-bubble__timestamp--user {
+  text-align: right;
+  margin-right: 4px;
+}
+
+.message-bubble__timestamp--bot {
+  text-align: left;
+  margin-left: 4px;
+}
+
+.message-bubble__rich-content {
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+@keyframes message-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-bubble {
+    animation: none;
+  }
+}

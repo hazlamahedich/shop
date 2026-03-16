@@ -59,11 +59,7 @@ class VoiceInputConfig(BaseSchema):
 
 
 TriggerType = Literal[
-    'exit_intent',
-    'time_on_page',
-    'scroll_depth',
-    'cart_abandonment',
-    'product_view'
+    "exit_intent", "time_on_page", "scroll_depth", "cart_abandonment", "product_view"
 ]
 
 
@@ -106,7 +102,9 @@ class ProactiveTriggerSchema(BaseSchema):
     actions: List[ProactiveTriggerActionSchema] = Field(
         default_factory=list, description="Action buttons"
     )
-    cooldown: int = Field(ge=1, le=1440, default=30, description="Cooldown in minutes (1 min - 24 hours)"
+    cooldown: int = Field(
+        ge=1, le=1440, default=30, description="Cooldown in minutes (1 min - 24 hours)"
+    )
 
 
 class ProactiveEngagementConfigSchema(BaseSchema):

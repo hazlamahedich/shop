@@ -4,6 +4,18 @@ import carouselStyles from '../styles/carousel.css?inline';
 import quickReplyStyles from '../styles/quick-reply.css?inline';
 import voiceInputStyles from '../styles/voice-input.css?inline';
 import proactiveModalStyles from '../styles/proactive-modal.css?inline';
+import messageGroupingStyles from '../styles/message-grouping.css?inline';
+
+/**
+ * Shadow DOM Style Injection Utilities
+ *
+ * NOTE: The widget currently renders directly to a DOM container (not Shadow DOM).
+ * These inject* functions are prepared for future Shadow DOM support.
+ * Current implementation uses inline <style> tags in Widget.tsx as the primary
+ * style injection mechanism.
+ *
+ * When Shadow DOM is implemented, call these functions after creating the shadow root.
+ */
 
 const THEME_STYLE_ID = 'widget-theme-variables';
 const GLASSMORPHISM_STYLE_ID = 'widget-glassmorphism-styles';
@@ -11,6 +23,7 @@ const CAROUSEL_STYLE_ID = 'widget-carousel-styles';
 const QUICK_REPLY_STYLE_ID = 'widget-quick-reply-styles';
 const VOICE_INPUT_STYLE_ID = 'widget-voice-input-styles';
 const PROACTIVE_MODAL_STYLE_ID = 'widget-proactive-modal-styles';
+const MESSAGE_GROUPING_STYLE_ID = 'widget-message-grouping-styles';
 
 export function createShadowContainer(target: HTMLElement): ShadowRoot {
   return target.attachShadow({ mode: 'open' });
@@ -75,6 +88,18 @@ export function injectProactiveModalStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', PROACTIVE_MODAL_STYLE_ID);
   style.textContent = proactiveModalStyles;
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectMessageGroupingStyles(shadow: ShadowRoot): void {
+  const existingStyle = shadow.querySelector(`style[data-id="${MESSAGE_GROUPING_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', MESSAGE_GROUPING_STYLE_ID);
+  style.textContent = messageGroupingStyles;
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {

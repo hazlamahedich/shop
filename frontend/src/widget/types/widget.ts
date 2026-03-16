@@ -91,6 +91,12 @@ export interface WidgetMessage {
   quick_replies?: QuickReply[];
 }
 
+export interface MessageGroup {
+  id: string;
+  sender: 'user' | 'bot' | 'merchant' | 'system';
+  messages: WidgetMessage[];
+}
+
 export type WidgetEdge = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
 
 export interface WidgetPosition {
