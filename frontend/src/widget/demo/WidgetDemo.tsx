@@ -421,8 +421,8 @@ function GlassmorphismDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 2. Product Carousel Demo
-function CarouselDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
-  const [currentIndex, setCurrentIndex] = React.useState(0);
+function CarouselDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
+  const [currentIndex, _setCurrentIndex] = React.useState(0);
   const [cart, setCart] = React.useState<string[]>([]);
   const [adding, setAdding] = React.useState<string | null>(null);
   
@@ -461,7 +461,6 @@ function CarouselDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
           zIndex: 2147483647,
           fontSize: '24px',
           color: 'white',
-          position: 'relative',
         }}
       >
         💬
@@ -679,7 +678,7 @@ function CarouselDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 3. Quick Reply Demo
-function QuickReplyDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
+function QuickReplyDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const [selectedOption, setSelectedOption] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<Array<{ sender: 'user' | 'bot'; text: string }>>([
     { sender: 'bot', text: 'What would you like to do?' },
@@ -836,7 +835,7 @@ function QuickReplyDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 4. Voice Input Demo
-function VoiceInputDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
+function VoiceInputDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const [isListening, setIsListening] = React.useState(false);
   const [transcript, setTranscript] = React.useState('');
   const [isSupported, setIsSupported] = React.useState(true);
@@ -1084,7 +1083,7 @@ function VoiceInputDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 5. Proactive Engagement Demo
-function ProactiveDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
+function ProactiveDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const [showPopup, setShowPopup] = React.useState(false);
   const [triggerType, setTriggerType] = React.useState<'exit' | 'time' | 'scroll' | null>(null);
   
@@ -1327,7 +1326,7 @@ function ProactiveDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 6. Message Grouping Demo
-function GroupingDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
+function GroupingDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const messages = [
     { id: 1, sender: 'bot' as const, text: 'Hi! Welcome to our store!', time: '10:30 AM' },
     { id: 2, sender: 'bot' as const, text: 'How can I help you today?', time: '10:30 AM' },
@@ -1534,7 +1533,7 @@ function GroupingDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 7. Microinteractions Demo
-function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
+function AnimationsDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const [showTyping, setShowTyping] = React.useState(true);
   const [unreadCount, setUnreadCount] = React.useState(3);
   const [showSuccess, setShowSuccess] = React.useState(false);
@@ -1562,7 +1561,6 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
           zIndex: 2147483647,
           fontSize: '24px',
           color: 'white',
-          position: 'relative',
         }}
       >
         💬
@@ -1843,7 +1841,7 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 }
 
 // 8. Smart Positioning Demo
-function PositioningDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
+function PositioningDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = React.useState(false);
   const dragStartRef = React.useRef({ x: 0, y: 0, windowX: 0, windowY: 0 });
