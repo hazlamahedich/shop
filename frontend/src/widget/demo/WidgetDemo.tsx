@@ -1538,6 +1538,7 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
   const [showTyping, setShowTyping] = React.useState(true);
   const [unreadCount, setUnreadCount] = React.useState(3);
   const [showSuccess, setShowSuccess] = React.useState(false);
+  const [reducedMotion, setReducedMotion] = React.useState(false);
   
   return (
     <>
@@ -1581,7 +1582,7 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
               justifyContent: 'center',
               fontSize: '11px',
               fontWeight: 600,
-              animation: 'pulse 2s ease-in-out infinite',
+              animation: reducedMotion ? 'none' : 'pulse 2s ease-in-out infinite',
             }}
           >
             {unreadCount}
@@ -1613,9 +1614,49 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
             backgroundColor: '#6366f1',
             color: 'white',
             fontWeight: 600,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          ✨ Microinteractions Demo
+          <span>✨ Microinteractions Demo</span>
+          <button
+            onClick={() => setReducedMotion(!reducedMotion)}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              backgroundColor: reducedMotion ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '11px',
+            }}
+          >
+            {reducedMotion ? '♿ Reduced Motion ON' : '♿ Reduced Motion OFF'}
+          </button>
+        </div>
+        
+        {/* Animation Types Documentation */}
+        <div
+          style={{
+            padding: '12px 16px',
+            backgroundColor: '#f9fafb',
+            borderBottom: '1px solid #e5e7eb',
+            fontSize: '11px',
+            color: '#6b7280',
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: '8px', color: '#374151' }}>
+            Animation Types:
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+            <div>• <strong>Bouncing Dots:</strong> Typing indicator</div>
+            <div>• <strong>Message Fade:</strong> New messages</div>
+            <div>• <strong>Ripple Effect:</strong> Button clicks</div>
+            <div>• <strong>Checkmark Draw:</strong> Success feedback</div>
+            <div>• <strong>Badge Pulse:</strong> Unread count</div>
+            <div>• <strong>Hover Scale:</strong> Chat bubble</div>
+          </div>
         </div>
         
         {/* Messages */}
@@ -1637,7 +1678,7 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
               padding: '12px 16px',
               borderRadius: '12px',
               backgroundColor: '#f3f4f6',
-              animation: 'fadeInUp 0.3s ease',
+              animation: reducedMotion ? 'none' : 'fadeInUp 0.3s ease',
             }}
           >
             Check out these cool animations! 👇
@@ -1695,8 +1736,8 @@ function AnimationsDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
                         height: '6px',
                         borderRadius: '50%',
                         backgroundColor: '#9ca3af',
-                        animation: `bounce 1.4s ease-in-out infinite`,
-                        animationDelay: `${i * 0.15}s`,
+                        animation: reducedMotion ? 'none' : `bounce 1.4s ease-in-out infinite`,
+                        animationDelay: reducedMotion ? '0s' : `${i * 0.15}s`,
                       }}
                     />
                   ))}

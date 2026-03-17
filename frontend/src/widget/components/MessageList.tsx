@@ -6,6 +6,7 @@ import { CartView } from './CartView';
 import { MessageAvatar } from './MessageAvatar';
 import { groupMessages, getGroupPosition } from '../utils/messageGrouping';
 import { formatRelativeTime, formatAbsoluteTime } from '../utils/timeFormatting';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface MessageListProps {
   messages: WidgetMessage[];
@@ -39,8 +40,29 @@ export function MessageList({
   onQuickRepliesAvailable,
 }: MessageListProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const prevMessageIdsRef = React.useRef<Set<string>>(new Set());
+  const reducedMotion = useReducedMotion();
 
   const groups = React.useMemo(() => groupMessages(messages), [messages]);
+
+  // Track which messages are new
+  const getNewMessageIds = React.useCallback(() => {
+    const currentIds = new Set(messages.map(m => m.messageId));
+    const newIds = new Set<string>();
+    
+    currentIds.forEach(id => {
+      if (!prevMessageIdsRef.current.has(id)) {
+        newIds.add(id);
+      }
+    });
+    
+    // Update ref for next render
+    prevMessageIdsRef.current = currentIds;
+    
+    return newIds;
+  }, [messages]);
+
+  const newMessageIds = getNewMessageIds();
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,6 +143,8 @@ export function MessageList({
           addingProductId={addingProductId}
           removingItemId={removingItemId}
           isCheckingOut={isCheckingOut}
+          newMessageIds={newMessageIds}
+          reducedMotion={reducedMotion}
         />
       ))}
       <div ref={messagesEndRef} />
@@ -139,6 +163,8 @@ interface MessageGroupComponentProps {
   addingProductId?: string | null;
   removingItemId?: string | null;
   isCheckingOut?: boolean;
+  newMessageIds: Set<string>;
+  reducedMotion: boolean;
 }
 
 function MessageGroupComponent({
@@ -152,6 +178,8 @@ function MessageGroupComponent({
   addingProductId,
   removingItemId,
   isCheckingOut,
+  newMessageIds,
+  reducedMotion,
 }: MessageGroupComponentProps) {
   const isUser = group.sender === 'user';
   const isSystem = group.sender === 'system';
@@ -244,6 +272,8 @@ function MessageGroupComponent({
                   addingProductId={addingProductId}
                   removingItemId={removingItemId}
                   isCheckingOut={isCheckingOut}
+                  isNew={newMessageIds.has(message.messageId)}
+                  reducedMotion={reducedMotion}
                 />
                 {isLast && (
                   <div
@@ -286,6 +316,8 @@ interface MessageBubbleInGroupProps {
   addingProductId?: string | null;
   removingItemId?: string | null;
   isCheckingOut?: boolean;
+  isNew?: boolean;
+  reducedMotion?: boolean;
 }
 
 function MessageBubbleInGroup({
@@ -302,6 +334,8 @@ function MessageBubbleInGroup({
   addingProductId,
   removingItemId,
   isCheckingOut,
+  isNew = false,
+  reducedMotion = false,
 }: MessageBubbleInGroupProps) {
   const isUser = sender === 'user';
 
@@ -312,6 +346,9 @@ function MessageBubbleInGroup({
     if (position === 'last') return isUser ? '16px 4px 4px 16px' : '4px 4px 16px 16px';
     return '16px';
   };
+
+  // Only animate new user messages
+  const shouldAnimate = isNew && isUser && !reducedMotion;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -324,6 +361,10 @@ function MessageBubbleInGroup({
           backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
           color: isUser ? 'white' : theme.textColor,
           wordBreak: 'break-word',
+          animationName: shouldAnimate ? 'message-send' : 'none',
+          animationDuration: shouldAnimate ? '200ms' : '0ms',
+          animationTimingFunction: 'ease-out',
+          animationFillMode: 'forwards',
         }}
       >
         {displayName && (

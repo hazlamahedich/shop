@@ -899,9 +899,65 @@ function WidgetInner({ theme }: WidgetInnerProps) {
             transform: translateY(0);
           }
         }
+        
+        /* Animation Keyframes for Microinteractions */
+        @keyframes typing-dot-bounce {
+          0%, 60%, 100% {
+            transform: translateY(0);
+          }
+          30% {
+            transform: translateY(-8px);
+          }
+        }
+        
+        @keyframes message-send {
+          0% {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        @keyframes ripple {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(4);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes checkmark-draw {
+          0% {
+            stroke-dashoffset: 24;
+          }
+          100% {
+            stroke-dashoffset: 0;
+          }
+        }
+        
+        @keyframes badge-pulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+        
         @media (prefers-reduced-motion: reduce) {
           .message-bubble {
             animation: none;
+          }
+          .typing-dot,
+          .bubble-badge,
+          .ripple-effect {
+            animation: none !important;
           }
         }
       `}</style>

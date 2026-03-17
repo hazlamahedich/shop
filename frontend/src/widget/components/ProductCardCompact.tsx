@@ -1,5 +1,7 @@
 import * as React from 'react';
 import type { WidgetProduct, WidgetTheme } from '../types/widget';
+import { useRipple } from '../hooks/useRipple';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface ProductCardCompactProps {
   product: WidgetProduct;
@@ -20,6 +22,8 @@ export function ProductCardCompact({
 }: ProductCardCompactProps) {
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const [imageError, setImageError] = React.useState(false);
+  const { ripples, createRipple } = useRipple();
+  const reducedMotion = useReducedMotion();
 
   const handleCardClick = () => {
     if (onClick && product.available) {
@@ -37,6 +41,7 @@ export function ProductCardCompact({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onAddToCart && product.available) {
+      createRipple(e as React.MouseEvent<HTMLElement>);
       onAddToCart(product);
     }
   };
@@ -126,8 +131,34 @@ export function ProductCardCompact({
             onClick={handleAddToCart}
             disabled={!product.available || isAdding}
             aria-label={isAdding ? 'Adding to cart' : product.available ? `Add ${product.title} to cart` : 'Sold out'}
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+            }}
           >
             {isAdding ? 'Adding...' : product.available ? 'Add to Cart' : 'Sold Out'}
+            {/* Ripple effects */}
+            {ripples.map((ripple) => (
+              <span
+                key={ripple.id}
+                data-testid="ripple-effect"
+                style={{
+                  position: 'absolute',
+                  left: ripple.x,
+                  top: ripple.y,
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                  animationName: reducedMotion ? 'none' : 'ripple',
+                  animationDuration: reducedMotion ? '0ms' : '600ms',
+                  animationTimingFunction: 'ease-out',
+                  animationFillMode: 'forwards',
+                }}
+              />
+            ))}
           </button>
         )}
       </div>

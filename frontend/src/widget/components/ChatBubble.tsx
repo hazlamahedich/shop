@@ -1,5 +1,6 @@
 import * as React from 'react';
 import type { WidgetTheme } from '../types/widget';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface ChatBubbleProps {
   isOpen: boolean;
@@ -10,6 +11,9 @@ export interface ChatBubbleProps {
 }
 
 export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0 }: ChatBubbleProps) {
+  const [isHovered, setIsHovered] = React.useState(false);
+  const reducedMotion = useReducedMotion();
+
   const positionStyle = theme.position === 'bottom-left'
     ? { left: 20 }
     : { right: 20 };
@@ -22,12 +26,27 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
   };
 
   const handleMouseEnter = () => {
+    setIsHovered(true);
     if (onPrefetch) {
       onPrefetch();
     }
   };
 
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
   const showBadge = !isOpen && unreadCount > 0;
+
+  // Hover scale animation (AC7)
+  const shouldScale = isHovered && !reducedMotion;
+  const bubbleTransform = shouldScale ? 'scale(1.05)' : 'scale(1)';
+  const bubbleBoxShadow = isHovered
+    ? '0 6px 16px rgba(0, 0, 0, 0.2)'
+    : '0 4px 12px rgba(0, 0, 0, 0.15)';
+
+  // Badge pulse animation (AC6)
+  const shouldPulse = showBadge && !reducedMotion;
 
   return (
     <button
@@ -37,6 +56,7 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
       onClick={onClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       aria-label={isOpen ? 'Close chat' : 'Open chat'}
       aria-expanded={isOpen}
       style={{
@@ -52,9 +72,11 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        boxShadow: bubbleBoxShadow,
+        transition: reducedMotion ? 'none' : 'transform 200ms ease, box-shadow 200ms ease',
+        transform: bubbleTransform,
         zIndex: 2147483647,
+        willChange: reducedMotion ? 'auto' : 'transform',
       }}
     >
       {isOpen ? (
@@ -89,6 +111,7 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
       )}
       {showBadge && (
         <span
+          data-testid="bubble-badge"
           className="bubble-badge"
           style={{
             position: 'absolute',
@@ -105,6 +128,11 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
             fontSize: 11,
             fontWeight: 600,
             padding: '0 4px',
+            animationName: shouldPulse ? 'badge-pulse' : 'none',
+            animationDuration: shouldPulse ? '1s' : '0ms',
+            animationTimingFunction: 'ease-in-out',
+            animationIterationCount: 'infinite',
+            willChange: reducedMotion ? 'auto' : 'transform',
           }}
         >
           {unreadCount > 99 ? '99+' : unreadCount}

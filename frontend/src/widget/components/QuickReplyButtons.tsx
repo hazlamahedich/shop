@@ -1,5 +1,7 @@
 import * as React from 'react';
 import type { QuickReply, WidgetTheme } from '../types/widget';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useRipple } from '../hooks/useRipple';
 
 export interface QuickReplyButtonsProps {
   quickReplies: QuickReply[];
@@ -9,9 +11,99 @@ export interface QuickReplyButtonsProps {
   disabled?: boolean;
 }
 
-function useReducedMotion(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+interface QuickReplyButtonProps {
+  reply: QuickReply;
+  index: number;
+  onClick: (reply: QuickReply, index: number) => void;
+  onKeyDown: (e: React.KeyboardEvent, reply: QuickReply, index: number) => void;
+  theme: WidgetTheme;
+  disabled: boolean;
+  isSelected: boolean;
+  reducedMotion: boolean;
+}
+
+function QuickReplyButton({
+  reply,
+  index,
+  onClick,
+  onKeyDown,
+  theme,
+  disabled,
+  isSelected,
+  reducedMotion,
+}: QuickReplyButtonProps) {
+  const { ripples, createRipple } = useRipple();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    createRipple(e);
+    onClick(reply, index);
+  };
+
+  return (
+    <button
+      key={reply.id}
+      data-testid={`quick-reply-button-${reply.id}`}
+      type="button"
+      role="button"
+      aria-label={reply.text}
+      disabled={disabled || isSelected}
+      onClick={handleClick}
+      onKeyDown={(e) => onKeyDown(e, reply, index)}
+      className={`quick-reply-button${reducedMotion ? ' quick-reply-button--reduced-motion' : ''}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        minHeight: '44px',
+        minWidth: '44px',
+        padding: '10px 16px',
+        border: `1px solid ${theme.primaryColor}`,
+        borderRadius: '20px',
+        backgroundColor: 'transparent',
+        color: theme.primaryColor,
+        fontFamily: theme.fontFamily,
+        fontSize: '14px',
+        fontWeight: 500,
+        cursor: disabled || isSelected ? 'not-allowed' : 'pointer',
+        opacity: disabled || isSelected ? 0.5 : 1,
+        transition: reducedMotion ? 'none' : 'transform 100ms ease, background-color 150ms ease, opacity 150ms ease',
+        whiteSpace: 'nowrap',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {reply.icon && (
+        <span style={{ fontSize: '16px' }} aria-hidden="true">
+          {reply.icon}
+        </span>
+      )}
+      <span>{reply.text}</span>
+      {/* Ripple effects */}
+      {ripples.map((ripple) => (
+        <span
+          key={ripple.id}
+          data-testid="ripple-effect"
+          style={{
+            position: 'absolute',
+            left: ripple.x,
+            top: ripple.y,
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            animationName: reducedMotion ? 'none' : 'ripple',
+            animationDuration: reducedMotion ? '0ms' : '600ms',
+            animationTimingFunction: 'ease-out',
+            animationFillMode: 'forwards',
+          }}
+        />
+      ))}
+    </button>
+  );
 }
 
 export function QuickReplyButtons({
@@ -58,44 +150,17 @@ export function QuickReplyButtons({
       }}
     >
       {quickReplies.map((reply, index) => (
-        <button
+        <QuickReplyButton
           key={reply.id}
-          data-testid={`quick-reply-button-${reply.id}`}
-          type="button"
-          role="button"
-          aria-label={reply.text}
-          disabled={disabled || (dismissOnSelect && selectedIndex !== null)}
-          onClick={() => handleClick(reply, index)}
-          onKeyDown={(e) => handleKeyDown(e, reply, index)}
-          className={`quick-reply-button${reducedMotion ? ' quick-reply-button--reduced-motion' : ''}`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            minHeight: '44px',
-            minWidth: '44px',
-            padding: '10px 16px',
-            border: `1px solid ${theme.primaryColor}`,
-            borderRadius: '20px',
-            backgroundColor: 'transparent',
-            color: theme.primaryColor,
-            fontFamily: theme.fontFamily,
-            fontSize: '14px',
-            fontWeight: 500,
-            cursor: disabled || (dismissOnSelect && selectedIndex !== null) ? 'not-allowed' : 'pointer',
-            opacity: disabled || (dismissOnSelect && selectedIndex !== null) ? 0.5 : 1,
-            transition: reducedMotion ? 'none' : 'transform 100ms ease, background-color 150ms ease, opacity 150ms ease',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {reply.icon && (
-            <span style={{ fontSize: '16px' }} aria-hidden="true">
-              {reply.icon}
-            </span>
-          )}
-          <span>{reply.text}</span>
-        </button>
+          reply={reply}
+          index={index}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          theme={theme}
+          disabled={disabled}
+          isSelected={dismissOnSelect && selectedIndex !== null}
+          reducedMotion={reducedMotion}
+        />
       ))}
     </div>
   );

@@ -1,5 +1,9 @@
 /// <reference types="vitest/globals" />
-import "@testing-library/jest-dom";
+import { expect, afterEach, vi, beforeEach } from 'vitest';
+import * as matchers from '@testing-library/jest-dom/matchers';
+
+// Extend vitest's expect with jest-dom matchers
+expect.extend(matchers);
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi, beforeEach } from "vitest";
 

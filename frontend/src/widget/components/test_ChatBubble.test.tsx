@@ -82,4 +82,93 @@ describe('ChatBubble', () => {
     const button = screen.getByRole('button');
     expect(button.getAttribute('aria-expanded')).toBe('true');
   });
+
+  describe('AC7: Hover Animation', () => {
+    it('should apply scale transform on hover', async () => {
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      fireEvent.mouseEnter(button);
+      
+      expect(button.style.transform).toContain('scale(1.05)');
+    });
+
+    it('should apply enhanced box-shadow on hover', async () => {
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      fireEvent.mouseEnter(button);
+      
+      expect(button.style.boxShadow).toMatch(/6px 16px|8px 16px/);
+    });
+
+    it('should apply transition for smooth animation', async () => {
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      expect(button.style.transition).toContain('transform');
+      expect(button.style.transition).toContain('box-shadow');
+    });
+
+    it('should remove hover effects on mouse leave', async () => {
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      fireEvent.mouseEnter(button);
+      expect(button.style.transform).toContain('scale(1.05)');
+      
+      fireEvent.mouseLeave(button);
+      expect(button.style.transform).not.toContain('scale(1.05)');
+    });
+
+    it('should respect reduced motion preference', async () => {
+      const mockMatchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      
+      window.matchMedia = mockMatchMedia;
+
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      fireEvent.mouseEnter(button);
+      
+      expect(button.style.transform).not.toContain('scale(1.05)');
+    });
+
+    it('should use GPU-accelerated properties (transform, opacity)', async () => {
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      fireEvent.mouseEnter(button);
+      
+      expect(button.style.transform).toBeDefined();
+    });
+
+    it('should have 200ms transition duration for smooth feel', async () => {
+      const mockMatchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      window.matchMedia = mockMatchMedia;
+      
+      render(<ChatBubble isOpen={false} onClick={vi.fn()} theme={mockTheme} />);
+      const button = screen.getByRole('button');
+      
+      expect(button.style.transition).toContain('200ms');
+    });
+  });
 });

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { QuickReplyButtons } from './QuickReplyButtons';
 import type { QuickReply, WidgetTheme } from '../types/widget';
 
@@ -26,12 +26,30 @@ const createMockQuickReplies = (count: number): QuickReply[] =>
   }));
 
 describe('QuickReplyButtons', () => {
+  const originalMatchMedia = window.matchMedia;
+  
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
       configurable: true,
       value: 1024,
     });
+    // Default mock - no reduced motion
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    cleanup();
+    window.matchMedia = originalMatchMedia;
   });
 
   it('renders buttons with correct text', () => {
@@ -377,5 +395,135 @@ describe('QuickReplyButtons', () => {
     const button = screen.getByTestId('quick-reply-button-1');
     expect(button).toHaveTextContent('Option without icon');
     expect(button.querySelector('span[aria-hidden="true"]')).toBeNull();
+  });
+
+  describe('AC3: Ripple Effect Animation', () => {
+    it('should show ripple effect on button click', () => {
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByTestId('quick-reply-button-reply-1');
+      fireEvent.click(button);
+
+      const ripple = screen.getByTestId('ripple-effect');
+      expect(ripple).toBeDefined();
+    });
+
+    it('should apply ripple animation with 600ms duration', () => {
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByTestId('quick-reply-button-reply-1');
+      fireEvent.click(button);
+
+      const ripple = screen.getByTestId('ripple-effect');
+      expect(ripple.style.animationDuration).toBe('600ms');
+    });
+
+    it('should use ease-out timing for ripple', () => {
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByTestId('quick-reply-button-reply-1');
+      fireEvent.click(button);
+
+      const ripple = screen.getByTestId('ripple-effect');
+      expect(ripple.style.animationTimingFunction).toBe('ease-out');
+    });
+
+    it('should use transform for ripple (GPU-accelerated)', () => {
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByTestId('quick-reply-button-reply-1');
+      fireEvent.click(button);
+
+      const ripple = screen.getByTestId('ripple-effect');
+      expect(ripple.style.transform).toContain('translate');
+    });
+
+    it('should disable ripple with reduced motion preference', () => {
+      const mockMatchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      window.matchMedia = mockMatchMedia;
+
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByTestId('quick-reply-button-reply-1');
+      fireEvent.click(button);
+
+      const ripple = screen.getByTestId('ripple-effect');
+      expect(ripple.style.animationName).toBe('none');
+      expect(ripple.style.animationDuration).toBe('0ms');
+    });
+  });
+
+  describe('AC11: GPU Acceleration', () => {
+    it('should use GPU-accelerated properties in transitions', () => {
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByRole('button');
+      expect(button.style.transition).toContain('transform');
+    });
+
+    it('should have 100ms transition duration for smooth feel', () => {
+      const quickReplies = createMockQuickReplies(1);
+      render(
+        <QuickReplyButtons
+          quickReplies={quickReplies}
+          onReply={vi.fn()}
+          theme={mockTheme}
+        />
+      );
+
+      const button = screen.getByRole('button');
+      expect(button.style.transition).toContain('100ms');
+    });
   });
 });

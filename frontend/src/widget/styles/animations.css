@@ -1,0 +1,180 @@
+/* Animation keyframes for widget microinteractions */
+
+/* ========================================
+   AC1: Typing Indicator Animation
+   ======================================== */
+@keyframes typing-dot-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ========================================
+   AC2: Message Send Animation
+   ======================================== */
+@keyframes message-send {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ========================================
+   AC3: Ripple Effect
+   ======================================== */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ========================================
+   AC4: Checkmark Draw Animation
+   ======================================== */
+@keyframes checkmark-draw {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ========================================
+   AC5: Product Card Hover Animation
+   ======================================== */
+@keyframes card-lift {
+  0% {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* ========================================
+   AC6: Badge Pulse Animation
+   ======================================== */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* ========================================
+   AC7: Chat Bubble Hover Animation
+   ======================================== */
+@keyframes bubble-hover {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ========================================
+   Animation Utility Classes
+   ======================================== */
+
+/* Typing dots */
+.animation-typing-dot {
+  animation: typing-dot-bounce 1.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Message send */
+.animation-message-send {
+  animation: message-send 200ms ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* Ripple */
+.animation-ripple {
+  animation: ripple 600ms ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* Checkmark draw */
+.animation-checkmark-draw {
+  animation: checkmark-draw 400ms ease-out forwards;
+  will-change: stroke-dashoffset;
+}
+
+/* Card lift */
+.animation-card-lift {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  will-change: transform;
+}
+
+.animation-card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Badge pulse */
+.animation-badge-pulse {
+  animation: badge-pulse 1s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Bubble hover */
+.animation-bubble-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  will-change: transform;
+}
+
+/* ========================================
+   Reduced Motion Support (AC9)
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  /* Disable all animations */
+  .animation-typing-dot,
+  .animation-message-send,
+  .animation-ripple,
+  .animation-checkmark-draw,
+  .animation-badge-pulse {
+    animation: none !important;
+  }
+  
+  /* Instant transitions for visibility changes */
+  .animation-card-lift,
+  .animation-bubble-hover {
+    transition: opacity 0ms !important;
+  }
+  
+  /* Remove hover transforms */
+  .animation-card-lift:hover {
+    transform: none !important;
+  }
+  
+  /* Disable will-change for reduced motion */
+  .animation-typing-dot,
+  .animation-message-send,
+  .animation-ripple,
+  .animation-checkmark-draw,
+  .animation-card-lift,
+  .animation-badge-pulse,
+  .animation-bubble-hover {
+    will-change: auto !important;
+  }
+}

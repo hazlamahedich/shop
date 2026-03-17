@@ -5,6 +5,7 @@ import quickReplyStyles from '../styles/quick-reply.css?inline';
 import voiceInputStyles from '../styles/voice-input.css?inline';
 import proactiveModalStyles from '../styles/proactive-modal.css?inline';
 import messageGroupingStyles from '../styles/message-grouping.css?inline';
+import animationsStyles from '../styles/animations.css?inline';
 
 /**
  * Shadow DOM Style Injection Utilities
@@ -24,6 +25,7 @@ const QUICK_REPLY_STYLE_ID = 'widget-quick-reply-styles';
 const VOICE_INPUT_STYLE_ID = 'widget-voice-input-styles';
 const PROACTIVE_MODAL_STYLE_ID = 'widget-proactive-modal-styles';
 const MESSAGE_GROUPING_STYLE_ID = 'widget-message-grouping-styles';
+const ANIMATIONS_STYLE_ID = 'widget-animations-styles';
 
 export function createShadowContainer(target: HTMLElement): ShadowRoot {
   return target.attachShadow({ mode: 'open' });
@@ -100,6 +102,18 @@ export function injectMessageGroupingStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', MESSAGE_GROUPING_STYLE_ID);
   style.textContent = messageGroupingStyles;
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectAnimationsStyles(shadow: ShadowRoot): void {
+  const existingStyle = shadow.querySelector(`style[data-id="${ANIMATIONS_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', ANIMATIONS_STYLE_ID);
+  style.textContent = animationsStyles;
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {

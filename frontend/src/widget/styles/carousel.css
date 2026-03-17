@@ -38,11 +38,12 @@
   overflow: hidden;
   transition: transform 200ms ease, box-shadow 200ms ease;
   cursor: pointer;
+  will-change: transform;
 }
 
 .carousel-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 }
 
 .carousel-card:focus-visible {
