@@ -2,19 +2,17 @@ import { test, expect } from '@playwright/test';
 import { Page } from '@playwright/test';
 import { selectors } from '../utils/test-utils';
 
-describe('Dashboard E2E tests for P2/P2 widgets', () => {
-  const page = new DashboardPage();
-  const selectors = page;
-
-  const testUtils = require('../utils/test-utils');
-
 test.describe('Dashboard P2 Widgets E2E', () => {
-  let page: DashboardPage;
+  let page: Page;
 
-  await testUtils.loginAsMerchant(page, merchant.id: 1);
+  test.beforeEach(async ({ page: testPage }) => {
+    page = testPage;
+    // Login and setup
+  });
 
-  // Wait for dashboard to load
-  await expect(page).toBeTruthy();
+  test('should display all dashboard widgets', async () => {
+    // Wait for dashboard to load
+    await expect(page).toBeTruthy();
 
   // Check Zone 1: Action Required widgets exist
   await expect(page.locator('[data-testid="handoff-queue-widget-container"]')).toBeVisible();

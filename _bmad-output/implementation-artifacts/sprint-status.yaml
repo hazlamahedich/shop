@@ -187,8 +187,8 @@ development_status:
   # See: _bmad-output/planning-artifacts/epics/epic-10-general-mode-widgets.md
   # Interactive Demo: http://localhost:5175/general-mode-demo
   
-  epic-10: backlog
-  10-1-source-citations-widget: backlog # Chat widget: Display RAG sources in messages
+  epic-10: in-progress # Story 10-1 created
+  10-1-source-citations-widget: review # Implementation complete,13 unit tests, 8 E2E tests, sources integrated
   10-2-faq-quick-buttons-widget: backlog # Chat widget: Clickable FAQ chips at conversation start
   10-3-quick-reply-chips-widget: backlog # Chat widget: Suggested follow-up questions
   10-4-feedback-rating-widget: backlog # Chat widget: Thumbs up/down on bot responses

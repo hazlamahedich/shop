@@ -9,11 +9,11 @@
 
 import { test, expect } from '@playwright/test';
 import {
-  EmbeddingProviderSettingsResponse
-  ReembeddingStatusResponse
-  getAuthHeaders
-  createOpenAISettings
-  createGeminiSettings
+  EmbeddingProviderSettingsResponse,
+  ReembeddingStatusResponse,
+  getAuthHeaders,
+  createOpenAISettings,
+  createGeminiSettings,
   EMBEDDING_MODELS
 } from './test-utils';
 

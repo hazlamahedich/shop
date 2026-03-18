@@ -10,7 +10,7 @@
 import { test, expect } from '@playwright/test';
 import {
   ReembedTriggerResponse,
-  ReembeddingStatusResponse
+  ReembeddingStatusResponse,
   getAuthHeaders
 } from './test-utils';
 
