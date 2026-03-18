@@ -26,9 +26,9 @@ interface ConversationCardProps {
 }
 
 const statusStyles: Record<ConversationStatus, string> = {
-  active: 'bg-green-100 text-green-700',
-  handoff: 'bg-yellow-100 text-yellow-700',
-  closed: 'bg-gray-100 text-gray-700',
+  active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]',
+  handoff: 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.1)]',
+  closed: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
 };
 
 const statusLabels: Record<ConversationStatus, string> = {
@@ -47,17 +47,17 @@ const platformConfigs: Record<string, PlatformConfig> = {
   widget: {
     icon: <Globe size={12} />,
     label: 'Website Chat',
-    className: 'bg-blue-50 text-blue-600',
+    className: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
   },
   messenger: {
     icon: <MessageCircle size={12} />,
     label: 'Messenger',
-    className: 'bg-indigo-50 text-indigo-600',
+    className: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
   },
   preview: {
     icon: <Eye size={12} />,
     label: 'Preview',
-    className: 'bg-purple-50 text-purple-600',
+    className: 'bg-slate-500/10 text-slate-400 border border-slate-500/20',
   },
 };
 
@@ -66,7 +66,7 @@ const getPlatformConfig = (platform: string): PlatformConfig => {
   return platformConfigs[safePlatform] || {
     icon: <MessageSquare size={12} />,
     label: safePlatform.charAt(0).toUpperCase() + safePlatform.slice(1),
-    className: 'bg-gray-50 text-gray-600',
+    className: 'bg-white/5 text-slate-400 border border-white/10',
   };
 };
 
@@ -117,7 +117,7 @@ const formatCreatedDate = (timestamp: string, timezone?: string): string => {
   }
 };
 
-export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onClick }) => {
+const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onClick }) => {
   const timezone = useBusinessHoursStore((state) => state.config?.timezone);
   const platformConfig = getPlatformConfig(conversation.platform);
 
@@ -125,44 +125,48 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation
     <div
       onClick={onClick}
       data-testid="conversation-card"
-      className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+      className="p-6 border-b border-emerald-500/5 hover:bg-emerald-500/[0.03] cursor-pointer transition-all duration-300 group relative overflow-hidden"
     >
+      <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-center shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+      
       {/* Header: Source badge and updated time */}
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start mb-4">
         <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full ${platformConfig.className}`}>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase rounded-lg ${platformConfig.className}`}>
             {platformConfig.icon}
             {platformConfig.label}
           </span>
         </div>
-        <span className="flex items-center text-xs text-gray-400">
-          <Clock size={12} className="mr-1" />
+        <span className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-black/20 px-2 py-1 rounded-md">
+          <Clock size={12} className="mr-1.5 text-emerald-500/70" />
           {formatTimestamp(conversation.updatedAt, timezone)}
         </span>
       </div>
 
       {/* Customer ID and created date */}
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center space-x-2">
-          <MessageSquare size={14} className="text-gray-400" />
-          <h4 className="font-medium text-sm text-gray-900">
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500/20 transition-colors duration-300">
+            <MessageSquare size={18} />
+          </div>
+          <h4 className="font-bold text-base text-slate-100 group-hover:text-emerald-400 transition-colors duration-300">
             {conversation.platformSenderIdMasked}
           </h4>
         </div>
-        <span className="text-xs text-gray-400">
-          Created: {formatCreatedDate(conversation.createdAt, timezone)}
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md border border-white/5">
+          {formatCreatedDate(conversation.createdAt, timezone)}
         </span>
       </div>
 
       {/* Last message preview */}
-      <p className="text-sm text-gray-600 truncate mb-2">
+      <p className="text-sm text-slate-400 line-clamp-2 mb-5 group-hover:text-slate-300 transition-colors duration-300 leading-relaxed pl-12">
         {conversation.lastMessage || 'No messages yet'}
       </p>
 
       {/* Footer: Status badge and message count */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pl-12">
         <span
-          className={`px-2 py-0.5 text-[11px] font-medium rounded-full ${
+          className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all duration-300 ${
             statusStyles[conversation.status]
           }`}
         >
@@ -170,8 +174,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ conversation
         </span>
 
         {conversation.messageCount > 0 && (
-          <span className="text-xs text-gray-400">
-            {conversation.messageCount} {conversation.messageCount === 1 ? 'message' : 'messages'}
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5 px-2.5 py-1 rounded-lg bg-black/20">
+            {conversation.messageCount} messages
           </span>
         )}
       </div>

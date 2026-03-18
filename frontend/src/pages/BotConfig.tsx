@@ -24,6 +24,7 @@ import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { BotNameInput } from '../components/bot-config/BotNameInput';
 import { ProductPinList } from '../components/business-info/ProductPinList';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
+import { GlassCard } from '../components/ui/GlassCard';
 
 /**
  * Get personality display name and color
@@ -31,12 +32,12 @@ import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
 function getPersonalityInfo(personality: string | null) {
   switch (personality) {
     case 'professional':
-      return { name: 'Professional', color: 'text-indigo-700', bgColor: 'bg-indigo-50' };
+      return { name: 'Professional', color: 'text-indigo-300', bgColor: 'bg-indigo-500/20', borderColor: 'border-indigo-500/30' };
     case 'enthusiastic':
-      return { name: 'Enthusiastic', color: 'text-amber-700', bgColor: 'bg-amber-50' };
+      return { name: 'Enthusiastic', color: 'text-amber-300', bgColor: 'bg-amber-500/20', borderColor: 'border-amber-500/30' };
     case 'friendly':
     default:
-      return { name: 'Friendly', color: 'text-green-700', bgColor: 'bg-green-50' };
+      return { name: 'Friendly', color: 'text-emerald-300', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-500/30' };
   }
 }
 
@@ -105,42 +106,42 @@ export const BotConfig: React.FC = () => {
   const personalityInfo = getPersonalityInfo(personality);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--mantis-bg)] text-white/90">
       {/* Breadcrumb Navigation */}
-      <nav className="bg-white border-b border-gray-200" aria-label="Breadcrumb">
-        <div className="max-w-6xl mx-auto px-6 py-3">
-          <ol className="flex items-center gap-2 text-sm">
+      <nav className="glass py-4 mb-8 sticky top-0 z-30" aria-label="Breadcrumb">
+        <div className="max-w-7xl mx-auto px-6">
+          <ol className="flex items-center gap-3 text-sm">
             <li>
-              <a href="/dashboard" className="text-gray-500 hover:text-gray-700 transition-colors">
+              <a href="/dashboard" className="text-white/50 hover:text-[var(--mantis-glow)] transition-all duration-300">
                 Dashboard
               </a>
             </li>
-            <li className="text-gray-400">/</li>
+            <li className="text-white/20">/</li>
             <li>
-              <span className="font-medium text-gray-900">Bot Configuration</span>
+              <span className="font-medium text-white/90">Bot Configuration</span>
             </li>
           </ol>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 pb-12">
         {/* Page Header */}
-        <div className="mb-8">
+        <div className="mb-10 animate-fade-in">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-4xl font-bold tracking-tight mb-3 text-white">
                 Bot Configuration
               </h1>
-              <p className="text-lg text-gray-600 max-w-3xl">
+              <p className="text-lg text-emerald-500/60 max-w-3xl leading-relaxed">
                 Customize how your bot introduces itself. Set a memorable bot name 
                 and configure product highlights. For greeting customization, visit 
-                the <a href="/personality" className="text-blue-600 hover:underline">Bot Personality</a> page.
+                the <a href="/personality" className="text-[var(--mantis-glow)] hover:underline decoration-2 underline-offset-4">Bot Personality</a> page.
               </p>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm">
-              <Info size={16} />
-              <span>Stories 1.12 & 1.15</span>
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-[var(--mantis-glow)]/10 border border-[var(--mantis-glow)]/20 text-[var(--mantis-glow)] rounded-xl text-sm font-medium">
+              <Info size={18} />
+              <span>Premium Configuration</span>
             </div>
           </div>
         </div>
@@ -150,54 +151,56 @@ export const BotConfig: React.FC = () => {
 
       {/* Error Display (page-level) */}
         {error && (
-          <div
-            role="alert"
-            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
-          >
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-800">Error</p>
-              <p className="text-sm text-red-700 mt-1">{error}</p>
+          <GlassCard className="mb-8 animate-shake bg-red-500/10 border-red-500/20">
+            <div className="flex items-start gap-4">
+              <AlertCircle size={24} className="text-red-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-lg font-semibold text-red-200">Configuration Error</p>
+                <p className="text-white/70 mt-1">{error}</p>
+              </div>
+              <button
+                type="button"
+                onClick={clearError}
+                className="text-white/40 hover:text-white transition-colors p-2"
+                aria-label="Dismiss error"
+              >
+                ×
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={clearError}
-              className="text-red-600 hover:text-red-800"
-              aria-label="Dismiss error"
-            >
-              ×
-            </button>
-          </div>
+          </GlassCard>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           {/* Bot Name Input */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Bot Name</h2>
+            <GlassCard className="h-full">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <span className="w-1.5 h-8 bg-[var(--mantis-glow)] rounded-full"></span>
+                  Bot Identity
+                </h2>
                 {botName && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md">
-                    <CheckCircle2 size={12} />
-                    Configured
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider rounded-lg border border-emerald-500/30">
+                    <CheckCircle2 size={14} />
+                    Verified
                   </span>
                 )}
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <BotNameInput disabled={isLoading} />
 
                 {/* Save Button */}
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-8 border-t border-white/5">
                   <button
                     type="button"
                     onClick={handleSaveBotName}
                     disabled={isLoading || !isDirty}
-                    className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full relative px-6 py-4 text-base font-bold text-white bg-[var(--mantis-glow)] rounded-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.2)]"
                   >
                     {isLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <span className="flex items-center justify-center gap-3">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                           <circle
                             className="opacity-25"
                             cx="12"
@@ -213,99 +216,111 @@ export const BotConfig: React.FC = () => {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           />
                         </svg>
-                        Saving...
+                        Deploying Changes...
                       </span>
                     ) : (
-                      'Save Bot Name'
+                      'Save Identity Profile'
                     )}
                   </button>
                   {!isDirty && hasConfig && (
-                    <p className="text-xs text-center text-gray-500 mt-2">All changes saved</p>
+                    <p className="text-sm text-center text-white/40 mt-4 font-medium animate-fade-in">
+                      Profile synchronized successfully
+                    </p>
                   )}
                 </div>
               </div>
-            </div>
+            </GlassCard>
           </div>
 
           {/* Current Settings Display */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Current Settings</h2>
+            <GlassCard className="h-full">
+              <h2 className="text-2xl font-bold text-white mb-8">System Status</h2>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Personality Display */}
                 {personality && (
-                  <div className="p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Palette size={16} className="text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">Personality</span>
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-default">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Palette size={20} className="text-white/40" />
+                      <span className="text-sm font-semibold text-emerald-500/60 uppercase tracking-widest block mb-1">Core Personality</span>
                     </div>
-                    <span
-                      className={`inline-block px-2 py-1 text-sm font-medium rounded-md ${personalityInfo.bgColor} ${personalityInfo.color}`}
+                    <div
+                      className={`inline-flex items-center px-4 py-2 text-sm font-bold rounded-xl border ${personalityInfo.borderColor} ${personalityInfo.bgColor} ${personalityInfo.color} shadow-lg`}
                     >
                       {personalityInfo.name}
-                    </span>
+                    </div>
                   </div>
                 )}
 
                 {/* No Settings Message */}
                 {!personality && (
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      No personality configured yet. Visit the Bot Personality page to set up your bot's tone and greeting.
+                  <div className="p-6 bg-white/5 rounded-2xl border border-dashed border-white/20">
+                    <p className="text-base text-white/50 leading-relaxed">
+                      Core personality matrix not initialized. Connect your voice modules in the personality configuration.
                     </p>
                   </div>
                 )}
 
                 {/* Configure Personality Link */}
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-6">
                   <a
                     href="/personality"
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="flex items-center justify-between p-4 rounded-xl bg-[var(--mantis-glow)]/5 text-[var(--mantis-glow)] hover:bg-[var(--mantis-glow)]/10 transition-all font-bold tracking-tight"
                   >
-                    Configure personality & greeting →
+                    <span>Tune Personality</span>
+                    <span>→</span>
                   </a>
                 </div>
               </div>
-            </div>
+            </GlassCard>
           </div>
         </div>
 
         {/* Story 1.15: Product Highlight Pins Section */}
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="mb-12">
           <ProductPinList />
         </div>
 
         {/* Help Section */}
-        <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">How Bot Configuration Works</h3>
-          <div className="grid md:grid-cols-2 gap-6 text-sm text-blue-800">
+        <GlassCard className="from-[var(--mantis-glow)]/5 to-transparent border-[var(--mantis-glow)]/10">
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            <Info size={24} className="text-[var(--mantis-glow)]" />
+            Neural Configuration Logic
+          </h3>
+          <div className="grid md:grid-cols-2 gap-10 text-base">
             {/* Story 1.12: Bot Names */}
-            <div>
-              <h4 className="font-medium mb-2">Bot Names</h4>
-              <p className="text-blue-700">
-                A custom bot name creates a branded experience for your customers. Choose a name
-                that reflects your business identity.
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+              <h4 className="font-bold text-white mb-3 text-lg uppercase tracking-tight">Identity Modules</h4>
+              <p className="text-white/60 leading-relaxed mb-4">
+                A custom bot identity creates a persistent neural presence for your customers. Choose a designation
+                that resonates with your brand architecture.
               </p>
-              <p className="text-blue-700 text-xs mt-2">
-                Example: &quot;Hi! I'm GearBot, here to help you...&quot;
-              </p>
+              <div className="p-4 bg-black/30 rounded-xl border border-white/5 text-sm text-[var(--mantis-glow)] font-mono">
+                &gt; Hello, I am System.Mantis. How can I assist?
+              </div>
             </div>
 
             {/* Story 1.15: Product Highlight Pins */}
-            <div>
-              <h4 className="font-medium mb-2">Product Highlight Pins</h4>
-              <p className="text-blue-700">
-                Pin important products to boost their recommendations. Pinned products
-                appear first with a 2x relevance boost.
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+              <h4 className="font-bold text-white mb-3 text-lg uppercase tracking-tight">Priority Anchors</h4>
+              <p className="text-white/60 leading-relaxed mb-4">
+                Anchor high-value assets to top-level recommendation queues. Anchored assets
+                receive a <span className="text-[var(--mantis-glow)] font-bold">200% relevance boost</span> in the retrieval matrix.
               </p>
-              <p className="text-blue-700 text-xs mt-2">
-                <strong>Limit:</strong> Up to 10 products can be pinned.
-                Pinned earlier in list = higher priority.
-              </p>
+              <ul className="text-sm text-white/50 space-y-2">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-[var(--mantis-glow)] rounded-full"></span>
+                  Capacity: 10 Priority Anchors
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-[var(--mantis-glow)] rounded-full"></span>
+                  Synchronization: Real-time global propagation
+                </li>
+              </ul>
             </div>
           </div>
-        </div>
+        </GlassCard>
       </main>
     </div>
   );

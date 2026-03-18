@@ -2,21 +2,18 @@
  * Widget Settings Page
  *
  * Story 5.6: Merchant Widget Settings UI
+ * Story 10-2: FAQ Quick Buttons Configuration (AC5)
  *
- * Provides a UI for merchants to configure their embeddable widget:
- * - Enable/disable widget
- * - Customize primary color and position
- * - View and copy embed code with platform-specific instructions
- *
- * Note: Bot name is configured in Bot Config page.
- * Welcome message is configured in Bot Personality page.
+ * Re-imagined with Mantis aesthetic.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Save, Loader2, Palette, Code, ExternalLink } from 'lucide-react';
+import { Save, Loader2, Palette, Code, Sparkles, Layout, Terminal, HelpCircle } from 'lucide-react';
 import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import { useAuthStore } from '../stores/authStore';
 import { EmbedCodePreview } from '../components/widget/EmbedCodePreview';
+import { GlassCard } from '../components/ui/GlassCard';
+import { FAQQuickButtonsConfig } from '../components/widget/FAQQuickButtonsConfig';
 import {
   validateWidgetSettings,
   hasValidationErrors,
@@ -95,7 +92,7 @@ export default function WidgetSettings() {
 
   const handleSave = async () => {
     if (!config || hasValidationErrors(validationErrors)) {
-      toast('Please fix validation errors before saving', 'error');
+      toast('Neural parameters invalid', 'error');
       setTouched({
         primaryColor: true,
         position: true,
@@ -111,15 +108,15 @@ export default function WidgetSettings() {
           position: config.theme.position,
         },
       });
-      toast('Widget settings saved successfully', 'success');
+      toast('System calibration successful', 'success');
     } catch (err) {
-      toast('Failed to save widget settings', 'error');
+      toast('Failed to synchronize parameters', 'error');
     }
   };
 
   const handleCancel = () => {
     if (hasUnsavedChanges) {
-      if (window.confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+      if (window.confirm('Neural rollback? Current modifications will be purged.')) {
         resetDirty();
         fetchConfig();
       }
@@ -128,207 +125,198 @@ export default function WidgetSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+        <span className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em]">Accessing Interface Node...</span>
       </div>
     );
   }
 
   if (error && !config) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        <p>{error}</p>
+      <GlassCard accent="error" className="p-8 text-center max-w-lg mx-auto">
+        <p className="text-red-500 font-bold mb-4">{error}</p>
         <button
           onClick={() => fetchConfig()}
-          className="mt-2 text-sm font-medium text-red-600 hover:text-red-800"
+          className="h-10 px-6 bg-red-500/10 border border-red-500/20 text-red-500 font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-red-500 hover:text-white transition-all"
         >
-          Try again
+          Retry Neural Link
         </button>
-      </div>
+      </GlassCard>
     );
   }
 
-  if (!config) {
-    return null;
-  }
+  if (!config) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Widget Settings</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Configure your embeddable chat widget
+    <div className="max-w-4xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
+            <Layout size={12} />
+            Holographic Interface
+          </div>
+          <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
+            Widget Settings
+          </h1>
+          <p className="text-lg text-emerald-900/40 font-medium max-w-xl">
+            Calibrate the visual signature and deployment matrix of your neural assistant.
           </p>
         </div>
-      </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          <p>{error}</p>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-200">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Palette className="h-5 w-5 text-gray-400" />
-            <h2 className="text-lg font-medium text-gray-900">Appearance</h2>
-          </div>
-
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Widget Enabled
-                </label>
-                <p className="text-sm text-gray-500 mt-1">
-                  Turn your chat widget on or off
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleEnabled}
-                data-testid="widget-enabled-toggle"
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${
-                  config.enabled ? 'bg-indigo-600' : 'bg-gray-200'
-                }`}
-                role="switch"
-                aria-checked={config.enabled}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    config.enabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div>
-              <label htmlFor="primaryColor" className="block text-sm font-medium text-gray-700">
-                Primary Color
-              </label>
-              <div className="mt-1 flex items-center gap-3">
-                <input
-                  type="color"
-                  id="primaryColorPicker"
-                  data-testid="color-picker-input"
-                  value={config.theme.primaryColor}
-                  onChange={handlePrimaryColorChange}
-                  onBlur={() => handleFieldBlur('primaryColor')}
-                  className="h-10 w-14 rounded cursor-pointer border border-gray-300"
-                />
-                <input
-                  type="text"
-                  id="primaryColor"
-                  data-testid="hex-color-input"
-                  value={config.theme.primaryColor}
-                  onChange={handlePrimaryColorChange}
-                  onBlur={() => handleFieldBlur('primaryColor')}
-                  placeholder="#6366f1"
-                  className={`block w-32 rounded-md shadow-sm sm:text-sm uppercase ${
-                    touched.primaryColor && validationErrors.primaryColor
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-                  }`}
-                />
-              </div>
-              {touched.primaryColor && validationErrors.primaryColor && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.primaryColor}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="position" className="block text-sm font-medium text-gray-700">
-                Widget Position
-              </label>
-              <select
-                id="position"
-                data-testid="position-select"
-                value={config.theme.position}
-                onChange={handlePositionChange}
-                onBlur={() => handleFieldBlur('position')}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
-                  touched.position && validationErrors.position ? 'border-red-300' : ''
-                }`}
-              >
-                <option value="bottom-right">Bottom Right</option>
-                <option value="bottom-left">Bottom Left</option>
-              </select>
-              {touched.position && validationErrors.position && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.position}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Code className="h-5 w-5 text-gray-400" />
-            <h2 className="text-lg font-medium text-gray-900">Embed Code</h2>
-          </div>
-
-          <EmbedCodePreview
-            merchantId={merchantId}
-            primaryColor={config.theme.primaryColor}
-            enabled={config.enabled}
-          />
-        </div>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">Bot Configuration</h3>
-        <p className="text-sm text-blue-700 mb-3">
-          To customize your bot&apos;s name and welcome message, visit these pages:
-        </p>
         <div className="flex gap-4">
-          <a
-            href="/bot-config"
-            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+          {hasUnsavedChanges && (
+            <button
+              onClick={handleCancel}
+              className="h-14 px-8 bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all duration-300"
+            >
+              Rollback
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || hasValidationErrors(validationErrors)}
+            className="h-14 px-8 bg-emerald-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-400 transition-all duration-300 shadow-[0_0_30px_rgba(16,185,129,0.2)] flex items-center justify-center gap-3 disabled:opacity-50"
           >
-            <ExternalLink className="h-3 w-3" />
-            Bot Name Settings
-          </a>
-          <a
-            href="/personality"
-            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Bot Personality & Greeting
-          </a>
+            {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+            {saving ? 'Syncing...' : 'Commit Changes'}
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3">
-        {hasUnsavedChanges && (
-          <button
-            type="button"
-            data-testid="cancel-button"
-            onClick={handleCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            Cancel
-          </button>
-        )}
-        <button
-          type="button"
-          data-testid="save-settings-button"
-          onClick={handleSave}
-          disabled={saving || hasValidationErrors(validationErrors)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              Save Settings
-            </>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <div className="lg:col-span-3 space-y-8">
+          <GlassCard accent="mantis" className="border-emerald-500/10 bg-emerald-500/[0.01]">
+            <div className="p-8 border-b border-white/[0.03] flex items-center gap-4 bg-white/[0.01]">
+              <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
+                <Palette size={20} />
+              </div>
+              <h2 className="text-lg font-black text-white uppercase tracking-tight">Visual Parameters</h2>
+            </div>
+            
+            <div className="p-8 space-y-10">
+              <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl">
+                <div>
+                  <h4 className="text-white font-black uppercase tracking-widest text-[11px]">Neural Presence</h4>
+                  <p className="text-[10px] text-emerald-900/40 font-bold uppercase tracking-widest mt-1">Activate/Deactivate widget node</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleEnabled}
+                  className={`
+                    relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-4 border-transparent transition-all duration-500 
+                    ${config.enabled ? 'bg-emerald-500' : 'bg-white/10'}
+                  `}
+                >
+                  <span className={`
+                    pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-xl transition-all duration-500
+                    ${config.enabled ? 'translate-x-6' : 'translate-x-0'}
+                  `} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] ml-1">Spectral Signature (Color)</label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative group">
+                      <input
+                        type="color"
+                        value={config.theme.primaryColor}
+                        onChange={handlePrimaryColorChange}
+                        onBlur={() => handleFieldBlur('primaryColor')}
+                        className="w-20 h-20 rounded-[28px] cursor-pointer bg-transparent border-4 border-white/[0.05] group-hover:border-emerald-500/40 transition-all p-1"
+                      />
+                      <div className="absolute inset-0 rounded-[28px] pointer-events-none border border-white/[0.05]" />
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={config.theme.primaryColor}
+                        onChange={handlePrimaryColorChange}
+                        onBlur={() => handleFieldBlur('primaryColor')}
+                        className={`
+                          w-full h-14 bg-white/5 border rounded-2xl px-6 text-white font-black text-sm uppercase tracking-widest transition-all
+                          ${touched.primaryColor && validationErrors.primaryColor 
+                            ? 'border-red-500/40 bg-red-500/5' 
+                            : 'border-white/10 focus:border-emerald-500/40 focus:bg-emerald-500/[0.03]'}
+                        `}
+                      />
+                      {touched.primaryColor && validationErrors.primaryColor && (
+                        <p className="mt-2 text-[9px] font-black text-red-500 uppercase ml-2 tracking-widest">{validationErrors.primaryColor}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] ml-1">Spatial Position</label>
+                  <select
+                    value={config.theme.position}
+                    onChange={handlePositionChange}
+                    onBlur={() => handleFieldBlur('position')}
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-white font-black text-sm uppercase tracking-widest appearance-none transition-all focus:border-emerald-500/40 focus:bg-emerald-500/[0.03]"
+                  >
+                    <option value="bottom-right">Vortex Alpha (Bottom Right)</option>
+                    <option value="bottom-left">Vortex Beta (Bottom Left)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+
+          {/* Story 10-2 AC5: FAQ Quick Buttons Configuration (General Mode only) */}
+          {merchant?.onboardingMode === 'general' && (
+            <FAQQuickButtonsConfig merchantId={merchantId || 0} />
           )}
-        </button>
+
+          <div className="grid grid-cols-2 gap-6">
+            <a href="/bot-config" className="group">
+              <GlassCard className="p-6 border-white/[0.03] bg-white/[0.01] group-hover:bg-emerald-500/[0.02] group-hover:border-emerald-500/20 transition-all duration-500">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/5 rounded-xl text-white/40 group-hover:text-emerald-400 transition-colors">
+                    <Terminal size={18} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] font-black text-emerald-900/40 uppercase tracking-widest">Neural ID</p>
+                    <p className="text-[11px] font-black text-white uppercase tracking-tight">Bot Naming</p>
+                  </div>
+                </div>
+              </GlassCard>
+            </a>
+            <a href="/personality" className="group">
+              <GlassCard className="p-6 border-white/[0.03] bg-white/[0.01] group-hover:bg-emerald-500/[0.02] group-hover:border-emerald-500/20 transition-all duration-500">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/5 rounded-xl text-white/40 group-hover:text-emerald-400 transition-colors">
+                    <Sparkles size={18} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] font-black text-emerald-900/40 uppercase tracking-widest">Sentience</p>
+                    <p className="text-[11px] font-black text-white uppercase tracking-tight">Personality</p>
+                  </div>
+                </div>
+              </GlassCard>
+            </a>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <GlassCard className="border-white/[0.03] bg-white/[0.01] h-fit">
+            <div className="p-8 border-b border-white/[0.03] flex items-center gap-4">
+              <div className="p-2 bg-white/5 rounded-xl text-white/40 border border-white/10">
+                <Code size={20} />
+              </div>
+              <h2 className="text-lg font-black text-white uppercase tracking-tight">Neural Uplink</h2>
+            </div>
+            <div className="p-8">
+              <EmbedCodePreview
+                merchantId={merchantId}
+                primaryColor={config.theme.primaryColor}
+                enabled={config.enabled}
+              />
+            </div>
+          </GlassCard>
+        </div>
       </div>
     </div>
   );

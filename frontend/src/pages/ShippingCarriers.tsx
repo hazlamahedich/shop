@@ -3,18 +3,18 @@
  *
  * Story 6.4: Frontend Settings Page
  *
- * Page for managing custom shipping carrier configurations.
- * Allows merchants to add, edit, delete, and toggle carrier configurations.
+ * Re-imagined with Mantis aesthetic.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Truck, AlertCircle } from 'lucide-react';
+import { Plus, Truck, AlertCircle, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { CarrierCard } from '../components/shipping/CarrierCard';
 import { AddCarrierModal } from '../components/shipping/AddCarrierModal';
 import { SupportedCarriersList } from '../components/shipping/SupportedCarriersList';
 import { useShippingCarriersStore } from '../stores/shippingCarriersStore';
 import { useAuthStore } from '../stores/authStore';
+import { GlassCard } from '../components/ui/GlassCard';
 import type { CarrierConfig, CreateCarrierRequest, UpdateCarrierRequest, SupportedCarrier } from '../services/shippingCarriers';
 
 const ShippingCarriers: React.FC = () => {
@@ -109,66 +109,101 @@ const ShippingCarriers: React.FC = () => {
   const isLoading = carriersLoadingState === 'loading' || loadingState === 'loading';
 
   return (
-    <div className="space-y-6">
-      {/* Custom Carriers Section */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-              <Truck size={20} />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Custom Carriers</h3>
-              <p className="text-sm text-gray-500">
-                {(carriers?.length || 0)} custom carrier{(carriers?.length || 0) !== 1 ? 's' : ''} configured
-              </p>
-            </div>
+    <div className="space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header section consistent with page themes */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
+            <Truck size={12} />
+            Logistics Protocol
           </div>
-
-          <Button
-            onClick={handleAddCarrier}
-            disabled={carriersLoadingState === 'loading'}
-            className="flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Add Carrier
-          </Button>
+          <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
+            Shipping Carriers
+          </h1>
+          <p className="text-lg text-emerald-900/40 font-medium max-w-xl">
+            Configure neural links for real-time order tracking and logistics synchronization.
+          </p>
         </div>
 
-        {carriersLoadingState === 'loading' ? (
-          <div className="py-8 text-center text-gray-500">
-            Loading carriers...
+        <button
+          onClick={handleAddCarrier}
+          disabled={carriersLoadingState === 'loading'}
+          className="h-14 px-8 bg-emerald-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-400 transition-all duration-300 shadow-[0_0_30px_rgba(16,185,129,0.2)] flex items-center justify-center gap-3 active:scale-95"
+        >
+          <Plus size={18} />
+          Register Carrier
+        </button>
+      </div>
+
+      {/* Custom Carriers Section */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-black text-white uppercase tracking-[0.4em]">Active Protocols</span>
+          <div className="h-px flex-1 bg-white/[0.05]" />
+        </div>
+
+        <GlassCard accent="mantis" className="border-emerald-500/10 bg-emerald-500/[0.01]">
+          <div className="p-8 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.01]">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <ShieldCheck size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">Custom Carriers</h3>
+                <p className="text-xs font-bold text-emerald-900/40 uppercase tracking-widest mt-1">
+                  {(carriers?.length || 0)} node{(carriers?.length || 0) !== 1 ? 's' : ''} synchronized
+                </p>
+              </div>
+            </div>
           </div>
-        ) : (carriers || []).length === 0 ? (
-          <div className="py-8 text-center text-gray-500">
-            <Truck size={40} className="mx-auto mb-3 text-gray-300" />
-            <p>No custom carriers configured yet.</p>
-            <p className="text-sm mt-1">
-              Add custom carriers for local shipping providers that aren't in the supported list.
-            </p>
+
+          <div className="divide-y divide-white/[0.03]">
+            {carriersLoadingState === 'loading' ? (
+              <div className="p-20 text-center text-emerald-900/40 flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Accessing Distributed Ledger...</span>
+              </div>
+            ) : (carriers || []).length === 0 ? (
+              <div className="p-20 text-center space-y-6">
+                <div className="w-20 h-20 bg-white/[0.02] border border-white/[0.05] rounded-full flex items-center justify-center mx-auto text-emerald-900/20">
+                  <Truck size={40} />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-white/60 font-bold">No custom carriers initialized.</p>
+                  <p className="text-xs text-emerald-900/30 max-w-sm mx-auto uppercase tracking-widest font-black">
+                    Link custom logistics providers to expand neural coverage.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/[0.03]">
+                {carriers.map((carrier) => (
+                  <CarrierCard
+                    key={carrier.id}
+                    carrier={carrier}
+                    isDeleting={deletingCarrierId === carrier.id}
+                    onEdit={() => handleEditCarrier(carrier)}
+                    onDelete={() => handleDeleteCarrier(carrier.id)}
+                    onToggle={(active) => handleToggleActive(carrier)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {carriers.map((carrier) => (
-              <CarrierCard
-                key={carrier.id}
-                carrier={carrier}
-                isDeleting={deletingCarrierId === carrier.id}
-                onEdit={() => handleEditCarrier(carrier)}
-                onDelete={() => handleDeleteCarrier(carrier.id)}
-                onToggle={(active) => handleToggleCarrier(carrier, active)}
-              />
-            ))}
-          </div>
-        )}
+        </GlassCard>
       </div>
 
       {/* Supported Carriers Section */}
-      <div>
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-black text-white uppercase tracking-[0.4em]">Pre-Integrated Arrays</span>
+          <div className="h-px flex-1 bg-white/[0.05]" />
+        </div>
+
         {loadingState === 'loading' ? (
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <p className="text-gray-500 text-sm">Loading supported carriers...</p>
-          </div>
+          <GlassCard className="p-12 text-center border-white/[0.03]">
+            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] animate-pulse">Scanning Global Logistics Network...</p>
+          </GlassCard>
         ) : (
           <SupportedCarriersList
             carriers={supportedCarriers || []}

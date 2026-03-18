@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { onboardingStore } from '../stores/onboardingStore';
 import { InteractiveTutorial } from '../components/onboarding/InteractiveTutorial';
 import { PrerequisiteChecklist } from '../components/onboarding/PrerequisiteChecklist';
@@ -13,6 +11,9 @@ import { useDeploymentStore } from '../stores/deploymentStore';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { useLLMStore } from '../stores/llmStore';
 import { OnboardingMode, DEFAULT_ONBOARDING_MODE } from '../types/onboarding';
+import { GlassCard } from '../components/ui/GlassCard';
+import { Button } from '../components/ui/Button';
+import { Check, Cpu, Zap, Rocket, Settings2, Sparkles } from 'lucide-react';
 
 const Onboarding = () => {
   const { isComplete, loadFromBackend, onboardingMode, setOnboardingMode } = onboardingStore();
@@ -97,10 +98,10 @@ const Onboarding = () => {
   if (showTutorial) {
     return (
       <div
-        className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4"
-        data-theme="onboarding"
+        className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 overflow-hidden relative"
       >
-        <div className="max-w-4xl w-full">
+        <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent opacity-20" />
+        <div className="max-w-4xl w-full relative z-10">
           <InteractiveTutorial
             onComplete={() => (window.location.pathname = '/onboarding/success')}
           />
@@ -109,69 +110,78 @@ const Onboarding = () => {
     );
   }
 
+  const steps = [
+    { id: 0, label: 'Mode', icon: Cpu },
+    { id: 1, label: 'Protocols', icon: Zap },
+    { id: 2, label: 'Deployment', icon: Rocket },
+    { id: 3, label: 'Sync', icon: Settings2 },
+  ];
+
   return (
-    <div
-      className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4"
-      data-theme="onboarding"
-    >
-      <div className="max-w-4xl w-full">
+    <div className="min-h-screen bg-[#050505] flex flex-col items-center py-20 px-6 relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-emerald-500/10 blur-[120px] rounded-full -z-10 opacity-30" />
+      
+      <div className="max-w-5xl w-full space-y-16 relative z-10">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900">Setting Up Your Shop Assistant</h1>
-          <p className="text-gray-500 mt-2">
+        <div className="text-center space-y-6 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 mb-4 animate-in fade-in slide-in-from-top-4 duration-700">
+            <Sparkles size={12} className="animate-pulse" />
+            Neural Initialization Protocol
+          </div>
+          <h1 className="text-6xl font-black tracking-tight text-white leading-none mantis-glow-text">
+            Awaken Your Agent
+          </h1>
+          <p className="text-xl text-emerald-900/60 font-medium leading-relaxed">
             {selectedMode === 'general'
-              ? 'Follow these steps to get your AI chatbot running.'
-              : 'Follow these steps to get your AI-powered commerce agent running.'}
+              ? 'Initialize your core autonomous protocols and neural pathways.'
+              : 'Synchronize your e-commerce engine with our advanced AI core.'}
           </p>
         </div>
 
-        {/* Stepper */}
-        <div className="flex items-center justify-center mb-12">
-          {[
-            { id: 0, label: 'Mode' },
-            { id: 1, label: 'Prerequisites' },
-            { id: 2, label: 'Deployment' },
-            { id: 3, label: 'Configuration' },
-          ].map((s, i) => (
-            <React.Fragment key={s.id}>
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-sm ${
-                    s.id <= wizardStep
-                      ? 'bg-primary text-white scale-110'
-                      : 'bg-gray-200 text-gray-400'
-                  }`}
-                >
-                  {s.id < wizardStep ? '✓' : s.id}
+        {/* Stepper Redesigned */}
+        <div className="relative max-w-3xl mx-auto">
+          <div className="absolute top-6 left-0 right-0 h-px bg-white/[0.03] -z-10" />
+          <div className="flex items-center justify-between">
+            {steps.map((s, i) => {
+              const Icon = s.icon;
+              const isActive = s.id === wizardStep;
+              const isCompleted = s.id < wizardStep;
+              
+              return (
+                <div key={s.id} className="flex flex-col items-center relative group">
+                  <div
+                    className={`
+                      w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-700 border
+                      ${isActive 
+                        ? 'bg-emerald-500 text-black border-emerald-400 scale-110 shadow-[0_0_30px_rgba(16,185,129,0.4)]' 
+                        : isCompleted
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-white/[0.02] text-white/20 border-white/[0.05] group-hover:border-white/10 group-hover:text-white/40'}
+                    `}
+                  >
+                    {isCompleted ? <Check size={20} strokeWidth={3} /> : <Icon size={20} />}
+                  </div>
+                  <span
+                    className={`
+                      mt-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500
+                      ${isActive ? 'text-emerald-400' : 'text-white/20'}
+                    `}
+                  >
+                    {s.label}
+                  </span>
+                  
+                  {isActive && (
+                    <div className="absolute -bottom-2 w-1 h-1 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(16,185,129,1)]" />
+                  )}
                 </div>
-                <span
-                  className={`mt-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                    s.id === wizardStep
-                      ? 'text-primary font-bold'
-                      : s.id < wizardStep
-                        ? 'text-slate-600'
-                        : 'text-gray-400'
-                  }`}
-                >
-                  {s.label}
-                </span>
-                {s.id === wizardStep && (
-                  <div className="absolute -bottom-4 w-1 h-1 bg-primary rounded-full" />
-                )}
-              </div>
-              {i < 3 && (
-                <div
-                  className={`w-24 h-1 mx-4 -mt-6 transition-colors ${
-                    s.id < wizardStep ? 'bg-primary' : 'bg-gray-200'
-                  }`}
-                ></div>
-              )}
-            </React.Fragment>
-          ))}
+              );
+            })}
+          </div>
         </div>
 
-        {/* Wizard Content */}
-        <div className="transition-all duration-300">
+        {/* Wizard Content with Glassmorphic Transition */}
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
           {wizardStep === 0 && (
             <ModeSelection
               selectedMode={selectedMode}
@@ -184,84 +194,100 @@ const Onboarding = () => {
           )}
 
           {wizardStep === 1 && (
-            <div className="space-y-6">
-              <PrerequisiteChecklist mode={selectedMode || DEFAULT_ONBOARDING_MODE} />
+            <div className="space-y-12">
+              <GlassCard accent="mantis" className="p-10 border-emerald-500/10 bg-emerald-500/[0.01]">
+                <PrerequisiteChecklist mode={selectedMode || DEFAULT_ONBOARDING_MODE} />
+              </GlassCard>
               {isComplete() && (
                 <div className="flex justify-center">
-                  <Button onClick={handlePrerequisitesDone} size="lg" className="px-12">
-                    Move to Deployment
-                  </Button>
+                  <button
+                    onClick={handlePrerequisitesDone}
+                    className="h-16 px-16 bg-emerald-500 text-black font-black text-[11px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-400 transition-all duration-500 shadow-[0_0_40px_rgba(16,185,129,0.2)] hover:shadow-[0_0_50px_rgba(16,185,129,0.4)] hover:-translate-y-1"
+                  >
+                    Proceed to Deployment
+                  </button>
                 </div>
               )}
             </div>
           )}
 
           {wizardStep === 2 && (
-            <div className="space-y-6">
-              <DeploymentWizard />
+            <div className="space-y-12">
+              <GlassCard accent="mantis" className="p-10 border-emerald-500/10 bg-emerald-500/[0.01]">
+                <DeploymentWizard />
+              </GlassCard>
               {(deploymentStatus === 'success' || merchantKey) && (
                 <div className="flex justify-center">
-                  <Button onClick={handleDeploymentDone} size="lg" className="px-12">
-                    Configure Connections
-                  </Button>
+                  <button
+                    onClick={handleDeploymentDone}
+                    className="h-16 px-16 bg-emerald-500 text-black font-black text-[11px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-400 transition-all duration-500 shadow-[0_0_40px_rgba(16,185,129,0.2)] hover:shadow-[0_0_50px_rgba(16,185,129,0.4)] hover:-translate-y-1"
+                  >
+                    Configure Neural Sync
+                  </button>
                 </div>
               )}
             </div>
           )}
 
           {wizardStep === 3 && (
-            <div className="space-y-8 pb-20">
+            <div className="space-y-12 pb-20">
               {isEcommerce && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="p-1">
-                    <div className="p-6">
-                      <FacebookConnection />
-                    </div>
-                  </Card>
-                  <Card className="p-1">
-                    <div className="p-6">
-                      <ShopifyConnection />
-                    </div>
-                  </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <GlassCard className="p-8 border-white/[0.03] bg-white/[0.01]">
+                    <FacebookConnection />
+                  </GlassCard>
+                  <GlassCard className="p-8 border-white/[0.03] bg-white/[0.01]">
+                    <ShopifyConnection />
+                  </GlassCard>
                 </div>
               )}
 
-              <LLMConfiguration />
+              <GlassCard accent="mantis" className="p-10 border-emerald-500/10 bg-emerald-500/[0.01]">
+                <LLMConfiguration />
+              </GlassCard>
 
-              <Card className="bg-primary/5 border-primary/20">
-                <div className="p-8 text-center space-y-4">
-                  <h3 className="text-xl font-bold text-gray-900">Final Verification</h3>
-                  <p className="text-sm text-gray-600 max-w-lg mx-auto">
-                    {isEcommerce
-                      ? "Once you've connected your platforms and tested the LLM, you're ready to start the interactive tour or jump straight into the dashboard."
-                      : "Once you've tested the LLM, you're ready to start the interactive tour or jump straight into the dashboard."}
-                  </p>
-                  <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                    <Button
-                      onClick={startTutorial}
-                      variant="default"
-                      size="lg"
-                      disabled={!canStartTutorial}
-                    >
-                      Start Interactive Tutorial
-                    </Button>
-                    <Button
-                      onClick={() => (window.location.pathname = '/onboarding/success')}
-                      variant="outline"
-                      size="lg"
-                    >
-                      Finish Onboarding
-                    </Button>
-                  </div>
-                  {!canStartTutorial && (
-                    <p className="text-xs text-amber-600 font-medium">
+              <GlassCard className="bg-emerald-500/[0.02] border-emerald-500/10 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                <div className="p-12 text-center space-y-8 relative z-10">
+                  <div className="space-y-4">
+                    <h3 className="text-3xl font-black text-white tracking-tight leading-none uppercase">Final Verification</h3>
+                    <p className="text-lg text-emerald-900/60 max-w-2xl mx-auto font-medium">
                       {isEcommerce
-                        ? 'Note: Connecting platforms and LLM is recommended before starting the tutorial.'
-                        : 'Note: Configuring LLM is recommended before starting the tutorial.'}
+                        ? "Neural pathways established. Synchronize your platforms and finalize the calibration to initiate the agent."
+                        : "Neural pathways established. Finalize the calibration to initiate the agent."}
                     </p>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row justify-center gap-6 pt-4">
+                    <button
+                      onClick={startTutorial}
+                      disabled={!canStartTutorial}
+                      className={`
+                        h-14 px-10 rounded-2xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-[0.3em] transition-all duration-500
+                        ${canStartTutorial 
+                          ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.2)]' 
+                          : 'bg-white/5 border border-white/10 text-white/20 cursor-not-allowed'}
+                      `}
+                    >
+                      <Sparkles size={16} />
+                      Interactive Calibration
+                    </button>
+                    <button
+                      onClick={() => (window.location.pathname = '/onboarding/success')}
+                      className="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.3em] hover:bg-white/10 hover:border-white/20 transition-all duration-500"
+                    >
+                      Bypass to Dashboard
+                    </button>
+                  </div>
+                  
+                  {!canStartTutorial && (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/5 border border-red-500/10 rounded-xl text-[9px] font-black text-red-500 uppercase tracking-widest animate-pulse">
+                      <Settings2 size={12} />
+                      Core protocols pending calibration
+                    </div>
                   )}
                 </div>
-              </Card>
+              </GlassCard>
             </div>
           )}
         </div>

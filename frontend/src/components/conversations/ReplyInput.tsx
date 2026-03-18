@@ -22,25 +22,29 @@ const platformConfig = {
     icon: MessageCircle,
     label: 'Send via Messenger',
     placeholder: 'Type your reply to send via Facebook Messenger...',
-    color: 'text-indigo-600',
+    color: 'text-emerald-400',
+    borderColor: 'border-emerald-500/20',
   },
   facebook: {
     icon: MessageCircle,
     label: 'Send via Messenger',
     placeholder: 'Type your reply to send via Facebook Messenger...',
-    color: 'text-indigo-600',
+    color: 'text-emerald-400',
+    borderColor: 'border-emerald-500/20',
   },
   widget: {
     icon: Globe,
     label: 'Send to Widget',
     placeholder: 'Type your reply to send to the customer on your website...',
-    color: 'text-blue-600',
+    color: 'text-emerald-400',
+    borderColor: 'border-emerald-500/20',
   },
   preview: {
     icon: AlertCircle,
     label: 'Preview is Read-Only',
     placeholder: 'Cannot reply to preview conversations',
-    color: 'text-gray-400',
+    color: 'text-zinc-500',
+    borderColor: 'border-zinc-500/20',
   },
 };
 
@@ -83,8 +87,8 @@ export const ReplyInput: React.FC<ReplyInputProps> = ({
 
   if (isPreview) {
     return (
-      <div className="bg-gray-50 border-t border-gray-200 p-4">
-        <div className="flex items-center gap-2 text-gray-500 text-sm">
+      <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border-t border-emerald-500/10 p-4">
+        <div className="flex items-center gap-2 text-zinc-500 text-sm">
           <AlertCircle size={16} />
           <span>Preview conversations are read-only. They are not sent to real customers.</span>
         </div>
@@ -93,24 +97,25 @@ export const ReplyInput: React.FC<ReplyInputProps> = ({
   }
 
   return (
-    <div className="bg-white border-t border-gray-200 p-4">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {/* Platform indicator */}
-        <div className={`flex items-center gap-2 text-sm ${config.color}`}>
-          <PlatformIcon size={16} />
-          <span>{config.label}</span>
+    <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border-t border-emerald-500/10 p-4 relative z-10">
+      <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-4">
+        {/* Platform indicator & Errors */}
+        <div className="flex items-center justify-between gap-4">
+          <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-wider ${config.color}`}>
+            <PlatformIcon size={14} />
+            <span>{config.label}</span>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20 animate-in fade-in slide-in-from-top-1">
+              <AlertCircle size={14} />
+              <span>{error}</span>
+            </div>
+          )}
         </div>
 
-        {/* Error message */}
-        {error && (
-          <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-2 rounded">
-            <AlertCircle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-
         {/* Input area */}
-        <div className="flex gap-2">
+        <div className="relative group">
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -118,25 +123,30 @@ export const ReplyInput: React.FC<ReplyInputProps> = ({
             placeholder={config.placeholder}
             disabled={isDisabled}
             rows={2}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full bg-black/40 border border-emerald-500/10 rounded-xl px-4 py-3 text-emerald-50/90 placeholder:text-emerald-900/40 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed custom-scrollbar"
             maxLength={5000}
           />
-          <button
-            type="submit"
-            disabled={!message.trim() || isDisabled}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 self-end"
-          >
-            {isLoading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Send size={18} />
-            )}
-          </button>
-        </div>
+          
+          <div className="absolute bottom-3 right-3 flex items-center gap-3">
+            {/* Character count */}
+            <span className={`text-[10px] font-medium transition-colors ${
+              message.length > 4500 ? 'text-amber-500' : 'text-emerald-900/40'
+            }`}>
+              {message.length.toLocaleString()} / 5,000
+            </span>
 
-        {/* Character count */}
-        <div className="text-xs text-gray-400 text-right">
-          {message.length} / 5000
+            <button
+              type="submit"
+              disabled={!message.trim() || isDisabled}
+              className="flex items-center justify-center w-10 h-10 bg-emerald-500 text-black rounded-lg hover:bg-emerald-400 disabled:bg-emerald-500/10 disabled:text-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all duration-300 group-hover:scale-105 active:scale-95 disabled:scale-100 disabled:shadow-none"
+            >
+              {isLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Send size={18} />
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>

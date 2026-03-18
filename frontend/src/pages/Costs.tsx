@@ -9,10 +9,11 @@
  * - Provider cost breakdown
  *
  * Story 3-5: Real-Time Cost Tracking
+ * Re-imagined with Mantis aesthetic.
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { AlertCircle, Calendar, RefreshCw, BarChart3, Infinity } from 'lucide-react';
+import { AlertCircle, Calendar, RefreshCw, BarChart3, Infinity, TrendingUp, Activity, DollarSign } from 'lucide-react';
 import { CostSummaryCards } from '../components/costs/CostSummaryCards';
 import { BudgetConfiguration } from '../components/costs/BudgetConfiguration';
 import { BudgetRecommendationDisplay } from '../components/costs/BudgetRecommendationDisplay';
@@ -24,6 +25,7 @@ import { CostComparisonCard } from '../components/costs/CostComparisonCard';
 import { useCostTrackingStore } from '../stores/costTrackingStore';
 import { useToast } from '../context/ToastContext';
 import { formatCost } from '../types/cost';
+import { GlassCard } from '../components/ui/GlassCard';
 
 /**
  * Date range preset option
@@ -34,26 +36,22 @@ interface DateRangePreset {
   dateTo?: string;
 }
 
-// Generate today's date in YYYY-MM-DD format
 const getTodayDate = (): string => {
   const today = new Date();
   return today.toISOString().split('T')[0];
 };
 
-// Get date X days ago
 const getDateDaysAgo = (days: number): string => {
   const date = new Date();
   date.setDate(date.getDate() - days);
   return date.toISOString().split('T')[0];
 };
 
-// Get first day of current month
 const getFirstDayOfMonth = (): string => {
   const date = new Date();
   return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
 };
 
-// Date range presets
 const DATE_RANGE_PRESETS: DateRangePreset[] = [
   { label: 'Today', dateFrom: getTodayDate() },
   { label: 'Last 7 Days', dateFrom: getDateDaysAgo(7) },
@@ -61,7 +59,6 @@ const DATE_RANGE_PRESETS: DateRangePreset[] = [
   { label: 'This Month', dateFrom: getFirstDayOfMonth() },
 ];
 
-// Default budget cap
 const DEFAULT_BUDGET_CAP = 50;
 
 const Costs = () => {
@@ -93,26 +90,22 @@ const Costs = () => {
     }
   }, [botStatus?.isPaused]);
 
-  // Local state for date range inputs and budget cap
   const [dateFrom, setDateFrom] = useState<string>(getDateDaysAgo(30));
   const [dateTo, setDateTo] = useState<string>(getTodayDate());
 
-  // Toast notification
   const { toast } = useToast();
 
-  // Show merchant settings error
   useEffect(() => {
     if (merchantSettingsError) {
       toast(merchantSettingsError, 'error');
     }
   }, [merchantSettingsError, toast]);
-  // Load merchant settings (budget cap) on mount
+
   useEffect(() => {
     getMerchantSettings();
     fetchBotStatus();
   }, [getMerchantSettings, fetchBotStatus]);
 
-  // Initialize date params and start real-time polling on mount
   useEffect(() => {
     const initialParams = { dateFrom, dateTo };
     setCostSummaryParams(initialParams);
@@ -122,10 +115,8 @@ const Costs = () => {
     return () => {
       stopPolling();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPolling, stopPolling, pollingInterval]);
 
-  // Handle date range preset click
   const handlePresetClick = (preset: DateRangePreset) => {
     const newDateFrom = preset.dateFrom;
     const newDateTo = preset.dateTo || getTodayDate();
@@ -135,28 +126,21 @@ const Costs = () => {
     fetchCostSummary({ dateFrom: newDateFrom, dateTo: newDateTo });
   };
 
-  // Handle custom date range change
   const handleDateRangeChange = () => {
     setCostSummaryParams({ dateFrom, dateTo });
     fetchCostSummary({ dateFrom, dateTo });
   };
 
-  // Show error toasts from store state
   useEffect(() => {
     if (costSummaryError) {
       toast(costSummaryError, 'error');
     }
   }, [costSummaryError, toast]);
 
-  // Clean up lint error about unused setPollingInterval
-  // It was fixed earlier but let's double check imports if needed
-
-  // Handle refresh
   const handleRefresh = () => {
     fetchCostSummary({ dateFrom, dateTo });
   };
 
-  // Handle polling toggle
   const handleTogglePolling = () => {
     if (isPolling) {
       stopPolling();
@@ -165,7 +149,6 @@ const Costs = () => {
     }
   };
 
-  // Calculate daily costs for chart
   const dailyData = useMemo(() => {
     if (!costSummary?.dailyBreakdown) return [];
 
@@ -176,19 +159,16 @@ const Costs = () => {
     }));
   }, [costSummary]);
 
-  // Get max daily cost for chart scaling
   const maxDailyCost = useMemo(() => {
     const budgetCap = merchantSettings?.budgetCap ?? DEFAULT_BUDGET_CAP;
     if (dailyData.length === 0) return 1;
     return Math.max(...dailyData.map((d) => d.cost), budgetCap / 10);
   }, [dailyData, merchantSettings?.budgetCap]);
 
-  // Get top conversations
   const topConversations = useMemo(() => {
     return costSummary?.topConversations?.slice(0, 5) || [];
   }, [costSummary]);
 
-  // provider breakdown sorted by cost
   const providersByCost = useMemo(() => {
     if (!costSummary?.costsByProvider) return [];
 
@@ -197,14 +177,13 @@ const Costs = () => {
       .sort((a, b) => b.costUsd - a.costUsd);
   }, [costSummary]);
 
-  // Check if budget cap is null/undefined (no limit set)
   const hasNoBudgetLimit = merchantSettings !== null && 
     merchantSettings !== undefined && 
     (merchantSettings?.budgetCap === null || merchantSettings?.budgetCap === undefined);
 
   return (
-    <div className="space-y-6">
-      {/* Hard Stop Modal (Story 3-8) - Shows when bot is paused at 100% */}
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+      {/* Modals & Banners */}
       <BudgetHardStopModal
         onIncreaseBudget={() => {
           const budgetSection = document.getElementById('budget-input');
@@ -219,7 +198,6 @@ const Costs = () => {
         onClose={() => setShowHardStopModal(false)}
       />
 
-      {/* Bot Paused Banner (Story 3-8) - Show first if bot is paused */}
       <BotPausedBanner
         onIncreaseBudget={() => {
           const budgetSection = document.getElementById('budget-input');
@@ -233,7 +211,6 @@ const Costs = () => {
         }}
       />
 
-      {/* Budget Warning Banner (Story 3-8) - Show at 80%+ */}
       <BudgetWarningBanner
         onIncreaseBudget={() => {
           const budgetSection = document.getElementById('budget-input');
@@ -247,21 +224,20 @@ const Costs = () => {
         }}
       />
 
-      {/* No Budget Limit Banner - Show when budget cap is null */}
       {hasNoBudgetLimit && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center border-2 border-amber-200">
-              <Infinity size={28} className="text-amber-600" strokeWidth={2.5} />
+        <GlassCard accent="mantis" className="p-8 border-amber-500/20 bg-amber-500/[0.03]">
+          <div className="flex items-center gap-8">
+            <div className="flex-shrink-0 w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 text-amber-500">
+              <Infinity size={32} strokeWidth={2.5} />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-amber-900">Unlimited Spending Active</h3>
-                <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-semibold rounded-full uppercase tracking-wide">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-black text-amber-100 uppercase tracking-tight">Unlimited Spending Active</h3>
+                <span className="px-3 py-1 bg-amber-500 text-black text-[10px] font-black rounded-full uppercase tracking-widest">
                   No Cap
                 </span>
               </div>
-              <p className="text-sm text-amber-700 mt-1">
+              <p className="text-sm text-amber-500/60 font-medium">
                 Your bot has no spending limit. Set a budget cap to receive alerts and prevent overspending.
               </p>
             </div>
@@ -273,75 +249,69 @@ const Costs = () => {
                   budgetSection.scrollIntoView({ behavior: 'smooth' });
                 }
               }}
-              className="px-5 py-2.5 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+              className="px-8 h-14 bg-amber-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-amber-400 transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)]"
             >
               Set Budget Cap
             </button>
           </div>
-        </div>
+        </GlassCard>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Costs & Budget</h2>
-            {hasNoBudgetLimit && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 text-sm font-bold rounded-full border border-amber-300 shadow-sm">
-                <Infinity size={16} className="text-amber-600" />
-                Unlimited
-              </span>
-            )}
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
+            <DollarSign size={12} />
+            Neural Resource Consumption
           </div>
+          <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
+            Costs & Budget
+          </h1>
           {lastUpdate && (
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Last updated: {new Date(lastUpdate).toLocaleTimeString()}
+            <p className="text-sm text-emerald-500/60 font-medium">
+              Last Analysis: <span className="text-white/60 font-mono tracking-tighter">{new Date(lastUpdate).toLocaleTimeString()}</span>
             </p>
           )}
         </div>
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+
+        <div className="flex items-center gap-3">
           <button
             onClick={handleRefresh}
             disabled={costSummaryLoading}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh data"
+            className="w-14 h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-2xl text-white/40 hover:text-emerald-400 hover:border-emerald-500/20 hover:bg-emerald-500/5 transition-all duration-300 disabled:opacity-50"
           >
-            <RefreshCw size={18} className={costSummaryLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={20} className={costSummaryLoading ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={handleTogglePolling}
-            className={`px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+            className={`h-14 px-8 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl border transition-all duration-300 ${
               isPolling
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+                : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20'
             }`}
           >
-            {isPolling ? 'Polling Active' : 'Polling Paused'}
+            {isPolling ? 'Neural Sync Active' : 'Neural Sync Paused'}
           </button>
         </div>
       </div>
 
-      {/* Budget Recommendation (Story 3-6) */}
       <BudgetRecommendationDisplay />
 
-      {/* Date Range Filter */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center space-x-2 text-gray-700">
-            <Calendar size={18} />
-            <span className="text-sm font-medium">Date Range:</span>
-          </div>
-
-          {/* Presets */}
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+      {/* Range Control */}
+      <GlassCard className="p-4 bg-emerald-500/[0.01] border-white/[0.03]">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-emerald-500/60">
+              <Calendar size={18} />
+            </div>
             {DATE_RANGE_PRESETS.map((preset) => (
               <button
                 key={preset.label}
                 onClick={() => handlePresetClick(preset)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all duration-300 ${
                   dateFrom === preset.dateFrom && (!preset.dateTo || dateTo === preset.dateTo)
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {preset.label}
@@ -349,195 +319,195 @@ const Costs = () => {
             ))}
           </div>
 
-          {/* Custom Date Range */}
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
-            <span className="text-gray-500 text-xs sm:text-sm">to</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
+          <div className="flex items-center gap-4 w-full lg:w-auto">
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2 flex-1">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="bg-transparent text-xs text-white uppercase tracking-widest font-black focus:outline-none w-full"
+              />
+              <span className="text-emerald-900/20 font-black">/</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="bg-transparent text-xs text-white uppercase tracking-widest font-black focus:outline-none w-full"
+              />
+            </div>
             <button
               onClick={handleDateRangeChange}
               disabled={costSummaryLoading}
-              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+              className="h-12 px-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-emerald-500 hover:text-black transition-all duration-300"
             >
-              Apply
+              Apply Interval
             </button>
           </div>
         </div>
-      </div>
+      </GlassCard>
 
-      {/* Error State */}
-      {costSummaryError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertCircle size={20} className="text-red-500 mr-2" />
-            <p className="text-sm text-red-700">{costSummaryError}</p>
-            <button
-              onClick={() => fetchCostSummary({ dateFrom, dateTo })}
-              className="ml-auto text-sm text-red-700 font-medium hover:underline"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Summary Cards with Trends */}
       <CostSummaryCards previousPeriodSummary={previousPeriodSummary ?? undefined} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart Section */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="font-bold text-gray-900 flex items-center">
-                <BarChart3 size={18} className="mr-2" />
-                Daily Spend
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Cost breakdown by day for selected period
-              </p>
-            </div>
-          </div>
-
-          {/* Chart Area */}
-          {dailyData.length > 0 ? (
-            <div className="h-64 bg-gray-50 rounded-lg p-4 relative">
-              {/* Budget Cap Line */}
-              <div
-                className="absolute left-0 w-full border-t-2 border-dashed border-red-300 pointer-events-none z-10"
-                style={{
-                  top: `${100 - Math.min(((merchantSettings?.budgetCap ?? DEFAULT_BUDGET_CAP) / (maxDailyCost * dailyData.length || 1)) * 100, 100)}%`,
-                }}
-              />
-              <span
-                className="absolute right-2 text-xs text-red-500"
-                style={{
-                  top: `${100 - Math.min(((merchantSettings?.budgetCap ?? DEFAULT_BUDGET_CAP) / (maxDailyCost * dailyData.length || 1)) * 100, 100) - 3}%`,
-                }}
-              >
-                Cap ${merchantSettings?.budgetCap ?? DEFAULT_BUDGET_CAP}
-              </span>
-
-              {/* Bar Chart */}
-              <div className="flex items-end justify-between h-full pt-6 px-2">
-                {dailyData.map((day, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 mx-1 bg-blue-100 rounded-t relative group"
-                    style={{ height: `${(day.cost / maxDailyCost) * 100}%` }}
-                  >
-                    <div
-                      className="absolute bottom-0 w-full bg-blue-600 rounded-t"
-                      style={{ height: '100%' }}
-                    />
-                    {/* Tooltip */}
-                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs py-1 px-2 rounded whitespace-nowrap z-20">
-                      <div className="font-medium">{day.date}</div>
-                      <div>{formatCost(day.cost)}</div>
-                      <div className="text-gray-400">{day.requests} requests</div>
-                    </div>
-                    {/* Date label */}
-                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-                      {day.date}
-                    </div>
-                  </div>
-                ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Expenditure Graph */}
+        <div className="lg:col-span-2">
+          <GlassCard accent="mantis" className="h-[500px] flex flex-col p-0 overflow-hidden border-emerald-500/5 bg-emerald-500/[0.01]">
+            <div className="p-8 border-b border-white/[0.03] flex items-center justify-between bg-white/[0.01]">
+              <div className="space-y-1">
+                <h3 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                  <BarChart3 className="text-emerald-500" size={20} />
+                  Expenditure Index
+                </h3>
+                <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.2em]">Neural request cost distribution</p>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-2 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                <TrendingUp size={14} className="text-emerald-400" />
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Active Scale</span>
               </div>
             </div>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-gray-500">
-              <p>No daily data available for selected period</p>
+
+            <div className="flex-1 p-10 flex flex-col justify-end">
+              {dailyData.length > 0 ? (
+                <div className="relative h-full flex items-end justify-between gap-4">
+                  {/* Neural Grid Lines */}
+                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div key={i} className="border-t border-emerald-500/10 w-full h-0"></div>
+                    ))}
+                  </div>
+
+                  {/* Budget Hard Stop Indicator */}
+                  <div
+                    className="absolute left-0 w-full border-t border-dashed border-red-500/50 pointer-events-none z-10 before:content-[''] before:absolute before:left-0 before:w-full before:h-8 before:bg-red-500/[0.03] before:-top-4"
+                    style={{
+                      bottom: `${Math.min(((merchantSettings?.budgetCap ?? DEFAULT_BUDGET_CAP) / (maxDailyCost || 1)) * 100, 100)}%`,
+                    }}
+                  >
+                    <div className="absolute -top-6 right-0 bg-red-500/10 backdrop-blur-md px-3 py-1 rounded-full border border-red-500/20">
+                       <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">Hard Stop Limit: ${merchantSettings?.budgetCap ?? DEFAULT_BUDGET_CAP}</span>
+                    </div>
+                  </div>
+
+                  {/* Bars */}
+                  {dailyData.map((day, i) => (
+                    <div
+                      key={i}
+                      className="group relative flex-1"
+                      style={{ height: `${(day.cost / maxDailyCost) * 100}%` }}
+                    >
+                      <div className="absolute inset-0 bg-emerald-500/10 border-x border-t border-emerald-500/20 rounded-t-xl transition-all duration-500 group-hover:bg-emerald-500 group-hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]"></div>
+                      
+                      {/* Neural Tooltip */}
+                      <div className="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-300 transform scale-90 group-hover:scale-100">
+                        <div className="px-5 py-3 bg-[#0a0a0a] border border-emerald-500/30 rounded-2xl shadow-2xl space-y-1">
+                          <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{day.date}</p>
+                          <p className="text-sm font-black text-white">{formatCost(day.cost)}</p>
+                        </div>
+                        <div className="w-2 h-2 bg-emerald-500/30 rotate-45 mx-auto -mt-1 border-r border-b border-emerald-500/30"></div>
+                      </div>
+
+                      <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 -rotate-45 whitespace-nowrap opacity-20 group-hover:opacity-60 transition-opacity">
+                         <span className="text-[9px] font-black text-white uppercase tracking-widest">{day.date}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-emerald-900/10">
+                    <Activity size={32} />
+                  </div>
+                  <p className="text-xs font-black text-emerald-500/60 uppercase tracking-widest">No spectral data detected in specified range</p>
+                </div>
+              )}
             </div>
-          )}
+          </GlassCard>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Budget Configuration (Story 3-6) */}
+        {/* Configurations Sidebar */}
+        <div className="space-y-8">
           <BudgetConfiguration currentSpend={costSummary?.totalCostUsd} />
-
-          {/* Alert Configuration (Story 3-8) */}
           <BudgetAlertConfig />
-
-          {/* Cost Comparison (Story 3-9) */}
           <CostComparisonCard />
         </div>
       </div>
 
-      {/* Top Conversations & Provider Breakdown */}
+      {/* Analytics Breakdown */}
       {topConversations.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Conversations */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4">Top Conversations by Cost</h3>
-            <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <GlassCard accent="mantis" className="p-8 space-y-10 border-emerald-500/5 bg-emerald-500/[0.01]">
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Heavy Transmissions</h3>
+              <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.2em]">Top resource-intensive conversations</p>
+            </div>
+            <div className="space-y-4">
               {topConversations.map((conv, i) => (
                 <div
                   key={conv.conversationId}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="group flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-emerald-500/[0.03] hover:border-emerald-500/20 transition-all duration-300"
                 >
-                  <div className="flex items-center space-x-3">
-                    <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                  <div className="flex items-center gap-6">
+                    <span className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 text-emerald-900/40 rounded-xl text-xs font-black group-hover:bg-emerald-500 group-hover:text-black group-hover:border-emerald-500 transition-colors">
                       {i + 1}
                     </span>
-                    <span className="text-sm font-mono text-gray-700">
-                      {conv.conversationId.slice(0, 8)}...
-                    </span>
+                    <div>
+                      <span className="text-xs font-mono font-black text-white block">
+                        {conv.conversationId.slice(0, 16).toUpperCase()}
+                      </span>
+                      <span className="text-[9px] font-black text-emerald-900/40 uppercase tracking-widest">{conv.requestCount} Neural Requests</span>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">
+                    <p className="text-lg font-black text-emerald-500 group-hover:mantis-glow-text transition-all tracking-tight">
                       {formatCost(conv.totalCostUsd || 0, 4)}
                     </p>
-                    <p className="text-xs text-gray-500">{conv.requestCount} requests</p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </GlassCard>
 
-          {/* Provider Breakdown */}
           {providersByCost.length > 0 && (
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-4">Cost by Provider</h3>
-              <div className="space-y-3">
+            <GlassCard accent="mantis" className="p-8 space-y-10 border-emerald-500/5 bg-emerald-500/[0.01]">
+              <div className="space-y-1">
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">Node Distribution</h3>
+                <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.2em]">Usage across LLM providers</p>
+              </div>
+              <div className="space-y-10">
                 {providersByCost.map((provider) => {
                   const providerTotal = costSummary?.totalCostUsd || 1;
                   const percentage = (provider.costUsd / providerTotal) * 100;
 
                   return (
-                    <div key={provider.name}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-700 capitalize">
-                          {provider.name}
-                        </span>
-                        <span className="font-bold text-gray-900">
+                    <div key={provider.name} className="space-y-4">
+                      <div className="flex justify-between items-end">
+                        <div className="space-y-1">
+                          <span className="text-xs font-black text-white uppercase tracking-widest block">
+                            {provider.name}
+                          </span>
+                          <span className="text-[9px] font-black text-emerald-900/40 uppercase tracking-[0.2em]">
+                             {provider.requests} total requests
+                          </span>
+                        </div>
+                        <span className="text-xl font-black text-emerald-500 tracking-tight">
                           {formatCost(provider.costUsd || 0, 4)}
                         </span>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="relative w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5">
                         <div
-                          className="bg-blue-500 h-2 rounded-full"
+                          className="absolute h-full bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-1000"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {percentage.toFixed(1)}% of total · {provider.requests} requests
-                      </p>
+                      <div className="flex justify-between">
+                         <span className="text-[9px] font-black text-emerald-900/20 uppercase tracking-[0.4em]">Contribution Load</span>
+                         <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">{percentage.toFixed(1)}%</span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </GlassCard>
           )}
         </div>
       )}

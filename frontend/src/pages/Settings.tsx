@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, ShoppingBag, ChevronDown, ChevronUp, ExternalLink, MessageSquare, Webhook, Download } from 'lucide-react';
+import { Facebook, ShoppingBag, ChevronDown, ExternalLink, MessageSquare, Webhook, Download, Code } from 'lucide-react';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { Input } from '../components/ui/Input';
-import { Label } from '../components/ui/Label';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { ExportButton } from '../components/ExportButton';
 import { ModeToggle } from '../components/settings/ModeToggle';
 import { ModeChangeDialog } from '../components/settings/ModeChangeDialog';
@@ -170,199 +170,200 @@ const Settings = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-gray-900">Settings</h2>
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 max-w-5xl pb-20">
+      <div className="flex flex-col gap-3">
+        <h2 className="text-5xl font-black text-emerald-50 tracking-tight mantis-glow-text">
+          Control Center
+        </h2>
+        <p className="text-emerald-900/60 font-medium leading-relaxed max-w-2xl text-lg">
+          Master your shop configuration. Orchestrate integrations, manage intelligent fulfillment, and fine-tune your autonomous agent.
+        </p>
+      </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {['General', 'Integrations', 'Shipping', 'Billing', 'Widget'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab.toLowerCase().replace(' ', '-'))}
-              className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.toLowerCase().replace(' ', '-')
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="border-b border-emerald-500/10 mb-6">
+        <nav className="-mb-px flex space-x-12">
+          {['General', 'Integrations', 'Shipping', 'Billing', 'Widget'].map((tab) => {
+            const tabId = tab.toLowerCase().replace(' ', '-');
+            const isActive = activeTab === tabId;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tabId)}
+                className={`whitespace-nowrap pb-5 px-2 border-b-2 font-black text-[11px] uppercase tracking-[0.25em] transition-all duration-500 relative group ${
+                  isActive
+                    ? 'border-emerald-500 text-emerald-400 mantis-glow-text'
+                    : 'border-transparent text-emerald-900/30 hover:text-emerald-900/60'
+                }`}
+              >
+                {tab}
+                {isActive && (
+                  <span className="absolute inset-x-0 -bottom-px h-1 bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)] rounded-full" />
+                )}
+                {!isActive && (
+                  <span className="absolute inset-x-0 -bottom-px h-1 bg-emerald-500/0 group-hover:bg-emerald-500/20 transition-all duration-500 rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
       {/* Content - Showing Integrations Only for MVP */}
       {activeTab === 'integrations' && (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-10">
           {/* Facebook Messenger */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className="p-3 bg-blue-50 rounded-lg text-primary">
-                  <Facebook size={24} />
+          <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border border-blue-500/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden group transition-all duration-500 hover:border-blue-500/20">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full -mr-40 -mt-40 blur-[120px] transition-all duration-700 group-hover:bg-blue-500/10" />
+            
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-10 relative z-10">
+              <div className="flex items-start space-x-8">
+                <div className="p-6 bg-blue-500/10 rounded-3xl text-blue-400 border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.1)] backdrop-blur-md transition-all duration-700 group-hover:scale-105 group-hover:rotate-3">
+                  <Facebook size={36} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Facebook Messenger</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Connect the Facebook Page where your bot will live.
+                  <h3 className="text-3xl font-black text-emerald-50 tracking-tight mb-2">Facebook Messenger</h3>
+                  <p className="text-base text-emerald-900/40 font-medium leading-relaxed max-w-md">
+                    Synchronize your Facebook Page. Turn every interaction into a seamless conversational commerce opportunity.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={facebookConnection.connected ? 'success' : 'outline'}>
-                  {facebookConnection.connected ? 'Connected' : 'Not Connected'}
+              <div className="flex items-center">
+                <Badge 
+                  variant={facebookConnection.connected ? 'success' : 'outline'}
+                  className={`font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 rounded-2xl border shadow-2xl transition-all duration-500 ${
+                    facebookConnection.connected 
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-[#111] text-zinc-500 border-white/5'
+                  }`}
+                >
+                  {facebookConnection.connected ? 'Operational' : 'Disconnected'}
                 </Badge>
               </div>
             </div>
 
             {/* Error Alert */}
             {facebookError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-800">Connection Error</p>
-                <p className="text-sm text-red-600">{facebookError}</p>
+              <div className="mt-10 p-6 bg-red-500/5 border border-red-500/10 rounded-3xl animate-in shake duration-700 backdrop-blur-md">
+                <div className="flex items-center gap-3 text-red-400 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">Integrity Fault Detected</p>
+                </div>
+                <p className="text-sm text-red-400/80 font-medium leading-relaxed ml-5">{facebookError}</p>
               </div>
             )}
 
             {/* Connected State */}
             {facebookConnection.connected ? (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+              <div className="mt-10 pt-10 border-t border-emerald-500/10 relative z-10">
+                <div className="flex items-center justify-between bg-white/[0.02] p-6 rounded-3xl border border-white/5">
+                  <div className="flex items-center gap-5">
                     {facebookConnection.pagePictureUrl && (
-                      <img
-                        src={facebookConnection.pagePictureUrl}
-                        alt={facebookConnection.pageName}
-                        className="w-10 h-10 rounded-full"
-                      />
+                      <div className="relative">
+                        <img
+                          src={facebookConnection.pagePictureUrl}
+                          alt={facebookConnection.pageName}
+                          className="w-14 h-14 rounded-2xl border-2 border-emerald-500/20 shadow-xl"
+                        />
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-[#0a0a0a] flex items-center justify-center text-[8px] text-white font-bold">✓</div>
+                      </div>
                     )}
                     <div>
-                      <p className="font-medium">{facebookConnection.pageName}</p>
-                      <p className="text-sm text-gray-500">Page ID: {facebookConnection.pageId}</p>
+                      <p className="text-lg font-bold text-emerald-50 tracking-tight">{facebookConnection.pageName}</p>
+                      <p className="text-xs font-mono text-emerald-900/40 uppercase tracking-tighter mt-1">Page ID: {facebookConnection.pageId}</p>
                     </div>
                   </div>
                   <Button
                     variant="outline"
                     onClick={handleFacebookDisconnect}
                     disabled={facebookStatus === 'connecting'}
+                    className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-2xl font-bold uppercase tracking-widest text-[10px] px-6 py-2 transition-all"
                   >
                     Disconnect
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-8 pt-8 border-t border-white/5 relative z-10">
                 <Button
                   onClick={handleFacebookConnect}
                   disabled={facebookStatus === 'connecting'}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all hover:shadow-[0_0_30px_rgba(37,99,235,0.5)]"
                 >
                   {facebookStatus === 'connecting' ? 'Connecting...' : 'Connect Page'}
                 </Button>
 
                 {/* Advanced Configuration */}
-                <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="mt-8 border border-white/5 rounded-[32px] overflow-hidden bg-white/[0.02] backdrop-blur-xl transition-all duration-500 hover:border-blue-500/20 shadow-inner">
                   <button
                     onClick={() => setShowFacebookConfig(!showFacebookConfig)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                    className="w-full flex items-center justify-between p-6 bg-white/[0.03] hover:bg-white/[0.05] transition-all group/btn"
                   >
-                    <span className="text-sm font-medium text-gray-700">
-                      Advanced: Configure Facebook App Credentials
+                    <span className="text-[10px] font-bold text-emerald-900/60 uppercase tracking-[0.2em]">
+                      Advanced Config: Meta App Credentials
                     </span>
-                    {showFacebookConfig ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <div className={`p-2 rounded-xl transition-all duration-500 ${showFacebookConfig ? 'bg-blue-500/20 text-blue-400 rotate-180' : 'bg-white/5 text-emerald-900/40 group-hover/btn:bg-white/10'}`}>
+                      <ChevronDown size={16} />
+                    </div>
                   </button>
 
                   {showFacebookConfig && (
-                    <div className="p-4 border-t border-gray-200">
-                      <form onSubmit={handleSaveFacebookCredentials} className="space-y-4">
-                        {/* Instructions */}
-                        <div className="p-4 bg-blue-50 rounded-lg space-y-3">
-                          <h4 className="font-medium text-blue-900">How to get Facebook App credentials from Meta Business Suite</h4>
-                          <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
-                            <li>
-                              Go to{' '}
-                              <a
-                                href="https://developers.facebook.com/apps/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline inline-flex items-center gap-1"
-                              >
-                                Meta for Developers Dashboard
-                                <ExternalLink size={12} />
-                              </a>
-                            </li>
-                            <li>
-                              <strong>Create a new app</strong> (or select existing):
-                              <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li>App Type: <strong>Business</strong></li>
-                                <li>Provide App Name (e.g., "My Shop Bot")</li>
-                              </ul>
-                            </li>
-                            <li>
-                              <strong>Add Messenger product</strong>:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li>Click "Add Product" - Find "Messenger" - Click "Set Up"</li>
-                              </ul>
-                            </li>
-                            <li>
-                              <strong>Get your credentials</strong> from Settings - Basic:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li><strong>App ID</strong>: Copy the numeric ID at the top</li>
-                                <li><strong>App Secret</strong>: Click "Show" to reveal</li>
-                              </ul>
-                            </li>
-                            <li>
-                              <strong>Configure OAuth Redirect</strong>:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-blue-700">
-                                <li>In Settings - Basic, add this to "Valid OAuth Redirect URIs":</li>
-                                <li className="font-mono text-xs bg-blue-100 p-1 rounded mt-1 inline-block">
-                                  {window.location.origin}/api/integrations/facebook/callback
-                                </li>
-                              </ul>
-                            </li>
-                            <li>
-                              <strong>Configure Access Scopes</strong> (in Configuration - API credentials):
-                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
-                                <li><code className="bg-green-100 px-1 rounded">read_products</code> - View products and collections</li>
-                                <li><code className="bg-green-100 px-1 rounded">write_products</code> - Required for checkout integration</li>
-                                <li><code className="bg-green-100 px-1 rounded">read_inventory</code> - Check stock levels</li>
-                                <li><code className="bg-green-100 px-1 rounded">read_orders</code> - View orders, checkouts, transactions</li>
-                                <li><code className="bg-green-100 px-1 rounded">read_fulfillments</code> - Check shipping/tracking status</li>
-                                <li><code className="bg-green-100 px-1 rounded">read_customers</code> - Look up customer info</li>
-                              </ul>
-                              <p className="text-xs text-green-600 mt-2 ml-4">
-                                <code className="bg-green-100 px-1 rounded">read_all_orders</code> is optional (requires Shopify approval for orders older than 60 days). See{' '}
-                                <a 
-                                  href="https://shopify.dev/docs/api/usage/access-scopes" 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="underline"
-                                >
-                                  Shopify Access Scopes Docs
-                                </a>
-                                .
-                              </p>
-                            </li>
-                          </ol>
-                        </div>
+                    <div className="p-8 border-t border-white/5 space-y-8 animate-in slide-in-from-top-4 duration-500">
+                      {/* Instructions */}
+                      <div className="p-6 bg-blue-500/5 rounded-[24px] border border-blue-500/10 space-y-4">
+                        <h4 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                          <Code size={16} />
+                          Meta Developers Setup
+                        </h4>
+                        <ol className="text-xs text-emerald-900/60 space-y-3 font-medium leading-relaxed list-decimal list-inside marker:text-blue-500/50">
+                          <li>
+                            Access the{' '}
+                            <a
+                              href="https://developers.facebook.com/apps/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 underline decoration-blue-500/30 hover:decoration-blue-400 transition-all font-bold"
+                            >
+                              Meta Developers Dashboard
+                              <ExternalLink size={10} className="inline ml-1" />
+                            </a>
+                          </li>
+                          <li>
+                            Create a **Business** app type &rarr; App Settings &rarr; Basic &rarr; Add **Website** platform &rarr; Site URL: <code className="bg-white/5 px-2 py-0.5 rounded text-blue-400 border border-white/10">{window.location.origin}</code>
+                          </li>
+                          <li>
+                            Add **Messenger** product &rarr; Generate/Link your Page Access Token.
+                          </li>
+                          <li>
+                            Copy **App ID** and **App Secret** into the fields below.
+                          </li>
+                          <li>
+                            Add <span className="text-emerald-50 bg-white/5 px-2 py-0.5 rounded border border-white/10 font-mono text-[10px]">{window.location.origin}/api/integrations/facebook/callback</span> to **Valid OAuth Redirect URIs**.
+                          </li>
+                        </ol>
+                      </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="facebook-app-id">App ID</Label>
+                      <form onSubmit={handleSaveFacebookCredentials} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="facebook-app-id" className="text-[10px] uppercase tracking-widest text-emerald-900/40 font-bold ml-1">App ID</Label>
                             <Input
                               id="facebook-app-id"
                               value={facebookAppId}
                               onChange={(e) => setFacebookAppId(e.target.value)}
                               placeholder="e.g., 123456789012345"
+                              className="bg-white/5 border-white/10 text-emerald-50 rounded-2xl h-12 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all"
                             />
                           </div>
-                          <div>
-                            <Label htmlFor="facebook-app-secret">App Secret</Label>
+                          <div className="space-y-2">
+                            <Label htmlFor="facebook-app-secret" className="text-[10px] uppercase tracking-widest text-emerald-900/40 font-bold ml-1">App Secret</Label>
                             <Input
                               id="facebook-app-secret"
                               type="password"
                               value={facebookAppSecret}
                               onChange={(e) => setFacebookAppSecret(e.target.value)}
-                              placeholder="e.g., a1b2c3d4e5f6..."
+                              placeholder="••••••••••••••••"
+                              className="bg-white/5 border-white/10 text-emerald-50 rounded-2xl h-12 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all"
                             />
                           </div>
                         </div>
@@ -370,9 +371,9 @@ const Settings = () => {
                         <Button
                           type="submit"
                           disabled={isSavingFacebook || !facebookAppId || !facebookAppSecret}
-                          variant="outline"
+                          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold h-12 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all"
                         >
-                          {isSavingFacebook ? 'Saving...' : 'Save & Connect'}
+                          {isSavingFacebook ? 'Processing...' : 'Secure & Connect'}
                         </Button>
                       </form>
                     </div>
@@ -383,64 +384,77 @@ const Settings = () => {
           </div>
 
           {/* Shopify */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className="p-3 bg-green-50 rounded-lg text-success">
-                  <ShoppingBag size={24} />
+          <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border border-emerald-500/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden group transition-all duration-500 hover:border-emerald-500/20">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full -mr-40 -mt-40 blur-[120px] transition-all duration-700 group-hover:bg-emerald-500/10" />
+            
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-10 relative z-10">
+              <div className="flex items-start space-x-8">
+                <div className="p-6 bg-emerald-500/10 rounded-3xl text-emerald-400 border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.1)] backdrop-blur-md transition-all duration-700 group-hover:scale-105 group-hover:-rotate-3">
+                  <ShoppingBag size={36} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Shopify Integration</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Connect your Shopify store to sync products and orders.
+                  <h3 className="text-3xl font-black text-emerald-50 tracking-tight mb-2">Shopify Core</h3>
+                  <p className="text-base text-emerald-900/40 font-medium leading-relaxed max-w-md">
+                    Bridge your inventory and orders. Empower your and agent with real-time shop intelligence.
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={shopifyConnection.connected ? 'success' : 'outline'}>
-                  {shopifyConnection.connected ? 'Connected' : 'Not Connected'}
+              <div className="flex items-center">
+                <Badge 
+                  variant={shopifyConnection.connected ? 'success' : 'outline'}
+                  className={`font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 rounded-2xl border shadow-2xl transition-all duration-500 ${
+                    shopifyConnection.connected 
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-[#111] text-zinc-500 border-white/5'
+                  }`}
+                >
+                  {shopifyConnection.connected ? 'Synchronized' : 'Disconnected'}
                 </Badge>
               </div>
             </div>
 
             {shopifyError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-800">Connection Error</p>
-                <p className="text-sm text-red-600">{shopifyError}</p>
+              <div className="mt-10 p-6 bg-red-500/5 border border-red-500/10 rounded-3xl animate-in shake duration-700 backdrop-blur-md">
+                <div className="flex items-center gap-3 text-red-400 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">Logic Fault Detected</p>
+                </div>
+                <p className="text-sm text-red-400/80 font-medium leading-relaxed ml-5">{shopifyError}</p>
               </div>
             )}
 
             {shopifyConnection.connected ? (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <ShoppingBag size={20} className="text-success" />
+              <div className="mt-10 pt-10 border-t border-emerald-500/10 relative z-10">
+                <div className="flex items-center justify-between bg-white/[0.02] p-8 rounded-[32px] border border-white/5 shadow-inner backdrop-blur-sm group/store">
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-emerald-500/10 rounded-[22px] flex items-center justify-center border border-emerald-500/20 shadow-xl transition-all duration-500 group-hover/store:bg-emerald-500/20">
+                      <ShoppingBag size={28} className="text-emerald-500 shadow-glow" />
                     </div>
                     <div>
-                      <p className="font-medium">{shopifyConnection.shopName || 'Shopify Store'}</p>
-                      <p className="text-sm text-gray-500">{shopifyConnection.shopDomain}</p>
+                      <p className="text-xl font-black text-emerald-50 tracking-tight">{shopifyConnection.shopName || 'Shopify Store'}</p>
+                      <p className="text-xs font-mono text-emerald-900/40 uppercase tracking-[0.1em] mt-1">{shopifyConnection.shopDomain}</p>
                     </div>
                   </div>
                   <Button
                     variant="outline"
                     onClick={handleShopifyDisconnect}
                     disabled={shopifyStatus === 'connecting'}
+                    className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] px-8 py-3 transition-all h-auto"
                   >
                     Disconnect
                   </Button>
                 </div>
 
                 <div className="mt-6 border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="flex items-center justify-between p-4 bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <Webhook size={20} className="text-green-600" />
+                  <div className="flex items-center justify-between p-6 bg-white/[0.02]">
+                    <div className="flex items-center gap-4">
+                      <Webhook size={24} className="text-emerald-400" />
                       <div>
-                        <p className="font-medium text-gray-900">Webhook Configuration</p>
-                        <p className="text-xs text-gray-500">Required for order sync and inventory updates</p>
+                        <p className="font-bold text-slate-100 uppercase tracking-widest text-xs">Webhook Configuration</p>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">Required for order sync and inventory updates</p>
                       </div>
                     </div>
-                    <Badge variant={shopifyConnection.webhookSubscribed ? 'success' : 'outline'}>
+                    <Badge variant={shopifyConnection.webhookSubscribed ? 'success' : 'outline'} className="font-bold uppercase tracking-tighter shadow-lg">
                       {shopifyConnection.webhookSubscribed ? 'Auto-Configured' : 'Manual Setup Required'}
                     </Badge>
                   </div>
@@ -448,7 +462,7 @@ const Settings = () => {
                   <div className="p-4 border-t border-gray-200">
                     {shopifyConnection.webhookSubscribed ? (
                       <div className="text-sm text-gray-600">
-                        <p className="text-green-700 font-medium mb-2">Webhooks are automatically configured!</p>
+                        <p className="text-slate-400 font-medium font-medium mb-2">Webhooks are automatically configured!</p>
                         <p>
                           When you connected your store, we automatically registered webhooks for orders, inventory, and product updates.
                           No manual configuration needed.
@@ -457,8 +471,8 @@ const Settings = () => {
                     ) : (
                       <div className="space-y-4">
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                          <p className="text-sm text-amber-800">
-                            <strong>Manual webhook setup required.</strong> If webhooks weren't auto-configured during connection,
+                          <p className="text-sm text-amber-400 font-medium">
+                            <strong className="text-amber-300">Manual webhook setup required.</strong> If webhooks weren&apos;t auto-configured during connection,
                             follow the steps below to add them manually in your Shopify admin.
                           </p>
                         </div>
@@ -474,7 +488,7 @@ const Settings = () => {
                                 rel="noopener noreferrer"
                                 className="underline inline-flex items-center gap-1 text-green-600"
                               >
-                                Shopify Admin → Settings → Notifications → Webhooks
+                                Shopify Admin &rarr; Settings &rarr; Notifications &rarr; Webhooks
                                 <ExternalLink size={12} />
                               </a>
                             </li>
@@ -482,20 +496,20 @@ const Settings = () => {
                               Click <strong>&quot;Create webhook&quot;</strong>
                             </li>
                             <li>
-                              Add the following webhooks using this URL:
-                              <div className="mt-2 p-2 bg-gray-100 rounded font-mono text-xs overflow-x-auto">
-                                {window.location.origin}/api/webhooks/shopify
-                              </div>
-                            </li>
-                          </ol>
+                                 Add the following webhooks using this URL:
+                                <div className="mt-4 p-4 bg-white/10 rounded-2xl font-mono text-xs overflow-x-auto text-emerald-400 border border-white/10 shadow-inner">
+                                  {window.location.origin}/api/webhooks/shopify
+                                </div>
+                              </li>
+                            </ol>
 
                             <div className="mt-4">
                               <h5 className="font-medium text-gray-900 mb-2">Required Webhooks</h5>
                               <p className="text-xs text-gray-500 mb-2">
                                 For each webhook below, select:
-                                <br />• <strong>Event:</strong> (as listed)
-                                <br />• <strong>Format:</strong> JSON
-                                <br />• <strong>URL:</strong> (the URL above)
+                                <br />&bull; <strong>Event:</strong> (as listed)
+                                <br />&bull; <strong>Format:</strong> JSON
+                                <br />&bull; <strong>URL:</strong> (the URL above)
                               </p>
                               <div className="bg-gray-50 p-3 rounded-lg space-y-1">
                                 <p className="text-sm font-mono">orders/create</p>
@@ -511,25 +525,25 @@ const Settings = () => {
                                 <p className="text-sm font-mono">checkouts/create</p>
                                 <p className="text-sm font-mono">checkouts/update</p>
                               </div>
-                              <p className="text-xs text-gray-500 mt-2">
-                                <strong>Note:</strong> <code className="bg-amber-100 px-1 rounded">disputes/create</code> is optional - only for stores using Shopify Payments.
-                              </p>
-                            </div>
-
-                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-sm text-blue-800">
-                              <strong>Tip:</strong> After creating each webhook, Shopify will show a <strong>Signing secret</strong>.
-                              Keep this secret safe - it&apos;s used to verify webhook authenticity.
+                          <div className="mt-8 p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl backdrop-blur-md">
+                            <p className="text-sm text-amber-400 font-medium">
+                              <strong className="text-amber-300">Note:</strong> <code className="bg-white/5 border border-white/10 px-1 rounded text-emerald-400">disputes/create</code> is optional &mdash; only for stores using Shopify Payments.
                             </p>
                           </div>
-
-                          <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                            <p className="text-sm text-indigo-800">
-                              <strong>Storefront API:</strong> To enable the chat widget on external websites, enable the 
-                              Storefront API in your Shopify Admin under <strong>Apps → App development</strong> → 
-                              select your app → <strong>Configuration → API credentials → Storefront API</strong>.
+                                                  <div className="mt-8 p-6 bg-blue-500/5 border border-blue-500/10 rounded-2xl backdrop-blur-md">
+                            <p className="text-sm text-blue-400 font-medium">
+                              <strong className="text-blue-300">Tip:</strong> After creating each webhook, Shopify will show a <strong>Signing secret</strong>.
+                              Keep this secret safe &mdash; it&apos;s used to verify webhook authenticity.
                             </p>
                           </div>
+                           <div className="mt-6 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl backdrop-blur-md">
+                            <p className="text-sm text-emerald-400 font-medium">
+                              <strong className="text-emerald-300">Storefront API:</strong> To enable the chat widget on external websites, enable the 
+                              Storefront API in your Shopify Admin under <strong>Apps &rarr; App development</strong> &rarr; 
+                              select your app &rarr; <strong>Configuration &rarr; API credentials &rarr; Storefront API</strong>.
+                            </p>
+                          </div>
+               </div>
                         </div>
                       </div>
                     )}
@@ -537,110 +551,67 @@ const Settings = () => {
                 </div>
               </div>
             ) : (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex max-w-md">
-                  <input
+              <div className="mt-8 pt-8 border-t border-white/5 relative z-10">
+                <div className="flex max-w-md gap-2">
+                  <Input
                     type="text"
                     placeholder="your-store.myshopify.com"
                     value={shopDomain}
                     onChange={(e) => setShopDomain(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="flex-1 bg-white/5 border-white/10 text-slate-100 placeholder:text-slate-500 rounded-xl focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
-                  <button
+                  <Button
                     onClick={handleShopifyConnect}
                     disabled={shopifyStatus === 'connecting' || !shopDomain.trim()}
-                    className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-r-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.5)]"
                   >
                     {shopifyStatus === 'connecting' ? 'Connecting...' : 'Connect'}
-                  </button>
+                  </Button>
                 </div>
 
-                <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="mt-8 border border-white/5 rounded-[32px] overflow-hidden bg-white/[0.02] backdrop-blur-xl transition-all duration-500 hover:border-emerald-500/20 shadow-inner">
                   <button
                     onClick={() => setShowShopifyConfig(!showShopifyConfig)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                    className="w-full flex items-center justify-between p-6 bg-white/[0.03] hover:bg-white/[0.05] transition-all group/btn"
                   >
-                    <span className="text-sm font-medium text-gray-700">
-                      Advanced: Configure Shopify App Credentials
+                    <span className="text-[10px] font-bold text-emerald-900/60 uppercase tracking-[0.2em]">
+                      Advanced Config: Shopify API Credentials
                     </span>
-                    {showShopifyConfig ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <div className={`p-2 rounded-xl transition-all duration-500 ${showShopifyConfig ? 'bg-emerald-500/20 text-emerald-400 rotate-180' : 'bg-white/5 text-emerald-900/40 group-hover/btn:bg-white/10'}`}>
+                      <ChevronDown size={16} />
+                    </div>
                   </button>
 
                   {showShopifyConfig && (
-                    <div className="p-4 border-t border-gray-200">
-                      <form onSubmit={handleSaveShopifyCredentials} className="space-y-4">
-                        <div className="p-4 bg-green-50 rounded-lg space-y-3">
-                          <h4 className="font-medium text-green-900">How to create a Shopify App</h4>
-                          <ol className="text-sm text-green-800 space-y-2 list-decimal list-inside">
-                            <li>
-                              Go to{' '}
-                              <a
-                                href="https://partners.shopify.com/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline inline-flex items-center gap-1"
-                              >
-                                Shopify Partners Dashboard
-                                <ExternalLink size={12} />
-                              </a>
-                              {' '}(sign up for a free Partner account if needed)
-                            </li>
-                            <li>
-                              <strong>Navigate to Apps</strong>:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
-                                <li>Click "Apps" in the left sidebar</li>
-                                <li>Click "Create app" button</li>
-                                <li>Enter an App name (e.g., "My Shop Bot")</li>
-                                <li>Click "Create app"</li>
-                              </ul>
-                            </li>
-                            <li>
-                              <strong>Configure App URLs</strong>:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
-                                <li>Go to "Configuration" → "App setup"</li>
-                                <li>Set App URL to:</li>
-                                <li className="font-mono text-xs bg-green-100 p-1 rounded">{window.location.origin}</li>
-                                <li className="mt-1">Under "Allowed redirection URL(s)", add:</li>
-                                <li className="font-mono text-xs bg-green-100 p-1 rounded mt-1 inline-block">
-                                  {window.location.origin}/api/integrations/shopify/callback
-                                </li>
-                              </ul>
-                            </li>
-                            <li>
-                              <strong>Configure API Access Scopes (IMPORTANT!)</strong>:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
-                                <li>Go to "Configuration" → "API credentials"</li>
-                                <li>Under "Admin API access scopes", select ALL of these:</li>
-                              </ul>
-                              <div className="bg-green-100 p-2 rounded mt-2 ml-4">
-                                <p className="font-medium text-green-900 mb-1">Required scopes:</p>
-                                <ul className="text-green-800 text-xs space-y-0.5">
-                                  <li>✓ read_products</li>
-                                  <li>✓ write_products</li>
-                                  <li>✓ read_inventory</li>
-                                  <li>✓ read_orders</li>
-                                  <li>✓ read_fulfillments</li>
-                                  <li>✓ read_customers</li>
-                                </ul>
-                              </div>
-                            </li>
-                            <li>
-                              <strong>Save and Install</strong>:
-                              <ul className="list-disc list-inside ml-4 mt-1 text-green-700">
-                                <li>Click "Save" at the bottom</li>
-                                <li>Go to "Configuration" → "API credentials"</li>
-                                <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
-                              </ul>
-                            </li>
-                          </ol>
-                          <p className="text-xs text-green-700 mt-2">
-                            <strong>Note:</strong> Save credentials below, then enter your store domain (e.g., mystore.myshopify.com) and click Connect.
-                          </p>
-                        </div>
+                    <div className="p-8 border-t border-white/5 space-y-8 animate-in slide-in-from-top-4 duration-500">
+                      <div className="p-6 bg-emerald-500/5 rounded-[24px] border border-emerald-500/10 space-y-4">
+                        <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                          <ShoppingBag size={16} />
+                          Shopify Partner Setup
+                        </h4>
+                        <ol className="text-xs text-emerald-900/60 space-y-4 font-medium leading-relaxed list-decimal list-inside marker:text-emerald-500/50">
+                          <li>
+                            **Create App** in Shopify Admin &rarr; Apps &rarr; App development.
+                          </li>
+                          <li>
+                            Set App URL to <code className="bg-white/5 px-2 py-0.5 rounded text-emerald-400 border border-white/10">{window.location.origin}</code>
+                          </li>
+                          <li>
+                            Add Redirection URL: <span className="text-emerald-50 bg-white/5 px-2 py-0.5 rounded border border-white/10 font-mono text-[10px]">{window.location.origin}/api/integrations/shopify/callback</span>
+                          </li>
+                          <li>
+                            **Permissions**: Enable all required scopes (`products`, `orders`, `customers`, etc).
+                          </li>
+                          <li>
+                            Copy **Client ID** and **Client Secret** (API Key/Secret).
+                          </li>
+                        </ol>
+                      </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="shopify-api-key">API Key (Client ID)</Label>
+                      <form onSubmit={handleSaveShopifyCredentials} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="shopify-api-key" className="text-[10px] uppercase tracking-widest text-emerald-900/40 font-bold ml-1">Client ID</Label>
                             <Input
                               id="shopify-api-key"
                               value={shopifyApiKey}
@@ -651,11 +622,12 @@ const Settings = () => {
                                   setShopifyCredentialsMessage('');
                                 }
                               }}
-                              placeholder="e.g., abc123def456..."
+                              placeholder="e.g., abc123def..."
+                              className="bg-white/5 border-white/10 text-emerald-50 rounded-2xl h-12 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all"
                             />
                           </div>
-                          <div>
-                            <Label htmlFor="shopify-api-secret">API Secret (Client Secret)</Label>
+                          <div className="space-y-2">
+                            <Label htmlFor="shopify-api-secret" className="text-[10px] uppercase tracking-widest text-emerald-900/40 font-bold ml-1">Client Secret</Label>
                             <Input
                               id="shopify-api-secret"
                               type="password"
@@ -667,7 +639,8 @@ const Settings = () => {
                                   setShopifyCredentialsMessage('');
                                 }
                               }}
-                              placeholder="e.g., shpss_xxx..."
+                              placeholder="shpss_••••••••"
+                              className="bg-white/5 border-white/10 text-emerald-50 rounded-2xl h-12 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all"
                             />
                           </div>
                         </div>
@@ -675,22 +648,24 @@ const Settings = () => {
                         <Button
                           type="submit"
                           disabled={isSavingShopify || !shopifyApiKey || !shopifyApiSecret}
-                          variant="default"
-                          className="bg-green-600 hover:bg-green-700"
+                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-12 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all"
                         >
-                          {isSavingShopify ? 'Saving...' : 'Save Credentials'}
+                          {isSavingShopify ? 'Saving...' : 'Authorize Shopify Access'}
                         </Button>
 
                         {shopifyCredentialsStatus === 'success' && (
-                          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm text-green-800 font-medium">{shopifyCredentialsMessage}</p>
+                          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl animate-in fade-in duration-500">
+                            <p className="text-sm text-emerald-400 font-bold flex items-center gap-2 italic">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {shopifyCredentialsMessage}
+                            </p>
                           </div>
                         )}
 
                         {shopifyCredentialsStatus === 'error' && (
-                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <p className="text-sm text-red-800 font-medium">Error</p>
-                            <p className="text-sm text-red-600 mt-1">{shopifyCredentialsMessage}</p>
+                          <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-2xl animate-in shake duration-500">
+                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest">Update Failed</p>
+                            <p className="text-sm text-red-400 mt-1 font-medium">{shopifyCredentialsMessage}</p>
                           </div>
                         )}
                       </form>
@@ -705,27 +680,29 @@ const Settings = () => {
 
       {/* Placeholder for other tabs */}
       {activeTab === 'shipping' && (
-        <div className="space-y-6 max-w-4xl">
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className="p-3 bg-cyan-50 rounded-lg text-cyan-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+        <div className="space-y-10 max-w-4xl animate-in fade-in duration-1000">
+          <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border border-emerald-500/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-500">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full -mr-24 -mt-24 blur-3xl transition-all duration-700 group-hover:bg-emerald-500/10" />
+            
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex items-start space-x-8">
+                <div className="p-6 bg-emerald-500/10 rounded-3xl text-emerald-400 border border-emerald-500/20 shadow-2xl backdrop-blur-md transition-all duration-700 group-hover:scale-105 group-hover:rotate-6">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Shipping Carriers</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Configure custom shipping carriers for tracking links. Built-in carriers (USPS, UPS, FedEx, DHL, etc.) are automatically detected.
+                  <h3 className="text-3xl font-black text-emerald-50 tracking-tight mb-2">Shipping Logistics</h3>
+                  <p className="text-base text-emerald-900/40 font-medium leading-relaxed max-w-md">
+                    Orchestrate custom carriers for dynamic order tracking. Streamline fulfillment transparency.
                   </p>
                 </div>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-10 pt-10 border-t border-white/5 relative z-10">
               <Link
                 to="/settings/shipping"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-cyan-600 border border-transparent rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
+                className="inline-flex items-center gap-3 px-10 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-emerald-600 border border-transparent rounded-2xl hover:bg-emerald-500 transition-all shadow-2xl hover:shadow-emerald-500/40"
               >
-                Manage Shipping Carriers
+                Enter Logistics Control
               </Link>
             </div>
           </div>
@@ -733,22 +710,21 @@ const Settings = () => {
       )}
 
       {activeTab === 'general' && (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-10 max-w-4xl animate-in fade-in duration-1000">
           {/* Mode Toggle Section (Story 8.7) */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start space-x-4">
-              <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border border-indigo-500/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-500">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full -mr-24 -mt-24 blur-3xl transition-all duration-700 group-hover:bg-indigo-500/10" />
+            
+            <div className="flex items-start space-x-8 relative z-10">
+              <div className="p-6 bg-indigo-500/10 rounded-3xl text-indigo-400 border border-indigo-500/20 shadow-2xl backdrop-blur-md transition-all duration-700 group-hover:scale-110">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">Bot Mode</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Choose between a general chatbot or e-commerce assistant mode.
+                <h3 className="text-3xl font-black text-emerald-50 tracking-tight mb-2">Neural Operating Mode</h3>
+                <p className="text-base text-emerald-900/40 font-medium leading-relaxed max-w-md">
+                  Toggle between general-purpose conversational logic and e-commerce specialized reasoning hooks.
                 </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Mode changes will refresh the page to update all features.
-                </p>
-                <div className="mt-4">
+                <div className="mt-10 bg-white/5 p-8 rounded-[32px] border border-white/5 shadow-inner">
                   <ModeToggle
                     currentMode={currentMode}
                     onModeChange={handleModeChangeRequest}
@@ -761,24 +737,26 @@ const Settings = () => {
           </div>
 
           {/* Data Export Section */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start space-x-4">
-              <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
-                <Download size={24} />
+          <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border border-purple-500/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden group hover:border-purple-500/20 transition-all duration-500">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/5 rounded-full -mr-24 -mt-24 blur-3xl transition-all duration-700 group-hover:bg-purple-500/10" />
+            
+            <div className="flex items-start space-x-8 relative z-10">
+              <div className="p-6 bg-purple-500/10 rounded-3xl text-purple-400 border border-purple-500/20 shadow-2xl backdrop-blur-md transition-all duration-700 group-hover:scale-105 group-hover:-rotate-3">
+                <Download size={32} />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">Data Export</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Download a copy of all your data for GDPR/CCPA compliance. This includes conversations, messages, LLM costs, and configuration settings.
+                <h3 className="text-3xl font-black text-emerald-50 tracking-tight mb-2">Data Integrity & Export</h3>
+                <p className="text-sm text-emerald-900/40 font-medium leading-relaxed max-w-md">
+                  Archive and secure your information. Full GDPR/CCPA compliant data synchronization and export facility.
                 </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Data from visitors who opted out of voluntary data collection will be excluded from the export.
-                </p>
-                <div className="mt-4">
+                <div className="mt-10">
                   {merchant?.id ? (
                     <ExportButton merchantId={merchant.id} />
                   ) : (
-                    <p className="text-sm text-gray-500">Please log in to export your data.</p>
+                    <div className="bg-red-500/5 border border-red-500/10 rounded-2xl p-6 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400">Authentication Required</p>
+                      <p className="text-xs text-red-400/60 font-medium mt-1 italic">Please log in to initiate data extraction protocols.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -788,33 +766,45 @@ const Settings = () => {
       )}
 
       {activeTab === 'billing' && (
-        <div className="bg-white p-8 rounded-xl border border-gray-200 text-center">
-          <p className="text-gray-500">Billing settings coming soon.</p>
+        <div className="flex flex-col items-center justify-center py-24 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="bg-[#0a0a0a]/80 backdrop-blur-3xl border border-blue-500/20 p-16 rounded-[48px] shadow-2xl text-center max-w-2xl relative group overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-transparent opacity-50" />
+            <div className="bg-blue-500/10 w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto mb-10 border border-blue-500/20 shadow-2xl backdrop-blur-md transition-all duration-700 group-hover:scale-110">
+              <Webhook size={48} className="text-blue-400 animate-pulse" />
+            </div>
+            <h3 className="text-4xl font-black text-emerald-50 tracking-tight mb-4 mantis-glow-text underline underline-offset-8 decoration-blue-500/30">Finance Module</h3>
+            <p className="text-emerald-900/40 font-black uppercase tracking-[0.4em] text-[10px] mb-4">Core Systems Off-line</p>
+            <p className="text-emerald-900/60 font-medium leading-relaxed">
+              The billing infrastructure is undergoing primary initialization. Commercial hook-ins will be deployed in the next update cycle.
+            </p>
+          </div>
         </div>
       )}
 
       {activeTab === 'widget' && (
-        <div className="space-y-6 max-w-4xl">
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600">
-                  <MessageSquare size={24} />
+        <div className="space-y-10 max-w-4xl animate-in fade-in duration-1000">
+          <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border border-indigo-500/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden group hover:border-indigo-500/20 transition-all duration-500">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full -mr-24 -mt-24 blur-3xl transition-all duration-700 group-hover:bg-indigo-500/10" />
+            
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex items-start space-x-8">
+                <div className="p-6 bg-indigo-500/10 rounded-3xl text-indigo-400 border border-indigo-500/20 shadow-2xl backdrop-blur-md transition-all duration-700 group-hover:scale-105 group-hover:rotate-6">
+                  <MessageSquare size={32} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Chat Widget</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Configure your embeddable chat widget for your website.
+                  <h3 className="text-3xl font-black text-emerald-50 tracking-tight mb-2">Widget Interface</h3>
+                  <p className="text-base text-emerald-900/40 font-medium leading-relaxed max-w-md">
+                    Customize the visual DNA of your embedded chat experience. Control brand alignment and interaction logic.
                   </p>
                 </div>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-10 pt-10 border-t border-white/5 relative z-10">
               <Link
                 to="/settings/widget"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center gap-3 px-10 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white bg-indigo-600 border border-transparent rounded-2xl hover:bg-indigo-500 transition-all shadow-2xl hover:shadow-indigo-500/40"
               >
-                Configure Widget Settings
+                Modify Interface DNA
               </Link>
             </div>
           </div>

@@ -6,10 +6,10 @@ Supports "Remind me later" temporary dismissal instead of permanent close.
 */
 
 import * as React from 'react';
-import { useOnboardingPhaseStore } from '../../stores/onboardingPhaseStore';
+
 import { useTutorialStore } from '../../stores/tutorialStore';
 import { Button } from '../ui/Button';
-import { X, Clock } from 'lucide-react';
+import { X, Clock, Sparkles } from 'lucide-react';
 
 export interface TutorialPromptProps {
   className?: string;
@@ -26,8 +26,7 @@ export interface TutorialPromptProps {
 function shouldShowPrompt(
   isTutorialStarted: boolean,
   isTutorialCompleted: boolean,
-  isTutorialSkipped: boolean,
-  shouldShowTutorial: boolean
+  isTutorialSkipped: boolean
 ): boolean {
   // Show prompt for users who haven't finished or skipped tutorial
   // Note: shouldShowTutorial indicates bot config is complete
@@ -37,8 +36,7 @@ function shouldShowPrompt(
 
 export function TutorialPrompt({ className = '' }: TutorialPromptProps) {
   const { isStarted, isCompleted: isTutorialCompleted, isSkipped: isTutorialSkipped, startTutorial } = useTutorialStore();
-  const { checkOnboardingStatus } = useOnboardingPhaseStore();
-  const onboardingStatus = checkOnboardingStatus();
+
 
   const [isDismissed, setIsDismissed] = React.useState(false);
   const [dismissalTime, setDismissalTime] = React.useState<Date | null>(null);
@@ -90,8 +88,7 @@ export function TutorialPrompt({ className = '' }: TutorialPromptProps) {
   const showPrompt = shouldShowPrompt(
     isStarted,
     isTutorialCompleted,
-    isTutorialSkipped,
-    onboardingStatus.shouldShowTutorial
+    isTutorialSkipped
   );
 
   if (!showPrompt) {
@@ -119,7 +116,6 @@ export function TutorialPrompt({ className = '' }: TutorialPromptProps) {
     setIsDismissed(true);
 
     // Set timeout to show prompt again after 24 hours
-    const reminderTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
     setTimeout(() => {
       setIsDismissed(false);
       setDismissalTime(null);
@@ -146,47 +142,53 @@ export function TutorialPrompt({ className = '' }: TutorialPromptProps) {
 
   return (
     <div
-      className={`tutorial-prompt bg-blue-50 border-blue-200 border rounded-lg p-4 flex items-start gap-3 ${className}`}
+      className={`tutorial-prompt relative overflow-hidden bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-6 flex flex-col sm:flex-row items-center sm:items-start gap-4 transition-all duration-300 hover:border-[var(--mantis-glow)]/30 group ${className}`}
       role="alert"
       aria-live="polite"
     >
-      <div className="flex-1">
-        <p className="text-sm font-medium text-blue-900 mb-1">
-          Complete the interactive tutorial to finish setting up your bot
+      <div className="absolute top-0 left-0 p-12 bg-[var(--mantis-glow)]/5 blur-3xl rounded-full -translate-x-1/2 -translate-y-1/2 group-hover:bg-[var(--mantis-glow)]/10 transition-colors" />
+      
+      <div className="relative flex-1 text-center sm:text-left">
+        <p className="text-base font-bold text-white mb-1 flex items-center justify-center sm:justify-start gap-2">
+          <Sparkles className="h-4 w-4 text-[var(--mantis-glow)]" />
+          Neural Onboarding Pending
         </p>
-        <p className="text-xs text-blue-700">
-          Learn how to use the dashboard, configure your bot personality, and test responses.
+        <p className="text-sm text-white/50 leading-relaxed max-w-xl">
+          Initialize the interactive deployment protocol to finalize your neural assistant configuration. 
+          Learn to navigate the dashboard, refine behavior modules, and validate response accuracy.
         </p>
         {isRemindMeLaterActive && (
-          <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+          <p className="text-[10px] font-bold text-[var(--mantis-glow)]/60 mt-3 flex items-center justify-center sm:justify-start gap-1.5 uppercase tracking-widest">
             <Clock className="h-3 w-3" />
-            Showing again in 24 hours
+            Re-activation scheduled: T-24:00:00
           </p>
         )}
       </div>
-      <div className="flex items-center gap-2">
+
+      <div className="relative flex items-center gap-3">
         <Button
           size="sm"
           onClick={handleStart}
           aria-label="Start interactive tutorial"
+          className="bg-[var(--mantis-glow)] hover:bg-[var(--mantis-glow)]/80 text-white border-transparent shadow-[0_0_15px_rgba(34,197,94,0.3)] shadow-lg px-6"
         >
-          Start Tutorial
+          Initialize Protocol
         </Button>
 
         <button
           type="button"
           onClick={handleRemindMeLater}
-          className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-1 rounded transition-colors"
+          className="text-white/40 hover:text-white font-bold text-xs uppercase tracking-widest px-4 py-2 rounded-xl border border-white/5 hover:bg-white/5 transition-all"
           aria-label="Remind me later"
         >
-          Remind me later
+          Delay Sync
         </button>
 
         <button
           type="button"
           onClick={handleDismiss}
-          className="text-slate-400 hover:text-slate-600 ml-2 p-1"
-          aria-label="Dismiss tutorial prompt"
+          className="text-white/20 hover:text-white p-2 rounded-full hover:bg-white/5 transition-all"
+          aria-label="Terminate prompt"
         >
           <X className="h-4 w-4" />
         </button>

@@ -8,23 +8,24 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Users, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { Clock, Users, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { useHandoffAlertsStore, type QueueUrgencyFilter } from '../stores/handoffAlertStore';
 import type { HandoffAlert } from '../services/handoffAlerts';
 import { conversationsService } from '../services/conversations';
 import type { FacebookPageInfo, HybridModeState } from '../types/conversation';
 
 const URGENCY_CONFIG = {
-  high: { emoji: '🔴', label: 'High', color: 'text-red-600', bg: 'bg-red-50' },
-  medium: { emoji: '🟡', label: 'Medium', color: 'text-yellow-600', bg: 'bg-yellow-50' },
-  low: { emoji: '🟢', label: 'Low', color: 'text-green-600', bg: 'bg-green-50' },
+  high: { emoji: '🔴', label: 'High', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.2)]' },
+  medium: { emoji: '🟡', label: 'Medium', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', glow: 'shadow-[0_0_15px_rgba(234,179,8,0.2)]' },
+  low: { emoji: '🟢', label: 'Low', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
 };
 
 const OFFLINE_CONFIG = {
   emoji: '🌙',
   label: 'After Hours',
-  color: 'text-purple-600',
-  bg: 'bg-purple-50',
+  color: 'text-purple-400',
+  bg: 'bg-purple-500/10',
+  border: 'border-purple-500/20',
 };
 
 const HANDOFF_REASON_LABELS: Record<string, string> = {
@@ -79,42 +80,45 @@ function HandoffQueueItem({
       data-alert-id={alert.id}
       data-urgency={alert.urgencyLevel}
       onClick={() => onViewHistory(alert.conversationId)}
-      className={`p-4 rounded-lg border cursor-pointer ${
-        alert.isRead ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-300'
-      } hover:shadow-md transition-shadow`}
+      className={`p-6 rounded-[24px] border transition-all duration-300 cursor-pointer group relative overflow-hidden ${
+        alert.isRead 
+          ? 'bg-white/[0.02] border-white/5 opacity-60' 
+          : 'bg-white/[0.04] border-white/10 shadow-xl'
+      } hover:border-emerald-500/30 hover:bg-white/[0.06]`}
     >
-      <div className="flex items-start justify-between">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      
+      <div className="flex items-start justify-between relative z-10">
         <div className="flex-1 min-w-0">
-          {/* Header: Customer + Urgency Badge */}
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
+          {/* Header: Customer + Urgency Badge + Wait Time */}
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
             <span 
               data-testid="item-urgency-badge"
-              className={`inline-flex items-center px-2 py-0.5 rounded text-sm font-medium ${urgencyConfig.bg} ${urgencyConfig.color}`}
+              className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${urgencyConfig.bg} ${urgencyConfig.color} ${urgencyConfig.border} ${urgencyConfig.glow}`}
             >
-              {urgencyConfig.emoji} {urgencyConfig.label}
+              {urgencyConfig.label}
             </span>
             {alert.isOffline && (
               <span 
                 data-testid="item-offline-badge"
-                className={`inline-flex items-center px-2 py-0.5 rounded text-sm font-medium ${OFFLINE_CONFIG.bg} ${OFFLINE_CONFIG.color}`}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${OFFLINE_CONFIG.bg} ${OFFLINE_CONFIG.color} ${OFFLINE_CONFIG.border}`}
               >
-                {OFFLINE_CONFIG.emoji} {OFFLINE_CONFIG.label}
+                {OFFLINE_CONFIG.label}
               </span>
             )}
-            <span className="text-gray-400">•</span>
             <span 
               data-testid="item-wait-time"
-              className="text-sm text-gray-500 flex items-center gap-1"
+              className="text-xs text-white/40 font-bold uppercase tracking-widest flex items-center gap-1.5 ml-auto sm:ml-0"
             >
-              <Clock size={14} />
-              {formatWaitTime(alert.waitTimeSeconds)}
+              <Clock size={12} className="text-emerald-500/50" />
+              {formatWaitTime(alert.waitTimeSeconds)} waiting
             </span>
           </div>
 
           {/* Customer Info */}
           <h3 
             data-testid="item-customer-name"
-            className="font-medium text-gray-900 truncate"
+            className="text-xl font-bold text-white tracking-tight group-hover:text-emerald-400 transition-colors"
           >
             {alert.customerName ?? `Customer ${alert.customerId ?? alert.conversationId}`}
           </h3>
@@ -123,7 +127,7 @@ function HandoffQueueItem({
           {alert.handoffReason && (
             <p 
               data-testid="item-handoff-reason"
-              className="text-xs text-gray-500 mt-1"
+              className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mt-2 italic"
             >
               Reason: {HANDOFF_REASON_LABELS[alert.handoffReason] || alert.handoffReason}
             </p>
@@ -131,28 +135,31 @@ function HandoffQueueItem({
 
           {/* Conversation Preview */}
           {alert.conversationPreview && (
-            <p 
-              data-testid="item-preview"
-              className="text-sm text-gray-600 mt-2 line-clamp-2"
-            >
-              {alert.conversationPreview}
-            </p>
+            <div className="mt-4 p-4 bg-black/20 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">
+              <p 
+                data-testid="item-preview"
+                className="text-sm text-white/60 leading-relaxed line-clamp-2 italic"
+              >
+                &quot;{alert.conversationPreview}&quot;
+              </p>
+            </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="ml-4 flex flex-col items-end gap-2">
+        <div className="ml-6 flex flex-col items-end gap-3 shrink-0">
           <button
             data-testid="item-resolve"
             onClick={async (e) => {
               e.stopPropagation();
               onResolve(alert.conversationId);
             }}
-            className="text-xs px-3 py-1.5 rounded-md flex items-center gap-1 bg-green-100 text-green-700 hover:bg-green-200"
+            className="w-full text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl flex items-center justify-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/30 transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)]"
           >
-            <CheckCircle size={12} />
-            <span>Mark Resolved</span>
+            <CheckCircle size={14} />
+            <span>Resolve</span>
           </button>
+          
           {hasFacebookConnection && (
             <button
               data-testid="item-open-messenger"
@@ -160,15 +167,16 @@ function HandoffQueueItem({
                 e.stopPropagation();
                 await onOpenMessenger(alert.conversationId, alert.platformSenderId!);
               }}
-              className={`text-xs px-3 py-1.5 rounded-md flex items-center gap-1 ${
+              className={`w-full text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg ${
                 isHybridModeActive 
-                  ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/20' 
+                  : 'bg-blue-600 text-white hover:bg-blue-500 shadow-blue-600/20'
               }`}
             >
-              <span>{isHybridModeActive ? 'Bot Paused' : 'Open in Messenger'}</span>
+              <span>{isHybridModeActive ? 'Bot Paused' : 'Messenger'}</span>
             </button>
           )}
+          
           {!alert.isRead && (
             <button
               data-testid="item-mark-read"
@@ -176,9 +184,9 @@ function HandoffQueueItem({
                 e.stopPropagation();
                 onMarkAsRead(alert.id);
               }}
-              className="text-xs text-blue-600 hover:text-blue-800"
+              className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/40 hover:text-emerald-400 transition-colors px-2 py-1"
             >
-              Mark as read
+              Mark read
             </button>
           )}
         </div>
@@ -201,22 +209,30 @@ function UrgencyFilterTabs({ activeFilter, onFilterChange }: UrgencyFilterTabsPr
   ];
 
   return (
-    <div className="flex border-b border-gray-200" data-testid="urgency-filter-tabs">
-      {tabs.map((tab) => (
-        <button
-          key={tab.value}
-          data-testid={`filter-${tab.value}`}
-          onClick={() => onFilterChange(tab.value)}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeFilter === tab.value
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          {tab.emoji && <span className="mr-1">{tab.emoji}</span>}
-          {tab.label}
-        </button>
-      ))}
+    <div className="flex gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl w-fit" data-testid="urgency-filter-tabs">
+      {tabs.map((tab) => {
+        const isActive = activeFilter === tab.value;
+        return (
+          <button
+            key={tab.value}
+            data-testid={`filter-${tab.value}`}
+            onClick={() => onFilterChange(tab.value)}
+            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 relative overflow-hidden ${
+              isActive
+                ? 'bg-[var(--mantis-glow)]/10 text-[var(--mantis-glow)] border border-[var(--mantis-glow)]/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
+                : 'text-white/40 hover:text-white/60 hover:bg-white/5'
+            }`}
+          >
+            <span className="relative z-10">
+              {tab.emoji && <span className="mr-2 grayscale-0 group-hover:grayscale-0">{tab.emoji}</span>}
+              {tab.label}
+            </span>
+            {isActive && (
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-50" />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -236,26 +252,26 @@ function Pagination({ currentPage, total, limit, onPageChange }: PaginationProps
   }
 
   return (
-    <div className="flex items-center justify-between mt-6" data-testid="pagination">
-      <p data-testid="pagination-info" className="text-sm text-gray-500">
-        Page {currentPage} of {totalPages}
+    <div className="flex items-center justify-between mt-10 pt-8 border-t border-white/5" data-testid="pagination">
+      <p data-testid="pagination-info" className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">
+        Page <span className="text-emerald-400">{currentPage}</span> of <span className="text-white/60">{totalPages}</span>
       </p>
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <button
           data-testid="pagination-prev"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="p-2 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          className="p-3 rounded-xl bg-white/5 border border-white/10 text-white/60 disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/10 hover:border-white/20 transition-all"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={18} />
         </button>
         <button
           data-testid="pagination-next"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="p-2 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          className="p-3 rounded-xl bg-white/5 border border-white/10 text-white/60 disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/10 hover:border-white/20 transition-all"
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={18} />
         </button>
       </div>
     </div>
@@ -336,83 +352,109 @@ export default function HandoffQueue() {
   };
 
   return (
-    <div className="p-6" data-testid="handoff-queue-page">
+    <div className="space-y-10" data-testid="handoff-queue-page">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 pb-8 border-b border-white/5">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-tight mantis-glow-text">Handoff Queue</h1>
+          <p className="text-base text-white/60 mt-1 font-medium">
+            Active handoff conversations requiring agent assistance.
+          </p>
+        </div>
+        
+        {/* Total Waiting Count */}
+        {queue.meta.totalWaiting !== null && (
+          <div 
+            className="flex items-center gap-3 px-6 py-3 bg-[var(--mantis-glow)]/10 border border-[var(--mantis-glow)]/20 rounded-2xl shadow-[0_0_20px_rgba(34,197,94,0.1)] backdrop-blur-md"
+            data-testid="total-waiting-count"
+          >
+            <Users className="text-[var(--mantis-glow)]" size={20} />
+            <span className="text-sm font-black uppercase tracking-widest text-[var(--mantis-glow)]">
+              {queue.meta.totalWaiting} customer{queue.meta.totalWaiting !== 1 ? 's' : ''} waiting
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Error Banner */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-          <span className="text-red-700 text-sm">{error}</span>
+        <div className="p-5 bg-red-500/5 border border-red-500/10 rounded-2xl flex items-center justify-between backdrop-blur-xl animate-in shake duration-500">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} className="text-red-400" />
+            <span className="text-red-400 text-sm font-medium">{error}</span>
+          </div>
           <button
             onClick={clearError}
-            className="text-red-500 hover:text-red-700 text-sm font-medium"
+            className="text-red-400/60 hover:text-red-400 text-[10px] font-black uppercase tracking-widest"
           >
             Dismiss
           </button>
         </div>
       )}
-      
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Handoff Queue</h1>
-        <p className="text-gray-500 mt-1">
-          Active handoff conversations sorted by urgency
-        </p>
-      </div>
 
-      {/* Total Waiting Count */}
-      {queue.meta.totalWaiting !== null && (
-        <div 
-          className="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-lg"
-          data-testid="total-waiting-count"
-        >
-          <Users className="text-blue-600" size={20} />
-          <span className="font-medium text-blue-900">
-            {queue.meta.totalWaiting} customer{queue.meta.totalWaiting !== 1 ? 's' : ''} waiting
-          </span>
+      {/* Main Content Area */}
+      <div className="glass-card p-1 pb-10 border-none shadow-2xl relative overflow-hidden flex flex-col">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full -mr-32 -mt-32 blur-[100px]" />
+        
+        {/* Filter Toolbar */}
+        <div className="p-8 pb-4 flex items-center justify-between relative z-10 flex-wrap gap-4">
+          <UrgencyFilterTabs
+            activeFilter={queue.filter}
+            onFilterChange={setQueueFilter}
+          />
+          
+          <div className="flex items-center gap-2 text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">
+            <RefreshCw size={12} className={queue.isLoading ? "animate-spin" : ""} />
+            Auto-polling active
+          </div>
         </div>
-      )}
 
-      {/* Filter Tabs */}
-      <UrgencyFilterTabs
-        activeFilter={queue.filter}
-        onFilterChange={setQueueFilter}
-      />
+        {/* Queue List wrapper */}
+        <div className="px-8 mt-4 relative z-10" data-testid="handoff-queue-list">
+          <div className="space-y-4">
+            {queue.isLoading && queue.items.length === 0 ? (
+              <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
+                <Loader2 size={48} className="text-emerald-500 animate-spin opacity-40" />
+                <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Retrieving active handoffs...</p>
+              </div>
+            ) : queue.items.length === 0 ? (
+              <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-[32px] bg-white/[0.01]" data-testid="queue-empty-state">
+                <div className="p-6 bg-white/5 rounded-full w-fit mx-auto mb-6 shadow-inner">
+                  <Users className="text-white/20" size={48} />
+                </div>
+                <h3 className="text-2xl font-bold text-white tracking-tight">Zero Handoffs</h3>
+                <p className="max-w-[280px] mx-auto text-sm text-white/40 mt-2 font-medium">
+                  Excellent work! All customer queries are currently being handled by the AI or cleared.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4">
+                  {queue.items.map((alert) => (
+                    <HandoffQueueItem
+                      key={alert.id}
+                      alert={alert}
+                      onMarkAsRead={handleMarkAsRead}
+                      onViewHistory={handleViewHistory}
+                      onResolve={handleResolve}
+                      facebookPage={facebookPage}
+                      onOpenMessenger={handleOpenMessenger}
+                      hybridModes={hybridModes}
+                    />
+                  ))}
+                </div>
 
-      {/* Queue List */}
-      <div className="mt-4 space-y-3" data-testid="handoff-queue-list">
-        {queue.isLoading ? (
-          <div className="p-8 text-center text-gray-500">
-            Loading queue...
+                {/* Pagination */}
+                <Pagination
+                  currentPage={queue.currentPage}
+                  total={queue.meta.total}
+                  limit={20}
+                  onPageChange={setQueuePage}
+                />
+              </>
+            )}
           </div>
-        ) : queue.items.length === 0 ? (
-          <div className="p-8 text-center text-gray-500" data-testid="queue-empty-state">
-            <Users className="mx-auto mb-2 text-gray-300" size={48} />
-            <p>No active handoffs in the queue</p>
-            <p className="text-sm mt-1">Customers needing assistance will appear here</p>
-          </div>
-        ) : (
-          <>
-            {queue.items.map((alert) => (
-              <HandoffQueueItem
-                key={alert.id}
-                alert={alert}
-                onMarkAsRead={handleMarkAsRead}
-                onViewHistory={handleViewHistory}
-                onResolve={handleResolve}
-                facebookPage={facebookPage}
-                onOpenMessenger={handleOpenMessenger}
-                hybridModes={hybridModes}
-              />
-            ))}
-
-            {/* Pagination */}
-            <Pagination
-              currentPage={queue.currentPage}
-              total={queue.meta.total}
-              limit={20}
-              onPageChange={setQueuePage}
-            />
-          </>
-        )}
+        </div>
       </div>
     </div>
   );

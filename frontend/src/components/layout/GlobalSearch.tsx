@@ -113,8 +113,8 @@ export const GlobalSearch: React.FC = () => {
 
   return (
     <div className="flex items-center w-full max-w-md relative">
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+      <div className="relative w-full group">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
         <input
           ref={inputRef}
           type="text"
@@ -123,7 +123,7 @@ export const GlobalSearch: React.FC = () => {
           onFocus={() => query.length >= 2 && setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search conversations, FAQs..."
-          className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="w-full pl-10 pr-10 py-2.5 bg-white/5 border border-emerald-500/10 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all duration-300"
           aria-label="Search"
           aria-expanded={isOpen}
           aria-haspopup="listbox"
@@ -131,14 +131,14 @@ export const GlobalSearch: React.FC = () => {
         />
         {isLoading && (
           <Loader2
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 animate-spin"
             size={18}
           />
         )}
         {!isLoading && query && (
           <button
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-400 transition-colors"
             aria-label="Clear search"
           >
             <X size={18} />
@@ -149,18 +149,18 @@ export const GlobalSearch: React.FC = () => {
       {isOpen && results && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-3 glass-card shadow-2xl z-50 max-h-[70vh] overflow-y-auto custom-scrollbar border-emerald-500/20"
           role="listbox"
         >
           {totalItems === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-500">
-              <p className="text-sm">No results found for "{query}"</p>
+            <div className="px-4 py-8 text-center text-slate-500 italic">
+              <p className="text-sm">No results found for &quot;{query}&quot;</p>
             </div>
           ) : (
             <>
               {results.conversations.length > 0 && (
-                <div>
-                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase bg-gray-50">
+                <div className="py-2">
+                  <div className="px-4 py-2 text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/5">
                     Conversations
                   </div>
                   {results.conversations.map((conversation, index) => (
@@ -169,30 +169,36 @@ export const GlobalSearch: React.FC = () => {
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleSelect(index)}
-                      className={`w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-gray-50 ${
-                        selectedIndex === index ? 'bg-blue-50' : ''
+                      className={`w-full px-4 py-3 flex items-start gap-4 text-left transition-colors border-b border-emerald-500/5 last:border-0 ${
+                        selectedIndex === index ? 'bg-emerald-500/10' : 'hover:bg-white/5'
                       }`}
                       role="option"
                       aria-selected={selectedIndex === index}
                     >
-                      <MessageSquare size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className={`p-2 rounded-lg ${selectedIndex === index ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-400'}`}>
+                        <MessageSquare size={16} />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-semibold text-slate-100 truncate mb-1">
                           {conversation.platformSenderIdMasked}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-slate-400 truncate">
                           {conversation.lastMessage || 'No message'}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-400 capitalize">{conversation.status}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-tighter ${
+                        conversation.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'
+                      }`}>
+                        {conversation.status}
+                      </span>
                     </button>
                   ))}
                 </div>
               )}
 
               {results.faqs.length > 0 && (
-                <div>
-                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase bg-gray-50">
+                <div className="py-2 border-t border-emerald-500/10">
+                  <div className="px-4 py-2 text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/5">
                     FAQs
                   </div>
                   {results.faqs.map((faq, faqIndex) => {
@@ -201,16 +207,18 @@ export const GlobalSearch: React.FC = () => {
                       <button
                         key={faq.id}
                         onClick={() => handleSelect(globalIndex)}
-                        className={`w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-gray-50 ${
-                          selectedIndex === globalIndex ? 'bg-blue-50' : ''
+                        className={`w-full px-4 py-3 flex items-start gap-4 text-left transition-colors border-b border-emerald-500/5 last:border-0 ${
+                          selectedIndex === globalIndex ? 'bg-emerald-500/10' : 'hover:bg-white/5'
                         }`}
                         role="option"
                         aria-selected={selectedIndex === globalIndex}
                       >
-                        <HelpCircle size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                        <div className={`p-2 rounded-lg ${selectedIndex === globalIndex ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-400'}`}>
+                          <HelpCircle size={16} />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{faq.question}</p>
-                          <p className="text-xs text-gray-500 truncate">{faq.answer}</p>
+                          <p className="text-sm font-semibold text-slate-100 truncate mb-1">{faq.question}</p>
+                          <p className="text-xs text-slate-400 truncate line-clamp-1">{faq.answer}</p>
                         </div>
                       </button>
                     );
@@ -219,7 +227,7 @@ export const GlobalSearch: React.FC = () => {
               )}
 
               {totalItems > 0 && (
-                <div className="px-4 py-2 text-xs text-gray-500 border-t border-gray-100">
+                <div className="px-4 py-2.5 text-[10px] text-slate-500 bg-black/40 border-t border-emerald-500/10 font-mono">
                   {totalItems} result{totalItems !== 1 ? 's' : ''} found
                 </div>
               )}

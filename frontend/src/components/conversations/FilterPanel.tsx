@@ -10,9 +10,9 @@ import { useConversationStore } from '../../stores/conversationStore';
 import type { ConversationStatus, Sentiment } from '../../types/conversation';
 
 const STATUS_OPTIONS: { value: ConversationStatus; label: string; color: string }[] = [
-  { value: 'active', label: 'Active', color: 'bg-green-100 text-green-800' },
-  { value: 'handoff', label: 'Handoff', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'closed', label: 'Closed', color: 'bg-gray-100 text-gray-800' },
+  { value: 'active', label: 'Active', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  { value: 'handoff', label: 'Handoff', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  { value: 'closed', label: 'Closed', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
 ];
 
 const SENTIMENT_OPTIONS: { value: Sentiment; label: string; emoji: string }[] = [
@@ -73,143 +73,145 @@ export const FilterPanel = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Date Range */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Date Range
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="date-from" className="block text-xs text-gray-500 mb-1">
-              From
-            </label>
-            <input
-              type="date"
-              id="date-from"
-              name="date-from"
-              value={dateFrom}
-              onChange={(e) => handleDateFromChange(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+    <div className="space-y-8 py-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Date Range */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+            Date Range
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="date-from" className="block text-[10px] font-bold text-slate-600 mb-2 uppercase tracking-tight">
+                From
+              </label>
+              <input
+                type="date"
+                id="date-from"
+                name="date-from"
+                value={dateFrom}
+                onChange={(e) => handleDateFromChange(e.target.value)}
+                className="block w-full px-4 py-2.5 bg-black/40 border border-emerald-500/10 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all"
+              />
+            </div>
+            <div>
+              <label htmlFor="date-to" className="block text-[10px] font-bold text-slate-600 mb-2 uppercase tracking-tight">
+                To
+              </label>
+              <input
+                type="date"
+                id="date-to"
+                name="date-to"
+                value={dateTo}
+                onChange={(e) => handleDateToChange(e.target.value)}
+                className="block w-full px-4 py-2.5 bg-black/40 border border-emerald-500/10 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="date-to" className="block text-xs text-gray-500 mb-1">
-              To
+        </div>
+
+        {/* Status Filter */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+            Status
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((option) => {
+              const isSelected = filters.statusFilters.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleStatus(option.value)}
+                  className={`inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-300 border ${
+                    isSelected
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                      : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sentiment Filter */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+            Sentiment
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {SENTIMENT_OPTIONS.map((option) => {
+              const isSelected = filters.sentimentFilters.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleSentiment(option.value)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-300 border ${
+                    isSelected
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                      : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-slate-200'
+                  }`}
+                >
+                  <span>{option.emoji}</span>
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Handoff Filter */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+            Handoff Status
+          </label>
+          <div className="flex items-center gap-6">
+            <label className="inline-flex items-center group cursor-pointer">
+              <input
+                type="radio"
+                name="handoff"
+                checked={filters.hasHandoffFilter === true}
+                onChange={() => setHasHandoffFilter(true)}
+                className="h-4 w-4 bg-black/40 border-emerald-500/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0"
+              />
+              <span className="ml-2 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">Has handoff</span>
             </label>
-            <input
-              type="date"
-              id="date-to"
-              name="date-to"
-              value={dateTo}
-              onChange={(e) => handleDateToChange(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            <label className="inline-flex items-center group cursor-pointer">
+              <input
+                type="radio"
+                name="handoff"
+                checked={filters.hasHandoffFilter === false}
+                onChange={() => setHasHandoffFilter(false)}
+                className="h-4 w-4 bg-black/40 border-emerald-500/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0"
+              />
+              <span className="ml-2 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">No handoff</span>
+            </label>
+            <label className="inline-flex items-center group cursor-pointer">
+              <input
+                type="radio"
+                name="handoff"
+                checked={filters.hasHandoffFilter === null}
+                onChange={() => setHasHandoffFilter(null)}
+                className="h-4 w-4 bg-black/40 border-emerald-500/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0"
+              />
+              <span className="ml-2 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">Any</span>
+            </label>
           </div>
         </div>
       </div>
 
-      {/* Status Filter */}
-      <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {STATUS_OPTIONS.map((option) => {
-                const isSelected = filters.statusFilters.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => toggleStatus(option.value)}
-                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-blue-100 text-blue-800 border-2 border-blue-500'
-                        : 'bg-gray-100 text-gray-700 border-2 border-transparent hover:bg-gray-200'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-      </div>
-
-      {/* Sentiment Filter */}
-      <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sentiment
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {SENTIMENT_OPTIONS.map((option) => {
-                const isSelected = filters.sentimentFilters.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => toggleSentiment(option.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-purple-100 text-purple-800 border-2 border-purple-500'
-                        : 'bg-gray-100 text-gray-700 border-2 border-transparent hover:bg-gray-200'
-                    }`}
-                  >
-                    <span>{option.emoji}</span>
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-      </div>
-
-      {/* Handoff Filter */}
-      <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Handoff Status
-            </label>
-            <div className="flex items-center gap-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="handoff"
-                  checked={filters.hasHandoffFilter === true}
-                  onChange={() => setHasHandoffFilter(true)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <span className="ml-2 text-sm text-gray-700">Has handoff</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="handoff"
-                  checked={filters.hasHandoffFilter === false}
-                  onChange={() => setHasHandoffFilter(false)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <span className="ml-2 text-sm text-gray-700">No handoff</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="handoff"
-                  checked={filters.hasHandoffFilter === null}
-                  onChange={() => setHasHandoffFilter(null)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <span className="ml-2 text-sm text-gray-700">Any</span>
-              </label>
-            </div>
-      </div>
-
       {/* Clear All Button */}
       {hasActiveFilters && (
-        <div className="pt-4 border-t border-gray-200">
+        <div className="pt-6 border-t border-emerald-500/10 flex justify-end">
           <button
             type="button"
             onClick={handleClearAll}
-            className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500/20"
           >
-            Clear All Filters
+            Reset All Filters
           </button>
         </div>
       )}

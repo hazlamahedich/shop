@@ -68,16 +68,16 @@ const Header = () => {
   const recentAlerts = alerts.slice(0, 5);
 
   return (
-    <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 pl-72 fixed top-0 right-0 w-full z-10">
+    <header className="bg-[#030303]/40 backdrop-blur-xl border-b border-emerald-500/10 h-16 flex items-center justify-between px-8 pl-72 fixed top-0 right-0 w-full z-40 transition-all duration-300">
       <GlobalSearch />
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-6">
         {isAuthenticated && merchant && (
-          <div className="flex items-center space-x-2 text-sm">
-            <User size={16} className="text-gray-500" />
-            <span className="text-gray-700 font-medium">{merchant.email}</span>
+          <div className="hidden lg:flex items-center space-x-2 text-sm">
+            <User size={16} className="text-emerald-500/70" />
+            <span className="text-slate-100 font-medium">{merchant.email}</span>
             {merchant.bot_name && (
-              <span className="text-gray-500">({merchant.bot_name})</span>
+              <span className="text-slate-500">({merchant.bot_name})</span>
             )}
           </div>
         )}
@@ -88,13 +88,15 @@ const Header = () => {
             aria-label="Notifications"
             role="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="p-2 text-gray-500 hover:bg-gray-100 rounded-full relative"
+            className={`p-2 rounded-full relative transition-all duration-200 ${
+              isDropdownOpen ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-400 hover:bg-emerald-500/5 hover:text-emerald-300'
+            }`}
           >
             <Bell size={20} />
             {unreadCount > 0 && (
               <span
                 data-testid="notification-badge"
-                className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full"
+                className="absolute -top-0.5 -right-0.5 bg-emerald-500 text-black text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
@@ -104,24 +106,24 @@ const Header = () => {
           {isDropdownOpen && (
             <div
               data-testid="notification-dropdown"
-              className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              className="absolute right-0 mt-3 w-80 glass-card shadow-2xl z-50 overflow-hidden border-emerald-500/20"
             >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900">Handoff Alerts</h3>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-emerald-500/10 bg-emerald-500/5">
+                <h3 className="font-semibold text-slate-100">Handoff Alerts</h3>
                 {unreadCount > 0 && (
                   <button
                     data-testid="mark-all-read"
                     onClick={handleMarkAllRead}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
                   >
                     Mark all read
                   </button>
                 )}
               </div>
 
-              <div data-testid="handoff-alerts-list" className="max-h-96 overflow-y-auto">
+              <div data-testid="handoff-alerts-list" className="max-h-96 overflow-y-auto custom-scrollbar">
                 {recentAlerts.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-gray-500">
+                  <div className="px-4 py-8 text-center text-slate-500 italic">
                     No handoff alerts
                   </div>
                 ) : (
@@ -134,24 +136,24 @@ const Header = () => {
                         data-is-read={alert.isRead}
                         data-urgency={alert.urgencyLevel}
                         onClick={() => handleAlertClick(alert.id, alert.conversationId)}
-                        className={`px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                          !alert.isRead ? 'bg-blue-50/50' : ''
+                        className={`px-4 py-4 border-b border-emerald-500/5 cursor-pointer transition-colors ${
+                          !alert.isRead ? 'bg-emerald-500/5 hover:bg-emerald-500/10' : 'hover:bg-white/5'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between mb-1">
                           <div className="flex items-center space-x-2">
                             <span data-testid="urgency-indicator" data-urgency={alert.urgencyLevel} aria-label={style.label}>
                               {style.emoji}
                             </span>
-                            <span data-testid="alert-customer-name" className="font-medium text-gray-900 text-sm">
+                            <span data-testid="alert-customer-name" className="font-medium text-slate-100 text-sm">
                               {alert.customerName || `Customer #${alert.customerId}`}
                             </span>
                           </div>
-                          <span data-testid="alert-wait-time" className="text-xs text-gray-500">
+                          <span data-testid="alert-wait-time" className="text-[10px] font-mono text-slate-500">
                             {formatWaitTime(alert.waitTimeSeconds)}
                           </span>
                         </div>
-                        <p data-testid="alert-preview" className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        <p data-testid="alert-preview" className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                           {alert.conversationPreview}
                         </p>
                       </div>
@@ -161,13 +163,13 @@ const Header = () => {
               </div>
 
               {alerts.length > 5 && (
-                <div className="px-4 py-3 border-t border-gray-200">
+                <div className="px-4 py-3 border-t border-emerald-500/10">
                   <button
                     onClick={() => {
                       setIsDropdownOpen(false);
                       navigate('/conversations?hasHandoff=true');
                     }}
-                    className="w-full text-center text-sm text-blue-600 hover:text-blue-800"
+                    className="w-full text-center text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
                   >
                     View all alerts ({alerts.length})
                   </button>
@@ -182,11 +184,11 @@ const Header = () => {
         {isAuthenticated && (
           <button
             onClick={handleLogout}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-3 py-2 text-slate-400 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg transition-all duration-200"
             title="Logout"
           >
             <LogOut size={18} />
-            <span className="hidden sm:inline text-sm font-medium">Logout</span>
+            <span className="hidden sm:inline text-sm font-semibold">Logout</span>
           </button>
         )}
       </div>

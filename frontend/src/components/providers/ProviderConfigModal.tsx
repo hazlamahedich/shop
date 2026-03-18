@@ -1,17 +1,15 @@
-/** Provider Configuration Modal Component.
+/**
+ * Provider Configuration Modal Component.
  *
  * Story 3.4: LLM Provider Switching
- *
- * Modal for configuring provider-specific settings (API key for cloud providers,
- * server URL for Ollama). Includes validation before switching.
- *
- * Follows WCAG AA accessibility with focus trap and proper ARIA attributes.
+ * Re-imagined with high-fidelity Mantis aesthetic for professional calibration.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { X, Loader2, RefreshCw } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { X, Loader2, RefreshCw, Terminal, Cpu, Zap, Info, ShieldCheck } from 'lucide-react';
 import { useLLMProviderStore } from '../../stores/llmProviderStore';
 import { getProviderModels, refreshModelsCache, DiscoveredModel } from '../../services/llmProvider';
+import { GlassCard } from '../ui/GlassCard';
 
 export const ProviderConfigModal: React.FC = () => {
   const {
@@ -21,6 +19,7 @@ export const ProviderConfigModal: React.FC = () => {
     switchProvider,
     closeConfigModal,
     validationInProgress,
+    currentProvider,
   } = useLLMProviderStore();
 
   const [apiKey, setApiKey] = React.useState('');
@@ -28,13 +27,11 @@ export const ProviderConfigModal: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [models, setModels] = useState<DiscoveredModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
-  const [modelsError, setModelsError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  const loadModels = async (providerId: string) => {
+  const loadModels = useCallback(async (providerId: string) => {
     setLoadingModels(true);
-    setModelsError(null);
     try {
       const response = await getProviderModels(providerId);
       setModels(response.data.models);
@@ -45,12 +42,11 @@ export const ProviderConfigModal: React.FC = () => {
         setSelectedModel(response.data.models[0].id);
       }
     } catch (err) {
-      setModelsError('Failed to load models');
       console.error('Failed to load models:', err);
     } finally {
       setLoadingModels(false);
     }
-  };
+  }, []);
 
   const handleRefreshModels = async () => {
     if (!selectedProvider) return;
@@ -59,20 +55,18 @@ export const ProviderConfigModal: React.FC = () => {
       await refreshModelsCache();
       await loadModels(selectedProvider.id);
     } catch (err) {
-      setModelsError('Failed to refresh models');
+      console.error('Failed to refresh models:', err);
     } finally {
       setLoadingModels(false);
     }
   };
 
-  // Load models when provider changes
   useEffect(() => {
     if (selectedProvider) {
       loadModels(selectedProvider.id);
     }
-  }, [selectedProvider?.id]);
+  }, [selectedProvider, loadModels]);
 
-  // Focus trap for accessibility
   useEffect(() => {
     if (selectedProvider && modalRef.current) {
       const focusableElements = modalRef.current.querySelectorAll(
@@ -85,7 +79,6 @@ export const ProviderConfigModal: React.FC = () => {
     }
   }, [selectedProvider]);
 
-  // Close on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && selectedProvider) {
@@ -104,13 +97,10 @@ export const ProviderConfigModal: React.FC = () => {
   );
   const isOllama = selectedProvider.id === 'ollama';
 
-  // Check if this is the currently active provider (for update vs switch)
-  const { currentProvider } = useLLMProviderStore();
   const isUpdating = currentProvider?.id === selectedProvider.id;
 
   const handleSwitch = async () => {
     try {
-      // For updates, only pass API key if a new one was provided
       const apiKeyToSend = isUpdating && !apiKey.trim() ? undefined : (isCloudProvider ? apiKey : undefined);
       
       await switchProvider({
@@ -119,12 +109,11 @@ export const ProviderConfigModal: React.FC = () => {
         serverUrl: isOllama ? serverUrl : undefined,
         model: selectedModel || undefined,
       });
-      // Reset form on success
       setApiKey('');
       setServerUrl('');
       setSelectedModel('');
     } catch (error) {
-      // Error is handled by store
+      console.error('Switch error:', error);
     }
   };
 
@@ -137,19 +126,14 @@ export const ProviderConfigModal: React.FC = () => {
 
   const isDisabled = isSwitching || validationInProgress;
   
-  // Validation logic:
-  // - Ollama: always need server URL
-  // - Cloud provider (new): need API key
-  // - Cloud provider (updating): can update with just model (no new API key required)
   const canSubmit = selectedModel.length > 0 && (
     isOllama 
       ? serverUrl.length > 0
       : isUpdating 
-        ? true // Can update existing provider with just model change
-        : apiKey.length > 0 // New provider requires API key
+        ? true 
+        : apiKey.length > 0 
   );
 
-  // Group models for display
   const downloadedModels = models.filter(m => m.isDownloaded);
   const libraryModels = models.filter(m => m.isLocal && !m.isDownloaded);
   const cloudModels = models.filter(m => !m.isLocal);
@@ -157,7 +141,7 @@ export const ProviderConfigModal: React.FC = () => {
   return (
     <div
       data-testid="provider-config-modal"
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/80 backdrop-blur-3xl flex items-center justify-center z-[100] p-6 animate-in fade-in duration-500"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -165,19 +149,28 @@ export const ProviderConfigModal: React.FC = () => {
         if (e.target === e.currentTarget) handleCancel();
       }}
     >
-      <div
+      <GlassCard
         ref={modalRef}
-        className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl"
+        accent="mantis"
+        className="w-full max-w-xl p-0 overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.8)] border-emerald-500/20"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 id="modal-title" className="text-lg font-semibold">
-            {isUpdating ? `Update ${selectedProvider.name}` : `Configure ${selectedProvider.name}`}
-          </h2>
+        {/* Header Terminal */}
+        <div className="bg-[#0a0a0a] border-b border-white/[0.05] p-8 flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <Terminal size={18} className="text-emerald-500" />
+              <h2 id="modal-title" className="text-xl font-black text-white uppercase tracking-tight">
+                {isUpdating ? 'Recalibration Sequence' : 'Link Initialization'}
+              </h2>
+            </div>
+            <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.2em] ml-7">
+              Target Node: <span className="text-emerald-500">{selectedProvider.name}</span>
+            </p>
+          </div>
           <button
             ref={cancelButtonRef}
             onClick={handleCancel}
-            className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 text-white/40 hover:text-white rounded-xl transition-all"
             aria-label="Close modal"
             disabled={isDisabled}
           >
@@ -185,183 +178,215 @@ export const ProviderConfigModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Provider Info */}
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          {isUpdating && (
-            <p className="text-sm text-blue-600 font-medium mb-2">
-              This is your current provider. Update your API key or model selection below.
-            </p>
-          )}
-          <p className="text-sm text-gray-600">{selectedProvider.description}</p>
-          <p className="text-sm font-medium mt-2">
-            Pricing: ${selectedProvider.pricing.inputCost.toFixed(2)} / ${selectedProvider.pricing.outputCost.toFixed(2)} per 1M tokens
-          </p>
-          {/* Cost Estimate */}
-          <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
-            <p className="text-xs text-blue-800 font-medium">Estimated Monthly Cost</p>
-            <p className="text-sm text-blue-900 font-bold">
-              ${selectedProvider.estimatedMonthlyCost?.toFixed(2) || '0.00'}
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              Based on typical usage (100K input + 50K output tokens/month)
-            </p>
+        <div className="p-10 space-y-10 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          {/* Diagnostic Stats Overlay */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-5 bg-emerald-500/[0.03] border border-emerald-500/10 rounded-2xl space-y-2">
+               <span className="text-[9px] font-black text-emerald-900/40 uppercase tracking-widest block font-mono">Input Factor</span>
+               <span className="text-lg font-black text-white tracking-tighter">${selectedProvider.pricing.inputCost.toFixed(2)}</span>
+            </div>
+            <div className="p-5 bg-emerald-500/[0.03] border border-emerald-500/10 rounded-2xl space-y-2">
+               <span className="text-[9px] font-black text-emerald-900/40 uppercase tracking-widest block font-mono">Output Factor</span>
+               <span className="text-lg font-black text-white tracking-tighter">${selectedProvider.pricing.outputCost.toFixed(2)}</span>
+            </div>
           </div>
-        </div>
 
-        {/* Form */}
-        <div className="space-y-4">
-          {isCloudProvider && (
-            <div>
-              <label htmlFor="api-key" className="block text-sm font-medium mb-1">
-                API Key
-              </label>
-              <input
-                id="api-key"
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={isUpdating ? "Enter new API key to update" : "Enter your API key"}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                disabled={isDisabled}
-                autoComplete="off"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {isUpdating 
-                  ? "Leave empty to keep your current API key, or enter a new one to update"
-                  : "Your API key is encrypted and stored securely"}
-              </p>
-            </div>
-          )}
-
-          {isOllama && (
-            <div>
-              <label htmlFor="server-url" className="block text-sm font-medium mb-1">
-                Ollama Server URL
-              </label>
-              <input
-                id="server-url"
-                type="url"
-                value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="http://localhost:11434"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                disabled={isDisabled}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                URL of your Ollama server (must be accessible from this server)
-              </p>
-            </div>
-          )}
-
-          {/* Model Selection */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="model" className="block text-sm font-medium">
-                Model
-              </label>
-              <button
-                type="button"
-                onClick={handleRefreshModels}
-                disabled={loadingModels || isDisabled}
-                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 disabled:opacity-50"
-              >
-                <RefreshCw size={12} className={loadingModels ? 'animate-spin' : ''} />
-                Refresh
-              </button>
-            </div>
-            {loadingModels ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
-                <Loader2 size={14} className="animate-spin" />
-                Loading models...
+          {/* Core Configuration Forms */}
+          <div className="space-y-8">
+            {isCloudProvider && (
+              <div className="space-y-4">
+                <label htmlFor="api-key" className="flex items-center gap-3 text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">
+                  <ShieldCheck size={14} />
+                  Access Credential (API KEY)
+                </label>
+                <div className="relative group">
+                  <input
+                    id="api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={isUpdating ? "Enter new neural key to update" : "Enter calibration key..."}
+                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-black focus:outline-none focus:border-emerald-500/50 focus:bg-emerald-500/[0.03] transition-all placeholder:text-emerald-900/20"
+                    disabled={isDisabled}
+                    autoComplete="off"
+                  />
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-emerald-900/20">
+                     <Zap size={18} />
+                  </div>
+                </div>
+                <p className="text-[9px] font-black text-emerald-900/20 uppercase tracking-widest leading-relaxed">
+                  {isUpdating 
+                    ? "Leave null to preserve current encryption layer."
+                    : "Calibration key is end-to-end encrypted within the neural mesh."}
+                </p>
               </div>
-            ) : modelsError ? (
-              <p className="text-sm text-red-600">{modelsError}</p>
-            ) : (
-              <select
-                id="model"
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                disabled={isDisabled}
-              >
-                {models.length === 0 && (
-                  <option value="">No models available</option>
-                )}
-                {downloadedModels.length > 0 && (
-                  <optgroup label="Downloaded (Ready)">
-                    {downloadedModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {libraryModels.length > 0 && (
-                  <optgroup label="Available to Pull">
-                    {libraryModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {cloudModels.length > 0 && (
-                  <optgroup label="Cloud Models">
-                    {cloudModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} {m.pricing.inputCostPerMillion > 0 && `($${m.pricing.inputCostPerMillion.toFixed(2)}/1M in)`}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
             )}
-            {selectedModel && (
-              <p className="text-xs text-gray-500 mt-1">
-                {models.find(m => m.id === selectedModel)?.description || ''}
-              </p>
+
+            {isOllama && (
+              <div className="space-y-4">
+                <label htmlFor="server-url" className="flex items-center gap-3 text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">
+                  <Cpu size={14} />
+                  Node Server URI
+                </label>
+                <input
+                  id="server-url"
+                  type="url"
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  placeholder="http://localhost:11434"
+                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm font-black focus:outline-none focus:border-emerald-500/50 focus:bg-emerald-500/[0.03] transition-all"
+                  disabled={isDisabled}
+                />
+              </div>
             )}
+
+            {/* Model Selection Array */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label htmlFor="model" className="flex items-center gap-3 text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">
+                  <Info size={14} />
+                  Neural Model Index
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRefreshModels}
+                  disabled={loadingModels || isDisabled}
+                  className="flex items-center gap-2 text-[10px] font-black text-emerald-990/40 uppercase tracking-[0.2em] hover:text-emerald-500 transition-colors"
+                >
+                  <RefreshCw size={12} className={loadingModels ? 'animate-spin' : ''} />
+                  Purge Cache
+                </button>
+              </div>
+              
+              <div className="relative group">
+                <select
+                  id="model"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 pr-12 text-white text-sm font-black appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-emerald-500/[0.03] transition-all cursor-pointer"
+                  disabled={isDisabled}
+                >
+                  {models.length === 0 && (
+                    <option value="" className="bg-[#0a0a0a]">Searching Registry...</option>
+                  )}
+                  {downloadedModels.length > 0 && (
+                    <optgroup label="NODE_LOCAL (READY)" className="bg-[#0a0a0a] text-emerald-500 font-black">
+                      {downloadedModels.map((m) => (
+                        <option key={m.id} value={m.id} className="text-white">
+                          {m.name.toUpperCase()}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {libraryModels.length > 0 && (
+                    <optgroup label="REMOTE_LIBRARY" className="bg-[#0a0a0a] text-amber-500 font-black">
+                      {libraryModels.map((m) => (
+                        <option key={m.id} value={m.id} className="text-white">
+                          {m.name.toUpperCase()} (PULL)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {cloudModels.length > 0 && (
+                    <optgroup label="CLOUD_MATRICES" className="bg-[#0a0a0a] text-blue-500 font-black">
+                      {cloudModels.map((m) => (
+                        <option key={m.id} value={m.id} className="text-white">
+                          {m.name.toUpperCase()}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-900/20">
+                   <Cpu size={18} />
+                </div>
+              </div>
+
+              {/* Model Detail Spectral Analysis */}
+              {selectedModel && models.find(m => m.id === selectedModel) && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-500 p-5 bg-white/[0.02] border border-white/[0.05] rounded-2xl space-y-4">
+                  {(() => {
+                    const m = models.find(model => model.id === selectedModel)!;
+                    return (
+                      <>
+                        <div className="space-y-2">
+                          <span className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest font-mono">Neural Metadata</span>
+                          <p className="text-xs text-white/60 font-medium leading-relaxed uppercase tracking-tight">
+                            {m.description || 'No additional telemetry data available for this node.'}
+                          </p>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-4 pt-2 border-t border-white/[0.03]">
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-emerald-900/20 uppercase tracking-widest mb-1">Context Density</span>
+                            <span className="text-[10px] font-black text-white uppercase tabular-nums">{(m.contextLength / 1024).toFixed(0)}K Tokens</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-emerald-900/20 uppercase tracking-widest mb-1">Neural Flow</span>
+                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-tight">
+                              ${m.pricing.inputCostPerMillion.toFixed(2)} / ${m.pricing.outputCostPerMillion.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex flex-col">
+                             <span className="text-[8px] font-black text-emerald-900/20 uppercase tracking-widest mb-1">Architecture</span>
+                             <div className="flex gap-1">
+                               {m.features.slice(0, 2).map(f => (
+                                 <span key={f} className="text-[8px] font-black text-white/30 uppercase tracking-tighter border border-white/5 px-1 rounded bg-white/[0.02]">{f}</span>
+                               ))}
+                             </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Error Display */}
+          {/* Validation Status */}
           {switchError && (
             <div
-              className="p-3 bg-red-50 border border-red-200 rounded-lg"
+              className="p-5 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-4 animate-in slide-in-from-top-4"
               role="alert"
               aria-live="polite"
             >
-              <p className="text-sm text-red-700">{switchError}</p>
+              <X size={18} className="text-red-500 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Neural Reject</p>
+                <p className="text-xs text-red-500/60 font-black uppercase tracking-tight leading-relaxed">{switchError}</p>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 mt-6">
+        {/* Global Controls */}
+        <div className="p-10 bg-[#0a0a0a] border-t border-white/[0.05] flex gap-4">
           <button
             onClick={handleCancel}
             disabled={isDisabled}
-            className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 h-14 bg-white/5 border border-white/10 text-white/40 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white/10 hover:text-white transition-all duration-300"
           >
-            Cancel
+            Abort
           </button>
           <button
             onClick={handleSwitch}
             disabled={isDisabled || !canSubmit}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="flex-[2] h-14 bg-emerald-500 text-black font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl shadow-[0_15px_40px_rgba(16,185,129,0.3)] hover:shadow-[0_20px_50px_rgba(16,185,129,0.4)] disabled:opacity-50 flex items-center justify-center gap-3 transition-all duration-300"
           >
             {(isSwitching || validationInProgress) && (
-              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              <Loader2 size={18} className="animate-spin" aria-hidden="true" />
             )}
             {isSwitching
-              ? (isUpdating ? 'Updating...' : 'Switching...')
+              ? (isUpdating ? 'Recalibrating...' : 'Initializing...')
               : validationInProgress
-              ? 'Validating...'
+              ? 'Parsing Vectors...'
               : isUpdating
-              ? 'Update Configuration'
-              : 'Switch Provider'}
+              ? 'Commit Configuration'
+              : 'Initialize Master Link'}
           </button>
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 };

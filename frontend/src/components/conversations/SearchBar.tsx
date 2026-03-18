@@ -43,10 +43,10 @@ export const SearchBar = ({
   const hasValue = localValue.length > 0;
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
         <svg
-          className="w-5 h-5 text-gray-400"
+          className="w-5 h-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors duration-300"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -66,7 +66,7 @@ export const SearchBar = ({
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         placeholder={placeholder}
-        className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+        className="block w-full pl-10 pr-10 py-2.5 bg-black/40 border border-emerald-500/10 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all duration-300 sm:text-sm"
         aria-label="Search conversations"
       />
 
@@ -74,7 +74,7 @@ export const SearchBar = ({
         <button
           type="button"
           onClick={handleClear}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-emerald-400 focus:outline-none transition-colors duration-300"
           aria-label="Clear search"
         >
           <svg

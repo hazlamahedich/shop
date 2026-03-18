@@ -2,15 +2,12 @@
  * Conversations Page
  *
  * Displays a paginated list of customer conversations with search and filter capabilities.
- * This is a business dashboard view for monitoring bot activity.
- *
- * Story 3-1: Conversation List with Pagination
- * Story 3-2: Search and Filter Conversations
+ * Re-imagined with high-fidelity Mantis aesthetic.
  */
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, SlidersHorizontal } from 'lucide-react';
+import { AlertCircle, SlidersHorizontal, MessageSquare, ArrowUpDown } from 'lucide-react';
 import { useConversationStore } from '../stores/conversationStore';
 import ConversationCard from '../components/conversations/ConversationCard';
 import Pagination from '../components/ui/Pagination';
@@ -19,6 +16,7 @@ import { FilterPanel } from '../components/conversations/FilterPanel';
 import { ActiveFilters } from '../components/conversations/ActiveFilters';
 import { SavedFilters } from '../components/conversations/SavedFilters';
 import { ExportButton, ExportProgress, ExportOptionsModal } from '../components/export';
+import { GlassCard } from '../components/ui/GlassCard';
 
 const Conversations: React.FC = () => {
   const navigate = useNavigate();
@@ -45,7 +43,7 @@ const Conversations: React.FC = () => {
   // Sync filters from URL and fetch conversations on mount
   useEffect(() => {
     syncWithUrl();
-  }, []);
+  }, [syncWithUrl]);
 
   const handleRetry = () => {
     clearError();
@@ -61,152 +59,165 @@ const Conversations: React.FC = () => {
   };
 
   return (
-    <>
-    <div className="h-full bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 space-y-4">
-        {/* Export Progress */}
-        <ExportProgress className="mb-4" />
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Conversations</h2>
+    <div className="h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
+            <MessageSquare size={12} />
+            Neural Logs
+          </div>
+          <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
+            Conversations
+          </h1>
+          <p className="text-lg text-emerald-900/40 font-medium max-w-xl">
+            Monitor real-time customer interactions and neural response accuracy.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-3">
-            {/* Saved Filters */}
+        <div className="flex items-center gap-3">
+          <ExportButton />
+          <button
+            type="button"
+            onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+            className={`h-14 px-8 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl border transition-all duration-300 flex items-center gap-3 ${
+              isFilterPanelOpen
+                ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+                : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <SlidersHorizontal size={18} />
+            {isFilterPanelOpen ? 'Close Filters' : 'Filter Array'}
+          </button>
+        </div>
+      </div>
+
+      <ExportProgress />
+
+      <GlassCard accent="mantis" className="flex-1 flex flex-col border-emerald-500/5 bg-emerald-500/[0.01] overflow-hidden">
+        {/* Search and Sort Sub-header */}
+        <div className="p-8 border-b border-white/[0.03] space-y-8 bg-white/[0.01]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
+            <div className="lg:col-span-2 space-y-4">
+              <label className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] ml-1">Search Registry</label>
+              <SearchBar placeholder="Scan by customer ID or message content..." />
+            </div>
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] ml-1">Sort Index</label>
+              <div className="relative group">
+                <select
+                  value={`${sortBy}-${sortOrder}`}
+                  onChange={handleSortChange}
+                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 pr-12 text-white font-black text-xs uppercase tracking-widest appearance-none transition-all focus:border-emerald-500/40 focus:bg-emerald-500/[0.03] cursor-pointer"
+                  disabled={loadingState === 'loading'}
+                >
+                  <option value="updated_at-desc" className="bg-[#030303]">Last Updated (Newest)</option>
+                  <option value="updated_at-asc" className="bg-[#030303]">Last Updated (Oldest)</option>
+                  <option value="created_at-desc" className="bg-[#030303]">Created (Newest)</option>
+                  <option value="created_at-asc" className="bg-[#030303]">Created (Oldest)</option>
+                  <option value="status-asc" className="bg-[#030303]">Status (A-Z)</option>
+                  <option value="status-desc" className="bg-[#030303]">Status (Z-A)</option>
+                </select>
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-900/40">
+                  <ArrowUpDown size={16} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
+            <ActiveFilters />
             <SavedFilters />
-
-            {/* Export Button */}
-            <ExportButton />
-
-            {/* Filter Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isFilterPanelOpen
-                  ? 'bg-blue-50 text-blue-700 border-blue-300'
-                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <SlidersHorizontal size={16} />
-              Filters
-            </button>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative max-w-md">
-          <SearchBar placeholder="Search by customer ID or message content..." />
-        </div>
-
-        {/* Active Filters */}
-        <ActiveFilters />
-
-        {/* Sorting Controls */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Sort by:</span>
-            <select
-              value={`${sortBy}-${sortOrder}`}
-              onChange={handleSortChange}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loadingState === 'loading'}
-            >
-              <option value="updated_at-desc">Last Updated (Newest)</option>
-              <option value="updated_at-asc">Last Updated (Oldest)</option>
-              <option value="created_at-desc">Created (Newest)</option>
-              <option value="created_at-asc">Created (Oldest)</option>
-              <option value="status-asc">Status (A-Z)</option>
-              <option value="status-desc">Status (Z-A)</option>
-            </select>
+        {/* Filter Panel Transition */}
+        {isFilterPanelOpen && (
+          <div className="px-8 py-8 border-b border-emerald-500/10 bg-emerald-500/[0.03] animate-in slide-in-from-top-4 duration-500">
+            <FilterPanel />
           </div>
+        )}
 
-          {/* Results Count */}
-          {pagination && (
-            <span className="text-sm text-gray-500">
-              {pagination.total} result{pagination.total !== 1 ? 's' : ''}
-            </span>
+        {/* List Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/[0.005]">
+          {error && (
+            <div className="flex flex-col items-center justify-center h-full p-20 text-center space-y-8">
+              <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center text-red-500">
+                <AlertCircle size={40} />
+              </div>
+              <div className="space-y-4">
+                <p className="text-xl font-black text-white uppercase tracking-tight">Access Protocol Failure</p>
+                <p className="text-xs text-emerald-900/40 max-w-sm mx-auto uppercase tracking-widest font-black leading-relaxed">
+                  {error}
+                </p>
+              </div>
+              <button
+                onClick={handleRetry}
+                className="h-14 px-8 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-500 hover:text-black transition-all duration-300"
+              >
+                Retry Neural Handshake
+              </button>
+            </div>
+          )}
+
+          {loadingState === 'loading' && !error && (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+              <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.4em]">Parsing Logs...</p>
+            </div>
+          )}
+
+          {loadingState === 'success' && conversations.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full p-20 text-center space-y-6">
+              <div className="w-20 h-20 bg-white/[0.02] border border-white/[0.05] rounded-full flex items-center justify-center mx-auto text-emerald-900/10">
+                <MessageSquare size={40} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-white/60 font-bold">Neural logs are empty.</p>
+                <p className="text-xs text-emerald-900/30 max-w-sm mx-auto uppercase tracking-widest font-black leading-relaxed">
+                  No interactions found matching the current calibration profile.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {loadingState === 'success' && conversations.length > 0 && (
+            <div className="divide-y divide-white/[0.03]">
+              {conversations.map((conversation) => (
+                <ConversationCard
+                  key={conversation.id}
+                  conversation={conversation}
+                  onClick={() => navigate(`/conversations/${conversation.id}/history`, { state: { from: '/conversations' } })}
+                />
+              ))}
+            </div>
           )}
         </div>
-      </div>
 
-      {/* Filter Panel */}
-      {isFilterPanelOpen && (
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-          <FilterPanel />
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Error state */}
-        {error && (
-          <div className="flex flex-col items-center justify-center h-full p-8">
-            <AlertCircle className="text-red-500 mb-4" size={48} />
-            <p className="text-gray-900 font-medium mb-2">Failed to load conversations</p>
-            <p className="text-gray-500 text-sm mb-4">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Try Again
-            </button>
+        {/* Pagination Footer */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="p-8 border-t border-white/[0.03] bg-white/[0.01]">
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              total={pagination.total}
+              perPage={pagination.perPage}
+              onPageChange={(page) => {
+                if (page > currentPage) {
+                  nextPage();
+                } else if (page < currentPage) {
+                  prevPage();
+                }
+              }}
+              onPerPageChange={setPerPage}
+              isLoading={loadingState === 'loading'}
+            />
           </div>
         )}
+      </GlassCard>
 
-        {/* Loading state */}
-        {loadingState === 'loading' && !error && (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {loadingState === 'success' && conversations.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full p-8">
-            <p className="text-gray-900 font-medium mb-2">No conversations yet</p>
-            <p className="text-gray-500 text-sm">
-              Try adjusting your filters or search terms
-            </p>
-          </div>
-        )}
-
-        {/* Conversation list */}
-        {loadingState === 'success' && conversations.length > 0 && (
-          <div>
-            {conversations.map((conversation) => (
-              <ConversationCard
-                key={conversation.id}
-                conversation={conversation}
-                onClick={() => navigate(`/conversations/${conversation.id}/history`, { state: { from: '/conversations' } })}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <Pagination
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages}
-          total={pagination.total}
-          perPage={pagination.perPage}
-          onPageChange={(page) => {
-            if (page > currentPage) {
-              nextPage();
-            } else if (page < currentPage) {
-              prevPage();
-            }
-          }}
-          onPerPageChange={setPerPage}
-          isLoading={loadingState === 'loading'}
-        />
-      )}
+      <ExportOptionsModal />
     </div>
-
-    {/* Export Options Modal */}
-    <ExportOptionsModal />
-  </>
   );
 };
 

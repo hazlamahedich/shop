@@ -1,36 +1,17 @@
 /**
  * DocumentUploader Component
- *
- * Story 8-8: Frontend - Knowledge Base Page
- * Drag-and-drop file upload component with validation
+ * 
+ * Mantis-themed drag-and-drop file upload with technical glass aesthetics.
  */
 
 import * as React from 'react';
-import { Progress } from '../ui/Progress';
+import { Upload, Cloud, FileCode2, ShieldAlert, Sparkles } from 'lucide-react';
 import { isValidDocumentFile, ACCEPTED_FILE_TYPES } from '../../utils/fileValidation';
 
 interface DocumentUploaderProps {
   onUpload: (file: File) => void;
   isUploading: boolean;
   uploadProgress: number;
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      className="h-12 w-12 text-slate-400"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-      />
-    </svg>
-  );
 }
 
 export function DocumentUploader({ onUpload, isUploading, uploadProgress }: DocumentUploaderProps) {
@@ -102,7 +83,7 @@ export function DocumentUploader({ onUpload, isUploading, uploadProgress }: Docu
   const acceptString = ACCEPTED_FILE_TYPES.join(',');
 
   return (
-    <div className="w-full" role="status" aria-live="polite">
+    <div className="w-full space-y-4" role="status" aria-live="polite">
       <div
         data-testid="upload-zone"
         role="button"
@@ -110,46 +91,85 @@ export function DocumentUploader({ onUpload, isUploading, uploadProgress }: Docu
         aria-label="Upload files by dragging and dropping or clicking to browse"
         aria-disabled={isUploading}
         className={`
-          relative flex flex-col items-center justify-center p-8
-          border-2 border-dashed rounded-lg cursor-pointer
-          transition-colors duration-200
-          ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400'}
-          ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
+          relative group flex flex-col items-center justify-center py-20 px-10
+          border-2 border-dashed rounded-[40px] cursor-pointer
+          transition-all duration-700 overflow-hidden
+          ${isDragOver 
+            ? 'border-emerald-500 bg-emerald-500/[0.05] shadow-[0_0_80px_rgba(16,185,129,0.15)] scale-[1.01]' 
+            : 'border-white/[0.05] bg-black/40 hover:border-emerald-500/30 hover:bg-emerald-500/[0.03]'}
+          ${isUploading ? 'opacity-50 cursor-not-allowed border-emerald-500/20' : ''}
         `}
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onKeyDown={handleKeyDown}
-        aria-dropeffect={isDragOver ? 'copy' : 'none'}
       >
+        {/* Animated Background Gradients */}
+        <div className={`absolute inset-0 bg-gradient-to-b from-emerald-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ${isDragOver ? 'opacity-100' : ''}`} />
+        <div className="absolute top-0 left-1/4 w-1/2 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+        
         {isUploading ? (
-          <div className="w-full" data-testid="upload-progress">
-            <p className="text-sm text-slate-600 mb-2 text-center">Uploading...</p>
-            <div data-testid="progress-bar">
-              <Progress 
-                value={uploadProgress} 
-                role="progressbar" 
-                aria-valuenow={uploadProgress} 
-                aria-valuemin={0} 
-                aria-valuemax={100}
-              />
+          <div className="w-full max-w-sm relative z-10 space-y-8" data-testid="upload-progress">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <Cloud size={48} className="text-emerald-500 animate-pulse" />
+                <div className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-500/20" />
+              </div>
+              <p className="text-[11px] font-black text-emerald-400 tracking-[0.5em] uppercase text-center ml-[0.5em]">Neural Injection In Progress</p>
             </div>
-            <p className="text-xs text-slate-500 mt-1 text-center">{uploadProgress}%</p>
+            
+            <div className="space-y-3">
+              <div data-testid="progress-bar" className="h-1 w-full bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
+                <div 
+                  className="h-full bg-emerald-500 transition-all duration-700 ease-out shadow-[0_0_20px_rgba(16,185,129,0.8)] relative"
+                  style={{ width: `${uploadProgress}%` }}
+                >
+                  <div className="absolute top-0 right-0 w-8 h-full bg-white/20 blur-sm animate-pulse" />
+                </div>
+              </div>
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[9px] font-black text-emerald-900/40 uppercase tracking-widest">Protocol: Uplink</span>
+                <span className="text-[10px] font-mono font-black text-emerald-400">{uploadProgress}%</span>
+              </div>
+            </div>
           </div>
         ) : (
-          <>
-            <div data-testid="upload-icon">
-              <UploadIcon />
+          <div className="relative z-10 flex flex-col items-center">
+            <div 
+              data-testid="upload-icon" 
+              className="mb-8 w-20 h-20 rounded-[32px] bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-emerald-900/20 group-hover:text-emerald-400 group-hover:bg-emerald-500/5 group-hover:border-emerald-500/20 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.1)] group-hover:-translate-y-2 group-hover:rotate-[5deg] transition-all duration-700"
+            >
+              <Upload size={32} />
             </div>
-            <p className="mt-4 text-sm text-slate-600">
-              <span className="font-medium">Drag and drop files here</span>
-            </p>
-            <p className="mt-1 text-sm text-slate-500">or click to browse</p>
-            <p className="mt-2 text-xs text-slate-400">
-              {ACCEPTED_FILE_TYPES.join(', ').replace(/\./g, '').toUpperCase()} • Max 10MB
-            </p>
-          </>
+            
+            <div className="text-center space-y-3">
+              <h4 className="text-xl font-black text-white tracking-tight uppercase group-hover:mantis-glow-text transition-all duration-700">
+                Supply Neural Fragments
+              </h4>
+              <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] group-hover:text-emerald-900/60 transition-colors">
+                Drag drop corpus or <span className="text-emerald-400 underline underline-offset-4 decoration-emerald-500/30">browse protocols</span>
+              </p>
+            </div>
+
+            <div className="mt-12 flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                {ACCEPTED_FILE_TYPES.map(type => (
+                  <div key={type} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.02] border border-white/[0.05] rounded-xl text-emerald-900/30 group-hover:text-emerald-900/50 group-hover:border-white/[0.1] transition-all duration-500">
+                    <FileCode2 size={10} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter">
+                      {type.replace('.', '')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="h-4 w-px bg-white/[0.05]" />
+              <div className="flex items-center gap-2 text-[9px] font-black text-emerald-500/40 uppercase tracking-[0.2em]">
+                <Sparkles size={10} />
+                <span>Limit: 10MB</span>
+              </div>
+            </div>
+          </div>
         )}
 
         <input
@@ -158,15 +178,31 @@ export function DocumentUploader({ onUpload, isUploading, uploadProgress }: Docu
           type="file"
           accept={acceptString}
           onChange={handleInputChange}
-          aria-label="File upload"
           className="hidden"
           disabled={isUploading}
         />
       </div>
 
       {error && (
-        <div role="alert" className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{error}</p>
+        <div 
+          role="alert" 
+          className="p-6 bg-red-500/[0.03] border border-red-500/10 rounded-2xl animate-in fade-in slide-in-from-top-4 duration-500 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
+              <ShieldAlert size={16} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">Protocol Violation</p>
+              <p className="text-xs font-bold text-red-400/80 tracking-tight italic">{error}</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setError(null)}
+            className="text-[9px] font-black text-red-500/40 uppercase tracking-widest hover:text-red-500 transition-colors"
+          >
+            Acknowledge
+          </button>
         </div>
       )}
     </div>

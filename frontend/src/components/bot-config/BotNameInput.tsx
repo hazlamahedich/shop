@@ -13,7 +13,7 @@
  */
 
 import * as React from 'react';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Sparkles, AlertCircle } from 'lucide-react';
 import { useBotConfigStore } from '../../stores/botConfigStore';
 
 export interface BotNameInputProps {
@@ -42,14 +42,7 @@ export const BotNameInput = React.forwardRef<HTMLInputElement, BotNameInputProps
       setBotName(value);
     };
 
-    // Character count color based on remaining characters
-    const getCharacterCountColor = () => {
-      const length = botName?.length || 0;
-      const remaining = 50 - length;
-      if (remaining < 10) return 'text-red-600';
-      if (remaining < 20) return 'text-amber-600';
-      return 'text-gray-500';
-    };
+
 
     // Generate preview message based on personality and bot name
     const getPreviewMessage = () => {
@@ -73,69 +66,71 @@ export const BotNameInput = React.forwardRef<HTMLInputElement, BotNameInputProps
         {error && (
           <div
             role="alert"
-            className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+            className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-4 animate-shake"
           >
-            <svg
-              className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <p className="text-sm text-red-800">{error}</p>
+            <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-200 font-medium">{error}</p>
           </div>
         )}
 
         {/* Bot Name Field */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <label
             htmlFor="bot-name"
-            className="flex items-center gap-2 text-sm font-medium text-gray-700"
+            className="flex items-center gap-2 text-sm font-semibold text-white/70 uppercase tracking-widest"
           >
-            <Bot size={16} className="text-gray-500" />
-            Bot Name
+            <Bot size={16} className="text-[var(--mantis-glow)]" />
+            Bot Designation
           </label>
-          <input
-            ref={ref}
-            id="bot-name"
-            type="text"
-            value={botName || ''}
-            onChange={handleBotNameChange}
-            disabled={disabled}
-            maxLength={50}
-            placeholder="e.g., GearBot, ShopAssistant, Helper"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-            aria-describedby="bot-name-description bot-name-count"
-          />
-          <p id="bot-name-description" className="text-xs text-gray-500">
-            Give your bot a name that customers will see in their conversations. Leave empty to
-            use a generic greeting.
-          </p>
-          <p
-            id="bot-name-count"
-            className={`text-xs font-medium text-right ${getCharacterCountColor()}`}
-          >
-            {(botName?.length || 0)} / 50
-          </p>
+          <div className="relative group">
+            <input
+              ref={ref}
+              id="bot-name"
+              type="text"
+              value={botName || ''}
+              onChange={handleBotNameChange}
+              disabled={disabled}
+              maxLength={50}
+              placeholder="e.g., GEAR_CORE, ASSISTANT_VX, MANTIS_UNIT"
+              className="w-full px-5 py-4 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-[var(--mantis-glow)]/50 focus:border-[var(--mantis-glow)]/50 focus:bg-black/40 transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed text-white placeholder:text-white/20"
+              aria-describedby="bot-name-description bot-name-count"
+            />
+            <div className="absolute inset-0 rounded-xl bg-[var(--mantis-glow)]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          </div>
+          <div className="flex justify-between items-start pt-1 px-1">
+            <p id="bot-name-description" className="text-xs text-white/40 leading-relaxed max-w-[70%]">
+              Assign a unique designation for customer-facing interfaces. Defaults to &quot;Neural Assistant&quot; if null.
+            </p>
+            <p
+              id="bot-name-count"
+              className={`text-xs font-mono font-bold ${
+                (botName?.length || 0) >= 45 ? 'text-red-400' : 
+                (botName?.length || 0) >= 35 ? 'text-amber-400' : 
+                'text-[var(--mantis-glow)]'
+              }`}
+            >
+              {(botName?.length || 0)} <span className="text-white/20">/</span> 50
+            </p>
+          </div>
         </div>
 
         {/* Live Preview */}
-        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2 text-sm font-medium text-blue-900 mb-2">
-            <Sparkles size={16} className="text-blue-600" />
-            Preview: How customers see your bot
+        <div className="relative overflow-hidden p-6 bg-white/5 border border-white/10 rounded-2xl group">
+          <div className="absolute top-0 right-0 p-8 bg-[var(--mantis-glow)]/5 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+          
+          <div className="relative flex items-center gap-3 text-xs font-bold text-[var(--mantis-glow)] uppercase tracking-widest mb-4">
+            <Sparkles size={14} />
+            Output Simulation
           </div>
-          <div className="p-3 bg-white rounded-lg border border-blue-100">
-            <p className="text-sm text-gray-700 italic">
-              "{getPreviewMessage()}"
+          
+          <div className="relative p-5 bg-black/40 rounded-xl border border-white/5 backdrop-blur-sm shadow-xl">
+            <p className="text-sm text-white/80 font-medium leading-relaxed italic">
+              &quot;{getPreviewMessage()}&quot;
             </p>
           </div>
-          <p className="text-xs text-blue-700 mt-2">
-            The bot name appears in greetings and responses throughout the conversation.
+          
+          <p className="relative text-[10px] text-white/30 mt-4 leading-tight uppercase font-bold tracking-tighter">
+            * Identity module propagates to all customer-facing touchpoints
           </p>
         </div>
       </div>

@@ -5,8 +5,8 @@
  * Party Mode: Sally - sticky positioning for easy merchant access.
  */
 
-import React from 'react';
 import OpenInMessengerButton from './OpenInMessengerButton';
+import { MessageCircle } from 'lucide-react';
 import type { HybridModeState, FacebookPageInfo } from '../../types/conversation';
 
 interface StickyActionBarProps {
@@ -48,34 +48,44 @@ export default function StickyActionBar({
   return (
     <div
       data-testid="sticky-action-bar"
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 
-                 shadow-lg p-4 z-40 md:ml-64"
+      className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/80 backdrop-blur-xl border-t border-emerald-500/10 
+                 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] p-4 z-40 md:ml-64 animate-in fade-in slide-in-from-bottom-4 duration-500"
     >
-      <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <div className="max-w-4xl mx-auto flex items-center justify-between gap-6">
         <div className="flex-1">
           {isHybridModeActive && remainingSeconds !== undefined && (
-            <div className="flex items-center gap-2 text-sm text-green-600">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span>
-                You're in control! Bot will resume in {formatRemainingTime(remainingSeconds)}
+            <div className="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/10 px-4 py-2 rounded-full w-fit">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-sm font-medium text-emerald-400">
+                Merchant in Control • <span className="text-emerald-500/60 font-normal">Bot resumes in</span> {formatRemainingTime(remainingSeconds)}
               </span>
             </div>
           )}
           {!isHybridModeActive && (
-            <p className="text-sm text-gray-500">
-              Click to respond to this customer directly in Messenger
-            </p>
+            <div className="flex items-center gap-3 text-zinc-400 group cursor-default">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-center group-hover:border-emerald-500/20 transition-colors">
+                <MessageCircle size={14} className="text-emerald-500/40" />
+              </div>
+              <p className="text-sm">
+                Click to respond to this customer directly in Messenger
+              </p>
+            </div>
           )}
         </div>
         
-        <OpenInMessengerButton
-          conversationId={conversationId}
-          platformSenderId={platformSenderId}
-          hybridMode={hybridMode}
-          facebookPage={facebookPage}
-          isLoading={isLoading}
-          onHybridModeChange={onHybridModeChange}
-        />
+        <div className="flex items-center gap-4">
+          <OpenInMessengerButton
+            conversationId={conversationId}
+            platformSenderId={platformSenderId}
+            hybridMode={hybridMode}
+            facebookPage={facebookPage}
+            isLoading={isLoading}
+            onHybridModeChange={onHybridModeChange}
+          />
+        </div>
       </div>
     </div>
   );

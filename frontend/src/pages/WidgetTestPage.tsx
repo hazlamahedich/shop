@@ -1,14 +1,16 @@
 import * as React from 'react';
 import { Widget } from '../widget/Widget';
+import { GlassCard } from '../components/ui/GlassCard';
+import { Terminal, Shield, Info, Palette } from 'lucide-react';
 
 const defaultTheme = {
-  primaryColor: '#6366f1',
-  backgroundColor: '#ffffff',
-  textColor: '#1f2937',
-  botBubbleColor: '#f3f4f6',
-  userBubbleColor: '#6366f1',
+  primaryColor: '#10b981', // Emerald 500
+  backgroundColor: '#0a0a0a',
+  textColor: '#ffffff',
+  botBubbleColor: '#121212',
+  userBubbleColor: '#10b981',
   position: 'bottom-right' as const,
-  borderRadius: 16,
+  borderRadius: 24,
   width: 380,
   height: 600,
   fontFamily: 'Inter, sans-serif',
@@ -39,7 +41,7 @@ function parseThemeFromUrl() {
 
 function getMerchantId() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('merchantId') || '4';
+  return params.get('merchantId') || '1';
 }
 
 function getSessionId() {
@@ -52,41 +54,77 @@ export default function WidgetTestPage() {
   const merchantId = getMerchantId();
   const sessionId = getSessionId();
 
-  console.log('[WidgetTestPage] Rendering with:', { merchantId, sessionId });
-
   return (
-    <div style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
-      <div
-        style={{
-          maxWidth: 800,
-          margin: '0 auto',
-          background: 'white',
-          padding: 40,
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        }}
-      >
-        <h1 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>Widget Test Page</h1>
-        <p style={{ color: '#6b7280', lineHeight: 1.6 }}>
-          This page is used for E2E testing of the chat widget. The widget should appear in the
-          bottom-right corner.
-        </p>
-        <p style={{ color: '#6b7280', marginTop: 16 }}>URL parameters for testing:</p>
-        <ul style={{ color: '#6b7280', marginTop: 8 }}>
-          <li>
-            <code>?theme[primaryColor]=%23ff0000</code> - Custom primary color
-          </li>
-          <li>
-            <code>?theme[position]=bottom-left</code> - Position on bottom-left
-          </li>
-          <li>
-            <code>?theme[borderRadius]=24</code> - Custom border radius
-          </li>
-          <li>
-            <code>?merchantId=2</code> - Different merchant ID
-          </li>
-        </ul>
+    <div className="min-h-screen bg-[#030303] text-white p-10 font-sans relative overflow-hidden">
+      {/* Background Depth */}
+      <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-emerald-500/10 to-transparent pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none"></div>
+
+      <div className="max-w-4xl mx-auto space-y-12">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
+            <Terminal size={12} />
+            E2E Testing Module
+          </div>
+          <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
+            Widget Validation
+          </h1>
+          <p className="text-lg text-emerald-900/40 font-medium max-w-xl">
+            Isolated environment for verifying UI performance and neural link fidelity.
+          </p>
+        </div>
+
+        <GlassCard accent="mantis" className="p-12 space-y-10 border-white/[0.03] bg-white/[0.01]">
+          <div className="flex items-start gap-8">
+            <div className="w-16 h-16 bg-white/5 rounded-[24px] flex items-center justify-center text-emerald-500 border border-white/5 shadow-2xl">
+              <Shield size={32} />
+            </div>
+            <div className="space-y-3">
+              <h2 className="text-xl font-black text-white uppercase tracking-tight">Active Shielding</h2>
+              <p className="text-sm text-emerald-900/60 font-medium max-w-lg leading-relaxed">
+                This diagnostic terminal is optimized for automated quality assurance. The live widget instance is active in the bottom-right quadrant.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+              <div className="flex items-center gap-3 text-emerald-400">
+                 <Palette size={18} />
+                 <span className="text-[10px] font-black uppercase tracking-widest">Calibration Parameters</span>
+              </div>
+              <ul className="space-y-3">
+                <li className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest border-b border-white/[0.03] pb-2 text-white/40">
+                  <span>Primary Color</span>
+                  <code className="text-emerald-500">?theme[primaryColor]=%23ff0000</code>
+                </li>
+                <li className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest border-b border-white/[0.03] pb-2 text-white/40">
+                  <span>Alignment</span>
+                  <code className="text-emerald-500">?theme[position]=bottom-left</code>
+                </li>
+                <li className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest border-b border-white/[0.03] pb-2 text-white/40">
+                  <span>Curvature</span>
+                  <code className="text-emerald-500">?theme[borderRadius]=24</code>
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+              <div className="flex items-center gap-3 text-emerald-400">
+                 <Info size={18} />
+                 <span className="text-[10px] font-black uppercase tracking-widest">Diagnostic Info</span>
+              </div>
+              <p className="text-[11px] font-medium text-emerald-900/60 leading-relaxed uppercase tracking-[0.1em]">
+                This page utilizes standard browser APIs for E2E validation. Ensure the target merchant ID is correctly mapped in the URL registry.
+              </p>
+              <div className="pt-2">
+                 <code className="px-3 py-1 bg-white/5 rounded-lg text-[10px] font-black text-emerald-500 lowercase">?merchantId={merchantId}</code>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
       </div>
+
       <Widget merchantId={merchantId} theme={theme} initialSessionId={sessionId} />
     </div>
   );

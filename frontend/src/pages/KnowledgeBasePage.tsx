@@ -1,24 +1,12 @@
-/**
- * Knowledge Base Page
- *
- * Story 8-8: Frontend - Knowledge Base Page
- * Allows merchants to upload and manage documents for the knowledge base
- *
- * ATDD Checklist:
- * [x] AC1: Documents list displays with status indicators
- * [x] AC2: File upload accepts PDF/TXT/MD/DOCX up to 10MB
- * [x] AC3: Delete with confirmation removes document
- * [x] AC4: Processing documents show spinner/progress
- * [x] AC5: Error documents show error message + retry
- */
-
 import React, { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, ShieldAlert, Database, Plus, Library } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../context/ToastContext';
 import { DocumentList } from '../components/knowledge/DocumentList';
 import { DocumentUploader } from '../components/knowledge/DocumentUploader';
 import { knowledgeBaseApi } from '../services/knowledgeBase';
 import type { KnowledgeDocument } from '../types/knowledgeBase';
+import { GlassCard } from '../components/ui/GlassCard';
 
 const KnowledgeBasePage: React.FC = () => {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -101,80 +89,152 @@ const KnowledgeBasePage: React.FC = () => {
     }
   };
 
-  if (!isGeneralMode) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <div className="text-center max-w-md">
-          <div className="mb-4 rounded-full bg-slate-100 p-4 inline-flex">
-            <svg
-              className="h-8 w-8 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">
-            Knowledge Base Unavailable
-          </h2>
-          <p className="text-slate-600">
-            The knowledge base feature is only available in General mode.
-            Switch to General mode in Settings to access this feature.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Knowledge Base</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Upload documents to train your bot with custom knowledge. Supported formats: PDF, TXT, MD, DOCX (max 10MB).
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#050505] text-emerald-50">
+      {/* Breadcrumb Navigation */}
+      <nav className="border-b border-emerald-500/10 bg-black/20 backdrop-blur-xl" aria-label="Breadcrumb">
+        <div className="max-w-7xl mx-auto px-10 py-4">
+          <ol className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em]">
+            <li>
+              <a href="/dashboard" className="text-emerald-900/40 hover:text-emerald-400 transition-all duration-500">
+                Primary Dashboard
+              </a>
+            </li>
+            <li className="text-emerald-900/20">/</li>
+            <li>
+              <span className="text-emerald-400 mantis-glow-text">Knowledge Engine</span>
+            </li>
+          </ol>
+        </div>
+      </nav>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Upload Document</h2>
-        <DocumentUploader
-          onUpload={handleUpload}
-          isUploading={isUploading}
-          uploadProgress={uploadProgress}
-        />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Documents</h2>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12" role="status">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-            <span className="sr-only">Loading documents...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12 text-red-600">
-            <p>{error}</p>
-            <button
-              onClick={fetchDocuments}
-              className="mt-4 text-blue-600 hover:underline"
-            >
-              Try again
-            </button>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-10 py-16 space-y-16">
+        {!isGeneralMode ? (
+          <div className="flex flex-col items-center justify-center py-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <GlassCard accent="mantis" className="text-center max-w-2xl p-16 border-red-500/20 bg-red-500/[0.02]">
+              <div className="mb-10 rounded-[32px] bg-red-500/10 p-10 inline-flex border border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.15)]">
+                <ShieldAlert size={48} className="text-red-500 shadow-glow" />
+              </div>
+              <h2 className="text-5xl font-black text-white mb-6 tracking-tight mantis-glow-text leading-none">
+                Labyrinth Restricted
+              </h2>
+              <p className="text-xl text-emerald-900/60 leading-relaxed font-medium mb-10 max-w-lg mx-auto">
+                The Knowledge Base requires <span className="text-emerald-400 font-black tracking-widest uppercase text-sm ml-1">General Mode</span> authorization.
+                Switch your core protocol in <a href="/settings" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4 decoration-emerald-500/30 font-bold transition-all">Settings</a> to begin neural training.
+              </p>
+              <div className="pt-8 border-t border-red-500/10 flex justify-center gap-4">
+                <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-red-500/60 bg-red-500/5 px-4 py-2 rounded-xl">
+                  Protocol: Restricted
+                </span>
+              </div>
+            </GlassCard>
           </div>
         ) : (
-          <DocumentList
-            documents={documents}
-            onDelete={handleDelete}
-            onRetry={handleRetry}
-          />
+          <>
+            {/* Page Header */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-blue-500/20 blur-3xl opacity-20 -z-10" />
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                <div className="space-y-4">
+                  <h1 className="text-6xl font-black tracking-tight text-white mantis-glow-text leading-none">
+                    Knowledge Base
+                  </h1>
+                  <p className="text-xl text-emerald-900/60 font-medium max-w-2xl leading-relaxed">
+                    Train your autonomous agent with specialized expertise. Inject technical manuals, protocols, or FAQ schematics to enhance neural resonance.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 px-6 py-2.5 bg-emerald-500/5 text-emerald-400 border border-emerald-500/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] backdrop-blur-md shadow-2xl">
+                  <Database size={14} className="text-emerald-500 shadow-glow" />
+                  <span>Neural Core Active</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Document Intake Section */}
+            <div className="space-y-8">
+              <div className="flex items-center gap-4 px-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+                  <Plus size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-[0.3em] text-emerald-400 mb-0.5">Document Intake</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-900/40">Inject raw data into the LLM context</p>
+                </div>
+              </div>
+              
+              <GlassCard accent="mantis" className="p-8 border-emerald-500/10 bg-emerald-500/[0.02]">
+                <DocumentUploader
+                  onUpload={handleUpload}
+                  isUploading={isUploading}
+                  uploadProgress={uploadProgress}
+                />
+              </GlassCard>
+            </div>
+
+            {/* Corpus Library Section */}
+            <div className="space-y-8">
+              <div className="flex items-center justify-between px-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+                    <Library size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-emerald-400 mb-0.5">Corpus Library</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-900/40">Manage indexed document fragments</p>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchDocuments}
+                  className="p-2.5 bg-white/5 border border-white/10 text-emerald-900/60 rounded-xl hover:bg-white/10 hover:text-emerald-400 transition-all duration-500 group"
+                  title="Reload Indices"
+                >
+                  <RefreshCw size={16} className={isLoading ? 'animate-spin text-emerald-400' : 'group-hover:rotate-180 transition-transform duration-700'} />
+                </button>
+              </div>
+
+              <GlassCard className="p-0 overflow-hidden border-emerald-500/10 bg-emerald-500/[0.01]">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-32 gap-6" role="status">
+                    <div className="relative">
+                      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]" />
+                      <div className="absolute inset-0 animate-ping rounded-full h-16 w-16 border border-emerald-500/20" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-emerald-900/40 font-black uppercase tracking-[0.4em] text-[11px] block animate-pulse">Scanning Neural Paths</span>
+                      <span className="text-[9px] font-black text-emerald-900/20 uppercase tracking-widest mt-2 block">Loading Dataset Fragments...</span>
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-32">
+                    <div className="p-10 bg-red-500/5 border border-red-500/10 rounded-[40px] inline-block backdrop-blur-3xl relative overflow-hidden group">
+                      <div className="absolute inset-0 bg-red-500/[0.02] -z-10 group-hover:scale-110 transition-transform duration-1000" />
+                      <div className="mb-6 rounded-2xl bg-red-500/10 p-5 inline-flex border border-red-500/20 shadow-glow">
+                        <ShieldAlert size={24} className="text-red-500" />
+                      </div>
+                      <p className="text-[11px] font-black text-red-500/60 uppercase tracking-[0.3em] mb-4">Fragment Access Failure</p>
+                      <p className="text-red-200/60 font-medium max-w-sm mb-8 leading-relaxed italic">&quot;{error}&quot;</p>
+                      <button
+                        onClick={fetchDocuments}
+                        className="h-12 px-8 bg-red-500 text-black rounded-2xl flex items-center gap-3 transition-all duration-500 hover:bg-red-400 font-black text-[10px] uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(239,68,68,0.2)] mx-auto"
+                      >
+                        <RefreshCw size={14} />
+                        Re-initialize Sync
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <DocumentList
+                    documents={documents}
+                    onDelete={handleDelete}
+                    onRetry={handleRetry}
+                  />
+                )}
+              </GlassCard>
+            </div>
+          </>
         )}
-      </div>
+      </main>
     </div>
   );
 };

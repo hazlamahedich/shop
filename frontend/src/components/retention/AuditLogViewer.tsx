@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Filter, RefreshCw, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card } from '../ui/Card';
+import { GlassCard } from '../ui/GlassCard';
+import { Badge } from '../ui/Badge';
 
 interface AuditLog {
   id: number;
@@ -37,11 +38,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ className = '' }
 
   const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    fetchLogs();
-  }, [page, filters]);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -72,7 +69,11 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ className = '' }
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, filters]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -122,245 +123,234 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ className = '' }
   return (
     <div className={className}>
       <div data-testid="audit-logs-tab">
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 data-testid="audit-logs-heading" className="text-2xl font-bold text-gray-900">
-                Retention Audit Logs
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Track data deletion activities for GDPR/CCPA compliance
-              </p>
-            </div>
-            <div className="flex gap-2">
+        <div className="mb-0">
+          <div className="flex justify-between items-center mb-10">
+            <div className="flex gap-4">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                  showFilters ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700'
+                className={`h-12 px-6 rounded-2xl flex items-center gap-3 transition-all duration-500 text-[10px] font-black uppercase tracking-[0.2em] border backdrop-blur-md ${
+                  showFilters
+                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                    : 'bg-white/5 border-white/10 text-emerald-900/60 hover:bg-white/10 hover:border-white/20'
                 }`}
               >
-                <Filter size={16} />
-                Filters
+                <Filter size={14} className={showFilters ? 'text-emerald-400 shadow-glow' : ''} />
+                Filters Schema
               </button>
               <button
                 onClick={handleRefresh}
                 data-testid="refresh-audit-logs"
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg flex items-center gap-2 hover:bg-gray-200"
+                className="h-12 px-6 bg-white/5 border border-white/10 text-emerald-900/60 rounded-2xl flex items-center gap-3 transition-all duration-500 hover:bg-white/10 hover:border-white/20 text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-md"
               >
-                <RefreshCw size={16} />
-                Refresh
-              </button>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2 hover:bg-primary/90"
-              >
-                <Download size={16} />
-                Export CSV
+                <RefreshCw size={14} className={loading ? 'animate-spin text-emerald-400' : ''} />
+                Refresh Engine
               </button>
             </div>
+            <button
+              onClick={handleExport}
+              className="h-12 px-8 bg-emerald-500 text-black rounded-2xl flex items-center gap-3 transition-all duration-500 hover:bg-emerald-400 hover:scale-[1.02] active:scale-[0.98] font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            >
+              <Download size={14} />
+              Export Records
+            </button>
           </div>
 
           {showFilters && (
-            <Card className="mb-4">
-              <div style={{ padding: 'var(--card-padding)' }}>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Merchant ID
-                    </label>
-                    <input
-                      type="number"
-                      value={filters.merchantId}
-                      onChange={(e) => handleFilterChange('merchantId', e.target.value)}
-                      placeholder="All merchants"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      data-testid="start-date"
-                      value={filters.startDate}
-                      onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      data-testid="end-date"
-                      value={filters.endDate}
-                      onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Trigger Type
-                    </label>
-                    <select
-                      data-testid="deletion-trigger-filter"
-                      value={filters.trigger}
-                      onChange={(e) => handleFilterChange('trigger', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="">All triggers</option>
-                      <option value="manual">Manual</option>
-                      <option value="auto">Auto</option>
-                    </select>
-                  </div>
+            <GlassCard accent="mantis" className="mb-8 p-8 border-emerald-500/10 bg-emerald-500/[0.02]">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black text-emerald-900/40 uppercase tracking-widest pl-1">
+                    Merchant Identity
+                  </label>
+                  <input
+                    type="number"
+                    value={filters.merchantId}
+                    onChange={(e) => handleFilterChange('merchantId', e.target.value)}
+                    placeholder="All Merchants"
+                    className="w-full h-12 px-4 bg-black/40 border border-emerald-500/10 rounded-xl text-emerald-50 placeholder:text-emerald-900/20 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 outline-none transition-all duration-300 text-sm"
+                  />
                 </div>
 
-                <div className="mt-4 flex justify-end">
-                  <button
-                    data-testid="apply-filter"
-                    onClick={() => {
-                      setFilters({ merchantId: '', startDate: '', endDate: '', trigger: '' });
-                      setPage(1);
-                    }}
-                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black text-emerald-900/40 uppercase tracking-widest pl-1">
+                    Temporal Start
+                  </label>
+                  <input
+                    type="date"
+                    data-testid="start-date"
+                    value={filters.startDate}
+                    onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                    className="w-full h-12 px-4 bg-black/40 border border-emerald-500/10 rounded-xl text-emerald-50 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 outline-none transition-all duration-300 text-sm [color-scheme:dark]"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black text-emerald-900/40 uppercase tracking-widest pl-1">
+                    Temporal End
+                  </label>
+                  <input
+                    type="date"
+                    data-testid="end-date"
+                    value={filters.endDate}
+                    onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                    className="w-full h-12 px-4 bg-black/40 border border-emerald-500/10 rounded-xl text-emerald-50 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 outline-none transition-all duration-300 text-sm [color-scheme:dark]"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black text-emerald-900/40 uppercase tracking-widest pl-1">
+                    Trigger Source
+                  </label>
+                  <select
+                    data-testid="deletion-trigger-filter"
+                    value={filters.trigger}
+                    onChange={(e) => handleFilterChange('trigger', e.target.value)}
+                    className="w-full h-12 px-4 bg-black/40 border border-emerald-500/10 rounded-xl text-emerald-50 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 outline-none transition-all duration-300 text-sm appearance-none cursor-pointer"
                   >
-                    Clear Filters
-                  </button>
+                    <option value="" className="bg-[#0a0a0a]">Global Scopes</option>
+                    <option value="manual" className="bg-[#0a0a0a]">Manual Intervention</option>
+                    <option value="auto" className="bg-[#0a0a0a]">Automated Protocol</option>
+                  </select>
                 </div>
               </div>
-            </Card>
+
+              <div className="mt-8 pt-6 border-t border-emerald-500/5 flex justify-end">
+                <button
+                  data-testid="apply-filter"
+                  onClick={() => {
+                    setFilters({ merchantId: '', startDate: '', endDate: '', trigger: '' });
+                    setPage(1);
+                  }}
+                  className="px-6 py-2 text-[10px] font-black text-emerald-900/40 hover:text-emerald-400 uppercase tracking-widest transition-colors"
+                >
+                  Clear Schemas
+                </button>
+              </div>
+            </GlassCard>
           )}
 
           {error && (
-            <div data-testid="error-banner" className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <FileText size={16} className="text-red-600" />
-                <span className="text-sm text-red-700">{error}</span>
+            <div data-testid="error-banner" className="mb-8 p-6 bg-red-500/5 border border-red-500/20 rounded-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-red-500/10 rounded-lg">
+                  <FileText size={20} className="text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-red-500/60 mb-1">Critical Error</h4>
+                  <p className="text-sm text-red-200/80 font-medium">{error}</p>
+                </div>
               </div>
             </div>
           )}
 
           {loading ? (
-            <Card>
-              <div style={{ padding: 'var(--card-padding)' }} className="text-center py-12">
-                <RefreshCw size={32} className="mx-auto text-gray-400 animate-spin" />
-                <p className="text-gray-500 mt-4">Loading audit logs...</p>
+            <GlassCard accent="mantis" className="border-emerald-500/10 bg-emerald-500/[0.02]">
+              <div className="text-center py-24">
+                <RefreshCw size={48} className="mx-auto text-emerald-500/20 animate-spin" />
+                <p className="text-emerald-900/40 mt-6 text-[11px] font-black uppercase tracking-[0.3em]">Synching Audit Records...</p>
               </div>
-            </Card>
+            </GlassCard>
           ) : (
             <>
-              <Card>
-                <div style={{ padding: '0' }}>
-                  <div data-testid="audit-log-table" className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+              <GlassCard className="p-0 overflow-hidden border-emerald-500/10 bg-emerald-500/[0.01]">
+                <div data-testid="audit-log-table" className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-emerald-500/10 bg-emerald-500/[0.03]">
+                        {['Session Identity', 'Merchant', 'Trigger', 'Requested At', 'Data Deleted', 'Status'].map((header) => (
+                          <th key={header} className="px-8 py-6 text-left text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em]">
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-emerald-500/5">
+                      {logs.length === 0 ? (
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Session ID
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Merchant
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Trigger
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Requested At
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Data Deleted
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
+                          <td colSpan={6} className="px-8 py-24 text-center">
+                            <div className="flex flex-col items-center gap-4">
+                              <FileText size={32} className="text-emerald-900/20" />
+                              <p className="text-emerald-900/40 text-[11px] font-black uppercase tracking-[0.2em]">No Audit Fragments Found</p>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {logs.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                              No audit logs found
+                      ) : (
+                        logs.map((log) => (
+                          <tr key={log.id} className="group hover:bg-emerald-500/[0.04] transition-all duration-300">
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <span className="text-sm font-mono text-emerald-100/90 group-hover:text-emerald-400 transition-colors">
+                                {log.sessionId.substring(0, 8)}<span className="text-emerald-900/40">...</span>
+                              </span>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <span className="text-sm font-bold text-white/80">{log.merchantId}</span>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-lg border-2 ${
+                                  log.deletionTrigger === 'auto'
+                                    ? 'border-emerald-500/20 text-emerald-400 bg-emerald-500/5'
+                                    : 'border-blue-500/20 text-blue-400 bg-blue-500/5'
+                                }`}
+                              >
+                                {log.deletionTrigger}
+                              </Badge>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap text-sm text-emerald-900/60 font-medium">
+                              {formatDate(log.requestedAt)}
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-bold text-emerald-100/80">{log.conversationsDeleted} <span className="text-[10px] font-black uppercase tracking-widest text-emerald-900/40 ml-1">Conversations</span></span>
+                                <span className="text-[10px] text-emerald-900/40 font-black uppercase tracking-widest">
+                                  {log.messagesDeleted} Messages
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6 whitespace-nowrap">
+                              {log.completedAt ? (
+                                <div className="flex items-center gap-2 text-emerald-400">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse" />
+                                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Verified</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-red-500">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Aborted</span>
+                                </div>
+                              )}
                             </td>
                           </tr>
-                        ) : (
-                          logs.map((log) => (
-                            <tr key={log.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                                {log.sessionId.substring(0, 8)}...
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {log.merchantId}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  data-testid="deletion-trigger"
-                                  className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full ${
-                                    log.deletionTrigger === 'auto'
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : 'bg-purple-100 text-purple-700'
-                                  }`}
-                                >
-                                  {log.deletionTrigger}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {formatDate(log.requestedAt)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <div className="flex flex-col">
-                                  <span>{log.conversationsDeleted} conversations</span>
-                                  <span className="text-xs text-gray-400">
-                                    {log.messagesDeleted} messages
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {log.completedAt ? (
-                                  <span className="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-700">
-                                    Completed
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-red-100 text-red-700">
-                                    Failed
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </Card>
+              </GlassCard>
 
               {total > pageSize && (
-                <div className="mt-4 flex justify-between items-center">
-                  <div className="text-sm text-gray-500">
-                    Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total} results
+                <div className="mt-10 flex justify-between items-center px-4">
+                  <div className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.2em]">
+                    Showing <span className="text-emerald-400">{((page - 1) * pageSize) + 1}</span> — <span className="text-emerald-400">{Math.min(page * pageSize, total)}</span> of <span className="text-emerald-400">{total}</span> fragments
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-6">
                     <button
                       onClick={() => setPage(page - 1)}
                       disabled={page === 1}
-                      className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400 disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-300"
                     >
-                      <ChevronLeft size={16} />
+                      <ChevronLeft size={18} />
                     </button>
-                    <span className="px-3 py-1 text-sm text-gray-700">
-                      Page {page} of {totalPages}
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">
+                      Page {page} / {totalPages}
                     </span>
                     <button
                       onClick={() => setPage(page + 1)}
                       disabled={page === totalPages}
-                      className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400 disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-300"
                     >
-                      <ChevronRight size={16} />
+                      <ChevronRight size={18} />
                     </button>
                   </div>
                 </div>
@@ -372,3 +362,4 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ className = '' }
     </div>
   );
 };
+
