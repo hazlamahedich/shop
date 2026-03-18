@@ -1,0 +1,216 @@
+name: E2E Tests - Story 10-3
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'frontend/tests/e2e/story-10-3-*.spec.ts'
+      - 'frontend/src/widget/components/SuggestedReplies.tsx'
+      - 'frontend/src/widget/components/SuggestedReplies.test.tsx'
+
+jobs:
+  install-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        id: npm-cache
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install --with-deps chromium
+
+  test-p0-smoke:
+    timeout-minutes: 2
+    needs: install-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: 'npm'
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Install Playwright browsers (if not cached)
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run P0 E2E tests
+        run: cd frontend && npm run test:e2e:p0
+
+  test-p1-comprehensive:
+    timeout-minutes: 5
+    needs: install-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: 'npm'
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Install Playwright browsers (if not cached)
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run P1 E2E tests
+        run: cd frontend && npm run test:e2e:p1
+
+  test-integration:
+    timeout-minutes: 10
+    needs: install-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: 'npm'
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Install Playwright browsers (if not cached)
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run Integration Tests
+        run: cd frontend && npm run test:e2e
+
+  test-unit-backend:
+    timeout-minutes: 5
+    needs: install-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements-test.txt
+
+      - name: Run Backend Unit Tests
+        run: |
+          cd backend
+          source venv/bin/activate
+          python -m pytest tests/services/rag/test_suggestion_generator.py -v
+
+  test-integration-backend:
+    timeout-minutes: 10
+    needs: install-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements-test.txt
+
+      - name: Run Backend Integration Tests
+        run: |
+          cd backend
+          source venv/bin/activate
+          python -m pytest tests/integration/test_story_10_3_suggestion_service.py -v
+          python -m pytest tests/integration/test_story_10_3_suggestion_schema.py -v
+
+  merge-results:
+    needs: [test-p0-smoke, test-p1-comprehensive, test-integration, test-unit-backend, test-integration-backend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: all-results
+          merge-multiple: true
+
+      - name: Generate test summary
+        run: |
+          echo "## Test Summary"
+          echo ""
+          echo "### Frontend Tests"
+          echo "- P0 Smoke: ${{ needs.test-p0-smoke.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+          echo "- P1 Comprehensive: ${{ needs.test-p1-comprehensive.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+          echo ""
+          echo "### Backend Tests"
+          echo "- Unit Tests: ${{ needs.test-unit-backend.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+          echo "- Integration Tests: ${{ needs.test-integration-backend.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+
+      - name: Upload merged test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-merged
+          path: all-results
+          retention-days: 30
+
+      - name: Fail if any tests failed
+        if: needs.test-p0-smoke.result != 'success' || needs.test-p1-comprehensive.result != 'success' || needs.test-unit-backend.result != 'success' || needs.test-integration-backend.result != 'success'
+        run: exit 1

@@ -1,0 +1,105 @@
+/* Story 10-3: Suggested Replies Styles */
+
+.suggested-replies {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.suggested-replies::-webkit-scrollbar {
+  display: none;
+}
+
+.suggested-replies {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.suggested-reply-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 100ms ease, background-color 150ms ease, opacity 150ms ease;
+}
+
+.suggested-reply-chip:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.suggested-reply-chip:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.suggested-reply-chip:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.suggested-reply-chip:focus {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.suggested-reply-chip--reduced-motion {
+  transition: none;
+}
+
+.suggested-reply-chip--reduced-motion:hover:not(:disabled) {
+  transform: none;
+}
+
+.suggested-reply-chip--reduced-motion:active:not(:disabled) {
+  transform: none;
+}
+
+/* Dark mode adjustments */
+.suggested-reply-chip[data-theme-mode='dark'] {
+  border-color: var(--widget-primary);
+  background-color: transparent;
+  color: var(--widget-primary);
+}
+
+.suggested-reply-chip[data-theme-mode='dark']:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Horizontal scroll fade indicator */
+.suggested-replies--has-overflow::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, transparent, var(--widget-background));
+  pointer-events: none;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .suggested-reply-chip {
+    transition: none;
+  }
+
+  .suggested-reply-chip:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .suggested-reply-chip:active:not(:disabled) {
+    transform: none;
+  }
+}

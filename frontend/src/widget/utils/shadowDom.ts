@@ -7,6 +7,7 @@ import proactiveModalStyles from '../styles/proactive-modal.css?inline';
 import messageGroupingStyles from '../styles/message-grouping.css?inline';
 import animationsStyles from '../styles/animations.css?inline';
 import faqQuickButtonsStyles from '../styles/faq-quick-buttons.css?inline';
+import suggestedRepliesStyles from '../styles/suggested-replies.css?inline';
 
 const THEME_STYLE_ID = 'widget-theme-variables';
 const GLASSMORPHISM_STYLE_ID = 'widget-glassmorphism-styles';
@@ -16,6 +17,7 @@ const VOICE_INPUT_STYLE_ID = 'widget-voice-input-styles';
 const PROACTIVE_MODAL_STYLE_ID = 'widget-proactive-modal-styles';
 const MESSAGE_GROUPING_STYLE_ID = 'widget-message-grouping-styles';
 const ANIMATIONS_STYLE_ID = 'widget-animations-styles';
+const SUGGESTED_REPLIES_STYLE_ID = 'widget-suggested-replies-styles';
 
 export function createShadowContainer(target: HTMLElement): ShadowRoot {
   return target.attachShadow({ mode: 'open' });
@@ -117,6 +119,18 @@ export function injectFAQQuickButtonsStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', FAQ_QUICK_BUTTONS_STYLE_ID);
   style.textContent = faqQuickButtonsStyles
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectSuggestedRepliesStyles(shadow: ShadowRoot): void {
+  const existingStyle = shadow.querySelector(`style[data-id="${SUGGESTED_REPLIES_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', SUGGESTED_REPLIES_STYLE_ID);
+  style.textContent = suggestedRepliesStyles;
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {

@@ -114,6 +114,7 @@ export interface WidgetMessage {
   confidence?: number;
   quick_replies?: QuickReply[];
   sources?: SourceCitation[];
+  suggestedReplies?: string[];
 }
 
 export interface MessageGroup {

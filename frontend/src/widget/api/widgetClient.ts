@@ -228,6 +228,7 @@ export class WidgetApiClient {
         url?: string;
         chunkIndex?: number;
       }>) ?? undefined,
+      suggestedReplies: (rawData.suggestedReplies ?? rawData.suggested_replies) as string[] ?? undefined,
     };
   }
 

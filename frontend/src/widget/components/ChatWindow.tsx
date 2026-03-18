@@ -12,6 +12,7 @@ import { ConsentPrompt } from './ConsentPrompt';
 import { ThemeToggle } from './ThemeToggle';
 import { QuickReplyButtons } from './QuickReplyButtons';
 import { FAQQuickButtons } from './FAQQuickButtons';
+import { SuggestedReplies } from './SuggestedReplies';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -86,8 +87,17 @@ function ChatWindow({
   const [showMenu, setShowMenu] = React.useState(false);
   const [activeQuickReplies, setActiveQuickReplies] = React.useState<QuickReply[] | null>(null);
   const [showFaqButtons, setShowFaqButtons] = React.useState(true);
+  const [activeSuggestions, setActiveSuggestions] = React.useState<string[] | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+
+  // Story 10-3: Hide suggestions when user starts typing
+  const handleInputChange = (value: string) => {
+    setInputValue(value);
+    if (value.length > 0 && activeSuggestions) {
+      setActiveSuggestions(null);
+    }
+  };
 
   const handleProductClick = (product: WidgetProduct) => {
     setSelectedProductId(product.id);
@@ -153,6 +163,7 @@ function ChatWindow({
     if (!inputValue.trim()) return;
     const message = inputValue.trim();
     setInputValue('');
+    setActiveSuggestions(null);
     await onSendMessage(message);
   };
 
@@ -169,6 +180,14 @@ function ChatWindow({
     }
   };
 
+  const handleSuggestedRepliesAvailable = (suggestions: string[]) => {
+    if (suggestions && suggestions.length > 0) {
+      setActiveSuggestions(suggestions);
+    } else {
+      setActiveSuggestions(null);
+    }
+  };
+
   const handleFaqButtonClick = async (button: FAQQuickButton) => {
     if (onFaqButtonClick) {
       onFaqButtonClick(button);
@@ -176,6 +195,11 @@ function ChatWindow({
       setShowFaqButtons(false);
       await onSendMessage(button.question);
     }
+  };
+
+  const handleSuggestionSelect = async (suggestion: string) => {
+    setActiveSuggestions(null);
+    await onSendMessage(suggestion);
   };
 
   // Hide FAQ buttons after first USER message (Story 10-2 AC4)
@@ -456,8 +480,22 @@ function ChatWindow({
           removingItemId={removingItemId}
           isCheckingOut={isCheckingOut}
           onQuickRepliesAvailable={handleQuickRepliesAvailable}
+          onSuggestedRepliesAvailable={handleSuggestedRepliesAvailable}
         />
 
+        {/* Story 10-3: Suggested Reply Chips */}
+        {activeSuggestions && activeSuggestions.length > 0 && (
+          <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
+            <SuggestedReplies
+              suggestions={activeSuggestions}
+              onSelect={handleSuggestionSelect}
+              theme={theme}
+              disabled={isTyping}
+            />
+          </div>
+        )}
+
+        {/* Quick Reply Buttons - Story 9-4 */}
         {activeQuickReplies && activeQuickReplies.length > 0 && (
           <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
             <QuickReplyButtons
@@ -559,7 +597,7 @@ function ChatWindow({
 
         <MessageInput
           value={inputValue}
-          onChange={setInputValue}
+          onChange={handleInputChange}
           onSend={handleSend}
           disabled={isTyping}
           placeholder="Type a message..."

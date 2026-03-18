@@ -23,6 +23,7 @@ export interface MessageListProps {
   removingItemId?: string | null;
   isCheckingOut?: boolean;
   onQuickRepliesAvailable?: (replies: QuickReply[]) => void;
+  onSuggestedRepliesAvailable?: (suggestions: string[]) => void;
 }
 
 export function MessageList({
@@ -39,6 +40,7 @@ export function MessageList({
   removingItemId,
   isCheckingOut,
   onQuickRepliesAvailable,
+  onSuggestedRepliesAvailable,
 }: MessageListProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const prevMessageIdsRef = React.useRef<Set<string>>(new Set());
@@ -77,6 +79,15 @@ export function MessageList({
       onQuickRepliesAvailable?.([]);
     }
   }, [messages, onQuickRepliesAvailable]);
+
+  React.useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.sender === 'bot' && lastMessage.suggestedReplies) {
+      onSuggestedRepliesAvailable?.(lastMessage.suggestedReplies);
+    } else if (lastMessage?.sender === 'user') {
+      onSuggestedRepliesAvailable?.([]);
+    }
+  }, [messages, onSuggestedRepliesAvailable]);
 
   if (messages.length === 0) {
     return (

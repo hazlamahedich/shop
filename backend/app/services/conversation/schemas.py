@@ -264,6 +264,7 @@ class ConversationResponse(BaseModel):
 
     Story 9-4: Added quick_replies for quick reply buttons.
     Story 10-1: Added sources for RAG-based response citations.
+    Story 10-3: Added suggested_replies for follow-up question suggestions.
     """
 
     message: str = Field(description="Response message text")
@@ -285,6 +286,10 @@ class ConversationResponse(BaseModel):
     sources: list[dict[str, Any]] | None = Field(
         None,
         description="RAG source citations for knowledge-based responses (Story 10-1)",
+    )
+    suggested_replies: list[str] | None = Field(
+        None,
+        description="Server-generated follow-up question suggestions (Story 10-3)",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,

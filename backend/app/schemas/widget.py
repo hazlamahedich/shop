@@ -346,6 +346,11 @@ class WidgetMessageResponse(BaseSchema):
     sources: list[SourceCitation] | None = Field(
         default=None, description="RAG source citations (Story 10-1)"
     )
+    suggested_replies: list[str] | None = Field(
+        default=None,
+        alias="suggestedReplies",
+        description="Server-generated follow-up question suggestions (Story 10-3)",
+    )
 
 
 class WidgetMessageEnvelope(MinimalEnvelope):
