@@ -27,6 +27,8 @@ export const WidgetConfigSchema = z.object({
   personality: z.enum(['friendly', 'professional', 'enthusiastic']).nullable().optional(),
   proactiveEngagementConfig: z.any().optional(),
   proactive_engagement_config: z.any().optional(),
+  onboardingMode: z.enum(['general', 'ecommerce']).optional(),
+  onboarding_mode: z.enum(['general', 'ecommerce']).optional(),
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
   botName: data.botName || data.bot_name || 'Assistant',
@@ -36,6 +38,7 @@ export const WidgetConfigSchema = z.object({
   shopDomain: data.shopDomain || data.shop_domain || undefined,
   personality: data.personality || undefined,
   proactiveEngagementConfig: data.proactiveEngagementConfig || data.proactive_engagement_config || undefined,
+  onboardingMode: data.onboardingMode || data.onboarding_mode || 'ecommerce',
 }));
 
 export const WidgetSessionSchema = z

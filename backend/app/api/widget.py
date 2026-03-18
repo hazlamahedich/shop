@@ -26,12 +26,17 @@ from app.core.rate_limiter import RateLimiter
 from app.core.sanitization import sanitize_message, validate_message_length
 from app.core.validators import is_valid_session_id
 from app.models.merchant import Merchant
+from app.models.faq import Faq
 from app.schemas.consent import (
     ConsentStatus,
     RecordConsentRequest,
 )
 from app.schemas.widget import (
     CreateSessionRequest,
+    FAQQuickButtonResponse,
+    FAQQuickButtonsConfigResponse,
+    FAQQuickButtonsEnvelope,
+    FAQQuickButtonsListResponse,
     SendMessageRequest,
     SuccessEnvelope,
     SuccessResponse,
@@ -651,6 +656,17 @@ async def get_widget_config(
         merchant_id=merchant_id,
     )
 
+    # Story 10-2: Get FAQ quick buttons config from merchant.config
+    faq_quick_buttons_config = None
+    if merchant.config and "widget_config" in merchant.config:
+        widget_cfg = merchant.config.get("widget_config", {})
+        if "faq_quick_buttons" in widget_cfg:
+            fb_cfg = widget_cfg["faq_quick_buttons"]
+            faq_quick_buttons_config = FAQQuickButtonsConfigResponse(
+                enabled=fb_cfg.get("enabled", True),
+                faq_ids=fb_cfg.get("faq_ids", []),
+            )
+
     return WidgetConfigEnvelope(
         data=WidgetConfigResponse(
             bot_name=bot_name,
@@ -660,7 +676,103 @@ async def get_widget_config(
             personality=personality,
             business_hours=business_hours,
             shop_domain=shop_domain,
+            onboarding_mode=getattr(merchant, "onboarding_mode", "general"),
+            faq_quick_buttons=faq_quick_buttons_config,
         ),
+        meta=create_meta(),
+    )
+
+
+@router.get(
+    "/widget/faq-buttons/{merchant_id}",
+    response_model=FAQQuickButtonsEnvelope,
+    summary="Get FAQ quick buttons for widget",
+    description="Returns top FAQs configured as quick buttons for General Mode widget. Only shows in General Mode, Returns max 5 FAQs sorted by order_index.",
+)
+async def get_faq_quick_buttons(
+    merchant_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> FAQQuickButtonsEnvelope:
+    """Get FAQ quick buttons for widget.
+
+    Story 10-2: FAQ Quick Buttons Widget
+    Story 10-2 AC5: Merchant Configuration UI
+
+    Args:
+        merchant_id: The merchant ID
+        db: Database session
+
+    Returns:
+        FAQQuickButtonsEnvelope with list of FAQ quick buttons
+
+    Raises:
+        APIError: If merchant not found or not in General Mode
+    """
+    # Verify merchant exists
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalars().first()
+
+    if not merchant:
+        raise APIError(
+            ErrorCode.MERCHANT_NOT_FOUND,
+            f"Merchant {merchant_id} not found",
+        )
+
+    # Check if merchant is in General Mode (AC8)
+    if merchant.onboarding_mode != "general":
+        return FAQQuickButtonsEnvelope(
+            data=FAQQuickButtonsListResponse(buttons=[]),
+            meta=create_meta(),
+        )
+
+    # Check if merchant has configured specific FAQ IDs (Story 10-2 AC5)
+    configured_faq_ids = None
+    if merchant.config:
+        widget_config = merchant.config.get("widget_config", {})
+        faq_config = widget_config.get("faq_quick_buttons", {})
+        if faq_config.get("enabled", True) and faq_config.get("faq_ids"):
+            configured_faq_ids = faq_config["faq_ids"]
+
+    if configured_faq_ids:
+        # Use configured FAQ IDs, maintaining order
+        result = await db.execute(
+            select(Faq)
+            .where(Faq.merchant_id == merchant_id)
+            .where(Faq.id.in_(configured_faq_ids))
+            .order_by(Faq.order_index)
+            .limit(5)
+        )
+        faqs = result.scalars().all()
+        # Sort by the configured order
+        faq_map = {faq.id: faq for faq in faqs}
+        faqs = [faq_map[fid] for fid in configured_faq_ids if fid in faq_map][:5]
+    else:
+        # Default: Get FAQs sorted by order_index, limit 5
+        result = await db.execute(
+            select(Faq).where(Faq.merchant_id == merchant_id).order_by(Faq.order_index).limit(5)
+        )
+        faqs = result.scalars().all()
+
+    # Convert to response format
+    buttons = [
+        FAQQuickButtonResponse(
+            id=faq.id,
+            question=faq.question,
+            icon=faq.icon,
+        )
+        for faq in faqs
+    ]
+
+    logger.info(
+        "faq_quick_buttons_retrieved",
+        merchant_id=merchant_id,
+        button_count=len(buttons),
+        onboarding_mode=merchant.onboarding_mode,
+        configured=len(configured_faq_ids or []) > 0,
+    )
+
+    return FAQQuickButtonsEnvelope(
+        data=FAQQuickButtonsListResponse(buttons=buttons),
         meta=create_meta(),
     )
 

@@ -1,0 +1,79 @@
+.faq-quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+@media (min-width: 480px) {
+  .faq-quick-buttons {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.faq-quick-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.faq-quick-button:hover {
+  filter: brightness(0.95);
+}
+
+.faq-quick-button:focus {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.faq-quick-button-icon {
+  font-size: 16px;
+}
+
+.faq-quick-button-text {
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.faq-quick-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-quick-button {
+    transition: none;
+  }
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation-name: ripple;
+  animation-duration: 600ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+@keyframes ripple {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  from {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+}

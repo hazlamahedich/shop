@@ -9,6 +9,7 @@ import type {
   WidgetProduct,
   WidgetProductDetail,
   ConsentPromptResponse,
+  FAQQuickButton,
 } from '../types/widget';
 import {
   WidgetCartSchema,
@@ -222,7 +223,7 @@ export class WidgetApiClient {
       sources: (rawData.sources as Array<{
         documentId: number;
         title: string;
-        documentType: string;
+        documentType: import('../types/widget').SourceDocumentType;
         relevanceScore: number;
         url?: string;
         chunkIndex?: number;
@@ -244,6 +245,7 @@ export class WidgetApiClient {
       allowedDomains: parsed.data.allowedDomains,
       shopDomain: parsed.data.shopDomain,
       proactiveEngagementConfig: parsed.data.proactiveEngagementConfig,
+      onboardingMode: parsed.data.onboardingMode,
     };
   }
 
@@ -426,7 +428,7 @@ export class WidgetApiClient {
       });
       const parsed = ConsentPromptResponseSchema.safeParse(data.data);
       if (!parsed.success) {
-        return null;
+        throw new WidgetApiException(0, 'Invalid consent response');
       }
 
       return {
@@ -499,6 +501,15 @@ export class WidgetApiClient {
     return {
       success: data.data?.success ?? true,
     };
+  }
+
+  async getFaqButtons(merchantId: string): Promise<FAQQuickButton[]> {
+    try {
+      const data = await this.request<{ data: { buttons: FAQQuickButton[] } }>(`/faq-buttons/${merchantId}`);
+      return data.data?.buttons ?? [];
+    } catch {
+      return [];
+    }
   }
 }
 

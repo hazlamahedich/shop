@@ -1035,6 +1035,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                     onMinimize={toggleMinimized}
                     themeMode={state.themeMode}
                     onThemeToggle={handleThemeToggle}
+                    faqQuickButtons={state.faqQuickButtons}
                   />
                 </GlassmorphismChatWindow>
               </React.Suspense>

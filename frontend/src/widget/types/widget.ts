@@ -50,6 +50,8 @@ export interface WidgetConfig {
   shopDomain?: string;
   personality?: PersonalityType;
   proactiveEngagementConfig?: ProactiveEngagementConfig;
+  faqQuickButtons?: FAQQuickButtonsConfig;
+  onboardingMode?: 'general' | 'ecommerce';
 }
 
 export interface WidgetSession {
@@ -65,6 +67,17 @@ export interface QuickReply {
   text: string;
   icon?: string;
   payload?: string;
+}
+
+export interface FAQQuickButton {
+  id: number;
+  question: string;
+  icon?: string;
+}
+
+export interface FAQQuickButtonsConfig {
+  enabled: boolean;
+  buttonIds: number[];
 }
 
 export interface QuickReplyConfig {
@@ -147,6 +160,7 @@ export interface WidgetState {
   isMinimized: boolean;
   unreadCount: number;
   themeMode: ThemeMode;
+  faqQuickButtons: FAQQuickButton[];
 }
 
 export interface WidgetApiError {
@@ -175,6 +189,7 @@ export type WidgetAction =
   | { type: 'TOGGLE_MINIMIZED' }
   | { type: 'SET_UNREAD_COUNT'; payload: number }
   | { type: 'SET_THEME_MODE'; payload: ThemeMode }
+  | { type: 'SET_FAQ_QUICK_BUTTONS'; payload: FAQQuickButton[] }
   | { type: 'RESET' };
 
 export interface WidgetProduct {

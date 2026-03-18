@@ -1,6 +1,6 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode, QuickReply } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode, QuickReply, FAQQuickButton } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -11,6 +11,7 @@ import { ConnectionStatusIndicator } from './ConnectionStatus';
 import { ConsentPrompt } from './ConsentPrompt';
 import { ThemeToggle } from './ThemeToggle';
 import { QuickReplyButtons } from './QuickReplyButtons';
+import { FAQQuickButtons } from './FAQQuickButtons';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -42,6 +43,8 @@ export interface ChatWindowProps {
   onMinimize?: () => void;
   themeMode?: ThemeMode;
   onThemeToggle?: () => void;
+  faqQuickButtons?: FAQQuickButton[];
+  onFaqButtonClick?: (button: FAQQuickButton) => void;
 }
 
 function ChatWindow({
@@ -74,12 +77,15 @@ function ChatWindow({
   onMinimize,
   themeMode = 'auto',
   onThemeToggle,
+  faqQuickButtons,
+  onFaqButtonClick,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = React.useState(false);
   const [showMenu, setShowMenu] = React.useState(false);
   const [activeQuickReplies, setActiveQuickReplies] = React.useState<QuickReply[] | null>(null);
+  const [showFaqButtons, setShowFaqButtons] = React.useState(true);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
@@ -162,6 +168,24 @@ function ChatWindow({
       setActiveQuickReplies(null);
     }
   };
+
+  const handleFaqButtonClick = async (button: FAQQuickButton) => {
+    if (onFaqButtonClick) {
+      onFaqButtonClick(button);
+    } else {
+      setShowFaqButtons(false);
+      await onSendMessage(button.question);
+    }
+  };
+
+  // Hide FAQ buttons after first USER message (Story 10-2 AC4)
+  // Note: Welcome message from bot doesn't count as first message
+  React.useEffect(() => {
+    const userMessages = messages.filter(m => m.sender === 'user');
+    if (userMessages.length > 0) {
+      setShowFaqButtons(false);
+    }
+  }, [messages]);
 
   if (!isOpen) return null;
 
@@ -441,6 +465,18 @@ function ChatWindow({
               onReply={handleQuickReply}
               theme={theme}
               dismissOnSelect={true}
+            />
+          </div>
+        )}
+
+        {/* FAQ Quick Buttons - Story 10-2 */}
+        {showFaqButtons && faqQuickButtons && faqQuickButtons.length > 0 && config?.onboardingMode === 'general' && (
+          <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
+            <FAQQuickButtons
+              buttons={faqQuickButtons}
+              onButtonClick={handleFaqButtonClick}
+              theme={theme}
+              disabled={isTyping}
             />
           </div>
         )}

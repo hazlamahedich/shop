@@ -2,6 +2,7 @@
 
 Provides partial update schemas for the widget configuration UI.
 Story 5.6: Merchant Widget Settings UI
+Story 10-2: FAQ Quick Buttons Configuration
 """
 
 from __future__ import annotations
@@ -31,6 +32,27 @@ class PartialWidgetTheme(BaseSchema):
     )
 
 
+class FAQQuickButtonsConfigUpdate(BaseSchema):
+    """FAQ quick buttons configuration update.
+
+    Story 10-2: AC5 Merchant Configuration UI
+
+    Attributes:
+        enabled: Whether FAQ quick buttons are enabled
+        faq_ids: List of FAQ IDs to show as quick buttons (max 5)
+    """
+
+    enabled: bool | None = Field(
+        None,
+        description="Whether FAQ quick buttons are enabled",
+    )
+    faq_ids: list[int] | None = Field(
+        None,
+        max_length=5,
+        description="List of FAQ IDs to show as quick buttons (max 5)",
+    )
+
+
 class WidgetConfigUpdateRequest(BaseSchema):
     """Request for partial widget config update.
 
@@ -55,4 +77,8 @@ class WidgetConfigUpdateRequest(BaseSchema):
     theme: PartialWidgetTheme | None = Field(
         None,
         description="Partial theme update",
+    )
+    faq_quick_buttons: FAQQuickButtonsConfigUpdate | None = Field(
+        None,
+        description="FAQ quick buttons configuration (Story 10-2)",
     )

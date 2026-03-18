@@ -1,6 +1,7 @@
 """FAQ ORM model.
 
 Story 1.11: Business Info & FAQ Configuration
+Story 10-2: Added icon field for FAQ quick buttons.
 """
 
 from datetime import UTC, datetime
@@ -14,8 +15,8 @@ from app.core.database import Base
 class Faq(Base):
     """FAQ (Frequently Asked Question) model.
 
-    Represents a single FAQ item for a merchant.
-    Used by the bot to automatically answer common customer questions.
+    Story 1.11: Business Info & FAQ Configuration
+    Story 10-2: Added icon field for FAQ quick buttons.
     """
 
     __tablename__ = "faqs"
@@ -37,6 +38,10 @@ class Faq(Base):
     )
     keywords: Mapped[str | None] = mapped_column(
         String(500),
+        nullable=True,
+    )
+    icon: Mapped[str | None] = mapped_column(
+        String(50),
         nullable=True,
     )
     order_index: Mapped[int] = mapped_column(
@@ -63,4 +68,6 @@ class Faq(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Faq(id={self.id}, question={self.question[:30]}..., merchant_id={self.merchant_id})>"
+        return (
+            f"<Faq(id={self.id}, question={self.question[:30]}..., merchant_id={self.merchant_id})>"
+        )

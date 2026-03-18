@@ -29,20 +29,6 @@ const initialConsentState: ConsentState = {
   status: 'pending',
 };
 
-const getInitialPosition = (merchantId?: string): { x: number; y: number } => {
-  if (merchantId) {
-    const stored = getStoredPosition(merchantId);
-    if (stored) {
-      return stored;
-    }
-  }
-  const saved = loadWidgetPosition();
-  if (saved) {
-    return saved;
-  }
-  return { x: 0, y: 0 };
-};
-
 const getDefaultPosition = (): { x: number; y: number } => {
   if (typeof window === 'undefined') {
     return { x: 0, y: 0 };
@@ -69,6 +55,7 @@ const initialState: WidgetState = {
   isMinimized: false,
   unreadCount: 0,
   themeMode: 'auto',
+  faqQuickButtons: [],
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -119,6 +106,8 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, unreadCount: action.payload };
     case 'SET_THEME_MODE':
       return { ...state, themeMode: action.payload };
+    case 'SET_FAQ_QUICK_BUTTONS':
+      return { ...state, faqQuickButtons: action.payload };
     case 'RESET':
       return initialState;
     default:
@@ -252,6 +241,16 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       console.log('[WidgetContext] Config loaded:', !!config);
       dispatch({ type: 'SET_CONFIG', payload: config });
 
+      // Fetch FAQ quick buttons if in General Mode (Story 10-2)
+      if (config.onboardingMode === 'general') {
+        try {
+          const faqButtons = await widgetClient.getFaqButtons(merchantId);
+          dispatch({ type: 'SET_FAQ_QUICK_BUTTONS', payload: faqButtons });
+        } catch (error) {
+          console.warn('[WidgetContext] Failed to fetch FAQ buttons:', error);
+        }
+      }
+
       // Register the shop domain so isOnShopify() correctly detects custom-domain stores
       shopifyCartClient.setShopDomain(config.shopDomain);
 
@@ -268,7 +267,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         console.log('[WidgetContext] sessionStorage value:', sessionStorage.getItem(SESSION_KEY));
         console.log('[WidgetContext] localStorage value:', localStorage.getItem(SESSION_KEY));
         
-        sessionId = safeStorage.get(SESSION_KEY);
+        sessionId = safeStorage.get(SESSION_KEY) ?? undefined;
         console.log('[WidgetContext] safeStorage.get result:', sessionId);
       } else {
         console.log('[WidgetContext] Using injected sessionId:', sessionId);

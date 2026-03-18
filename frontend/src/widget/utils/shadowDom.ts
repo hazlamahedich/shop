@@ -6,17 +6,7 @@ import voiceInputStyles from '../styles/voice-input.css?inline';
 import proactiveModalStyles from '../styles/proactive-modal.css?inline';
 import messageGroupingStyles from '../styles/message-grouping.css?inline';
 import animationsStyles from '../styles/animations.css?inline';
-
-/**
- * Shadow DOM Style Injection Utilities
- *
- * NOTE: The widget currently renders directly to a DOM container (not Shadow DOM).
- * These inject* functions are prepared for future Shadow DOM support.
- * Current implementation uses inline <style> tags in Widget.tsx as the primary
- * style injection mechanism.
- *
- * When Shadow DOM is implemented, call these functions after creating the shadow root.
- */
+import faqQuickButtonsStyles from '../styles/faq-quick-buttons.css?inline';
 
 const THEME_STYLE_ID = 'widget-theme-variables';
 const GLASSMORPHISM_STYLE_ID = 'widget-glassmorphism-styles';
@@ -114,6 +104,19 @@ export function injectAnimationsStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', ANIMATIONS_STYLE_ID);
   style.textContent = animationsStyles;
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectFAQQuickButtonsStyles(shadow: ShadowRoot): void {
+  const FAQ_QUICK_BUTTONS_STYLE_ID = 'widget-faq-quick-buttons-styles';
+  const existingStyle = shadow.querySelector(`style[data-id="${FAQ_QUICK_BUTTONS_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', FAQ_QUICK_BUTTONS_STYLE_ID);
+  style.textContent = faqQuickButtonsStyles
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {

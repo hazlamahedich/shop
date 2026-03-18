@@ -354,14 +354,31 @@ class WidgetMessageEnvelope(MinimalEnvelope):
     data: WidgetMessageResponse
 
 
+class FAQQuickButtonsConfigResponse(BaseSchema):
+    """FAQ quick buttons configuration response.
+
+    Story 10-2: AC5 Merchant Configuration UI
+
+    Attributes:
+        enabled: Whether FAQ quick buttons are enabled
+        faq_ids: List of FAQ IDs to show as quick buttons (max 5)
+    """
+
+    enabled: bool = Field(default=True, description="Whether FAQ quick buttons are enabled")
+    faq_ids: list[int] = Field(
+        default_factory=list,
+        max_length=5,
+        description="List of FAQ IDs to show as quick buttons (max 5)",
+    )
+
+
 class WidgetConfigResponse(BaseSchema):
     """Response for widget configuration.
 
     Story 5-10 Enhancement: Added personality and business_hours for frontend context.
     Story 9-5: Added voice_input_config for voice input interface.
     Story 9-6: Added proactive_engagement_config for proactive engagement triggers.
-
-    Story 9-6: Added proactive_engagement_config for proactive engagement triggers.
+    Story 10-2: Added onboarding_mode and faq_quick_buttons for FAQ quick buttons.
 
     Attributes:
         bot_name: Display name for the bot
@@ -373,6 +390,8 @@ class WidgetConfigResponse(BaseSchema):
         shop_domain: Shopify shop domain for checkout URL construction
         voice_input_config: Voice input configuration (Story 9-5)
         proactive_engagement_config: Proactive engagement configuration (Story 9-6)
+        onboarding_mode: Merchant's onboarding mode ('general' or 'ecommerce')
+        faq_quick_buttons: FAQ quick buttons configuration (Story 10-2)
     """
 
     bot_name: str
@@ -381,12 +400,20 @@ class WidgetConfigResponse(BaseSchema):
     enabled: bool
     personality: str | None = Field(default=None, description="Bot personality type")
     business_hours: str | None = Field(default=None, description="Business hours for display")
-    shop_domain: str | None = Field(default=None, description="Shopify shop domain for checkout")
+    shop_domain: str | None = Field(
+        default=None, description="Shopify shop domain for checkout URL"
+    )
     voice_input_config: VoiceInputConfig | None = Field(
         default=None, description="Voice input configuration (Story 9-5)"
     )
     proactive_engagement_config: ProactiveEngagementConfigSchema | None = Field(
         default=None, description="Proactive engagement configuration (Story 9-6)"
+    )
+    onboarding_mode: str | None = Field(
+        default=None, description="Merchant's onboarding mode ('general' or 'ecommerce')"
+    )
+    faq_quick_buttons: FAQQuickButtonsConfigResponse | None = Field(
+        default=None, description="FAQ quick buttons configuration (Story 10-2)"
     )
 
 
@@ -410,6 +437,45 @@ class SuccessEnvelope(MinimalEnvelope):
     """Envelope for success response."""
 
     data: SuccessResponse
+
+
+class FAQQuickButtonResponse(BaseSchema):
+    """FAQ quick button response schema.
+
+    Story 10-2: FAQ Quick Buttons Widget
+
+    Attributes:
+        id: FAQ ID
+        question: FAQ question text
+        icon: Optional icon/emoji
+    """
+
+    id: int = Field(description="FAQ ID")
+    question: str = Field(description="FAQ question text")
+    icon: str | None = Field(default=None, description="Optional icon/emoji")
+
+
+class FAQQuickButtonsListResponse(BaseSchema):
+    """Response for FAQ quick buttons list.
+
+    Story 10-2: FAQ Quick Buttons Widget
+
+    Attributes:
+        buttons: List of FAQ quick buttons
+    """
+
+    buttons: list[FAQQuickButtonResponse] = Field(
+        default_factory=list, description="List of FAQ quick buttons"
+    )
+
+
+class FAQQuickButtonsEnvelope(MinimalEnvelope):
+    """Envelope for FAQ quick buttons response.
+
+    Story 10-2: FAQ Quick Buttons Widget
+    """
+
+    data: FAQQuickButtonsListResponse
 
 
 class WidgetMessageHistoryItem(BaseSchema):

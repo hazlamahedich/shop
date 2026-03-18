@@ -149,6 +149,14 @@ def _merge_widget_config(
             theme["position"] = update.theme.position
         widget_config["theme"] = theme
 
+    if update.faq_quick_buttons is not None:
+        faq_config = widget_config.get("faq_quick_buttons", {})
+        if update.faq_quick_buttons.enabled is not None:
+            faq_config["enabled"] = update.faq_quick_buttons.enabled
+        if update.faq_quick_buttons.faq_ids is not None:
+            faq_config["faq_ids"] = update.faq_quick_buttons.faq_ids
+        widget_config["faq_quick_buttons"] = faq_config
+
     return widget_config
 
 

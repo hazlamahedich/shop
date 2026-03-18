@@ -51,6 +51,7 @@ def _faq_to_response(faq: Faq) -> FaqResponse:
         answer=faq.answer,
         keywords=faq.keywords,
         order_index=faq.order_index,
+        icon=faq.icon,
         created_at=faq.created_at,
         updated_at=faq.updated_at,
     )
@@ -86,9 +87,7 @@ async def list_faqs(
 
     # Get FAQs ordered by order_index
     result = await db.execute(
-        select(Faq)
-        .where(Faq.merchant_id == merchant_id)
-        .order_by(Faq.order_index, Faq.id)
+        select(Faq).where(Faq.merchant_id == merchant_id).order_by(Faq.order_index, Faq.id)
     )
     faqs = result.scalars().all()
 
@@ -240,9 +239,7 @@ async def reorder_faqs(
 
         # Get all FAQs for this merchant
         result = await db.execute(
-            select(Faq)
-            .where(Faq.merchant_id == merchant_id)
-            .options(selectinload(Faq.merchant))
+            select(Faq).where(Faq.merchant_id == merchant_id).options(selectinload(Faq.merchant))
         )
         faqs = result.scalars().all()
 
@@ -279,9 +276,7 @@ async def reorder_faqs(
 
         # Return FAQs in new order
         result = await db.execute(
-            select(Faq)
-            .where(Faq.merchant_id == merchant_id)
-            .order_by(Faq.order_index)
+            select(Faq).where(Faq.merchant_id == merchant_id).order_by(Faq.order_index)
         )
         reordered_faqs = result.scalars().all()
 
@@ -343,9 +338,7 @@ async def update_faq(
         merchant_id = get_merchant_id(request)
 
         # Get FAQ and verify ownership
-        result = await db.execute(
-            select(Faq).where(Faq.id == faq_id)
-        )
+        result = await db.execute(select(Faq).where(Faq.id == faq_id))
         faq = result.scalars().first()
 
         if not faq:
@@ -461,9 +454,7 @@ async def delete_faq(
     merchant_id = get_merchant_id(request)
     try:
         # Get FAQ and verify ownership
-        result = await db.execute(
-            select(Faq).where(Faq.id == faq_id)
-        )
+        result = await db.execute(select(Faq).where(Faq.id == faq_id))
         faq = result.scalars().first()
 
         if not faq:
@@ -488,9 +479,7 @@ async def delete_faq(
         deleted_order_index = faq.order_index
 
         # Delete the FAQ
-        await db.execute(
-            delete(Faq).where(Faq.id == faq_id)
-        )
+        await db.execute(delete(Faq).where(Faq.id == faq_id))
 
         # Shift remaining FAQs down to fill the gap
         await db.execute(
