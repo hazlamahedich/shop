@@ -81,6 +81,10 @@ class MetaData(BaseSchema):
     timestamp: str
 
 
+# Rebuild MinimalEnvelope to resolve forward reference to MetaData
+MinimalEnvelope.model_rebuild()
+
+
 __all__ = [
     "BaseSchema",
     "MinimalEnvelope",

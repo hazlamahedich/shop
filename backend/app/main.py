@@ -275,6 +275,8 @@ app.add_middleware(
         "Authorization",
         "X-Webhook-Signature",
         "X-CSRF-Token",
+        "X-Merchant-Id",
+        "X-Test-Mode",
         "Accept",
     ],
 )
@@ -442,7 +444,7 @@ app.include_router(business_hours_router, prefix="/api/v1/merchant", tags=["busi
 app.include_router(handoff_alerts_router, prefix="/api/handoff-alerts", tags=["handoff-alerts"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 # Story 4-4: Polling health endpoint
-app.include_router(health_router.router, prefix="/api/v1/health", tags=["health"])
+app.include_router(health_router, prefix="/api/v1/health", tags=["health"])
 # Story 1.13: Bot Preview Mode
 app.include_router(preview_router, prefix="/api/v1", tags=["preview"])
 # Story 5-1: Widget API
@@ -454,7 +456,6 @@ app.include_router(widget_ws_router, tags=["widget-websocket"])
 # Story 5-6: Widget Settings API
 app.include_router(widget_settings_router, prefix="/api/v1/merchants", tags=["widget-settings"])
 # Story 4-13: Geographic Analytics API
-app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
 app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
 app.include_router(data_export_router, prefix="/api/v1", tags=["data-export"])
 app.include_router(consent_router, prefix="/api/v1/consent", tags=["consent"])

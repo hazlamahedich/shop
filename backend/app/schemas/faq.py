@@ -124,6 +124,7 @@ class FaqResponse(BaseSchema):
     """Response schema for an FAQ item.
 
     Story 1.11 AC 2, 3, 7: FAQ item response fields.
+    Story 10-2: Added icon field for FAQ quick buttons.
 
     Attributes:
         id: FAQ item ID
@@ -131,6 +132,7 @@ class FaqResponse(BaseSchema):
         answer: FAQ answer (truncated at 50 chars for preview)
         keywords: Comma-separated keywords
         order_index: Display order
+        icon: Optional icon/emoji for FAQ quick button (Story 10-2)
         created_at: Creation timestamp
         updated_at: Last update timestamp
     """
@@ -140,6 +142,11 @@ class FaqResponse(BaseSchema):
     answer: str = Field(description="FAQ answer")
     keywords: str | None = Field(default=None, description="Comma-separated keywords")
     order_index: int = Field(description="Display order")
+    icon: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Optional icon/emoji for FAQ quick button (Story 10-2)",
+    )
     created_at: datetime = Field(description="Creation timestamp")
     updated_at: datetime = Field(description="Last update timestamp")
 
@@ -184,6 +191,11 @@ class FaqReorderRequest(BaseSchema):
         min_length=1,
         description="List of FAQ IDs in the desired display order",
     )
+
+
+# Rebuild models to resolve forward references
+FaqListEnvelope.model_rebuild()
+FaqEnvelope.model_rebuild()
 
 
 __all__ = [

@@ -94,6 +94,10 @@ class BusinessInfoEnvelope(MinimalEnvelope):
     data: BusinessInfoResponse
 
 
+# Rebuild model to resolve forward references
+BusinessInfoEnvelope.model_rebuild()
+
+
 __all__ = [
     "BusinessInfoRequest",
     "BusinessInfoResponse",

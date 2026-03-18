@@ -137,6 +137,10 @@ class BusinessHoursEnvelope(MinimalEnvelope):
     data: BusinessHoursResponse
 
 
+# Rebuild model to resolve forward references
+BusinessHoursEnvelope.model_rebuild()
+
+
 __all__ = [
     "DayHours",
     "BusinessHoursRequest",

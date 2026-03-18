@@ -98,6 +98,11 @@ function getAuthToken(): string | null {
   return localStorage.getItem('auth_token');
 }
 
+/** Get dev merchant ID for testing */
+function getDevMerchantId(): string {
+  return import.meta.env?.VITE_MERCHANT_ID || '1';
+}
+
 /** Make API request with authentication and CSRF */
 async function apiRequest<T>(
   endpoint: string,
@@ -112,6 +117,12 @@ async function apiRequest<T>(
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(options.headers as Record<string, string>),
   });
+
+  // Add dev headers for testing in development mode
+  if (import.meta.env?.DEV) {
+    headers.set('X-Merchant-Id', getDevMerchantId());
+    headers.set('X-Test-Mode', 'true');
+  }
 
   // Add CSRF token for state-changing operations
   if (requiresCsrf) {

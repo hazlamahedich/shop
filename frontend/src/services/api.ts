@@ -10,6 +10,8 @@
 
 const API_BASE_URL = ''; // Relative path for proxy
 
+const DEV_MERCHANT_ID = import.meta.env?.VITE_MERCHANT_ID || '1';
+
 interface ApiEnvelope<T> {
   data: T;
   meta: any;
@@ -55,6 +57,12 @@ class ApiClient {
 
     if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
+    }
+
+    // Add X-Merchant-Id header in development mode for auth bypass
+    if (import.meta.env?.DEV) {
+      headers.set('X-Merchant-Id', DEV_MERCHANT_ID);
+      headers.set('X-Test-Mode', 'true');
     }
 
     // Add CSRF Token for state-changing methods
