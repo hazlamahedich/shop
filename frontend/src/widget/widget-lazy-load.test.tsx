@@ -1,6 +1,5 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
-import * as React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, test, expect } from 'vitest';
+import { render } from '@testing-library/react';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ChatWindowSkeleton } from './components/ChatWindowSkeleton';
 

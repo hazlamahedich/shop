@@ -40,7 +40,7 @@ export function useWidgetApi() {
 
   const addToCart = useCallback(
     async (sessionId: string, variantId: string, quantity: number = 1): Promise<WidgetCart> => {
-      return widgetClient.addToCart(sessionId, variantId, quantity);
+      return widgetClient.addToCart(sessionId, variantId as any, quantity);
     },
     []
   );

@@ -217,7 +217,7 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
 
       if (backendData) {
         // Backend has data - use it with the fetched mode
-        const frontendState = fromBackendFormat(backendData, mode);
+        const frontendState = fromBackendFormat(backendData, mode ?? undefined);
         set(frontendState);
         saveToStorage(frontendState);
       } else {
@@ -241,7 +241,7 @@ export const onboardingStore = create<OnboardingStore>((set, get) => ({
           };
           const syncedState = await syncPrerequisiteStateApi(syncData, DEFAULT_MERCHANT_ID);
           if (syncedState) {
-            const migratedState = fromBackendFormat(syncedState, mode);
+            const migratedState = fromBackendFormat(syncedState, mode ?? undefined);
             set(migratedState);
             saveToStorage(migratedState);
           }

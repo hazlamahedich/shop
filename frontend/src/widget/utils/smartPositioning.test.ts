@@ -302,7 +302,8 @@ describe('smartPositioning', () => {
     it('returns false for desktop', () => {
       Object.defineProperty(window, 'innerWidth', { value: 1920, writable: true });
       Object.defineProperty(window, 'ontouchstart', { value: undefined, writable: true, configurable: true });
-      delete (window as Record<string, unknown>).ontouchstart;
+      // @ts-expect-error - Testing environment cleanup
+      delete (window as any).ontouchstart;
       expect(isMobileDevice()).toBe(false);
     });
   });

@@ -17,7 +17,7 @@ import {
 const DEBUG = import.meta.env.DEV;
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'error';
-type QueueUrgencyFilter = UrgencyLevel | 'all';
+export type QueueUrgencyFilter = UrgencyLevel | 'all';
 
 export interface HandoffAlertsState {
   // Notifications data
@@ -180,7 +180,7 @@ export const useHandoffAlertsStore = create<HandoffAlertsState>((set, get) => ({
 
   markAllAsRead: async () => {
     try {
-      const response = await handoffAlertsService.markAllAsRead();
+      await handoffAlertsService.markAllAsRead();
 
       // Update local state
       const state = get();

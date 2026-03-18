@@ -88,9 +88,9 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(CUSTOM_THEME);
 
-      expect(styles['--widget-primary']).toBe('#ff0000');
-      expect(styles['--widget-bg']).toBe('#000000');
-      expect(styles['--widget-text']).toBe('#ffffff');
+      expect((styles as any)['--widget-primary']).toBe('#ff0000');
+      expect((styles as any)['--widget-bg']).toBe('#000000');
+      expect((styles as any)['--widget-text']).toBe('#ffffff');
     });
 
     it('should convert borderRadius to px', () => {
@@ -98,7 +98,7 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(DEFAULT_THEME);
 
-      expect(styles['--widget-radius']).toBe('16px');
+      expect((styles as any)['--widget-radius']).toBe('16px');
     });
 
     it('should convert width to px', () => {
@@ -106,7 +106,7 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(DEFAULT_THEME);
 
-      expect(styles['--widget-width']).toBe('380px');
+      expect((styles as any)['--widget-width']).toBe('380px');
     });
 
     it('should convert height to px', () => {
@@ -114,7 +114,7 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(DEFAULT_THEME);
 
-      expect(styles['--widget-height']).toBe('600px');
+      expect((styles as any)['--widget-height']).toBe('600px');
     });
 
     it('should convert fontSize to px', () => {
@@ -122,7 +122,7 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(DEFAULT_THEME);
 
-      expect(styles['--widget-font-size']).toBe('14px');
+      expect((styles as any)['--widget-font-size']).toBe('14px');
     });
 
     it('should not convert fontFamily to px', () => {
@@ -130,8 +130,8 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(DEFAULT_THEME);
 
-      expect(styles['--widget-font']).toBe('Inter, sans-serif');
-      expect(styles['--widget-font']).not.toContain('px');
+      expect((styles as any)['--widget-font']).toBe('Inter, sans-serif');
+      expect((styles as any)['--widget-font']).not.toContain('px');
     });
 
     it('should generate all 10 CSS custom properties', () => {
@@ -162,16 +162,16 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(theme);
 
-      expect(styles['--widget-radius']).toBe('24px');
+      expect((styles as any)['--widget-radius']).toBe('24px');
     });
 
-    it('should handle zero borderRadius', () => {
+    it('should handle handle zero borderRadius', () => {
       const theme: WidgetTheme = { ...DEFAULT_THEME, borderRadius: 0 };
       const { result } = renderHook(() => useWidgetTheme());
 
       const styles = result.current.applyTheme(theme);
 
-      expect(styles['--widget-radius']).toBe('0px');
+      expect((styles as any)['--widget-radius']).toBe('0px');
     });
 
     it('should handle custom fontFamily', () => {
@@ -180,7 +180,7 @@ describe('useWidgetTheme Hook', () => {
 
       const styles = result.current.applyTheme(theme);
 
-      expect(styles['--widget-font']).toBe('Arial, sans-serif');
+      expect((styles as any)['--widget-font']).toBe('Arial, sans-serif');
     });
   });
 

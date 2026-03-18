@@ -435,7 +435,7 @@ function GlassmorphismDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 
 // 2. Product Carousel Demo
 function CarouselDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
-  const [currentIndex, setCurrentIndex] = React.useState(0);
+  // const [currentIndex, setCurrentIndex] = React.useState(0);
   const [cart, setCart] = React.useState<string[]>([]);
   const [adding, setAdding] = React.useState<string | null>(null);
   
@@ -1986,7 +1986,7 @@ function SourcesDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
     },
   ];
 
-  const [showExpanded, setShowExpanded] = React.useState(false);
+  // const [showExpanded, setShowExpanded] = React.useState(false);
   const activeTheme = _theme === 'auto' ? 'light' : _theme;
 
   return (

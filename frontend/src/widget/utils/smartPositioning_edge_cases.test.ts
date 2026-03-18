@@ -7,7 +7,6 @@ import {
   constrainToViewport,
   snapToEdge,
   isMobileDevice,
-  getMobilePosition,
   getMobileDimensions,
   debounce,
 } from './smartPositioning';

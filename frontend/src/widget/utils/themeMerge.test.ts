@@ -62,7 +62,7 @@ describe('mergeThemes', () => {
   it('sanitizes embed override values', () => {
     const embedOverrides = {
       primaryColor: 'red',
-      position: 'top-right',
+      position: 'top-right' as any,
       width: 1000,
     };
     const result = mergeThemes(undefined, embedOverrides);

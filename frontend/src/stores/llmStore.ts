@@ -38,9 +38,10 @@ export interface LLMProviderInfo {
 
 interface LLMState {
   configuration: LLMConfiguration;
-  providers: LLMProviderInfo[];
+  providers: Array<LLMProviderInfo>;
   isConfiguring: boolean;
   isTesting: boolean;
+  error?: string;
 
   setConfiguration: (config: Partial<LLMConfiguration>) => void;
   configureLLM: (provider: string, config: any) => Promise<void>;

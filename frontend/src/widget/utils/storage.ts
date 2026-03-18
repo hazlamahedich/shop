@@ -120,8 +120,8 @@ export interface CachedMessage {
   content: string;
   sender: 'user' | 'bot' | 'merchant' | 'system';
   createdAt: string;
-  products?: unknown[];
-  cart?: unknown;
+  products?: import('../types/widget').WidgetProduct[];
+  cart?: import('../types/widget').WidgetCart;
   checkoutUrl?: string;
 }
 

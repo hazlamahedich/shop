@@ -19,7 +19,7 @@ describe('loader', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     originalShopBotConfig = window.ShopBotConfig;
-    delete (window as Record<string, unknown>).ShopBotConfig;
+    delete (window as any).ShopBotConfig;
 
     // Reset document.currentScript
     Object.defineProperty(document, 'currentScript', {

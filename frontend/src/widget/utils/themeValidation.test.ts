@@ -140,6 +140,7 @@ describe('sanitizeTheme', () => {
 
   it('validates position', () => {
     expect(sanitizeTheme({ position: 'bottom-left' }).position).toBe('bottom-left');
+    // @ts-expect-error - Testing invalid position value
     expect(sanitizeTheme({ position: 'top-right' }).position).toBe('bottom-right');
   });
 
@@ -150,6 +151,7 @@ describe('sanitizeTheme', () => {
       textColor: '#000000',
       botBubbleColor: '#f3f4f6',
       userBubbleColor: '#6366f1',
+      // @ts-expect-error - Testing invalid position value
       position: 'invalid',
       borderRadius: 100,
       width: 1000,

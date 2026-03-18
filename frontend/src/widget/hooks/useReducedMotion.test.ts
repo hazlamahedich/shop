@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useReducedMotion } from '../useReducedMotion';
+import { useReducedMotion } from './useReducedMotion';
 
 describe('useReducedMotion', () => {
   const originalMatchMedia = window.matchMedia;
