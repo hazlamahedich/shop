@@ -1,6 +1,6 @@
 import { Store, RefreshCw, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Card } from '../components/ui/Card';
+import { GlassCard } from '../components/ui/GlassCard';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
 import { useHasStoreConnected, useAuthStore } from '../stores/authStore';
 import { RetentionJobStatus } from '../components/retention/RetentionJobStatus';
@@ -37,8 +37,8 @@ function LastUpdatedBadge() {
     : 'loading…';
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-gray-400">
-      <RefreshCw size={11} className="animate-spin-slow opacity-60" />
+    <span className="flex items-center gap-1.5 text-xs text-white/40 font-medium tracking-tight">
+      <RefreshCw size={11} className="animate-spin-slow text-[var(--mantis-glow)]/60" />
       Updated at {label} · auto-refreshes every minute
     </span>
   );
@@ -46,10 +46,14 @@ function LastUpdatedBadge() {
 
 function ZoneHeader({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <span className="text-gray-400">{icon}</span>
-      <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-      <span className="text-xs text-gray-400">{description}</span>
+    <div className="flex items-center gap-3 mb-8">
+      <div className="p-2.5 rounded-xl bg-[var(--mantis-glow)]/10 border border-[var(--mantis-glow)]/20 text-[var(--mantis-glow)] shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+        {icon}
+      </div>
+      <div>
+        <h3 className="text-xl font-bold text-white tracking-tight mantis-glow-text">{title}</h3>
+        <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em]">{description}</p>
+      </div>
     </div>
   );
 }
@@ -60,59 +64,59 @@ const Dashboard = () => {
   const isEcommerce = onboardingMode !== 'general';
 
   return (
-    <>
+    <div className="space-y-10">
       <TutorialPrompt />
 
-      <div data-testid="dashboard-content" className="space-y-6">
+      <div data-testid="dashboard-content" className="space-y-10">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-white/5 pb-8">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h2 className="text-4xl font-black text-white tracking-tight mantis-glow-text">Dashboard</h2>
+            <p className="text-base text-white/60 mt-1 font-medium">
               {onboardingMode === 'general' 
                 ? 'Your knowledge base at a glance.'
                 : 'Your store at a glance — live data from Shopify.'}
             </p>
           </div>
-          <LastUpdatedBadge />
+          <div className="bg-white/5 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
+            <LastUpdatedBadge />
+          </div>
         </div>
 
         {/* No store warning (E-commerce mode only) */}
         {isEcommerce && !hasStoreConnected && (
-          <Card>
-            <div style={{ padding: 'var(--card-padding)' }}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
-                  <Store size={18} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-800">No e-commerce store connected</p>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    Revenue and order stats will appear once you{' '}
-                    <a href="/bot-config" className="underline font-medium hover:text-amber-900">
-                      connect a Shopify store
-                    </a>
-                    .
-                  </p>
-                </div>
+          <GlassCard accent="amber" className="bg-amber-500/5 border-amber-500/20">
+            <div className="flex items-center gap-5">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                <Store size={24} />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-bold text-amber-500 tracking-tight">No e-commerce store connected</p>
+                <p className="text-sm text-amber-200/60 mt-1 font-medium">
+                  Revenue and order stats will appear once you{' '}
+                  <a href="/bot-config" className="text-white hover:text-amber-400 font-bold underline decoration-amber-500/30 underline-offset-4">
+                    connect a Shopify store
+                  </a>
+                  .
+                </p>
               </div>
             </div>
-          </Card>
+          </GlassCard>
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════
             ZONE 1: ACTION REQUIRED
-            Purpose: "What needs my attention NOW?"
-            Refresh: 30 seconds
         ═══════════════════════════════════════════════════════════════════ */}
-        <section className="bg-red-50/30 rounded-xl p-4 border border-red-100">
+        <section className="glass-card p-8 border-none shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full -mr-32 -mt-32 blur-[100px] transition-all duration-700 group-hover:bg-emerald-500/10" />
+          
           <ZoneHeader 
-            icon={<AlertTriangle size={16} />}
-            title="Zone 1: Action Required"
+            icon={<AlertTriangle size={18} />}
+            title="Action Required"
             description="What needs my attention NOW?"
           />
           
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10">
             {/* Handoff Queue - 2 cols */}
             {isWidgetVisible('handoff-queue', onboardingMode) && (
               <div className="lg:col-span-2" data-testid="handoff-queue-widget-container">
@@ -121,14 +125,14 @@ const Dashboard = () => {
             )}
 
             {/* Bot Quality - 1 col */}
-            {isEcommerce && (
+            {isWidgetVisible('bot-quality', onboardingMode) && (
               <div data-testid="bot-quality-widget-container">
                 <BotQualityWidget />
               </div>
             )}
 
             {/* Alerts - 1 col */}
-            {isEcommerce && (
+            {isWidgetVisible('alerts', onboardingMode) && (
               <div data-testid="alerts-widget-container">
                 <AlertsWidget />
               </div>
@@ -145,17 +149,17 @@ const Dashboard = () => {
 
         {/* ═══════════════════════════════════════════════════════════════════
             ZONE 2: BUSINESS HEALTH
-            Purpose: "How is my business doing?"
-            Refresh: 60 seconds
         ═══════════════════════════════════════════════════════════════════ */}
-        <section className="bg-blue-50/30 rounded-xl p-4 border border-blue-100">
+        <section className="glass-card p-8 border-none shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 rounded-full -mr-32 -mt-32 blur-[100px] transition-all duration-700 group-hover:bg-violet-500/10" />
+
           <ZoneHeader 
-            icon={<Activity size={16} />}
-            title="Zone 2: Business Health"
+            icon={<Activity size={18} />}
+            title="Business Health"
             description="How is my business doing?"
           />
           
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10">
             {/* Revenue - 2 cols */}
             {isWidgetVisible('revenue', onboardingMode) && (
               <div className="lg:col-span-2" data-testid="revenue-widget-container">
@@ -178,7 +182,7 @@ const Dashboard = () => {
             )}
 
             {/* Conversion Funnel - 2 cols (E-commerce only) */}
-            {isEcommerce && (
+            {isWidgetVisible('conversion-funnel', onboardingMode) && (
               <div className="lg:col-span-2" data-testid="conversion-funnel-widget-container">
                 <ConversionFunnelWidget />
               </div>
@@ -188,19 +192,19 @@ const Dashboard = () => {
 
         {/* ═══════════════════════════════════════════════════════════════════
             ZONE 3: INSIGHTS & TRENDS
-            Purpose: "What patterns should I know?"
-            Refresh: 120 seconds
         ═══════════════════════════════════════════════════════════════════ */}
-        <section className="bg-purple-50/30 rounded-xl p-4 border border-purple-100">
+        <section className="glass-card p-8 border-none shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full -mr-32 -mt-32 blur-[100px] transition-all duration-700 group-hover:bg-teal-500/10" />
+
           <ZoneHeader 
-            icon={<TrendingUp size={16} />}
-            title="Zone 3: Insights & Trends"
+            icon={<TrendingUp size={18} />}
+            title="Insights & Trends"
             description="What patterns should I know?"
           />
           
-          <div className="space-y-5">
-            {/* Peak Hours Heatmap - Full width (E-commerce only) */}
-            {isEcommerce && (
+          <div className="space-y-6 relative z-10">
+            {/* Peak Hours Heatmap - Full width */}
+            {isWidgetVisible('peak-hours', onboardingMode) && (
               <div data-testid="peak-hours-heatmap-widget-container">
                 <PeakHoursHeatmapWidget />
               </div>
@@ -217,20 +221,22 @@ const Dashboard = () => {
             </div>
 
             {/* P2 Widgets: Benchmark Comparison + Customer Sentiment */}
-            {isEcommerce && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {isWidgetVisible('benchmark-comparison', onboardingMode) && (
                 <div data-testid="benchmark-comparison-widget-container">
                   <BenchmarkComparisonWidget />
                 </div>
+              )}
+              {isWidgetVisible('customer-sentiment', onboardingMode) && (
                 <div data-testid="customer-sentiment-widget-container">
                   <CustomerSentimentWidget />
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Bottom row: Top Products + Geographic + Pending Orders (E-commerce only) */}
             {isEcommerce && (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {isWidgetVisible('top-products', onboardingMode) && (
                   <div className="lg:col-span-2" data-testid="top-products-widget-container">
                     <TopProductsWidget />
@@ -254,11 +260,11 @@ const Dashboard = () => {
         </section>
 
         {/* GDPR / Data Retention Status */}
-        <div>
+        <div className="pt-10">
           <RetentionJobStatus />
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

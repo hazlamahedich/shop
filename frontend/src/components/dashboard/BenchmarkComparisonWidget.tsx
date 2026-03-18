@@ -44,16 +44,16 @@ function MetricRow({ metric }: { metric: BenchmarkMetric }) {
   const isBelowAvg = metric.status === 'below_avg';
 
   return (
-    <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-500">{formatMetricName(metric.name)}</span>
+    <div className="flex items-center justify-between gap-2 py-1.5 border-b border-white/5 last:border-0">
+      <span className="text-xs text-white/60">{formatMetricName(metric.name)}</span>
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-gray-700">
+        <span className="text-xs font-semibold text-white">
           {formatValue(metric.yourValue, metric.unit)}
         </span>
-        <span className={`text-[10px] ${isAboveAvg ? 'text-green-600' : isBelowAvg ? 'text-red-600' : 'text-gray-400'}`}>
+        <span className={`text-[10px] ${isAboveAvg ? 'text-green-400' : isBelowAvg ? 'text-red-400' : 'text-white/60'}`}>
           {isAboveAvg ? <TrendingUp size={10} /> : isBelowAvg ? <TrendingDown size={10} /> : <Minus size={10} />}
         </span>
-        <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="w-12 h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full ${isAboveAvg ? 'bg-green-500' : isBelowAvg ? 'bg-red-500' : 'bg-gray-400'}`}
             style={{ width: `${percentile}%` }}
@@ -89,10 +89,10 @@ export function BenchmarkComparisonWidget() {
         {metrics.slice(0, 5).map((metric) => (
           <MetricRow key={metric.name} metric={metric} />
         ))}
-        <div className="pt-2 mt-2 border-t border-gray-100">
+        <div className="pt-2 mt-2 border-t border-white/10">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">Industry avg</span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-white/60">Industry avg</span>
+            <span className="text-xs text-white/60">
               {metrics.length > 0 ? formatValue(metrics[0].industryAvg, metrics[0].unit) : '--'}
             </span>
           </div>

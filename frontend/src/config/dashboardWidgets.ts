@@ -4,14 +4,20 @@ export const WIDGET_CONFIG = {
   'top-products': { modes: ['ecommerce'] as const, name: 'Top Products' },
   'pending-orders': { modes: ['ecommerce'] as const, name: 'Pending Orders' },
   'geographic': { modes: ['ecommerce'] as const, name: 'Geographic Snapshot' },
+  'conversion-funnel': { modes: ['ecommerce'] as const, name: 'Conversion Funnel' },
   
-  // General mode specific (new widget)
+  // General mode specific
   'knowledge-base': { modes: ['general'] as const, name: 'Knowledge Base Status' },
   
   // Both modes (always visible)
   'conversation-overview': { modes: ['general', 'ecommerce'] as const, name: 'Conversation Overview' },
   'handoff-queue': { modes: ['general', 'ecommerce'] as const, name: 'Handoff Queue' },
   'ai-cost': { modes: ['general', 'ecommerce'] as const, name: 'AI Cost' },
+  'bot-quality': { modes: ['general', 'ecommerce'] as const, name: 'Bot Quality' },
+  'alerts': { modes: ['general', 'ecommerce'] as const, name: 'Alerts' },
+  'peak-hours': { modes: ['general', 'ecommerce'] as const, name: 'Peak Hours' },
+  'benchmark-comparison': { modes: ['general', 'ecommerce'] as const, name: 'Benchmark Comparison' },
+  'customer-sentiment': { modes: ['general', 'ecommerce'] as const, name: 'Customer Sentiment' },
 } as const;
 
 export type WidgetId = keyof typeof WIDGET_CONFIG;

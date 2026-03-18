@@ -8,7 +8,7 @@ import { StatCard } from './StatCard';
 function MiniStat({
   label,
   value,
-  color = 'text-gray-900',
+  color = 'text-white',
   trend,
 }: {
   label: string;
@@ -17,14 +17,14 @@ function MiniStat({
   trend?: number | null;
 }) {
   return (
-    <div className="flex justify-between items-center py-1 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-500">{label}</span>
+    <div className="flex justify-between items-center py-1 border-b border-white/5 last:border-0">
+      <span className="text-xs text-white/40">{label}</span>
       <div className="flex items-center gap-1.5">
         <span className={`text-xs font-semibold ${color}`}>{value}</span>
         {trend !== null && trend !== undefined && (
           <span
             className={`text-[10px] font-medium flex items-center ${
-              trend >= 0 ? 'text-green-600' : 'text-red-600'
+              trend >= 0 ? 'text-green-400' : 'text-red-400'
             }`}
           >
             {trend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -87,22 +87,22 @@ export function ConversationOverviewWidget() {
         <MiniStat
           label="Active right now"
           value={activeCount}
-          color="text-green-700"
+          color="text-emerald-400"
         />
         <MiniStat
           label="Unread handoffs"
           value={unreadCount}
-          color={unreadCount > 0 ? 'text-red-600' : 'text-gray-700'}
+          color={unreadCount > 0 ? 'text-rose-400' : 'text-white/60'}
         />
         <MiniStat
           label="Handoffs (30d)"
           value={handoffCount}
-          color={handoffCount > 0 ? 'text-orange-600' : 'text-gray-700'}
+          color={handoffCount > 0 ? 'text-amber-400' : 'text-white/60'}
         />
         <MiniStat
           label="Satisfaction score"
           value={satisfactionRate}
-          color="text-blue-600"
+          color="text-blue-400"
         />
       </div>
     </StatCard>

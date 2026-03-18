@@ -22,7 +22,7 @@ const HEALTH_CONFIG = {
 } as const;
 
 function renderStars(score: number | null): React.ReactNode {
-  if (score === null) return <span className="text-gray-400">N/A</span>;
+  if (score === null) return <span className="text-white/60">N/A</span>;
   const fullStars = Math.floor(score);
   const hasHalf = score - fullStars >= 0.5;
   const stars = [];
@@ -32,13 +32,13 @@ function renderStars(score: number | null): React.ReactNode {
     } else if (i === fullStars && hasHalf) {
       stars.push(<Star key={i} size={12} className="fill-yellow-400/50 text-yellow-400" />);
     } else {
-      stars.push(<Star key={i} size={12} className="text-gray-300" />);
+      stars.push(<Star key={i} size={12} className="text-white/30" />);
     }
   }
   return (
     <span className="flex items-center gap-0.5">
       {stars}
-      <span className="ml-1 text-xs text-gray-600">{score.toFixed(1)}</span>
+      <span className="ml-1 text-xs text-white/60">{score.toFixed(1)}</span>
     </span>
   );
 }
@@ -53,14 +53,14 @@ function MetricRow({
   trend?: number | null;
 }) {
   return (
-    <div className="flex items-center justify-between gap-1 py-1 border-b border-gray-50 last:border-0">
-      <span className="text-xs font-medium text-gray-400">{label}</span>
+    <div className="flex items-center justify-between gap-1 py-1 border-b border-white/5 last:border-0">
+      <span className="text-xs font-medium text-white/60">{label}</span>
       <div className="flex items-center gap-1.5">
-        <span className="text-xs font-semibold text-gray-700">{value}</span>
+        <span className="text-xs font-semibold text-white">{value}</span>
         {trend !== null && trend !== undefined && (
           <span
             className={`text-[10px] font-medium flex items-center ${
-              trend >= 0 ? 'text-green-600' : 'text-red-600'
+              trend >= 0 ? 'text-green-400' : 'text-red-400'
             }`}
           >
             {trend >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -105,8 +105,8 @@ export function BotQualityWidget() {
     >
       <div className="space-y-0.5">
         <div className="flex items-center justify-between gap-1 py-1">
-          <span className="text-xs font-medium text-gray-400">Health</span>
-          <span className={`flex items-center gap-1 text-xs font-medium text-${healthConfig.color}-600`}>
+          <span className="text-xs font-medium text-white/60">Health</span>
+          <span className={`flex items-center gap-1 text-xs font-medium text-${healthConfig.color}-400`}>
             <HealthIcon size={12} />
             {healthConfig.label}
           </span>

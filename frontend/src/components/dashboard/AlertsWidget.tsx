@@ -20,30 +20,30 @@ interface AlertItem {
 
 function AlertRow({ alert }: { alert: AlertItem }) {
   const severityStyles = {
-    critical: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    critical: 'bg-rose-500/10 border-rose-500/20 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.1)]',
+    warning: 'bg-amber-500/10 border-amber-500/20 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.1)]',
+    info: 'bg-blue-500/10 border-blue-500/20 text-blue-200 shadow-[0_0_15px_rgba(59,130,246,0.1)]',
   };
 
   const iconColors = {
-    critical: 'text-red-500',
-    warning: 'text-amber-500',
-    info: 'text-blue-500',
+    critical: 'text-rose-400',
+    warning: 'text-amber-400',
+    info: 'text-blue-400',
   };
 
   return (
-    <div className={`flex items-center justify-between gap-2 p-2 rounded-lg border ${severityStyles[alert.severity]}`}>
-      <div className="flex items-center gap-2">
-        <span className={iconColors[alert.severity]}>{alert.icon}</span>
-        <span className="text-xs font-medium">{alert.message}</span>
+    <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border backdrop-blur-md transition-all duration-300 hover:scale-[1.01] ${severityStyles[alert.severity]}`}>
+      <div className="flex items-center gap-2.5">
+        <span className={`${iconColors[alert.severity]} drop-shadow-sm`}>{alert.icon}</span>
+        <span className="text-xs font-bold tracking-wide uppercase">{alert.message}</span>
       </div>
       {alert.action && (
         <Link
           to={alert.action.href}
-          className="flex items-center gap-1 text-xs font-semibold hover:underline whitespace-nowrap"
+          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter hover:text-white transition-colors bg-white/10 px-2 py-1 rounded-md border border-white/10"
         >
           {alert.action.label}
-          <ArrowRight size={12} />
+          <ArrowRight size={10} />
         </Link>
       )}
     </div>
@@ -135,9 +135,9 @@ export function AlertsWidget() {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center gap-2 py-4 text-green-600">
-          <CheckCircle size={16} />
-          <span className="text-xs font-medium">No action needed</span>
+        <div className="flex items-center justify-center gap-2 py-6 text-emerald-400/60 transition-opacity duration-500">
+          <CheckCircle size={16} className="animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-widest">SYSTEMS OPTIMAL</span>
         </div>
       )}
     </StatCard>

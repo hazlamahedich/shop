@@ -4,13 +4,13 @@ import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  processing: 'bg-indigo-100 text-indigo-700',
-  shipped: 'bg-cyan-100 text-cyan-700',
-  delivered: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-  refunded: 'bg-orange-100 text-orange-700',
+  pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]',
+  confirmed: 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]',
+  processing: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.1)]',
+  shipped: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]',
+  delivered: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]',
+  cancelled: 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.1)]',
+  refunded: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_10px_rgba(249,115,22,0.1)]',
 };
 
 function formatCurrency(value: number, currency = 'USD'): string {
@@ -70,20 +70,20 @@ export function RevenueWidget() {
       data-testid="revenue-widget"
     >
       {topStatuses.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 mt-1">
+        <div className="flex flex-wrap gap-2 mt-2">
           {topStatuses.map(([status, count]) => (
             <span
               key={status}
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'}`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-tight border backdrop-blur-sm transition-all duration-300 hover:scale-[1.05] ${STATUS_COLORS[status] ?? 'bg-white/5 text-white/40 border-white/5'}`}
             >
-              <ShoppingBag size={10} />
-              {status} &nbsp;{count}
+              <ShoppingBag size={10} className="opacity-70" />
+              {status} <span className="opacity-50 font-black ml-0.5">{count}</span>
             </span>
           ))}
         </div>
       ) : !isLoading && totalOrders === 0 ? (
-        <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-          <Package size={12} /> Shopify orders will appear here once webhooks are active.
+        <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] flex items-center gap-2 mt-2">
+          <Package size={12} className="opacity-30" /> SHOPIFY WEBHOOKS INITIALIZING...
         </p>
       ) : null}
     </StatCard>

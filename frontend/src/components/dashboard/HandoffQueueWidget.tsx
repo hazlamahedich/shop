@@ -37,14 +37,14 @@ function AlertRow({
   const urgency = URGENCY_CONFIG[alert.urgencyLevel] ?? URGENCY_CONFIG.low;
   return (
     <div
-      className={`group flex items-start gap-3 rounded-xl p-3 transition-colors duration-150 hover:bg-gray-50 ${
-        !alert.isRead ? 'bg-blue-50/40' : ''
+      className={`group flex items-start gap-3 rounded-xl p-3 transition-colors duration-150 hover:bg-white/[0.03] ${
+        !alert.isRead ? 'bg-emerald-500/[0.03]' : ''
       }`}
     >
       {/* Urgency dot */}
       <div className="mt-1.5 flex-shrink-0">
         <span
-          className={`inline-block h-2.5 w-2.5 rounded-full ${urgency.dot} ring-2 ring-white shadow`}
+          className={`inline-block h-2.5 w-2.5 rounded-full ${urgency.dot} ring-2 ring-[#0a0a0a] shadow-[0_0_10px_rgba(0,0,0,0.5)]`}
         />
       </div>
 
@@ -52,33 +52,33 @@ function AlertRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5">
           <span
-            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${urgency.badge}`}
+            className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${urgency.badge}`}
           >
             {urgency.label}
           </span>
           {alert.isVip && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wider">
               <Crown size={9} />
               VIP
             </span>
           )}
           {alert.handoffReason && (
-            <span className="text-[10px] text-gray-400 capitalize">
+            <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">
               · {alert.handoffReason.replace(/_/g, ' ')}
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-700 truncate">
+        <p className="text-sm font-medium text-white/80 truncate">
           {alert.conversationPreview ?? 'No preview available'}
         </p>
-        <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+        <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold text-white/40 uppercase tracking-wider">
           <div className="flex items-center gap-1">
             <Clock size={10} />
             <span>Waiting {formatWaitTime(alert.waitTimeSeconds)}</span>
           </div>
           {alert.customerLtv !== null && alert.customerLtv > 0 && (
-            <span className="text-gray-500">
-              ${alert.customerLtv.toFixed(0)} LTV
+            <span className="text-emerald-500/60 uppercase tracking-widest font-black">
+              · ${alert.customerLtv.toFixed(0)} LTV
             </span>
           )}
         </div>
@@ -87,7 +87,7 @@ function AlertRow({
       {/* Take Over button */}
       <button
         onClick={() => onTakeOver(alert.conversationId)}
-        className="flex-shrink-0 invisible group-hover:visible flex items-center gap-0.5 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+        className="flex-shrink-0 invisible group-hover:visible flex items-center gap-0.5 rounded-lg bg-emerald-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-black hover:bg-emerald-400 transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]"
         aria-label={`Take over conversation ${alert.conversationId}`}
       >
         Take Over <ChevronRight size={11} />
@@ -124,25 +124,25 @@ export function HandoffQueueWidget() {
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm"
+      className="relative overflow-hidden rounded-2xl bg-[#0a0a0a]/40 border border-white/[0.05] shadow-2xl backdrop-blur-md"
       data-testid="handoff-queue-widget"
     >
       {/* Top accent strip */}
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-400 to-orange-300 opacity-60" />
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-emerald-500/40 via-emerald-400/20 to-transparent opacity-60" />
 
-      <div className="p-5">
+      <div className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-4 ring-red-100">
-              <Bell size={16} />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+              <Bell size={18} />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 leading-none">Handoff Queue</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {isLoading ? '…' : `${totalWaiting} waiting`}
+              <h3 className="text-sm font-black text-white uppercase tracking-widest leading-none">Handoff Queue</h3>
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-2">
+                {isLoading ? 'Scanning...' : `${totalWaiting} in queue`}
                 {unreadCount > 0 && (
-                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-emerald-500 px-1 text-[8px] font-black text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]">
                     {unreadCount}
                   </span>
                 )}
@@ -154,37 +154,37 @@ export function HandoffQueueWidget() {
             <button
               onClick={() => markAllMutation.mutate()}
               disabled={markAllMutation.isPending}
-              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[9px] font-black text-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-500 transition-all disabled:opacity-50 uppercase tracking-widest border border-transparent hover:border-emerald-500/20"
               aria-label="Mark all handoff alerts as read"
             >
               <CheckCheck size={13} />
-              Mark all read
+              Mark Clear
             </button>
           )}
         </div>
 
         {/* Content */}
         {isLoading ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />
+              <div key={i} className="h-16 rounded-xl bg-white/[0.02] border border-white/[0.03] animate-pulse" />
             ))}
           </div>
         ) : isError ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <AlertTriangle size={24} className="text-gray-300 mb-2" />
-            <p className="text-sm text-gray-400">Could not load handoff queue.</p>
+          <div className="flex flex-col items-center justify-center py-8 text-center bg-red-500/[0.02] border border-red-500/10 rounded-2xl">
+            <AlertTriangle size={24} className="text-red-500/40 mb-3" />
+            <p className="text-[10px] font-extrabold text-red-500/60 uppercase tracking-widest">Neural Link Severed</p>
           </div>
         ) : alerts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 mb-3">
-              <CheckCheck size={22} className="text-green-500" />
+          <div className="flex flex-col items-center justify-center py-10 text-center bg-emerald-500/[0.01] border border-white/[0.03] rounded-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/5 border border-emerald-500/20 mb-4 shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+              <CheckCheck size={24} className="text-emerald-500" />
             </div>
-            <p className="text-sm font-medium text-gray-700">All clear!</p>
-            <p className="text-xs text-gray-400 mt-1">No pending handoffs right now.</p>
+            <p className="text-xs font-black text-white uppercase tracking-[0.2em] mb-1">Grid Clear</p>
+            <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">No spectral handoffs active.</p>
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {alerts.map((alert) => (
               <AlertRow key={alert.id} alert={alert} onTakeOver={handleTakeOver} />
             ))}
@@ -195,9 +195,9 @@ export function HandoffQueueWidget() {
         {alerts.length > 0 && (
           <button
             onClick={() => navigate('/handoff-queue')}
-            className="mt-3 w-full rounded-xl border border-gray-100 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+            className="mt-4 w-full rounded-xl border border-white/[0.05] bg-white/[0.02] py-2.5 text-[9px] font-black text-white/30 hover:bg-emerald-500/5 hover:text-emerald-500 hover:border-emerald-500/20 transition-all uppercase tracking-[0.3em]"
           >
-            View full queue →
+            Access Full Mesh →
           </button>
         )}
       </div>

@@ -55,26 +55,13 @@ export const RetentionJobStatus: React.FC<RetentionJobStatusProps> = ({ classNam
   const getStatusIcon = () => {
     switch (status.status) {
       case 'healthy':
-        return <CheckCircle className="text-green-500" size={20} />;
+        return <CheckCircle className="text-green-400" size={20} />;
       case 'running':
-        return <Activity className="text-blue-500 animate-spin" size={20} />;
+        return <Activity className="text-blue-400 animate-spin" size={20} />;
       case 'error':
-        return <AlertCircle className="text-red-500" size={20} />;
+        return <AlertCircle className="text-red-400" size={20} />;
       default:
-        return <Clock className="text-gray-500" size={20} />;
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (status.status) {
-      case 'healthy':
-        return 'bg-green-50 text-green-700';
-      case 'running':
-        return 'bg-blue-50 text-blue-700';
-      case 'error':
-        return 'bg-red-50 text-red-700';
-      default:
-        return 'bg-gray-50 text-gray-700';
+        return <Clock className="text-white/60" size={20} />;
     }
   };
 
@@ -92,34 +79,47 @@ export const RetentionJobStatus: React.FC<RetentionJobStatusProps> = ({ classNam
     return date.toLocaleDateString();
   };
 
+  const getStatusColorDark = () => {
+    switch (status.status) {
+      case 'healthy':
+        return 'bg-green-500/10 text-green-400';
+      case 'running':
+        return 'bg-blue-500/10 text-blue-400';
+      case 'error':
+        return 'bg-red-500/10 text-red-400';
+      default:
+        return 'bg-white/10 text-white/60';
+    }
+  };
+
   return (
-    <Card className={className}>
+    <Card className={`glass-card ${className}`}>
       <div style={{ padding: 'var(--card-padding)' }}>
         <div data-testid="retention-job-status">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm font-medium text-gray-500">Data Retention</p>
-              <h3 className="text-lg font-semibold text-gray-900 mt-1">
+              <p className="text-sm font-medium text-white/60">Data Retention</p>
+              <h3 className="text-lg font-semibold text-white mt-1">
                 Retention Job Status
               </h3>
             </div>
-            <div className={`p-2 rounded-lg ${getStatusColor()}`}>
+            <div className={`p-2 rounded-lg ${getStatusColorDark()}`}>
               {getStatusIcon()}
             </div>
           </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Status</span>
-              <span data-testid="status-text" className="text-sm font-medium capitalize">
+              <span className="text-sm text-white/60">Status</span>
+              <span data-testid="status-text" className="text-sm font-medium text-white capitalize">
                 {status.status}
               </span>
             </div>
 
             {status.lastRun && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Last run:</span>
-                <span data-testid="last-run-time" data-testid-also="last-successful-run" className="text-sm font-medium">
+                <span className="text-sm text-white/60">Last run:</span>
+                <span data-testid="last-run-time" data-testid-also="last-successful-run" className="text-sm font-medium text-white">
                   Last run: {formatTime(status.lastRun)}
                 </span>
               </div>
@@ -127,23 +127,23 @@ export const RetentionJobStatus: React.FC<RetentionJobStatusProps> = ({ classNam
 
             {status.nextRun && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Next run:</span>
-                <span data-testid="next-run-time" className="text-sm font-medium text-primary">
+                <span className="text-sm text-white/60">Next run:</span>
+                <span data-testid="next-run-time" className="text-sm font-medium text-blue-400">
                   {formatTime(status.nextRun)}
                 </span>
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-              <span className="text-sm text-gray-600">Jobs processed today</span>
-              <span className="text-sm font-medium">{status.jobsProcessed}</span>
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <span className="text-sm text-white/60">Jobs processed today</span>
+              <span className="text-sm font-medium text-white">{status.jobsProcessed}</span>
             </div>
 
             {status.errors > 0 && (
-              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+              <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded">
                 <div className="flex items-center gap-2">
-                  <AlertCircle size={16} className="text-red-600" />
-                  <span className="text-sm text-red-700">
+                  <AlertCircle size={16} className="text-red-400" />
+                  <span className="text-sm text-red-400">
                     {status.errors} error{status.errors !== 1 ? 's' : ''} in last 24h
                   </span>
                 </div>
@@ -153,7 +153,7 @@ export const RetentionJobStatus: React.FC<RetentionJobStatusProps> = ({ classNam
 
           <a
             href="/dashboard/audit-logs"
-            className="mt-4 text-sm text-primary font-medium hover:underline flex items-center gap-1"
+            className="mt-4 text-sm text-blue-400 font-medium hover:text-blue-300 flex items-center gap-1"
           >
             View Audit Logs
             <Activity size={14} className="ml-1" />

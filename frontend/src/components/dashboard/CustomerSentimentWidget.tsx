@@ -38,8 +38,8 @@ export function CustomerSentimentWidget() {
   const dailyBreakdown = data?.dailyBreakdown ?? [];
   const alert = data?.alert;
 
-  const trendIcon = trend === 'improving' ? <TrendingUp size={14} className="text-green-600" /> 
-    : trend === 'declining' ? <TrendingDown size={14} className="text-red-600" /> 
+  const trendIcon = trend === 'improving' ? <TrendingUp size={14} className="text-green-400" /> 
+    : trend === 'declining' ? <TrendingDown size={14} className="text-red-400" /> 
     : null;
 
   const trendLabel = trend === 'improving' ? 'Improving' 
@@ -60,17 +60,17 @@ export function CustomerSentimentWidget() {
     >
       <div className="space-y-2 mt-2">
         {alert && (
-          <div className="flex items-center gap-1.5 p-2 bg-red-50 rounded-lg text-red-700">
+          <div className="flex items-center gap-1.5 p-2 bg-red-500/10 rounded-lg text-red-400 border border-red-500/20">
             <AlertTriangle size={12} />
             <span className="text-xs">{alert}</span>
           </div>
         )}
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Trend</span>
+          <span className="text-xs text-white/60">Trend</span>
           <div className="flex items-center gap-1">
             {trendIcon}
-            <span className={`text-xs font-medium ${trend === 'improving' ? 'text-green-600' : trend === 'declining' ? 'text-red-600' : 'text-gray-600'}`}>
+            <span className={`text-xs font-medium ${trend === 'improving' ? 'text-green-400' : trend === 'declining' ? 'text-red-400' : 'text-white/60'}`}>
               {trendLabel}
               {trendChange != null && ` (${trendChange > 0 ? '+' : ''}${trendChange}%)`}
             </span>
@@ -78,32 +78,32 @@ export function CustomerSentimentWidget() {
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span className="text-green-600 flex items-center gap-1">
+          <span className="text-green-400 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-green-400" />
             Positive
           </span>
-          <span className="font-semibold text-gray-700">{current?.positiveCount ?? 0}</span>
+          <span className="font-semibold text-white">{current?.positiveCount ?? 0}</span>
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span className="text-red-600 flex items-center gap-1">
+          <span className="text-red-400 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-red-400" />
             Negative
           </span>
-          <span className="font-semibold text-gray-700">{current?.negativeCount ?? 0}</span>
+          <span className="font-semibold text-white">{current?.negativeCount ?? 0}</span>
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-500 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-gray-300" />
+          <span className="text-white/60 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-white/30" />
             Neutral
           </span>
-          <span className="font-semibold text-gray-600">{current?.neutralCount ?? 0}</span>
+          <span className="font-semibold text-white/60">{current?.neutralCount ?? 0}</span>
         </div>
 
         {dailyBreakdown.length > 0 && (
-          <div className="pt-2 border-t border-gray-100">
-            <div className="text-xs text-gray-400 mb-1">Last 7 days</div>
+          <div className="pt-2 border-t border-white/10">
+            <div className="text-xs text-white/60 mb-1">Last 7 days</div>
             <div className="flex gap-1">
               {dailyBreakdown.slice(-7).map((day, i) => (
                 <div

@@ -16,8 +16,8 @@ function TrendIndicator({ trend }: { trend: number | undefined }) {
   if (trend === undefined || trend === 0) return null;
   const isUp = trend > 0;
   const Icon = isUp ? TrendingUp : TrendingDown;
-  const colorClass = isUp ? 'text-green-600' : 'text-red-600';
-  const bgClass = isUp ? 'bg-green-50' : 'bg-red-50';
+  const colorClass = isUp ? 'text-emerald-400' : 'text-red-400';
+  const bgClass = isUp ? 'bg-emerald-500/20' : 'bg-red-500/20';
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${bgClass} ${colorClass}`}>
       <Icon size={12} />
@@ -40,15 +40,15 @@ function MetricCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="flex flex-col p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+    <div className="flex flex-col p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
-          <Icon size={14} className="text-gray-400" />
-          <span className="text-xs text-gray-500">{label}</span>
+          <Icon size={14} className="text-white/50" />
+          <span className="text-xs text-white/60">{label}</span>
         </div>
         <TrendIndicator trend={trend} />
       </div>
-      <span className="text-xl font-semibold text-gray-900">
+      <span className="text-xl font-semibold text-white">
         {value.toFixed(1)}{unit}
       </span>
     </div>
@@ -91,11 +91,11 @@ export function WidgetAnalyticsWidget() {
 
   if (isError) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4" data-testid="widget-analytics-widget">
+      <div className="glass-card rounded-lg border-none shadow-lg p-4" data-testid="widget-analytics-widget">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Widget Analytics</h3>
+          <h3 className="text-lg font-semibold text-white">Widget Analytics</h3>
         </div>
-        <div className="flex items-center justify-center h-32 text-gray-500">
+        <div className="flex items-center justify-center h-32 text-white/50">
           <Activity size={16} className="mr-2" />
           <span>Failed to load analytics data</span>
         </div>
@@ -104,9 +104,9 @@ export function WidgetAnalyticsWidget() {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4" data-testid="widget-analytics-widget">
+    <div className="glass-card rounded-lg border-none shadow-lg p-4" data-testid="widget-analytics-widget">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Widget Analytics</h3>
+        <h3 className="text-lg font-semibold text-white">Widget Analytics</h3>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
             {(Object.keys(PERIOD_LABELS) as PeriodOption[]).map((period) => (
@@ -115,8 +115,8 @@ export function WidgetAnalyticsWidget() {
                 onClick={() => setSelectedPeriod(period)}
                 className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                   selectedPeriod === period
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
                 }`}
               >
                 {PERIOD_LABELS[period]}
@@ -125,7 +125,7 @@ export function WidgetAnalyticsWidget() {
           </div>
           <button
             onClick={() => refetch()}
-            className="p-1.5 text-gray-400 hover:text-gray-600"
+            className="p-1.5 text-white/40 hover:text-white/70"
             title="Refresh"
           >
             <RefreshCw size={14} />
@@ -135,7 +135,7 @@ export function WidgetAnalyticsWidget() {
 
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
-          <Loader2 className="animate-spin h-6 w-6 text-indigo-600" />
+          <Loader2 className="animate-spin h-6 w-6 text-emerald-400" />
         </div>
       ) : (
         <>
@@ -174,26 +174,26 @@ export function WidgetAnalyticsWidget() {
             />
           </div>
 
-          <div className="border-t border-gray-200 pt-4 mt-4">
+          <div className="border-t border-white/10 pt-4 mt-4">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-700">Performance</h4>
+              <h4 className="text-sm font-medium text-white/70">Performance</h4>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-xs text-gray-500">Avg Load</div>
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="text-center p-2 bg-white/5 rounded">
+                <div className="text-xs text-white/50">Avg Load</div>
+                <div className="text-sm font-semibold text-white">
                   {performance?.avgLoadTimeMs?.toFixed(0) ?? 0}ms
                 </div>
               </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-xs text-gray-500">P95 Load</div>
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="text-center p-2 bg-white/5 rounded">
+                <div className="text-xs text-white/50">P95 Load</div>
+                <div className="text-sm font-semibold text-white">
                   {performance?.p95LoadTimeMs?.toFixed(0) ?? 0}ms
                 </div>
               </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-xs text-gray-500">Bundle</div>
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="text-center p-2 bg-white/5 rounded">
+                <div className="text-xs text-white/50">Bundle</div>
+                <div className="text-sm font-semibold text-white">
                   {performance?.bundleSizeKb?.toFixed(0) ?? 0}KB
                 </div>
               </div>
@@ -204,7 +204,7 @@ export function WidgetAnalyticsWidget() {
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-emerald-400 bg-emerald-500/10 rounded-lg hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isExporting ? (
                 <Loader2 className="animate-spin h-4 w-4" />

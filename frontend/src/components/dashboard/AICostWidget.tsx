@@ -81,7 +81,7 @@ export function AICostWidget() {
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm"
+      className="relative overflow-hidden glass-card transition-all duration-300"
       data-testid="ai-cost-widget"
     >
       <div
@@ -93,16 +93,13 @@ export function AICostWidget() {
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-              AI Cost (this month)
-            </p>
             {isLoading ? (
-              <div className="mt-1 h-8 w-28 rounded bg-gray-200 animate-pulse" />
+              <div className="mt-1 h-8 w-28 rounded bg-white/5 animate-pulse" />
             ) : isError ? (
-              <p className="mt-1 text-2xl font-bold text-gray-400">N/A</p>
+              <p className="mt-1 text-2xl font-bold text-white/20">N/A</p>
             ) : (
               <div className="flex items-baseline gap-2">
-                <p className="mt-1 text-3xl font-bold text-gray-900 tracking-tight">
+                <p className="mt-1 text-3xl font-bold text-white/90 tracking-tight mantis-glow-text">
                   {formatUSD(totalCost)}
                 </p>
                 {momChangePercent !== null && (
@@ -123,8 +120,10 @@ export function AICostWidget() {
             )}
           </div>
           <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-              isNearBudget ? 'bg-red-50 text-red-600 ring-4 ring-red-100' : 'bg-blue-50 text-blue-600 ring-4 ring-blue-100'
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-300 ${
+              isNearBudget 
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]' 
+                : 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
             }`}
           >
             {isNearBudget ? <AlertTriangle size={18} /> : <DollarSign size={18} />}
@@ -132,7 +131,7 @@ export function AICostWidget() {
         </div>
 
         {!isLoading && !isError && (
-          <p className="text-sm text-gray-500 mb-3">
+          <p className="text-sm text-white/40 mb-3">
             {requestCount} AI requests
             {budgetCap ? ` · Budget: ${formatUSD(budgetCap)}` : ''}
           </p>
@@ -140,20 +139,20 @@ export function AICostWidget() {
 
         {budgetPct !== null && !isLoading && (
           <div className="mb-3">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <div className="flex justify-between text-xs text-white/40 mb-1">
               <span>Budget used</span>
-              <span className={isNearBudget ? 'text-red-600 font-semibold' : ''}>
+              <span className={isNearBudget ? 'text-rose-400 font-semibold' : 'text-white/60'}>
                 {budgetPct.toFixed(0)}%
               </span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all ${progressColor}`}
+                className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
                 style={{ width: `${Math.min(budgetPct, 100)}%` }}
               />
             </div>
             {isNearBudget && (
-              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+              <p className="text-xs text-rose-400 mt-1 flex items-center gap-1">
                 <AlertTriangle size={10} />
                 Budget nearly reached — consider adjusting.
               </p>
@@ -162,17 +161,24 @@ export function AICostWidget() {
         )}
 
         {providers.length > 0 && !isLoading && (
-          <div className="space-y-1.5 mb-3">
+          <div className="space-y-2 mb-4">
             {providers.map(({ provider, cost, percentage }, i) => (
-              <div key={provider} className="flex items-center gap-2">
-                <div
-                  className={`h-2 flex-shrink-0 rounded-full ${PROVIDER_COLORS[i] ?? 'bg-gray-400'}`}
-                  style={{ width: `${Math.max(percentage, 4)}%`, maxWidth: '60%' }}
-                />
-                <span className="text-xs text-gray-600 capitalize flex-1 truncate">
-                  {provider}
+              <div key={provider} className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="flex justify-between text-[10px] text-white/40 mb-1 uppercase tracking-wider">
+                    <span>{provider}</span>
+                    <span>{percentage}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 rounded-full h-1 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${PROVIDER_COLORS[i] ?? 'bg-white/20'}`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-white/80 w-16 text-right">
+                  {formatUSD(cost)}
                 </span>
-                <span className="text-xs font-medium text-gray-700">{formatUSD(cost)}</span>
               </div>
             ))}
           </div>
@@ -180,10 +186,10 @@ export function AICostWidget() {
 
         <button
           onClick={() => navigate('/costs')}
-          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300 transition-all hover:translate-x-1"
         >
-          <Zap size={11} />
-          View cost details <ChevronRight size={11} />
+          <Zap size={11} className="fill-current" />
+          VIEW COST DETAILS <ChevronRight size={11} />
         </button>
       </div>
     </div>
