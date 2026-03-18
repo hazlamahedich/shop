@@ -209,3 +209,88 @@ async def get_knowledge_gaps(
     service = AggregatedAnalyticsService(db)
     gaps = await service.get_knowledge_gaps(merchant_id, days, limit)
     return gaps
+
+
+@router.get("/peak-hours")
+async def get_peak_hours(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get peak hours heatmap data for dashboard widget.
+
+    Returns hourly breakdown of conversation activity by day of week.
+    Used by PeakHoursHeatmapWidget to show when customers are most active.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    peak_hours_data = await service.get_peak_hours(merchant_id, days)
+    return peak_hours_data
+
+
+@router.get("/bot-quality")
+async def get_bot_quality(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get bot quality metrics for dashboard widget.
+
+    Returns metrics including CSAT score, response time, fallback rate, and resolution rate.
+    Used by BotQualityWidget to show bot performance.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    metrics = await service.get_bot_quality_metrics(merchant_id, days)
+    return metrics
+
+
+@router.get("/conversion-funnel")
+async def get_conversion_funnel(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get conversion funnel data for dashboard widget.
+
+    Returns funnel stages from conversation to purchase.
+    Used by ConversionFunnelWidget to show conversion journey.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    funnel_data = await service.get_conversion_funnel(merchant_id, days)
+    return funnel_data
+
+
+@router.get("/benchmarks")
+async def get_benchmarks(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get benchmark comparison data for dashboard widget.
+
+    Returns comparison metrics against industry averages.
+    Used by QualityMetricsWidget to show benchmark comparison.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    benchmark_data = await service.get_benchmark_comparison(merchant_id, days)
+    return benchmark_data
+
+
+@router.get("/sentiment-trend")
+async def get_sentiment_trend(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get sentiment trend data for dashboard widget.
+
+    Returns sentiment analysis of customer messages.
+    Used by QualityMetricsWidget to show customer sentiment.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    sentiment_data = await service.get_sentiment_trend(merchant_id, days)
+    return sentiment_data

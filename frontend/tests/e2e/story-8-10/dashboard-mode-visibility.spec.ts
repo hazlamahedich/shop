@@ -104,8 +104,15 @@ test.describe.serial('Story 8.10: Dashboard Mode-Aware Widgets @dashboard @story
 
     await expect(page.getByTestId('conversation-overview-widget-container')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('handoff-queue-widget-container')).toBeVisible();
-    await expect(page.getByTestId('ai-cost-widget-container')).toBeVisible();
+    await expect(page.getByTestId('financial-overview-widget-container')).toBeVisible();
     await expect(page.getByTestId('knowledge-base-widget-container')).toBeVisible();
+    await expect(page.getByTestId('peak-hours-heatmap-widget-container')).toBeVisible();
+    await expect(page.getByTestId('quality-metrics-widget-container')).toBeVisible();
+
+    // E-commerce widgets should NOT be visible in general mode
+    await expect(page.getByTestId('conversion-funnel-widget-container')).not.toBeVisible();
+    await expect(page.getByTestId('top-products-widget-container')).not.toBeVisible();
+    await expect(page.getByTestId('geographic-widget-container')).not.toBeVisible();
 
     await expect(page.getByTestId('revenue-widget-container')).not.toBeVisible();
     await expect(page.getByTestId('top-products-widget-container')).not.toBeVisible();
@@ -202,11 +209,12 @@ test.describe.serial('Story 8.10: Dashboard Mode-Aware Widgets @dashboard @story
 
     await expect(page.getByTestId('conversation-overview-widget-container')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('handoff-queue-widget-container')).toBeVisible();
-    await expect(page.getByTestId('ai-cost-widget-container')).toBeVisible();
-    await expect(page.getByTestId('revenue-widget-container')).toBeVisible();
+    await expect(page.getByTestId('financial-overview-widget-container')).toBeVisible();
+    await expect(page.getByTestId('conversion-funnel-widget-container')).toBeVisible();
     await expect(page.getByTestId('top-products-widget-container')).toBeVisible();
-    await expect(page.getByTestId('pending-orders-widget-container')).toBeVisible();
     await expect(page.getByTestId('geographic-widget-container')).toBeVisible();
+    await expect(page.getByTestId('peak-hours-heatmap-widget-container')).toBeVisible();
+    await expect(page.getByTestId('quality-metrics-widget-container')).toBeVisible();
   });
 
   test('[8.10-E2E-003][P1] Mode switch updates widgets correctly', async ({ page }) => {
@@ -295,7 +303,9 @@ test.describe.serial('Story 8.10: Dashboard Mode-Aware Widgets @dashboard @story
 
     await page.goto('/dashboard');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByTestId('revenue-widget-container')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('financial-overview-widget-container')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('conversion-funnel-widget-container')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('top-products-widget-container')).toBeVisible({ timeout: 15000 });
 
     await page.route('**/api/v1/auth/me', async (route) => {
       await route.fulfill({
@@ -321,7 +331,12 @@ test.describe.serial('Story 8.10: Dashboard Mode-Aware Widgets @dashboard @story
     await page.reload();
     await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.getByTestId('revenue-widget-container')).not.toBeVisible({ timeout: 15000 });
+    // Financial overview should still be visible (shows AI cost only in general mode)
+    await expect(page.getByTestId('financial-overview-widget-container')).toBeVisible({ timeout: 15000 });
+    // E-commerce widgets should not be visible in general mode
+    await expect(page.getByTestId('conversion-funnel-widget-container')).not.toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('top-products-widget-container')).not.toBeVisible({ timeout: 15000 });
+    // Knowledge base should be visible in general mode
     await expect(page.getByTestId('knowledge-base-widget-container')).toBeVisible();
   });
 

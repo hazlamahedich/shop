@@ -13,8 +13,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+from sqlalchemy.sql.expression import cast
 
 from app.models.conversation import Conversation
 from app.models.llm_conversation_cost import LLMConversationCost
@@ -818,7 +820,7 @@ class AggregatedAnalyticsService:
             Dict with hourly breakdown, peak hours, and peak day
         """
         try:
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
 
             result = await self.db.execute(
                 select(
@@ -896,7 +898,7 @@ class AggregatedAnalyticsService:
             Dict with funnel stages and conversion rates
         """
         try:
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
 
             total_conversations_result = await self.db.execute(
                 select(func.count(Conversation.id))
@@ -1004,7 +1006,7 @@ class AggregatedAnalyticsService:
             Dict with knowledge gaps and suggested actions
         """
         try:
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
 
             # TODO: Implement knowledge gap detection when intent/confidence
             # tracking is added to messages or a separate analytics table
@@ -1014,7 +1016,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(UTC).isoformat(),
+                    "endDate": datetime.utcnow().isoformat(),
                 },
                 "gaps": [],
                 "totalGaps": 0,
@@ -1085,13 +1087,17 @@ class AggregatedAnalyticsService:
         }
 
         try:
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
 
             bot_quality = await self.get_bot_quality_metrics(merchant_id, days)
 
+            # Get total cost - conversation_id is stored as string, need to cast for join
             cost_result = await self.db.execute(
-                select(func.sum(LLMConversationCost.cost_usd).label("total_cost"))
-                .join(Conversation, LLMConversationCost.conversation_id == Conversation.id)
+                select(func.sum(LLMConversationCost.total_cost_usd).label("total_cost"))
+                .join(
+                    Conversation,
+                    func.cast(LLMConversationCost.conversation_id, Integer) == Conversation.id,
+                )
                 .where(Conversation.merchant_id == merchant_id)
                 .where(LLMConversationCost.created_at >= cutoff_date)
             )
@@ -1291,8 +1297,8 @@ class AggregatedAnalyticsService:
         }
 
         try:
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
-            prev_cutoff = datetime.now(UTC) - timedelta(days=days * 2)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            prev_cutoff = datetime.utcnow() - timedelta(days=days * 2)
 
             result = await self.db.execute(
                 select(Message)
