@@ -143,14 +143,14 @@ export const FaqForm: React.FC<FaqFormProps> = ({
     const length = formData.question.length;
     if (length > 180) return 'text-red-600';
     if (length > 150) return 'text-amber-600';
-    return 'text-gray-500';
+    return 'text-gray-600';
   };
 
   const getAnswerCountColor = () => {
     const length = formData.answer.length;
     if (length > 900) return 'text-red-600';
     if (length > 750) return 'text-amber-600';
-    return 'text-gray-500';
+    return 'text-gray-600';
   };
 
   // Close modal on escape key
@@ -192,7 +192,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
             type="button"
             onClick={onCancel}
             disabled={disabled}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Close dialog"
           >
             <X size={20} />
@@ -208,7 +208,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 htmlFor="faq-question"
                 className="flex items-center gap-2 text-sm font-medium text-gray-700"
               >
-                <HelpCircle size={16} className="text-gray-500" />
+                <HelpCircle size={16} className="text-gray-600" />
                 Question <span className="text-red-500">*</span>
               </label>
               <input
@@ -228,7 +228,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 aria-invalid={!!errors.question}
                 aria-required="true"
               />
-              <p id="faq-question-description" className="text-xs text-gray-500">
+              <p id="faq-question-description" className="text-xs text-gray-600">
                 The question customers might ask about your business.
               </p>
               <div className="flex justify-between items-center">
@@ -252,7 +252,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 htmlFor="faq-answer"
                 className="flex items-center gap-2 text-sm font-medium text-gray-700"
               >
-                <MessageSquare size={16} className="text-gray-500" />
+                <MessageSquare size={16} className="text-gray-600" />
                 Answer <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -272,7 +272,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 aria-invalid={!!errors.answer}
                 aria-required="true"
               />
-              <p id="faq-answer-description" className="text-xs text-gray-500">
+              <p id="faq-answer-description" className="text-xs text-gray-600">
                 The answer the bot will provide when this question is matched.
               </p>
               <div className="flex justify-between items-center">
@@ -296,8 +296,8 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 htmlFor="faq-keywords"
                 className="flex items-center gap-2 text-sm font-medium text-gray-700"
               >
-                <Tag size={16} className="text-gray-500" />
-                Keywords <span className="text-gray-400">(optional)</span>
+                <Tag size={16} className="text-gray-600" />
+                Keywords <span className="text-gray-500">(optional)</span>
               </label>
               <input
                 id="faq-keywords"
@@ -315,7 +315,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 aria-describedby="faq-keywords-description faq-keywords-count"
                 aria-invalid={!!errors.keywords}
               />
-              <p id="faq-keywords-description" className="text-xs text-gray-500">
+              <p id="faq-keywords-description" className="text-xs text-gray-600">
                 Comma-separated keywords that help the bot match customer questions to this FAQ.
               </p>
               <div className="flex justify-between items-center">
@@ -324,7 +324,7 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                     {errors.keywords}
                   </p>
                 )}
-                <p id="faq-keywords-count" className="text-xs text-gray-400 ml-auto">
+                <p id="faq-keywords-count" className="text-xs text-gray-500 ml-auto">
                   {formData.keywords.length} / 500
                 </p>
               </div>

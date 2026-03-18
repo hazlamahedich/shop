@@ -176,7 +176,7 @@ export function BudgetHardStopModal({
           )}
         </div>
 
-        <p className="text-sm text-gray-500 mb-6 text-center">
+        <p className="text-sm text-gray-600 mb-6 text-center">
           {budgetCap !== null && budgetCap !== undefined
             ? 'Your bot is not responding to customer messages. Increase your budget above your current spend to resume operations.'
             : 'Your bot was paused but now has no budget limit. You can resume operations immediately.'}
@@ -203,7 +203,7 @@ export function BudgetHardStopModal({
                         ${
                           canResume
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
                         }`}
             aria-label="Resume bot operations"
             aria-disabled={!canResume}
@@ -215,7 +215,7 @@ export function BudgetHardStopModal({
         {onClose && (
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700
                        focus:outline-none focus:ring-2 focus:ring-gray-500 rounded"
             aria-label="Close modal"
           >

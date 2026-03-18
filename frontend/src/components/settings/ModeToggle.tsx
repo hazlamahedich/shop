@@ -67,7 +67,7 @@ export function ModeToggle({
       {fetching && (
         <div className="flex items-center justify-center py-4">
           <span className="animate-spin mr-2">⏳</span>
-          <span className="text-sm text-gray-500">Loading mode settings...</span>
+          <span className="text-sm text-gray-600">Loading mode settings...</span>
         </div>
       )}
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${fetching ? 'opacity-50' : ''}`}>
@@ -120,7 +120,7 @@ export function ModeToggle({
                   >
                     {option.label}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{option.description}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{option.description}</p>
                 </div>
               </div>
 
@@ -130,7 +130,7 @@ export function ModeToggle({
                   <li key={index} className="flex items-start gap-2 text-xs text-gray-600">
                     <span className={cn(
                       'mt-0.5',
-                      isSelected ? 'text-primary' : 'text-gray-400'
+                      isSelected ? 'text-primary' : 'text-gray-500'
                     )}>•</span>
                     <span>{feature}</span>
                   </li>
@@ -143,7 +143,7 @@ export function ModeToggle({
 
       {/* Current mode indicator */}
       <div className="flex items-center justify-center pt-2">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-600">
           Current mode: <span className="font-medium text-gray-900">
             {currentMode === 'general' ? 'General Chatbot' : 'E-commerce Assistant'}
           </span>

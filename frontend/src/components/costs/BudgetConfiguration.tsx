@@ -176,7 +176,7 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
             </label>
             <div className="relative">
               <DollarSign
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                 size={16}
               />
               <input
@@ -237,7 +237,7 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
             {budgetInput === '' ? (
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-600 font-medium">Budget Usage</span>
-                <span className="font-medium text-gray-500">No Limit Set</span>
+                <span className="font-medium text-gray-600">No Limit Set</span>
               </div>
             ) : (
               <>
@@ -257,7 +257,7 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
                     style={{ width: `${budgetPercentage}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <div className="flex justify-between text-xs text-gray-600 mt-2">
                   <span>{formatCost(currentSpend, 2)} spent</span>
                   <span>of {formatCost(newBudgetValue, 2)} budget</span>
                 </div>

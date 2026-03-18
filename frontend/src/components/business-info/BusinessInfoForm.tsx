@@ -70,7 +70,7 @@ export const BusinessInfoForm = React.forwardRef<
     const remaining = 500 - descriptionLength;
     if (remaining < 50) return 'text-red-600';
     if (remaining < 100) return 'text-amber-600';
-    return 'text-gray-500';
+    return 'text-gray-600';
   };
 
   return (
@@ -106,7 +106,7 @@ export const BusinessInfoForm = React.forwardRef<
           htmlFor="business-name"
           className="flex items-center gap-2 text-sm font-medium text-gray-700"
         >
-          <Building2 size={16} className="text-gray-500" />
+          <Building2 size={16} className="text-gray-600" />
           Business Name
         </label>
         <input
@@ -120,10 +120,10 @@ export const BusinessInfoForm = React.forwardRef<
           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
           aria-describedby="business-name-description"
         />
-        <p id="business-name-description" className="text-xs text-gray-500">
+        <p id="business-name-description" className="text-xs text-gray-600">
           The name of your business as it should appear in bot responses.
         </p>
-        <p className="text-xs text-gray-400 text-right">
+        <p className="text-xs text-gray-600 text-right">
           {(businessName?.length || 0)} / 100
         </p>
       </div>
@@ -134,7 +134,7 @@ export const BusinessInfoForm = React.forwardRef<
           htmlFor="business-description"
           className="flex items-center gap-2 text-sm font-medium text-gray-700"
         >
-          <FileText size={16} className="text-gray-500" />
+          <FileText size={16} className="text-gray-600" />
           Business Description
         </label>
         <textarea
@@ -148,11 +148,11 @@ export const BusinessInfoForm = React.forwardRef<
           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
           aria-describedby="business-description-description business-description-count"
         />
-        <p id="business-description-description" className="text-xs text-gray-500">
+        <p id="business-description-description" className="text-xs text-gray-600">
           A brief description that helps the bot explain what your business sells.
         </p>
         <div className="flex justify-between items-center">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             This description is used when customers ask "What do you sell?"
           </p>
           <p

@@ -72,7 +72,7 @@ export function BusinessHoursConfig() {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-slate-500">Loading business hours...</p>
+          <p className="text-center text-slate-600">Loading business hours...</p>
         </CardContent>
       </Card>
     );
@@ -103,7 +103,7 @@ export function BusinessHoursConfig() {
 
         {showInitialize ? (
           <div className="text-center py-4">
-            <p className="text-slate-500 mb-4">No business hours configured yet.</p>
+            <p className="text-slate-600 mb-4">No business hours configured yet.</p>
             <button
               onClick={initializeDayHours}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -149,7 +149,7 @@ export function BusinessHoursConfig() {
                 rows={3}
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
               />
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-slate-600 mt-1">
                 {config?.outOfOfficeMessage?.length || 0}/500 characters
               </p>
             </div>

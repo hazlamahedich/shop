@@ -35,7 +35,7 @@ export const CarrierCard: React.FC<CarrierCardProps> = ({
         <div className="flex items-start space-x-3">
           <div
             className={`p-2 rounded-lg ${
-              carrier.is_active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'
+              carrier.is_active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
             }`}
           >
             <Truck size={20} />
@@ -47,21 +47,21 @@ export const CarrierCard: React.FC<CarrierCardProps> = ({
                 className={`text-xs px-2 py-0.5 rounded ${
                   carrier.is_active
                     ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
+: 'bg-gray-100 text-gray-600'
                 }`}
               >
                 {carrier.is_active ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <p className="text-sm text-gray-500 mt-1 truncate">
+            <p className="text-sm text-gray-600 mt-1 truncate">
               {carrier.tracking_url_template}
             </p>
             {carrier.tracking_number_pattern && (
-              <p className="text-xs text-gray-400 mt-1 font-mono truncate">
+              <p className="text-xs text-gray-500 mt-1 font-mono truncate">
                 Pattern: {carrier.tracking_number_pattern}
               </p>
             )}
-            <p className="text-xs text-gray-400 mt-1">Priority: {carrier.priority}</p>
+            <p className="text-xs text-gray-500 mt-1">Priority: {carrier.priority}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -71,7 +71,7 @@ export const CarrierCard: React.FC<CarrierCardProps> = ({
             className={`p-2 rounded-lg transition-colors ${
               carrier.is_active
                 ? 'text-green-600 hover:bg-green-50'
-                : 'text-gray-400 hover:bg-gray-100'
+                : 'text-gray-500 hover:bg-gray-100'
             } disabled:opacity-50`}
             title={carrier.is_active ? 'Deactivate' : 'Activate'}
           >
@@ -80,7 +80,7 @@ export const CarrierCard: React.FC<CarrierCardProps> = ({
           <button
             onClick={() => onEdit(carrier)}
             disabled={isLoading}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             title="Edit"
           >
             <Edit2 size={16} />
@@ -88,7 +88,7 @@ export const CarrierCard: React.FC<CarrierCardProps> = ({
           <button
             onClick={() => onDelete(carrier.id)}
             disabled={isLoading}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
             title="Delete"
           >
             <Trash2 size={16} />

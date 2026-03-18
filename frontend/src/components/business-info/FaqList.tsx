@@ -180,7 +180,7 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">FAQ Items</h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             Create frequently asked questions for automatic bot responses.
           </p>
         </div>
@@ -221,9 +221,9 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
       {faqs.length === 0 ? (
         // Empty state
         <div className="text-center py-12 px-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-          <MessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
+          <MessageSquare size={48} className="mx-auto text-gray-500 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No FAQ items yet</h3>
-          <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+          <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
             Create FAQ items to help your bot automatically answer common customer questions.
           </p>
           <button

@@ -34,7 +34,7 @@ export function DayHoursRow({ dayName, hours, onToggle, onTimeChange }: DayHours
           className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
           aria-label={`${dayName} is open`}
         />
-        <span className={`font-medium ${hours.isOpen ? 'text-slate-900' : 'text-slate-400'}`}>
+        <span className={`font-medium ${hours.isOpen ? 'text-slate-900' : 'text-slate-500'}`}>
           {dayName}
         </span>
       </label>
@@ -50,7 +50,7 @@ export function DayHoursRow({ dayName, hours, onToggle, onTimeChange }: DayHours
               className="px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               aria-label={`${dayName} opening time`}
             />
-            <span className="text-slate-400">to</span>
+            <span className="text-slate-500">to</span>
             <input
               type="time"
               value={formatTimeForDisplay(hours.closeTime)}
@@ -61,7 +61,7 @@ export function DayHoursRow({ dayName, hours, onToggle, onTimeChange }: DayHours
             />
           </>
         ) : (
-          <span className="text-slate-400 text-sm italic">Closed</span>
+          <span className="text-slate-500 text-sm italic">Closed</span>
         )}
       </div>
     </div>

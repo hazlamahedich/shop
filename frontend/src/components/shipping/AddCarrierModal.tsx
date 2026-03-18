@@ -123,7 +123,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
               </h3>
               <button
                 onClick={onClose}
-                className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
+                className="rounded-md text-gray-500 hover:text-gray-700 focus:outline-none"
               >
                 <X size={20} />
               </button>
@@ -156,9 +156,9 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
                   placeholder="https://track.lbcexpress.com/{tracking_number}"
                   disabled={isLoading}
                 />
-                 <p className="text-xs text-gray-500 mt-1">
-                   Use <code className="bg-gray-100 px-1 rounded">{'{tracking_number}'}</code> as placeholder
-                 </p>
+<p className="text-xs text-gray-600 mt-1">
+                    Use <code className="bg-gray-100 px-1 rounded">{'{tracking_number}'}</code> as placeholder
+                  </p>
                  <div className="mt-2 p-2 bg-green-50 rounded text-xs text-green-700">
                    <p className="font-medium mb-1">📍 Tracking URL Format:</p>
                    <ul className="space-y-1 ml-3 list-disc">
@@ -172,7 +172,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
               <div>
                 <Label htmlFor="tracking-pattern">
                   Tracking Number Pattern
-                  <span className="ml-1 text-gray-400">(Optional)</span>
+                  <span className="ml-1 text-gray-500">(Optional)</span>
                 </Label>
                 <Input
                   id="tracking-pattern"
@@ -181,7 +181,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
                   placeholder="e.g., ^\d{12}$ for 12-digit numbers"
                   disabled={isLoading}
                 />
-                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
                   <HelpCircle size={12} />
                   <span>Regex pattern for automatic carrier detection</span>
                 </p>
@@ -208,7 +208,7 @@ export const AddCarrierModal: React.FC<AddCarrierModalProps> = ({
                      onChange={(e) => setPriority(e.target.value)}
                      disabled={isLoading}
                    />
-                   <p className="text-xs text-gray-500 mt-1">Higher = checked first (1-100)</p>
+                   <p className="text-xs text-gray-600 mt-1">Higher = checked first (1-100)</p>
                  </div>
 
                 <div className="flex items-end">

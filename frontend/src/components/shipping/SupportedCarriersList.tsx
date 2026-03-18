@@ -49,7 +49,7 @@ export const SupportedCarriersList: React.FC<SupportedCarriersListProps> = ({
   if (isLoading) {
     return (
       <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <p className="text-gray-500 text-sm">Loading supported carriers...</p>
+        <p className="text-gray-600 text-sm">Loading supported carriers...</p>
       </div>
     );
   }
@@ -61,10 +61,10 @@ export const SupportedCarriersList: React.FC<SupportedCarriersListProps> = ({
         className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <Globe size={20} className="text-gray-400" />
+          <Globe size={20} className="text-gray-500" />
           <div className="text-left">
             <h4 className="font-medium text-gray-900">Supported Carriers</h4>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-600">
               {filteredCarriers.length} carriers across {carriersByRegion.length} regions
             </p>
           </div>
@@ -78,7 +78,7 @@ export const SupportedCarriersList: React.FC<SupportedCarriersListProps> = ({
             <div className="relative">
               <Search
                 size={16}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500"
               />
               <input
                 type="text"
@@ -92,7 +92,7 @@ export const SupportedCarriersList: React.FC<SupportedCarriersListProps> = ({
 
           <div className="max-h-96 overflow-y-auto">
             {carriersByRegion.length === 0 ? (
-              <p className="p-4 text-sm text-gray-500 text-center">No carriers found</p>
+              <p className="p-4 text-sm text-gray-600 text-center">No carriers found</p>
             ) : (
               carriersByRegion.map(([region, regionCarriers]) => (
                 <div key={region} className="border-b border-gray-100 last:border-b-0">

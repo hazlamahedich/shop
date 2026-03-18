@@ -88,7 +88,7 @@ export const FaqItemCard: React.FC<FaqItemCardProps> = ({
       <div className="flex items-start gap-3">
         {/* Drag Handle */}
         <div
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 -ml-1"
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-600 p-1 -ml-1"
           aria-label="Drag to reorder this FAQ item"
           draggable={true}
         >
@@ -138,7 +138,7 @@ export const FaqItemCard: React.FC<FaqItemCardProps> = ({
             type="button"
             onClick={handleEditClick}
             disabled={disabled}
-            className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={`Edit FAQ: ${displayQuestion}`}
           >
             <Edit2 size={16} strokeWidth={2} />
@@ -149,7 +149,7 @@ export const FaqItemCard: React.FC<FaqItemCardProps> = ({
             type="button"
             onClick={handleDeleteClick}
             disabled={disabled}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={`Delete FAQ: ${displayQuestion}`}
           >
             <Trash2 size={16} strokeWidth={2} />

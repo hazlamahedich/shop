@@ -14,7 +14,7 @@ interface SaveIndicatorProps {
 export function SaveIndicator({ saving, lastSaved }: SaveIndicatorProps) {
   if (saving) {
     return (
-      <div data-testid="save-indicator" className="flex items-center gap-2 text-sm text-slate-500">
+      <div data-testid="save-indicator" className="flex items-center gap-2 text-sm text-slate-600">
         <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
           <circle
             className="opacity-25"

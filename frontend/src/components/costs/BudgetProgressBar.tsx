@@ -163,7 +163,7 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
     return (
       <div className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm ${className}`}>
         <h3 className="font-bold text-gray-900 mb-2">Budget Progress</h3>
-        <p className="text-sm text-gray-500">Unable to load budget data</p>
+        <p className="text-sm text-gray-600">Unable to load budget data</p>
       </div>
     );
   }
@@ -199,8 +199,8 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
             </p>
             <div className="flex items-center justify-center mt-2 text-gray-600">
               <span className="text-sm">No budget limit</span>
-              <span className="mx-2 text-gray-300">|</span>
-              <span className="text-sm text-gray-500">Unlimited spending</span>
+              <span className="mx-2 text-gray-400">|</span>
+              <span className="text-sm text-gray-600">Unlimited spending</span>
             </div>
           </div>
         ) : (

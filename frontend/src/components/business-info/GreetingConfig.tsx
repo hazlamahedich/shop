@@ -74,7 +74,7 @@ const GreetingPreview: React.FC<{ message: string }> = ({ message }) => {
   return (
     <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
       <div className="flex items-center gap-2 mb-2">
-        <MessageSquare size={16} className="text-gray-500" />
+        <MessageSquare size={16} className="text-gray-600" />
         <span className="text-sm font-medium text-gray-700">Preview</span>
       </div>
       <p className="text-gray-800 italic">&quot;{message || 'Your greeting will appear here...'}&quot;</p>
@@ -262,7 +262,7 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
               Reset to Default
             </button>
           </div>
-          <p id="use-custom-greeting-desc" className="text-sm text-gray-500">
+          <p id="use-custom-greeting-desc" className="text-sm text-gray-600">
             Enable to use your custom greeting instead of the personality default.
           </p>
         </div>
@@ -280,16 +280,16 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
             rows={4}
             maxLength={500}
             placeholder={`Enter your custom greeting. Use variables like {bot_name}, {business_name}, or {business_hours}.`}
-            className="w-full px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+            className="w-full px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
             aria-describedby="greeting-help greeting-counter"
           />
           <div className="flex items-center justify-between mt-2">
-            <p id="greeting-help" className="text-xs text-gray-500">
+            <p id="greeting-help" className="text-xs text-gray-600">
               <Info size={12} className="inline mr-1" />
               Available variables:{' '}
               <VariableBadges variables={availableVariables} />
             </p>
-            <span id="greeting-counter" className="text-xs text-gray-500">
+            <span id="greeting-counter" className="text-xs text-gray-600">
               {customText.length}/500
             </span>
           </div>

@@ -50,7 +50,7 @@ const StatCard: React.FC<{
       {icon}
     </div>
     <div>
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-gray-600 uppercase tracking-wide">{label}</p>
       <p className={`text-lg font-semibold ${colorClass}`}>{value}</p>
     </div>
   </div>
@@ -59,7 +59,7 @@ const StatCard: React.FC<{
 // Request row component
 const RequestRow: React.FC<{ request: CostRecord; index: number }> = ({ request, index }) => (
   <tr className="hover:bg-gray-50 transition-colors">
-    <td className="px-4 py-3 text-sm text-gray-500">#{index + 1}</td>
+    <td className="px-4 py-3 text-sm text-gray-600">#{index + 1}</td>
     <td className="px-4 py-3 text-sm text-gray-900 font-medium">
       {formatTimestamp(request.requestTimestamp)}
     </td>
@@ -89,7 +89,7 @@ const RequestRow: React.FC<{ request: CostRecord; index: number }> = ({ request,
     <td className="px-4 py-3 text-sm text-gray-900 text-right font-semibold">
       {formatCost(request.totalCostUsd)}
     </td>
-    <td className="px-4 py-3 text-sm text-gray-500 text-right">
+    <td className="px-4 py-3 text-sm text-gray-600 text-right">
       {formatProcessingTime(request.processingTimeMs)}
     </td>
   </tr>
@@ -122,7 +122,7 @@ export const ConversationCostDetail: React.FC<ConversationCostDetailProps> = ({
       <div className="flex items-center justify-center p-12">
         <div className="flex flex-col items-center space-y-3">
           <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-          <p className="text-sm text-gray-500">Loading cost details...</p>
+          <p className="text-sm text-gray-600">Loading cost details...</p>
         </div>
       </div>
     );
@@ -135,7 +135,7 @@ export const ConversationCostDetail: React.FC<ConversationCostDetailProps> = ({
         <div className="flex flex-col items-center space-y-3 text-center">
           <AlertCircle className="w-8 h-8 text-red-500" />
           <p className="text-sm text-gray-900 font-medium">Failed to load cost details</p>
-          <p className="text-sm text-gray-500 max-w-md">{error}</p>
+          <p className="text-sm text-gray-600 max-w-md">{error}</p>
           <button
             onClick={() => fetchConversationCost(conversationId)}
             className="mt-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -152,8 +152,8 @@ export const ConversationCostDetail: React.FC<ConversationCostDetailProps> = ({
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">No cost data available for this conversation</p>
+          <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-sm text-gray-600">No cost data available for this conversation</p>
         </div>
       </div>
     );
@@ -179,13 +179,13 @@ export const ConversationCostDetail: React.FC<ConversationCostDetailProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             Conversation ID: <span className="font-mono">{conversationId}</span>
           </p>
         </div>
         {costData.provider && (
           <div className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg">
-            <Cpu size={16} className="text-gray-400" />
+            <Cpu size={16} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-700">{costData.provider}</span>
             <span className="text-xs text-gray-500">/</span>
             <span className="text-sm text-gray-600">{costData.model}</span>
@@ -230,13 +230,13 @@ export const ConversationCostDetail: React.FC<ConversationCostDetailProps> = ({
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-medium text-gray-600 uppercase tracking-wider">
                     #
                   </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Time
                   </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Provider / Model
                   </th>
                   <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
@@ -272,7 +272,7 @@ export const ConversationCostDetail: React.FC<ConversationCostDetailProps> = ({
         </div>
       ) : (
         <div className="text-center p-8 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-500">No individual request records available</p>
+          <p className="text-sm text-gray-600">No individual request records available</p>
         </div>
       )}
     </div>

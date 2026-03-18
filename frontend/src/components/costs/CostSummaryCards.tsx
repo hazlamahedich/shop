@@ -37,7 +37,7 @@ interface TrendIndicatorProps {
 const TrendIndicator: React.FC<TrendIndicatorProps> = ({ value, label }) => {
   if (value === 0) {
     return (
-      <span className="flex items-center text-xs text-gray-500">
+      <span className="flex items-center text-xs text-gray-600">
         <Minus size={14} className="mr-1" />
         No change from {label}
       </span>
@@ -173,9 +173,9 @@ export const CostSummaryCards: React.FC<{
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
         <div className="text-center">
-          <DollarSign size={32} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">No cost data available</p>
-          <p className="text-xs text-gray-400 mt-1">Data will appear once LLM requests are made</p>
+          <DollarSign size={32} className="text-gray-400 mx-auto mb-3" />
+          <p className="text-sm text-gray-600">No cost data available</p>
+          <p className="text-xs text-gray-500 mt-1">Data will appear once LLM requests are made</p>
         </div>
       </div>
     );
@@ -221,7 +221,7 @@ export const CostSummaryCards: React.FC<{
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Cost Overview</h3>
         {lastUpdate && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-600">
             Last updated: {new Date(lastUpdate).toLocaleTimeString()}
           </span>
         )}
@@ -259,7 +259,7 @@ export const CostSummaryCards: React.FC<{
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">{topProvider.requests} requests</p>
+              <p className="text-sm text-gray-600">{topProvider.requests} requests</p>
               <p className="text-sm font-medium text-gray-900">{formatCost(topProvider.costUsd, 4)}</p>
             </div>
           </div>

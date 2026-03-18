@@ -19,7 +19,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            "flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-slate-400",
+            "flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm placeholder:text-slate-500",
             "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-600 focus:border-indigo-600",
             error && "border-red-300 focus:ring-red-500 focus:border-red-500",
             className

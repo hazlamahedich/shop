@@ -20,27 +20,7 @@ import { useBotConfigStore } from '../../stores/botConfigStore';
 import { useOnboardingPhaseStore } from '../../stores/onboardingPhaseStore';
 import { useToast } from '../../context/ToastContext';
 
-type ProductPinItem = {
-  productId: string;
-  title: string;
-  imageUrl?: string;
-  isPinned: boolean;
-  pinnedOrder?: number;
-  pinnedAt?: string;
-  status?: string;
-};
 
-type PaginationMeta = {
-  page: number;
-  limit: number;
-  total: number;
-  hasMore: boolean;
-};
-
-type PinLimitInfo = {
-  pinLimit: number;
-  pinnedCount: number;
-};
 
 // Simple search input that maintains its own state and preserves focus
 function ProductSearchInput({
@@ -99,21 +79,21 @@ function ProductSearchInput({
   };
 
   return (
-    <div className="relative flex-1">
+    <div className="relative flex-1 group">
       <Search
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-        size={20}
+        className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[var(--mantis-glow)] transition-colors"
+        size={18}
       />
       <input
         ref={inputRef}
         type="text"
-        placeholder="Search products..."
+        placeholder="Search neural assets..."
         value={value}
         onChange={handleChange}
         onFocus={handleFocus}
         onBlur={handleBlur}
         disabled={disabled}
-        className="w-full pl-10 pr-10 py-2.5 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full pl-11 pr-11 py-3 bg-black/20 border border-white/10 rounded-xl focus:ring-2 focus:ring-[var(--mantis-glow)]/50 focus:border-[var(--mantis-glow)]/50 focus:bg-black/40 transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed text-white placeholder:text-white/20"
         aria-label="Search products"
       />
       {value && (
@@ -121,7 +101,7 @@ function ProductSearchInput({
           type="button"
           onClick={handleClear}
           disabled={disabled}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded disabled:opacity-50"
+          className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/30 hover:text-white transition-colors p-1"
           aria-label="Clear search"
         >
           <X size={16} />
@@ -162,7 +142,7 @@ export function ProductPinList() {
   // Load products on mount
   useEffect(() => {
     fetchProductPins();
-  }, []);
+  }, [fetchProductPins]);
 
   // Handle search - stable callback that doesn't change on re-renders
   const handleSearch = useCallback((query: string) => {
@@ -216,24 +196,34 @@ export function ProductPinList() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8" data-testid="product-pin-list">
+    <div className="max-w-7xl mx-auto py-8" data-testid="product-pin-list">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product Highlight Pins</h2>
-        <p className="text-gray-600 mb-2">
-          Prioritize important products to boost their recommendations.
-          Pinned products appear first with 2x relevance.
+      <div className="mb-10">
+        <h2 className="text-3xl font-bold text-white mb-4 flex items-center gap-3">
+          <span className="w-1.5 h-8 bg-[var(--mantis-glow)] rounded-full"></span>
+          Priority Anchors
+        </h2>
+        <p className="text-lg text-white/50 max-w-2xl leading-relaxed">
+          Anchor high-value assets to top-level recommendation queues for a 
+          <span className="text-[var(--mantis-glow)] font-bold decoration-[var(--mantis-glow)]/30 underline underline-offset-4 mx-1">200% relevance boost</span>.
         </p>
         {pinLimitInfo && (
-          <div className="inline-flex items-center gap-2 mt-3">
-            <span className="text-sm text-gray-600">
-              {pinLimitInfo.pinnedCount}/{pinLimitInfo.pinLimit} products pinned
+          <div className="inline-flex items-center gap-3 mt-6 px-4 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
+            <div className="flex gap-1.5">
+              {[...Array(pinLimitInfo.pinLimit)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`w-2.5 h-2.5 rounded-sm transition-all duration-500 ${
+                    i < pinLimitInfo.pinnedCount 
+                      ? 'bg-[var(--mantis-glow)] shadow-[0_0_8px_rgba(34,197,94,0.5)]' 
+                      : 'bg-white/10'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
+              {pinLimitInfo.pinnedCount} / {pinLimitInfo.pinLimit} Neural Slots Occupied
             </span>
-            {pinLimitInfo.pinnedCount >= pinLimitInfo.pinLimit && (
-              <span className="text-sm font-medium text-amber-600">
-                (Pin limit reached)
-              </span>
-            )}
           </div>
         )}
       </div>
@@ -242,17 +232,17 @@ export function ProductPinList() {
       {productsError && (
         <div
           role="alert"
-          className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+          className="mb-8 p-5 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-4 animate-shake backdrop-blur-md"
         >
-          <X size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+          <X size={24} className="text-red-400 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-red-800">Error</p>
-            <p className="text-sm text-red-700 mt-1">{productsError}</p>
+            <p className="text-base font-bold text-red-200 uppercase tracking-tight">Sync Error</p>
+            <p className="text-sm text-white/70 mt-1">{productsError}</p>
           </div>
           <button
             type="button"
             onClick={clearProductsError}
-            className="text-red-600 hover:text-red-800"
+            className="text-white/20 hover:text-white transition-colors p-1"
             aria-label="Dismiss error"
           >
             ×
@@ -261,7 +251,7 @@ export function ProductPinList() {
       )}
 
       {/* Controls Bar */}
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-10">
         {/* Search Input */}
         <ProductSearchInput
           onSearch={handleSearch}
@@ -269,21 +259,19 @@ export function ProductPinList() {
         />
 
         {/* Show Pinned Only Toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={handleTogglePinnedOnly}
             disabled={productsLoading}
-            className={`px-4 py-2 rounded-md border transition-colors duration-200 ${
+            className={`w-full sm:w-auto px-6 py-3 rounded-xl border transition-all duration-300 font-bold text-sm tracking-tight ${
               pinnedOnly
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                ? 'bg-[var(--mantis-glow)] text-white border-transparent shadow-[0_0_15px_rgba(34,197,94,0.3)]'
+                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'
+            } disabled:opacity-20 disabled:cursor-not-allowed`}
             aria-pressed={pinnedOnly}
           >
-            <span className="text-sm font-medium">
-              {pinnedOnly ? 'All Products' : 'Pinned Only'}
-            </span>
+            {pinnedOnly ? 'Show All Assets' : 'Filter: Anchored Only'}
           </button>
         </div>
       </div>
@@ -291,22 +279,22 @@ export function ProductPinList() {
       {/* Product List */}
       <div className="mt-6">
         {productsLoading ? (
-          <div className="flex justify-center items-center py-12" data-testid="loading-state">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-            <p className="ml-4 text-gray-600">Loading products...</p>
+          <div className="flex flex-col justify-center items-center py-20 bg-white/5 border border-dashed border-white/10 rounded-3xl" data-testid="loading-state">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--mantis-glow)] mb-4" />
+            <p className="text-white/40 font-bold uppercase tracking-widest text-xs">Synchronizing Neural Assets...</p>
           </div>
         ) : productPins.length === 0 ? (
-          <div className="text-center py-12" data-testid="empty-state">
-            <div className="text-gray-500 mb-4" aria-live="polite">
+          <div className="text-center py-20 bg-white/5 border border-dashed border-white/10 rounded-3xl" data-testid="empty-state">
+            <div className="text-white/30 text-lg font-medium" aria-live="polite">
               {currentSearchQuery
-                ? `No products found matching "${currentSearchQuery}"`
+                ? `No assets found matching "${currentSearchQuery}"`
                 : pinnedOnly
-                  ? 'No pinned products yet. Pin important products to boost their recommendations.'
-                  : 'No products found. Connect your Shopify store to add products.'}
+                  ? 'No neural anchors established. Establish priority anchors to boost relevance.'
+                  : 'Core repository empty. Synchronize with Shopify to populate assets.'}
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {productPins.map((product) => {
               // Debug: Log draft products
               if (product.title?.toLowerCase().includes('draft')) {
@@ -315,77 +303,76 @@ export function ProductPinList() {
               return (
               <div
                 key={product.productId}
-                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all duration-200 relative"
+                className="group relative bg-[#1A1A1A]/40 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden hover:border-[var(--mantis-glow)]/40 hover:shadow-[0_0_30px_rgba(34,197,94,0.1)] transition-all duration-500"
                 data-testid={`product-card-${product.productId}`}
               >
-                {/* Pin Toggle Button */}
-                <button
-                  type="button"
-                  onClick={() => handleTogglePin(product.productId, product.isPinned, product.status)}
-                  disabled={productsLoading || product.status === 'draft'}
-                  className={`absolute top-3 right-3 p-2 rounded-full transition-colors duration-200 ${
-                    product.status === 'draft'
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : product.isPinned
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  aria-label={
-                    product.status === 'draft'
-                      ? 'Cannot pin draft products'
-                      : `${product.isPinned ? 'Unpin' : 'Pin'} ${product.title || product.productId}`
-                  }
-                  aria-pressed={product.isPinned}
-                  title={product.status === 'draft' ? 'Draft products cannot be pinned. Publish the product in Shopify first.' : undefined}
-                >
-                  <Pin size={20} />
-                </button>
-
                 {/* Product Image */}
-                {product.imageUrl && (
-                  <img
-                    src={product.imageUrl}
-                    alt={product.title || product.productId}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                    loading="lazy"
-                  />
-                )}
+                <div className="relative h-48 w-full overflow-hidden bg-black/40">
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.title || product.productId}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/10">
+                      <Search size={48} />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                  
+                  {/* Pin Toggle Button - Overlay version */}
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePin(product.productId, product.isPinned, product.status)}
+                    disabled={productsLoading || product.status === 'draft'}
+                    className={`absolute top-4 right-4 p-3 rounded-xl backdrop-blur-md transition-all duration-300 shadow-2xl ${
+                      product.status === 'draft'
+                        ? 'bg-black/40 text-white/10 cursor-not-allowed'
+                        : product.isPinned
+                          ? 'bg-[var(--mantis-glow)] text-white scale-110 shadow-[0_0_15px_rgba(34,197,94,0.5)]'
+                          : 'bg-black/60 text-white/40 hover:bg-white/10 hover:text-white hover:scale-105 border border-white/5'
+                    } disabled:opacity-20`}
+                    aria-label={
+                      product.status === 'draft'
+                        ? 'Cannot anchor draft assets'
+                        : `${product.isPinned ? 'Remove Anchor' : 'Establish Anchor'} ${product.title || product.productId}`
+                    }
+                    aria-pressed={product.isPinned}
+                    title={product.status === 'draft' ? 'Draft assets cannot be anchored. Publish in Shopify first.' : undefined}
+                  >
+                    <Pin size={18} fill={product.isPinned ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
 
                 {/* Product Info */}
-                <div className="mt-3">
-                  {/* Title */}
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 min-h-[3.5rem]">
-                    {product.title || product.productId}
-                  </h3>
-
+                <div className="p-5">
                   {/* Status Badges */}
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {/* Draft Status Badge */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
                     {product.status === 'draft' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-300">
-                        Draft
+                      <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-wider rounded-md border border-amber-500/20">
+                        Inert
                       </span>
                     )}
-                    {/* Archived Status Badge */}
-                    {product.status === 'archived' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded-full border border-gray-300">
-                        Archived
-                      </span>
-                    )}
-                    {/* Pin Status Badge */}
                     {product.isPinned && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
-                        <Pin size={12} />
-                        Pinned
-                        {product.pinnedOrder && ` #${product.pinnedOrder}`}
+                      <span className="px-2 py-0.5 bg-[var(--mantis-glow)]/10 text-[var(--mantis-glow)] text-[10px] font-bold uppercase tracking-wider rounded-md border border-[var(--mantis-glow)]/20 flex items-center gap-1">
+                        <Pin size={10} fill="currentColor" />
+                        Priority Alpha
                       </span>
                     )}
                   </div>
 
-                  {/* Product ID (for reference) */}
-                  <p className="text-xs text-gray-500 mt-2">
-                    ID: {product.productId}
-                  </p>
+                  {/* Title */}
+                  <h3 className="text-sm font-bold text-white line-clamp-2 min-h-[2.5rem] group-hover:text-[var(--mantis-glow)] transition-colors">
+                    {product.title || product.productId}
+                  </h3>
+
+                  {/* Meta */}
+                  <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                    <span>Asset ID</span>
+                    <span className="font-mono text-[var(--mantis-glow)]/40">{product.productId.slice(0, 8)}...</span>
+                  </div>
                 </div>
               </div>
             );
@@ -393,63 +380,68 @@ export function ProductPinList() {
           </div>
         )}
 
-        {/* Pagination */}
-        {pagination && pagination.total > pagination.limit && (
-          <div className="flex justify-center items-center gap-4 mt-8">
+        {/* Pagination */}        {pagination && pagination.total > pagination.limit && (
+          <div className="flex justify-center items-center gap-6 mt-12 px-6 py-4 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm w-fit mx-auto">
             <button
               type="button"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1 || productsLoading}
-              className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100 disabled:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed flex items-center gap-2 transition-all group"
               aria-label="Previous page"
             >
-              <ChevronLeft size={16} />
-              Previous
+              <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-widest">Prev</span>
             </button>
 
-            <span className="text-sm text-gray-600">
-              Page {currentPage} of {totalPages}
+            <span className="text-xs font-mono font-bold text-white/40 uppercase tracking-widest">
+              Matrix Page {currentPage} <span className="text-white/10">/</span> {totalPages}
             </span>
 
             <button
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages || productsLoading}
-              className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100 disabled:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed flex items-center gap-2 transition-all group"
               aria-label="Next page"
             >
-              Next
-              <ChevronRight size={16} />
+              <span className="text-xs font-bold uppercase tracking-widest">Next</span>
+              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         )}
       </div>
 
       {/* Help Section */}
-      <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-        <h3 className="text-lg font-semibold text-blue-900 mb-3">About Product Highlight Pins</h3>
-        <div className="grid md:grid-cols-3 gap-6 text-sm text-blue-800">
-          <div>
-            <h4 className="font-medium mb-2">Pin Important Products</h4>
-            <p className="text-blue-700">
-              Pin up to 10 products that you want to feature prominently in bot recommendations.
-              Pinned products get a 2x relevance boost.
+      <div className="mt-12 p-8 bg-white/5 border border-white/10 rounded-3xl relative overflow-hidden group">
+        <div className="absolute top-0 left-0 p-20 bg-[var(--mantis-glow)]/5 blur-3xl rounded-full -translate-x-1/2 -translate-y-1/2" />
+        
+        <h3 className="relative text-xl font-bold text-white mb-6 flex items-center gap-3">
+          <Pin size={22} className="text-[var(--mantis-glow)]" />
+          Neural Link Protocol
+        </h3>
+        
+        <div className="relative grid md:grid-cols-3 gap-8 text-sm text-white/60">
+          <div className="p-5 bg-black/20 rounded-2xl border border-white/5">
+            <h4 className="font-bold text-white/80 mb-3 uppercase tracking-widest text-xs">Priority Weights</h4>
+            <p className="leading-relaxed">
+              Anchor up to 10 assets for primary injection into the recommendation engine. 
+              Anchored assets receive a critical priority bias during inference.
             </p>
           </div>
-          <div>
-            <h4 className="font-medium mb-2">Prioritize Order</h4>
-            <p className="text-blue-700">
-              Products pinned earlier in the list appear first when the bot recommends items.
-              Use the pin number to control priority.
+          <div className="p-5 bg-black/20 rounded-2xl border border-white/5">
+            <h4 className="font-bold text-white/80 mb-3 uppercase tracking-widest text-xs">Sequence Control</h4>
+            <p className="leading-relaxed">
+              Link sequence determines propagation order. Assets with lower link indices 
+              are prioritized during the initial retrieval phase.
             </p>
           </div>
-          <div>
-            <h4 className="font-medium mb-2">Product Status</h4>
-            <p className="text-blue-700">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded border border-amber-300 mr-1">Draft</span>
+          <div className="p-5 bg-black/20 rounded-2xl border border-white/5">
+            <h4 className="font-bold text-white/80 mb-3 uppercase tracking-widest text-xs">Asset Status</h4>
+            <p className="leading-relaxed">
+              <span className="text-amber-400 font-bold uppercase tracking-tighter mr-1">Inert</span>
               and
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs font-medium rounded border border-gray-300 mx-1">Archived</span>
-              products are shown but cannot be purchased. Publish them in Shopify to make them available.
+              <span className="text-white/40 font-bold uppercase tracking-tighter mx-1">Archived</span>
+              assets are visible in the configuration matrix but excluded from active inference cycles.
             </p>
           </div>
         </div>

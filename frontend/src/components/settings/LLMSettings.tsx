@@ -108,7 +108,7 @@ export function LLMSettings() {
     return (
     <Card>
       <CardContent className="p-6">
-        <p className="text-center text-slate-500">
+        <p className="text-center text-slate-600">
           No LLM provider configured. Please complete the onboarding process first.
         </p>
       </CardContent>
@@ -159,7 +159,7 @@ export function LLMSettings() {
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
                 >
                   {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -189,7 +189,7 @@ export function LLMSettings() {
                 {updating ? 'Updating...' : 'Update Key'}
               </Button>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               Your API key is encrypted and stored securely. Enter a new key above to update it.
             </p>
           </div>
@@ -204,14 +204,14 @@ export function LLMSettings() {
               size="sm"
               onClick={handleRefreshModels}
               disabled={loadingModels}
-              className="text-xs text-slate-500 hover:text-slate-700"
+              className="text-xs text-slate-600 hover:text-slate-800"
             >
               <RefreshCw className={`w-3 h-3 mr-1 ${loadingModels ? 'animate-spin' : ''}`} />
               {loadingModels ? 'Refreshing...' : 'Refresh Models'}
             </Button>
           </div>
           {modelsCached && (
-            <p className="text-xs text-slate-400 mb-2">Models cached (24h TTL)</p>
+            <p className="text-xs text-slate-500 mb-2">Models cached (24h TTL)</p>
           )}
           <Select
             label=""
@@ -229,7 +229,7 @@ export function LLMSettings() {
             ]}
           />
           {models.find(m => m.id === currentModel)?.description && (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               {models.find(m => m.id === currentModel)?.description}
             </p>
           )}
