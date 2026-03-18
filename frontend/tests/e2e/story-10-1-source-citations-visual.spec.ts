@@ -14,6 +14,7 @@ import {
   createMockSources,
   type SourceCitation,
 } from '../helpers/source-citation-helpers';
+import { openWidgetChat, sendMessage } from '../helpers/widget-test-helpers';
 
 test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
   const mockSources: SourceCitation[] = [
@@ -22,15 +23,10 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
     { documentId: 3, title: 'Text Note', documentType: 'text', relevanceScore: 0.72 },
   ];
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/widget-test');
-  });
-
   test('[P2] Source card should have correct visual hierarchy', async ({ page }) => {
     await setupSourceCitationMocks(page, { sources: mockSources });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });
@@ -38,13 +34,13 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
     const firstCard = sourceCitation.getByTestId('source-card').first();
     await expect(firstCard).toBeVisible();
 
-    const titleElement = firstCard.locator('[data-testid="source-title"]');
+    const titleElement = firstCard.getByTestId('source-title');
     if (await titleElement.isVisible()) {
       const fontSize = await titleElement.evaluate((el) => window.getComputedStyle(el).fontSize);
       expect(fontSize).toBeTruthy();
     }
 
-    const badge = firstCard.locator('[data-testid="score-badge"]');
+    const badge = firstCard.getByTestId('score-badge');
     if (await badge.isVisible()) {
       const bgColor = await badge.evaluate((el) => window.getComputedStyle(el).backgroundColor);
       expect(bgColor).toBeTruthy();
@@ -62,12 +58,10 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
       await setupSourceCitationMocks(page, {
         sources: [{ documentId: 1, title: 'Test Document', documentType: 'pdf', relevanceScore: score }],
       });
+      await openWidgetChat(page);
+      await sendMessage(page, 'Test');
 
-      await page.goto('/widget-test');
-      await page.getByTestId('chat-input').fill('Test');
-      await page.getByTestId('send-button').click();
-
-      const badge = page.getByTestId('source-card').first().locator('[data-testid="score-badge"]');
+      const badge = page.getByTestId('source-card').first().getByTestId('score-badge');
       if (await badge.isVisible({ timeout: 3000 })) {
         const className = (await badge.getAttribute('class')) || '';
         expect(className.length).toBeGreaterThan(0);
@@ -77,9 +71,8 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
 
   test('[P2] Document type icons should be visually distinct', async ({ page }) => {
     await setupSourceCitationMocks(page, { sources: mockSources });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });
@@ -98,9 +91,8 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
 
   test('[P2] Source cards should have hover state', async ({ page }) => {
     await setupSourceCitationMocks(page, { sources: [mockSources[1]] });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCard = page.getByTestId('source-card').first();
     await expect(sourceCard).toBeVisible({ timeout: 5000 });
@@ -118,14 +110,13 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
     };
 
     await setupSourceCitationMocks(page, { sources: [longTitleSource] });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCard = page.getByTestId('source-card').first();
     await expect(sourceCard).toBeVisible({ timeout: 5000 });
 
-    const titleElement = sourceCard.locator('[data-testid="source-title"]');
+    const titleElement = sourceCard.getByTestId('source-title');
     if (await titleElement.isVisible()) {
       const textOverflow = await titleElement.evaluate((el) => window.getComputedStyle(el).textOverflow);
       expect(textOverflow).toBeDefined();
@@ -136,9 +127,8 @@ test.describe('[P2] Story 10-1: Source Citations Visual Tests', () => {
     await setupSourceCitationMocks(page, {
       sources: createMockSources(10),
     });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });

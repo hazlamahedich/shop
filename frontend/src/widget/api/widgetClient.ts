@@ -219,6 +219,14 @@ export class WidgetApiClient {
       confidence: parsed.data.confidence ?? undefined,
       quick_replies: parsed.data.quick_replies ?? undefined,
       consent_prompt_required: (rawData.consentPromptRequired ?? rawData.consent_prompt_required) as boolean | undefined,
+      sources: (rawData.sources as Array<{
+        documentId: number;
+        title: string;
+        documentType: string;
+        relevanceScore: number;
+        url?: string;
+        chunkIndex?: number;
+      }>) ?? undefined,
     };
   }
 

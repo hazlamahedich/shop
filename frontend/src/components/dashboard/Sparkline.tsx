@@ -21,23 +21,28 @@ export function Sparkline({
 
   const max = Math.max(...data);
   const min = Math.min(...data);
-  const range = max - min;
-  const points = data.map((value, index) => {
-    const x = (index / (data.length - 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x},${y}`;    <svg
-      key={index}
+  const range = max - min || 1;
+  const points = data
+    .map((value, index) => {
+      const x = (index / (data.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <svg
       className={className}
       style={{ width, height }}
+      viewBox={`0 0 ${width} ${height}`}
     >
       <polyline
-        fill={color}
+        fill="none"
+        stroke={color}
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         points={points}
-        filter(Boolean => points) // Remove NaN
-        .join(' ')}
       />
     </svg>
   );

@@ -53,6 +53,7 @@ from app.services.conversation.schemas import (
     Channel,
     ConversationContext,
     ConversationResponse,
+    SourceCitation,
 )
 from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
 from app.services.intent.classification_schema import (
@@ -66,6 +67,7 @@ from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.privacy.data_tier_service import DataTier
 from app.services.rag.context_builder import RAGContextBuilder
+from app.services.rag.retrieval_service import RetrievedChunk
 
 logger = structlog.get_logger(__name__)
 
@@ -190,13 +192,17 @@ class UnifiedConversationService:
             # Story 8-5: Build RAG context for General mode merchants
             rag_context = None
             rag_sources: list[str] = []
+            rag_chunks: list[RetrievedChunk] = []
             if merchant.onboarding_mode == "general" and self.rag_context_builder:
                 # Story 8-11 AC6: Construct embedding version for dimension consistency
                 embedding_version = None
                 if merchant.embedding_provider and merchant.embedding_model:
                     embedding_version = f"{merchant.embedding_provider}-{merchant.embedding_model}"
 
-                rag_context = await self.rag_context_builder.build_rag_context(
+                (
+                    rag_context,
+                    rag_chunks,
+                ) = await self.rag_context_builder.build_rag_context_with_chunks(
                     merchant_id=merchant.id,
                     user_query=message,
                     embedding_version=embedding_version,
@@ -407,10 +413,32 @@ class UnifiedConversationService:
                 )
 
             # Story 8-5: Include RAG enabled flag in response metadata
+            # Story 10-1: Include source citations for RAG responses
             if rag_context:
                 response.metadata["rag_enabled"] = True
                 if rag_sources:
                     response.metadata["rag_sources"] = rag_sources
+
+            # Story 10-1: Map RetrievedChunk to SourceCitation
+            if rag_chunks:
+                from app.models.knowledge_base import KnowledgeDocument
+
+                source_citations = []
+                for chunk in rag_chunks:
+                    doc = await db.get(KnowledgeDocument, chunk.document_id)
+                    if doc:
+                        source_citations.append(
+                            SourceCitation(
+                                document_id=chunk.document_id,
+                                title=chunk.document_name,
+                                document_type=doc.file_type,  # type: ignore - already validated as pdf/url/text
+                                relevance_score=chunk.similarity,
+                                url=doc.source_url,
+                                chunk_index=chunk.chunk_index,
+                            )
+                        )
+                if source_citations:
+                    response.sources = source_citations
 
             if response.products:
                 response.products = self._deduplicate_products(response.products)

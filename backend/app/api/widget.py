@@ -560,6 +560,8 @@ async def send_widget_message(
             cart=response.get("cart"),
             checkout_url=response.get("checkout_url"),
             consent_prompt_required=response.get("consent_prompt_required"),
+            quick_replies=response.get("quick_replies"),
+            sources=response.get("sources"),
         ),
         meta=create_meta(),
     )

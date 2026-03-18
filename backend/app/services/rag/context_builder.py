@@ -130,6 +130,85 @@ class RAGContextBuilder:
             )
             return None
 
+    async def build_rag_context_with_chunks(
+        self,
+        merchant_id: int,
+        user_query: str,
+        top_k: int = 5,
+        similarity_threshold: float = 0.7,
+        embedding_version: str | None = None,
+    ) -> tuple[str | None, list[RetrievedChunk]]:
+        """Retrieve relevant chunks and return both context string and raw chunks.
+
+        Story 10-1: Source Citations Widget
+        Returns raw chunks for source citation extraction.
+
+        Args:
+            merchant_id: Merchant ID for multi-tenant isolation
+            user_query: User's question or search query
+            top_k: Number of chunks to retrieve (default 5)
+            similarity_threshold: Minimum similarity score (default 0.7)
+            embedding_version: Filter by embedding version
+
+        Returns:
+            Tuple of (formatted context string or None, list of RetrievedChunk)
+        """
+        try:
+            chunks = await asyncio.wait_for(
+                self.retrieval_service.retrieve_relevant_chunks(
+                    merchant_id=merchant_id,
+                    query=user_query,
+                    top_k=top_k,
+                    threshold=similarity_threshold,
+                    embedding_version=embedding_version,
+                ),
+                timeout=self.RETRIEVAL_TIMEOUT_MS / 1000.0,
+            )
+
+            if not chunks:
+                logger.info(
+                    "rag_no_chunks_found_with_chunks",
+                    merchant_id=merchant_id,
+                    query_length=len(user_query),
+                )
+                return None, []
+
+            context = self._format_chunks_as_context(chunks)
+
+            if self._estimate_tokens(context) > self.MAX_CONTEXT_TOKENS:
+                context = self._truncate_context(context, self.MAX_CONTEXT_TOKENS)
+                logger.info(
+                    "rag_context_truncated_with_chunks",
+                    merchant_id=merchant_id,
+                    max_tokens=self.MAX_CONTEXT_TOKENS,
+                )
+
+            avg_similarity = sum(c.similarity for c in chunks) / len(chunks)
+            logger.info(
+                "rag_context_built_with_chunks",
+                merchant_id=merchant_id,
+                chunk_count=len(chunks),
+                avg_similarity=round(avg_similarity, 3),
+                context_tokens=self._estimate_tokens(context),
+            )
+
+            return context, chunks
+
+        except TimeoutError:
+            logger.warning(
+                "rag_retrieval_timeout_with_chunks",
+                merchant_id=merchant_id,
+                timeout_ms=self.RETRIEVAL_TIMEOUT_MS,
+            )
+            return None, []
+        except Exception as e:
+            logger.error(
+                "rag_retrieval_error_with_chunks",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            return None, []
+
     def _format_chunks_as_context(self, chunks: list[RetrievedChunk]) -> str:
         """Format retrieved chunks as context string with citations.
 

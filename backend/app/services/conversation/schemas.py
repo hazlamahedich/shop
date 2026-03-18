@@ -9,9 +9,36 @@ Defines the data structures for cross-channel message processing.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+
+SourceDocumentType = Literal["pdf", "url", "text"]
+
+
+class SourceCitation(BaseModel):
+    """Source citation for RAG-based responses.
+
+    Story 10-1: Source Citations Widget
+
+    Attributes:
+        document_id: ID of the source document
+        title: Document title for display
+        document_type: Type of document (pdf, url, text)
+        relevance_score: Similarity score from RAG retrieval (0.0 to 1.0)
+        url: Optional URL for web documents
+        chunk_index: Optional chunk index that was used
+    """
+
+    document_id: int = Field(description="Document ID")
+    title: str = Field(description="Document title")
+    document_type: SourceDocumentType = Field(description="Document type: pdf, url, text")
+    relevance_score: float = Field(
+        ge=0.0, le=1.0, description="Similarity score from RAG retrieval"
+    )
+    url: str | None = Field(default=None, description="URL for web documents")
+    chunk_index: int | None = Field(default=None, description="Chunk index that was used")
 
 
 class Channel(str, Enum):
@@ -236,6 +263,7 @@ class ConversationResponse(BaseModel):
     """Response from UnifiedConversationService.process_message().
 
     Story 9-4: Added quick_replies for quick reply buttons.
+    Story 10-1: Added sources for RAG-based response citations.
     """
 
     message: str = Field(description="Response message text")
@@ -253,6 +281,10 @@ class ConversationResponse(BaseModel):
     quick_replies: list[dict[str, Any]] | None = Field(
         None,
         description="Quick reply buttons for user response (Story 9-4)",
+    )
+    sources: list[dict[str, Any]] | None = Field(
+        None,
+        description="RAG source citations for knowledge-based responses (Story 10-1)",
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,

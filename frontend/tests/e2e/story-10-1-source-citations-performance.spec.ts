@@ -6,27 +6,23 @@
  * @tags e2e story-10-1 performance sources
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   setupSourceCitationMocks,
   createMockSources,
 } from '../helpers/source-citation-helpers';
+import { openWidgetChat, sendMessage } from '../helpers/widget-test-helpers';
 
 test.describe('[P1] Story 10-1: Source Citations Performance', () => {
   test.slow();
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/widget-test');
-  });
-
-  test('[P1] Source cards should render within 100ms', async ({ page }) => {
+  test('[P1] Source cards should render within 2 seconds', async ({ page }) => {
     const mockSources = createMockSources(4);
     await setupSourceCitationMocks(page, { sources: mockSources });
+    await openWidgetChat(page);
 
-    await page.getByTestId('chat-input').fill('Test query');
-    
     const startTime = Date.now();
-    await page.getByTestId('send-button').click();
+    await sendMessage(page, 'Test query');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });
@@ -35,12 +31,11 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
     expect(renderTime).toBeLessThan(2000);
   });
 
-  test('[P1] Expand/collapse animation should complete within 300ms', async ({ page }) => {
+  test('[P1] Expand/collapse animation should complete within 500ms', async ({ page }) => {
     const mockSources = createMockSources(10);
     await setupSourceCitationMocks(page, { sources: mockSources });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });
@@ -58,7 +53,7 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
     expect(expandTime).toBeLessThan(500);
   });
 
-  test('[P2] Source card click should respond within 50ms', async ({ page }) => {
+  test('[P2] Source card click should respond within 100ms', async ({ page }) => {
     await setupSourceCitationMocks(page, {
       sources: [{
         documentId: 1,
@@ -68,9 +63,8 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
         url: 'https://example.com/target',
       }],
     });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCard = page.getByTestId('source-card').first();
     await expect(sourceCard).toBeVisible({ timeout: 5000 });
@@ -84,6 +78,7 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
   test('[P2] Memory usage should not grow with repeated source renders', async ({ page }) => {
     const mockSources = createMockSources(5);
     await setupSourceCitationMocks(page, { sources: mockSources });
+    await openWidgetChat(page);
 
     const initialMetrics = await page.evaluate(() => {
       if (performance.memory) {
@@ -96,8 +91,7 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
 
     for (let i = 0; i < 5; i++) {
       const responsePromise = page.waitForResponse('**/api/v1/widget/message');
-      await page.getByTestId('chat-input').fill(`Query ${i}`);
-      await page.getByTestId('send-button').click();
+      await sendMessage(page, `Query ${i}`);
       await responsePromise;
     }
 
@@ -120,10 +114,10 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
   test('[P2] Score badge rendering should be efficient', async ({ page }) => {
     const manySources = createMockSources(20);
     await setupSourceCitationMocks(page, { sources: manySources });
+    await openWidgetChat(page);
 
     const startTime = Date.now();
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await sendMessage(page, 'Test');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });
@@ -140,9 +134,8 @@ test.describe('[P1] Story 10-1: Source Citations Performance', () => {
   test('[P2] Source list scroll performance', async ({ page }) => {
     const scrollableSources = createMockSources(15);
     await setupSourceCitationMocks(page, { sources: scrollableSources });
-
-    await page.getByTestId('chat-input').fill('Test');
-    await page.getByTestId('send-button').click();
+    await openWidgetChat(page);
+    await sendMessage(page, 'Test');
 
     const sourceCitation = page.getByTestId('source-citation');
     await expect(sourceCitation).toBeVisible({ timeout: 5000 });

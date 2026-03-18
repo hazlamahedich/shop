@@ -152,7 +152,60 @@ export async function mockSourceResponse(route: Route, options: MockSourceRespon
   });
 }
 
+const defaultConfig = {
+  enabled: true,
+  botName: 'Test Bot',
+  welcomeMessage: 'Hello! How can I help you?',
+  theme: {
+    primaryColor: '#6366f1',
+    backgroundColor: '#ffffff',
+    textColor: '#1f2937',
+    botBubbleColor: '#f3f4f6',
+    userBubbleColor: '#6366f1',
+    position: 'bottom-right',
+    borderRadius: 16,
+    width: 380,
+    height: 600,
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 14,
+  },
+  allowedDomains: [],
+};
+
+const defaultSession = {
+  sessionId: 'test-session-123',
+  merchantId: 4,
+  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  createdAt: new Date().toISOString(),
+  lastActivityAt: new Date().toISOString(),
+};
+
 export async function setupSourceCitationMocks(page: Page, options: MockSourceResponseOptions = {}) {
+  // Mock config endpoint
+  await page.route('**/api/v1/widget/config/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: defaultConfig,
+        meta: { requestId: 'config-123', timestamp: new Date().toISOString() },
+      }),
+    });
+  });
+
+  // Mock session endpoint
+  await page.route('**/api/v1/widget/session**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: defaultSession,
+        meta: { requestId: 'session-123', timestamp: new Date().toISOString() },
+      }),
+    });
+  });
+
+  // Mock message endpoint
   await page.route('**/api/v1/widget/message', async (route) => {
     await mockSourceResponse(route, options);
   });

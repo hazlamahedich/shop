@@ -4,6 +4,7 @@ import { ProductList } from './ProductCard';
 import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
 import { MessageAvatar } from './MessageAvatar';
+import { SourceCitation } from './SourceCitation';
 import { groupMessages, getGroupPosition } from '../utils/messageGrouping';
 import { formatRelativeTime, formatAbsoluteTime } from '../utils/timeFormatting';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -118,6 +119,7 @@ export function MessageList({
 
   return (
     <div
+      data-testid="message-list"
       className="message-list"
       role="log"
       aria-live="polite"
@@ -448,6 +450,12 @@ function MessageBubbleInGroup({
           >
             Complete Checkout →
           </a>
+        </div>
+      )}
+
+      {showRichContent && !isUser && message.sources && message.sources.length > 0 && (
+        <div className="message-bubble__sources">
+          <SourceCitation sources={message.sources} theme={theme} />
         </div>
       )}
     </div>

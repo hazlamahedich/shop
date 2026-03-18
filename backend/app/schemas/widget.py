@@ -34,8 +34,40 @@ class QuickReply(BaseSchema):
     id: str = Field(description="Unique identifier")
     text: str = Field(max_length=50, description="Button display text")
     icon: str | None = Field(default=None, max_length=10, description="Optional icon/emoji")
-    payload: str | None = Field(
-        default=None, max_length=100, description="Optional payload string"
+    payload: str | None = Field(default=None, max_length=100, description="Optional payload string")
+
+
+SourceDocumentType = Literal["pdf", "url", "text"]
+
+
+class SourceCitation(BaseSchema):
+    """Source citation for RAG-based responses.
+
+    Story 10-1: Source Citations Widget
+
+    Attributes:
+        document_id: ID of the source document
+        title: Document title for display
+        document_type: Type of document (pdf, url, text)
+        relevance_score: Similarity score from RAG retrieval (0.0 to 1.0)
+        url: Optional URL for web documents
+        chunk_index: Optional chunk index that was used
+    """
+
+    document_id: int = Field(alias="documentId", description="Document ID")
+    title: str = Field(description="Document title")
+    document_type: SourceDocumentType = Field(
+        alias="documentType", description="Document type: pdf, url, text"
+    )
+    relevance_score: float = Field(
+        alias="relevanceScore",
+        ge=0.0,
+        le=1.0,
+        description="Similarity score from RAG retrieval",
+    )
+    url: str | None = Field(default=None, description="URL for web documents")
+    chunk_index: int | None = Field(
+        default=None, alias="chunkIndex", description="Chunk index that was used"
     )
 
 
@@ -286,6 +318,7 @@ class WidgetMessageResponse(BaseSchema):
 
     Story 6-1: Added consent_prompt_required for opt-in consent flow.
     Story 9-4: Added quick_replies for quick reply buttons.
+    Story 10-1: Added sources for RAG-based response citations.
 
     Attributes:
         message_id: Unique message identifier
@@ -294,20 +327,24 @@ class WidgetMessageResponse(BaseSchema):
         created_at: Message timestamp
         consent_prompt_required: Whether to show consent prompt (Story 6-1)
         quick_replies: Optional quick reply buttons (Story 9-4)
+        sources: Optional RAG source citations (Story 10-1)
     """
 
-    message_id: str
+    message_id: str = Field(alias="messageId")
     content: str
     sender: str = "bot"
-    created_at: datetime
+    created_at: datetime = Field(alias="createdAt")
     products: list[dict[str, Any]] | None = None
     cart: dict[str, Any] | None = None
-    checkout_url: str | None = None
+    checkout_url: str | None = Field(default=None, alias="checkoutUrl")
     consent_prompt_required: bool | None = Field(
         default=None, description="Whether to show consent prompt (Story 6-1)"
     )
     quick_replies: list[QuickReply] | None = Field(
         default=None, description="Quick reply buttons for user response (Story 9-4)"
+    )
+    sources: list[SourceCitation] | None = Field(
+        default=None, description="RAG source citations (Story 10-1)"
     )
 
 

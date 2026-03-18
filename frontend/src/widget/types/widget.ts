@@ -78,6 +78,17 @@ export const DEFAULT_QUICK_REPLIES: QuickReply[] = [
   { id: '3', text: 'Tell me more' },
 ];
 
+export type SourceDocumentType = 'pdf' | 'url' | 'text';
+
+export interface SourceCitation {
+  documentId: number;
+  title: string;
+  documentType: SourceDocumentType;
+  relevanceScore: number;
+  url?: string;
+  chunkIndex?: number;
+}
+
 export interface WidgetMessage {
   messageId: string;
   content: string;
@@ -89,6 +100,7 @@ export interface WidgetMessage {
   intent?: string;
   confidence?: number;
   quick_replies?: QuickReply[];
+  sources?: SourceCitation[];
 }
 
 export interface MessageGroup {

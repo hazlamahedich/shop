@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { SourceCitation } from '../components/SourceCitation';
+import type { SourceCitation as SourceCitationType } from '../types/widget';
 
 // Demo page to showcase new widget UI/UX features
 export function WidgetDemo() {
@@ -15,6 +17,7 @@ export function WidgetDemo() {
     { id: 'grouping', name: 'Message Grouping', icon: '💬' },
     { id: 'animations', name: 'Microinteractions', icon: '✨' },
     { id: 'positioning', name: 'Smart Positioning', icon: '🎯' },
+    { id: 'sources', name: 'Source Citations', icon: '📚' },
   ];
   
   return (
@@ -181,6 +184,10 @@ function FeatureDescription({ feature }: { feature: string }) {
       title: '🎯 Smart Positioning',
       description: 'Automatically detects and avoids important page elements. Responsive positioning for different screen sizes.',
     },
+    sources: {
+      title: '📚 Source Citations',
+      description: 'Displays RAG document sources with relevance scores. Click to open documents. Supports PDF, URL, and text sources. Collapsible for 3+ sources.',
+    },
   };
   
   const info = descriptions[feature] || { title: '', description: '' };
@@ -212,8 +219,10 @@ function FeatureDemo({ feature, theme }: { feature: string; theme: 'light' | 'da
       return <AnimationsDemo theme={theme} />;
     case 'positioning':
       return <PositioningDemo theme={theme} />;
+    case 'sources':
+      return <SourcesDemo theme={theme} />;
     default:
-      return null;
+      return <GlassmorphismDemo theme={theme} />;
   }
 }
 
@@ -426,7 +435,7 @@ function GlassmorphismDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
 
 // 2. Product Carousel Demo
 function CarouselDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
-  const [currentIndex, _setCurrentIndex] = React.useState(0);
+  const [currentIndex, setCurrentIndex] = React.useState(0);
   const [cart, setCart] = React.useState<string[]>([]);
   const [adding, setAdding] = React.useState<string | null>(null);
   
@@ -446,64 +455,26 @@ function CarouselDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
   
   return (
     <>
-        {/* Chat Bubble with badge */}
-        <button
-          data-testid="chat-bubble"
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            backgroundColor: '#6366f1',
-            border: 'none',
-            cursor: 'pointer'
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            zIndex: 2147483647
-            fontSize: '24px',
-            color: 'white'
-          }}
-        >
-          💬
-          {cart.length > 0 && (
-            <span
-              style={{
-                position: 'absolute',
-                top: '-5px',
-                right: '-5px',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                borderRadius: '50%',
-                width: '20px',
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-                fontSize: '12px'
-              }}
-            </span>
-          )}
-        
-      {/* Chat Window with Carousel */}
-      <div
-        data-testid="chat-window"
+      {/* Chat Bubble with badge */}
+      <button
+        data-testid="chat-bubble"
         style={{
           position: 'fixed',
-          bottom: '90px',
+          bottom: '20px',
           right: '20px',
-          width: '380px',
-          height: '600px'
-          borderRadius: '12px';
-          backgroundColor: 'white',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
-          overflow: 'hidden',
-          zIndex: 2147483646,
+          width: '60px',
+          height: '60px',
+          borderRadius: '50%',
+          backgroundColor: '#6366f1',
+          border: 'none',
+          cursor: 'pointer',
           display: 'flex',
-          flexDirection: 'column'
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 2147483647,
+          fontSize: '24px',
+          color: 'white',
         }}
       >
         💬
@@ -581,34 +552,99 @@ function CarouselDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
             Check out these running shoes! 👇
           </div>
           
-            {/* Product Carousel */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                overflowX: 'auto',
-                padding: '8px 0',
-                scrollBehavior: 'smooth',
-              }}
-            >
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  style={{
-                    flex: '0 0 160px',
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    transition: 'transform 0.2s ease, box-shadow: 0 8px 24px rgba(0, 0, 0.15),},
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                );
-              })}
+          {/* Product Carousel */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '12px',
+              overflowX: 'auto',
+              padding: '8px 0',
+              scrollBehavior: 'smooth',
+            }}
+          >
+            {products.map((product) => (
+              <div
+                key={product.id}
+                style={{
+                  flex: '0 0 160px',
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid #e5e7eb',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                }}
+              >
+                <div style={{ height: '120px', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px' }}>
+                  {product.image}
+                </div>
+                <div style={{ padding: '12px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>{product.name}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#10b981', marginBottom: '8px' }}>${product.price}</div>
+                  <button
+                    onClick={() => handleAddToCart(product.id)}
+                    disabled={adding === product.id}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: adding === product.id ? '#9ca3af' : '#6366f1',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: adding === product.id ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {adding === product.id ? 'Adding...' : 'Add to Cart'}
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
+        </div>
+        
+        {/* Input */}
+        <div
+          style={{
+            padding: '16px',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '8px',
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Type a message..."
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+              fontSize: '14px',
+            }}
+          />
+          <button
+            style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#6366f1',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Send
+          </button>
         </div>
       </div>
     </>
@@ -763,14 +799,12 @@ function QuickReplyDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' })
                   cursor: 'pointer',
                   transition: 'transform 0.15s ease',
                   opacity: selectedOption && selectedOption !== reply.id ? 0.5 : 1,
-                >
-                  {reply.text}
+                }}
+              >
+                {reply.text}
                 </button>
               ))}
-            </div>
           </div>
-        </div>
-      </div>
         </div>
       </div>
     </>
@@ -1057,7 +1091,7 @@ function ProactiveDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) 
   
   const triggerMessages: Record<string, { title: string; message: string; cta: string }> = {
     exit: {
-      title: '👋 Wait! Don\'t leave yet!',
+      title: "👋 Wait! Don't leave yet!",
       message: 'Get 10% off your first order!',
       cta: 'Claim Discount',
     },
@@ -1079,6 +1113,7 @@ function ProactiveDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) 
     <>
       {/* Chat Bubble */}
       <button
+        data-testid="chat-bubble"
         style={{
           position: 'fixed',
           bottom: '20px',
@@ -1101,57 +1136,87 @@ function ProactiveDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) 
         💬
       </button>
       
-        {/* Manual trigger buttons for demo */}
+      {/* Manual trigger buttons for demo */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          zIndex: 2147483640,
+        }}
+      >
+        <button
+          onClick={() => {
+            setTriggerType('exit');
+            setShowPopup(true);
+          }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '8px',
+            backgroundColor: '#6366f1',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Trigger Exit Intent
+        </button>
+        <button
+          onClick={() => {
+            setTriggerType('time');
+            setShowPopup(true);
+          }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '8px',
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Trigger Time Popup
+        </button>
+        <button
+          onClick={() => {
+            setTriggerType('scroll');
+            setShowPopup(true);
+          }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '8px',
+            backgroundColor: '#a855f7',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Trigger Scroll Popup
+        </button>
+      </div>
+      
+      {/* Popup */}
+      {showPopup && (
         <div
           style={{
             position: 'fixed',
-            top: '20px',
+            bottom: '90px',
             right: '20px',
-            display: 'flex',
-            flexDirection: 'column'
-            gap: '8px',
-            zIndex: 2147483640,
-          }
+            width: '320px',
+            padding: '20px',
+            borderRadius: '16px',
+            backgroundColor: 'white',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+            zIndex: 2147483646,
+            animation: 'slideUp 0.3s ease',
+          }}
         >
-          <button
-            onClick={() => {
-              setTriggerType('exit');
-              setShowPopup(true);
-            }
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#6366f1',
-              color: 'white'
-            }
-          >
-            <button
-            onClick={() => {
-              setTriggerType('time');
-              setShowPopup(true);
-            }}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#8b5cf6'
-              color: 'white'
-            }
-          >
-            <button
-            onClick={() => {
-              setTriggerType('scroll');
-              setShowPopup(true);
-            }
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#a855f7'
-              color: 'white'
-            }
-          >
-            Trigger Scroll Popup
-          </button>
-        </div>
+          <h3 style={{ marginBottom: '8px', fontSize: '16px' }}>{currentMessage.title}</h3>
+          <p style={{ marginBottom: '16px', fontSize: '14px', color: '#6b7280' }}>{currentMessage.message}</p>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={() => setShowPopup(false)}
               style={{
@@ -1162,91 +1227,31 @@ function ProactiveDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) 
                 color: '#6366f1',
                 fontSize: '14px',
                 fontWeight: 600,
-                cursor: 'pointer'
-              >
-                No thanks
-              </button>
-              <button
-                onClick={() => {
-                  setTriggerType('time');
-                  setShowPopup(true);
-                }}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  backgroundColor: '#8b5cf6',
-                  color: 'white',
-                  fontSize: '12px'
-                }
-              </div>
-            </div>
-          </div>
-        </div>
+                cursor: 'pointer',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              No thanks
+            </button>
+            <button
+              onClick={() => setShowPopup(false)}
+              style={{
+                flex: 1,
+                padding: '12px 20px',
+                borderRadius: '8px',
+                backgroundColor: '#6366f1',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+              }}
+            >
+              {currentMessage.cta}
+            </button>
           </div>
         </div>
       )}
-      
-        {/* Manual trigger buttons for demo */}
-        <div
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            display: 'flex',
-            flexDirection: 'column'
-            gap: '8px'
-            zIndex: 2147483640,
-          }
-        >
-          <button
-            onClick={() => {
-              setTriggerType('exit');
-              setShowPopup(true);
-            }}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#6366f1',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer'
-            }
-          >
-            Trigger Exit Intent
-          </button>
-          <button
-            onClick={() => {
-              setTriggerType('time');
-              setShowPopup(true);
-            }
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#8b5cf6'
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer'
-            }
-          >
-            Trigger Time Popup
-          </button>
-          <button
-            onClick={() => {
-              setTriggerType('scroll');
-              setShowPopup(true);
-            }
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              backgroundColor: '#a855f7',
-              color: 'white',
-              border: 'none'
-              cursor: 'pointer'
-            }
-          >
-            Trigger Scroll Popup
-          </button>
-        </div>
       
       {/* Animation styles */}
       <style>
@@ -1939,6 +1944,192 @@ function PositioningDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }
         </div>
       </div>
     </>
+  );
+}
+
+// Sources Demo Component (Story 10-1)
+function SourcesDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
+  const mockSources: SourceCitationType[] = [
+    {
+      documentId: 1,
+      title: 'Product Manual - Battery Life.pdf',
+      documentType: 'pdf',
+      relevanceScore: 0.95,
+      chunkIndex: 12,
+    },
+    {
+      documentId: 2,
+      title: 'FAQ - Returns & Exchanges',
+      documentType: 'url',
+      relevanceScore: 0.88,
+      url: 'https://example.com/faq/returns',
+    },
+    {
+      documentId: 3,
+      title: 'Warranty Information.txt',
+      documentType: 'text',
+      relevanceScore: 0.82,
+      chunkIndex: 3,
+    },
+    {
+      documentId: 4,
+      title: 'Shipping Policy',
+      documentType: 'text',
+      relevanceScore: 0.75,
+    },
+    {
+      documentId: 5,
+      title: 'Contact Support',
+      documentType: 'url',
+      relevanceScore: 0.72,
+      url: 'https://example.com/contact',
+    },
+  ];
+
+  const [showExpanded, setShowExpanded] = React.useState(false);
+  const activeTheme = _theme === 'auto' ? 'light' : _theme;
+
+  return (
+    <div style={{
+      padding: '32px',
+      backgroundColor: activeTheme === 'dark' ? '#1f2937' : '#f9fafb',
+      borderRadius: '12px',
+      maxWidth: '600px',
+      margin: '0 auto',
+    }}>
+      <h3 style={{ marginBottom: '24px', color: activeTheme === 'dark' ? 'white' : '#1f2937' }}>
+        📚 Source Citations Demo
+      </h3>
+
+      <div style={{
+        backgroundColor: activeTheme === 'dark' ? '#374151' : 'white',
+        borderRadius: '12px',
+        padding: '24px',
+        marginBottom: '24px',
+      }}>
+        <p style={{ marginBottom: '16px', color: activeTheme === 'dark' ? '#d1d5db' : '#6b7280' }}>
+          Bot response with RAG sources:
+        </p>
+        <div style={{
+          padding: '12px',
+          backgroundColor: activeTheme === 'dark' ? '#1f2937' : '#f3f4f6',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          color: activeTheme === 'dark' ? '#f3f4f6' : '#1f2937',
+        }}>
+          Based on our documentation, the battery life is approximately 10 hours under normal usage conditions.
+        </div>
+        
+        <SourceCitation 
+          sources={mockSources} 
+          theme={{
+            primaryColor: '#6366f1',
+            backgroundColor: activeTheme === 'dark' ? '#1f2937' : '#ffffff',
+            textColor: activeTheme === 'dark' ? '#f3f4f6' : '#1f2937',
+            botBubbleColor: activeTheme === 'dark' ? '#374151' : '#f3f4f6',
+            userBubbleColor: '#6366f1',
+            position: 'bottom-right',
+            borderRadius: 16,
+            width: 380,
+            height: 600,
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 14,
+          }} 
+        />
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '16px',
+        marginTop: '24px',
+      }}>
+        <div style={{
+          backgroundColor: activeTheme === 'dark' ? '#374151' : '#f3f4f6',
+          padding: '16px',
+          borderRadius: '8px',
+        }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
+          <div style={{ 
+            fontWeight: 600, 
+            marginBottom: '4px',
+            color: activeTheme === 'dark' ? 'white' : '#1f2937',
+          }}>
+            PDF
+          </div>
+          <div style={{ 
+            fontSize: '12px',
+            color: activeTheme === 'dark' ? '#9ca3af' : '#6b7280',
+          }}>
+            Document icon for PDFs
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: activeTheme === 'dark' ? '#374151' : '#f3f4f6',
+          padding: '16px',
+          borderRadius: '8px',
+        }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔗</div>
+          <div style={{ 
+            fontWeight: 600, 
+            marginBottom: '4px',
+            color: activeTheme === 'dark' ? 'white' : '#1f2937',
+          }}>
+            URL
+          </div>
+          <div style={{ 
+            fontSize: '12px',
+            color: activeTheme === 'dark' ? '#9ca3af' : '#6b7280',
+          }}>
+            Link icon for web pages
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: activeTheme === 'dark' ? '#374151' : '#f3f4f6',
+          padding: '16px',
+          borderRadius: '8px',
+        }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📝</div>
+          <div style={{ 
+            fontWeight: 600, 
+            marginBottom: '4px',
+            color: activeTheme === 'dark' ? 'white' : '#1f2937',
+          }}>
+            Text
+          </div>
+          <div style={{ 
+            fontSize: '12px',
+            color: activeTheme === 'dark' ? '#9ca3af' : '#6b7280',
+          }}>
+            Text icon for documents
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        marginTop: '24px',
+        padding: '16px',
+        backgroundColor: activeTheme === 'dark' ? '#374151' : '#eff6ff',
+        borderRadius: '8px',
+      }}>
+        <h4 style={{ marginBottom: '12px', color: activeTheme === 'dark' ? 'white' : '#1f2937' }}>
+          ✨ Key Features:
+        </h4>
+        <ul style={{ 
+          margin: 0, 
+          paddingLeft: '20px',
+          color: activeTheme === 'dark' ? '#d1d5db' : '#374151',
+        }}>
+          <li style={{ marginBottom: '8px' }}>Shows max 3 sources initially</li>
+          <li style={{ marginBottom: '8px' }}>Click "View more" to expand</li>
+          <li style={{ marginBottom: '8px' }}>Color-coded relevance scores</li>
+          <li style={{ marginBottom: '8px' }}>Click to open URL sources</li>
+          <li>Dark mode support</li>
+        </ul>
+      </div>
+    </div>
   );
 }
 
