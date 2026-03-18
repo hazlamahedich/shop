@@ -302,3 +302,63 @@ export function createMockMessageResponse(overrides: Partial<MockMessageResponse
     ...overrides,
   };
 }
+
+/**
+ * Load widget test page with session ID via URL parameter injection.
+ *
+ * CRITICAL: Do NOT use addInitScript() with template literals for session injection.
+ * Template literals don't interpolate in browser context.
+ *
+ * @see AGENTS.md - E2E Session Injection checklist item
+ * @see Story 9-6 - Solution pattern established
+ *
+ * @param page - Playwright Page object
+ * @param sessionId - Session ID to inject
+ * @param options - Optional configuration
+ * @returns Promise that resolves when page is loaded
+ *
+ * @example
+ * const sessionId = 'test-session-123';
+ * await loadWidgetWithSession(page, sessionId);
+ * // Widget now has session via ?sessionId=... URL parameter
+ */
+export async function loadWidgetWithSession(
+  page: Page,
+  sessionId: string,
+  options: {
+    merchantId?: string;
+    waitForBubble?: boolean;
+  } = {}
+): Promise<void> {
+  const { merchantId = '1', waitForBubble = true } = options;
+  const url = `/widget-test?merchantId=${merchantId}&sessionId=${sessionId}`;
+
+  await page.goto(url);
+
+  if (waitForBubble) {
+    await page.getByRole('button', { name: 'Open chat' }).waitFor({ state: 'visible' });
+  }
+}
+
+/**
+ * Alternative: Load widget with pre-existing conversation history.
+ * Creates session via API, then loads widget with that session.
+ *
+ * @param page - Playwright Page object
+ * @param request - Playwright APIRequestContext for creating session
+ * @param merchantId - Merchant ID
+ * @returns Promise resolving to session ID
+ */
+export async function loadWidgetWithNewSession(
+  page: Page,
+  request: APIRequestContext,
+  merchantId = '1'
+): Promise<string | null> {
+  const sessionId = await createApiSession(request, parseInt(merchantId));
+  if (!sessionId) {
+    return null;
+  }
+
+  await loadWidgetWithSession(page, sessionId, { merchantId });
+  return sessionId;
+}

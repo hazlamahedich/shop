@@ -105,23 +105,19 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         """
         # Extract merchant_id from token even in test mode (for endpoints that need it)
         if self._should_bypass_auth(request):
-            print(f"DEBUG: Auth bypassed for {request.url.path}")
             # Try to extract merchant_id from Bearer token for test convenience
             token = request.cookies.get(SESSION_COOKIE_NAME)
             if not token:
                 auth_header = request.headers.get("Authorization", "")
-                print(f"DEBUG: Auth header: {auth_header}")
                 if auth_header.startswith("Bearer "):
                     token = auth_header[7:]
-                    print(f"DEBUG: Extracted token: {token[:20]}...")
 
             if token:
                 try:
                     payload = validate_jwt(token)
                     request.state.merchant_id = payload.merchant_id
-                    print(f"DEBUG: Set merchant_id to {payload.merchant_id}")
-                except Exception as e:
-                    print(f"DEBUG: Token validation failed: {e}")
+                except Exception:
+                    pass
 
             return await call_next(request)
 
@@ -251,9 +247,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
             # MEDIUM-11: Check if session is revoked in database (AC 3 compliance)
             # Skip check in test mode for convenience
-            print(f"DEBUG _authenticate_request: IS_TESTING={os.getenv('IS_TESTING', 'false')}")
             if os.getenv("IS_TESTING", "false").lower() != "true":
-                print("DEBUG _authenticate_request: Checking session in database")
                 async with async_session() as db:
                     token_hash = hash_token(token)
                     result = await db.execute(
@@ -307,37 +301,29 @@ def get_request_merchant_id(request: Request) -> int:
     Raises:
         HTTPException: If merchant_id not found in request state or token
     """
-    print(f"DEBUG get_request_merchant_id: CALLED for path {request.url.path}")
     merchant_id = getattr(request.state, "merchant_id", None)
-    print(f"DEBUG get_request_merchant_id: merchant_id from state = {merchant_id}")
 
     if merchant_id is None and os.getenv("IS_TESTING", "false").lower() == "true":
-        print(f"DEBUG: In test mode, trying to extract from token or header")
         # In test mode, first try X-Merchant-Id header (for integration tests)
         merchant_id_header = request.headers.get("X-Merchant-Id")
         if merchant_id_header:
-            print(f"DEBUG: Found X-Merchant-Id header: {merchant_id_header}")
             return int(merchant_id_header)
 
         # Then try to extract from Bearer token
         token = request.cookies.get(SESSION_COOKIE_NAME)
         if not token:
             auth_header = request.headers.get("Authorization", "")
-            print(f"DEBUG: Auth header = {auth_header}")
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]
-                print(f"DEBUG: Extracted token: {token[:20] if token else None}")
 
         if token:
             try:
                 payload = validate_jwt(token)
                 merchant_id = payload.merchant_id
-                print(f"DEBUG: Extracted merchant_id from token: {merchant_id}")
-            except Exception as e:
-                print(f"DEBUG: Token validation failed: {e}")
+            except Exception:
+                pass
 
     if merchant_id is None:
-        print(f"DEBUG: merchant_id is still None, raising 401")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

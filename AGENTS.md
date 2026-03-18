@@ -249,11 +249,11 @@ bd sync && git push
    - Cast at query time: `embedding::jsonb::float[]::vector(dimension)`
    - Reference: Story 8-11 migrated from fixed to flexible dimensions
 
-□ **E2E Tests**: Using correct addInitScript pattern?
-   - Template literals don't work in browser context
-   - Pass values as 2nd argument: `addInitScript((val) => {...}, value)`
-   - Use helpers: `setLocalStorageValue(page, key, value)`
-   - Reference: Stories 8-6, 8-7, 8-11 had interpolation bugs
+□ **E2E Session Injection**: Need to inject session/fixture data?
+   - ❌ NEVER: `addInitScript(() => { sessionStorage.setItem('key', `${val}`) })` - template literals don't interpolate
+   - ✅ USE: URL-based injection `?sessionId=...` or `addInitScript((v) => {...}, value)` with 2nd arg
+   - ✅ USE: Helper `loadWidgetWithSession(page, sessionId)` from `tests/helpers/`
+   - Reference: Stories 9-5, 9-6 burned time on addInitScript interpolation
 
 □ **E2E Hard Waits**: Using deterministic waits only?
    - ❌ NEVER: `page.waitForTimeout()`, `time.sleep()`, `.wait(number)`
@@ -261,6 +261,12 @@ bd sync && git push
    - ✅ INSTEAD: `expect(page).toHaveURL()`, `expect(locator).toHaveCSS()`
    - Pattern: Set up `waitForResponse()` BEFORE triggering the action
    - Helpers: `waitForApiResponse()`, `waitForDocumentStatus()` in `tests/helpers/`
+
+□ **CSS Transform**: Adding CSS `transform` to a CONTAINER element?
+   - ❌ NEVER: `transform` on containers/wrappers (creates positioning context, breaks `position: fixed` children)
+   - ✅ USE: `left/top` positioning for widget/container placement
+   - ✅ OK: `transform` on individual elements (buttons, cards, icons) for hover/active effects
+   - Reference: Stories 9-1 through 9-6, 9-8 all hit this bug - 7 stories affected
 ```
 
 ### Quick Reference
@@ -273,8 +279,164 @@ bd sync && git push
 | Naming | Pydantic `Field(alias="...")` | Using wrong case for API field names |
 | Envelope | Use `response.data` | Using `response.data.data` (double unwrap) |
 | Embedding | Use JSONB + dimension column | Using fixed `Vector(N)` dimension |
-| E2E | `addInitScript((v) => {...}, val)` | Using template literal `${val}` in browser context |
-| Hard Waits | `expect().toBeVisible()` | Using `waitForTimeout()` or `sleep()` |
+| E2E Session | `loadWidgetWithSession(page, sessionId)` | Using template literal `${val}` in browser context |
+| E2E Waits | `expect().toBeVisible()` | Using `waitForTimeout()` or `sleep()` |
+| CSS Transform | Use `left/top` for containers | Using `transform` on wrapper breaks `position: fixed` |
+
+---
+
+## 🧪 E2E Test Standards
+
+**CRITICAL:** Follow these standards when writing E2E tests to ensure reliability and maintainability.
+
+### Selector Strategy
+
+| Priority | Selector Type | Example | Use Case |
+|----------|---------------|---------|----------|
+| 1 | `getByRole()` | `page.getByRole('button', { name: 'Send' })` | Interactive elements |
+| 2 | `getByTestId()` | `page.getByTestId('chat-bubble')` | Elements without semantic roles |
+| 3 | `getByText()` | `page.getByText('Welcome')` | Text content matching |
+| 4 | CSS selectors | `page.locator('.class')` | Last resort only |
+
+**Always add `data-testid` attributes to new components:**
+```tsx
+<button data-testid="submit-button" onClick={handleSubmit}>
+  Submit
+</button>
+```
+
+### Test ID Naming Convention
+
+| Pattern | Format | Example |
+|---------|--------|---------|
+| Components | `component-name` | `chat-bubble`, `message-input` |
+| Interactive elements | `component-action` | `submit-button`, `close-icon` |
+| Dynamic elements | `component-{id}` | `product-card-123`, `message-456` |
+| Story-specific | `X.Y-E2E-NNN` | `9.6-E2E-001` for Story 9-6 test |
+
+### Wait Patterns
+
+```typescript
+// ✅ GOOD - Event-based waits
+await expect(locator).toBeVisible();
+await page.waitForResponse('**/api/v1/endpoint');
+await expect(page).toHaveURL('/dashboard');
+
+// ❌ BAD - Hard waits (causes flakiness)
+await page.waitForTimeout(1000);
+await page.waitForLoadState('networkidle');
+```
+
+### Network-First Pattern
+
+Always set up route mocks BEFORE navigating:
+```typescript
+// ✅ GOOD - Set up routes first
+await page.route('**/api/v1/widget/config/*', route => route.fulfill({ ... }));
+const responsePromise = page.waitForResponse('**/api/v1/widget/session');
+await page.goto('/widget-test');
+await responsePromise;
+
+// ❌ BAD - Race condition
+await page.goto('/widget-test');
+await page.route('**/api/v1/widget/config/*', route => ...); // Too late!
+```
+
+### Priority Tags
+
+Tag all E2E tests with priority levels:
+- `[P0]` - Critical path, must pass for release
+- `[P1]` - High priority, core functionality
+- `[P2]` - Medium priority, important features
+- `[P3]` - Low priority, edge cases
+
+```typescript
+test('[P0] chat bubble opens widget', async ({ page }) => { ... });
+test('[P1] user can send message', async ({ page }) => { ... });
+test('[P2] message timestamps display correctly', async ({ page }) => { ... });
+```
+
+### Cross-Browser Testing
+
+Run tests on all major browsers before merging:
+```bash
+# Quick smoke test
+npx playwright test --project=chromium --grep "@smoke"
+
+# Full cross-browser
+npx playwright test --project=chromium,firefox,webkit
+```
+
+### Test File Organization
+
+```
+frontend/tests/
+├── e2e/
+│   ├── story-X-Y-feature-name.spec.ts    # Story-specific tests
+│   └── smoke/
+│       └── critical-path.spec.ts          # Smoke tests
+├── helpers/
+│   ├── widget-test-helpers.ts             # Widget utilities
+│   └── loadWidgetWithSession()            # Session injection helper
+└── support/
+    └── fixtures/                          # Test fixtures
+```
+
+### Test File Location Standards
+
+**CRITICAL:** Follow these conventions to prevent confusion about test file locations.
+
+#### Frontend Test Locations
+
+| Test Type | Location | Naming Pattern | Example |
+|-----------|----------|----------------|---------|
+| **Unit/Component** | Collocated with source | `ComponentName.test.tsx` | `src/widget/components/QuickReplyButtons.test.tsx` |
+| **Hook Unit** | Collocated with source | `hookName.test.ts` | `src/widget/hooks/useCarousel.test.ts` |
+| **Util Unit** | Collocated with source | `utilName.test.ts` | `src/widget/utils/smartPositioning.test.ts` |
+| **E2E** | `frontend/tests/e2e/` | `story-X-Y-feature.spec.ts` | `tests/e2e/story-9-4-quick-reply.spec.ts` |
+| **API Integration** | `frontend/tests/api/` | `feature-api.spec.ts` | `tests/api/widget-config.spec.ts` |
+| **Helpers** | `frontend/tests/helpers/` | `*-helpers.ts` | `tests/helpers/widget-test-helpers.ts` |
+
+#### Backend Test Locations
+
+| Test Type | Location | Naming Pattern | Example |
+|-----------|----------|----------------|---------|
+| **Unit** | `backend/tests/unit/` | `test_*.py` | `tests/unit/test_service.py` |
+| **API** | `backend/tests/api/` | `test_*.py` | `tests/api/test_widget.py` |
+| **Integration** | `backend/tests/integration/` | `test_*.py` | `tests/integration/test_flow.py` |
+| **Services** | `backend/tests/services/` | `test_*.py` | `tests/services/rag/test_embedding.py` |
+
+#### Naming Rules
+
+```markdown
+□ **Frontend Unit Tests**: Collocated with source file
+   - ✅ `src/widget/components/QuickReplyButtons.test.tsx`
+   - ❌ `src/widget/components/test_QuickReplyButtons.test.tsx` (no test_ prefix)
+   - ❌ `tests/unit/QuickReplyButtons.test.tsx` (not collocated)
+
+□ **Frontend E2E Tests**: In `tests/e2e/` folder
+   - ✅ `tests/e2e/story-9-4-quick-reply.spec.ts`
+   - ❌ `e2e/story-9-4-quick-reply.spec.ts` (wrong folder)
+   - ❌ `src/widget/tests/e2e/*.spec.ts` (not in source)
+
+□ **Test File Prefix**: NO `test_` prefix for frontend
+   - ✅ `ComponentName.test.tsx`
+   - ❌ `test_ComponentName.test.tsx`
+   - Backend uses `test_*.py` pattern (different convention)
+
+□ **Test Folders**: NO `__tests__` subfolders in frontend
+   - ✅ `src/hooks/useCarousel.test.ts`
+   - ❌ `src/hooks/__tests__/useCarousel.test.ts`
+```
+
+#### Quick Reference
+
+| Wrong | Right | Reason |
+|-------|-------|--------|
+| `src/components/test_Foo.test.tsx` | `src/components/Foo.test.tsx` | No `test_` prefix needed |
+| `tests/unit/Foo.test.tsx` | `src/components/Foo.test.tsx` | Collocate with source |
+| `src/hooks/__tests__/hook.test.ts` | `src/hooks/hook.test.ts` | No `__tests__` folder |
+| `frontend/e2e/*.spec.ts` | `frontend/tests/e2e/*.spec.ts` | Use `tests/` folder |
 
 ---
 
