@@ -9,19 +9,17 @@ Test IDs: 6-2-API-001 through 6-2-API-008
 from __future__ import annotations
 
 import os
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 os.environ["IS_TESTING"] = "true"
 
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.widget import router
-from app.core.errors import ErrorCode, APIError
-from app.core.database import get_db
+from app.core.errors import APIError, ErrorCode
 
 
 class TestWidgetConsentDeletionValidation:
@@ -97,7 +95,7 @@ class TestWidgetConsentDeletionAPI:
         session.session_id = "550e8400-e29b-41d4-a716-446655440000"
         session.merchant_id = 1
         session.visitor_id = "visitor_123"
-        session.expires_at = datetime.now(timezone.utc)
+        session.expires_at = datetime.now(UTC)
         return session
 
     @pytest.fixture
@@ -320,7 +318,7 @@ class TestWidgetConsentGetAPI:
         session.session_id = "550e8400-e29b-41d4-a716-446655440000"
         session.merchant_id = 1
         session.visitor_id = "visitor_123"
-        session.expires_at = datetime.now(timezone.utc)
+        session.expires_at = datetime.now(UTC)
         return session
 
     @pytest.fixture

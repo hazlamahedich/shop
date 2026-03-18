@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC
 from uuid import uuid4
 
 import structlog
@@ -717,7 +718,7 @@ async def _fetch_cogs_async(
         order_id: Database order ID
         log: Structlog logger
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
     from decimal import Decimal
 
     from app.core.security import decrypt_access_token
@@ -766,7 +767,7 @@ async def _fetch_cogs_async(
 
             if order:
                 order.cogs_total = Decimal(str(total_cogs))
-                order.cogs_fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                order.cogs_fetched_at = datetime.now(UTC).replace(tzinfo=None)
                 await db.commit()
 
                 log.info(

@@ -9,21 +9,19 @@ Enhanced to showcase pinned/featured products in greeting.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant, PersonalityType
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
-from app.services.personality.personality_prompts import get_personality_system_prompt
 from app.services.personality.greeting_service import substitute_greeting_variables
-
 
 logger = structlog.get_logger(__name__)
 
@@ -46,7 +44,7 @@ class GreetingHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle greeting intent.
 
@@ -135,7 +133,7 @@ class GreetingHandler(BaseHandler):
         db: AsyncSession,
         merchant: Merchant,
         max_products: int = 2,
-    ) -> Optional[list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Fetch pinned products to showcase in greeting.
 
         Args:
@@ -147,9 +145,9 @@ class GreetingHandler(BaseHandler):
             List of pinned products with is_pinned=True, or None if none found
         """
         try:
+            from app.services.intent.classification_schema import ExtractedEntities
             from app.services.product_pin_service import get_pinned_product_ids
             from app.services.shopify.product_search_service import ProductSearchService
-            from app.services.intent.classification_schema import ExtractedEntities
 
             pinned_ids = await get_pinned_product_ids(db, merchant.id)
             if not pinned_ids:

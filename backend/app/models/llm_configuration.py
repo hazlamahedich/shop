@@ -8,10 +8,9 @@ credentials, models, and status. Supports Ollama (local) and cloud providers
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Float, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB, ENUM
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -40,7 +39,7 @@ class LLMConfiguration(Base):
     )
 
     # Relationship to Merchant for proper ORM ordering
-    merchant: Mapped["Merchant"] = relationship(
+    merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="llm_configuration",
     )
@@ -61,31 +60,31 @@ class LLMConfiguration(Base):
     )
 
     # Ollama-specific configuration
-    ollama_url: Mapped[Optional[str]] = mapped_column(
+    ollama_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )  # e.g., http://localhost:11434
-    ollama_model: Mapped[Optional[str]] = mapped_column(
+    ollama_model: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )  # e.g., llama3, mistral
 
     # Cloud provider configuration
-    api_key_encrypted: Mapped[Optional[str]] = mapped_column(
+    api_key_encrypted: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )  # Fernet encrypted API key
-    cloud_model: Mapped[Optional[str]] = mapped_column(
+    cloud_model: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )  # Provider-specific model
 
     # Fallback configuration (backup provider)
-    backup_provider: Mapped[Optional[str]] = mapped_column(
+    backup_provider: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )  # Backup provider if primary fails
-    backup_api_key_encrypted: Mapped[Optional[str]] = mapped_column(
+    backup_api_key_encrypted: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )  # Encrypted backup API key
@@ -108,11 +107,11 @@ class LLMConfiguration(Base):
         default=datetime.utcnow,
         nullable=False,
     )
-    last_test_at: Mapped[Optional[datetime]] = mapped_column(
+    last_test_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    test_result: Mapped[Optional[dict]] = mapped_column(
+    test_result: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
     )  # Test response metadata

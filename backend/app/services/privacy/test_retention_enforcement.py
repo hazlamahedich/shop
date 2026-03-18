@@ -6,15 +6,14 @@ Validates AC1-AC6 compliance.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch, MagicMock
-import pytest
+from datetime import datetime, timedelta
 
+import pytest
 from sqlalchemy import select
 
-from app.services.privacy.retention_service import RetentionPolicy
 from app.models.conversation import Conversation, DataTier
 from app.models.deletion_audit_log import DeletionAuditLog, DeletionTrigger
+from app.services.privacy.retention_service import RetentionPolicy
 
 
 class TestRetentionPolicyBatchProcessing:

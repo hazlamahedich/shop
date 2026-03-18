@@ -5,7 +5,6 @@ Provides shared functionality for Shopify Storefront and Admin API clients.
 
 from __future__ import annotations
 
-from typing import Optional
 import httpx
 
 from app.core.http_client import get_ssl_context
@@ -16,8 +15,8 @@ class ShopifyBaseClient:
 
     def __init__(
         self,
-        shop_domain: Optional[str] = None,
-        access_token: Optional[str] = None,
+        shop_domain: str | None = None,
+        access_token: str | None = None,
         is_testing: bool = False,
     ) -> None:
         """Initialize Shopify base client.
@@ -36,7 +35,7 @@ class ShopifyBaseClient:
         ).replace("http://", "").strip("/")
         self.access_token = access_token or app_settings.get("SHOPIFY_STOREFRONT_ACCESS_TOKEN", "")
         self.is_testing = is_testing or app_settings.get("IS_TESTING", False)
-        self._async_client: Optional[httpx.AsyncClient] = None
+        self._async_client: httpx.AsyncClient | None = None
 
     @property
     def async_client(self) -> httpx.AsyncClient:

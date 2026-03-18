@@ -13,10 +13,9 @@ from datetime import datetime
 import pytest
 
 from app.models.faq import Faq
-from app.models.merchant import Merchant
 from app.services.faq import (
-    FaqMatcher,
     FaqMatch,
+    FaqMatcher,
     get_faq_matcher,
     match_faq,
 )

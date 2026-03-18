@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import List, Optional
 
 import structlog
 
@@ -40,7 +39,7 @@ class GeminiRateLimitError(GeminiEmbeddingError):
 class GeminiEmbeddingResult:
     """Result of Gemini embedding generation."""
 
-    embeddings: List[List[float]]
+    embeddings: list[list[float]]
     model: str
     dimension: int = GEMINI_DIMENSION
     token_count: int = 0
@@ -62,7 +61,7 @@ class GeminiEmbeddingProvider:
     def __init__(
         self,
         api_key: str,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> None:
         """Initialize Gemini embedding provider.
 
@@ -109,7 +108,7 @@ class GeminiEmbeddingProvider:
         """Set client (for testing)."""
         self._client = value
 
-    async def embed_texts(self, texts: List[str]) -> GeminiEmbeddingResult:
+    async def embed_texts(self, texts: list[str]) -> GeminiEmbeddingResult:
         """Generate embeddings for multiple texts.
 
         Args:
@@ -160,7 +159,7 @@ class GeminiEmbeddingProvider:
                 f"Gemini embedding failed: {str(e)}",
             )
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """Generate embedding for a single query.
 
         Args:
@@ -177,10 +176,10 @@ class GeminiEmbeddingProvider:
 
     async def _embed_with_retry(
         self,
-        texts: List[str],
+        texts: list[str],
         max_attempts: int = 3,
         backoff_factor: float = 2.0,
-    ) -> List[List[float]]:
+    ) -> list[list[float]]:
         """Embed texts with retry logic for rate limits.
 
         Args:
@@ -195,7 +194,7 @@ class GeminiEmbeddingProvider:
             GeminiRateLimitError: If rate limit exceeded after retries
             GeminiEmbeddingError: If embedding fails
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(max_attempts):
             try:
@@ -221,7 +220,7 @@ class GeminiEmbeddingProvider:
 
         raise GeminiRateLimitError(f"Rate limit exceeded after retries: {last_error}")
 
-    async def _embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def _embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed a batch of texts using Gemini API.
 
         Args:
@@ -230,7 +229,7 @@ class GeminiEmbeddingProvider:
         Returns:
             List of embedding vectors (768 dimensions each)
         """
-        all_embeddings: List[List[float]] = []
+        all_embeddings: list[list[float]] = []
 
         for i in range(0, len(texts), GEMINI_BATCH_SIZE):
             batch = texts[i : i + GEMINI_BATCH_SIZE]
@@ -244,11 +243,11 @@ class GeminiEmbeddingProvider:
 
         return all_embeddings
 
-    def _mock_embed_texts(self, texts: List[str]) -> GeminiEmbeddingResult:
+    def _mock_embed_texts(self, texts: list[str]) -> GeminiEmbeddingResult:
         """Generate mock embeddings for testing."""
         import random
 
-        embeddings: List[List[float]] = []
+        embeddings: list[list[float]] = []
         for text in texts:
             random.seed(hash(text) % (2**32))
             embedding = [random.uniform(-1, 1) for _ in range(self.DIMENSION)]

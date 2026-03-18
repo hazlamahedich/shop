@@ -6,14 +6,15 @@ Story 4-13: Added COGS batch fetch via GraphQL.
 
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
-import httpx
 import asyncio
+from decimal import Decimal
+from typing import Any
+
+import httpx
 import structlog
 
-from app.services.shopify_base import ShopifyBaseClient
 from app.core.errors import APIError, ErrorCode
+from app.services.shopify_base import ShopifyBaseClient
 
 SHOPIFY_ADMIN_API_URL = "https://{shop}/admin/api/2024-01"
 SHOPIFY_GRAPHQL_API_URL = "https://{shop}/admin/api/2024-01/graphql.json"
@@ -173,7 +174,7 @@ class ShopifyAdminClient(ShopifyBaseClient):
         except Exception:
             return False
 
-    async def verify_shop_access(self) -> Dict[str, Any]:
+    async def verify_shop_access(self) -> dict[str, Any]:
         """Verify Admin API access and fetch shop details.
 
         Returns:
@@ -221,7 +222,7 @@ class ShopifyAdminClient(ShopifyBaseClient):
 
     async def list_products(
         self, limit: int = 100, status_filter: str | None = "active"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List products via Admin REST API.
 
         Args:
@@ -324,9 +325,9 @@ class ShopifyAdminClient(ShopifyBaseClient):
 
     async def fetch_variant_costs_batch(
         self,
-        variant_ids: List[str],
+        variant_ids: list[str],
         max_retries: int = 3,
-    ) -> Dict[str, Decimal]:
+    ) -> dict[str, Decimal]:
         """Fetch cost of goods sold for multiple variants via GraphQL.
 
         Story 4-13: COGS tracking for profit analysis.
@@ -367,7 +368,7 @@ class ShopifyAdminClient(ShopifyBaseClient):
 
         variables = {"ids": variant_ids}
 
-        costs: Dict[str, Decimal] = {}
+        costs: dict[str, Decimal] = {}
         retry_count = 0
         base_delay = 1.0
 

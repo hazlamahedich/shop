@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from app.models.message import Message
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant
+from app.models.message import Message
 
 
 class TestMessageModel:

@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -58,13 +58,13 @@ class ProductVariant(BaseModel):
     price: float = Field(..., ge=0, description="Variant price")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
     available: bool = Field(default=True, description="Whether variant is in stock")
-    sku: Optional[str] = Field(default=None, description="Stock keeping unit")
+    sku: str | None = Field(default=None, description="Stock keeping unit")
     options: list[dict[str, str]] = Field(
         default_factory=list,
         description="Variant options (e.g., [{'name': 'Size', 'value': 'Small'}])",
     )
-    weight: Optional[float] = Field(default=None, description="Weight in grams")
-    weight_unit: Optional[str] = Field(default=None, description="Weight unit (g, kg, oz, lb)")
+    weight: float | None = Field(default=None, description="Weight in grams")
+    weight_unit: str | None = Field(default=None, description="Weight unit (g, kg, oz, lb)")
 
 
 class Product(BaseModel):
@@ -72,11 +72,11 @@ class Product(BaseModel):
 
     id: str = Field(..., description="Product ID from the e-commerce platform")
     title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(default=None, description="Product description")
-    product_type: Optional[str] = Field(default=None, description="Product category/type")
-    vendor: Optional[str] = Field(default=None, description="Product vendor/brand")
+    description: str | None = Field(default=None, description="Product description")
+    product_type: str | None = Field(default=None, description="Product category/type")
+    vendor: str | None = Field(default=None, description="Product vendor/brand")
     tags: list[str] = Field(default_factory=list, description="Product tags")
-    image_url: Optional[str] = Field(default=None, description="Main product image URL")
+    image_url: str | None = Field(default=None, description="Main product image URL")
     price_min: float = Field(..., ge=0, description="Minimum price across variants")
     price_max: float = Field(..., ge=0, description="Maximum price across variants")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
@@ -85,7 +85,7 @@ class Product(BaseModel):
         description="Product variants (sizes, colors, etc.)",
     )
     available: bool = Field(default=True, description="Whether product is available for purchase")
-    url: Optional[str] = Field(default=None, description="Product page URL")
+    url: str | None = Field(default=None, description="Product page URL")
 
 
 class CartItem(BaseModel):
@@ -97,8 +97,8 @@ class CartItem(BaseModel):
     price: float = Field(..., ge=0, description="Item price")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
     quantity: int = Field(default=1, ge=1, le=99, description="Quantity")
-    image_url: Optional[str] = Field(default=None, description="Product image URL")
-    added_at: Optional[datetime] = Field(default=None, description="When item was added")
+    image_url: str | None = Field(default=None, description="Product image URL")
+    added_at: datetime | None = Field(default=None, description="When item was added")
 
 
 class Cart(BaseModel):
@@ -109,9 +109,9 @@ class Cart(BaseModel):
     subtotal: float = Field(default=0.0, ge=0, description="Cart subtotal")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
     item_count: int = Field(default=0, ge=0, description="Total number of items")
-    checkout_url: Optional[str] = Field(default=None, description="Checkout URL if available")
-    created_at: Optional[datetime] = Field(default=None)
-    updated_at: Optional[datetime] = Field(default=None)
+    checkout_url: str | None = Field(default=None, description="Checkout URL if available")
+    created_at: datetime | None = Field(default=None)
+    updated_at: datetime | None = Field(default=None)
 
 
 class OrderItem(BaseModel):
@@ -123,7 +123,7 @@ class OrderItem(BaseModel):
     price: float = Field(..., ge=0, description="Item price at time of purchase")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
     quantity: int = Field(default=1, ge=1, description="Quantity ordered")
-    image_url: Optional[str] = Field(default=None, description="Product image URL")
+    image_url: str | None = Field(default=None, description="Product image URL")
 
 
 class OrderStatus(str, Enum):
@@ -142,20 +142,20 @@ class Order(BaseModel):
     """Order from an e-commerce store."""
 
     id: str = Field(..., description="Order ID from the e-commerce platform")
-    order_number: Optional[str] = Field(default=None, description="Human-readable order number")
+    order_number: str | None = Field(default=None, description="Human-readable order number")
     status: OrderStatus = Field(default=OrderStatus.PENDING)
     items: list[OrderItem] = Field(default_factory=list, description="Order items")
     subtotal: float = Field(default=0.0, ge=0, description="Order subtotal")
     total: float = Field(default=0.0, ge=0, description="Order total including tax/shipping")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
-    customer_email: Optional[str] = Field(default=None, description="Customer email")
-    shipping_address: Optional[dict[str, Any]] = Field(
+    customer_email: str | None = Field(default=None, description="Customer email")
+    shipping_address: dict[str, Any] | None = Field(
         default=None, description="Shipping address"
     )
-    tracking_number: Optional[str] = Field(default=None, description="Shipping tracking number")
-    tracking_url: Optional[str] = Field(default=None, description="Tracking URL")
-    created_at: Optional[datetime] = Field(default=None)
-    updated_at: Optional[datetime] = Field(default=None)
+    tracking_number: str | None = Field(default=None, description="Shipping tracking number")
+    tracking_url: str | None = Field(default=None, description="Tracking URL")
+    created_at: datetime | None = Field(default=None)
+    updated_at: datetime | None = Field(default=None)
 
 
 class ECommerceProvider(ABC):
@@ -195,9 +195,9 @@ class ECommerceProvider(ABC):
         self,
         query: str,
         limit: int = 10,
-        category: Optional[str] = None,
-        max_price: Optional[float] = None,
-        min_price: Optional[float] = None,
+        category: str | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
         **kwargs: Any,
     ) -> list[Product]:
         """Search for products matching a query.
@@ -219,7 +219,7 @@ class ECommerceProvider(ABC):
         pass
 
     @abstractmethod
-    async def get_product(self, product_id: str) -> Optional[Product]:
+    async def get_product(self, product_id: str) -> Product | None:
         """Get a specific product by ID.
 
         Args:
@@ -263,7 +263,7 @@ class ECommerceProvider(ABC):
         pass
 
     @abstractmethod
-    async def get_cart(self, cart_id: str) -> Optional[Cart]:
+    async def get_cart(self, cart_id: str) -> Cart | None:
         """Get an existing cart by ID.
 
         Args:
@@ -349,7 +349,7 @@ class ECommerceProvider(ABC):
     async def create_checkout_url(
         self,
         cart_id: str,
-        custom_attributes: Optional[list[dict[str, str]]] = None,
+        custom_attributes: list[dict[str, str]] | None = None,
     ) -> str:
         """Generate a checkout URL for a cart.
 
@@ -369,7 +369,7 @@ class ECommerceProvider(ABC):
     # ==================== Order Operations ====================
 
     @abstractmethod
-    async def get_order(self, order_id: str) -> Optional[Order]:
+    async def get_order(self, order_id: str) -> Order | None:
         """Get an order by ID.
 
         Args:
@@ -384,7 +384,7 @@ class ECommerceProvider(ABC):
         pass
 
     @abstractmethod
-    async def get_order_by_checkout_token(self, checkout_token: str) -> Optional[Order]:
+    async def get_order_by_checkout_token(self, checkout_token: str) -> Order | None:
         """Get an order by checkout token (for webhook processing).
 
         Args:
@@ -403,8 +403,8 @@ class ECommerceProvider(ABC):
         self,
         order_id: str,
         status: OrderStatus,
-        tracking_number: Optional[str] = None,
-        tracking_url: Optional[str] = None,
+        tracking_number: str | None = None,
+        tracking_url: str | None = None,
     ) -> Order:
         """Update order status (for webhook handlers).
 

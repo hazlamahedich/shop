@@ -5,16 +5,17 @@ Story 4-10: Return to Bot
 Tests welcome message sending with 24-hour window enforcement.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-from app.services.handoff.return_to_bot_service import (
-    ReturnToBotService,
-    WELCOME_BACK_MESSAGE,
-)
-from app.models.message import Message
+import pytest
+
 from app.models.conversation import Conversation
+from app.models.message import Message
+from app.services.handoff.return_to_bot_service import (
+    WELCOME_BACK_MESSAGE,
+    ReturnToBotService,
+)
 
 
 @pytest.fixture
@@ -52,7 +53,7 @@ def recent_shopper_message():
     msg = MagicMock(spec=Message)
     msg.id = 1
     msg.sender = "customer"
-    msg.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    msg.created_at = datetime.now(UTC) - timedelta(hours=1)
     return msg
 
 
@@ -62,7 +63,7 @@ def old_shopper_message():
     msg = MagicMock(spec=Message)
     msg.id = 2
     msg.sender = "customer"
-    msg.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+    msg.created_at = datetime.now(UTC) - timedelta(hours=25)
     return msg
 
 

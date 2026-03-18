@@ -12,19 +12,18 @@ Provides an adapter layer that:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
 from app.schemas.messaging import MessengerResponse
+from app.services.conversation.cart_key_strategy import CartKeyStrategy
 from app.services.conversation.schemas import (
     Channel,
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.cart_key_strategy import CartKeyStrategy
 from app.services.messenger import MessengerSendService
-
 
 logger = structlog.get_logger(__name__)
 
@@ -45,7 +44,7 @@ class MessengerAdapter:
     def __init__(self) -> None:
         """Initialize Messenger adapter."""
         self.logger = structlog.get_logger(__name__)
-        self._send_service: Optional[MessengerSendService] = None
+        self._send_service: MessengerSendService | None = None
 
     @property
     def send_service(self) -> MessengerSendService:
@@ -58,10 +57,10 @@ class MessengerAdapter:
         self,
         psid: str,
         merchant_id: int,
-        conversation_history: Optional[list[dict[str, Any]]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        conversation_history: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
         is_returning_shopper: bool = False,
-        consent_status: Optional[str] = None,
+        consent_status: str | None = None,
     ) -> ConversationContext:
         """Create ConversationContext from Messenger webhook data.
 
@@ -184,8 +183,8 @@ class MessengerAdapter:
             psid: Facebook Page-Scoped ID
         """
         try:
-            from app.services.messenger import CartFormatter
             from app.core.config import settings
+            from app.services.messenger import CartFormatter
 
             config = settings()
             shop_domain = (

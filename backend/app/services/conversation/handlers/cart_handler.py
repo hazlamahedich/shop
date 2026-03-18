@@ -14,21 +14,20 @@ Enhanced to handle anaphoric references ("add that to cart").
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-
 
 logger = structlog.get_logger(__name__)
 
@@ -47,7 +46,7 @@ class CartHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle cart intent based on type.
 
@@ -153,7 +152,7 @@ class CartHandler(BaseHandler):
         cart_key: str,
         entities: dict[str, Any],
         merchant: Merchant,
-        context: Optional[ConversationContext] = None,
+        context: ConversationContext | None = None,
     ) -> ConversationResponse:
         """Handle add to cart.
 
@@ -394,8 +393,8 @@ class CartHandler(BaseHandler):
             Updated cart (with shopify_cart_url if sync succeeded)
         """
         try:
-            from app.services.cart.shopify_cart_sync import ShopifyCartSync
             from app.schemas.cart import CartItem
+            from app.services.cart.shopify_cart_sync import ShopifyCartSync
 
             sync_service = ShopifyCartSync(merchant_id=merchant_id)
             new_item = CartItem(
@@ -405,7 +404,7 @@ class CartHandler(BaseHandler):
                 price=price,
                 image_url="",
                 quantity=quantity,
-                added_at=datetime.now(timezone.utc).isoformat(),
+                added_at=datetime.now(UTC).isoformat(),
             )
             cart = await sync_service.sync_add_item(cart_key, new_item)
             logger.info(
@@ -513,8 +512,8 @@ class CartHandler(BaseHandler):
             variant_id: Product variant ID that was added
         """
         try:
-            from app.services.product_pin_service import get_pinned_product_ids
             from app.services.product_pin_analytics_service import track_pinned_product_cart_add
+            from app.services.product_pin_service import get_pinned_product_ids
 
             pinned_ids = await get_pinned_product_ids(db, merchant_id)
             pinned_ids_set = {str(pid) for pid in pinned_ids}

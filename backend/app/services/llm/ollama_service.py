@@ -8,17 +8,15 @@ Ollama runs locally on the merchant's server providing:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 import httpx
 import structlog
 
+from app.core.errors import APIError, ErrorCode
 from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
 )
-from app.core.errors import APIError, ErrorCode
-
 
 logger = structlog.get_logger(__name__)
 
@@ -80,8 +78,8 @@ class OllamaService(BaseLLMService):
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        model: Optional[str] = None,
+        messages: list[LLMMessage],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:
@@ -149,7 +147,7 @@ class OllamaService(BaseLLMService):
                 f"Ollama chat failed: {e.response.text}",
             )
 
-    def _build_prompt(self, messages: List[LLMMessage]) -> str:
+    def _build_prompt(self, messages: list[LLMMessage]) -> str:
         """Build prompt from message history.
 
         Ollama expects a simple string prompt, not message array.

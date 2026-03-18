@@ -10,20 +10,19 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
-from app.schemas.base import MinimalEnvelope, MetaData
+from app.schemas.base import MetaData, MinimalEnvelope
 
 router = APIRouter()
 
@@ -160,7 +159,7 @@ async def get_business_hours_settings(
         ),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )
 
@@ -213,7 +212,7 @@ async def get_embedding_provider_settings(
         ),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )
 
@@ -294,6 +293,6 @@ async def update_embedding_provider(
         ),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )

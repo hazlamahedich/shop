@@ -9,11 +9,11 @@ consistent personality across all response types.
 
 from __future__ import annotations
 
-from app.services.personality.personality_prompts import (
-    get_personality_system_prompt,
-    PersonalityPromptService,
-)
 from app.services.personality.bot_response_service import BotResponseService
+from app.services.personality.personality_prompts import (
+    PersonalityPromptService,
+    get_personality_system_prompt,
+)
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 __all__ = [

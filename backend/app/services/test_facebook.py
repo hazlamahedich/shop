@@ -5,19 +5,16 @@ Tests OAuth flow, token management, and Graph API interactions.
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, patch
-from datetime import datetime
+from unittest.mock import patch
 
+import pytest
+
+from app.core.errors import APIError, ErrorCode
+from app.models.merchant import Merchant
 from app.services.facebook import (
     FacebookService,
     get_facebook_service,
 )
-from app.models.facebook_integration import FacebookIntegration
-from app.models.conversation import Conversation
-from app.models.merchant import Merchant
-from app.core.errors import APIError, ErrorCode
-from app.core.security import encrypt_access_token
 
 
 class TestFacebookServiceOAuth:
@@ -109,8 +106,9 @@ class TestFacebookServiceOAuth:
     @pytest.mark.asyncio
     async def test_verify_page_access_denied(self, db_session):
         """Test page access denied with invalid token."""
-        from unittest.mock import patch, MagicMock
-        from httpx import HTTPStatusError, Response, Request
+        from unittest.mock import MagicMock
+
+        from httpx import HTTPStatusError, Response
 
         service = FacebookService(db_session, is_testing=False)
 

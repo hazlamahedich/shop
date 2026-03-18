@@ -11,11 +11,11 @@ Tests cover:
 from __future__ import annotations
 
 import os
-import pytest
 import time
 from unittest.mock import Mock, patch
 
-from fastapi import HTTPException, status, Request
+import pytest
+from fastapi import HTTPException, Request, status
 
 from app.core.rate_limiter import (
     RateLimiter,

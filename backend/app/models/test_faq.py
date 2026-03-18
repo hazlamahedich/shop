@@ -7,8 +7,9 @@ Tests model validation, relationships, and CRUD operations.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -420,7 +421,7 @@ async def test_faq_created_at_timestamp(db_session: AsyncSession) -> None:
     await db_session.commit()
     await db_session.refresh(merchant)
 
-    before_create = datetime.now(timezone.utc)
+    before_create = datetime.now(UTC)
 
     faq = Faq(
         merchant_id=merchant.id,
@@ -433,4 +434,4 @@ async def test_faq_created_at_timestamp(db_session: AsyncSession) -> None:
 
     assert faq.created_at is not None
     assert faq.created_at >= before_create
-    assert faq.created_at <= datetime.now(timezone.utc)
+    assert faq.created_at <= datetime.now(UTC)

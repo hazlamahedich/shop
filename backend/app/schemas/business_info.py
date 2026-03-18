@@ -7,10 +7,9 @@ Provides request/response schemas for business information CRUD operations.
 
 from __future__ import annotations
 
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from app.schemas.base import BaseSchema, MinimalEnvelope
 
 
 class BusinessInfoRequest(BaseSchema):
@@ -24,17 +23,17 @@ class BusinessInfoRequest(BaseSchema):
         business_hours: Business hours (max 200 chars, optional)
     """
 
-    business_name: Optional[str] = Field(
+    business_name: str | None = Field(
         default=None,
         max_length=100,
         description="Business name (max 100 characters)",
     )
-    business_description: Optional[str] = Field(
+    business_description: str | None = Field(
         default=None,
         max_length=500,
         description="Business description (max 500 characters)",
     )
-    business_hours: Optional[str] = Field(
+    business_hours: str | None = Field(
         default=None,
         max_length=200,
         description="Business hours (e.g., '9 AM - 6 PM PST, Mon-Fri')",
@@ -42,7 +41,7 @@ class BusinessInfoRequest(BaseSchema):
 
     @field_validator("business_name", "business_description", "business_hours")
     @classmethod
-    def strip_whitespace(cls, v: Optional[str]) -> Optional[str]:
+    def strip_whitespace(cls, v: str | None) -> str | None:
         """Strip leading/trailing whitespace from string fields.
 
         Args:
@@ -68,15 +67,15 @@ class BusinessInfoResponse(BaseSchema):
         business_hours: Business hours
     """
 
-    business_name: Optional[str] = Field(
+    business_name: str | None = Field(
         default=None,
         description="Business name",
     )
-    business_description: Optional[str] = Field(
+    business_description: str | None = Field(
         default=None,
         description="Business description",
     )
-    business_hours: Optional[str] = Field(
+    business_hours: str | None = Field(
         default=None,
         description="Business hours",
     )

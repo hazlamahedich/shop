@@ -6,9 +6,7 @@ and automatic subtotal calculation.
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 from pydantic.alias_generators import to_camel
@@ -39,7 +37,7 @@ class CartItem(BaseModel):
     image_url: str = Field(default="", description="Product image URL (empty if unavailable)")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD, description="Price currency code")
     quantity: int = Field(ge=1, le=10, default=1, description="Item quantity (1-10)")
-    added_at: Optional[str] = Field(None, description="ISO timestamp when item was added")
+    added_at: str | None = Field(None, description="ISO timestamp when item was added")
 
     @field_validator("price")
     @classmethod
@@ -61,23 +59,23 @@ class Cart(BaseModel):
         "populate_by_name": True,
     }
 
-    items: List[CartItem] = Field(default_factory=list, description="Cart items")
+    items: list[CartItem] = Field(default_factory=list, description="Cart items")
     subtotal: float = Field(
         default=0.0, ge=0, description="Subtotal of all items (sum of price * quantity)"
     )
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD, description="Cart currency code")
-    created_at: Optional[str] = Field(None, description="ISO timestamp when cart was created")
-    updated_at: Optional[str] = Field(None, description="ISO timestamp when cart was last updated")
-    shopify_cart_id: Optional[str] = Field(
+    created_at: str | None = Field(None, description="ISO timestamp when cart was created")
+    updated_at: str | None = Field(None, description="ISO timestamp when cart was last updated")
+    shopify_cart_id: str | None = Field(
         None, description="Shopify Storefront Cart GID for real-time sync"
     )
-    shopify_cart_url: Optional[str] = Field(
+    shopify_cart_url: str | None = Field(
         None, description="Shopify cart URL for direct store access"
     )
-    shopify_line_ids: Dict[str, str] = Field(
+    shopify_line_ids: dict[str, str] = Field(
         default_factory=dict, description="Mapping of variant_id to Shopify cart line ID"
     )
-    shopify_sync_error: Optional[str] = Field(None, description="Last Shopify sync error, if any")
+    shopify_sync_error: str | None = Field(None, description="Last Shopify sync error, if any")
 
     @computed_field  # type: ignore[misc]
     @property

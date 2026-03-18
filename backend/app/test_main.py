@@ -1,6 +1,5 @@
 """Tests for main FastAPI application."""
 
-import pytest
 
 from app.main import app
 
@@ -29,9 +28,10 @@ class TestMainApp:
     def test_cors_middleware(self):
         """Test CORS middleware is configured."""
         # Check that CORS middleware is working by making a request
+        import asyncio
+
         import httpx
         from httpx import ASGITransport
-        import asyncio
 
         async def check_cors():
             async with httpx.AsyncClient(

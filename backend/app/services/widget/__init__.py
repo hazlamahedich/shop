@@ -5,8 +5,8 @@ Provides services for the embeddable chat widget:
 - Message processing with LLM integration
 """
 
-from app.services.widget.widget_session_service import WidgetSessionService
 from app.services.widget.widget_message_service import WidgetMessageService
+from app.services.widget.widget_session_service import WidgetSessionService
 
 __all__ = [
     "WidgetSessionService",

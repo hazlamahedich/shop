@@ -9,16 +9,14 @@ search functionality, and integration with Shopify product data.
 from __future__ import annotations
 
 import os
-from typing import Optional
 
-from sqlalchemy import select, func, and_
+import structlog
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
-from app.models.product_pin import ProductPin
 from app.models.merchant import Merchant
-import structlog
-
+from app.models.product_pin import ProductPin
 
 logger = structlog.get_logger(__name__)
 
@@ -74,8 +72,7 @@ async def pin_product(
         )
 
     # Fetch product details from Shopify to check status and populate title/image
-    from app.services.shopify.product_service import fetch_products, MOCK_PRODUCTS
-    from app.models.merchant import Merchant
+    from app.services.shopify.product_service import MOCK_PRODUCTS, fetch_products
 
     merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
 
@@ -220,8 +217,7 @@ async def get_pinned_products(
     NOTE: Returns list of dicts with product data merged from Shopify
           and pin status from database, NOT ProductPin ORM objects.
     """
-    from app.services.shopify.product_service import fetch_products, get_product_by_id
-    from app.models.merchant import Merchant
+    from app.services.shopify.product_service import fetch_products
 
     merchant_id_int = int(merchant_id) if isinstance(merchant_id, str) else merchant_id
 

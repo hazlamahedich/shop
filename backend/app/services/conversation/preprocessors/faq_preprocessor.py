@@ -16,16 +16,13 @@ Priority order:
 
 from __future__ import annotations
 
-from typing import Any, Optional
-
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.models.faq import Faq
-from app.services.faq import FaqMatch, FaqMatcher, match_faq, rephrase_faq_with_personality
 from app.services.conversation.schemas import ConversationContext, ConversationResponse
-
+from app.services.faq import FaqMatch, FaqMatcher, match_faq, rephrase_faq_with_personality
 
 logger = structlog.get_logger(__name__)
 
@@ -67,10 +64,10 @@ class FAQPreprocessor:
         db: AsyncSession,
         merchant_id: int,
         message: str,
-        context: Optional[ConversationContext] = None,
+        context: ConversationContext | None = None,
         llm_service=None,
         merchant=None,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Check if message matches any merchant FAQ.
 
         Args:
@@ -143,7 +140,7 @@ class FAQPreprocessor:
     async def _create_response(
         self,
         faq_match: FaqMatch,
-        context: Optional[ConversationContext],
+        context: ConversationContext | None,
         llm_service=None,
         merchant=None,
     ) -> ConversationResponse:
@@ -210,7 +207,7 @@ class FAQPreprocessor:
             },
         )
 
-    def clear_cache(self, merchant_id: Optional[int] = None) -> None:
+    def clear_cache(self, merchant_id: int | None = None) -> None:
         """Clear FAQ cache.
 
         Args:
@@ -241,7 +238,7 @@ class FAQPreprocessorMiddleware:
         message: str,
         llm_service=None,
         merchant=None,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Process message through FAQ preprocessor.
 
         Args:

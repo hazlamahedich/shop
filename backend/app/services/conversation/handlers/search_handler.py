@@ -13,24 +13,23 @@ Implements circuit breaker for resilience.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 from app.services.shopify.circuit_breaker import (
     CircuitOpenError,
     ShopifyCircuitBreaker,
 )
-from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-
 
 logger = structlog.get_logger(__name__)
 
@@ -49,7 +48,7 @@ class SearchHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle product search intent.
 
@@ -65,9 +64,9 @@ class SearchHandler(BaseHandler):
             ConversationResponse with product results
         """
         try:
-            from app.services.shopify.product_search_service import ProductSearchService
             from app.services.intent.classification_schema import ExtractedEntities
             from app.services.product_pin_service import get_pinned_product_ids
+            from app.services.shopify.product_search_service import ProductSearchService
 
             # Check if this is a recommendation/pinned product request
             constraints = entities.get("constraints", {}) if entities else {}
@@ -442,7 +441,6 @@ class SearchHandler(BaseHandler):
             ProductSearchResult with pinned products
         """
         from app.services.product_pin_service import get_pinned_product_ids
-        from app.schemas.shopify import ProductSearchResult
 
         try:
             # Get pinned product IDs (merchant_id is int, not string)

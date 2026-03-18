@@ -6,11 +6,10 @@ understand which featured items perform best.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,17 +61,17 @@ class ProductPinAnalytics(Base):
         nullable=False,
         default=0,
     )
-    last_viewed_at: Mapped[Optional[datetime]] = mapped_column(
+    last_viewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    last_cart_add_at: Mapped[Optional[datetime]] = mapped_column(
+    last_cart_add_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
 
     # Relationships
-    merchant: Mapped["Merchant"] = relationship(
+    merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="product_pin_analytics",
     )

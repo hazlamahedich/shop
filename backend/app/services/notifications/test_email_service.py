@@ -8,9 +8,10 @@ Tests for email sending at:
 - Hard Stop (100%): "Bot Paused: Budget limit reached"
 """
 
-import pytest
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
+
+import pytest
 
 from app.services.notifications.email_service import (
     EmailNotificationProvider,

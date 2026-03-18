@@ -8,7 +8,8 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +20,6 @@ from app.schemas.cost_tracking import (
     CostListResponse,
 )
 from app.services.cost_tracking import CostTrackingService
-
 
 router = APIRouter(prefix="/api/costs", tags=["costs"])
 cost_service = CostTrackingService()
@@ -86,11 +86,11 @@ async def get_conversation_costs(
 async def get_cost_summary(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    date_from: Optional[str] = Query(
+    date_from: str | None = Query(
         None,
         description="Start date filter (ISO 8601 format, e.g., 2026-02-01)",
     ),
-    date_to: Optional[str] = Query(
+    date_to: str | None = Query(
         None,
         description="End date filter (ISO 8601 format, e.g., 2026-02-28)",
     ),

@@ -9,12 +9,13 @@ Fallback static pricing is used when API is unavailable.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
+
 import structlog
 
 logger = structlog.get_logger(__name__)
 
-STATIC_PRICING: Dict[str, Dict | float] = {
+STATIC_PRICING: dict[str, dict | float] = {
     "ollama": {"input": 0.0, "output": 0.0},
     "openai": {
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},
@@ -43,7 +44,7 @@ STATIC_PRICING: Dict[str, Dict | float] = {
     },
 }
 
-_dynamic_pricing: Dict[str, Dict[str, Dict[str, float]]] = {}
+_dynamic_pricing: dict[str, dict[str, dict[str, float]]] = {}
 
 
 def set_dynamic_pricing(provider: str, model: str, input_price: float, output_price: float) -> None:
@@ -56,7 +57,7 @@ def set_dynamic_pricing(provider: str, model: str, input_price: float, output_pr
     }
 
 
-def get_pricing(provider: str, model: Optional[str] = None) -> Dict[str, float]:
+def get_pricing(provider: str, model: str | None = None) -> dict[str, float]:
     """Get pricing for a provider/model.
 
     Checks dynamic pricing first, then falls back to static pricing.
@@ -113,7 +114,7 @@ def calculate_cost(
     return input_cost + output_cost
 
 
-def update_pricing_from_discovery(models_data: list[Dict[str, Any]]) -> int:
+def update_pricing_from_discovery(models_data: list[dict[str, Any]]) -> int:
     """Update dynamic pricing from model discovery data.
 
     Args:

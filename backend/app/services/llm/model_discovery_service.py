@@ -11,14 +11,11 @@ Caches results with TTL to avoid repeated API calls.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
 
 import httpx
 import structlog
-
-from app.core.errors import APIError, ErrorCode
-
 
 logger = structlog.get_logger(__name__)
 
@@ -41,7 +38,7 @@ class ModelInfo:
         output_price_per_million: float = 0.0,
         is_local: bool = False,
         is_downloaded: bool = False,
-        features: Optional[List[str]] = None,
+        features: list[str] | None = None,
     ):
         self.id = id
         self.name = name
@@ -54,7 +51,7 @@ class ModelInfo:
         self.is_downloaded = is_downloaded
         self.features = features or []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -76,10 +73,10 @@ class ModelDiscoveryCache:
     """In-memory cache with TTL for model data."""
 
     def __init__(self, ttl_seconds: int = 86400):
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache: dict[str, dict[str, Any]] = {}
         self._ttl_seconds = ttl_seconds
 
-    def get(self, key: str) -> Optional[List[Dict[str, Any]]]:
+    def get(self, key: str) -> list[dict[str, Any]] | None:
         if key not in self._cache:
             return None
         entry = self._cache[key]
@@ -88,20 +85,20 @@ class ModelDiscoveryCache:
             return None
         return entry["data"]
 
-    def set(self, key: str, data: List[Dict[str, Any]]) -> None:
+    def set(self, key: str, data: list[dict[str, Any]]) -> None:
         self._cache[key] = {
             "data": data,
             "expires_at": time.time() + self._ttl_seconds,
             "cached_at": datetime.utcnow().isoformat(),
         }
 
-    def clear(self, key: Optional[str] = None) -> None:
+    def clear(self, key: str | None = None) -> None:
         if key:
             self._cache.pop(key, None)
         else:
             self._cache.clear()
 
-    def get_cache_info(self) -> Dict[str, Any]:
+    def get_cache_info(self) -> dict[str, Any]:
         return {
             "keys": list(self._cache.keys()),
             "entries": {
@@ -130,7 +127,7 @@ class ModelDiscoveryService:
 
     def __init__(self, cache_ttl_seconds: int = 86400):
         self._cache = ModelDiscoveryCache(cache_ttl_seconds)
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     @property
     def http_client(self) -> httpx.AsyncClient:
@@ -146,8 +143,8 @@ class ModelDiscoveryService:
     async def get_models_for_provider(
         self,
         provider: str,
-        ollama_url: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        ollama_url: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get available models for a specific provider.
 
         Args:
@@ -175,11 +172,11 @@ class ModelDiscoveryService:
 
     async def _fetch_ollama_models(
         self,
-        ollama_url: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        ollama_url: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch Ollama models: downloaded locally + available in library."""
         base_url = ollama_url or "http://localhost:11434"
-        models: List[Dict[str, Any]] = []
+        models: list[dict[str, Any]] = []
 
         downloaded_models = await self._fetch_ollama_downloaded_models(base_url)
         models.extend(downloaded_models)
@@ -197,9 +194,9 @@ class ModelDiscoveryService:
     async def _fetch_ollama_downloaded_models(
         self,
         ollama_url: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch models downloaded on local Ollama instance."""
-        models: List[Dict[str, Any]] = []
+        models: list[dict[str, Any]] = []
 
         try:
             response = await self.http_client.get(f"{ollama_url}/api/tags")
@@ -224,7 +221,7 @@ class ModelDiscoveryService:
 
         return models
 
-    async def _fetch_ollama_library_models(self) -> List[Dict[str, Any]]:
+    async def _fetch_ollama_library_models(self) -> list[dict[str, Any]]:
         """Fetch popular models from Ollama library."""
         cache_key = "ollama:library"
         cached = self._cache.get(cache_key)
@@ -289,7 +286,7 @@ class ModelDiscoveryService:
     async def _fetch_cloud_provider_models(
         self,
         provider: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch models from OpenRouter API for cloud providers."""
         cache_key = "openrouter:all"
 
@@ -323,7 +320,7 @@ class ModelDiscoveryService:
 
         return filtered_models
 
-    async def _fetch_openrouter_models(self) -> List[Dict[str, Any]]:
+    async def _fetch_openrouter_models(self) -> list[dict[str, Any]]:
         """Fetch all models from OpenRouter API."""
         response = await self.http_client.get(OPENROUTER_API_URL)
         response.raise_for_status()
@@ -356,7 +353,7 @@ class ModelDiscoveryService:
 
         return models
 
-    def _extract_features(self, model_data: Dict[str, Any]) -> List[str]:
+    def _extract_features(self, model_data: dict[str, Any]) -> list[str]:
         """Extract feature tags from model data."""
         features = []
 
@@ -378,7 +375,7 @@ class ModelDiscoveryService:
 
         return features
 
-    def _get_fallback_models(self, provider: str) -> List[Dict[str, Any]]:
+    def _get_fallback_models(self, provider: str) -> list[dict[str, Any]]:
         """Fallback model list when API fails."""
         fallback = {
             "openai": [
@@ -572,7 +569,7 @@ class ModelDiscoveryService:
         }
         return fallback.get(provider, [])
 
-    def clear_cache(self, provider: Optional[str] = None) -> None:
+    def clear_cache(self, provider: str | None = None) -> None:
         """Clear cached model data."""
         if provider:
             self._cache.clear(f"models:{provider}")
@@ -580,7 +577,7 @@ class ModelDiscoveryService:
         else:
             self._cache.clear()
 
-    def get_cache_info(self) -> Dict[str, Any]:
+    def get_cache_info(self) -> dict[str, Any]:
         """Get cache status information."""
         return self._cache.get_cache_info()
 
@@ -588,7 +585,7 @@ class ModelDiscoveryService:
         self,
         provider: str,
         model_id: str,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Get pricing for a specific model from cache (sync version).
 
         Returns cached pricing if available, otherwise returns free pricing.
@@ -628,7 +625,7 @@ class ModelDiscoveryService:
         self,
         provider: str,
         model_id: str,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Get pricing for a specific model (async version that fetches if needed).
 
         Args:
@@ -649,7 +646,7 @@ class ModelDiscoveryService:
 
         return {"input": 0.0, "output": 0.0}
 
-    async def get_provider_info(self, provider: str) -> Dict[str, Any]:
+    async def get_provider_info(self, provider: str) -> dict[str, Any]:
         """Get provider metadata with dynamic pricing from OpenRouter.
 
         Args:
@@ -716,7 +713,7 @@ class ModelDiscoveryService:
         }
 
 
-_model_discovery_service: Optional[ModelDiscoveryService] = None
+_model_discovery_service: ModelDiscoveryService | None = None
 
 
 def get_model_discovery_service() -> ModelDiscoveryService:

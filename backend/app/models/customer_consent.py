@@ -9,10 +9,8 @@ enabling easy consent status checks across the application.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
 
-from app.models.consent import Consent, ConsentType, ConsentSource
+from app.models.consent import Consent, ConsentType
 from app.schemas.consent import ConsentStatus
 
 
@@ -121,7 +119,7 @@ class CustomerConsent:
             return False
         return conversation_consent.consent_message_shown
 
-    def get_consent_source(self) -> Optional[str]:
+    def get_consent_source(self) -> str | None:
         """Get the source channel for conversation consent.
 
         Returns:
@@ -132,7 +130,7 @@ class CustomerConsent:
             return None
         return conversation_consent.source_channel
 
-    def _get_consent_by_type(self, consent_type: str) -> Optional[Consent]:
+    def _get_consent_by_type(self, consent_type: str) -> Consent | None:
         """Get consent record by type.
 
         Args:
@@ -169,7 +167,7 @@ class CustomerConsent:
         session_id: str,
         merchant_id: int,
         consents: list[Consent],
-    ) -> "CustomerConsent":
+    ) -> CustomerConsent:
         """Create CustomerConsent from a list of consent records.
 
         Args:

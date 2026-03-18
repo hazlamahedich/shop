@@ -6,9 +6,10 @@ following TDD principles.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Generator
-from unittest.mock import AsyncMock, MagicMock
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -130,7 +131,7 @@ async def test_consent_timestamp_is_valid_iso(mock_redis: MagicMock) -> None:
 
     # Verify timestamp is valid ISO format
     timestamp = datetime.fromisoformat(result["timestamp"])
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Should be within last 5 seconds
     assert (now - timestamp).total_seconds() < 5
 

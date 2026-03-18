@@ -14,13 +14,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
-from weakref import WeakSet
+from datetime import UTC, datetime
+from typing import Any
 
 import redis.asyncio as redis
 import structlog
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
 from app.core.config import settings
 
@@ -44,16 +43,16 @@ class WidgetConnectionManager:
     HEARTBEAT_INTERVAL = 30  # seconds
     HEARTBEAT_TIMEOUT = 45  # seconds (client should respond within this)
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None) -> None:
+    def __init__(self, redis_client: redis.Redis | None = None) -> None:
         """Initialize the connection manager.
 
         Args:
             redis_client: Optional Redis client (creates default if not provided)
         """
-        self._connections: Dict[str, Set[WebSocket]] = {}
-        self._redis: Optional[redis.Redis] = redis_client
-        self._pubsub_instances: Dict[str, Any] = {}
-        self._listener_tasks: Dict[str, asyncio.Task] = {}
+        self._connections: dict[str, set[WebSocket]] = {}
+        self._redis: redis.Redis | None = redis_client
+        self._pubsub_instances: dict[str, Any] = {}
+        self._listener_tasks: dict[str, asyncio.Task] = {}
         self._lock = asyncio.Lock()
         self._logger = structlog.get_logger(__name__)
 
@@ -107,7 +106,7 @@ class WidgetConnectionManager:
                     "type": "connected",
                     "data": {
                         "sessionId": session_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     },
                 },
             )
@@ -142,7 +141,7 @@ class WidgetConnectionManager:
     async def broadcast_to_session(
         self,
         session_id: str,
-        message: Dict[str, Any],
+        message: dict[str, Any],
     ) -> int:
         """Broadcast a message to all connections for a session.
 
@@ -201,7 +200,7 @@ class WidgetConnectionManager:
     async def _deliver_locally(
         self,
         session_id: str,
-        message: Dict[str, Any],
+        message: dict[str, Any],
     ) -> int:
         """Deliver message to local WebSocket connections.
 
@@ -215,7 +214,7 @@ class WidgetConnectionManager:
         # Log delivery attempt
         with open("/tmp/ws_connections.log", "a") as log_file:
             log_file.write(
-                f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_start - session_id={session_id}, message_type={message.get('type')}\n"
+                f"{datetime.now(UTC).isoformat()} - deliver_locally_start - session_id={session_id}, message_type={message.get('type')}\n"
             )
             log_file.flush()
 
@@ -225,7 +224,7 @@ class WidgetConnectionManager:
         if not connections:
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_no_connections - session_id={session_id}\n"
+                    f"{datetime.now(UTC).isoformat()} - deliver_locally_no_connections - session_id={session_id}\n"
                 )
                 log_file.flush()
             return 0
@@ -237,7 +236,7 @@ class WidgetConnectionManager:
                 sent_count += 1
                 with open("/tmp/ws_connections.log", "a") as log_file:
                     log_file.write(
-                        f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_sent - session_id={session_id}, sent_count={sent_count}\n"
+                        f"{datetime.now(UTC).isoformat()} - deliver_locally_sent - session_id={session_id}, sent_count={sent_count}\n"
                     )
                     log_file.flush()
             except Exception as e:
@@ -248,7 +247,7 @@ class WidgetConnectionManager:
                 )
                 with open("/tmp/ws_connections.log", "a") as log_file:
                     log_file.write(
-                        f"{datetime.now(timezone.utc).isoformat()} - deliver_locally_failed - session_id={session_id}, error={str(e)}\n"
+                        f"{datetime.now(UTC).isoformat()} - deliver_locally_failed - session_id={session_id}, error={str(e)}\n"
                     )
                     log_file.flush()
 
@@ -264,7 +263,7 @@ class WidgetConnectionManager:
     async def _send_to_websocket(
         self,
         websocket: WebSocket,
-        message: Dict[str, Any],
+        message: dict[str, Any],
     ) -> None:
         """Send a message to a WebSocket connection.
 
@@ -277,7 +276,7 @@ class WidgetConnectionManager:
         # Log before send
         with open("/tmp/ws_connections.log", "a") as log_file:
             log_file.write(
-                f"{datetime.now(timezone.utc).isoformat()} - send_to_ws_start - message_type={message.get('type')}, size={len(message_str)}\n"
+                f"{datetime.now(UTC).isoformat()} - send_to_ws_start - message_type={message.get('type')}, size={len(message_str)}\n"
             )
             log_file.flush()
 
@@ -287,14 +286,14 @@ class WidgetConnectionManager:
             # Log success
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - send_to_ws_success - message_type={message.get('type')}\n"
+                    f"{datetime.now(UTC).isoformat()} - send_to_ws_success - message_type={message.get('type')}\n"
                 )
                 log_file.flush()
         except Exception as e:
             # Log failure
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - send_to_ws_failed - error={str(e)}, error_type={type(e).__name__}\n"
+                    f"{datetime.now(UTC).isoformat()} - send_to_ws_failed - error={str(e)}, error_type={type(e).__name__}\n"
                 )
                 log_file.flush()
             raise
@@ -373,7 +372,7 @@ class WidgetConnectionManager:
         try:
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - redis_listener_started - session_id={session_id}\n"
+                    f"{datetime.now(UTC).isoformat()} - redis_listener_started - session_id={session_id}\n"
                 )
                 log_file.flush()
 
@@ -383,7 +382,7 @@ class WidgetConnectionManager:
                         data = json.loads(message["data"])
                         with open("/tmp/ws_connections.log", "a") as log_file:
                             log_file.write(
-                                f"{datetime.now(timezone.utc).isoformat()} - redis_listener_received - session_id={session_id}, message_type={data.get('type')}\n"
+                                f"{datetime.now(UTC).isoformat()} - redis_listener_received - session_id={session_id}, message_type={data.get('type')}\n"
                             )
                             log_file.flush()
                         await self._deliver_locally(session_id, data)
@@ -402,7 +401,7 @@ class WidgetConnectionManager:
             )
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - redis_listener_error - session_id={session_id}, error={str(e)}\n"
+                    f"{datetime.now(UTC).isoformat()} - redis_listener_error - session_id={session_id}, error={str(e)}\n"
                 )
                 log_file.flush()
 
@@ -424,7 +423,7 @@ class WidgetConnectionManager:
         )
         return count
 
-    def get_all_active_sessions(self) -> Dict[str, int]:
+    def get_all_active_sessions(self) -> dict[str, int]:
         """Get all active sessions and their connection counts.
 
         Returns:

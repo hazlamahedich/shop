@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.models.consent import Consent, ConsentType, ConsentSource
+from app.models.consent import Consent, ConsentSource, ConsentType
 from app.models.customer_consent import CustomerConsent
 from app.schemas.consent import ConsentStatus
 

@@ -9,17 +9,16 @@ Story 8-11: LLM Embedding Provider Integration & Re-embedding
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session
 from app.models.knowledge_base import DocumentChunk, KnowledgeDocument
 from app.models.merchant import Merchant
 from app.services.rag.dimension_handler import DimensionHandler
-from app.services.rag.embedding_service import EmbeddingService, EMBEDDING_DIMENSIONS
+from app.services.rag.embedding_service import EmbeddingService
 from app.services.rag.gemini_embedding_provider import GeminiEmbeddingProvider
 
 logger = structlog.get_logger(__name__)

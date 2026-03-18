@@ -7,24 +7,21 @@ and webhook signature verification for Facebook webhooks.
 from __future__ import annotations
 
 import os
-from base64 import urlsafe_b64encode
+from secrets import compare_digest
+from typing import Any
+
+import redis
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.hmac import HMAC
-from secrets import compare_digest
-from typing import Optional, Any, Dict
-import redis
 from redis import Redis
 
-from app.core.config import settings
-
-
 # Simple in-memory state storage (TODO: replace with Redis in production)
-_oauth_state_store: Dict[str, Dict[str, Any]] = {}
-_redis_client: Optional[Redis] = None
+_oauth_state_store: dict[str, dict[str, Any]] = {}
+_redis_client: Redis | None = None
 
 
-def get_redis_client() -> Optional[Redis]:
+def get_redis_client() -> Redis | None:
     """Get Redis client for state storage.
 
     Returns:
@@ -59,7 +56,7 @@ def store_oauth_state(state: str, merchant_id: int, ttl: int = 600) -> None:
         _oauth_state_store[state] = {"merchant_id": merchant_id, "expires_at": time.time() + ttl}
 
 
-def validate_oauth_state(state: str) -> Optional[int]:
+def validate_oauth_state(state: str) -> int | None:
     """Validate OAuth state parameter and return merchant_id.
 
     Args:
@@ -138,7 +135,7 @@ def decrypt_access_token(encrypted: str) -> str:
 
 def verify_webhook_signature(
     raw_payload: bytes,
-    signature: Optional[str],
+    signature: str | None,
     app_secret: str,
 ) -> bool:
     """Verify X-Hub-Signature-256 from Facebook webhook.
@@ -211,9 +208,9 @@ def verify_shopify_webhook_hmac(
     Returns:
         True if signature is valid, False if header missing or invalid
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
     from secrets import compare_digest
 
     if not hmac_header:

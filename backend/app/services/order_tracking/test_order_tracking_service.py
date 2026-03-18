@@ -3,9 +3,9 @@
 Tests order tracking lookup, formatting, and state management.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,12 +13,10 @@ from app.core.errors import ErrorCode
 from app.models.order import Order, OrderStatus
 from app.services.order_tracking.order_tracking_service import (
     ORDER_NOT_FOUND_CUSTOMER,
-    ORDER_NOT_FOUND_NUMBER,
     PENDING_STATE_KEY,
     PENDING_STATE_TIMEOUT_SECONDS,
     PENDING_STATE_TIMESTAMP_KEY,
     OrderLookupType,
-    OrderTrackingResult,
     OrderTrackingService,
 )
 
@@ -220,7 +218,7 @@ class TestFormatOrderResponse:
             status=OrderStatus.PENDING.value,
             subtotal=Decimal("50.00"),
             total=Decimal("55.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -235,10 +233,10 @@ class TestFormatOrderResponse:
             status=OrderStatus.SHIPPED.value,
             tracking_number="TRACK-123",
             tracking_url="https://tracking.example.com/TRACK-123",
-            estimated_delivery=datetime(2026, 2, 20, 12, 0, 0, tzinfo=timezone.utc),
+            estimated_delivery=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
             subtotal=Decimal("100.00"),
             total=Decimal("110.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -256,7 +254,7 @@ class TestFormatOrderResponse:
             status=OrderStatus.DELIVERED.value,
             subtotal=Decimal("75.00"),
             total=Decimal("80.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -271,7 +269,7 @@ class TestFormatOrderResponse:
             status=OrderStatus.CANCELLED.value,
             subtotal=Decimal("50.00"),
             total=Decimal("55.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -303,7 +301,7 @@ class TestFormatOrderResponse:
             fulfillment_status="fulfilled",
             subtotal=Decimal("10.00"),
             total=Decimal("15.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -321,7 +319,7 @@ class TestFormatOrderResponse:
             fulfillment_status="partial",
             subtotal=Decimal("10.00"),
             total=Decimal("15.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -337,7 +335,7 @@ class TestFormatOrderResponse:
             fulfillment_status=None,
             subtotal=Decimal("10.00"),
             total=Decimal("15.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         response = service.format_order_response(order)
@@ -385,7 +383,7 @@ class TestPendingStateManagement:
         """Test that pending state is True when active and not expired."""
         data = {
             PENDING_STATE_KEY: True,
-            PENDING_STATE_TIMESTAMP_KEY: datetime.now(timezone.utc).isoformat(),
+            PENDING_STATE_TIMESTAMP_KEY: datetime.now(UTC).isoformat(),
         }
 
         assert service.get_pending_state(data) is True
@@ -394,7 +392,7 @@ class TestPendingStateManagement:
         self, service: OrderTrackingService
     ) -> None:
         """Test that pending state is False when expired (5+ minutes old)."""
-        expired_time = datetime.now(timezone.utc) - timedelta(
+        expired_time = datetime.now(UTC) - timedelta(
             seconds=PENDING_STATE_TIMEOUT_SECONDS + 60
         )
         data = {
@@ -423,7 +421,7 @@ class TestPendingStateManagement:
         """Test that clear_pending_state removes pending state keys."""
         data = {
             PENDING_STATE_KEY: True,
-            PENDING_STATE_TIMESTAMP_KEY: datetime.now(timezone.utc).isoformat(),
+            PENDING_STATE_TIMESTAMP_KEY: datetime.now(UTC).isoformat(),
             "other_key": "value",
         }
 
@@ -588,7 +586,7 @@ class TestCalculateEstimatedDelivery:
 
     def test_uses_existing_estimated_delivery_first(self, service: OrderTrackingService) -> None:
         """Test it prioritizes an existing estimated_delivery on the order."""
-        estimated = datetime.now(timezone.utc) + timedelta(days=10)
+        estimated = datetime.now(UTC) + timedelta(days=10)
         order = Order(
             order_number="123",
             merchant_id=1,
@@ -615,14 +613,14 @@ class TestCalculateEstimatedDelivery:
                 subtotal=Decimal("10"),
                 total=Decimal("10"),
                 status=status,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             result = service.calculate_estimated_delivery(order)
             assert result is None
 
     def test_calculates_based_on_status(self, service: OrderTrackingService) -> None:
         """Test calculation based on regular status."""
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         order = Order(
             order_number="123",
             merchant_id=1,
@@ -637,7 +635,7 @@ class TestCalculateEstimatedDelivery:
 
     def test_adjusts_for_fulfilled_status(self, service: OrderTrackingService) -> None:
         """Test calculation overrides status if fulfillment_status is fulfilled."""
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         order = Order(
             order_number="123",
             merchant_id=1,
@@ -653,7 +651,7 @@ class TestCalculateEstimatedDelivery:
 
     def test_adjusts_for_partial_fulfilled_status(self, service: OrderTrackingService) -> None:
         """Test calculation overrides pending if fulfillment_status is partial."""
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         order = Order(
             order_number="123",
             merchant_id=1,
@@ -671,8 +669,8 @@ class TestCalculateEstimatedDelivery:
         self, service: OrderTrackingService
     ) -> None:
         """Test that fulfilled orders recalculate from updated_at, ignoring stored estimate."""
-        created_at = datetime(2026, 3, 6, 12, 0, 0, tzinfo=timezone.utc)
-        updated_at = datetime(2026, 3, 9, 12, 0, 0, tzinfo=timezone.utc)
+        created_at = datetime(2026, 3, 6, 12, 0, 0, tzinfo=UTC)
+        updated_at = datetime(2026, 3, 9, 12, 0, 0, tzinfo=UTC)
         stale_estimate = created_at + timedelta(days=7)  # March 13
 
         order = Order(

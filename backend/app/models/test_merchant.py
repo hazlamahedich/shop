@@ -7,12 +7,10 @@ Including personality configuration fields (Story 1.10).
 from __future__ import annotations
 
 import pytest
-from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant, PersonalityType
-from app.core.database import async_session
 
 
 @pytest.mark.asyncio

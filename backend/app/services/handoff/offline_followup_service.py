@@ -11,11 +11,11 @@ Respects Facebook 24-hour messaging window and business hours.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 
 from app.models.message import Message
 
@@ -91,7 +91,7 @@ class OfflineFollowUpService:
         """
         from app.models.conversation import Conversation
 
-        threshold_time = datetime.now(timezone.utc) - __import__("datetime").timedelta(
+        threshold_time = datetime.now(UTC) - __import__("datetime").timedelta(
             hours=hours_threshold
         )
 
@@ -539,9 +539,9 @@ class OfflineFollowUpService:
         Returns:
             Hours since message creation
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if message.created_at.tzinfo is None:
-            message_time = message.created_at.replace(tzinfo=timezone.utc)
+            message_time = message.created_at.replace(tzinfo=UTC)
         else:
             message_time = message.created_at
 
@@ -560,11 +560,11 @@ class OfflineFollowUpService:
         if not conversation.handoff_triggered_at:
             return 0.0
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         triggered_at = conversation.handoff_triggered_at
 
         if triggered_at.tzinfo is None:
-            triggered_at = triggered_at.replace(tzinfo=timezone.utc)
+            triggered_at = triggered_at.replace(tzinfo=UTC)
 
         delta = now - triggered_at
         return delta.total_seconds() / 3600
@@ -616,7 +616,7 @@ class OfflineFollowUpService:
 
         conversation_data = conversation.conversation_data or {}
         conversation_data[f"followup_{followup_type}_sent_at"] = datetime.now(
-            timezone.utc
+            UTC
         ).isoformat()
         conversation.conversation_data = conversation_data
 
@@ -627,7 +627,7 @@ class OfflineFollowUpService:
                 sender="bot",
                 content=content,
                 message_type="text",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             self.db.add(message)
 
@@ -667,7 +667,7 @@ class OfflineFollowUpService:
             sender="bot",
             content=content,
             message_type="text",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self.db.add(message)
         await self.db.commit()

@@ -10,9 +10,8 @@ Task 3.2: Uses PersonalityAwareResponseFormatter for personality-based messages.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
 
 import structlog
 from sqlalchemy import select
@@ -22,13 +21,12 @@ from app.core.errors import ErrorCode
 from app.models.merchant import Merchant, PersonalityType
 from app.models.order import Order
 from app.services.messenger.send_service import MessengerSendService
+from app.services.privacy.gdpr_service import GDPRDeletionService
 from app.services.shipping_notification.consent_checker import ConsentChecker
 from app.services.shipping_notification.rate_limiter import (
-    RateLimitResult,
     ShippingRateLimiter,
 )
 from app.services.shipping_notification.tracking_formatter import TrackingFormatter
-from app.services.privacy.gdpr_service import GDPRDeletionService
 
 logger = structlog.get_logger(__name__)
 
@@ -51,11 +49,11 @@ class NotificationResult:
     """Result of shipping notification attempt."""
 
     status: NotificationStatus
-    psid: Optional[str] = None
-    order_number: Optional[str] = None
-    message_id: Optional[str] = None
-    error_code: Optional[ErrorCode] = None
-    error_message: Optional[str] = None
+    psid: str | None = None
+    order_number: str | None = None
+    message_id: str | None = None
+    error_code: ErrorCode | None = None
+    error_message: str | None = None
 
 
 class ShippingNotificationService:
@@ -74,8 +72,8 @@ class ShippingNotificationService:
 
     def __init__(
         self,
-        send_service: Optional[MessengerSendService] = None,
-        rate_limiter: Optional[ShippingRateLimiter] = None,
+        send_service: MessengerSendService | None = None,
+        rate_limiter: ShippingRateLimiter | None = None,
     ) -> None:
         """Initialize the shipping notification service.
 
@@ -119,7 +117,7 @@ class ShippingNotificationService:
         self,
         order: Order,
         db,
-        fulfillment_id: Optional[str] = None,
+        fulfillment_id: str | None = None,
     ) -> NotificationResult:
         """Send shipping notification for a fulfilled order.
 
@@ -281,7 +279,7 @@ class ShippingNotificationService:
         """
         if not order.created_at:
             return 0.0
-        age_delta = datetime.now(timezone.utc).replace(tzinfo=None) - order.created_at
+        age_delta = datetime.now(UTC).replace(tzinfo=None) - order.created_at
         return age_delta.total_seconds() / 3600
 
     async def close(self) -> None:
@@ -289,7 +287,7 @@ class ShippingNotificationService:
         if self.send_service:
             await self.send_service.close()
 
-    async def __aenter__(self) -> "ShippingNotificationService":
+    async def __aenter__(self) -> ShippingNotificationService:
         """Async context manager entry."""
         return self
 

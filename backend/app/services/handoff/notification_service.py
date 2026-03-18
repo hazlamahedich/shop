@@ -14,21 +14,22 @@ Implements IS_TESTING pattern for deterministic test responses.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
 from app.schemas.handoff import (
+    URGENCY_EMOJI,
     HandoffReason,
     UrgencyLevel,
-    URGENCY_EMOJI,
 )
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.models.conversation import Conversation
     from app.models.merchant import Merchant
 
@@ -254,7 +255,6 @@ class HandoffNotificationService:
         if business_hours_config:
             from app.services.business_hours.business_hours_service import (
                 is_within_business_hours,
-                get_next_business_hour,
             )
 
             if not is_within_business_hours(business_hours_config):
@@ -475,7 +475,7 @@ class HandoffNotificationService:
         try:
             await self.redis.set(
                 redis_key,
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 ex=EMAIL_RATE_TTL,
             )
         except Exception as e:

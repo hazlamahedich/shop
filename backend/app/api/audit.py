@@ -8,12 +8,12 @@ Provides endpoints for querying deletion audit logs with filters.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -28,14 +28,14 @@ class RetentionLogResponse(BaseModel):
     id: int
     session_id: str = Field(alias="sessionId")
     merchant_id: int = Field(alias="merchantId")
-    retention_period_days: Optional[int] = Field(None, alias="retentionPeriodDays")
+    retention_period_days: int | None = Field(None, alias="retentionPeriodDays")
     deletion_trigger: str = Field(alias="deletionTrigger")
     requested_at: datetime = Field(alias="requestedAt")
-    completed_at: Optional[datetime] = Field(None, alias="completedAt")
+    completed_at: datetime | None = Field(None, alias="completedAt")
     conversations_deleted: int = Field(alias="conversationsDeleted")
     messages_deleted: int = Field(alias="messagesDeleted")
     redis_keys_cleared: int = Field(alias="redisKeysCleared")
-    error_message: Optional[str] = Field(None, alias="errorMessage")
+    error_message: str | None = Field(None, alias="errorMessage")
 
     class Config:
         from_attributes = True
@@ -56,16 +56,16 @@ class RetentionLogsListResponse(BaseModel):
 
 @router.get("/retention-logs", response_model=RetentionLogsListResponse)
 async def get_retention_logs(
-    merchant_id: Optional[int] = Query(
+    merchant_id: int | None = Query(
         None, alias="merchantId", description="Filter by merchant ID"
     ),
-    start_date: Optional[datetime] = Query(
+    start_date: datetime | None = Query(
         None, alias="startDate", description="Filter logs after this date"
     ),
-    end_date: Optional[datetime] = Query(
+    end_date: datetime | None = Query(
         None, alias="endDate", description="Filter logs before this date"
     ),
-    deletion_trigger: Optional[str] = Query(
+    deletion_trigger: str | None = Query(
         None, alias="trigger", description="Filter by trigger type (manual/auto)"
     ),
     page: int = Query(1, ge=1, description="Page number"),

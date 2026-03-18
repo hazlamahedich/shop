@@ -10,10 +10,8 @@ Story 5-10: Widget Full App Integration (Task 8: Migrate to UnifiedConversationS
 from __future__ import annotations
 
 import asyncio
-import os
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import structlog
@@ -21,15 +19,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
-from app.core.config import is_testing
 from app.models.merchant import Merchant
 from app.schemas.widget import WidgetSessionData
-from app.services.widget.widget_session_service import WidgetSessionService
-from app.services.llm.llm_factory import LLMProviderFactory
-from app.services.llm.base_llm_service import LLMMessage, LLMResponse
+from app.services.conversation.schemas import Channel, ConsentState, ConversationContext
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
-from app.services.conversation.schemas import Channel, ConversationContext, ConsentState
-
+from app.services.llm.base_llm_service import LLMMessage
+from app.services.llm.llm_factory import LLMProviderFactory
+from app.services.widget.widget_session_service import WidgetSessionService
 
 logger = structlog.get_logger(__name__)
 
@@ -56,9 +52,9 @@ class WidgetMessageService:
 
     def __init__(
         self,
-        db: Optional[AsyncSession] = None,
-        session_service: Optional[WidgetSessionService] = None,
-        unified_service: Optional[UnifiedConversationService] = None,
+        db: AsyncSession | None = None,
+        session_service: WidgetSessionService | None = None,
+        unified_service: UnifiedConversationService | None = None,
     ) -> None:
         """Initialize message service.
 
@@ -252,7 +248,7 @@ class WidgetMessageService:
             "message_id": str(uuid4()),
             "content": bot_message,
             "sender": "bot",
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
 
         if response.products:
@@ -349,7 +345,7 @@ class WidgetMessageService:
                 timeout=RESPONSE_TIMEOUT_SECONDS,
             )
             response_text = llm_response.content
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.logger.warning(
                 "widget_llm_timeout",
                 session_id=session.session_id,
@@ -380,7 +376,7 @@ class WidgetMessageService:
             "message_id": str(uuid4()),
             "content": response_text,
             "sender": "bot",
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
 
     async def _build_llm_messages(
@@ -463,6 +459,7 @@ class WidgetMessageService:
         if self.db:
             try:
                 from sqlalchemy import select
+
                 from app.models.faq import Faq
 
                 result = await self.db.execute(
@@ -482,7 +479,7 @@ class WidgetMessageService:
         self,
         session_id: str,
         merchant_id: int,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Retroactively save conversation history from Redis to PostgreSQL.
 
         Story 6-1 Enhancement: Retroactive Save on Consent Grant

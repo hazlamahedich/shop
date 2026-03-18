@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import os
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import structlog
 
-from app.services.ecommerce.base import ECommerceProvider, StoreNotConnectedError
-from app.services.ecommerce.null_provider import NullStoreProvider
+from app.services.ecommerce.base import ECommerceProvider
 from app.services.ecommerce.mock_provider import MockStoreProvider
+from app.services.ecommerce.null_provider import NullStoreProvider
 
 if TYPE_CHECKING:
     from app.models.merchant import Merchant
@@ -38,8 +38,8 @@ class StoreProvider(str, Enum):
 
 
 # Singleton instances for stateless providers
-_null_provider: Optional[NullStoreProvider] = None
-_mock_provider: Optional[MockStoreProvider] = None
+_null_provider: NullStoreProvider | None = None
+_mock_provider: MockStoreProvider | None = None
 
 
 def get_null_provider() -> NullStoreProvider:
@@ -93,7 +93,6 @@ def get_provider(store_provider: StoreProvider = StoreProvider.NONE) -> ECommerc
 
     if store_provider == StoreProvider.SHOPIFY:
         # Import here to avoid circular dependency
-        from app.services.ecommerce.shopify_provider import ShopifyStoreProvider
 
         # Shopify requires credentials, so we return null if not configured
         # The actual Shopify provider is created via get_provider_for_merchant
@@ -112,7 +111,7 @@ def get_provider(store_provider: StoreProvider = StoreProvider.NONE) -> ECommerc
     return get_null_provider()
 
 
-def get_provider_for_merchant(merchant: Optional["Merchant"]) -> ECommerceProvider:
+def get_provider_for_merchant(merchant: Merchant | None) -> ECommerceProvider:
     """Get the appropriate e-commerce provider for a merchant.
 
     This is the main entry point for getting a provider instance.
@@ -190,7 +189,7 @@ def get_provider_for_merchant(merchant: Optional["Merchant"]) -> ECommerceProvid
     return get_null_provider()
 
 
-def _merchant_has_shopify_integration(merchant: "Merchant") -> bool:
+def _merchant_has_shopify_integration(merchant: Merchant) -> bool:
     """Check if merchant has an existing Shopify integration.
 
     This is a compatibility check for the migration period.
@@ -212,7 +211,7 @@ def _merchant_has_shopify_integration(merchant: "Merchant") -> bool:
     return False
 
 
-def _get_shopify_provider_for_merchant(merchant: "Merchant") -> ECommerceProvider:
+def _get_shopify_provider_for_merchant(merchant: Merchant) -> ECommerceProvider:
     """Get Shopify provider for a merchant with Shopify credentials.
 
     Args:
@@ -235,7 +234,7 @@ def _get_shopify_provider_for_merchant(merchant: "Merchant") -> ECommerceProvide
         return get_null_provider()
 
 
-def has_store_connected(merchant: Optional["Merchant"]) -> bool:
+def has_store_connected(merchant: Merchant | None) -> bool:
     """Check if a merchant has a store connected.
 
     This is a convenience function for the frontend to determine
@@ -251,7 +250,7 @@ def has_store_connected(merchant: Optional["Merchant"]) -> bool:
     return provider.is_connected()
 
 
-def get_store_provider_type(merchant: Optional["Merchant"]) -> str:
+def get_store_provider_type(merchant: Merchant | None) -> str:
     """Get the store provider type for a merchant.
 
     Args:

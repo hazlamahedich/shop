@@ -8,17 +8,15 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Dict, Optional
 
 import structlog
-from sqlalchemy import select, delete, update
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
-from app.models.conversation import Conversation
-from app.models.message import Message
 from app.core.errors import APIError, ErrorCode
-
+from app.models.conversation import Conversation
+from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
+from app.models.message import Message
 
 logger = structlog.get_logger(__name__)
 
@@ -98,7 +96,7 @@ class DataDeletionService:
     async def process_deletion(
         self,
         request_id: int,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """Process a deletion request.
 
         Deletes:
@@ -152,8 +150,8 @@ class DataDeletionService:
             customer_id=request.customer_id,
         )
 
-        deleted: Dict[str, int] = {}
-        error_message: Optional[str] = None
+        deleted: dict[str, int] = {}
+        error_message: str | None = None
 
         try:
             # 1. Delete messages in conversations for this customer
@@ -257,7 +255,7 @@ class DataDeletionService:
 
     async def get_pending_requests(
         self,
-        platform: Optional[str] = None,
+        platform: str | None = None,
     ) -> list[DataDeletionRequest]:
         """Get all pending deletion requests.
 

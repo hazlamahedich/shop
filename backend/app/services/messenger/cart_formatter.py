@@ -6,12 +6,11 @@ Generic Template and Button Template structured messages.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 
-from app.core.config import settings
-from app.schemas.cart import Cart, CartItem, CurrencyCode
+from app.schemas.cart import Cart, CartItem
 
 
 class CartFormatter:
@@ -28,7 +27,7 @@ class CartFormatter:
     MAX_QUANTITY = 10  # Maximum quantity per item (must match CartService)
 
     # Currency symbols for formatting
-    CURRENCY_SYMBOLS: Dict[str, str] = {
+    CURRENCY_SYMBOLS: dict[str, str] = {
         "USD": "$",
         "EUR": "€",
         "GBP": "£",
@@ -48,7 +47,7 @@ class CartFormatter:
         self.shop_domain = shop_domain
         self.logger = structlog.get_logger(__name__)
 
-    def format_cart(self, cart: Cart, psid: str) -> Dict[str, Any]:
+    def format_cart(self, cart: Cart, psid: str) -> dict[str, Any]:
         """Format cart for Messenger display.
 
         Args:
@@ -64,7 +63,7 @@ class CartFormatter:
         if not cart.items:
             return self._format_empty_cart()
 
-        elements: list[Dict[str, Any]] = []
+        elements: list[dict[str, Any]] = []
 
         # Cart summary as first element
         summary_element = {
@@ -132,7 +131,7 @@ class CartFormatter:
             },
         }
 
-    def _format_empty_cart(self) -> Dict[str, Any]:
+    def _format_empty_cart(self) -> dict[str, Any]:
         """Format empty cart message.
 
         Returns:
@@ -160,7 +159,7 @@ class CartFormatter:
             }
         }
 
-    def _format_cart_item(self, item: CartItem, psid: str) -> Dict[str, Any]:
+    def _format_cart_item(self, item: CartItem, psid: str) -> dict[str, Any]:
         """Format single cart item for display.
 
         Args:
@@ -180,7 +179,7 @@ class CartFormatter:
         # Use default image if URL is empty
         image_url = item.image_url or self.DEFAULT_IMAGE_URL
 
-        element: Dict[str, Any] = {
+        element: dict[str, Any] = {
             "title": item.title,
             "subtitle": self._format_item_details(item),
             "image_url": image_url,

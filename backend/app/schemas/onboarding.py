@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
 from datetime import datetime
+
 from pydantic import Field
 
 from app.schemas.base import BaseSchema, MetaData, MinimalEnvelope
@@ -56,7 +56,7 @@ class PrerequisiteStateResponse(BaseSchema):
     has_shopify_access: bool = Field(description="Has Shopify access")
     has_llm_provider_choice: bool = Field(description="Has chosen LLM provider")
     is_complete: bool = Field(description="Whether all prerequisites are complete")
-    completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
+    completed_at: datetime | None = Field(None, description="Completion timestamp")
     created_at: datetime = Field(description="Record creation timestamp")
     updated_at: datetime = Field(description="Last update timestamp")
 
@@ -71,7 +71,7 @@ class PrerequisiteSyncRequest(BaseSchema):
     facebook_account: bool = Field(description="Facebook account status")
     shopify_access: bool = Field(description="Shopify access status")
     llm_provider_choice: bool = Field(description="LLM provider choice status")
-    updated_at: Optional[str] = Field(None, description="Last update timestamp")
+    updated_at: str | None = Field(None, description="Last update timestamp")
 
 
 __all__ = [

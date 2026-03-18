@@ -3,31 +3,32 @@
 This package contains SQLAlchemy ORM models for database entities.
 """
 
-from app.models.merchant import Merchant
-from app.models.deployment_log import DeploymentLog
-from app.models.onboarding import PrerequisiteChecklist
-from app.models.facebook_integration import FacebookIntegration
-from app.models.shopify_integration import ShopifyIntegration
+from app.models.budget_alert import BudgetAlert
+from app.models.carrier_config import CarrierConfig
+from app.models.consent import Consent, ConsentType
 from app.models.conversation import Conversation
-from app.models.message import Message
+from app.models.customer_profile import CustomerProfile
+from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
+from app.models.data_export_audit_log import DataExportAuditLog
+from app.models.deletion_audit_log import DeletionAuditLog
+from app.models.deployment_log import DeploymentLog
+from app.models.dispute import Dispute
+from app.models.facebook_integration import FacebookIntegration
+from app.models.faq import Faq
+from app.models.handoff_alert import HandoffAlert
+from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
 from app.models.llm_configuration import LLMConfiguration
 from app.models.llm_conversation_cost import LLMConversationCost
-from app.models.tutorial import Tutorial
-from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
-from app.models.faq import Faq
+from app.models.merchant import Merchant
+from app.models.message import Message
+from app.models.onboarding import PrerequisiteChecklist
+from app.models.order import Order, OrderStatus
 from app.models.product_pin import ProductPin
 from app.models.product_pin_analytics import ProductPinAnalytics
 from app.models.session import Session
-from app.models.budget_alert import BudgetAlert
-from app.models.handoff_alert import HandoffAlert
-from app.models.order import Order, OrderStatus
-from app.models.consent import Consent, ConsentType
-from app.models.customer_profile import CustomerProfile
-from app.models.dispute import Dispute
-from app.models.deletion_audit_log import DeletionAuditLog
-from app.models.data_export_audit_log import DataExportAuditLog
-from app.models.carrier_config import CarrierConfig
-from app.models.knowledge_base import KnowledgeDocument, DocumentChunk, DocumentStatus
+from app.models.shopify_integration import ShopifyIntegration
+from app.models.tutorial import Tutorial
+from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
 __all__ = [
     "Merchant",
@@ -60,4 +61,5 @@ __all__ = [
     "KnowledgeDocument",
     "DocumentChunk",
     "DocumentStatus",
+    "WidgetAnalyticsEvent",
 ]

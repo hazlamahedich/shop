@@ -7,25 +7,22 @@ Story 6-6: GDPR deletion processing with 30-day compliance tracking.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
-from app.core.database import get_db, async_session
+from app.core.database import async_session, get_db
 from app.core.errors import APIError, ErrorCode
-from app.schemas.base import MinimalEnvelope, MetaData
-from app.services.data_deletion import DataDeletionService
-from app.services.privacy.gdpr_service import GDPRDeletionService
-from app.services.privacy.compliance_monitor import GDPRComplianceMonitor
-from app.models.data_deletion_request import DeletionStatus
 from app.models.deletion_audit_log import DeletionRequestType
-
+from app.schemas.base import MinimalEnvelope
+from app.services.data_deletion import DataDeletionService
+from app.services.privacy.compliance_monitor import GDPRComplianceMonitor
+from app.services.privacy.gdpr_service import GDPRDeletionService
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -39,9 +36,9 @@ class GDPRRequestSchema(BaseModel):
         default=DeletionRequestType.MANUAL,
         description="Type of deletion request (manual/gdpr_formal/ccpa_request)",
     )
-    email: Optional[str] = Field(None, description="Customer email for confirmation (optional)")
-    session_id: Optional[str] = Field(None, description="Session ID for tracking (optional)")
-    visitor_id: Optional[str] = Field(
+    email: str | None = Field(None, description="Customer email for confirmation (optional)")
+    session_id: str | None = Field(None, description="Session ID for tracking (optional)")
+    visitor_id: str | None = Field(
         None, description="Visitor ID for cross-platform tracking (optional)"
     )
 
@@ -361,7 +358,7 @@ async def get_compliance_status(
             "status": compliance_status,
             "overdueRequests": status_data["overdue_count"],
             "approachingDeadline": status_data["approaching_count"],
-            "lastChecked": datetime.now(timezone.utc).isoformat(),
+            "lastChecked": datetime.now(UTC).isoformat(),
         }
 
         if status_data["overdue_requests"]:

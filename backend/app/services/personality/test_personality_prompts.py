@@ -9,8 +9,8 @@ import pytest
 
 from app.models.merchant import PersonalityType
 from app.services.personality.personality_prompts import (
-    get_personality_system_prompt,
     PersonalityPromptService,
+    get_personality_system_prompt,
 )
 
 

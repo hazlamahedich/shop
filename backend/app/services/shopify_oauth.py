@@ -6,7 +6,7 @@ Handles OAuth flow, token management, and API client operations.
 from __future__ import annotations
 
 import re
-from typing import Optional, Any
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -14,15 +14,15 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.shopify_integration import ShopifyIntegration
-from app.models.merchant import Merchant
+from app.core.config import settings
+from app.core.errors import APIError, ErrorCode
 from app.core.security import (
-    encrypt_access_token,
     decrypt_access_token,
+    encrypt_access_token,
     generate_oauth_state,
 )
-from app.core.errors import APIError, ErrorCode
-from app.core.config import settings
+from app.models.merchant import Merchant
+from app.models.shopify_integration import ShopifyIntegration
 
 # Shopify API endpoints
 SHOPIFY_OAUTH_DIALOG_URL = "https://{shop}/admin/oauth/authorize"
@@ -77,7 +77,7 @@ class ShopifyService:
         """
         self.db = db
         self.is_testing = is_testing
-        self._async_client: Optional[httpx.AsyncClient] = None
+        self._async_client: httpx.AsyncClient | None = None
 
     @property
     def async_client(self) -> httpx.AsyncClient:
@@ -89,6 +89,7 @@ class ShopifyService:
         if self._async_client is None:
             if self.is_testing:
                 from httpx import ASGITransport
+
                 from app.main import app
 
                 self._async_client = httpx.AsyncClient(
@@ -160,7 +161,6 @@ class ShopifyService:
 
         if not redirect_uri:
             # Default redirect URI - backend callback endpoint
-            from app.core.config import is_testing
 
             app_url = settings()["APP_URL"]
             redirect_uri = f"{app_url}/api/integrations/shopify/callback"
@@ -186,7 +186,7 @@ class ShopifyService:
         self,
         shop_domain: str,
         code: str,
-        merchant_id: Optional[int] = None,
+        merchant_id: int | None = None,
     ) -> dict[str, Any]:
         """Exchange authorization code for Admin API access token.
 
@@ -273,7 +273,7 @@ class ShopifyService:
         shop_domain: str,
         shop_name: str,
         admin_token: str,
-        storefront_token: Optional[str],
+        storefront_token: str | None,
         scopes: list[str],
     ) -> ShopifyIntegration:
         """Create Shopify integration record.
@@ -339,7 +339,7 @@ class ShopifyService:
 
         return integration
 
-    async def get_shopify_integration(self, merchant_id: int) -> Optional[ShopifyIntegration]:
+    async def get_shopify_integration(self, merchant_id: int) -> ShopifyIntegration | None:
         """Get Shopify integration for merchant.
 
         Args:
@@ -461,6 +461,7 @@ class ShopifyService:
 
 
 from fastapi import Depends
+
 from app.core.database import get_db
 
 

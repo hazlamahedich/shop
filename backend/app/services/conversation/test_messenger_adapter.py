@@ -19,14 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.schemas.messaging import MessengerResponse
+from app.services.conversation.cart_key_strategy import CartKeyStrategy
+from app.services.conversation.messenger_adapter import MessengerAdapter
 from app.services.conversation.schemas import (
     Channel,
-    ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.messenger_adapter import MessengerAdapter
-from app.services.conversation.cart_key_strategy import CartKeyStrategy
-from app.schemas.messaging import MessengerResponse
 
 
 @pytest.fixture

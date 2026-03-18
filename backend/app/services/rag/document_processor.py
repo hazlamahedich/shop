@@ -15,15 +15,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import List, Optional
 
 import structlog
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import APIError, ErrorCode
+from app.core.errors import APIError
 from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
-from app.services.knowledge.chunker import ChunkingError, DocumentChunker
+from app.services.knowledge.chunker import DocumentChunker
 from app.services.rag.embedding_service import EmbeddingService
 
 logger = structlog.get_logger(__name__)
@@ -36,7 +35,7 @@ class ProcessingResult:
     document_id: int
     status: str  # 'ready' or 'error'
     chunk_count: int
-    error_message: Optional[str] = None
+    error_message: str | None = None
     processing_time_ms: int = 0
 
 
@@ -66,7 +65,7 @@ class DocumentProcessor:
         self,
         db: AsyncSession,
         embedding_service: EmbeddingService,
-        chunker: Optional[DocumentChunker] = None,
+        chunker: DocumentChunker | None = None,
     ):
         """Initialize document processor.
 
@@ -183,7 +182,7 @@ class DocumentProcessor:
                 start_time=start_time,
             )
 
-    async def _load_document(self, document_id: int) -> Optional[KnowledgeDocument]:
+    async def _load_document(self, document_id: int) -> KnowledgeDocument | None:
         """Load document from database."""
         result = await self.db.execute(
             select(KnowledgeDocument).where(KnowledgeDocument.id == document_id)
@@ -207,8 +206,8 @@ class DocumentProcessor:
     async def _store_chunks(
         self,
         document_id: int,
-        chunks: List[str],
-        embeddings: List[List[float]],
+        chunks: list[str],
+        embeddings: list[list[float]],
     ) -> None:
         """Store chunks with embeddings in database."""
         for index, (content, embedding) in enumerate(zip(chunks, embeddings)):
@@ -225,7 +224,7 @@ class DocumentProcessor:
 
         await self.db.commit()
 
-    def _format_embedding_for_storage(self, embedding: List[float]) -> str:
+    def _format_embedding_for_storage(self, embedding: list[float]) -> str:
         """Format embedding for pgvector storage.
 
         Converts Python list to PostgreSQL array literal format.

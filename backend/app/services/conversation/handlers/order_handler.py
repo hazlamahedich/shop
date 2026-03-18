@@ -13,21 +13,20 @@ Handles ORDER_TRACKING intent with OrderTrackingService.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
 from app.models.order import Order
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-
 
 logger = structlog.get_logger(__name__)
 
@@ -77,7 +76,7 @@ class OrderHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle order tracking intent.
 
@@ -92,8 +91,8 @@ class OrderHandler(BaseHandler):
         Returns:
             ConversationResponse with order status
         """
-        from app.services.order_tracking.order_tracking_service import OrderTrackingService
         from app.services.customer_lookup_service import CustomerLookupService
+        from app.services.order_tracking.order_tracking_service import OrderTrackingService
 
         tracking_service = OrderTrackingService()
         customer_service = CustomerLookupService()
@@ -338,7 +337,7 @@ class OrderHandler(BaseHandler):
         tracking_service,
         customer_service: CustomerLookupService,
         result,
-        order_number: Optional[str],
+        order_number: str | None,
         context: ConversationContext,
     ) -> ConversationResponse:
         """Handle order not found with cross-device fallback prompt.
@@ -396,7 +395,7 @@ class OrderHandler(BaseHandler):
             return False
         return bool(re.match(r"^[A-Za-z0-9\-]+$", cleaned))
 
-    def _normalize_email(self, message: str) -> Optional[str]:
+    def _normalize_email(self, message: str) -> str | None:
         """Normalize and correct common email typos.
 
         Handles common mistakes like:
@@ -445,7 +444,7 @@ class OrderHandler(BaseHandler):
 
         return None
 
-    def _try_insert_at_symbol(self, email: str) -> Optional[str]:
+    def _try_insert_at_symbol(self, email: str) -> str | None:
         """Try to insert @ before a known email domain.
 
         Args:
@@ -472,7 +471,7 @@ class OrderHandler(BaseHandler):
         """Get common domain typo corrections."""
         return COMMON_DOMAIN_TYPOS
 
-    def _extract_email_from_history(self, context: ConversationContext) -> Optional[str]:
+    def _extract_email_from_history(self, context: ConversationContext) -> str | None:
         """Scan conversation history for previously provided email.
 
         Looks through recent messages for any valid email that was provided

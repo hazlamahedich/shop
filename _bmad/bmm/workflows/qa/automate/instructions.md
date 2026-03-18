@@ -108,3 +108,33 @@ If the project needs:
 Save summary to: `{implementation_artifacts}/tests/test-summary.md`
 
 **Done!** Tests generated and verified.
+
+<!-- ===================================================================== -->
+<!-- BEADS INTEGRATION - OPTIONAL SYNC AFTER TEST AUTOMATION                -->
+<!-- ===================================================================== -->
+<!-- TO DISABLE: Delete from here to END BEADS tag                          -->
+<!-- OR delete: {project-root}/_bmad/core/beads-integration-hook.md         -->
+<!-- ===================================================================== -->
+
+### Optional Step 6: Sync to Beads
+
+1. **Check if Beads integration is configured:**
+   - Read: `{project-root}/_bmad/core/beads-integration-hook.md`
+   - If missing or `enabled != true`: Skip this step
+   - If enabled: Continue
+
+2. **Check if this workflow should trigger sync:**
+   - Parse `sync_triggers[]` list
+   - Check if "testarch-automate" is in the list
+   - If not: Skip this step
+   - If yes: Continue
+
+3. **Execute sync:**
+   - Output: `🔄 Syncing test automation status to Beads...`
+   - Execute: `./scripts/bmad-to-beads --create --status backlog`
+   - On success: `✅ Beads sync complete!`
+   - On failure: Show warning (based on `on_error` setting)
+
+<!-- ===================================================================== -->
+<!-- END BEADS INTEGRATION                                                  -->
+<!-- ===================================================================== -->

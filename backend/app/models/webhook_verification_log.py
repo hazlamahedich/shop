@@ -6,9 +6,8 @@ Stores webhook verification test results for troubleshooting and audit.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -66,15 +65,15 @@ class WebhookVerificationLog(Base):
     )
 
     # Results
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
-    error_code: Mapped[Optional[str]] = mapped_column(
+    error_code: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    diagnostic_data: Mapped[Optional[dict]] = mapped_column(
+    diagnostic_data: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
     )
@@ -85,11 +84,11 @@ class WebhookVerificationLog(Base):
         nullable=False,
         default=datetime.utcnow,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    duration_ms: Mapped[Optional[int]] = mapped_column(
+    duration_ms: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )

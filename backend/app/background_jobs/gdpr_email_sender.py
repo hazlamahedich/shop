@@ -8,14 +8,12 @@ email but haven't been sent one yet.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta
-from typing import Optional
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session
@@ -25,7 +23,7 @@ from app.services.email.email_service import EmailService
 logger = structlog.get_logger(__name__)
 
 
-async def send_pending_gdpr_emails(db: Optional[AsyncSession] = None) -> dict:
+async def send_pending_gdpr_emails(db: AsyncSession | None = None) -> dict:
     """Send confirmation emails for pending GDPR/CCPA requests.
 
     Story 6-6: Task 4.5

@@ -10,7 +10,7 @@ Rate limited to max 1 email per urgency level per merchant per 24 hours.
 from __future__ import annotations
 
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path

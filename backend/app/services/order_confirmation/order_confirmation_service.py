@@ -10,11 +10,11 @@ and clears cart after successful payment.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-import structlog
 import redis.asyncio as redis
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,10 +50,10 @@ class OrderConfirmationService:
 
     def __init__(
         self,
-        redis_client: Optional[Any] = None,
-        cart_service: Optional[CartService] = None,
-        send_service: Optional[MessengerSendService] = None,
-        db: Optional[AsyncSession] = None,
+        redis_client: Any | None = None,
+        cart_service: CartService | None = None,
+        send_service: MessengerSendService | None = None,
+        db: AsyncSession | None = None,
     ) -> None:
         """Initialize order confirmation service.
 
@@ -101,7 +101,7 @@ class OrderConfirmationService:
         """
         return f"order_confirmation:{psid}:{order_id}"
 
-    async def _get_psid_from_order(self, order_payload: Dict[str, Any]) -> Optional[str]:
+    async def _get_psid_from_order(self, order_payload: dict[str, Any]) -> str | None:
         """Extract PSID from order attributes.
 
         Args:
@@ -138,7 +138,7 @@ class OrderConfirmationService:
 
     async def _check_idempotency(
         self, psid: str, order_id: str
-    ) -> Optional[OrderConfirmationResult]:
+    ) -> OrderConfirmationResult | None:
         """Check if order has already been confirmed.
 
         Args:
@@ -201,7 +201,7 @@ class OrderConfirmationService:
             psid=psid,
             financial_status=order.financial_status,
             created_at=order.created_at,
-            confirmed_at=datetime.now(timezone.utc).isoformat(),
+            confirmed_at=datetime.now(UTC).isoformat(),
         )
 
         await self.redis.setex(
@@ -330,9 +330,9 @@ class OrderConfirmationService:
 
     async def process_order_confirmation(
         self,
-        order_payload: Dict[str, Any],
-        db: Optional[AsyncSession] = None,
-        merchant_id: Optional[int] = None,
+        order_payload: dict[str, Any],
+        db: AsyncSession | None = None,
+        merchant_id: int | None = None,
     ) -> OrderConfirmationResult:
         """Process order confirmation from Shopify webhook.
 
@@ -435,7 +435,7 @@ class OrderConfirmationService:
                 psid=psid,
                 message=f"Order #{order.order_number} confirmed!",
                 cart_cleared=True,
-                confirmed_at=datetime.now(timezone.utc).isoformat(),
+                confirmed_at=datetime.now(UTC).isoformat(),
             )
 
             # Mark as confirmed (idempotency)

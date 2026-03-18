@@ -10,27 +10,24 @@ Different from csv_export_service.py (Story 3.2):
 
 from __future__ import annotations
 
-import csv
-import io
-from datetime import datetime, timezone
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
+import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.core.errors import APIError, ErrorCode
+from app.models.consent import Consent, ConsentType
 from app.models.conversation import Conversation
-from app.models.message import Message
+from app.models.data_export_audit_log import DataExportAuditLog
+from app.models.handoff_alert import HandoffAlert
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.merchant import Merchant
+from app.models.message import Message
 from app.models.order import Order
-from app.models.data_export_audit_log import DataExportAuditLog
-from app.models.consent import Consent, ConsentType
-from app.models.handoff_alert import HandoffAlert
 from app.schemas.consent import ConsentStatus
 from app.services.privacy.data_tier_service import DataTier
-
 
 logger = structlog.get_logger(__name__)
 
@@ -153,7 +150,7 @@ class MerchantDataExportService:
     ):
         """Generate CSV metadata header."""
         yield "# Merchant Data Export\n"
-        yield f"# Export Date: {datetime.now(timezone.utc).isoformat()}\n"
+        yield f"# Export Date: {datetime.now(UTC).isoformat()}\n"
         yield f"# Merchant ID: {merchant_id}\n"
         yield f"# Total Conversations: {total_conversations}\n"
         yield f"# Total Messages: {total_messages}\n"

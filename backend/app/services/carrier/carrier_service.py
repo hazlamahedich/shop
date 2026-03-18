@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.carrier_config import CarrierConfig
 from app.services.carrier.carrier_patterns import (
-    CarrierPattern,
     detect_carrier_by_pattern,
     get_sorted_patterns,
 )

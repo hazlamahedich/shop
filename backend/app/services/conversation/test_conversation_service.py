@@ -4,11 +4,12 @@ Tests conversation listing, pagination, sorting, and merchant isolation.
 """
 
 from datetime import datetime
+
 import pytest
 
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.merchant import Merchant
+from app.models.message import Message
 from app.services.conversation import ConversationService
 
 

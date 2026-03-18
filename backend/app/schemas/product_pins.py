@@ -7,10 +7,9 @@ Provides request/response schemas for product pin CRUD operations.
 
 from __future__ import annotations
 
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from app.schemas.base import BaseSchema, MinimalEnvelope
 
 
 class ProductPinRequest(BaseSchema):
@@ -72,7 +71,7 @@ class ProductPinItem(BaseSchema):
         default=...,
         description="Product title",
     )
-    image_url: Optional[str] = Field(
+    image_url: str | None = Field(
         default=None,
         description="Product image URL",
     )
@@ -80,15 +79,15 @@ class ProductPinItem(BaseSchema):
         default=False,
         description="Whether product is pinned",
     )
-    pinned_order: Optional[int] = Field(
+    pinned_order: int | None = Field(
         default=None,
         description="Order priority (1-10) for pinned products",
     )
-    pinned_at: Optional[str] = Field(
+    pinned_at: str | None = Field(
         default=None,
         description="ISO-8601 timestamp when product was pinned",
     )
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default="active",
         description="Product status (active, draft, archived)",
     )
@@ -110,7 +109,7 @@ class ProductListResponse(BaseSchema):
         default=[],
         description="List of products with pin status",
     )
-    pagination: Optional["PaginationMeta"] = Field(
+    pagination: PaginationMeta | None = Field(
         default=None,
         description="Pagination metadata (page, limit, total, has_more)",
     )
@@ -178,11 +177,11 @@ class ProductPinResponse(BaseSchema):
         default=False,
         description="Updated pin status",
     )
-    pinned_order: Optional[int] = Field(
+    pinned_order: int | None = Field(
         default=None,
         description="Assigned order priority (1-10)",
     )
-    pinned_at: Optional[str] = Field(
+    pinned_at: str | None = Field(
         default=None,
         description="ISO-8601 timestamp when product was pinned",
     )

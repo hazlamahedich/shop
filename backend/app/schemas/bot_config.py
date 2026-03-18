@@ -7,10 +7,9 @@ Provides request/response schemas for bot configuration CRUD operations.
 
 from __future__ import annotations
 
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from app.schemas.base import BaseSchema, MinimalEnvelope
 
 
 class BotNameUpdate(BaseSchema):
@@ -22,7 +21,7 @@ class BotNameUpdate(BaseSchema):
         bot_name: Custom bot name (max 50 chars, optional)
     """
 
-    bot_name: Optional[str] = Field(
+    bot_name: str | None = Field(
         default=None,
         max_length=50,
         description="Custom bot name that appears in all bot messages (max 50 characters)",
@@ -30,7 +29,7 @@ class BotNameUpdate(BaseSchema):
 
     @field_validator("bot_name")
     @classmethod
-    def strip_whitespace(cls, v: Optional[str]) -> Optional[str]:
+    def strip_whitespace(cls, v: str | None) -> str | None:
         """Strip leading/trailing whitespace from bot name.
 
         Args:
@@ -56,15 +55,15 @@ class BotConfigResponse(BaseSchema):
         custom_greeting: Custom greeting message
     """
 
-    bot_name: Optional[str] = Field(
+    bot_name: str | None = Field(
         default=None,
         description="Custom bot name",
     )
-    personality: Optional[str] = Field(
+    personality: str | None = Field(
         default=None,
         description="Bot personality type",
     )
-    custom_greeting: Optional[str] = Field(
+    custom_greeting: str | None = Field(
         default=None,
         description="Custom greeting message",
     )

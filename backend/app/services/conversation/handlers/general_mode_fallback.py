@@ -9,23 +9,22 @@ when detected in General Chatbot Mode, returning a friendly fallback message.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.response_formatter import (
     PersonalityAwareResponseFormatter,
     PersonalityType,
 )
-
 
 logger = structlog.get_logger(__name__)
 
@@ -62,7 +61,7 @@ class GeneralModeFallbackHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle e-commerce intent with fallback message.
 

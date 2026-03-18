@@ -26,40 +26,37 @@ Error Codes:
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import uuid4
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
-    status,
     Request,
     Response,
+    status,
 )
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.auth import (
-    verify_password,
     create_jwt,
-    validate_jwt,
-    hash_token,
     hash_password,
+    hash_token,
+    validate_jwt,
     validate_password_requirements,
+    verify_password,
 )
-from app.core.errors import ErrorCode
 from app.core.config import settings
+from app.core.database import get_db
+from app.core.errors import ErrorCode
 from app.core.rate_limiter import RateLimiter
-from app.models.session import Session
 from app.models.merchant import Merchant
-from app.schemas.base import MinimalEnvelope, MetaData
+from app.models.session import Session
 from app.schemas.auth import RegisterRequest
-
+from app.schemas.base import MetaData, MinimalEnvelope
 
 router = APIRouter(tags=["Authentication"])
 security = HTTPBearer(auto_error=False)
@@ -170,7 +167,7 @@ class ErrorResponse(BaseModel):
 
     error_code: int
     message: str
-    details: Optional[str] = None
+    details: str | None = None
 
 
 # Helper Functions

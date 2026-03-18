@@ -12,13 +12,11 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
-from sqlalchemy import select, delete, func, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog
+from sqlalchemy import and_, delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.models.conversation import Conversation
 from app.models.message import Message
 
@@ -60,8 +58,8 @@ class DataRetentionService:
         self.session_hours = session_hours
 
     async def cleanup_voluntary_data(
-        self, db: AsyncSession, dry_run: bool = False, before_date: Optional[datetime] = None
-    ) -> Dict[str, int | str]:
+        self, db: AsyncSession, dry_run: bool = False, before_date: datetime | None = None
+    ) -> dict[str, int | str]:
         """Clean up voluntary conversation data older than retention period.
 
         Deletes conversations and their associated messages that haven't been
@@ -82,7 +80,7 @@ class DataRetentionService:
         """
         cutoff_date = before_date or datetime.utcnow() - timedelta(days=self.voluntary_days)
 
-        stats: Dict[str, int | str] = {
+        stats: dict[str, int | str] = {
             "conversations_deleted": 0,
             "messages_deleted": 0,
             "cutoff_date": cutoff_date.isoformat(),
@@ -125,8 +123,8 @@ class DataRetentionService:
         return stats
 
     async def cleanup_expired_sessions(
-        self, db: AsyncSession, dry_run: bool = False, before_date: Optional[datetime] = None
-    ) -> Dict[str, int | str]:
+        self, db: AsyncSession, dry_run: bool = False, before_date: datetime | None = None
+    ) -> dict[str, int | str]:
         """Clean up expired session data (cart data, temporary state).
 
         Session data is primarily stored in Redis with optional persistence.
@@ -142,7 +140,7 @@ class DataRetentionService:
         """
         cutoff_time = before_date or datetime.utcnow() - timedelta(hours=self.session_hours)
 
-        stats: Dict[str, int | str] = {
+        stats: dict[str, int | str] = {
             "sessions_expired": 0,
             "cutoff_time": cutoff_time.isoformat(),
         }
@@ -159,7 +157,7 @@ class DataRetentionService:
 
         return stats
 
-    async def get_retention_stats(self, db: AsyncSession) -> Dict[str, int | str]:
+    async def get_retention_stats(self, db: AsyncSession) -> dict[str, int | str]:
         """Get statistics about data that would be affected by retention policy.
 
         Provides visibility into data volume by age for operational monitoring.
@@ -180,7 +178,7 @@ class DataRetentionService:
             "90_plus_days": now - timedelta(days=90),
         }
 
-        stats: Dict[str, int | str] = {
+        stats: dict[str, int | str] = {
             "total_conversations": 0,
             "total_messages": 0,
             "conversations_by_age": {},
@@ -236,7 +234,7 @@ class DataRetentionService:
 
     async def get_conversations_to_delete(
         self, db: AsyncSession, limit: int = 100
-    ) -> List[Dict[str, int | str]]:
+    ) -> list[dict[str, int | str]]:
         """Get list of conversations that would be deleted by retention policy.
 
         Useful for audit trails and pre-deletion verification.

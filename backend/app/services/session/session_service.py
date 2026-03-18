@@ -7,8 +7,8 @@ and voluntary data clearing with GDPR/CCPA compliance.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import redis.asyncio as redis
 import structlog
@@ -41,8 +41,8 @@ class SessionService:
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
-        consent_service: Optional[ConsentService] = None,
+        redis_client: redis.Redis | None = None,
+        consent_service: ConsentService | None = None,
     ) -> None:
         """Initialize session service.
 
@@ -81,7 +81,7 @@ class SessionService:
         ttl_seconds = self.ACTIVITY_TTL_HOURS * 60 * 60
 
         activity_data: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "psid": psid,
         }
 
@@ -89,7 +89,7 @@ class SessionService:
 
         self.logger.info("activity_updated", psid=psid)
 
-    async def get_last_activity(self, psid: str) -> Optional[datetime]:
+    async def get_last_activity(self, psid: str) -> datetime | None:
         """Get last activity timestamp for shopper.
 
         Args:

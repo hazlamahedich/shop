@@ -12,11 +12,11 @@ Enhanced for GDPR/CCPA 30-day compliance window tracking.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Text, Index, Enum as SQLEnum, Boolean
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -92,18 +92,18 @@ class DeletionAuditLog(Base):
         nullable=False,
         index=True,
     )
-    visitor_id: Mapped[Optional[str]] = mapped_column(
+    visitor_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         index=True,
     )
-    customer_id: Mapped[Optional[str]] = mapped_column(
+    customer_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         index=True,
         comment="Customer ID for GDPR-level tracking (optional)",
     )
-    customer_email: Mapped[Optional[str]] = mapped_column(
+    customer_email: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Queued email address for confirmation email (deleted after sending)",
@@ -113,7 +113,7 @@ class DeletionAuditLog(Base):
         nullable=False,
         index=True,
     )
-    retention_period_days: Mapped[Optional[int]] = mapped_column(
+    retention_period_days: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
         comment="Retention period in days for automated deletions (null for manual)",
@@ -129,7 +129,7 @@ class DeletionAuditLog(Base):
         nullable=False,
         comment="Whether deletion was manual (user-requested) or automated (retention policy)",
     )
-    request_type: Mapped[Optional[str]] = mapped_column(
+    request_type: Mapped[str | None] = mapped_column(
         SQLEnum(
             DeletionRequestType,
             name="deletion_request_type",
@@ -140,17 +140,17 @@ class DeletionAuditLog(Base):
         default=DeletionRequestType.MANUAL.value,
         comment="Type of GDPR/CCPA deletion request",
     )
-    request_timestamp: Mapped[Optional[datetime]] = mapped_column(
+    request_timestamp: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When GDPR request was received",
     )
-    processing_deadline: Mapped[Optional[datetime]] = mapped_column(
+    processing_deadline: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="30-day deadline from request",
     )
-    completion_date: Mapped[Optional[datetime]] = mapped_column(
+    completion_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When GDPR deletion was actually completed",
@@ -161,7 +161,7 @@ class DeletionAuditLog(Base):
         default=False,
         comment="Whether confirmation email was sent",
     )
-    email_sent_at: Mapped[Optional[datetime]] = mapped_column(
+    email_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When confirmation email was sent",
@@ -171,7 +171,7 @@ class DeletionAuditLog(Base):
         server_default=func.now(),
         nullable=False,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -190,12 +190,12 @@ class DeletionAuditLog(Base):
         default=0,
         nullable=False,
     )
-    failed_redis_keys: Mapped[Optional[str]] = mapped_column(
+    failed_redis_keys: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="JSON array of Redis keys that failed to delete for retry",
     )
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -207,7 +207,7 @@ class DeletionAuditLog(Base):
 
     def __repr__(self) -> str:
         parts = [
-            f"<DeletionAuditLog(",
+            "<DeletionAuditLog(",
             f"id={self.id}, ",
             f"session_id={self.session_id[:16]}..., ",
             f"merchant_id={self.merchant_id}, ",
@@ -231,7 +231,7 @@ class DeletionAuditLog(Base):
         conversations: int,
         messages: int,
         redis_keys: int,
-        failed_redis_keys: Optional[list[str]] = None,
+        failed_redis_keys: list[str] | None = None,
     ) -> None:
         """Mark deletion as completed with counts.
 
@@ -241,7 +241,7 @@ class DeletionAuditLog(Base):
             redis_keys: Number of Redis keys cleared
             failed_redis_keys: List of Redis keys that failed to delete
         """
-        self.completed_at = datetime.now(timezone.utc)
+        self.completed_at = datetime.now(UTC)
         self.conversations_deleted = conversations
         self.messages_deleted = messages
         self.redis_keys_cleared = redis_keys
@@ -256,5 +256,5 @@ class DeletionAuditLog(Base):
         Args:
             error_message: Error description
         """
-        self.completed_at = datetime.now(timezone.utc)
+        self.completed_at = datetime.now(UTC)
         self.error_message = error_message

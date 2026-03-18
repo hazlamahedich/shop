@@ -4,9 +4,7 @@ Story 6-1: Opt-In Consent Flow
 Task 3.3: Implement "forget my preferences" handler
 """
 
-from datetime import datetime, timezone
-from typing import Any, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

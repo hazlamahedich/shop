@@ -9,21 +9,15 @@ Integrates with product pin service to provide product titles and images.
 from __future__ import annotations
 
 import os
-from typing import Optional
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import APIError, ErrorCode
-from app.models.product_pin import ProductPin
-from app.models.shopify_integration import ShopifyIntegration
-from app.models.merchant import Merchant
-from app.core.security import decrypt_access_token
-from app.services.shopify_admin import ShopifyAdminClient
 from app.core.config import is_testing
-from app.services.product_pin_service import get_pinned_products
-import structlog
-
+from app.core.security import decrypt_access_token
+from app.models.shopify_integration import ShopifyIntegration
+from app.services.shopify_admin import ShopifyAdminClient
 
 logger = structlog.get_logger(__name__)
 
@@ -298,7 +292,7 @@ async def get_product_by_id(
     product_id: str,
     merchant_id: int | str,
     db: AsyncSession,
-) -> Optional[dict]:
+) -> dict | None:
     """Get a specific product by ID from Shopify.
 
     Args:

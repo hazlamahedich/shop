@@ -6,11 +6,11 @@ Request/response schemas with camelCase conversion for API compatibility.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
+
 from pydantic import Field
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
-
+from app.schemas.base import BaseSchema, MetaData, MinimalEnvelope
 
 # ==================== Facebook OAuth Schemas ====================
 
@@ -48,7 +48,7 @@ class FacebookCallbackResponse(BaseSchema):
 
     page_id: str = Field(..., description="Facebook Page ID")
     page_name: str = Field(..., description="Facebook Page name")
-    page_picture_url: Optional[str] = Field(None, description="Page profile picture URL")
+    page_picture_url: str | None = Field(None, description="Page profile picture URL")
     connected_at: datetime = Field(..., description="Connection timestamp")
 
 
@@ -56,10 +56,10 @@ class FacebookStatusResponse(BaseSchema):
     """Response with Facebook connection status."""
 
     connected: bool = Field(..., description="Whether Facebook is connected")
-    page_id: Optional[str] = Field(None, description="Facebook Page ID")
-    page_name: Optional[str] = Field(None, description="Facebook Page name")
-    page_picture_url: Optional[str] = Field(None, description="Page profile picture URL")
-    connected_at: Optional[datetime] = Field(None, description="Connection timestamp")
+    page_id: str | None = Field(None, description="Facebook Page ID")
+    page_name: str | None = Field(None, description="Facebook Page name")
+    page_picture_url: str | None = Field(None, description="Page profile picture URL")
+    connected_at: datetime | None = Field(None, description="Connection timestamp")
     webhook_verified: bool = Field(False, description="Whether webhook is verified")
 
 
@@ -85,9 +85,9 @@ class FacebookWebhookMessage(BaseSchema):
 
     sender_id: str = Field(..., description="Facebook PSID")
     recipient_id: str = Field(..., description="Page ID")
-    message_text: Optional[str] = Field(None, description="Message text content")
-    attachment_url: Optional[str] = Field(None, description="Attachment URL if present")
-    postback_payload: Optional[str] = Field(None, description="Postback payload if present")
+    message_text: str | None = Field(None, description="Message text content")
+    attachment_url: str | None = Field(None, description="Attachment URL if present")
+    postback_payload: str | None = Field(None, description="Postback payload if present")
     timestamp: int = Field(..., description="Message timestamp from Facebook")
 
 
@@ -96,7 +96,7 @@ class WebhookTestResponse(BaseSchema):
 
     success: bool = Field(..., description="Whether webhook test was successful")
     message: str = Field(..., description="Test result message")
-    webhook_status: Optional[str] = Field(None, description="Current webhook status")
+    webhook_status: str | None = Field(None, description="Current webhook status")
 
 
 class WebhookResubscribeResponse(BaseSchema):
@@ -114,7 +114,7 @@ class ErrorResponse(BaseSchema):
 
     error_code: int = Field(...)
     message: str = Field(..., description="Human-readable error message")
-    details: Optional[dict[str, Any]] = Field(None, description="Additional error details")
+    details: dict[str, Any] | None = Field(None, description="Additional error details")
 
 
 # ==================== Shopify OAuth Schemas ====================
@@ -162,12 +162,12 @@ class ShopifyStatusResponse(BaseSchema):
     """Response with Shopify connection status."""
 
     connected: bool = Field(..., description="Whether Shopify is connected")
-    shop_domain: Optional[str] = Field(None, description="Shopify shop domain")
-    shop_name: Optional[str] = Field(None, description="Shopify shop name")
+    shop_domain: str | None = Field(None, description="Shopify shop domain")
+    shop_name: str | None = Field(None, description="Shopify shop name")
     storefront_api_connected: bool = Field(False, description="Storefront API verified")
     admin_api_connected: bool = Field(False, description="Admin API verified")
     webhook_subscribed: bool = Field(False, description="Webhook subscribed")
-    connected_at: Optional[datetime] = Field(None, description="Connection timestamp")
+    connected_at: datetime | None = Field(None, description="Connection timestamp")
 
 
 class ShopifyDisconnectResponse(BaseSchema):

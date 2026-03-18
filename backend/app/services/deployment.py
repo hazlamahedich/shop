@@ -8,7 +8,6 @@ from __future__ import annotations
 import secrets
 import string
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,7 +59,7 @@ class DeploymentService:
         db: AsyncSession,
         merchant_key: str,
         platform: str,
-        secret_key_hash: Optional[str] = None,
+        secret_key_hash: str | None = None,
     ) -> Merchant:
         """Create a new merchant record.
 
@@ -131,7 +130,7 @@ class DeploymentService:
         return checklist
 
     @staticmethod
-    async def get_merchant_by_key(db: AsyncSession, merchant_key: str) -> Optional[Merchant]:
+    async def get_merchant_by_key(db: AsyncSession, merchant_key: str) -> Merchant | None:
         """Get a merchant by merchant key.
 
         Args:
@@ -151,7 +150,7 @@ class DeploymentService:
         db: AsyncSession,
         merchant_key: str,
         status: str,
-    ) -> Optional[Merchant]:
+    ) -> Merchant | None:
         """Update merchant status.
 
         Args:

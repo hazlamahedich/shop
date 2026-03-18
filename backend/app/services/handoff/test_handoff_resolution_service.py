@@ -5,15 +5,15 @@ Story: LLM-powered handoff resolution messages for widget
 Tests resolution message generation, storage, and delivery.
 """
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
 
-from app.services.handoff.handoff_resolution_service import HandoffResolutionService
+import pytest
+
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant, PersonalityType
 from app.models.message import Message
+from app.services.handoff.handoff_resolution_service import HandoffResolutionService
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def test_message():
     msg.id = 1
     msg.content = "Test resolution message"
     msg.sender = "bot"
-    msg.created_at = datetime.now(timezone.utc)
+    msg.created_at = datetime.now(UTC)
     return msg
 
 

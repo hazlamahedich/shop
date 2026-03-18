@@ -17,21 +17,21 @@ Usage:
 """
 
 from app.services.ecommerce.base import (
-    ECommerceProvider,
-    Product,
-    ProductVariant,
     Cart,
     CartItem,
+    ECommerceProvider,
     Order,
     OrderItem,
+    Product,
+    ProductVariant,
     StoreNotConnectedError,
 )
-from app.services.ecommerce.null_provider import NullStoreProvider
 from app.services.ecommerce.mock_provider import MockStoreProvider
+from app.services.ecommerce.null_provider import NullStoreProvider
 from app.services.ecommerce.provider_factory import (
+    StoreProvider,
     get_provider,
     get_provider_for_merchant,
-    StoreProvider,
 )
 
 __all__ = [

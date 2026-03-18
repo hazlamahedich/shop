@@ -7,38 +7,36 @@ Handles deployment state tracking, progress streaming, and cancellation.
 from __future__ import annotations
 
 import asyncio
-import subprocess
 import secrets
 import string
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Optional
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
-from fastapi import APIRouter, Body, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.schemas.base import to_camel
+from app.models.deployment_log import DeploymentLog as DeploymentLogModel
+from app.models.merchant import Merchant
 from app.schemas.deployment import (
-    DeploymentStatus,
-    DeploymentState,
     DeploymentLogEntry,
+    DeploymentState,
+    DeploymentStatus,
     DeploymentStep,
     LogLevel,
-    MinimalEnvelope,
     MetaData,
+    MinimalEnvelope,
     Platform,
     StartDeploymentRequest,
     StartDeploymentResponse,
 )
 from app.services.deployment import DeploymentService
-from app.models.merchant import Merchant
-from app.models.deployment_log import DeploymentLog as DeploymentLogModel
-from app.models.onboarding import PrerequisiteChecklist
 
 router = APIRouter()
 
@@ -48,7 +46,7 @@ _active_subprocesses: dict[str, asyncio.subprocess.Process] = {}
 _active_deployments: dict[str, datetime] = {}  # Track deployment start times for rate limiting
 
 
-def _safe_step_to_enum(step_value: Optional[str]) -> Optional[DeploymentStep]:
+def _safe_step_to_enum(step_value: str | None) -> DeploymentStep | None:
     """Safely convert a step string to DeploymentStep enum.
 
     Handles both enum values (e.g., "check_cli") and script output
@@ -156,7 +154,7 @@ async def _run_deployment_script(
     merchant_key: str,
     secret_key: str,
     merchant_id: int,
-    config: Optional[dict[str, str]] = None,
+    config: dict[str, str] | None = None,
 ) -> None:
     """Run the deployment script in a subprocess.
 
@@ -186,7 +184,7 @@ async def _run_deployment_script(
         DEPLOYMENT_TIMEOUT_SECONDS = 900
 
         async def log_message(
-            level: LogLevel, step: Optional[DeploymentStep], message: str
+            level: LogLevel, step: DeploymentStep | None, message: str
         ) -> None:
             """Add a log entry to database."""
             log_entry = DeploymentLogModel(
@@ -236,7 +234,7 @@ async def _run_deployment_script(
                     process.terminate()
                     try:
                         await asyncio.wait_for(process.wait(), timeout=5.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         process.kill()
                         await process.wait()
                     _active_subprocesses.pop(deployment_id, None)
@@ -318,6 +316,7 @@ async def start_deployment(
     """
     # Parse request body manually to work around ASGITransport issues
     import json
+
     from pydantic import ValidationError
 
     body_bytes = await request.body()
@@ -356,8 +355,9 @@ async def start_deployment(
         )
 
     # Rate limiting: Check for recent deployments (per AC requirements)
-    from sqlalchemy import func, text
     from datetime import timedelta
+
+    from sqlalchemy import func
 
     # Calculate threshold time
     threshold_time = datetime.utcnow() - timedelta(seconds=MIN_DEPLOYMENT_INTERVAL_SECONDS)
@@ -595,7 +595,7 @@ async def stream_deployment_progress(
             merchant = merchant_result.scalars().first()
 
             if not merchant:
-                yield f'data: {{"error": "Merchant not found"}}\n\n'
+                yield 'data: {"error": "Merchant not found"}\n\n'
                 break
 
             # Build deployment state
@@ -744,7 +744,7 @@ async def cancel_deployment(
             process.terminate()
             try:
                 await asyncio.wait_for(process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 process.kill()
                 await process.wait()
         except Exception:

@@ -9,7 +9,7 @@ the system to gracefully handle the absence of a store.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from app.services.ecommerce.base import (
     Cart,
@@ -42,7 +42,7 @@ class NullStoreProvider(ECommerceProvider):
             print("Please connect a store to use shopping features")
     """
 
-    def __init__(self, message: Optional[str] = None) -> None:
+    def __init__(self, message: str | None = None) -> None:
         """Initialize the null provider.
 
         Args:
@@ -87,9 +87,9 @@ class NullStoreProvider(ECommerceProvider):
         self,
         query: str,
         limit: int = 10,
-        category: Optional[str] = None,
-        max_price: Optional[float] = None,
-        min_price: Optional[float] = None,
+        category: str | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
         **kwargs: Any,
     ) -> list[Product]:
         """Search for products - not available without store.
@@ -99,7 +99,7 @@ class NullStoreProvider(ECommerceProvider):
         """
         self._raise_not_connected()  # type: ignore[return-value]
 
-    async def get_product(self, product_id: str) -> Optional[Product]:
+    async def get_product(self, product_id: str) -> Product | None:
         """Get a product - not available without store.
 
         Raises:
@@ -125,7 +125,7 @@ class NullStoreProvider(ECommerceProvider):
         """
         self._raise_not_connected()  # type: ignore[return-value]
 
-    async def get_cart(self, cart_id: str) -> Optional[Cart]:
+    async def get_cart(self, cart_id: str) -> Cart | None:
         """Get a cart - not available without store.
 
         Raises:
@@ -176,7 +176,7 @@ class NullStoreProvider(ECommerceProvider):
     async def create_checkout_url(
         self,
         cart_id: str,
-        custom_attributes: Optional[list[dict[str, str]]] = None,
+        custom_attributes: list[dict[str, str]] | None = None,
     ) -> str:
         """Create checkout URL - not available without store.
 
@@ -187,7 +187,7 @@ class NullStoreProvider(ECommerceProvider):
 
     # ==================== Order Operations ====================
 
-    async def get_order(self, order_id: str) -> Optional[Order]:
+    async def get_order(self, order_id: str) -> Order | None:
         """Get an order - not available without store.
 
         Raises:
@@ -195,7 +195,7 @@ class NullStoreProvider(ECommerceProvider):
         """
         self._raise_not_connected()  # type: ignore[return-value]
 
-    async def get_order_by_checkout_token(self, checkout_token: str) -> Optional[Order]:
+    async def get_order_by_checkout_token(self, checkout_token: str) -> Order | None:
         """Get order by token - not available without store.
 
         Raises:
@@ -207,8 +207,8 @@ class NullStoreProvider(ECommerceProvider):
         self,
         order_id: str,
         status: OrderStatus,
-        tracking_number: Optional[str] = None,
-        tracking_url: Optional[str] = None,
+        tracking_number: str | None = None,
+        tracking_url: str | None = None,
     ) -> Order:
         """Update order status - not available without store.
 

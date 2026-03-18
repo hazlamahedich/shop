@@ -11,16 +11,12 @@ their data can be used for cart management.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
-
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.models.consent import Consent, ConsentType
 from app.services.conversation.schemas import ConversationContext
-
 
 logger = structlog.get_logger(__name__)
 
@@ -95,7 +91,7 @@ class ConsentMiddleware:
         db: AsyncSession,
         context: ConversationContext,
         intent: str,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if user has consent for the given intent.
 
         Args:
@@ -195,7 +191,7 @@ class ConsentMiddleware:
         session_id: str,
         merchant_id: int,
         consent_type: str,
-    ) -> Optional[Consent]:
+    ) -> Consent | None:
         """Get consent record for session.
 
         Args:
@@ -313,7 +309,7 @@ class ConsentMiddleware:
         negative_responses = {"no", "nope", "n", "never", "not really", "don't", "dont"}
         return message in negative_responses
 
-    def get_pending_consent_type(self, context: ConversationContext) -> Optional[str]:
+    def get_pending_consent_type(self, context: ConversationContext) -> str | None:
         """Get the pending consent type from context.
 
         Args:

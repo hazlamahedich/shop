@@ -9,7 +9,7 @@ Defines the data structures for cross-channel message processing.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -37,7 +37,7 @@ class ConsentState(BaseModel):
     status: str = Field(
         default="pending", description="Consent status: pending, opted_in, opted_out"
     )
-    visitor_id: Optional[str] = Field(
+    visitor_id: str | None = Field(
         None, description="Visitor identifier for cross-session tracking"
     )
 
@@ -55,8 +55,8 @@ class ClarificationState(BaseModel):
         default_factory=list,
         description="List of constraint types asked about",
     )
-    last_question: Optional[str] = Field(None, description="Last question asked")
-    last_type: Optional[str] = Field(None, description="Last clarification type")
+    last_question: str | None = Field(None, description="Last question asked")
+    last_type: str | None = Field(None, description="Last clarification type")
 
 
 class HandoffState(BaseModel):
@@ -69,7 +69,7 @@ class HandoffState(BaseModel):
     consecutive_low_confidence: int = Field(
         default=0, description="Consecutive low confidence count"
     )
-    last_handoff_check: Optional[str] = Field(None, description="ISO timestamp of last check")
+    last_handoff_check: str | None = Field(None, description="ISO timestamp of last check")
 
 
 class SessionShoppingState(BaseModel):
@@ -86,11 +86,11 @@ class SessionShoppingState(BaseModel):
         description="Last 5 products shown to user",
         max_length=5,
     )
-    last_search_query: Optional[str] = Field(
+    last_search_query: str | None = Field(
         None,
         description="Most recent search query",
     )
-    last_search_category: Optional[str] = Field(
+    last_search_category: str | None = Field(
         None,
         description="Most recent product category searched",
     )
@@ -114,14 +114,14 @@ class SessionShoppingState(BaseModel):
         # Keep only last 5
         self.last_viewed_products = self.last_viewed_products[:5]
 
-    def get_last_viewed_product(self) -> Optional[dict[str, Any]]:
+    def get_last_viewed_product(self) -> dict[str, Any] | None:
         """Get the most recently viewed product."""
         return self.last_viewed_products[0] if self.last_viewed_products else None
 
     def find_product_by_reference(
         self,
         reference: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Find a product by reference term (first, last, by name/brand).
 
         Args:
@@ -171,11 +171,11 @@ class ConversationContext(BaseModel):
         default_factory=list,
         description="Recent conversation messages",
     )
-    platform_sender_id: Optional[str] = Field(
+    platform_sender_id: str | None = Field(
         None,
         description="Facebook PSID (for messenger channel)",
     )
-    user_id: Optional[int] = Field(
+    user_id: int | None = Field(
         None,
         description="User ID (for preview channel)",
     )
@@ -199,11 +199,11 @@ class ConversationContext(BaseModel):
         default_factory=ConsentState,
         description="Consent state for conversation data (Story 6-1)",
     )
-    consent_status: Optional[str] = Field(
+    consent_status: str | None = Field(
         None,
         description="Consent status: none, pending, granted, denied (GAP-4) - DEPRECATED: use consent_state",
     )
-    pending_consent_product: Optional[dict[str, Any]] = Field(
+    pending_consent_product: dict[str, Any] | None = Field(
         None,
         description="Pending product awaiting consent (GAP-4)",
     )
@@ -211,11 +211,11 @@ class ConversationContext(BaseModel):
         default=False,
         description="Whether hybrid mode is active (GAP-5)",
     )
-    hybrid_mode_expires_at: Optional[str] = Field(
+    hybrid_mode_expires_at: str | None = Field(
         None,
         description="ISO timestamp when hybrid mode expires (GAP-5)",
     )
-    last_activity_at: Optional[str] = Field(
+    last_activity_at: str | None = Field(
         None,
         description="ISO timestamp of last activity (GAP-7)",
     )
@@ -223,7 +223,7 @@ class ConversationContext(BaseModel):
         default_factory=dict,
         description="Additional context metadata (clarification state, etc.)",
     )
-    conversation_data: Optional[dict[str, Any]] = Field(
+    conversation_data: dict[str, Any] | None = Field(
         None,
         description="Persistent conversation metadata from database (cross-device lookup state, etc.)",
     )
@@ -239,18 +239,18 @@ class ConversationResponse(BaseModel):
     """
 
     message: str = Field(description="Response message text")
-    intent: Optional[str] = Field(None, description="Classified intent")
-    confidence: Optional[float] = Field(None, description="Classification confidence")
-    checkout_url: Optional[str] = Field(None, description="Checkout URL if applicable")
+    intent: str | None = Field(None, description="Classified intent")
+    confidence: float | None = Field(None, description="Classification confidence")
+    checkout_url: str | None = Field(None, description="Checkout URL if applicable")
     fallback: bool = Field(False, description="True if using fallback response")
-    fallback_url: Optional[str] = Field(None, description="Fallback URL if degraded")
-    products: Optional[list[dict[str, Any]]] = Field(
+    fallback_url: str | None = Field(None, description="Fallback URL if degraded")
+    products: list[dict[str, Any]] | None = Field(
         None,
         description="Product results if applicable",
     )
-    cart: Optional[dict[str, Any]] = Field(None, description="Cart state if applicable")
-    order: Optional[dict[str, Any]] = Field(None, description="Order info if applicable")
-    quick_replies: Optional[list[dict[str, Any]]] = Field(
+    cart: dict[str, Any] | None = Field(None, description="Cart state if applicable")
+    order: dict[str, Any] | None = Field(None, description="Order info if applicable")
+    quick_replies: list[dict[str, Any]] | None = Field(
         None,
         description="Quick reply buttons for user response (Story 9-4)",
     )

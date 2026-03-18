@@ -114,8 +114,9 @@ class TestHandleConsentPostback:
     @pytest.mark.test_id("5.11-CONSENT-005")
     async def test_consent_yes_with_pending_cart_adds_item(self, psid: str) -> None:
         """Test CONSENT:YES with pending cart data adds item to cart."""
-        from app.api.webhooks.facebook import handle_consent_postback
         import json
+
+        from app.api.webhooks.facebook import handle_consent_postback
 
         pending_data = {
             "product_id": "prod_123",

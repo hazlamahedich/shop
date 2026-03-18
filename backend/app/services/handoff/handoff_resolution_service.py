@@ -9,15 +9,15 @@ generation and WidgetConnectionManager for real-time delivery.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.merchant import Merchant
+from app.models.message import Message
 
 logger = structlog.get_logger(__name__)
 
@@ -188,7 +188,7 @@ class HandoffResolutionService:
             # Write to log file for debugging
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - handoff_resolution_broadcast_attempt - session_id={session_id}, manager_id={id(ws_manager)}, connection_count={ws_manager.get_connection_count(session_id)}\n"
+                    f"{datetime.now(UTC).isoformat()} - handoff_resolution_broadcast_attempt - session_id={session_id}, manager_id={id(ws_manager)}, connection_count={ws_manager.get_connection_count(session_id)}\n"
                 )
                 log_file.flush()
 
@@ -208,7 +208,7 @@ class HandoffResolutionService:
             # Log broadcast result
             with open("/tmp/ws_connections.log", "a") as log_file:
                 log_file.write(
-                    f"{datetime.now(timezone.utc).isoformat()} - handoff_resolution_broadcast_result - session_id={session_id}, connection_count={connection_count}\n"
+                    f"{datetime.now(UTC).isoformat()} - handoff_resolution_broadcast_result - session_id={session_id}, connection_count={connection_count}\n"
                 )
                 log_file.flush()
 

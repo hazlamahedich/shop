@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.database import engine, async_session, get_db, Base
+from app.core.database import Base, async_session, engine, get_db
 
 
 class TestDatabase:

@@ -1,9 +1,9 @@
 """Carrier detection service module (Story 6.2)."""
 
 from app.services.carrier.carrier_patterns import (
+    CARRIER_PATTERNS,
     CarrierPattern,
     CarrierRegion,
-    CARRIER_PATTERNS,
     detect_carrier_by_pattern,
     get_sorted_patterns,
     get_tracking_url,

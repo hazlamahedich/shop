@@ -5,25 +5,25 @@ Handles OAuth flow, token management, and Graph API interactions.
 
 from __future__ import annotations
 
+from typing import Any
+from urllib.parse import urlencode
+
 import httpx
 import structlog
-from urllib.parse import urlencode
-from typing import Any, Optional, Tuple, Dict, List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.facebook_integration import FacebookIntegration
-from app.models.conversation import Conversation
-from app.models.message import Message
-from app.models.merchant import Merchant
+from app.core.config import settings
+from app.core.errors import APIError, ErrorCode
 from app.core.security import (
-    encrypt_access_token,
     decrypt_access_token,
+    encrypt_access_token,
     generate_oauth_state,
 )
-from app.core.errors import APIError, ErrorCode
-from app.core.config import settings
-
+from app.models.conversation import Conversation
+from app.models.facebook_integration import FacebookIntegration
+from app.models.merchant import Merchant
+from app.models.message import Message
 
 # Facebook API endpoints
 FACEBOOK_OAUTH_DIALOG_URL = "https://www.facebook.com/v18.0/dialog/oauth"
@@ -63,6 +63,7 @@ class FacebookService:
             if self.is_testing:
                 # Use ASGITransport for testing
                 from httpx import ASGITransport
+
                 from app.main import app
 
                 self._async_client = httpx.AsyncClient(
@@ -209,7 +210,7 @@ class FacebookService:
         return await self._get_long_lived_token_impl(short_lived_token, None)
 
     async def _get_long_lived_token_impl(
-        self, short_lived_token: str, merchant_id: Optional[int]
+        self, short_lived_token: str, merchant_id: int | None
     ) -> str:
         app_id = None
         app_secret = None
@@ -286,12 +287,11 @@ class FacebookService:
                 f"Failed to verify page access: {e.response.text}",
             )
 
-    async def _get_facebook_config(self, merchant_id: int) -> tuple[Optional[str], Optional[str]]:
+    async def _get_facebook_config(self, merchant_id: int) -> tuple[str | None, str | None]:
         """Get Facebook App ID and Secret.
 
         Prioritizes merchant-specific config over environment variables.
         """
-        from app.models.merchant import Merchant
         from app.core.security import decrypt_access_token
 
         # Try to get from merchant config
@@ -413,7 +413,7 @@ class FacebookService:
 
         return integration
 
-    async def get_facebook_integration(self, merchant_id: int) -> Optional[FacebookIntegration]:
+    async def get_facebook_integration(self, merchant_id: int) -> FacebookIntegration | None:
         """Get Facebook integration for merchant.
 
         Args:
@@ -510,7 +510,7 @@ class FacebookService:
         sender: str,
         content: str,
         message_type: str = "text",
-        message_metadata: Optional[dict] = None,
+        message_metadata: dict | None = None,
     ) -> Message:
         """Store message in conversation with automatic encryption.
 
@@ -529,7 +529,6 @@ class FacebookService:
             Bot responses are stored in plaintext (non-sensitive).
             Metadata fields like user_input and voluntary_memory are encrypted.
         """
-        from app.core.encryption import encrypt_metadata
 
         message = Message(
             conversation_id=conversation_id,
@@ -554,7 +553,6 @@ class FacebookService:
 
     async def save_facebook_credentials(self, merchant_id: int, app_id: str, app_secret: str):
         """Save Facebook App ID and Secret for a merchant."""
-        from app.models.merchant import Merchant
         from app.core.security import encrypt_access_token
 
         result = await self.db.execute(select(Merchant).where(Merchant.id == merchant_id))
@@ -578,6 +576,7 @@ class FacebookService:
 
 
 from fastapi import Depends
+
 from app.core.database import get_db
 
 

@@ -7,20 +7,21 @@ Story 5.1: Backend Widget API
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from pydantic import ValidationError
 
 from app.schemas.widget import (
-    WidgetTheme,
-    WidgetConfig,
-    WidgetSessionData,
     CreateSessionRequest,
     SendMessageRequest,
-    WidgetSessionResponse,
-    WidgetMessageResponse,
+    WidgetConfig,
     WidgetConfigResponse,
+    WidgetMessageResponse,
+    WidgetSessionData,
+    WidgetSessionResponse,
+    WidgetTheme,
 )
-from datetime import datetime, timezone, timedelta
 
 
 class TestWidgetTheme:
@@ -144,7 +145,7 @@ class TestWidgetSessionData:
 
     def test_valid_session_data(self):
         """Test that valid session data is accepted."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = WidgetSessionData(
             session_id="test-session-id",
             merchant_id=1,
@@ -160,7 +161,7 @@ class TestWidgetSessionData:
 
     def test_optional_fields(self):
         """Test that optional fields work correctly."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session = WidgetSessionData(
             session_id="test-session-id",
             merchant_id=1,
@@ -231,7 +232,7 @@ class TestWidgetSessionResponse:
 
     def test_valid_response(self):
         """Test that valid response is accepted."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         response = WidgetSessionResponse(
             session_id="test-session",
             expires_at=now + timedelta(hours=1),
@@ -246,7 +247,7 @@ class TestWidgetMessageResponse:
 
     def test_valid_response(self):
         """Test that valid response is accepted."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         response = WidgetMessageResponse(
             message_id="msg-123",
             content="Hello!",
@@ -260,7 +261,7 @@ class TestWidgetMessageResponse:
 
     def test_default_sender(self):
         """Test that sender defaults to bot."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         response = WidgetMessageResponse(
             message_id="msg-123",
             content="Hello!",

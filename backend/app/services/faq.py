@@ -8,12 +8,10 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 import structlog
 
 from app.models.faq import Faq
-
 
 logger = structlog.get_logger(__name__)
 
@@ -68,7 +66,7 @@ class FaqMatcher:
         self,
         customer_message: str,
         merchant_faqs: list[Faq],
-    ) -> Optional[FaqMatch]:
+    ) -> FaqMatch | None:
         """Match customer message to FAQ items.
 
         Args:
@@ -90,7 +88,7 @@ class FaqMatcher:
         start_time = time.perf_counter()
         normalized_message = self.normalize_text(customer_message)
 
-        best_match: Optional[FaqMatch] = None
+        best_match: FaqMatch | None = None
 
         for faq in merchant_faqs:
             # Try exact question match
@@ -142,7 +140,7 @@ class FaqMatcher:
         self,
         normalized_message: str,
         faq: Faq,
-    ) -> Optional[FaqMatch]:
+    ) -> FaqMatch | None:
         """Check for exact question match.
 
         Args:
@@ -167,7 +165,7 @@ class FaqMatcher:
         self,
         normalized_message: str,
         faq: Faq,
-    ) -> Optional[FaqMatch]:
+    ) -> FaqMatch | None:
         """Check if message contains FAQ question text.
 
         Args:
@@ -210,7 +208,7 @@ class FaqMatcher:
         self,
         normalized_message: str,
         faq: Faq,
-    ) -> Optional[FaqMatch]:
+    ) -> FaqMatch | None:
         """Check for keyword match.
 
         Args:
@@ -259,7 +257,7 @@ class FaqMatcher:
 
 
 # Singleton instance for convenience
-_default_matcher: Optional[FaqMatcher] = None
+_default_matcher: FaqMatcher | None = None
 
 
 def get_faq_matcher() -> FaqMatcher:
@@ -277,7 +275,7 @@ def get_faq_matcher() -> FaqMatcher:
 async def match_faq(
     customer_message: str,
     merchant_faqs: list[Faq],
-) -> Optional[FaqMatch]:
+) -> FaqMatch | None:
     """Match customer message to FAQ items.
 
     Convenience function that uses the default matcher.
@@ -359,7 +357,7 @@ Rephrased answer:"""
             else str(personality_type),
         )
         return rephrased
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             "faq_rephrase_timeout",
             timeout_seconds=timeout_seconds,

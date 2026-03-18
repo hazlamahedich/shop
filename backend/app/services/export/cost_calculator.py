@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Final
 
-
 # LLM Provider pricing models (USD per million tokens)
 # Source: Provider pricing pages as of 2026
 LLM_PRICING: Final[dict[str, dict[str, float]]] = {

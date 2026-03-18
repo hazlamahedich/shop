@@ -17,7 +17,7 @@ Test ID Format: {STORY}-{LEVEL}-{SEQ} (e.g., 5.11-UNIT-001)
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -39,19 +39,20 @@ except ImportError:
         return decorator
 
 
+from app.services.conversation.cart_key_strategy import CartKeyStrategy
 from app.services.conversation.schemas import (
     Channel,
     ClarificationState,
     ConversationContext,
     ConversationResponse,
     HandoffState,
-    IntentType,
 )
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
-from app.services.conversation.cart_key_strategy import CartKeyStrategy
 from app.services.intent.classification_schema import (
     ClassificationResult,
     ExtractedEntities,
+)
+from app.services.intent.classification_schema import (
     IntentType as ClassifierIntentType,
 )
 
@@ -196,7 +197,7 @@ def frozen_time() -> datetime:
         async def test_time_sensitive(self, frozen_time: datetime) -> None:
             past = frozen_time - timedelta(hours=1)
     """
-    return datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+    return datetime(2026, 2, 25, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -672,11 +673,11 @@ class TestHybridMode:
         widget_context: ConversationContext,
     ) -> None:
         """Test that expired hybrid mode allows normal processing."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         mock_db = AsyncMock(spec=AsyncSession)
         widget_context.hybrid_mode_enabled = True
-        past_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        past_time = datetime.now(UTC) - timedelta(hours=1)
         widget_context.hybrid_mode_expires_at = past_time.isoformat()
 
         response = await service._check_hybrid_mode(
@@ -883,10 +884,10 @@ class TestReturningShopper:
         widget_context: ConversationContext,
     ) -> None:
         """Test that returning shopper is detected after threshold."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         mock_db = AsyncMock(spec=AsyncSession)
-        past_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        past_time = datetime.now(UTC) - timedelta(hours=1)
         widget_context.metadata["last_activity_at"] = past_time.isoformat()
         widget_context.is_returning_shopper = False
 
@@ -907,10 +908,10 @@ class TestReturningShopper:
         widget_context: ConversationContext,
     ) -> None:
         """Test that new shopper is not marked as returning."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         mock_db = AsyncMock(spec=AsyncSession)
-        recent_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+        recent_time = datetime.now(UTC) - timedelta(minutes=5)
         widget_context.metadata["last_activity_at"] = recent_time.isoformat()
         widget_context.is_returning_shopper = False
 
@@ -1047,9 +1048,9 @@ class TestConversationContextNewFields:
 
     def test_hybrid_mode_fields(self) -> None:
         """Test hybrid mode fields."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        expires = datetime.now(timezone.utc).isoformat()
+        expires = datetime.now(UTC).isoformat()
         context = ConversationContext(
             session_id="test-session",
             merchant_id=1,

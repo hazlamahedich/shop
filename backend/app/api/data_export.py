@@ -8,23 +8,21 @@ Implements rate limiting, concurrent export locks, and consent-based filtering.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Annotated, Optional
+import os
+from datetime import UTC, datetime
+from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, Request, status
-from fastapi.responses import StreamingResponse, JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio import from_url as async_from_url
-import os
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.schemas.base import MinimalEnvelope, MetaData
 from app.services.export.merchant_data_export_service import MerchantDataExportService
-
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -33,7 +31,7 @@ EXPORT_RATE_LIMIT_TTL = 3600
 EXPORT_LOCK_TTL = 60
 
 
-def get_async_redis_client() -> Optional[AsyncRedis]:
+def get_async_redis_client() -> AsyncRedis | None:
     """Get async Redis client for rate limiting.
 
     Returns:
@@ -65,7 +63,7 @@ def create_response(data: dict) -> dict:
         "data": data,
         "meta": {
             "requestId": str(uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         },
     }
 
@@ -135,7 +133,7 @@ async def export_merchant_data(
 
         export_service = MerchantDataExportService(db)
 
-        export_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+        export_date = datetime.now(UTC).strftime("%Y%m%d")
         filename = f"merchant_{merchant_id}_export_{export_date}.csv"
 
         async def csv_generator():
@@ -158,7 +156,7 @@ async def export_merchant_data(
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "X-Export-Date": datetime.now(timezone.utc).isoformat(),
+                "X-Export-Date": datetime.now(UTC).isoformat(),
                 "X-Request-ID": request_id,
             },
         )

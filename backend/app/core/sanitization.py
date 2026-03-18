@@ -7,8 +7,6 @@ AC5: Input Sanitization
 from __future__ import annotations
 
 import html
-from typing import Optional, Tuple
-
 
 MAX_MESSAGE_LENGTH = 2000
 
@@ -39,7 +37,7 @@ def sanitize_message(content: str) -> str:
     return sanitized
 
 
-def validate_message_length(content: str) -> Tuple[bool, Optional[str]]:
+def validate_message_length(content: str) -> tuple[bool, str | None]:
     """Validate message length is within limits.
 
     Args:

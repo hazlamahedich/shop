@@ -11,12 +11,13 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import HTTPStatusError, RequestError, TimeoutException
 
-from app.services.shopify_storefront import ShopifyStorefrontClient
 from app.core.errors import APIError, ErrorCode
+from app.services.shopify_storefront import ShopifyStorefrontClient
 
 
 class TestCheckoutURLValidation:

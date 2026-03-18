@@ -8,22 +8,20 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 import httpx
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
 from app.core.security import decrypt_access_token
 from app.models.facebook_integration import FacebookIntegration
 from app.models.shopify_integration import ShopifyIntegration
 from app.models.webhook_verification_log import WebhookVerificationLog
-from app.services.facebook import FacebookService
 from app.services.shopify_admin import ShopifyAdminClient
-
 
 logger = structlog.get_logger(__name__)
 
@@ -49,13 +47,13 @@ class WebhookVerificationService:
         self.db = db
         self.app_url = os.getenv("APP_URL", "http://localhost:8000")
 
-    async def get_verification_status(self) -> Dict[str, Any]:
+    async def get_verification_status(self) -> dict[str, Any]:
         """Get comprehensive webhook verification status for all platforms.
 
         Returns:
             Dictionary with status for both platforms and overall status
         """
-        status: Dict[str, Any] = {
+        status: dict[str, Any] = {
             "facebook": await self._get_facebook_status(),
             "shopify": await self._get_shopify_status(),
             "overallStatus": "pending",
@@ -76,7 +74,7 @@ class WebhookVerificationService:
 
         return status
 
-    async def _get_facebook_status(self) -> Dict[str, Any]:
+    async def _get_facebook_status(self) -> dict[str, Any]:
         """Get Facebook webhook status.
 
         Returns:
@@ -133,7 +131,7 @@ class WebhookVerificationService:
                 "error": "Failed to retrieve Facebook status",
             }
 
-    async def _get_shopify_status(self) -> Dict[str, Any]:
+    async def _get_shopify_status(self) -> dict[str, Any]:
         """Get Shopify webhook status.
 
         Returns:
@@ -190,7 +188,7 @@ class WebhookVerificationService:
                 "error": "Failed to retrieve Shopify status",
             }
 
-    async def test_facebook_webhook(self) -> Dict[str, Any]:
+    async def test_facebook_webhook(self) -> dict[str, Any]:
         """Send test message via Facebook Messenger.
 
         Returns:
@@ -272,7 +270,7 @@ class WebhookVerificationService:
                 f"Facebook webhook test failed: {str(e)}",
             )
 
-    async def test_shopify_webhook(self) -> Dict[str, Any]:
+    async def test_shopify_webhook(self) -> dict[str, Any]:
         """Trigger test Shopify webhook verification.
 
         Returns:
@@ -358,7 +356,7 @@ class WebhookVerificationService:
                 f"Shopify webhook test failed: {str(e)}",
             )
 
-    async def resubscribe_facebook_webhook(self) -> Dict[str, Any]:
+    async def resubscribe_facebook_webhook(self) -> dict[str, Any]:
         """Re-subscribe to Facebook webhooks.
 
         Returns:
@@ -427,7 +425,7 @@ class WebhookVerificationService:
                 f"Facebook webhook re-subscription failed: {str(e)}",
             )
 
-    async def resubscribe_shopify_webhook(self) -> Dict[str, Any]:
+    async def resubscribe_shopify_webhook(self) -> dict[str, Any]:
         """Re-subscribe to Shopify webhooks.
 
         Returns:
@@ -527,7 +525,7 @@ class WebhookVerificationService:
                 f"Shopify webhook re-subscription failed: {str(e)}",
             )
 
-    async def diagnose_webhook_failure(self, platform: str, error: str) -> Dict[str, Any]:
+    async def diagnose_webhook_failure(self, platform: str, error: str) -> dict[str, Any]:
         """Analyze webhook failure and provide troubleshooting steps.
 
         Args:
@@ -619,9 +617,9 @@ class WebhookVerificationService:
         test_type: str,
         status: str,
         started_at: datetime,
-        error_message: Optional[str] = None,
-        error_code: Optional[str] = None,
-        diagnostic_data: Optional[Dict[str, Any]] = None,
+        error_message: str | None = None,
+        error_code: str | None = None,
+        diagnostic_data: dict[str, Any] | None = None,
     ) -> None:
         """Create verification log entry.
 
@@ -655,7 +653,7 @@ class WebhookVerificationService:
 
     async def _get_facebook_integration(
         self,
-    ) -> Optional[FacebookIntegration]:
+    ) -> FacebookIntegration | None:
         """Get Facebook integration for merchant.
 
         Returns:
@@ -668,7 +666,7 @@ class WebhookVerificationService:
 
     async def _get_shopify_integration(
         self,
-    ) -> Optional[ShopifyIntegration]:
+    ) -> ShopifyIntegration | None:
         """Get Shopify integration for merchant.
 
         Returns:

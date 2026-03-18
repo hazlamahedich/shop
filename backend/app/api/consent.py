@@ -6,14 +6,15 @@ Task 8: API integration tests
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from structlog import get_logger
 
 from app.core.database import get_db
 from app.services.consent.extended_consent_service import ConversationConsentService
 from app.services.privacy.data_tier_service import DataTier
-from structlog import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -27,7 +28,7 @@ logger = get_logger(__name__)
 async def opt_out(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Handle consent opt-out request.
 
     Story 6-4: When user opts out:
@@ -61,7 +62,6 @@ async def opt_out(
             "merchant_id": merchant_id,
         }
 
-    from app.services.privacy.data_tier_service import DataTier
 
     consent_service = ConversationConsentService(db=db)
 

@@ -6,9 +6,7 @@ for cart and session persistence.
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
@@ -91,6 +89,6 @@ class RecordConsentRequest(BaseModel):
     source: ConsentSource = Field(
         default=ConsentSource.WIDGET, description="Source channel for consent"
     )
-    visitor_id: Optional[str] = Field(
+    visitor_id: str | None = Field(
         default=None, description="Visitor ID for cross-session consent tracking"
     )

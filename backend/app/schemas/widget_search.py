@@ -9,11 +9,10 @@ Provides request/response schemas for widget product search.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import Field
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from app.schemas.base import BaseSchema, MinimalEnvelope
 
 
 class WidgetSearchRequest(BaseSchema):
@@ -47,9 +46,9 @@ class ProductSummary(BaseSchema):
     title: str = Field(description="Product title")
     price: float = Field(description="Price as float")
     currency: str = Field(default="USD", description="Currency code")
-    image_url: Optional[str] = Field(default=None, description="Product image URL")
+    image_url: str | None = Field(default=None, description="Product image URL")
     available: bool = Field(default=True, description="Whether product is in stock")
-    relevance_score: Optional[float] = Field(default=None, description="Search relevance score")
+    relevance_score: float | None = Field(default=None, description="Search relevance score")
 
 
 class WidgetSearchResult(BaseSchema):
@@ -89,7 +88,7 @@ class WidgetCartRequest(BaseSchema):
     variant_id: str = Field(description="Product variant ID")
     title: str = Field(default="Product", description="Product title")
     price: float = Field(default=1.0, gt=0, description="Product price")
-    image_url: Optional[str] = Field(default=None, description="Product image URL")
+    image_url: str | None = Field(default=None, description="Product image URL")
     quantity: int = Field(default=1, ge=1, le=10, description="Quantity to add")
 
 
@@ -136,7 +135,7 @@ class WidgetCartResponse(BaseSchema):
     subtotal: float = Field(default=0.0, description="Cart subtotal")
     currency: str = Field(default="USD", description="Currency code")
     item_count: int = Field(default=0, description="Total item count")
-    shopify_cart_url: Optional[str] = Field(
+    shopify_cart_url: str | None = Field(
         default=None, description="URL to view cart on Shopify store"
     )
 
@@ -172,7 +171,7 @@ class WidgetCheckoutResponse(BaseSchema):
     cart_total: float = Field(description="Cart total amount")
     currency: str = Field(default="USD", description="Currency code")
     item_count: int = Field(description="Number of items in cart")
-    expires_at: Optional[datetime] = Field(default=None, description="Checkout expiration time")
+    expires_at: datetime | None = Field(default=None, description="Checkout expiration time")
 
 
 class WidgetCheckoutEnvelope(MinimalEnvelope):
@@ -199,14 +198,14 @@ class WidgetProductDetail(BaseSchema):
 
     id: str = Field(description="Product ID")
     title: str = Field(description="Product title")
-    description: Optional[str] = Field(default=None, description="Product description")
-    image_url: Optional[str] = Field(default=None, description="Product image URL")
+    description: str | None = Field(default=None, description="Product description")
+    image_url: str | None = Field(default=None, description="Product image URL")
     price: float = Field(description="Price as float")
     available: bool = Field(default=True, description="Whether product is in stock")
     inventory_quantity: int = Field(default=0, description="Number of items in stock")
-    product_type: Optional[str] = Field(default=None, description="Product category")
-    vendor: Optional[str] = Field(default=None, description="Product vendor")
-    variant_id: Optional[str] = Field(default=None, description="Variant ID for cart")
+    product_type: str | None = Field(default=None, description="Product category")
+    vendor: str | None = Field(default=None, description="Product vendor")
+    variant_id: str | None = Field(default=None, description="Variant ID for cart")
 
 
 class WidgetProductDetailEnvelope(MinimalEnvelope):

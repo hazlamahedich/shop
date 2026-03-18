@@ -22,6 +22,7 @@ import { KnowledgeGapWidget } from '../components/dashboard/KnowledgeGapWidget';
 import { AlertsWidget } from '../components/dashboard/AlertsWidget';
 import { BenchmarkComparisonWidget } from '../components/dashboard/BenchmarkComparisonWidget';
 import { CustomerSentimentWidget } from '../components/dashboard/CustomerSentimentWidget';
+import { WidgetAnalyticsWidget } from '../components/dashboard/WidgetAnalyticsWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -208,6 +209,11 @@ const Dashboard = () => {
             {/* Knowledge Gap Widget - Full width */}
             <div data-testid="knowledge-gap-widget-container">
               <KnowledgeGapWidget />
+            </div>
+
+            {/* Widget Analytics - Full width */}
+            <div data-testid="widget-analytics-widget-container">
+              <WidgetAnalyticsWidget />
             </div>
 
             {/* P2 Widgets: Benchmark Comparison + Customer Sentiment */}

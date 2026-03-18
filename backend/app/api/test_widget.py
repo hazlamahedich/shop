@@ -8,9 +8,10 @@ Story 5.1: Backend Widget API
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
 os.environ["IS_TESTING"] = "true"
 
@@ -18,12 +19,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.widget import router, _check_rate_limit, _validate_domain_whitelist
-from app.core.errors import ErrorCode, APIError
+from app.api.widget import _check_rate_limit, _validate_domain_whitelist, router
 from app.core.database import get_db
+from app.core.errors import APIError, ErrorCode
 from app.schemas.widget import WidgetSessionData
 from app.services.widget.widget_session_service import WidgetSessionService
-from app.services.widget.widget_message_service import WidgetMessageService
 
 
 class TestWidgetAPI:
@@ -222,7 +222,7 @@ class TestWidgetSessionServiceIntegration:
         service = WidgetSessionService(redis_client=mock_redis)
 
         # Create session that's already expired
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired_session = WidgetSessionData(
             session_id="expired-session",
             merchant_id=1,
@@ -231,7 +231,7 @@ class TestWidgetSessionServiceIntegration:
             expires_at=now - timedelta(hours=1),  # Expired 1 hour ago
         )
         await mock_redis.setex(
-            f"widget:session:expired-session",
+            "widget:session:expired-session",
             3600,
             expired_session.model_dump_json(),
         )

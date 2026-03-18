@@ -6,6 +6,7 @@ Tests co-located with service per project standards.
 from __future__ import annotations
 
 import pytest
+
 from app.services.shopify import (
     ShopifyService,
     validate_shop_domain,
@@ -31,7 +32,6 @@ def test_validate_shop_domain_invalid() -> None:
 @pytest.mark.asyncio
 async def test_shopify_service_initialization(db_session, merchant) -> None:
     """Test ShopifyService initialization."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -42,7 +42,6 @@ async def test_shopify_service_initialization(db_session, merchant) -> None:
 @pytest.mark.asyncio
 async def test_generate_oauth_url_invalid_domain(db_session, merchant) -> None:
     """Test OAuth URL generation fails with invalid domain."""
-    from app.services.shopify import ShopifyService
     from app.core.errors import APIError, ErrorCode
 
     service = ShopifyService(db_session, is_testing=True)
@@ -56,8 +55,6 @@ async def test_generate_oauth_url_invalid_domain(db_session, merchant) -> None:
 @pytest.mark.asyncio
 async def test_generate_oauth_url_valid_domain(db_session, merchant, monkeypatch) -> None:
     """Test OAuth URL generation with valid domain."""
-    from app.services.shopify import ShopifyService
-    from app.core.config import settings
 
     # Mock config
     def mock_settings():
@@ -86,7 +83,6 @@ async def test_generate_oauth_url_valid_domain(db_session, merchant, monkeypatch
 @pytest.mark.asyncio
 async def test_exchange_code_for_token_testing_mode(db_session, merchant) -> None:
     """Test token exchange in testing mode."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -103,9 +99,6 @@ async def test_exchange_code_for_token_testing_mode(db_session, merchant) -> Non
 @pytest.mark.asyncio
 async def test_create_shopify_integration(db_session, merchant) -> None:
     """Test Shopify integration creation."""
-    from app.services.shopify import ShopifyService
-    from app.models.shopify_integration import ShopifyIntegration
-    from sqlalchemy import select
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -132,7 +125,6 @@ async def test_create_shopify_integration(db_session, merchant) -> None:
 @pytest.mark.asyncio
 async def test_create_shopify_integration_duplicate(db_session, merchant) -> None:
     """Test duplicate Shopify integration raises error."""
-    from app.services.shopify import ShopifyService
     from app.core.errors import APIError, ErrorCode
 
     service = ShopifyService(db_session, is_testing=True)
@@ -164,7 +156,6 @@ async def test_create_shopify_integration_duplicate(db_session, merchant) -> Non
 @pytest.mark.asyncio
 async def test_get_shopify_integration(db_session, merchant) -> None:
     """Test getting Shopify integration."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -189,7 +180,6 @@ async def test_get_shopify_integration(db_session, merchant) -> None:
 @pytest.mark.asyncio
 async def test_get_shopify_integration_not_found(db_session) -> None:
     """Test getting non-existent Shopify integration returns None."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -201,7 +191,6 @@ async def test_get_shopify_integration_not_found(db_session) -> None:
 @pytest.mark.asyncio
 async def test_get_shop_domain(db_session, merchant) -> None:
     """Test getting shop domain."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -222,7 +211,6 @@ async def test_get_shop_domain(db_session, merchant) -> None:
 @pytest.mark.asyncio
 async def test_get_shop_domain_not_connected(db_session) -> None:
     """Test getting shop domain when not connected raises error."""
-    from app.services.shopify import ShopifyService
     from app.core.errors import APIError, ErrorCode
 
     service = ShopifyService(db_session, is_testing=True)
@@ -236,7 +224,6 @@ async def test_get_shop_domain_not_connected(db_session) -> None:
 @pytest.mark.asyncio
 async def test_disconnect_shopify(db_session, merchant) -> None:
     """Test disconnecting Shopify integration."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 
@@ -261,7 +248,6 @@ async def test_disconnect_shopify(db_session, merchant) -> None:
 @pytest.mark.asyncio
 async def test_close_service(db_session, merchant) -> None:
     """Test closing the service and its HTTP client."""
-    from app.services.shopify import ShopifyService
 
     service = ShopifyService(db_session, is_testing=True)
 

@@ -1,27 +1,28 @@
 """Merchant ORM model - Personality Type Fix."""
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
 from enum import Enum
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Integer, DateTime, Text, Boolean
-from sqlalchemy.dialects.postgresql import JSONB, ENUM
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 if TYPE_CHECKING:
-    from app.models.carrier_config import CarrierConfig
-    from app.models.llm_configuration import LLMConfiguration
-    from app.models.tutorial import Tutorial
-    from app.models.faq import Faq
-    from app.models.product_pin import ProductPin, ProductPinAnalytics
     from app.models.budget_alert import BudgetAlert
-    from app.models.handoff_alert import HandoffAlert
-    from app.models.order import Order
+    from app.models.carrier_config import CarrierConfig
     from app.models.customer_profile import CustomerProfile
     from app.models.dispute import Dispute
+    from app.models.faq import Faq
+    from app.models.handoff_alert import HandoffAlert
     from app.models.knowledge_base import KnowledgeDocument
+    from app.models.llm_configuration import LLMConfiguration
+    from app.models.order import Order
+    from app.models.product_pin import ProductPin, ProductPinAnalytics
+    from app.models.tutorial import Tutorial
+    from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
 
 class PersonalityType(str, Enum):
@@ -87,7 +88,7 @@ class Merchant(Base):
         default="pending",
         nullable=True,
     )
-    config: Mapped[Optional[dict]] = mapped_column(
+    config: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
     )
@@ -102,7 +103,7 @@ class Merchant(Base):
         default=PersonalityType.FRIENDLY,
         nullable=False,
     )
-    custom_greeting: Mapped[Optional[str]] = mapped_column(
+    custom_greeting: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -115,36 +116,36 @@ class Merchant(Base):
     )
 
     # Business information (Story 1.11)
-    business_name: Mapped[Optional[str]] = mapped_column(
+    business_name: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    business_description: Mapped[Optional[str]] = mapped_column(
+    business_description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    business_hours: Mapped[Optional[str]] = mapped_column(
+    business_hours: Mapped[str | None] = mapped_column(
         String(200),
         nullable=True,
     )
-    business_hours_config: Mapped[Optional[dict]] = mapped_column(
+    business_hours_config: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
     )
 
     # Bot naming configuration (Story 1.12)
-    bot_name: Mapped[Optional[str]] = mapped_column(
+    bot_name: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
 
     # Authentication fields (Story 1.8)
-    email: Mapped[Optional[str]] = mapped_column(
+    email: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         unique=True,
     )
-    password_hash: Mapped[Optional[str]] = mapped_column(
+    password_hash: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -188,7 +189,7 @@ class Merchant(Base):
     )
 
     # Widget configuration (Story 5-1)
-    widget_config: Mapped[Optional[dict]] = mapped_column(
+    widget_config: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
     )
@@ -262,12 +263,17 @@ class Merchant(Base):
         cascade="all, delete-orphan",
         order_by="KnowledgeDocument.created_at.desc()",
     )
+    widget_analytics_events: Mapped[list["WidgetAnalyticsEvent"]] = relationship(
+        "WidgetAnalyticsEvent",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+    )
 
-    secret_key_hash: Mapped[Optional[str]] = mapped_column(
+    secret_key_hash: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    deployed_at: Mapped[Optional[datetime]] = mapped_column(
+    deployed_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )

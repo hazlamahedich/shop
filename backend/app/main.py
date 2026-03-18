@@ -5,88 +5,86 @@ Shopping Assistant Bot - AI-powered conversational commerce for Facebook Messeng
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
-
 from pathlib import Path as FilePath
+from typing import Any
 
-from fastapi import FastAPI, Request, Response, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
-from app.core.database import init_db, close_db, engine
-from app.background_jobs.data_retention import start_scheduler, shutdown_scheduler
-from app.background_jobs.widget_cleanup import (
-    start_widget_cleanup_scheduler,
-    shutdown_widget_cleanup_scheduler,
-)
-from app.api.onboarding import router as onboarding_router
-from app.api.deployment import router as deployment_router
-from app.api.integrations import router as integrations_router
-from app.api.data_deletion import router as data_deletion_router
-from app.api.merchant import router as merchant_router
+from app.api import health as health_router
+from app.api.analytics import router as analytics_router
+from app.api.audit import router as audit_router
+from app.api.auth import router as auth_router
+from app.api.bot_config import router as bot_config_router
+from app.api.business_hours import router as business_hours_router
 from app.api.business_info import router as business_info_router
 from app.api.carriers import router as carriers_router
-from app.api.bot_config import router as bot_config_router
-from app.api.product_pins import router as product_pins_router
+from app.api.consent import router as consent_router
+from app.api.conversations import router as conversation_router
+from app.api.cost_tracking import router as cost_tracking_router
+from app.api.csrf import router as csrf_router
+from app.api.data_deletion import router as data_deletion_router
+from app.api.data_export import router as data_export_router
+from app.api.deployment import router as deployment_router
+from app.api.export import router as export_router
 from app.api.faqs import router as faqs_router
+from app.api.handoff_alerts import router as handoff_alerts_router
+from app.api.health import router as health_router
+from app.api.integrations import router as integrations_router
+from app.api.knowledge_base import router as knowledge_base_router
+from app.api.llm import router as llm_router
+from app.api.merchant import router as merchant_router
+from app.api.onboarding import router as onboarding_router
+from app.api.preview import router as preview_router
+from app.api.product_pins import router as product_pins_router
+from app.api.search import router as search_router
+from app.api.settings import router as settings_router
+from app.api.tutorial import router as tutorial_router
 from app.api.webhooks.facebook import router as facebook_webhook_router
 from app.api.webhooks.shopify import router as shopify_webhook_router
 from app.api.webhooks.verification import router as verification_router
-from app.api.llm import router as llm_router
-from app.api.tutorial import router as tutorial_router
-from app.api.conversations import router as conversation_router
-from app.api.csrf import router as csrf_router
-from app.api.export import router as export_router
-from app.api.data_export import router as data_export_router
-from app.api.preview import router as preview_router
-from app.api.auth import router as auth_router
-from app.api.cost_tracking import router as cost_tracking_router
-from app.api.business_hours import router as business_hours_router
-from app.api.handoff_alerts import router as handoff_alerts_router
-from app.api.settings import router as settings_router
 from app.api.widget import router as widget_router
-from app.api.widget_settings import router as widget_settings_router
 from app.api.widget_events import router as widget_events_router
+from app.api.widget_settings import router as widget_settings_router
 from app.api.widget_ws import router as widget_ws_router
-from app.api.analytics import router as analytics_router
-from app.api.consent import router as consent_router
-from app.api.health import router as health_router
-from app.api.audit import router as audit_router
-from app.api.search import router as search_router
-from app.api.knowledge_base import router as knowledge_base_router
-from app.middleware.security import setup_security_middleware
-from app.middleware.csrf import setup_csrf_middleware
+from app.background_jobs.data_retention import shutdown_scheduler, start_scheduler
+from app.background_jobs.widget_cleanup import (
+    shutdown_widget_cleanup_scheduler,
+    start_widget_cleanup_scheduler,
+)
+from app.core.config import settings
+from app.core.database import close_db, engine, init_db
+from app.core.errors import APIError, ErrorCode
 from app.middleware.auth import AuthenticationMiddleware
-
-from app.api import health as health_router
-
+from app.middleware.csrf import setup_csrf_middleware
+from app.middleware.security import setup_security_middleware
+from app.schemas.deployment import (  # noqa: F401 (export for type generation)
+    DeploymentLogEntry,
+    DeploymentState,
+    DeploymentStatus,
+    DeploymentStep,
+    LogLevel,
+    Platform,
+    StartDeploymentRequest,
+    StartDeploymentResponse,
+)
 from app.schemas.onboarding import (  # noqa: F401 (export for type generation)
-    MinimalEnvelope,
     MetaData,
+    MinimalEnvelope,
     PrerequisiteCheckRequest,
     PrerequisiteCheckResponse,
 )
-from app.schemas.deployment import (  # noqa: F401 (export for type generation)
-    Platform,
-    DeploymentStatus,
-    LogLevel,
-    DeploymentStep,
-    StartDeploymentRequest,
-    DeploymentLogEntry,
-    DeploymentState,
-    StartDeploymentResponse,
-)
 from app.schemas.webhook_verification import (  # noqa: F401 (export for type generation)
-    WebhookStatusResponse,
-    WebhookTestResponse,
-    WebhookResubscribeResponse,
     FacebookWebhookStatus,
     ShopifyWebhookStatus,
+    WebhookResubscribeResponse,
+    WebhookStatusResponse,
+    WebhookTestResponse,
 )
 
 

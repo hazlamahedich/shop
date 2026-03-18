@@ -9,7 +9,8 @@ Provides async GraphQL mutations for Shopify Cart API:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import structlog
 
 from app.core.errors import APIError, ErrorCode
@@ -29,9 +30,9 @@ class ShopifyCartClient(ShopifyBaseClient):
 
     async def create_cart(
         self,
-        lines: Optional[List[Dict[str, Any]]] = None,
-        buyer_identity: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        lines: list[dict[str, Any]] | None = None,
+        buyer_identity: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new Shopify cart.
 
         Args:
@@ -73,7 +74,7 @@ class ShopifyCartClient(ShopifyBaseClient):
         }
         """
 
-        cart_input: Dict[str, Any] = {}
+        cart_input: dict[str, Any] = {}
         if lines:
             cart_input["lines"] = lines
         if buyer_identity:
@@ -149,8 +150,8 @@ class ShopifyCartClient(ShopifyBaseClient):
     async def add_lines(
         self,
         cart_id: str,
-        lines: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        lines: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Add line items to an existing Shopify cart.
 
         Args:
@@ -252,8 +253,8 @@ class ShopifyCartClient(ShopifyBaseClient):
     async def remove_lines(
         self,
         cart_id: str,
-        line_ids: List[str],
-    ) -> Dict[str, Any]:
+        line_ids: list[str],
+    ) -> dict[str, Any]:
         """Remove line items from a Shopify cart.
 
         Args:
@@ -365,8 +366,8 @@ class ShopifyCartClient(ShopifyBaseClient):
     async def update_lines(
         self,
         cart_id: str,
-        lines: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        lines: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Update line item quantities in a Shopify cart.
 
         Args:
@@ -470,8 +471,8 @@ class ShopifyCartClient(ShopifyBaseClient):
 
     def _mock_create_cart(
         self,
-        lines: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        lines: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Return mock cart for testing."""
         import uuid
 
@@ -493,8 +494,8 @@ class ShopifyCartClient(ShopifyBaseClient):
 
     def _mock_add_lines(
         self,
-        lines: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        lines: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Return mock response for adding lines."""
         import uuid
 
@@ -508,15 +509,15 @@ class ShopifyCartClient(ShopifyBaseClient):
 
     def _mock_remove_lines(
         self,
-        line_ids: List[str],
-    ) -> Dict[str, Any]:
+        line_ids: list[str],
+    ) -> dict[str, Any]:
         """Return mock response for removing lines."""
         return {"line_ids": {}}
 
     def _mock_update_lines(
         self,
-        lines: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        lines: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Return mock response for updating lines."""
         line_mapping = {}
         for line in lines:

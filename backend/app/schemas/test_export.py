@@ -9,10 +9,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.export import (
-    ConversationExportRequest,
     ConversationExportMetadata,
-    VALID_STATUS_VALUES,
-    VALID_SENTIMENT_VALUES,
+    ConversationExportRequest,
 )
 
 

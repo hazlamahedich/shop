@@ -389,7 +389,7 @@ class ShopifyAdminClient:
                     if response.status == 200:
                         data = await response.json()
                         products = data.get("products", [])
-                        
+
                         logger.info(
                             "shopify_admin_products_fetched",
                             shop_domain=self.shop_domain,

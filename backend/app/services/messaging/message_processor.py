@@ -17,14 +17,13 @@ routing for incoming Facebook Messenger messages.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Optional
+from datetime import UTC
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import APIError
 from app.schemas.messaging import (
-    ConversationContext,
     FacebookWebhookPayload,
     MessengerResponse,
 )
@@ -34,21 +33,18 @@ from app.services.checkout.checkout_schema import CheckoutStatus
 from app.services.clarification import ClarificationService
 from app.services.clarification.question_generator import QuestionGenerator
 from app.services.consent import ConsentService, ConsentStatus
+from app.services.cost_tracking.budget_alert_service import BudgetAlertService
+from app.services.faq import match_faq, rephrase_faq_with_personality
 from app.services.handoff import HandoffDetector
+from app.services.handoff.business_hours_handoff_service import BusinessHoursHandoffService
 from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
 from app.services.messenger import CartFormatter, MessengerProductFormatter, MessengerSendService
+from app.services.order_tracking import OrderLookupType, OrderTrackingService
+from app.services.personality import BotResponseService
 from app.services.session import SessionService
 from app.services.shopify import ProductSearchService
 from app.services.shopify_storefront import ShopifyStorefrontClient
-from app.services.personality import BotResponseService
-from app.services.faq import match_faq, rephrase_faq_with_personality
-from app.services.cost_tracking.budget_alert_service import BudgetAlertService
-from app.services.business_hours import is_within_business_hours, get_formatted_hours
-from app.services.handoff.business_hours_handoff_service import BusinessHoursHandoffService
-from app.schemas.handoff import DEFAULT_HANDOFF_MESSAGE
-from app.services.order_tracking import OrderTrackingService, OrderLookupType
-
 
 logger = structlog.get_logger(__name__)
 
@@ -77,12 +73,12 @@ class MessageProcessor:
 
     def __init__(
         self,
-        classifier: Optional[IntentClassifier] = None,
-        context_manager: Optional[ConversationContextManager] = None,
-        consent_service: Optional[ConsentService] = None,
-        session_service: Optional[SessionService] = None,
-        merchant_id: Optional[int] = None,
-        db: Optional[AsyncSession] = None,
+        classifier: IntentClassifier | None = None,
+        context_manager: ConversationContextManager | None = None,
+        consent_service: ConsentService | None = None,
+        session_service: SessionService | None = None,
+        merchant_id: int | None = None,
+        db: AsyncSession | None = None,
     ) -> None:
         """Initialize message processor.
 
@@ -116,14 +112,14 @@ class MessageProcessor:
         )
 
         self._redis_client = redis_client
-        self._checkout_service: Optional[CheckoutService] = None
-        self._shopify_client: Optional[ShopifyStorefrontClient] = None
+        self._checkout_service: CheckoutService | None = None
+        self._shopify_client: ShopifyStorefrontClient | None = None
 
-        self._bot_response_service: Optional[BotResponseService] = None
+        self._bot_response_service: BotResponseService | None = None
 
-        self._handoff_detector: Optional[HandoffDetector] = None
+        self._handoff_detector: HandoffDetector | None = None
 
-        self._order_tracking_service: Optional[OrderTrackingService] = None
+        self._order_tracking_service: OrderTrackingService | None = None
 
     async def _get_shopify_client(self) -> ShopifyStorefrontClient:
         """Get or create a Shopify client for the merchant.
@@ -135,9 +131,10 @@ class MessageProcessor:
             return self._shopify_client
 
         if self.merchant_id and self.db:
-            from app.models.shopify_integration import ShopifyIntegration
-            from app.core.security import decrypt_access_token
             from sqlalchemy import select
+
+            from app.core.security import decrypt_access_token
+            from app.models.shopify_integration import ShopifyIntegration
 
             result = await self.db.execute(
                 select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == self.merchant_id)
@@ -246,8 +243,9 @@ class MessageProcessor:
             return "Connecting you to a human agent..."
 
         try:
-            from app.core.database import async_session
             from sqlalchemy import select
+
+            from app.core.database import async_session
             from app.models.merchant import Merchant
 
             async with async_session() as db:
@@ -272,7 +270,7 @@ class MessageProcessor:
         psid: str,
         classification: Any,
         context: dict[str, Any],
-    ) -> Optional[MessengerResponse]:
+    ) -> MessengerResponse | None:
         """Check if handoff should be triggered (Story 4-5).
 
         Checks for:
@@ -336,7 +334,7 @@ class MessageProcessor:
 
         return None
 
-    async def _get_conversation(self, psid: str) -> Optional[Any]:
+    async def _get_conversation(self, psid: str) -> Any | None:
         """Get conversation for a PSID.
 
         Args:
@@ -349,8 +347,9 @@ class MessageProcessor:
             return None
 
         try:
-            from app.core.database import async_session
             from sqlalchemy import select
+
+            from app.core.database import async_session
             from app.models.conversation import Conversation
 
             async with async_session() as db:
@@ -385,9 +384,11 @@ class MessageProcessor:
             return
 
         try:
+            from datetime import datetime
+
+            from sqlalchemy import select
+
             from app.core.database import async_session
-            from sqlalchemy import select, update
-            from datetime import datetime, timezone
             from app.models.conversation import Conversation
 
             async with async_session() as db:
@@ -429,7 +430,7 @@ class MessageProcessor:
     async def _check_faq_match(
         self,
         message: str,
-    ) -> Optional[MessengerResponse]:
+    ) -> MessengerResponse | None:
         """Check if message matches any FAQ (Story 1.11).
 
         Applies personality rephrasing to FAQ answers for consistent bot tone.
@@ -444,10 +445,10 @@ class MessageProcessor:
             return None
 
         try:
-            from app.core.database import async_session
             from sqlalchemy import select
+
+            from app.core.database import async_session
             from app.models.merchant import Merchant, PersonalityType
-            from app.services.llm.llm_factory import LLMProviderFactory
 
             async with async_session() as db:
                 # Get merchant with personality and LLM config
@@ -540,8 +541,8 @@ class MessageProcessor:
         Returns:
             LLM service instance or None if unavailable
         """
-        from app.services.llm.llm_factory import LLMProviderFactory
         from app.core.security import decrypt_access_token
+        from app.services.llm.llm_factory import LLMProviderFactory
 
         try:
             if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
@@ -584,7 +585,7 @@ class MessageProcessor:
 
         return Faq
 
-    async def _get_business_name(self, db) -> Optional[str]:
+    async def _get_business_name(self, db) -> str | None:
         """Get business name for merchant (Story 1.11).
 
         Args:
@@ -598,6 +599,7 @@ class MessageProcessor:
 
         try:
             from sqlalchemy import select
+
             from app.models.merchant import Merchant
 
             result = await db.execute(
@@ -622,7 +624,7 @@ class MessageProcessor:
         Returns:
             True if bot should respond, False to stay silent
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         conversation_data = conversation.conversation_data if conversation else {}
         hybrid_mode = conversation_data.get("hybrid_mode", {}) if conversation_data else {}
@@ -632,7 +634,7 @@ class MessageProcessor:
             if expires_at:
                 try:
                     expires_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                    if datetime.now(timezone.utc) > expires_dt:
+                    if datetime.now(UTC) > expires_dt:
                         self.logger.info(
                             "hybrid_mode_expired",
                             conversation_id=conversation.id if conversation else None,
@@ -713,9 +715,9 @@ class MessageProcessor:
                 # Welcome back if last activity was > 30 mins ago or never recorded
                 should_welcome = True
                 if last_activity:
-                    from datetime import datetime, timezone
+                    from datetime import datetime
 
-                    diff = datetime.now(timezone.utc) - last_activity
+                    diff = datetime.now(UTC) - last_activity
                     if diff.total_seconds() < 1800:  # 30 minutes
                         should_welcome = False
 
@@ -1801,8 +1803,9 @@ class MessageProcessor:
             )
 
         try:
+            from sqlalchemy import select
+
             from app.core.database import async_session
-            from sqlalchemy import select, update
             from app.models.conversation import Conversation
 
             order_tracking = self._get_order_tracking_service()

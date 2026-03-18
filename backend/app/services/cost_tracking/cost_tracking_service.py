@@ -7,17 +7,16 @@ and cost transparency. Supports cost estimation and real-time tracking.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
-from sqlalchemy import select, func, and_, desc
-from sqlalchemy.ext.asyncio import AsyncSession
+
 import structlog
+from sqlalchemy import and_, desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.llm_conversation_cost import LLMConversationCost
+from app.services.cost_tracking.competitor_pricing import calculate_cost_comparison
+from app.services.cost_tracking.pricing import calculate_cost, get_pricing
 from app.services.export.cost_calculator import CostCalculator
 from app.services.llm.base_llm_service import LLMResponse
-from app.services.cost_tracking.pricing import calculate_cost, get_pricing
-from app.services.cost_tracking.competitor_pricing import calculate_cost_comparison
-
 
 logger = structlog.get_logger(__name__)
 
@@ -50,7 +49,7 @@ class CostTrackingService:
         input_cost_usd: float,
         output_cost_usd: float,
         total_cost_usd: float,
-        processing_time_ms: Optional[float] = None,
+        processing_time_ms: float | None = None,
     ) -> LLMConversationCost:
         """Create a new LLM cost record.
 
@@ -208,8 +207,8 @@ class CostTrackingService:
         self,
         db: AsyncSession,
         merchant_id: int,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> dict:
         """Get aggregated cost summary with trend analysis.
 
@@ -335,8 +334,8 @@ class CostTrackingService:
         self,
         db: AsyncSession,
         merchant_id: int,
-        date_from: Optional[str],
-        date_to: Optional[str],
+        date_from: str | None,
+        date_to: str | None,
     ) -> list[dict]:
         """Calculate daily cost breakdown.
 
@@ -454,8 +453,8 @@ async def track_llm_request(
     llm_response: LLMResponse,
     conversation_id: str,
     merchant_id: int,
-    processing_time_ms: Optional[float] = None,
-) -> Optional[LLMConversationCost]:
+    processing_time_ms: float | None = None,
+) -> LLMConversationCost | None:
     """Track an LLM request automatically after receiving a response.
 
     This helper function extracts token and cost information from an LLMResponse

@@ -6,17 +6,15 @@ Task 7.5: Test analytics aggregation strips PII
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
+from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.message import Message
 from app.models.order import Order
-from app.models.llm_conversation_cost import LLMConversationCost
 from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 from app.services.privacy.data_tier_service import DataTier
 
@@ -140,7 +138,7 @@ class TestAggregatedAnalyticsService:
             prompt_tokens=100,
             completion_tokens=50,
             total_cost_usd=0.15,
-            request_timestamp=datetime.now(timezone.utc),
+            request_timestamp=datetime.now(UTC),
         )
         db_session.add(cost)
         await db_session.commit()
@@ -226,7 +224,7 @@ class TestAggregatedAnalyticsService:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=15),
+            created_at=datetime.now(UTC) - timedelta(days=15),
         )
         db_session.add(recent_conv)
 
@@ -238,7 +236,7 @@ class TestAggregatedAnalyticsService:
             status="active",
             handoff_status="none",
             data_tier=DataTier.VOLUNTARY,
-            created_at=datetime.now(timezone.utc) - timedelta(days=45),
+            created_at=datetime.now(UTC) - timedelta(days=45),
         )
         db_session.add(old_conv)
         await db_session.commit()

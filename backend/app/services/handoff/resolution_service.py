@@ -10,11 +10,10 @@ Handles the complete handoff lifecycle including:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import select, and_, or_
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
@@ -148,7 +147,7 @@ class HandoffResolutionService:
 
     async def get_reopenable_handoff(
         self, session_id: str, merchant_id: int
-    ) -> Optional[Conversation]:
+    ) -> Conversation | None:
         """Get a recently resolved handoff that can be reopened.
 
         Args:
@@ -256,7 +255,7 @@ class HandoffResolutionService:
         self,
         conversation: Conversation,
         resolution_type: str = RESOLUTION_MERCHANT_RESOLVED,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> bool:
         """Manually resolve a handoff (merchant action).
 
@@ -304,7 +303,7 @@ class HandoffResolutionService:
         self,
         conversation: Conversation,
         message: str,
-    ) -> Optional[HandoffAlert]:
+    ) -> HandoffAlert | None:
         """Reopen a recently resolved handoff.
 
         Creates a new HandoffAlert and updates conversation status.
@@ -477,10 +476,10 @@ class HandoffResolutionService:
             conversation.conversation_data = {}
         conversation.conversation_data["auto_close_warning_sent"] = True
         conversation.conversation_data["auto_close_warning_sent_at"] = datetime.now(
-            timezone.utc
+            UTC
         ).isoformat()
 
-    async def _get_alert_for_conversation(self, conversation_id: int) -> Optional[HandoffAlert]:
+    async def _get_alert_for_conversation(self, conversation_id: int) -> HandoffAlert | None:
         """Get the most recent handoff alert for a conversation."""
         result = await self.db.execute(
             select(HandoffAlert)

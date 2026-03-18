@@ -7,14 +7,13 @@ retention periods for different data tiers.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
-import pytest
 
+import pytest
 from sqlalchemy import select
 
-from app.services.data_retention import DataRetentionService
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.services.data_retention import DataRetentionService
 
 
 class TestDataRetentionService:

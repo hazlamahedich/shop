@@ -8,10 +8,7 @@ Provides different system prompts based on merchant's personality type:
 
 from __future__ import annotations
 
-from typing import Optional
-
 from app.models.merchant import PersonalityType
-
 
 # Base system prompt template
 BASE_SYSTEM_PROMPT = """You are a helpful shopping assistant for an e-commerce store.
@@ -100,14 +97,14 @@ Example enthusiastic phrases:
 
 def get_personality_system_prompt(
     personality: PersonalityType,
-    custom_greeting: Optional[str] = None,
-    business_name: Optional[str] = None,
-    business_description: Optional[str] = None,
-    business_hours: Optional[str] = None,
-    bot_name: Optional[str] = None,
-    product_context: Optional[str] = None,
-    order_context: Optional[str] = None,
-    pending_state: Optional[dict] = None,
+    custom_greeting: str | None = None,
+    business_name: str | None = None,
+    business_description: str | None = None,
+    business_hours: str | None = None,
+    bot_name: str | None = None,
+    product_context: str | None = None,
+    order_context: str | None = None,
+    pending_state: dict | None = None,
 ) -> str:
     """Get system prompt based on merchant's personality type.
 
@@ -199,14 +196,14 @@ class PersonalityPromptService:
     def get_system_prompt(
         self,
         personality: PersonalityType,
-        custom_greeting: Optional[str] = None,
-        business_name: Optional[str] = None,
-        business_description: Optional[str] = None,
-        business_hours: Optional[str] = None,
-        bot_name: Optional[str] = None,
-        product_context: Optional[str] = None,
-        order_context: Optional[str] = None,
-        pending_state: Optional[dict] = None,
+        custom_greeting: str | None = None,
+        business_name: str | None = None,
+        business_description: str | None = None,
+        business_hours: str | None = None,
+        bot_name: str | None = None,
+        product_context: str | None = None,
+        order_context: str | None = None,
+        pending_state: dict | None = None,
     ) -> str:
         """Get system prompt for the given personality.
 

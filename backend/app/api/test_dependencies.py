@@ -1,6 +1,5 @@
 """Tests for API dependencies (will be implemented in feature sprints)."""
 
-import pytest
 
 
 class TestAPI:

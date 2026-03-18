@@ -10,20 +10,19 @@ Story 9-4: Added quick reply generation for conversation continuation.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant, PersonalityType
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
 from app.services.personality.personality_prompts import get_personality_system_prompt
-
 
 logger = structlog.get_logger(__name__)
 
@@ -53,7 +52,7 @@ class LLMHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle general/unknown intent with LLM.
 
@@ -206,7 +205,7 @@ class LLMHandler(BaseHandler):
         merchant: Merchant,
         llm_service: BaseLLMService,
         db: AsyncSession,
-    ) -> Optional[list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Detect product mentions in LLM response and fetch products.
 
         Args:
@@ -249,7 +248,7 @@ class LLMHandler(BaseHandler):
 
     def _generate_quick_replies(
         self, user_message: str, response_text: str
-    ) -> Optional[list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Generate contextual quick replies based on conversation.
 
         Story 9-4: Quick Reply Buttons
@@ -308,7 +307,7 @@ class LLMHandler(BaseHandler):
         bot_name: str,
         business_name: str,
         personality_type: PersonalityType,
-        pending_state: Optional[dict] = None,
+        pending_state: dict | None = None,
     ) -> str:
         """Build system prompt with personality and context.
 
@@ -337,8 +336,8 @@ class LLMHandler(BaseHandler):
         if db:
             try:
                 from app.services.product_context_service import (
-                    get_product_context_prompt_section,
                     get_order_context_prompt_section,
+                    get_product_context_prompt_section,
                 )
 
                 product_context = await get_product_context_prompt_section(db, merchant.id)
@@ -364,7 +363,7 @@ class LLMHandler(BaseHandler):
 
         return personality_prompt
 
-    def _get_pending_state(self, context: ConversationContext) -> Optional[dict]:
+    def _get_pending_state(self, context: ConversationContext) -> dict | None:
         """Extract pending state from conversation context.
 
         Args:

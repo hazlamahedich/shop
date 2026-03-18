@@ -4,18 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
 from app.models.facebook_integration import FacebookIntegration
+from app.models.merchant import Merchant
 from app.models.shopify_integration import ShopifyIntegration
 from app.models.webhook_verification_log import WebhookVerificationLog
-from app.models.merchant import Merchant
 from app.services.webhook_verification import WebhookVerificationService
-from sqlalchemy import select
 
 
 @pytest.fixture

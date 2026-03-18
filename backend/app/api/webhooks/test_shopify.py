@@ -6,8 +6,8 @@ Tests co-located with webhook handler per project standards.
 from __future__ import annotations
 
 import json
+
 import pytest
-from fastapi import Header, BackgroundTasks
 from httpx import AsyncClient
 
 
@@ -33,10 +33,10 @@ async def test_shopify_webhook_invalid_signature(async_client: AsyncClient) -> N
 @pytest.mark.asyncio
 async def test_shopify_webhook_valid_signature(async_client: AsyncClient, monkeypatch) -> None:
     """Test webhook with valid HMAC signature is accepted."""
-    import hmac
-    import hashlib
     import base64
-    from app.core.config import settings
+    import hashlib
+    import hmac
+
 
     # Mock config
     def mock_settings():
@@ -74,9 +74,9 @@ async def test_shopify_webhook_valid_signature(async_client: AsyncClient, monkey
 @pytest.mark.asyncio
 async def test_shopify_webhook_orders_create(async_client: AsyncClient, monkeypatch) -> None:
     """Test orders/create webhook handling."""
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():
@@ -117,9 +117,9 @@ async def test_shopify_webhook_orders_create(async_client: AsyncClient, monkeypa
 @pytest.mark.asyncio
 async def test_shopify_webhook_orders_updated(async_client: AsyncClient, monkeypatch) -> None:
     """Test orders/updated webhook handling."""
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():

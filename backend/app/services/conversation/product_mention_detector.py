@@ -8,15 +8,14 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.intent.classification_schema import ExtractedEntities
 from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
 from app.services.shopify.product_search_service import ProductSearchService
-from app.services.intent.classification_schema import ExtractedEntities
-
 
 logger = structlog.get_logger(__name__)
 
@@ -80,7 +79,7 @@ class ProductMentionDetector:
         merchant_id: int,
         db: AsyncSession,
         max_products: int = 3,
-    ) -> Optional[list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Detect product mentions and fetch matching products.
 
         Args:
@@ -139,7 +138,7 @@ class ProductMentionDetector:
             )
             return None
 
-    async def _detect_mentions(self, response_text: str) -> Optional[dict[str, Any]]:
+    async def _detect_mentions(self, response_text: str) -> dict[str, Any] | None:
         """Use LLM to detect product mentions in response.
 
         Args:

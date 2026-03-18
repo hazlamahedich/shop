@@ -5,14 +5,12 @@ Unit tests for Pydantic validation and webhook payload parsing.
 
 from __future__ import annotations
 
-import pytest
-
 from app.schemas.messaging import (
+    ConversationContext,
     FacebookEntry,
     FacebookMessaging,
     FacebookWebhookPayload,
     MessengerResponse,
-    ConversationContext,
 )
 
 

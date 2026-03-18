@@ -6,6 +6,7 @@ Tests co-located with service per project standards.
 from __future__ import annotations
 
 import pytest
+
 from app.services.shopify_admin import ShopifyAdminClient
 
 

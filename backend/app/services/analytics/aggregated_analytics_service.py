@@ -9,19 +9,18 @@ All aggregated data is stored as tier=ANONYMIZED.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
+from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.message import Message
 from app.models.order import Order
-from app.models.llm_conversation_cost import LLMConversationCost
 from app.services.privacy.data_tier_service import DataTier
-
 
 logger = structlog.get_logger(__name__)
 
@@ -245,7 +244,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "conversations": {
                     "total": total_conversations,
@@ -397,7 +396,7 @@ class AggregatedAnalyticsService:
                     "ordersChangePercent": orders_change_pct,
                     "conversationsChangePercent": conversations_change_pct,
                 },
-                "generatedAt": datetime.now(timezone.utc).isoformat(),
+                "generatedAt": datetime.now(UTC).isoformat(),
                 "tier": DataTier.ANONYMIZED.value,
             }
 
@@ -430,8 +429,8 @@ class AggregatedAnalyticsService:
         Returns:
             List of top products
         """
-        from app.models.shopify_integration import ShopifyIntegration
         from app.core.security import decrypt_access_token
+        from app.models.shopify_integration import ShopifyIntegration
         from app.services.shopify.admin_client import ShopifyAdminClient
 
         try:
@@ -773,7 +772,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "avgResponseTimeSeconds": avg_response_time_seconds,
                 "fallbackRate": fallback_rate,
@@ -819,7 +818,7 @@ class AggregatedAnalyticsService:
             Dict with hourly breakdown, peak hours, and peak day
         """
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
             result = await self.db.execute(
                 select(
@@ -861,7 +860,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "hourlyBreakdown": hourly_breakdown,
                 "peakHours": peak_hours,
@@ -897,7 +896,7 @@ class AggregatedAnalyticsService:
             Dict with funnel stages and conversion rates
         """
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
             total_conversations_result = await self.db.execute(
                 select(func.count(Conversation.id))
@@ -969,7 +968,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "stages": stages,
                 "overallConversionRate": overall_conversion_rate,
@@ -1005,7 +1004,7 @@ class AggregatedAnalyticsService:
             Dict with knowledge gaps and suggested actions
         """
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
             # TODO: Implement knowledge gap detection when intent/confidence
             # tracking is added to messages or a separate analytics table
@@ -1015,7 +1014,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "gaps": [],
                 "totalGaps": 0,
@@ -1086,7 +1085,7 @@ class AggregatedAnalyticsService:
         }
 
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
             bot_quality = await self.get_bot_quality_metrics(merchant_id, days)
 
@@ -1195,7 +1194,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "metrics": metrics,
                 "overallPercentile": overall_percentile,
@@ -1292,8 +1291,8 @@ class AggregatedAnalyticsService:
         }
 
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-            prev_cutoff = datetime.now(timezone.utc) - timedelta(days=days * 2)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            prev_cutoff = datetime.now(UTC) - timedelta(days=days * 2)
 
             result = await self.db.execute(
                 select(Message)
@@ -1409,7 +1408,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "current": {
                     "positiveRate": round(current_positive_rate, 2),

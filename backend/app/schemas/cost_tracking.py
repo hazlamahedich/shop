@@ -7,7 +7,7 @@ Uses Pydantic alias_generator for camelCase API responses.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Union
+
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -27,7 +27,7 @@ class CostRecord(BaseModel):
     input_cost_usd: float
     output_cost_usd: float
     total_cost_usd: float
-    processing_time_ms: Optional[float] = None
+    processing_time_ms: float | None = None
 
 
 class ConversationCostResponse(BaseModel):
@@ -104,10 +104,10 @@ class CostSummaryResponse(BaseModel):
     daily_breakdown: list[DailyCostBreakdown] = Field(
         default_factory=list, description="Daily cost summary (if multi-day range)"
     )
-    previous_period_summary: Optional[dict] = Field(
+    previous_period_summary: dict | None = Field(
         None, description="Aggregated data for the previous equivalent period"
     )
-    cost_comparison: Optional[CostComparisonResponse] = Field(
+    cost_comparison: CostComparisonResponse | None = Field(
         None, description="Cost comparison vs competitor pricing"
     )
 
@@ -117,5 +117,5 @@ class CostListResponse(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    data: Union[list[dict], dict]
+    data: list[dict] | dict
     meta: dict

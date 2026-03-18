@@ -25,11 +25,11 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 import structlog
-
 
 logger = structlog.get_logger(__name__)
 
@@ -81,7 +81,7 @@ class ShopifyCircuitBreaker:
     FAILURE_THRESHOLD = 5
     RECOVERY_TIMEOUT = 60.0
     SUCCESS_THRESHOLD = 2
-    LOCK: Optional[asyncio.Lock] = None
+    LOCK: asyncio.Lock | None = None
 
     @classmethod
     def _get_lock(cls) -> asyncio.Lock:
@@ -173,7 +173,7 @@ class ShopifyCircuitBreaker:
 
             return result
 
-        except Exception as e:
+        except Exception:
             async with cls._get_lock():
                 cls._record_failure(merchant_id)
             raise
@@ -253,7 +253,7 @@ class ShopifyCircuitBreaker:
         )
 
     @classmethod
-    def get_fallback_url(cls, merchant: Any) -> Optional[str]:
+    def get_fallback_url(cls, merchant: Any) -> str | None:
         """Get fallback URL when circuit is open.
 
         Args:
@@ -268,7 +268,7 @@ class ShopifyCircuitBreaker:
         return None
 
     @classmethod
-    def reset(cls, merchant_id: Optional[int] = None) -> None:
+    def reset(cls, merchant_id: int | None = None) -> None:
         """Reset circuit breaker state (for testing).
 
         Args:

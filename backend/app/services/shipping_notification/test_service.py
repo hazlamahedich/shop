@@ -12,9 +12,8 @@ Tests cover:
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -22,7 +21,6 @@ from app.core.errors import ErrorCode
 from app.models.order import Order
 from app.services.shipping_notification import (
     ConsentChecker,
-    NotificationResult,
     NotificationStatus,
     ShippingNotificationService,
     ShippingRateLimiter,

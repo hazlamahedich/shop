@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.schemas.shopify import Product, ProductSearchResult
-from app.services.intent.classification_schema import ExtractedEntities, IntentType
+from app.services.intent.classification_schema import ExtractedEntities
 from app.services.shopify.product_mapper import ProductMapper
 from app.services.shopify.product_search_service import ProductSearchService
 from app.services.shopify.storefront_client import ShopifyStorefrontClient

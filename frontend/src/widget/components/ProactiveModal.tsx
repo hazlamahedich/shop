@@ -1,6 +1,7 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
 import type { ProactiveTrigger, ProactiveTriggerAction } from '../types/widget';
+import { trackProactiveTrigger } from '../utils/analytics';
 
 export interface ProactiveModalProps {
   trigger: ProactiveTrigger;
@@ -139,7 +140,10 @@ export function ProactiveModal({
                 data-testid={`proactive-action-button-${index}`}
                 type="button"
                 className={`proactive-action-button ${index === 0 ? '' : 'proactive-action-secondary'}`}
-                onClick={() => onAction(action)}
+                onClick={() => {
+                  trackProactiveTrigger(trigger.type, true);
+                  onAction(action);
+                }}
                 style={
                   index === 0 && theme?.primaryColor
                     ? { backgroundColor: theme.primaryColor }

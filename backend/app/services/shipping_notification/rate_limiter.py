@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional
 
 import structlog
 
@@ -25,7 +24,7 @@ class RateLimitResult:
     """Result of rate limit check."""
 
     allowed: bool
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class ShippingRateLimiter:
@@ -49,7 +48,7 @@ class ShippingRateLimiter:
             redis_client: Redis client instance (optional, created if not provided)
         """
         self.redis = redis_client
-        self._redis_available: Optional[bool] = None
+        self._redis_available: bool | None = None
 
     async def _get_redis(self):
         """Get Redis client, creating if necessary.

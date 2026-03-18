@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 # Load .env file before reading any environment variables
 _env_file = Path(__file__).parent.parent.parent / ".env"

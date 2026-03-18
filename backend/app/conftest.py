@@ -4,31 +4,19 @@ Ensures environment variables are set before any imports.
 """
 
 import os
+from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
-from typing import AsyncGenerator
+
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+
+# Create shared test engine for all fixtures to use
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 # Import ALL models to ensure they're registered with Base.metadata
 # This must happen before Base.metadata.create_all() is called
-import app.models.merchant
-import app.models.tutorial
-import app.models.onboarding
-import app.models.facebook_integration
-import app.models.shopify_integration
-import app.models.llm_configuration
-import app.models.conversation
-import app.models.message
-import app.models.deployment_log
-import app.models.webhook_verification_log
-import app.models.faq
-
-# Create shared test engine for all fixtures to use
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import NullPool
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 _shared_test_engine = None
 _shared_session_factory = None
@@ -58,7 +46,6 @@ def get_shared_session_factory():
     """Get or create shared session factory."""
     global _shared_session_factory
     if _shared_session_factory is None:
-        from app.core.database import Base
 
         _shared_session_factory = async_sessionmaker(
             bind=get_shared_test_engine(),
@@ -107,7 +94,6 @@ os.environ.setdefault("MOCK_STORE_ENABLED", "true")
 @pytest.fixture(scope="function")
 async def _setup_app_database():
     """Setup and reset database for app-level tests."""
-    from sqlalchemy import text
 
     engine = get_shared_test_engine()
 
@@ -268,8 +254,9 @@ async def async_client(async_session):
     """
     import httpx
     from httpx import ASGITransport
-    from app.main import app
+
     from app.core.database import get_db
+    from app.main import app
 
     # Override get_db dependency to use test's async_session
     async def override_get_db():

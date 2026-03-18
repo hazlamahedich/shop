@@ -9,9 +9,10 @@ Story 5.1: Backend Widget API
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.core.errors import APIError, ErrorCode
 from app.schemas.widget import WidgetSessionData
@@ -72,7 +73,7 @@ class TestWidgetSessionService:
     @pytest.mark.asyncio
     async def test_get_session_returns_session_when_exists(self, session_service, mock_redis):
         """Test that get_session returns session data when it exists."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(hours=1)
 
         stored_session = WidgetSessionData(
@@ -111,7 +112,7 @@ class TestWidgetSessionService:
     @pytest.mark.asyncio
     async def test_refresh_session_updates_timestamp(self, session_service, mock_redis):
         """Test that refresh_session updates last_activity_at."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(hours=1)
 
         stored_session = WidgetSessionData(
@@ -190,7 +191,7 @@ class TestWidgetSessionService:
     @pytest.mark.asyncio
     async def test_get_session_or_error_raises_expired(self, session_service, mock_redis):
         """Test that get_session_or_error raises WIDGET_SESSION_EXPIRED for expired session."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired_at = now - timedelta(hours=1)  # Expired 1 hour ago
 
         stored_session = WidgetSessionData(
@@ -210,7 +211,7 @@ class TestWidgetSessionService:
     @pytest.mark.asyncio
     async def test_get_session_or_error_returns_valid_session(self, session_service, mock_redis):
         """Test that get_session_or_error returns valid session."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(hours=1)
 
         stored_session = WidgetSessionData(

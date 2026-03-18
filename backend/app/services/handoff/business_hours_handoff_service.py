@@ -13,13 +13,11 @@ REUSES patterns from Story 3-10 (BusinessHoursService).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
-from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
 from app.services.business_hours.business_hours_service import (
     get_formatted_hours,
     get_next_business_hour,
@@ -137,8 +135,8 @@ class HandoffMessageContext:
     is_offline: bool
     business_hours_str: str
     expected_response_time: str
-    next_business_hour: Optional[datetime]
-    hours_until_response: Optional[float]
+    next_business_hour: datetime | None
+    hours_until_response: float | None
 
 
 class BusinessHoursHandoffService:
@@ -162,8 +160,8 @@ class BusinessHoursHandoffService:
 
     def get_handoff_message_context(
         self,
-        business_hours_config: Optional[dict[str, Any]],
-        check_time: Optional[datetime] = None,
+        business_hours_config: dict[str, Any] | None,
+        check_time: datetime | None = None,
     ) -> HandoffMessageContext:
         """Get context for handoff message based on business hours.
 
@@ -177,7 +175,7 @@ class BusinessHoursHandoffService:
         Raises:
             APIError: If business hours check fails (ErrorCode.BUSINESS_HOURS_CHECK_FAILED)
         """
-        check_time = check_time or datetime.now(timezone.utc)
+        check_time = check_time or datetime.now(UTC)
 
         if not business_hours_config or not business_hours_config.get("hours"):
             return HandoffMessageContext(
@@ -289,8 +287,8 @@ class BusinessHoursHandoffService:
 
     def is_offline_handoff(
         self,
-        business_hours_config: Optional[dict[str, Any]],
-        check_time: Optional[datetime] = None,
+        business_hours_config: dict[str, Any] | None,
+        check_time: datetime | None = None,
     ) -> bool:
         """Check if handoff is triggered outside business hours.
 
@@ -305,11 +303,11 @@ class BusinessHoursHandoffService:
 
     def build_handoff_message(
         self,
-        business_hours_config: Optional[dict[str, Any]],
-        check_time: Optional[datetime] = None,
-        business_name: Optional[str] = None,
-        business_description: Optional[str] = None,
-        customer_message: Optional[str] = None,
+        business_hours_config: dict[str, Any] | None,
+        check_time: datetime | None = None,
+        business_name: str | None = None,
+        business_description: str | None = None,
+        customer_message: str | None = None,
     ) -> str:
         """Build complete handoff message with business hours context.
 
@@ -385,7 +383,7 @@ class BusinessHoursHandoffService:
             business_hours=business_hours,
         )
 
-    def _extract_business_context(self, business_description: Optional[str]) -> Optional[str]:
+    def _extract_business_context(self, business_description: str | None) -> str | None:
         """Extract a brief business context from description.
 
         Args:
@@ -439,7 +437,7 @@ class BusinessHoursHandoffService:
 
         return "your needs"
 
-    def _extract_customer_concern(self, customer_message: Optional[str]) -> Optional[str]:
+    def _extract_customer_concern(self, customer_message: str | None) -> str | None:
         """Extract customer concern category from their message.
 
         Args:
@@ -478,9 +476,9 @@ class BusinessHoursHandoffService:
             Hours until target (0 if already passed)
         """
         if from_time.tzinfo is None:
-            from_time = from_time.replace(tzinfo=timezone.utc)
+            from_time = from_time.replace(tzinfo=UTC)
         if target_time.tzinfo is None:
-            target_time = target_time.replace(tzinfo=timezone.utc)
+            target_time = target_time.replace(tzinfo=UTC)
 
         delta = target_time - from_time
         hours = delta.total_seconds() / 3600

@@ -16,13 +16,12 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from app.api.data_export import router
 
@@ -32,6 +31,7 @@ def app():
     """Create FastAPI app with export router and exception handlers."""
     from fastapi import Request
     from fastapi.responses import JSONResponse
+
     from app.core.errors import APIError
     from app.main import get_error_status_code
 

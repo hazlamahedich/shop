@@ -1,13 +1,12 @@
 """Tests for error handling and error codes."""
 
-import pytest
 
 from app.core.errors import (
-    ErrorCode,
     APIError,
-    ValidationError,
     AuthenticationError,
+    ErrorCode,
     NotFoundError,
+    ValidationError,
 )
 
 

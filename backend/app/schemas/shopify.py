@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -34,11 +34,11 @@ class ProductVariant(BaseModel):
         description="Price currency code"
     )
     available_for_sale: bool = Field(default=False, description="Is variant in stock")
-    selected_options: Dict[str, str] = Field(
+    selected_options: dict[str, str] = Field(
         default_factory=dict, description="Variant options (size, color, etc.)"
     )
-    weight: Optional[float] = Field(None, description="Variant weight in grams")
-    weight_unit: Optional[str] = Field(None, description="Weight unit (e.g., 'g')")
+    weight: float | None = Field(None, description="Variant weight in grams")
+    weight_unit: str | None = Field(None, description="Weight unit (e.g., 'g')")
 
 
 class ProductImage(BaseModel):
@@ -50,9 +50,9 @@ class ProductImage(BaseModel):
     )
 
     url: str = Field(description="Image URL")
-    alt_text: Optional[str] = Field(None, description="Image alt text")
-    width: Optional[int] = Field(None, description="Image width in pixels")
-    height: Optional[int] = Field(None, description="Image height in pixels")
+    alt_text: str | None = Field(None, description="Image alt text")
+    width: int | None = Field(None, description="Image width in pixels")
+    height: int | None = Field(None, description="Image height in pixels")
 
 
 class Product(BaseModel):
@@ -65,21 +65,21 @@ class Product(BaseModel):
 
     id: str = Field(description="Shopify product ID")
     title: str = Field(description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    description_html: Optional[str] = Field(None, description="Product description HTML")
+    description: str | None = Field(None, description="Product description")
+    description_html: str | None = Field(None, description="Product description HTML")
     product_type: str = Field(description="Product type/category")
-    tags: List[str] = Field(default_factory=list, description="Product tags")
-    vendor: Optional[str] = Field(None, description="Product vendor/brand")
+    tags: list[str] = Field(default_factory=list, description="Product tags")
+    vendor: str | None = Field(None, description="Product vendor/brand")
     price: float = Field(description="Product price (min variant price)")
     currency_code: CurrencyCode = Field(
         default=CurrencyCode.USD,
         description="Price currency code"
     )
-    images: List[ProductImage] = Field(
+    images: list[ProductImage] = Field(
         default_factory=list,
         description="Product images"
     )
-    variants: List[ProductVariant] = Field(
+    variants: list[ProductVariant] = Field(
         default_factory=list,
         description="Product variants"
     )
@@ -87,7 +87,7 @@ class Product(BaseModel):
         default=0.0,
         description="Search relevance score"
     )
-    total_inventory: Optional[int] = Field(None, description="Total inventory across variants")
+    total_inventory: int | None = Field(None, description="Total inventory across variants")
     tracks_inventory: bool = Field(default=True, description="Whether inventory is tracked")
 
 
@@ -99,9 +99,9 @@ class ProductSearchResult(BaseModel):
         populate_by_name=True,
     )
 
-    products: List[Product] = Field(description="Ranked product results")
+    products: list[Product] = Field(description="Ranked product results")
     total_count: int = Field(description="Total results count")
-    search_params: Dict[str, Any] = Field(
+    search_params: dict[str, Any] = Field(
         default_factory=dict,
         description="Search parameters used"
     )
@@ -109,4 +109,4 @@ class ProductSearchResult(BaseModel):
         default=False,
         description="Whether alternative suggestions are available"
     )
-    search_time_ms: Optional[float] = Field(None, description="Search time in milliseconds")
+    search_time_ms: float | None = Field(None, description="Search time in milliseconds")

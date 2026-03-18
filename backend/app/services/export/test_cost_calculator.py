@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.export.cost_calculator import CostCalculator, LLM_PRICING
+from app.services.export.cost_calculator import CostCalculator
 
 
 class TestCostCalculator:

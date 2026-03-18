@@ -12,17 +12,15 @@ BudgetAwareLLMWrapper for the unified conversation service.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.models.merchant import Merchant
-from app.services.conversation.schemas import ConversationContext, ConversationResponse
 from app.services.cost_tracking.budget_alert_service import BudgetAlertService
 from app.services.cost_tracking.cost_tracking_service import CostTrackingService
-
 
 logger = structlog.get_logger(__name__)
 
@@ -72,7 +70,7 @@ class BudgetMiddleware:
         self,
         db: AsyncSession,
         merchant_id: int,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if merchant has budget available.
 
         Args:
@@ -184,7 +182,7 @@ class BudgetMiddleware:
         self,
         db: AsyncSession,
         merchant_id: int,
-    ) -> Optional[Merchant]:
+    ) -> Merchant | None:
         """Get merchant by ID.
 
         Args:
@@ -197,7 +195,7 @@ class BudgetMiddleware:
         result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
         return result.scalars().first()
 
-    def _get_budget_cap(self, merchant: Merchant) -> Optional[Decimal]:
+    def _get_budget_cap(self, merchant: Merchant) -> Decimal | None:
         """Get budget cap from merchant config.
 
         Args:

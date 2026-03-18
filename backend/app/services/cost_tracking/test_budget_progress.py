@@ -7,12 +7,13 @@ calculations into a single query to reduce database overhead.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from sqlalchemy import delete, select
-import pytest
 
-from app.services.cost_tracking.cost_tracking_service import CostTrackingService
+import pytest
+from sqlalchemy import delete, select
+
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.merchant import Merchant
+from app.services.cost_tracking.cost_tracking_service import CostTrackingService
 
 
 @pytest.mark.asyncio

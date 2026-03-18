@@ -8,27 +8,23 @@ CheckoutService) into the ECommerceProvider interface.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
-from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
 from app.services.ecommerce.base import (
     Cart,
-    CartItem,
     CurrencyCode,
     ECommerceProvider,
     Order,
-    OrderItem,
     OrderStatus,
     Product,
     ProductVariant,
     StoreNotConnectedError,
 )
-from app.services.shopify_oauth import ShopifyService
 from app.services.shopify.storefront_client import ShopifyStorefrontClient
+from app.services.shopify_oauth import ShopifyService
 
 logger = structlog.get_logger(__name__)
 
@@ -71,7 +67,7 @@ class ShopifyStoreProvider(ECommerceProvider):
     def __init__(
         self,
         merchant_id: int,
-        db_session: Optional[Any] = None,
+        db_session: Any | None = None,
     ) -> None:
         """Initialize Shopify provider for a specific merchant.
 
@@ -81,9 +77,9 @@ class ShopifyStoreProvider(ECommerceProvider):
         """
         self._merchant_id = merchant_id
         self._db_session = db_session
-        self._storefront_client: Optional[ShopifyStorefrontClient] = None
-        self._shop_domain: Optional[str] = None
-        self._access_token: Optional[str] = None
+        self._storefront_client: ShopifyStorefrontClient | None = None
+        self._shop_domain: str | None = None
+        self._access_token: str | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> None:
@@ -121,7 +117,6 @@ class ShopifyStoreProvider(ECommerceProvider):
         Args:
             session: Database session
         """
-        from app.services.shopify_oauth import ShopifyService
 
         shopify_service = ShopifyService(session)
         integration = await shopify_service.get_shopify_integration(self._merchant_id)
@@ -183,9 +178,9 @@ class ShopifyStoreProvider(ECommerceProvider):
         self,
         query: str,
         limit: int = 10,
-        category: Optional[str] = None,
-        max_price: Optional[float] = None,
-        min_price: Optional[float] = None,
+        category: str | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
         **kwargs: Any,
     ) -> list[Product]:
         """Search for products in Shopify store.
@@ -232,7 +227,7 @@ class ShopifyStoreProvider(ECommerceProvider):
 
         return products
 
-    async def get_product(self, product_id: str) -> Optional[Product]:
+    async def get_product(self, product_id: str) -> Product | None:
         """Get a product by ID from Shopify.
 
         Args:
@@ -284,7 +279,7 @@ class ShopifyStoreProvider(ECommerceProvider):
         import uuid
 
         cart_id = f"local_cart_{uuid.uuid4().hex[:8]}"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         return Cart(
             id=cart_id,
@@ -296,7 +291,7 @@ class ShopifyStoreProvider(ECommerceProvider):
             updated_at=now,
         )
 
-    async def get_cart(self, cart_id: str) -> Optional[Cart]:
+    async def get_cart(self, cart_id: str) -> Cart | None:
         """Get a cart by ID.
 
         Note: Uses the existing CartService.
@@ -381,7 +376,7 @@ class ShopifyStoreProvider(ECommerceProvider):
     async def create_checkout_url(
         self,
         cart_id: str,
-        custom_attributes: Optional[list[dict[str, str]]] = None,
+        custom_attributes: list[dict[str, str]] | None = None,
     ) -> str:
         """Create Shopify checkout URL.
 
@@ -408,7 +403,7 @@ class ShopifyStoreProvider(ECommerceProvider):
 
     # ==================== Order Operations ====================
 
-    async def get_order(self, order_id: str) -> Optional[Order]:
+    async def get_order(self, order_id: str) -> Order | None:
         """Get an order by ID.
 
         Args:
@@ -424,7 +419,7 @@ class ShopifyStoreProvider(ECommerceProvider):
         logger.warning("get_order_not_implemented", order_id=order_id)
         return None
 
-    async def get_order_by_checkout_token(self, checkout_token: str) -> Optional[Order]:
+    async def get_order_by_checkout_token(self, checkout_token: str) -> Order | None:
         """Get order by checkout token.
 
         Args:
@@ -441,8 +436,8 @@ class ShopifyStoreProvider(ECommerceProvider):
         self,
         order_id: str,
         status: OrderStatus,
-        tracking_number: Optional[str] = None,
-        tracking_url: Optional[str] = None,
+        tracking_number: str | None = None,
+        tracking_url: str | None = None,
     ) -> Order:
         """Update order status.
 

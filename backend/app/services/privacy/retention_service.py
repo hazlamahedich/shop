@@ -14,7 +14,7 @@ data that the retention period has expired.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import structlog
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.privacy.data_tier_service import DataTier
-
 
 logger = structlog.get_logger(__name__)
 
@@ -58,7 +57,7 @@ class RetentionPolicy:
 
     @staticmethod
     async def delete_expired_voluntary_data(
-        db: "AsyncSession",
+        db: AsyncSession,
         days: int = 30,
         batch_size: int = 1000,
         timeout_seconds: int = 300,
@@ -80,9 +79,9 @@ class RetentionPolicy:
         Returns:
             Number of records deleted
         """
+
         from app.models.conversation import Conversation
         from app.models.deletion_audit_log import DeletionAuditLog, DeletionTrigger
-        import asyncio
 
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         total_deleted = 0

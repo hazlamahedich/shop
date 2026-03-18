@@ -7,18 +7,17 @@ Supports field-level encryption for sensitive content (NFR-S2).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, Text, DateTime, Enum, ForeignKey, Index
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.encryption import (
-    encrypt_conversation_content,
     decrypt_conversation_content,
-    encrypt_metadata,
     decrypt_metadata,
+    encrypt_conversation_content,
+    encrypt_metadata,
 )
 from app.services.privacy.data_tier_service import DataTier
 
@@ -61,7 +60,7 @@ class Message(Base):
         default="text",
         nullable=False,
     )
-    message_metadata: Mapped[Optional[dict]] = mapped_column(
+    message_metadata: Mapped[dict | None] = mapped_column(
         "message_metadata",
         JSONB,
         nullable=True,
@@ -106,7 +105,7 @@ class Message(Base):
             return decrypt_conversation_content(self.content)
         return self.content
 
-    def set_encrypted_content(self, content: str, sender: Optional[str] = None) -> None:
+    def set_encrypted_content(self, content: str, sender: str | None = None) -> None:
         """Set message content with automatic encryption.
 
         Args:
@@ -127,7 +126,7 @@ class Message(Base):
             self.content = content
 
     @property
-    def decrypted_metadata(self) -> Optional[dict]:
+    def decrypted_metadata(self) -> dict | None:
         """Get decrypted message metadata.
 
         Returns:
@@ -140,7 +139,7 @@ class Message(Base):
             return None
         return decrypt_metadata(self.message_metadata)
 
-    def set_encrypted_metadata(self, metadata: Optional[dict]) -> None:
+    def set_encrypted_metadata(self, metadata: dict | None) -> None:
         """Set message metadata with automatic encryption.
 
         Args:

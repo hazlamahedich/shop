@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -20,13 +20,13 @@ class PaymentBreakdown(BaseModel):
 
     subtotal: Decimal = Field(description="Order subtotal before shipping/tax")
     total: Decimal = Field(description="Order total including all charges")
-    shipping: Optional[Decimal] = Field(None, description="Shipping cost")
-    tax: Optional[Decimal] = Field(None, description="Tax amount")
-    discount: Optional[Decimal] = Field(None, description="Total discount amount")
-    discount_codes: Optional[list[dict[str, Any]]] = Field(
+    shipping: Decimal | None = Field(None, description="Shipping cost")
+    tax: Decimal | None = Field(None, description="Tax amount")
+    discount: Decimal | None = Field(None, description="Total discount amount")
+    discount_codes: list[dict[str, Any]] | None = Field(
         None, description="Discount codes applied"
     )
-    payment_method: Optional[str] = Field(None, description="Payment method used")
+    payment_method: str | None = Field(None, description="Payment method used")
     currency: str = Field(default="USD", description="Currency code")
 
 
@@ -34,10 +34,10 @@ class ProfitData(BaseModel):
     """Profit/margin data for an order."""
 
     revenue: Decimal = Field(description="Total order revenue")
-    cogs: Optional[Decimal] = Field(None, description="Cost of goods sold")
-    margin: Optional[Decimal] = Field(None, description="Profit margin (revenue - cogs)")
-    margin_percent: Optional[float] = Field(None, description="Profit margin as percentage")
-    cogs_fetched_at: Optional[datetime] = Field(None, description="When COGS was last fetched")
+    cogs: Decimal | None = Field(None, description="Cost of goods sold")
+    margin: Decimal | None = Field(None, description="Profit margin (revenue - cogs)")
+    margin_percent: float | None = Field(None, description="Profit margin as percentage")
+    cogs_fetched_at: datetime | None = Field(None, description="When COGS was last fetched")
 
 
 class OrderResponse(BaseModel):
@@ -46,19 +46,19 @@ class OrderResponse(BaseModel):
     id: int = Field(description="Order database ID")
     order_number: str = Field(description="Order number")
     status: str = Field(description="Order status")
-    items: Optional[list[dict[str, Any]]] = Field(None, description="Order items")
+    items: list[dict[str, Any]] | None = Field(None, description="Order items")
     currency_code: str = Field(description="Currency code")
 
-    customer_email: Optional[str] = Field(None, description="Customer email")
-    customer_first_name: Optional[str] = Field(None, description="Customer first name")
-    customer_last_name: Optional[str] = Field(None, description="Customer last name")
+    customer_email: str | None = Field(None, description="Customer email")
+    customer_first_name: str | None = Field(None, description="Customer first name")
+    customer_last_name: str | None = Field(None, description="Customer last name")
 
-    tracking_number: Optional[str] = Field(None, description="Tracking number")
-    tracking_url: Optional[str] = Field(None, description="Tracking URL")
-    estimated_delivery: Optional[datetime] = Field(None, description="Estimated delivery")
+    tracking_number: str | None = Field(None, description="Tracking number")
+    tracking_url: str | None = Field(None, description="Tracking URL")
+    estimated_delivery: datetime | None = Field(None, description="Estimated delivery")
 
     payment_breakdown: PaymentBreakdown = Field(description="Payment breakdown")
-    profit_data: Optional[ProfitData] = Field(None, description="Profit data")
+    profit_data: ProfitData | None = Field(None, description="Profit data")
 
     created_at: datetime = Field(description="Order creation timestamp")
     updated_at: datetime = Field(description="Last update timestamp")
@@ -67,7 +67,7 @@ class OrderResponse(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_order(cls, order: "Order") -> "OrderResponse":
+    def from_order(cls, order: Order) -> OrderResponse:
         """Create OrderResponse from Order model instance.
 
         Args:

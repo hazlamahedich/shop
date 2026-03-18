@@ -139,7 +139,7 @@ class PollingScheduler:
 
         if database_url:
             try:
-                # SQLAlchemyJobStore requires a synchronous driver. 
+                # SQLAlchemyJobStore requires a synchronous driver.
                 # If we have an async driver (like +asyncpg), we must fallback to memory.
                 if "+asyncpg" in database_url or "+aiopg" in database_url:
                     logger.warning(

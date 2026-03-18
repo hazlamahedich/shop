@@ -7,9 +7,8 @@ completed steps, timestamps, and skip status.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,7 +38,7 @@ class Tutorial(Base):
     )
 
     # Relationship to Merchant for proper ORM ordering
-    merchant: Mapped["Merchant"] = relationship(
+    merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="tutorial",
     )
@@ -55,11 +54,11 @@ class Tutorial(Base):
         default=list,
         nullable=False,
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )

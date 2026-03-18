@@ -16,16 +16,14 @@ Cart Flow:
 
 from __future__ import annotations
 
-import asyncio
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-import structlog
 import redis.asyncio as redis
+import structlog
 
 from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart, CartItem
 from app.services.cart.cart_service import CartService
 from app.services.shopify.shopify_cart_client import ShopifyCartClient
@@ -59,8 +57,8 @@ class ShopifyCartSync:
     def __init__(
         self,
         merchant_id: int,
-        redis_client: Optional[redis.Redis] = None,
-        cart_service: Optional[CartService] = None,
+        redis_client: redis.Redis | None = None,
+        cart_service: CartService | None = None,
     ) -> None:
         """Initialize Shopify cart sync service.
 
@@ -72,9 +70,9 @@ class ShopifyCartSync:
         self.merchant_id = merchant_id
         self._redis = redis_client
         self._cart_service = cart_service
-        self._shopify_client: Optional[ShopifyCartClient] = None
-        self._shop_domain: Optional[str] = None
-        self._access_token: Optional[str] = None
+        self._shopify_client: ShopifyCartClient | None = None
+        self._shop_domain: str | None = None
+        self._access_token: str | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> bool:
@@ -414,7 +412,7 @@ class ShopifyCartSync:
     async def _get_or_create_shopify_cart(
         self,
         cart: Cart,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get existing Shopify cart or create new one.
 
         Args:
@@ -453,7 +451,7 @@ class ShopifyCartSync:
             cart_key: Redis cart key
             cart: Cart to save
         """
-        cart.updated_at = datetime.now(timezone.utc).isoformat()
+        cart.updated_at = datetime.now(UTC).isoformat()
         cart_dict = cart.model_dump(exclude_none=True, mode="json")
         await self.redis.setex(
             cart_key,
@@ -502,7 +500,7 @@ class ShopifyCartSync:
             "cart_key": cart_key,
             "merchant_id": self.merchant_id,
             "error": error_message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "attempts": 1,
         }
 

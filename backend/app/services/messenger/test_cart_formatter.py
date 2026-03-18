@@ -11,7 +11,7 @@ Tests cart display formatting for Facebook Messenger including:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -39,7 +39,7 @@ class TestCartFormatter:
                 image_url="http://example.com/image1.jpg",
                 quantity=2,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(timezone.utc).isoformat()
+                added_at=datetime.now(UTC).isoformat()
             ),
             CartItem(
                 product_id="prod_2",
@@ -49,7 +49,7 @@ class TestCartFormatter:
                 image_url="http://example.com/image2.jpg",
                 quantity=1,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(timezone.utc).isoformat()
+                added_at=datetime.now(UTC).isoformat()
             )
         ]
 
@@ -61,8 +61,8 @@ class TestCartFormatter:
             subtotal=109.97,  # (29.99 * 2) + 49.99
             currency_code=CurrencyCode.USD,
             item_count=3,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat()
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat()
         )
 
     @pytest.fixture

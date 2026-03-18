@@ -1,0 +1,12 @@
+filter:  tests/api/story-9-10-widget-analytics-events.spec.ts
+filter:  tests/api/story-9-10-widget-analytics-events.spec.ts
+include: src/**/*.{test,spec}.{ts,tsx}, src/**/test_*.{ts,tsx}, **/tutorial*.test.ts, **/tutorial*.test.tsx
+include: src/**/*.{test,spec}.{ts,tsx}, src/**/test_*.{ts,tsx}, **/tutorial*.test.ts, **/tutorial*.test.tsx
+exclude:  **/tests/e2e/**, **/tests/api/**, node_modules/**, dist/**, build/**, **/*.d.ts
+watch exclude:  **/node_modules/**, **/dist/**
+exclude:  **/tests/e2e/**, **/tests/api/**, node_modules/**, dist/**, build/**, **/*.d.ts
+watch exclude:  **/node_modules/**, **/dist/**
+
+No test files found, exiting with code 1
+
+No test files found, exiting with code 1

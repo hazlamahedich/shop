@@ -6,10 +6,6 @@ and data transformation for Shopify Storefront API responses.
 
 from __future__ import annotations
 
-from typing import Any
-
-import pytest
-
 from app.schemas.shopify import (
     CurrencyCode,
     Product,

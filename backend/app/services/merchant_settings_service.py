@@ -10,15 +10,14 @@ Story 3-6: Budget Cap Configuration
 
 from __future__ import annotations
 
-from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 import structlog
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.llm_conversation_cost import LLMConversationCost
 from app.core.errors import APIError, ErrorCode
-
+from app.models.llm_conversation_cost import LLMConversationCost
 
 logger = structlog.get_logger(__name__)
 
@@ -70,7 +69,7 @@ async def get_budget_recommendation(
     try:
         # Calculate date range for analysis
         # Use datetime.now(timezone.utc) and then make it naive since the DB column is TIMESTAMP WITHOUT TIME ZONE
-        end_date = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_date = datetime.now(UTC).replace(tzinfo=None)
         start_date = end_date - timedelta(days=days_to_analyze)
 
         # Query total cost and request count for the period
@@ -145,7 +144,7 @@ async def get_budget_recommendation(
         ) from e
 
 
-def validate_budget_cap(budget_cap: Optional[float]) -> None:
+def validate_budget_cap(budget_cap: float | None) -> None:
     """
     Validate budget cap value.
 
@@ -184,8 +183,8 @@ def validate_budget_cap(budget_cap: Optional[float]) -> None:
 
 def log_budget_change(
     merchant_id: int,
-    old_budget: Optional[float],
-    new_budget: Optional[float],
+    old_budget: float | None,
+    new_budget: float | None,
     db: AsyncSession,
 ) -> None:
     """

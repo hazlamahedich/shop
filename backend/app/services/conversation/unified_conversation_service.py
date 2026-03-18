@@ -22,51 +22,50 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
-from typing import Any, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant, PersonalityType
-from app.services.privacy.data_tier_service import DataTier
-from sqlalchemy.orm import selectinload
-from app.services.conversation.schemas import (
-    Channel,
-    ConversationContext,
-    ConversationResponse,
-    IntentType,
-)
+from app.schemas.consent import ConsentStatus
+from app.services.consent.extended_consent_service import ConversationConsentService
 from app.services.conversation.handlers import (
-    GreetingHandler,
-    LLMHandler,
-    SearchHandler,
     CartHandler,
+    CheckConsentHandler,
     CheckoutHandler,
-    OrderHandler,
-    HandoffHandler,
     ClarificationHandler,
     ForgetPreferencesHandler,
-    CheckConsentHandler,
+    GreetingHandler,
+    HandoffHandler,
+    LLMHandler,
+    OrderHandler,
+    SearchHandler,
 )
 from app.services.conversation.handlers.general_mode_fallback import (
     GeneralModeFallbackHandler,
 )
-from app.services.rag.context_builder import RAGContextBuilder
-from app.services.intent.intent_classifier import IntentClassifier
+from app.services.conversation.schemas import (
+    Channel,
+    ConversationContext,
+    ConversationResponse,
+)
+from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
 from app.services.intent.classification_schema import (
     ClassificationResult,
+)
+from app.services.intent.classification_schema import (
     IntentType as ClassifierIntentType,
 )
+from app.services.intent.intent_classifier import IntentClassifier
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
-from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
-from app.services.consent.extended_consent_service import ConversationConsentService
-from app.services.consent.consent_prompt_service import ConsentPromptService
-from app.schemas.consent import ConsentStatus
-
+from app.services.privacy.data_tier_service import DataTier
+from app.services.rag.context_builder import RAGContextBuilder
 
 logger = structlog.get_logger(__name__)
 
@@ -115,9 +114,9 @@ class UnifiedConversationService:
 
     def __init__(
         self,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
         track_costs: bool = True,
-        rag_context_builder: Optional[RAGContextBuilder] = None,
+        rag_context_builder: RAGContextBuilder | None = None,
     ) -> None:
         """Initialize unified conversation service.
 
@@ -190,7 +189,7 @@ class UnifiedConversationService:
 
             # Story 8-5: Build RAG context for General mode merchants
             rag_context = None
-            rag_sources: List[str] = []
+            rag_sources: list[str] = []
             if merchant.onboarding_mode == "general" and self.rag_context_builder:
                 # Story 8-11 AC6: Construct embedding version for dimension consistency
                 embedding_version = None
@@ -500,7 +499,6 @@ class UnifiedConversationService:
             }
 
         # Load conversation
-        from app.models.conversation import Conversation
 
         conversation_result = await db.execute(
             select(Conversation).where(
@@ -590,7 +588,7 @@ class UnifiedConversationService:
                 "response_time_ms": response_time_ms,
             }
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "handoff_resolution_llm_timeout",
                 conversation_id=conversation_id,
@@ -621,7 +619,7 @@ class UnifiedConversationService:
         self,
         db: AsyncSession,
         merchant_id: int,
-    ) -> Optional[Merchant]:
+    ) -> Merchant | None:
         """Load merchant from database with eager-loaded relationships.
 
         Args:
@@ -642,7 +640,7 @@ class UnifiedConversationService:
         self,
         merchant: Merchant,
         db: AsyncSession,
-        context: Optional[ConversationContext] = None,
+        context: ConversationContext | None = None,
     ) -> BaseLLMService:
         """Get LLM service for merchant's configuration.
 
@@ -761,7 +759,7 @@ class UnifiedConversationService:
                 processing_time_ms=0,
             )
 
-    def _classify_by_patterns(self, message: str) -> Optional[ClassificationResult]:
+    def _classify_by_patterns(self, message: str) -> ClassificationResult | None:
         """Fast pattern-based intent classification.
 
         Args:
@@ -770,11 +768,14 @@ class UnifiedConversationService:
         Returns:
             ClassificationResult if pattern matches, None otherwise
         """
+        import re
+
         from app.services.intent.classification_schema import (
             ExtractedEntities,
+        )
+        from app.services.intent.classification_schema import (
             IntentType as ClassifierIntentType,
         )
-        import re
 
         lower_msg = message.lower().strip()
 
@@ -1247,7 +1248,7 @@ class UnifiedConversationService:
         context: ConversationContext,
         response: ConversationResponse,
         intent_name: str,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> None:
         """Update shopping state based on response.
 
@@ -1291,8 +1292,8 @@ class UnifiedConversationService:
         bot_response: str,
         intent: str,
         confidence: float,
-        cart: Optional[dict] = None,
-    ) -> Optional[int]:
+        cart: dict | None = None,
+    ) -> int | None:
         """Persist conversation and messages to database.
 
         Story 5-10 Code Review Fix (C8):
@@ -1440,7 +1441,7 @@ class UnifiedConversationService:
         db: AsyncSession,
         context: ConversationContext,
         merchant: Merchant,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Check if bot is paused due to budget limit.
 
         Story 5-11: GAP-6 - Budget Alert (Bot Pausing)
@@ -1485,7 +1486,7 @@ class UnifiedConversationService:
         db: AsyncSession,
         context: ConversationContext,
         message: str,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Check if hybrid mode is active - only respond to @bot mentions.
 
         Story 5-11: GAP-5 - Hybrid Mode Detection
@@ -1506,7 +1507,7 @@ class UnifiedConversationService:
                 expires_dt = datetime.fromisoformat(
                     context.hybrid_mode_expires_at.replace("Z", "+00:00")
                 )
-                if datetime.now(timezone.utc) > expires_dt:
+                if datetime.now(UTC) > expires_dt:
                     self.logger.info(
                         "hybrid_mode_expired",
                         session_id=context.session_id,
@@ -1554,7 +1555,7 @@ class UnifiedConversationService:
             db: Database session
             context: Conversation context (will be updated in-place)
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         context.last_activity_at = now.isoformat()
 
         if context.is_returning_shopper:
@@ -1580,7 +1581,7 @@ class UnifiedConversationService:
         db: AsyncSession,
         context: ConversationContext,
         merchant: Merchant,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Check consent status and prompt if needed.
 
         Story 6-1: Opt-In Consent Flow
@@ -1666,7 +1667,7 @@ class UnifiedConversationService:
         context: ConversationContext,
         merchant: Merchant,
         message: str,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Check for FAQ match before intent classification.
 
         If FAQ matches with high confidence, return rephrased answer immediately.
@@ -1682,8 +1683,8 @@ class UnifiedConversationService:
             ConversationResponse with FAQ answer if matched, None otherwise
         """
         try:
-            from app.services.faq import match_faq, rephrase_faq_with_personality
             from app.models.faq import Faq
+            from app.services.faq import match_faq, rephrase_faq_with_personality
 
             # Get merchant's FAQs
             result = await db.execute(
@@ -1771,7 +1772,7 @@ class UnifiedConversationService:
         message: str,
         confidence: float,
         intent_name: str,
-    ) -> Optional[ConversationResponse]:
+    ) -> ConversationResponse | None:
         """Check for handoff triggers (low confidence + clarification loop).
 
         Story 5-11: GAP-1 - Handoff Detection
@@ -1794,8 +1795,8 @@ class UnifiedConversationService:
         """
         redis_client = None
         try:
-            from app.services.handoff.detector import HandoffDetector
             from app.core.config import settings
+            from app.services.handoff.detector import HandoffDetector
 
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
@@ -1875,7 +1876,7 @@ class UnifiedConversationService:
         db: AsyncSession,
         session_id: str,
         merchant_id: int,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Get conversation for a session.
 
         Args:
@@ -1991,8 +1992,9 @@ class UnifiedConversationService:
 
             # Create handoff alert for queue visibility
             try:
-                from app.models.handoff_alert import HandoffAlert
                 from sqlalchemy import select
+
+                from app.models.handoff_alert import HandoffAlert
 
                 # Check if alert already exists for this conversation
                 existing_alert = await db.execute(

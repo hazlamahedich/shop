@@ -7,18 +7,15 @@ Story 5-2: Widget Session Management
 
 from __future__ import annotations
 
+import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from typing import Optional
-
-import structlog
 
 from app.services.widget.widget_cleanup_service import WidgetCleanupService
 
-
 logger = structlog.get_logger(__name__)
 
-_scheduler: Optional[AsyncIOScheduler] = None
+_scheduler: AsyncIOScheduler | None = None
 
 
 async def cleanup_expired_sessions() -> dict:

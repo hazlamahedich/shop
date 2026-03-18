@@ -18,7 +18,6 @@ import structlog
 
 from app.models.merchant import PersonalityType
 
-
 logger = structlog.get_logger(__name__)
 
 

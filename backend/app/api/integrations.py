@@ -6,13 +6,14 @@ Handles OAuth flow, connection status, and webhook management.
 from datetime import datetime
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, HTMLResponse
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import HTMLResponse, JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import is_testing
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.core.security import validate_oauth_state
@@ -21,19 +22,16 @@ from app.schemas.integrations import (
     ShopifyCredentialsRequest,
 )
 from app.services.facebook import (
-    FacebookService,
+    REQUIRED_SCOPES,
     get_facebook_service,
 )
-from app.services.facebook import REQUIRED_SCOPES
 from app.services.shopify import (
-    ShopifyService,
-    get_shopify_service,
     REQUIRED_SCOPES as SHOPIFY_REQUIRED_SCOPES,
 )
+from app.services.shopify import (
+    get_shopify_service,
+)
 from app.services.shopify_admin import ShopifyAdminClient
-from app.services.shopify_storefront import ShopifyStorefrontClient
-from app.core.config import is_testing
-
 
 # Rate limiter for OAuth endpoints (1 request per 10 seconds)
 limiter = Limiter(key_func=get_remote_address)

@@ -8,10 +8,10 @@ Provides request/response schemas for FAQ CRUD operations.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from pydantic import Field, field_validator
+
+from app.schemas.base import BaseSchema, MinimalEnvelope
 
 
 class FaqRequest(BaseSchema):
@@ -38,7 +38,7 @@ class FaqRequest(BaseSchema):
         max_length=1000,
         description="FAQ answer (max 1000 characters, required)",
     )
-    keywords: Optional[str] = Field(
+    keywords: str | None = Field(
         default=None,
         max_length=500,
         description="Comma-separated keywords for matching (max 500 chars)",
@@ -51,7 +51,7 @@ class FaqRequest(BaseSchema):
 
     @field_validator("question", "answer", "keywords")
     @classmethod
-    def strip_whitespace(cls, v: Optional[str]) -> Optional[str]:
+    def strip_whitespace(cls, v: str | None) -> str | None:
         """Strip leading/trailing whitespace from string fields.
 
         Args:
@@ -80,24 +80,24 @@ class FaqUpdateRequest(BaseSchema):
         order_index: Display order (optional)
     """
 
-    question: Optional[str] = Field(
+    question: str | None = Field(
         default=None,
         min_length=1,
         max_length=200,
         description="FAQ question (max 200 characters, optional)",
     )
-    answer: Optional[str] = Field(
+    answer: str | None = Field(
         default=None,
         min_length=1,
         max_length=1000,
         description="FAQ answer (max 1000 characters, optional)",
     )
-    keywords: Optional[str] = Field(
+    keywords: str | None = Field(
         default=None,
         max_length=500,
         description="Comma-separated keywords for matching (max 500 chars)",
     )
-    order_index: Optional[int] = Field(
+    order_index: int | None = Field(
         default=None,
         ge=0,
         description="Display order for FAQ items",
@@ -105,7 +105,7 @@ class FaqUpdateRequest(BaseSchema):
 
     @field_validator("question", "answer", "keywords")
     @classmethod
-    def strip_whitespace(cls, v: Optional[str]) -> Optional[str]:
+    def strip_whitespace(cls, v: str | None) -> str | None:
         """Strip leading/trailing whitespace from string fields.
 
         Args:
@@ -138,7 +138,7 @@ class FaqResponse(BaseSchema):
     id: int = Field(description="FAQ item ID")
     question: str = Field(description="FAQ question")
     answer: str = Field(description="FAQ answer")
-    keywords: Optional[str] = Field(default=None, description="Comma-separated keywords")
+    keywords: str | None = Field(default=None, description="Comma-separated keywords")
     order_index: int = Field(description="Display order")
     created_at: datetime = Field(description="Creation timestamp")
     updated_at: datetime = Field(description="Last update timestamp")
@@ -154,7 +154,7 @@ class FaqListEnvelope(MinimalEnvelope):
         meta: Response metadata
     """
 
-    data: List[FaqResponse]
+    data: list[FaqResponse]
 
 
 class FaqEnvelope(MinimalEnvelope):
@@ -179,7 +179,7 @@ class FaqReorderRequest(BaseSchema):
         faq_ids: List of FAQ IDs in new order
     """
 
-    faq_ids: List[int] = Field(
+    faq_ids: list[int] = Field(
         ...,
         min_length=1,
         description="List of FAQ IDs in the desired display order",

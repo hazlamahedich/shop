@@ -9,11 +9,10 @@ Story 8-5: Backend - RAG Integration in Conversation
 from __future__ import annotations
 
 import asyncio
-from typing import List, Optional
 
 import structlog
 
-from app.services.rag.retrieval_service import RetrievedChunk, RetrievalService
+from app.services.rag.retrieval_service import RetrievalService, RetrievedChunk
 
 logger = structlog.get_logger(__name__)
 
@@ -49,8 +48,8 @@ class RAGContextBuilder:
         user_query: str,
         top_k: int = 5,
         similarity_threshold: float = 0.7,
-        embedding_version: Optional[str] = None,
-    ) -> Optional[str]:
+        embedding_version: str | None = None,
+    ) -> str | None:
         """Retrieve relevant chunks and format as LLM context.
 
         Args:
@@ -116,7 +115,7 @@ class RAGContextBuilder:
 
             return context
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "rag_retrieval_timeout",
                 merchant_id=merchant_id,
@@ -131,7 +130,7 @@ class RAGContextBuilder:
             )
             return None
 
-    def _format_chunks_as_context(self, chunks: List[RetrievedChunk]) -> str:
+    def _format_chunks_as_context(self, chunks: list[RetrievedChunk]) -> str:
         """Format retrieved chunks as context string with citations.
 
         Groups chunks by document name and formats with bullet points.

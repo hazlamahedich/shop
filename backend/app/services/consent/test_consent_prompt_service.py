@@ -7,7 +7,7 @@ Tests for consent prompt generation with personality-aware responses.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -149,7 +149,7 @@ class TestGetStatusCheckMessage:
 
     def test_opted_in_friendly(self, service: ConsentPromptService) -> None:
         """Test opted_in status with friendly personality."""
-        granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         message = service.get_status_check_message(
             personality=PersonalityType.FRIENDLY,
             status=ConsentStatus.OPTED_IN,
@@ -161,7 +161,7 @@ class TestGetStatusCheckMessage:
 
     def test_opted_in_professional(self, service: ConsentPromptService) -> None:
         """Test opted_in status with professional personality."""
-        granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         message = service.get_status_check_message(
             personality=PersonalityType.PROFESSIONAL,
             status=ConsentStatus.OPTED_IN,
@@ -173,7 +173,7 @@ class TestGetStatusCheckMessage:
 
     def test_opted_in_enthusiastic(self, service: ConsentPromptService) -> None:
         """Test opted_in status with enthusiastic personality."""
-        granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         message = service.get_status_check_message(
             personality=PersonalityType.ENTHUSIASTIC,
             status=ConsentStatus.OPTED_IN,

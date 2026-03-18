@@ -11,26 +11,24 @@ Tests cover:
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime
 from unittest.mock import Mock, patch
 
+import pytest
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import (
-    LoginRequest,
-    MerchantResponse,
-    SessionResponse,
-    LoginResponse,
+    SESSION_COOKIE_NAME,
     AuthResponse,
+    LoginRequest,
+    LoginResponse,
     MeResponse,
     RefreshResponse,
-    SESSION_COOKIE_NAME,
 )
-from app.core.auth import hash_password, create_jwt, hash_token
-from app.models.session import Session
+from app.core.auth import create_jwt, hash_password, hash_token
 from app.models.merchant import Merchant
+from app.models.session import Session
 from app.schemas.base import MinimalEnvelope
 
 

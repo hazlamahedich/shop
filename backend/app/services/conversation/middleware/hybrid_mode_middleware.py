@@ -18,16 +18,14 @@ Bot behavior in hybrid mode:
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.models.conversation import Conversation
-from app.services.conversation.schemas import ConversationContext, ConversationResponse
-
+from app.services.conversation.schemas import ConversationContext
 
 logger = structlog.get_logger(__name__)
 
@@ -69,7 +67,7 @@ class HybridModeMiddleware:
         db: AsyncSession,
         context: ConversationContext,
         message: str,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if bot should respond based on hybrid mode state.
 
         Args:
@@ -116,7 +114,7 @@ class HybridModeMiddleware:
         self,
         db: AsyncSession,
         session_id: str,
-    ) -> Optional[Conversation]:
+    ) -> Conversation | None:
         """Get conversation by session ID.
 
         Args:
@@ -163,9 +161,9 @@ class HybridModeMiddleware:
             expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
 
             if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
+                expires_at = expires_at.replace(tzinfo=UTC)
 
-            return datetime.now(timezone.utc) > expires_at
+            return datetime.now(UTC) > expires_at
         except (ValueError, TypeError):
             self.logger.warning(
                 "hybrid_mode_malformed_expiry",
@@ -202,7 +200,7 @@ class HybridModeMiddleware:
         if not conversation:
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(hours=self.HYBRID_MODE_DURATION_HOURS)
 
         if not conversation.conversation_data:
@@ -253,7 +251,7 @@ class HybridModeMiddleware:
 
     def get_hybrid_mode_status(
         self,
-        conversation: Optional[Conversation],
+        conversation: Conversation | None,
     ) -> dict:
         """Get current hybrid mode status.
 
@@ -289,9 +287,9 @@ class HybridModeMiddleware:
             expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
 
             if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
+                expires_at = expires_at.replace(tzinfo=UTC)
 
-            remaining = (expires_at - datetime.now(timezone.utc)).total_seconds()
+            remaining = (expires_at - datetime.now(UTC)).total_seconds()
 
             if remaining <= 0:
                 return {

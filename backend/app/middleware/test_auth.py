@@ -12,21 +12,21 @@ Tests cover:
 from __future__ import annotations
 
 import os
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
-from fastapi import HTTPException, status, Request
-from starlette.responses import Response
+import pytest
+from fastapi import HTTPException, Request, status
 from sqlalchemy import select
+from starlette.responses import Response
 
+from app.core.auth import create_jwt, hash_token
+from app.core.database import async_session
 from app.middleware.auth import (
+    SESSION_COOKIE_NAME,
     AuthenticationMiddleware,
     get_request_merchant_id,
     require_auth,
-    SESSION_COOKIE_NAME,
 )
-from app.core.auth import create_jwt, hash_token
-from app.core.database import async_session
 from app.models.session import Session
 
 

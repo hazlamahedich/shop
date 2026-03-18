@@ -6,20 +6,19 @@ environment for merchants to test their bot configuration.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-from app.services.preview.preview_service import (
-    PreviewConversation,
-    PreviewService,
-)
 from app.models.merchant import PersonalityType
 from app.schemas.preview import (
     PreviewMessageResponse,
-    PreviewMessageMetadata,
+)
+from app.services.preview.preview_service import (
+    PreviewConversation,
+    PreviewService,
 )
 
 

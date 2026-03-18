@@ -11,15 +11,16 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cli.create_merchant import (
-    validate_email,
+    create_merchant,
     prompt_email,
     prompt_password,
-    create_merchant,
+    validate_email,
 )
 from app.models.merchant import Merchant
 
@@ -205,7 +206,6 @@ class TestCreateMerchant:
     @pytest.mark.asyncio
     async def test_create_merchant_hashes_password(self, db_session):
         """Should hash password before storing."""
-        from app.core.auth import hash_password
 
         # Create a mock async context manager
         mock_session_manager = AsyncMock()

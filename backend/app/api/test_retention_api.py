@@ -5,11 +5,10 @@ Tests for health check and audit log query endpoints.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 
 from app.models.deletion_audit_log import DeletionAuditLog, DeletionTrigger
 
@@ -164,7 +163,7 @@ class TestAuditLogQueryEndpoint:
         await db_session.commit()
 
         # Query for last 7 days
-        start_date = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        start_date = (datetime.now(UTC) - timedelta(days=7)).isoformat()
         response = await async_client.get(f"/api/v1/audit/retention-logs?start_date={start_date}")
 
         if response.status_code == 200:

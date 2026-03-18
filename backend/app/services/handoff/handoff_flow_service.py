@@ -12,7 +12,6 @@ This service bridges the gap between detection and notification.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -20,7 +19,6 @@ import structlog
 from app.core.config import settings
 from app.models.handoff_alert import HandoffAlert
 from app.schemas.handoff import (
-    HandoffReason,
     HandoffResult,
     UrgencyLevel,
 )

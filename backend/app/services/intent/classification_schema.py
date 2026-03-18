@@ -7,7 +7,7 @@ and confidence scoring for natural language product discovery.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -50,19 +50,19 @@ def to_camel(value: str) -> str:
 class ExtractedEntities(BaseModel):
     """Entities extracted from user message."""
 
-    category: Optional[str] = Field(
+    category: str | None = Field(
         None, description="Product category (e.g., 'shoes', 'electronics')"
     )
-    budget: Optional[float] = Field(None, description="Maximum budget in USD")
+    budget: float | None = Field(None, description="Maximum budget in USD")
     budget_currency: str = Field("USD", description="Budget currency")
-    size: Optional[str] = Field(None, description="Product size (e.g., '8', 'M', '42')")
-    color: Optional[str] = Field(None, description="Preferred color")
-    brand: Optional[str] = Field(None, description="Preferred brand")
-    product_reference: Optional[str] = Field(
+    size: str | None = Field(None, description="Product size (e.g., '8', 'M', '42')")
+    color: str | None = Field(None, description="Preferred color")
+    brand: str | None = Field(None, description="Preferred brand")
+    product_reference: str | None = Field(
         None,
         description="Anaphoric reference to previously shown product (e.g., 'that one', 'first', 'it')",
     )
-    order_number: Optional[str] = Field(
+    order_number: str | None = Field(
         None,
         description="Order number for tracking (e.g., '#1003', 'ORD-123', '1003')",
     )
@@ -80,7 +80,7 @@ class ClassificationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, description="Classification confidence score")
     entities: ExtractedEntities = Field(description="Extracted entities")
     raw_message: str = Field(description="Original user message")
-    reasoning: Optional[str] = Field(None, description="Classification reasoning")
+    reasoning: str | None = Field(None, description="Classification reasoning")
     llm_provider: str = Field(description="LLM provider used")
     model: str = Field(description="LLM model used")
     processing_time_ms: float = Field(description="Processing time in milliseconds")

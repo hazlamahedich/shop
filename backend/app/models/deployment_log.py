@@ -7,9 +7,8 @@ Used for tracking deployment progress and troubleshooting.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -45,7 +44,7 @@ class DeploymentLog(Base):
         String(10),
         nullable=False,
     )
-    step: Mapped[Optional[str]] = mapped_column(
+    step: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )

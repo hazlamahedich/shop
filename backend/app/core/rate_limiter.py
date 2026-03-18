@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Optional
 from collections import defaultdict
+
 from fastapi import HTTPException, Request
 
 
@@ -33,6 +33,9 @@ class RateLimiter:
 
     WIDGET_MAX_REQUESTS = 100
     WIDGET_PERIOD_SECONDS = 60
+
+    WIDGET_ANALYTICS_MAX_EVENTS = 100
+    WIDGET_ANALYTICS_PERIOD_SECONDS = 60
 
     @classmethod
     def _cleanup_old_entries(cls, client_id: str) -> None:
@@ -108,7 +111,7 @@ class RateLimiter:
     def check_auth_rate_limit(
         cls,
         request: Request,
-        email: Optional[str] = None,
+        email: str | None = None,
     ) -> None:
         """Check rate limit for authentication endpoints (login attempts).
 
@@ -225,7 +228,7 @@ class RateLimiter:
     def check_widget_rate_limit(
         cls,
         request: Request,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Check rate limit for widget endpoints.
 
         Widget rate limiting: 100 requests per 60 seconds per IP.
@@ -258,8 +261,8 @@ class RateLimiter:
     def check_merchant_rate_limit(
         cls,
         merchant_id: int,
-        limit: Optional[int],
-    ) -> Optional[int]:
+        limit: int | None,
+    ) -> int | None:
         """Check per-merchant rate limit for widget endpoints.
 
         Story 5-2 AC5: Per-merchant configurable rate limiting.
@@ -285,6 +288,39 @@ class RateLimiter:
             period_seconds=cls.WIDGET_PERIOD_SECONDS,
         ):
             return cls.WIDGET_PERIOD_SECONDS
+
+        return None
+
+    @classmethod
+    def check_widget_analytics_rate_limit(
+        cls,
+        request: Request,
+        session_id: str,
+    ) -> int | None:
+        """Check rate limit for widget analytics events endpoint.
+
+        Story 9-10: 100 events per minute per session.
+
+        Args:
+            request: FastAPI request object
+            session_id: Session ID from the request payload
+
+        Returns:
+            None if allowed, retry_after seconds if rate limited
+        """
+        if os.getenv("IS_TESTING", "false").lower() == "true":
+            return None
+        if request.headers.get("X-Test-Mode", "").lower() == "true":
+            return None
+
+        client_id = f"widget_analytics:{session_id}"
+
+        if cls.is_rate_limited(
+            client_id,
+            max_requests=cls.WIDGET_ANALYTICS_MAX_EVENTS,
+            period_seconds=cls.WIDGET_ANALYTICS_PERIOD_SECONDS,
+        ):
+            return cls.WIDGET_ANALYTICS_PERIOD_SECONDS
 
         return None
 

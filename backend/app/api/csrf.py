@@ -15,16 +15,16 @@ NFR-S8: CSRF tokens for state-changing operations
 from __future__ import annotations
 
 import uuid
-from fastapi import APIRouter, Request, Response, HTTPException, status
+
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from app.core.config import settings
 from app.core.csrf import (
     CSRFProtection,
-    get_csrf_protection,
-    init_csrf_protection,
     CSRFTokenError,
+    init_csrf_protection,
 )
-from app.core.config import settings
 
 router = APIRouter()
 

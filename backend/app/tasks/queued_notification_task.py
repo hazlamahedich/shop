@@ -8,14 +8,14 @@ delivered when business hours open.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 
 from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
+from app.core.errors import ErrorCode
 from app.models.conversation import Conversation
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ async def process_queued_notifications(
 
     logger.info(
         "queued_notification_task_started",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
     results = {
@@ -60,11 +60,11 @@ async def process_queued_notifications(
     }
 
     try:
+        from app.models.merchant import Merchant
         from app.services.business_hours.business_hours_service import (
             is_within_business_hours,
         )
         from app.services.handoff.notification_service import HandoffNotificationService
-        from app.models.merchant import Merchant
 
         result = await db.execute(
             select(Conversation).where(
@@ -172,7 +172,7 @@ async def process_queued_notifications(
         logger.error(
             "queued_notification_task_error",
             error=str(e),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
         return {"error": str(e), "processed": 0}
 

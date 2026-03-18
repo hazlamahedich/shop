@@ -12,17 +12,17 @@ Tests cover:
 from __future__ import annotations
 
 import os
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from app.core.config import settings
-from app.schemas.handoff import HandoffReason, UrgencyLevel, URGENCY_EMOJI
+from app.schemas.handoff import URGENCY_EMOJI, HandoffReason, UrgencyLevel
 from app.services.handoff.notification_service import (
-    HandoffNotificationService,
-    HANDOFF_EMAIL_RATE_KEY,
-    EMAIL_RATE_TTL,
     CHECKOUT_KEYWORD,
+    EMAIL_RATE_TTL,
+    HANDOFF_EMAIL_RATE_KEY,
+    HandoffNotificationService,
 )
 
 

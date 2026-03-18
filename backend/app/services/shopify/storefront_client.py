@@ -6,7 +6,7 @@ Uses httpx for async HTTP requests with proper error handling and timeout.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 import structlog
@@ -33,9 +33,9 @@ class ShopifyStorefrontClient:
 
     def __init__(
         self,
-        access_token: Optional[str] = None,
-        shop_domain: Optional[str] = None,
-        is_testing: Optional[bool] = None,
+        access_token: str | None = None,
+        shop_domain: str | None = None,
+        is_testing: bool | None = None,
     ) -> None:
         """Initialize Storefront API client.
 
@@ -77,9 +77,9 @@ class ShopifyStorefrontClient:
 
     async def search_products(
         self,
-        category: Optional[str] = None,
-        max_price: Optional[float] = None,
-        size: Optional[str] = None,
+        category: str | None = None,
+        max_price: float | None = None,
+        size: str | None = None,
         first: int = 20,
     ) -> list[dict[str, Any]]:
         """Search for products with filters.
@@ -145,8 +145,8 @@ class ShopifyStorefrontClient:
 
     def _build_product_search_query(
         self,
-        category: Optional[str],
-        max_price: Optional[float],
+        category: str | None,
+        max_price: float | None,
         first: int,
     ) -> str:
         """Build GraphQL query for product search.

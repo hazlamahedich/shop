@@ -8,7 +8,7 @@ Respects Facebook 24-hour messaging window.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -134,9 +134,9 @@ class ReturnToBotService:
         Returns:
             Hours since message creation
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if message.created_at.tzinfo is None:
-            message_time = message.created_at.replace(tzinfo=timezone.utc)
+            message_time = message.created_at.replace(tzinfo=UTC)
         else:
             message_time = message.created_at
 

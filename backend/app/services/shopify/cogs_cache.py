@@ -8,15 +8,12 @@ Enables profit margin calculations without repeated API calls.
 
 from __future__ import annotations
 
-import json
 from decimal import Decimal
-from typing import Any, Optional
 
 import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
-
 
 logger = structlog.get_logger(__name__)
 
@@ -41,7 +38,7 @@ class COGSCache:
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
     ) -> None:
         """Initialize COGS cache.
 
@@ -78,7 +75,7 @@ class COGSCache:
         """
         return f"{self.INVENTORY_KEY_PREFIX}:{inventory_item_id}"
 
-    async def get(self, variant_gid: str) -> Optional[Decimal]:
+    async def get(self, variant_gid: str) -> Decimal | None:
         """Get cached cost for a variant.
 
         Args:
@@ -104,7 +101,7 @@ class COGSCache:
     async def get_batch(
         self,
         variant_gids: list[str],
-    ) -> dict[str, Optional[Decimal]]:
+    ) -> dict[str, Decimal | None]:
         """Get cached costs for multiple variants.
 
         Args:
@@ -116,7 +113,7 @@ class COGSCache:
         if not variant_gids:
             return {}
 
-        results: dict[str, Optional[Decimal]] = {}
+        results: dict[str, Decimal | None] = {}
         keys = [self._get_variant_key(gid) for gid in variant_gids]
 
         try:

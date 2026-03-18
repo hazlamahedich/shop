@@ -19,22 +19,22 @@ Integration tests verify:
 
 from __future__ import annotations
 
-import pytest
 import os
-from httpx import ASGITransport, AsyncClient
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
-from app.main import app
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.core.config import settings
 from app.core.security import (
-    encrypt_access_token,
     decrypt_access_token,
+    encrypt_access_token,
     generate_oauth_state,
     validate_oauth_state,
-    verify_webhook_signature,
     verify_shopify_webhook_hmac,
+    verify_webhook_signature,
 )
-from app.core.config import settings
+from app.main import app
 
 
 class TestHTTPSAndCSPIntegration:
@@ -160,8 +160,8 @@ class TestWebhookSecurityIntegration:
 
     def test_webhook_signature_verification_bypasses_csrf(self):
         """Test that webhooks use signature verification instead of CSRF tokens."""
-        import hmac
         import hashlib
+        import hmac
 
         app_secret = "test_app_secret"
         payload = b'{"test": "webhook"}'
@@ -183,9 +183,9 @@ class TestWebhookSecurityIntegration:
 
     def test_shopify_webhook_hmac_verification(self):
         """Test Shopify webhook HMAC verification."""
-        import hmac
-        import hashlib
         import base64
+        import hashlib
+        import hmac
 
         api_secret = "test_api_secret"
         payload = b'{"test": "shopify_webhook"}'
@@ -207,9 +207,9 @@ class TestWebhookSecurityIntegration:
 
     def test_constant_time_comparison_prevents_timing_attacks(self):
         """Test that signature verification uses constant-time comparison."""
-        import time
-        import hmac
         import hashlib
+        import hmac
+        import time
 
         app_secret = "test_secret"
         payload = b'{"test": "payload"}'
@@ -338,9 +338,9 @@ class TestDataDeletionAndRetentionIntegration:
     @pytest.mark.asyncio
     async def test_data_deletion_requires_audit_trail(self):
         """Test that data deletion creates proper audit trail."""
-        from app.services.data_deletion import DataDeletionService
         from app.core.database import async_session
         from app.models.data_deletion_request import DeletionStatus
+        from app.services.data_deletion import DataDeletionService
 
         async with async_session() as db:
             service = DataDeletionService(db)
@@ -357,8 +357,8 @@ class TestDataDeletionAndRetentionIntegration:
     @pytest.mark.asyncio
     async def test_data_retention_respects_operational_data(self):
         """Test that data retention preserves operational data."""
-        from app.services.data_retention import DataRetentionService
         from app.core.database import async_session
+        from app.services.data_retention import DataRetentionService
 
         async with async_session() as db:
             service = DataRetentionService(voluntary_days=30)
@@ -377,9 +377,9 @@ class TestDataDeletionAndRetentionIntegration:
     @pytest.mark.asyncio
     async def test_data_deletion_thirty_day_window(self):
         """Test that deletion requests track timing for 30-day compliance."""
-        from app.services.data_deletion import DataDeletionService
         from app.core.database import async_session
         from app.models.data_deletion_request import DeletionStatus
+        from app.services.data_deletion import DataDeletionService
 
         async with async_session() as db:
             service = DataDeletionService(db)
@@ -447,9 +447,9 @@ class TestSecurityPerformanceImpact:
 
     def test_webhook_signature_verification_performance(self):
         """Test that webhook signature verification is fast."""
-        import time
-        import hmac
         import hashlib
+        import hmac
+        import time
 
         app_secret = "test_secret"
         payload = b'{"test": "webhook_payload"}'
@@ -485,8 +485,9 @@ class TestSecurityConfiguration:
 
     def test_production_mode_enables_https_redirect(self):
         """Test that production mode enables HTTPS redirect."""
-        from app.middleware.security import setup_security_middleware
         from unittest.mock import MagicMock
+
+        from app.middleware.security import setup_security_middleware
 
         mock_app = MagicMock()
 
@@ -604,8 +605,8 @@ class TestSecurityCompliance:
 
     def test_webhook_signature_uniqueness(self):
         """Test that webhook signatures are unique for different payloads."""
-        import hmac
         import hashlib
+        import hmac
 
         app_secret = "test_secret"
 

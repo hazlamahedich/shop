@@ -8,15 +8,15 @@ and sends follow-up messages when thresholds are reached.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from app.core.config import settings
 from app.services.handoff.offline_followup_service import (
-    OfflineFollowUpService,
     FOLLOWUP_24H_THRESHOLD_HOURS,
+    OfflineFollowUpService,
 )
 from app.services.messenger.send_service import MessengerSendService
 
@@ -50,7 +50,7 @@ async def process_handoff_followups(
 
     logger.info(
         "followup_task_started",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
     try:
@@ -95,7 +95,7 @@ async def process_handoff_followups(
         logger.error(
             "followup_task_error",
             error=str(e),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
         return {"error": str(e), "processed": 0}
 

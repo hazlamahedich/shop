@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+
 import pytest
 
-from app.services.llm.llm_factory import LLMProviderFactory
-from app.services.llm.ollama_service import OllamaService
-from app.services.llm.openai_service import OpenAIService
+from app.core.errors import APIError, ErrorCode
 from app.services.llm.anthropic_service import AnthropicService
 from app.services.llm.gemini_service import GeminiService
 from app.services.llm.glm_service import GLMService
-from app.core.errors import APIError, ErrorCode
+from app.services.llm.llm_factory import LLMProviderFactory
+from app.services.llm.ollama_service import OllamaService
+from app.services.llm.openai_service import OpenAIService
 
 
 @patch("app.services.llm.llm_factory.is_testing", return_value=False)

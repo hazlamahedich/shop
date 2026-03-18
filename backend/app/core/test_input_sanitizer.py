@@ -15,11 +15,11 @@ from __future__ import annotations
 import pytest
 
 from app.core.input_sanitizer import (
+    _INJECTION_PATTERNS,
+    is_safe_conversation_input,
+    sanitize_conversation_input,
     sanitize_llm_input,
     validate_test_prompt,
-    sanitize_conversation_input,
-    is_safe_conversation_input,
-    _INJECTION_PATTERNS,
 )
 
 

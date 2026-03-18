@@ -12,19 +12,19 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
 import time
-import structlog
+from typing import Any
 
+import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.cost_tracking.cost_tracking_service import track_llm_request
 from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
 )
 from app.services.llm.llm_router import LLMRouter
-from app.services.cost_tracking.cost_tracking_service import track_llm_request
-from sqlalchemy.ext.asyncio import AsyncSession
-
 
 logger = structlog.get_logger(__name__)
 
@@ -78,8 +78,8 @@ class CostTrackingLLMWrapper(BaseLLMService):
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        model: Optional[str] = None,
+        messages: list[LLMMessage],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:
@@ -210,8 +210,8 @@ class CostTrackingLLMRouter:
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        model: Optional[str] = None,
+        messages: list[LLMMessage],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         use_backup: bool = False,

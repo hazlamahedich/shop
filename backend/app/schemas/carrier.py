@@ -5,9 +5,8 @@ Pydantic models for carrier configuration CRUD operations and detection.
 
 import re
 from datetime import datetime
-from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from app.schemas.base import BaseSchema
 
@@ -27,7 +26,7 @@ class CarrierConfigBase(BaseSchema):
         max_length=500,
         description="URL template with {tracking_number} placeholder",
     )
-    tracking_number_pattern: Optional[str] = Field(
+    tracking_number_pattern: str | None = Field(
         None,
         max_length=200,
         description="Optional regex pattern to auto-detect this carrier",
@@ -63,7 +62,7 @@ class CarrierConfigBase(BaseSchema):
 
     @field_validator("tracking_number_pattern")
     @classmethod
-    def validate_regex_pattern(cls, v: Optional[str]) -> Optional[str]:
+    def validate_regex_pattern(cls, v: str | None) -> str | None:
         """Validate regex pattern compiles and is not too complex."""
         if v is None:
             return v
@@ -105,22 +104,22 @@ class CarrierConfigCreate(CarrierConfigBase):
 class CarrierConfigUpdate(BaseSchema):
     """Schema for updating an existing carrier configuration."""
 
-    carrier_name: Optional[str] = Field(
+    carrier_name: str | None = Field(
         None,
         min_length=1,
         max_length=100,
     )
-    tracking_url_template: Optional[str] = Field(
+    tracking_url_template: str | None = Field(
         None,
         min_length=1,
         max_length=500,
     )
-    tracking_number_pattern: Optional[str] = Field(
+    tracking_number_pattern: str | None = Field(
         None,
         max_length=200,
     )
-    is_active: Optional[bool] = None
-    priority: Optional[int] = Field(None, ge=1, le=100)
+    is_active: bool | None = None
+    priority: int | None = Field(None, ge=1, le=100)
 
 
 class CarrierConfigResponse(CarrierConfigBase):
@@ -140,7 +139,7 @@ class SupportedCarrier(BaseSchema):
 
     name: str = Field(..., description="Carrier name")
     region: str = Field(..., description="Region (US, UK, PH, SEA, EU, etc.)")
-    pattern: Optional[str] = Field(None, description="Tracking number regex pattern")
+    pattern: str | None = Field(None, description="Tracking number regex pattern")
     tracking_url_template: str = Field(..., description="URL template for tracking")
 
 
@@ -148,15 +147,15 @@ class CarrierDetectionRequest(BaseSchema):
     """Request for carrier detection from tracking number."""
 
     tracking_number: str = Field(..., description="Tracking number to detect carrier for")
-    merchant_id: Optional[int] = Field(None, description="Optional merchant ID for custom carriers")
-    tracking_company: Optional[str] = Field(None, description="Optional carrier name from Shopify")
+    merchant_id: int | None = Field(None, description="Optional merchant ID for custom carriers")
+    tracking_company: str | None = Field(None, description="Optional carrier name from Shopify")
 
 
 class CarrierDetectionResult(BaseSchema):
     """Result of carrier detection from tracking number."""
 
-    carrier_name: Optional[str] = Field(None, description="Detected carrier name")
-    tracking_url: Optional[str] = Field(None, description="Generated tracking URL")
+    carrier_name: str | None = Field(None, description="Detected carrier name")
+    tracking_url: str | None = Field(None, description="Generated tracking URL")
     detection_method: str = Field(
         ...,
         description="How carrier was detected: custom, shopify, pattern, none",

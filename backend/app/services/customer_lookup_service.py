@@ -6,9 +6,9 @@ Enables personalized greetings and order lookup by email.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -41,10 +41,10 @@ class CustomerLookupService:
         db: AsyncSession,
         merchant_id: int,
         email: str,
-        phone: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        order_total: Optional[Decimal] = None,
+        phone: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        order_total: Decimal | None = None,
     ) -> CustomerProfile:
         """Create or update a customer profile.
 
@@ -62,7 +62,7 @@ class CustomerLookupService:
         Returns:
             CustomerProfile instance
         """
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         try:
             stmt = (
@@ -154,7 +154,7 @@ class CustomerLookupService:
         db: AsyncSession,
         merchant_id: int,
         email: str,
-    ) -> Optional[CustomerProfile]:
+    ) -> CustomerProfile | None:
         """Find a customer profile by email.
 
         Args:
@@ -187,7 +187,7 @@ class CustomerLookupService:
         db: AsyncSession,
         merchant_id: int,
         phone: str,
-    ) -> Optional[CustomerProfile]:
+    ) -> CustomerProfile | None:
         """Find a customer profile by phone.
 
         Args:
@@ -337,7 +337,7 @@ class CustomerLookupService:
         data["customer_last_name"] = profile.last_name
         data["customer_phone"] = profile.phone
         data["customer_profile_id"] = profile.id
-        data["device_linked_at"] = datetime.now(timezone.utc).isoformat()
+        data["device_linked_at"] = datetime.now(UTC).isoformat()
 
         logger.info(
             "device_linked_to_customer",

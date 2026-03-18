@@ -6,15 +6,13 @@ so the bot knows what the store actually sells and can help with order tracking.
 
 from __future__ import annotations
 
-from typing import Optional
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
-from app.models.product_pin import ProductPin
 from app.models.order import Order
+from app.models.product_pin import ProductPin
 from app.services.shopify.product_service import fetch_products
-
 
 logger = structlog.get_logger(__name__)
 
@@ -168,7 +166,7 @@ def format_product_context_for_prompt(context: dict) -> str:
 
 
 async def get_product_context_prompt_section(
-    db: Optional[AsyncSession],
+    db: AsyncSession | None,
     merchant_id: int,
 ) -> str:
     """Get formatted product context section for system prompts.
@@ -289,7 +287,7 @@ def format_order_context_for_prompt(context: dict) -> str:
 
 
 async def get_order_context_prompt_section(
-    db: Optional[AsyncSession],
+    db: AsyncSession | None,
     merchant_id: int,
 ) -> str:
     """Get formatted order context section for system prompts.

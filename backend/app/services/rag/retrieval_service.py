@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import List, Optional
 
 import structlog
 from sqlalchemy import text
@@ -75,10 +74,10 @@ class RetrievalService:
         self,
         merchant_id: int,
         query: str,
-        top_k: Optional[int] = None,
-        threshold: Optional[float] = None,
-        embedding_version: Optional[str] = None,
-    ) -> List[RetrievedChunk]:
+        top_k: int | None = None,
+        threshold: float | None = None,
+        embedding_version: str | None = None,
+    ) -> list[RetrievedChunk]:
         """Retrieve most relevant chunks for a query.
 
         Args:
@@ -109,7 +108,7 @@ class RetrievalService:
                     self.embedding_service.embed_query(query),
                     timeout=0.3,  # 300ms for embedding
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "retrieval_embedding_timeout",
                     merchant_id=merchant_id,
@@ -132,7 +131,7 @@ class RetrievalService:
                     ),
                     timeout=0.2,  # 200ms for search
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "retrieval_search_timeout",
                     merchant_id=merchant_id,
@@ -170,8 +169,8 @@ class RetrievalService:
         embedding_str: str,
         threshold: float,
         top_k: int,
-        embedding_version: Optional[str] = None,
-    ) -> List[RetrievedChunk]:
+        embedding_version: str | None = None,
+    ) -> list[RetrievedChunk]:
         """Execute pgvector similarity search query.
 
         Uses cosine distance operator (<=>) and converts to similarity score.
@@ -235,7 +234,7 @@ class RetrievalService:
 
         return chunks
 
-    def _format_embedding(self, embedding: List[float]) -> str:
+    def _format_embedding(self, embedding: list[float]) -> str:
         """Format embedding list for pgvector query.
 
         Converts Python list to PostgreSQL array literal format.

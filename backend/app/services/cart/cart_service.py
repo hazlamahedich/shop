@@ -7,14 +7,14 @@ increment, validation, and 24-hour TTL.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-import structlog
 import redis.asyncio as redis
+import structlog
 
-from app.core.errors import APIError, ErrorCode
 from app.core.config import settings
+from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart, CartItem, CurrencyCode
 
 
@@ -37,7 +37,7 @@ class CartService:
     MAX_QUANTITY = 10  # Maximum quantity per item
     CART_TTL_SECONDS = 24 * 60 * 60  # 24 hours
 
-    def __init__(self, redis_client: Optional[Any] = None) -> None:
+    def __init__(self, redis_client: Any | None = None) -> None:
         """Initialize cart service.
 
         Args:
@@ -158,7 +158,7 @@ class CartService:
                 )
 
             # Check if item already exists
-            existing_item: Optional[CartItem] = None
+            existing_item: CartItem | None = None
             for item in cart.items:
                 if item.variant_id == variant_id:
                     existing_item = item
@@ -189,7 +189,7 @@ class CartService:
                     image_url=image_url,
                     currency_code=CurrencyCode(currency_code),
                     quantity=quantity,
-                    added_at=datetime.now(timezone.utc).isoformat()
+                    added_at=datetime.now(UTC).isoformat()
                 )
                 cart.items.append(new_item)
 
@@ -203,11 +203,11 @@ class CartService:
             # Update subtotal
             cart.subtotal = sum(item.price * item.quantity for item in cart.items)
             cart.currency_code = CurrencyCode(currency_code)
-            cart.updated_at = datetime.now(timezone.utc).isoformat()
+            cart.updated_at = datetime.now(UTC).isoformat()
 
             # Set created_at if new cart
             if cart.created_at is None:
-                cart.created_at = datetime.now(timezone.utc).isoformat()
+                cart.created_at = datetime.now(UTC).isoformat()
 
             # Save to Redis with TTL
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
@@ -248,7 +248,7 @@ class CartService:
 
             # Update subtotal
             cart.subtotal = sum(item.price * item.quantity for item in cart.items)
-            cart.updated_at = datetime.now(timezone.utc).isoformat()
+            cart.updated_at = datetime.now(UTC).isoformat()
 
             # Save to Redis
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
@@ -315,7 +315,7 @@ class CartService:
 
             # Update subtotal
             cart.subtotal = sum(item.price * item.quantity for item in cart.items)
-            cart.updated_at = datetime.now(timezone.utc).isoformat()
+            cart.updated_at = datetime.now(UTC).isoformat()
 
             # Save to Redis
             cart_dict = cart.model_dump(exclude_none=True, mode="json")

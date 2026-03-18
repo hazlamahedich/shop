@@ -6,12 +6,12 @@ detection, and voluntary data clearing.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 import redis
 
-from app.services.consent import ConsentService, ConsentStatus
+from app.services.consent import ConsentStatus
 from app.services.session.session_service import SessionService
 
 
@@ -35,7 +35,7 @@ async def test_activity_tracking(mock_redis: redis.Redis) -> None:
     last_activity = await service.get_last_activity(psid)
     assert last_activity is not None
     # Should be within last 5 seconds
-    assert (datetime.now(timezone.utc) - last_activity).total_seconds() < 5
+    assert (datetime.now(UTC) - last_activity).total_seconds() < 5
 
 
 @pytest.mark.asyncio

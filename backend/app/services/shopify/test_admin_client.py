@@ -5,20 +5,17 @@ Story 4-4 Task 1 & 5: Admin API client with authentication, rate limiting, and 4
 
 from __future__ import annotations
 
-import os
 import re
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from aiohttp import ClientResponseError, ClientSession
 from aioresponses import aioresponses
 
 from app.services.shopify.admin_client import (
     ShopifyAdminClient,
-    ShopifyRateLimitError,
-    ShopifyAuthError,
     ShopifyAPIError,
+    ShopifyAuthError,
+    ShopifyRateLimitError,
 )
 
 

@@ -6,7 +6,7 @@ endpoints to reduce code duplication and ensure consistency.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -30,7 +30,7 @@ def create_meta() -> MetaData:
     """
     return MetaData(
         request_id=str(uuid4()),
-        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     )
 
 
@@ -93,6 +93,7 @@ async def verify_merchant_exists(
     """
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     from app.models.merchant import Merchant
 
     result = await db.execute(

@@ -20,8 +20,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
-from app.models.order import Order, OrderStatus
 from app.models.conversation import Conversation
+from app.models.order import Order, OrderStatus
 from app.services.privacy.data_tier_service import DataTier
 from app.services.privacy.gdpr_service import GDPRDeletionService
 

@@ -6,13 +6,13 @@ Generic Template structured messages.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
+
+import structlog
 
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
 from app.schemas.shopify import Product, ProductSearchResult
-
-import structlog
 
 
 class MessengerProductFormatter:
@@ -49,7 +49,7 @@ class MessengerProductFormatter:
     def format_product_results(
         self,
         search_result: ProductSearchResult,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Format product search results for Messenger Generic Template.
 
         Args:
@@ -61,7 +61,7 @@ class MessengerProductFormatter:
         Raises:
             APIError: If no products can be formatted for display
         """
-        elements: List[Dict[str, Any]] = []
+        elements: list[dict[str, Any]] = []
 
         for product in search_result.products:
             try:
@@ -93,7 +93,7 @@ class MessengerProductFormatter:
             },
         }
 
-    def _format_product_card(self, product: Product) -> Dict[str, Any]:
+    def _format_product_card(self, product: Product) -> dict[str, Any]:
         """Format a single product as a Generic Template element.
 
         Args:
@@ -127,7 +127,7 @@ class MessengerProductFormatter:
         )
 
         # Build element
-        element: Dict[str, Any] = {
+        element: dict[str, Any] = {
             "title": title,
             "image_url": image_url,
             "subtitle": subtitle,
@@ -194,8 +194,8 @@ class MessengerProductFormatter:
         # Variant summary
         if product.variants:
             # Count unique sizes and colors
-            sizes: Set[str] = set()
-            colors: Set[str] = set()
+            sizes: set[str] = set()
+            colors: set[str] = set()
 
             for variant in product.variants:
                 for option_name, option_value in variant.selected_options.items():
@@ -205,7 +205,7 @@ class MessengerProductFormatter:
                     elif option_lower == "color":
                         colors.add(option_value)
 
-            parts: List[str] = [price_str]
+            parts: list[str] = [price_str]
             if sizes:
                 parts.append(f"{len(sizes)} sizes")
             if colors:
@@ -215,7 +215,7 @@ class MessengerProductFormatter:
 
         return price_str
 
-    def _select_default_variant(self, product: Product) -> Optional[Product]:
+    def _select_default_variant(self, product: Product) -> Product | None:
         """Select default variant based on availability.
 
         Args:

@@ -18,9 +18,8 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
 
 import structlog
 from sqlalchemy import select
@@ -58,12 +57,12 @@ class OrderLookupType(str, Enum):
 class OrderTrackingResult:
     """Result of an order tracking lookup."""
 
-    order: Optional[Order] = None
+    order: Order | None = None
     orders: list[Order] = None  # type: ignore[assignment]  # all orders found by customer lookup
     found: bool = False
-    lookup_type: Optional[OrderLookupType] = None
-    error_code: Optional[ErrorCode] = None
-    error_message: Optional[str] = None
+    lookup_type: OrderLookupType | None = None
+    error_code: ErrorCode | None = None
+    error_message: str | None = None
 
     def __post_init__(self) -> None:
         if self.orders is None:
@@ -167,7 +166,7 @@ class OrderTrackingService:
             OrderTrackingResult with orders list if found, or error details.
             `order` is set to the most recent order for backward compatibility.
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         try:
             stmt = (
@@ -195,7 +194,7 @@ class OrderTrackingService:
                 email_result = await db.execute(email_stmt)
                 orders = list(email_result.scalars().all())
 
-            response_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
             if orders:
                 logger.info(
@@ -258,7 +257,7 @@ class OrderTrackingService:
         Returns:
             OrderTrackingResult with order if found, or error details
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         sanitized_order_number = self._sanitize_order_number(order_number)
 
@@ -273,7 +272,7 @@ class OrderTrackingService:
             result = await db.execute(stmt)
             order = result.scalars().first()
 
-            response_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
             if order:
                 logger.info(
@@ -319,7 +318,7 @@ class OrderTrackingService:
             )
 
     def format_order_response(
-        self, order: Order, product_images: Optional[dict[str, str]] = None
+        self, order: Order, product_images: dict[str, str] | None = None
     ) -> str:
         """Format an order for Messenger response.
 
@@ -484,7 +483,7 @@ class OrderTrackingService:
     def format_order_not_found_response(
         self,
         lookup_type: OrderLookupType,
-        order_number: Optional[str] = None,
+        order_number: str | None = None,
     ) -> str:
         """Format a 'not found' response.
 
@@ -503,7 +502,7 @@ class OrderTrackingService:
 
         return ORDER_NOT_FOUND_CUSTOMER
 
-    def get_pending_state(self, conversation_data: Optional[dict]) -> bool:
+    def get_pending_state(self, conversation_data: dict | None) -> bool:
         """Check if conversation has a pending order number request state.
 
         Args:
@@ -525,12 +524,12 @@ class OrderTrackingService:
 
         try:
             requested_at = datetime.fromisoformat(requested_at_str.replace("Z", "+00:00"))
-            elapsed = (datetime.now(timezone.utc) - requested_at).total_seconds()
+            elapsed = (datetime.now(UTC) - requested_at).total_seconds()
             return elapsed < PENDING_STATE_TIMEOUT_SECONDS
         except (ValueError, TypeError):
             return False
 
-    def set_pending_state(self, conversation_data: Optional[dict]) -> dict:
+    def set_pending_state(self, conversation_data: dict | None) -> dict:
         """Set the pending order number request state.
 
         Args:
@@ -541,10 +540,10 @@ class OrderTrackingService:
         """
         data = conversation_data.copy() if conversation_data else {}
         data[PENDING_STATE_KEY] = True
-        data[PENDING_STATE_TIMESTAMP_KEY] = datetime.now(timezone.utc).isoformat()
+        data[PENDING_STATE_TIMESTAMP_KEY] = datetime.now(UTC).isoformat()
         return data
 
-    def clear_pending_state(self, conversation_data: Optional[dict]) -> dict:
+    def clear_pending_state(self, conversation_data: dict | None) -> dict:
         """Clear the pending order number request state.
 
         Args:
@@ -570,7 +569,7 @@ class OrderTrackingService:
         sanitized = order_number.strip()
         return sanitized[:50]
 
-    def calculate_estimated_delivery(self, order: Order) -> Optional[datetime]:
+    def calculate_estimated_delivery(self, order: Order) -> datetime | None:
         """Calculate estimated delivery date based on order status.
 
         Story 5-13: Estimated delivery calculation.
@@ -612,6 +611,6 @@ class OrderTrackingService:
             base_date = order.created_at
 
         if base_date.tzinfo is None:
-            base_date = base_date.replace(tzinfo=timezone.utc)
+            base_date = base_date.replace(tzinfo=UTC)
 
         return base_date + timedelta(days=days_to_add)

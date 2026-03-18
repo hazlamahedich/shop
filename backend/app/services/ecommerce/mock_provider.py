@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from app.services.ecommerce.base import (
     Cart,
@@ -310,9 +310,9 @@ class MockStoreProvider(ECommerceProvider):
         self,
         query: str,
         limit: int = 10,
-        category: Optional[str] = None,
-        max_price: Optional[float] = None,
-        min_price: Optional[float] = None,
+        category: str | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
         **kwargs: Any,
     ) -> list[Product]:
         """Search for products matching a query.
@@ -363,7 +363,7 @@ class MockStoreProvider(ECommerceProvider):
 
         return results[:limit]
 
-    async def get_product(self, product_id: str) -> Optional[Product]:
+    async def get_product(self, product_id: str) -> Product | None:
         """Get a product by ID.
 
         Args:
@@ -412,7 +412,7 @@ class MockStoreProvider(ECommerceProvider):
             )
 
         cart_id = f"mock_cart_{uuid.uuid4().hex[:8]}"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         cart = Cart(
             id=cart_id,
@@ -427,7 +427,7 @@ class MockStoreProvider(ECommerceProvider):
         self._carts[cart_id] = cart
         return cart
 
-    async def get_cart(self, cart_id: str) -> Optional[Cart]:
+    async def get_cart(self, cart_id: str) -> Cart | None:
         """Get an existing cart by ID.
 
         Args:
@@ -504,14 +504,14 @@ class MockStoreProvider(ECommerceProvider):
                 currency_code=variant_found.currency_code,
                 quantity=quantity,
                 image_url=product_found.image_url,
-                added_at=datetime.now(timezone.utc),
+                added_at=datetime.now(UTC),
             )
             cart.items.append(new_item)
 
         # Update cart totals
         cart.subtotal = sum(item.price * item.quantity for item in cart.items)
         cart.item_count = sum(item.quantity for item in cart.items)
-        cart.updated_at = datetime.now(timezone.utc)
+        cart.updated_at = datetime.now(UTC)
 
         return cart
 
@@ -559,7 +559,7 @@ class MockStoreProvider(ECommerceProvider):
         # Update cart totals
         cart.subtotal = sum(item.price * item.quantity for item in cart.items)
         cart.item_count = sum(item.quantity for item in cart.items)
-        cart.updated_at = datetime.now(timezone.utc)
+        cart.updated_at = datetime.now(UTC)
 
         return cart
 
@@ -584,7 +584,7 @@ class MockStoreProvider(ECommerceProvider):
     async def create_checkout_url(
         self,
         cart_id: str,
-        custom_attributes: Optional[list[dict[str, str]]] = None,
+        custom_attributes: list[dict[str, str]] | None = None,
     ) -> str:
         """Generate a mock checkout URL for a cart.
 
@@ -613,7 +613,7 @@ class MockStoreProvider(ECommerceProvider):
 
         # Create a pending order
         order_id = f"mock_order_{uuid.uuid4().hex[:8]}"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         order = Order(
             id=order_id,
@@ -646,7 +646,7 @@ class MockStoreProvider(ECommerceProvider):
 
     # ==================== Order Operations ====================
 
-    async def get_order(self, order_id: str) -> Optional[Order]:
+    async def get_order(self, order_id: str) -> Order | None:
         """Get an order by ID.
 
         Args:
@@ -663,7 +663,7 @@ class MockStoreProvider(ECommerceProvider):
 
         return self._orders.get(order_id)
 
-    async def get_order_by_checkout_token(self, checkout_token: str) -> Optional[Order]:
+    async def get_order_by_checkout_token(self, checkout_token: str) -> Order | None:
         """Get an order by checkout token.
 
         Args:
@@ -687,8 +687,8 @@ class MockStoreProvider(ECommerceProvider):
         self,
         order_id: str,
         status: OrderStatus,
-        tracking_number: Optional[str] = None,
-        tracking_url: Optional[str] = None,
+        tracking_number: str | None = None,
+        tracking_url: str | None = None,
     ) -> Order:
         """Update order status.
 
@@ -712,7 +712,7 @@ class MockStoreProvider(ECommerceProvider):
             raise ValueError(f"Order {order_id} not found")
 
         order.status = status
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         if tracking_number:
             order.tracking_number = tracking_number

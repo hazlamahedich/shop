@@ -7,7 +7,7 @@ including image validation, variant selection, and accessibility.
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -16,8 +16,8 @@ from app.schemas.shopify import (
     CurrencyCode,
     Product,
     ProductImage,
-    ProductVariant,
     ProductSearchResult,
+    ProductVariant,
 )
 from app.services.messenger.product_formatter import MessengerProductFormatter
 

@@ -7,20 +7,19 @@ Supports field-level encryption for sensitive metadata (NFR-S2).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal
 
-from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey, Text, Boolean, Index
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing_extensions import Literal
 
 from app.core.database import Base
 from app.services.privacy.data_tier_service import DataTier
 
 HandoffStatusType = Literal["none", "pending", "active", "resolved", "reopened", "escalated"]
 from app.core.encryption import (
-    encrypt_metadata,
     decrypt_metadata,
+    encrypt_metadata,
 )
 
 
@@ -48,7 +47,7 @@ class Conversation(Base):
         nullable=False,
         index=True,
     )
-    llm_provider: Mapped[Optional[str]] = mapped_column(
+    llm_provider: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
         index=True,
@@ -84,19 +83,19 @@ class Conversation(Base):
         default="none",
         nullable=True,
     )
-    handoff_triggered_at: Mapped[Optional[datetime]] = mapped_column(
+    handoff_triggered_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    handoff_reason: Mapped[Optional[str]] = mapped_column(
+    handoff_reason: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    handoff_resolved_at: Mapped[Optional[datetime]] = mapped_column(
+    handoff_resolved_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    handoff_resolution_type: Mapped[Optional[str]] = mapped_column(
+    handoff_resolution_type: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
     )
@@ -105,15 +104,15 @@ class Conversation(Base):
         default=0,
         nullable=True,
     )
-    last_customer_message_at: Mapped[Optional[datetime]] = mapped_column(
+    last_customer_message_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    last_merchant_message_at: Mapped[Optional[datetime]] = mapped_column(
+    last_merchant_message_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    customer_satisfied: Mapped[Optional[bool]] = mapped_column(
+    customer_satisfied: Mapped[bool | None] = mapped_column(
         Boolean,
         nullable=True,
     )
@@ -135,7 +134,7 @@ class Conversation(Base):
     )
     # Encrypted conversation_data for storing sensitive conversation data
     # (renamed from 'metadata' which is reserved in SQLAlchemy)
-    conversation_data: Mapped[Optional[dict]] = mapped_column(
+    conversation_data: Mapped[dict | None] = mapped_column(
         "conversation_data",
         JSONB,
         nullable=True,
@@ -154,20 +153,20 @@ class Conversation(Base):
 
     # Relationship to messages - one-to-many from Conversation to Message
     # Note: Sorting handled in service layer
-    messages: Mapped[list["Message"]] = relationship(
+    messages: Mapped[list[Message]] = relationship(
         "Message",
         back_populates="conversation",
     )
 
     # Relationship to handoff alert - one-to-one
-    handoff_alert: Mapped[Optional["HandoffAlert"]] = relationship(
+    handoff_alert: Mapped[HandoffAlert | None] = relationship(
         "HandoffAlert",
         back_populates="conversation",
         uselist=False,
     )
 
     @property
-    def decrypted_metadata(self) -> Optional[dict]:
+    def decrypted_metadata(self) -> dict | None:
         """Get decrypted conversation metadata.
 
         Returns:
@@ -181,7 +180,7 @@ class Conversation(Base):
             return None
         return decrypt_metadata(self.conversation_data)
 
-    def set_encrypted_metadata(self, metadata: Optional[dict]) -> None:
+    def set_encrypted_metadata(self, metadata: dict | None) -> None:
         """Set conversation metadata with automatic encryption.
 
         Args:
@@ -197,7 +196,7 @@ class Conversation(Base):
             self.conversation_data = encrypt_metadata(metadata)
 
     # Story 4-11: Follow-up state helper methods
-    def get_followup_12h_sent_at(self) -> Optional[str]:
+    def get_followup_12h_sent_at(self) -> str | None:
         """Get the timestamp when 12-hour follow-up was sent.
 
         Returns:
@@ -207,7 +206,7 @@ class Conversation(Base):
             return None
         return self.conversation_data.get("followup_12h_sent_at")
 
-    def get_followup_24h_sent_at(self) -> Optional[str]:
+    def get_followup_24h_sent_at(self) -> str | None:
         """Get the timestamp when 24-hour follow-up was sent.
 
         Returns:

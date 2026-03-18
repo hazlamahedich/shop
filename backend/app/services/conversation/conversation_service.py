@@ -1,12 +1,11 @@
-from typing import List, Tuple, Optional
 from datetime import datetime
-from sqlalchemy import select, func, desc, asc, or_, and_, exists
+
+from sqlalchemy import asc, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.models.handoff_alert import HandoffAlert
 
 
 class ConversationService:
@@ -20,13 +19,13 @@ class ConversationService:
         per_page: int = 20,
         sort_by: str = "updated_at",
         sort_order: str = "desc",
-        search: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        status: Optional[List[str]] = None,
-        sentiment: Optional[List[str]] = None,
-        has_handoff: Optional[bool] = None,
-    ) -> Tuple[List[dict], int]:
+        search: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        status: list[str] | None = None,
+        sentiment: list[str] | None = None,
+        has_handoff: bool | None = None,
+    ) -> tuple[list[dict], int]:
         """
         Get paginated conversations for a merchant with last message preview.
 
@@ -215,7 +214,7 @@ class ConversationService:
         db: AsyncSession,
         conversation_id: int,
         merchant_id: int,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Get full conversation history with context for handoff.
 

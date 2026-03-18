@@ -12,8 +12,8 @@ Story 2-7: Persistent Cart Sessions
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import redis.asyncio as redis
 import structlog
@@ -38,7 +38,7 @@ class CartRetentionService:
     EXTENDED_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
     TIMESTAMP_KEY_PREFIX = "cart_extended_timestamp:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None) -> None:
+    def __init__(self, redis_client: redis.Redis | None = None) -> None:
         """Initialize cart retention service.
 
         Args:
@@ -81,7 +81,7 @@ class CartRetentionService:
         # Store creation timestamp for cleanup tracking
         timestamp_data = {
             "psid": psid,
-            "extended_at": datetime.now(timezone.utc).isoformat(),
+            "extended_at": datetime.now(UTC).isoformat(),
             "retention_days": 30,
         }
 
@@ -94,7 +94,7 @@ class CartRetentionService:
             "extended_retention": True,
             "retention_days": 30,
             "expires_at": (
-                datetime.now(timezone.utc) + timedelta(seconds=self.EXTENDED_TTL_SECONDS)
+                datetime.now(UTC) + timedelta(seconds=self.EXTENDED_TTL_SECONDS)
             ).isoformat(),
         }
 
@@ -110,7 +110,7 @@ class CartRetentionService:
         timestamp_key = self._get_extended_timestamp_key(psid)
         return await self.redis.exists(timestamp_key) > 0
 
-    async def get_cart_age_days(self, psid: str) -> Optional[int]:
+    async def get_cart_age_days(self, psid: str) -> int | None:
         """Get age of extended cart in days.
 
         Args:
@@ -128,7 +128,7 @@ class CartRetentionService:
         try:
             data = json.loads(timestamp_data)
             created_at = datetime.fromisoformat(data["extended_at"])
-            age = datetime.now(timezone.utc) - created_at
+            age = datetime.now(UTC) - created_at
             return age.days
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             self.logger.error("cart_timestamp_parse_error", psid=psid, error=str(e))
@@ -165,7 +165,7 @@ class CartRetentionService:
         logger.info("cart_retention_cleanup_started", max_age_days=max_age_days)
 
         results = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "max_age_days": max_age_days,
             "scanned": 0,
             "removed": 0,

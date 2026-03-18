@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime
+
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.webhook_verification_log import WebhookVerificationLog
 from app.models.merchant import Merchant
+from app.models.webhook_verification_log import WebhookVerificationLog
 
 
 @pytest.mark.asyncio

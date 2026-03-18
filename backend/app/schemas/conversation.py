@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional, List
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
@@ -23,7 +23,7 @@ class ConversationListItem(BaseModel):
     id: int
     platform: str
     platform_sender_id_masked: str
-    last_message: Optional[str] = None
+    last_message: str | None = None
     status: str
     sentiment: str = "neutral"  # Default for now until sentiment analysis is active
     message_count: int = 0
@@ -36,7 +36,7 @@ class ConversationListResponse(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    data: List[ConversationListItem]
+    data: list[ConversationListItem]
     meta: dict  # Includes pagination and request_id
 
 
@@ -52,34 +52,34 @@ class ConversationFilterParams(BaseModel):
     All fields are optional - filters are combined with AND logic.
     """
 
-    search: Optional[str] = Field(
+    search: str | None = Field(
         None,
         description="Search term for customer ID or message content",
     )
-    date_from: Optional[str] = Field(
+    date_from: str | None = Field(
         None,
         description="Start date filter (ISO 8601 format, e.g., 2026-02-01)",
     )
-    date_to: Optional[str] = Field(
+    date_to: str | None = Field(
         None,
         description="End date filter (ISO 8601 format, e.g., 2026-02-28)",
     )
-    status: Optional[List[str]] = Field(
+    status: list[str] | None = Field(
         None,
         description=f"Filter by status. Valid values: {', '.join(VALID_STATUS_VALUES)}",
     )
-    sentiment: Optional[List[str]] = Field(
+    sentiment: list[str] | None = Field(
         None,
         description=f"Filter by sentiment. Valid values: {', '.join(VALID_SENTIMENT_VALUES)}",
     )
-    has_handoff: Optional[bool] = Field(
+    has_handoff: bool | None = Field(
         None,
         description="Filter by handoff presence. True=has handoff, False=no handoff",
     )
 
     @field_validator("date_from", "date_to")
     @classmethod
-    def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
+    def validate_date_format(cls, v: str | None) -> str | None:
         """Validate ISO 8601 date format."""
         if v is None:
             return v
@@ -93,7 +93,7 @@ class ConversationFilterParams(BaseModel):
 
     @field_validator("status")
     @classmethod
-    def validate_status_values(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_status_values(cls, v: list[str] | None) -> list[str] | None:
         """Validate status enum values."""
         if v is None:
             return v
@@ -106,7 +106,7 @@ class ConversationFilterParams(BaseModel):
 
     @field_validator("sentiment")
     @classmethod
-    def validate_sentiment_values(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_sentiment_values(cls, v: list[str] | None) -> list[str] | None:
         """Validate sentiment enum values."""
         if v is None:
             return v
@@ -128,7 +128,7 @@ class MessageHistoryItem(BaseModel):
     sender: str
     content: str
     created_at: datetime
-    confidence_score: Optional[float] = None
+    confidence_score: float | None = None
 
 
 class CartStateItem(BaseModel):
@@ -146,7 +146,7 @@ class CartState(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    items: List[CartStateItem] = Field(default_factory=list)
+    items: list[CartStateItem] = Field(default_factory=list)
 
 
 class ExtractedConstraints(BaseModel):
@@ -154,9 +154,9 @@ class ExtractedConstraints(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    budget: Optional[str] = None
-    size: Optional[str] = None
-    category: Optional[str] = None
+    budget: str | None = None
+    size: str | None = None
+    category: str | None = None
 
 
 class ConversationContext(BaseModel):
@@ -164,8 +164,8 @@ class ConversationContext(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    cart_state: Optional[CartState] = None
-    extracted_constraints: Optional[ExtractedConstraints] = None
+    cart_state: CartState | None = None
+    extracted_constraints: ExtractedConstraints | None = None
 
 
 class HandoffContext(BaseModel):
@@ -196,7 +196,7 @@ class ConversationHistoryData(BaseModel):
     conversation_id: int
     platform_sender_id: str = Field(..., description="Customer's platform sender ID (PSID)")
     platform: str = Field(..., description="Conversation platform (messenger, widget, preview)")
-    messages: List[MessageHistoryItem]
+    messages: list[MessageHistoryItem]
     context: ConversationContext
     handoff: HandoffContext
     customer: CustomerInfo
@@ -229,7 +229,7 @@ class HybridModeRequest(BaseModel):
     """Request to enable/disable hybrid mode for a conversation."""
 
     enabled: bool = Field(..., description="Whether to enable or disable hybrid mode")
-    reason: Optional[str] = Field(
+    reason: str | None = Field(
         None,
         description="Reason for change: 'merchant_responding' or 'merchant_returning'",
     )
@@ -241,9 +241,9 @@ class HybridModeState(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     enabled: bool
-    activated_at: Optional[datetime] = None
-    activated_by: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    activated_at: datetime | None = None
+    activated_by: str | None = None
+    expires_at: datetime | None = None
 
 
 class HybridModeResponse(BaseModel):
@@ -260,6 +260,6 @@ class FacebookPageInfo(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    page_id: Optional[str] = None
-    page_name: Optional[str] = None
+    page_id: str | None = None
+    page_name: str | None = None
     is_connected: bool = False

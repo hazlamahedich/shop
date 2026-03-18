@@ -15,10 +15,8 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import defaultdict
-from typing import Optional
 
 import structlog
-
 
 logger = structlog.get_logger(__name__)
 
@@ -42,7 +40,7 @@ class ShopifyRateLimiter:
 
     MAX_TOKENS = 2.0
     REFILL_RATE = 1.5  # tokens per second (slightly under Shopify's 2/sec)
-    LOCK: Optional[asyncio.Lock] = None
+    LOCK: asyncio.Lock | None = None
 
     @classmethod
     def _get_lock(cls) -> asyncio.Lock:
@@ -139,7 +137,7 @@ class ShopifyRateLimiter:
         return cls._buckets[merchant_id]["tokens"]
 
     @classmethod
-    def reset(cls, merchant_id: Optional[int] = None) -> None:
+    def reset(cls, merchant_id: int | None = None) -> None:
         """Reset rate limiter state (for testing).
 
         Args:

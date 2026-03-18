@@ -6,21 +6,19 @@ fetching from Admin API (no storefront token required), applying filters, and ra
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
+from app.core.config import is_testing
+from app.core.security import decrypt_access_token
+from app.models.shopify_integration import ShopifyIntegration
 from app.schemas.shopify import Product, ProductSearchResult
 from app.services.intent.classification_schema import ExtractedEntities
 from app.services.shopify.product_mapper import ProductMapper
-from app.models.shopify_integration import ShopifyIntegration
-from app.core.security import decrypt_access_token
-from app.core.config import is_testing
 from app.services.shopify_admin import ShopifyAdminClient
-
 
 logger = structlog.get_logger(__name__)
 
@@ -45,8 +43,8 @@ class ProductSearchService:
 
     def __init__(
         self,
-        product_mapper: Optional[ProductMapper] = None,
-        db: Optional[AsyncSession] = None,
+        product_mapper: ProductMapper | None = None,
+        db: AsyncSession | None = None,
     ) -> None:
         """Initialize product search service.
 
@@ -60,7 +58,7 @@ class ProductSearchService:
 
     async def _get_admin_client_for_merchant(
         self, merchant_id: int
-    ) -> Optional[ShopifyAdminClient]:
+    ) -> ShopifyAdminClient | None:
         """Get Shopify Admin client for a specific merchant.
 
         Uses the admin token from ShopifyIntegration (no storefront token needed).
@@ -109,7 +107,7 @@ class ProductSearchService:
     async def search_products(
         self,
         entities: ExtractedEntities,
-        merchant_id: Optional[int] = None,
+        merchant_id: int | None = None,
     ) -> ProductSearchResult:
         """Search for products matching the extracted entities.
 
@@ -140,7 +138,7 @@ class ProductSearchService:
         )
 
         # Fetch products from Admin API
-        admin_client: Optional[ShopifyAdminClient] = None
+        admin_client: ShopifyAdminClient | None = None
         if merchant_id:
             admin_client = await self._get_admin_client_for_merchant(merchant_id)
 
@@ -217,7 +215,7 @@ class ProductSearchService:
         Returns:
             List of Product objects
         """
-        from app.schemas.shopify import ProductVariant, CurrencyCode
+        from app.schemas.shopify import CurrencyCode, ProductVariant
 
         products = []
         for p in raw_products:
@@ -327,8 +325,8 @@ class ProductSearchService:
         self,
         products: list[Product],
         entities: ExtractedEntities,
-        pinned_ids: Optional[set[str]] = None,
-        pinned_orders: Optional[dict[str, int]] = None,
+        pinned_ids: set[str] | None = None,
+        pinned_orders: dict[str, int] | None = None,
     ) -> list[Product]:
         """Rank products by relevance to search entities.
 

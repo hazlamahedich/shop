@@ -6,7 +6,6 @@ Based on tests/fixtures/mock_llm.py but adapted for application use.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 import structlog
 
 from app.services.llm.base_llm_service import (
@@ -71,8 +70,8 @@ class MockLLMService(BaseLLMService):
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        model: Optional[str] = None,
+        messages: list[LLMMessage],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:

@@ -5,13 +5,13 @@ Handles sending messages to Facebook Messenger using the Send API.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
-from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
+from typing import Any
 
 import httpx
 import structlog
+
+from app.core.config import settings
+from app.core.errors import APIError, ErrorCode
 
 
 class MessengerSendService:
@@ -25,7 +25,7 @@ class MessengerSendService:
     API_VERSION = "v19.0"
     SEND_TIMEOUT = 5.0  # 5 seconds
 
-    def __init__(self, access_token: Optional[str] = None) -> None:
+    def __init__(self, access_token: str | None = None) -> None:
         """Initialize Messenger Send service.
 
         Args:
@@ -43,9 +43,9 @@ class MessengerSendService:
     async def send_message(
         self,
         recipient_id: str,
-        message_payload: Dict[str, Any],
-        tag: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        message_payload: dict[str, Any],
+        tag: str | None = None,
+    ) -> dict[str, Any]:
         """Send a message to a Facebook Messenger recipient.
 
         Args:
@@ -99,7 +99,7 @@ class MessengerSendService:
             )
             response.raise_for_status()
 
-            data: Dict[str, Any] = response.json()
+            data: dict[str, Any] = response.json()
 
             # Check for Facebook errors
             if "error" in data:

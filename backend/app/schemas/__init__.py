@@ -1,67 +1,64 @@
 """Pydantic schemas for API request/response validation."""
 
-from app.schemas.onboarding import (
-    MinimalEnvelope,
-    MetaData,
-    PrerequisiteCheckRequest,
-    PrerequisiteCheckResponse,
-)
-
-from app.schemas.llm import (  # noqa: F401 (export for type generation)
-    LLMConfigureRequest,
-    LLMUpdateRequest,
-    LLMTestRequest,
-    LLMStatusResponse,
-    LLMTestResponse,
-    LLMProvidersResponse,
-    LLMProviderInfo,
-    LLMHealthResponse,
-    LLMConfigureResponse,
-    LLMUpdateResponse,
-    LLMClearResponse,
-    MinimalLLMEnvelope,
+# Story 1.12: Bot Naming Configuration schemas
+from app.schemas.bot_config import (  # noqa: F401
+    BotConfigEnvelope,
+    BotConfigResponse,
+    BotNameUpdate,
 )
 
 # Story 1.11: Business Info & FAQ Configuration schemas
 from app.schemas.business_info import (  # noqa: F401
+    BusinessInfoEnvelope,
     BusinessInfoRequest,
     BusinessInfoResponse,
-    BusinessInfoEnvelope,
 )
-
-# Story 1.12: Bot Naming Configuration schemas
-from app.schemas.bot_config import (  # noqa: F401
-    BotNameUpdate,
-    BotConfigResponse,
-    BotConfigEnvelope,
+from app.schemas.faq import (  # noqa: F401
+    FaqEnvelope,
+    FaqListEnvelope,
+    FaqReorderRequest,
+    FaqRequest,
+    FaqResponse,
 )
 
 # Story 1.14: Greeting Configuration schemas
 from app.schemas.greeting import (  # noqa: F401
-    GreetingConfigUpdate,
     GreetingConfigResponse,
+    GreetingConfigUpdate,
     GreetingEnvelope,
 )
-
-from app.schemas.faq import (  # noqa: F401
-    FaqRequest,
-    FaqResponse,
-    FaqListEnvelope,
-    FaqEnvelope,
-    FaqReorderRequest,
+from app.schemas.llm import (  # noqa: F401 (export for type generation)
+    LLMClearResponse,
+    LLMConfigureRequest,
+    LLMConfigureResponse,
+    LLMHealthResponse,
+    LLMProviderInfo,
+    LLMProvidersResponse,
+    LLMStatusResponse,
+    LLMTestRequest,
+    LLMTestResponse,
+    LLMUpdateRequest,
+    LLMUpdateResponse,
+    MinimalLLMEnvelope,
+)
+from app.schemas.onboarding import (
+    MetaData,
+    MinimalEnvelope,
+    PrerequisiteCheckRequest,
+    PrerequisiteCheckResponse,
 )
 
 # Story 1.13: Bot Preview Mode schemas
 from app.schemas.preview import (  # noqa: F401
+    STARTER_PROMPTS,
+    PreviewMessageEnvelope,
+    PreviewMessageMetadata,
     PreviewMessageRequest,
     PreviewMessageResponse,
-    PreviewMessageMetadata,
-    PreviewSessionResponse,
-    PreviewResetResponse,
-    PreviewMessageEnvelope,
-    PreviewSessionEnvelope,
     PreviewResetEnvelope,
-    STARTER_PROMPTS,
+    PreviewResetResponse,
+    PreviewSessionEnvelope,
+    PreviewSessionResponse,
 )
 
 __all__ = [

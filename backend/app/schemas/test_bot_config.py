@@ -9,9 +9,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.bot_config import (
-    BotNameUpdate,
-    BotConfigResponse,
     BotConfigEnvelope,
+    BotConfigResponse,
+    BotNameUpdate,
 )
 
 

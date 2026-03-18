@@ -1,0 +1,72 @@
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: write EPIPE
+    at afterWriteDispatched (node:internal/stream_base_commons:159:15)
+    at writeGeneric (node:internal/stream_base_commons:150:3)
+    at Socket._writeGeneric (node:net:966:11)
+    at Socket._write (node:net:978:8)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Socket.Writable.write (node:internal/streams/writable:508:10)
+    at ListReporter.onError (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/list.js:244:24)
+    at /Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/multiplexer.js:77:36
+    at wrap (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/multiplexer.js:104:5)
+    at Multiplexer.onError (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/multiplexer.js:77:7)
+    at InternalReporter.onError (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/internalReporter.js:92:29)
+    at taskLoop (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/taskRunner.js:68:37)
+    at TaskRunner.runDeferCleanup (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/taskRunner.js:78:5)
+    at TaskRunner.run (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/taskRunner.js:42:33)
+    at runTasks (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/tasks.js:80:18)
+    at runAllTestsWithConfig (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/testRunner.js:388:18)
+    at runTests (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/program.js:242:18)
+    at i.<anonymous> (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/program.js:70:7)
+Emitted 'error' event on Socket instance at:
+    at Socket.onerror (node:internal/streams/readable:1031:14)
+    at Socket.emit (node:events:508:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  errno: -32,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+
+Node.js v25.0.0
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: write EPIPE
+    at afterWriteDispatched (node:internal/stream_base_commons:159:15)
+    at writeGeneric (node:internal/stream_base_commons:150:3)
+    at Socket._writeGeneric (node:net:966:11)
+    at Socket._write (node:net:978:8)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Socket.Writable.write (node:internal/streams/writable:508:10)
+    at ListReporter.onError (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/list.js:244:24)
+    at /Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/multiplexer.js:77:36
+    at wrap (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/multiplexer.js:104:5)
+    at Multiplexer.onError (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/multiplexer.js:77:7)
+    at InternalReporter.onError (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/reporters/internalReporter.js:92:29)
+    at taskLoop (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/taskRunner.js:68:37)
+    at TaskRunner.runDeferCleanup (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/taskRunner.js:78:5)
+    at TaskRunner.run (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/taskRunner.js:42:33)
+    at runTasks (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/tasks.js:80:18)
+    at runAllTestsWithConfig (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/runner/testRunner.js:388:18)
+    at runTests (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/program.js:242:18)
+    at i.<anonymous> (/Users/sherwingorechomante/shop/frontend/node_modules/playwright/lib/program.js:70:7)
+Emitted 'error' event on Socket instance at:
+    at Socket.onerror (node:internal/streams/readable:1031:14)
+    at Socket.emit (node:events:508:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  errno: -32,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+
+Node.js v25.0.0

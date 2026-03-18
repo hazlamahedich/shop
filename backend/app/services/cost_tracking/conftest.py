@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import select
+
 from app.models.merchant import Merchant
 
 

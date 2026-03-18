@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import (
@@ -179,7 +179,7 @@ async def upload_document(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "upload",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
@@ -293,7 +293,7 @@ async def list_documents(
             "data": {"documents": documents},
             "meta": {
                 "requestId": "list",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
@@ -353,7 +353,7 @@ async def get_knowledge_base_stats(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "stats",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
@@ -413,7 +413,7 @@ async def get_document(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "get",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
@@ -481,7 +481,7 @@ async def get_document_status(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "status",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
@@ -554,7 +554,7 @@ async def delete_document(
             ).model_dump(by_alias=True),
             "meta": {
                 "requestId": "delete",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         }
 
@@ -617,7 +617,7 @@ async def trigger_reembedding(
         },
         "meta": {
             "requestId": "reembed",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         },
     }
 
@@ -644,6 +644,6 @@ async def get_reembedding_status(
         "data": status,
         "meta": {
             "requestId": "reembed-status",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         },
     }

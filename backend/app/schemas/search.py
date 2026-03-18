@@ -6,10 +6,10 @@ Provides unified search across conversations, FAQs, and other entities.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, Field
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from pydantic import Field
+
+from app.schemas.base import BaseSchema, MinimalEnvelope
 
 
 class ConversationSearchResult(BaseSchema):
@@ -27,7 +27,7 @@ class ConversationSearchResult(BaseSchema):
     customer_id: str = Field(
         description="Masked customer identifier", alias="platform_sender_id_masked"
     )
-    last_message: Optional[str] = Field(default=None, description="Preview of last message")
+    last_message: str | None = Field(default=None, description="Preview of last message")
     status: str = Field(description="Conversation status")
     updated_at: datetime = Field(description="Last update timestamp")
 
@@ -55,10 +55,10 @@ class GlobalSearchResults(BaseSchema):
         total: Total number of results
     """
 
-    conversations: List[ConversationSearchResult] = Field(
+    conversations: list[ConversationSearchResult] = Field(
         default_factory=list, description="Matching conversations"
     )
-    faqs: List[FaqSearchResult] = Field(default_factory=list, description="Matching FAQs")
+    faqs: list[FaqSearchResult] = Field(default_factory=list, description="Matching FAQs")
     total: int = Field(description="Total number of results across all categories")
 
 

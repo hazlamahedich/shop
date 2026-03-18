@@ -8,22 +8,20 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Annotated, Any, Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request, Body
-from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import structlog
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.errors import APIError, ErrorCode, ValidationError
-from app.models.merchant import Merchant, PersonalityType, OnboardingMode
-from app.schemas.base import MinimalEnvelope, MetaData
-
+from app.core.errors import APIError, ErrorCode
+from app.models.merchant import Merchant, OnboardingMode, PersonalityType
+from app.schemas.base import MetaData, MinimalEnvelope
 
 logger = structlog.get_logger(__name__)
 
@@ -33,7 +31,7 @@ router = APIRouter()
 class BudgetCapUpdate(BaseModel):
     """Request schema for updating budget cap."""
 
-    budget_cap: Optional[float] = Field(
+    budget_cap: float | None = Field(
         None,
         ge=0,
         description="Monthly budget cap in USD. Set to null for no limit.",
@@ -44,7 +42,7 @@ class BudgetCapUpdate(BaseModel):
 class MerchantSettingsResponse(BaseModel):
     """Response schema for merchant settings."""
 
-    budget_cap: Optional[float] = Field(
+    budget_cap: float | None = Field(
         None,
         description="Monthly budget cap in USD",
     )
@@ -57,11 +55,11 @@ class MerchantSettingsResponse(BaseModel):
 class PersonalityConfigurationUpdate(BaseModel):
     """Request schema for updating personality configuration."""
 
-    personality: Optional[PersonalityType] = Field(
+    personality: PersonalityType | None = Field(
         None,
         description="Bot personality type",
     )
-    custom_greeting: Optional[str] = Field(
+    custom_greeting: str | None = Field(
         None,
         max_length=500,
         description="Custom greeting message (optional, up to 500 characters)",
@@ -74,7 +72,7 @@ class PersonalityConfigurationResponse(BaseModel):
     personality: PersonalityType = Field(
         description="Bot personality type",
     )
-    custom_greeting: Optional[str] = Field(
+    custom_greeting: str | None = Field(
         None,
         description="Custom greeting message",
     )
@@ -397,8 +395,8 @@ async def get_budget_alerts(
     Returns:
         MinimalEnvelope with list of alerts and unread count
     """
+    from app.schemas.budget_alert import BudgetAlertListResponse, BudgetAlertResponse
     from app.services.cost_tracking.budget_alert_service import BudgetAlertService
-    from app.schemas.budget_alert import BudgetAlertResponse, BudgetAlertListResponse
 
     merchant_id = _get_merchant_id(request)
 
@@ -473,10 +471,9 @@ async def get_bot_status(
     Returns:
         MinimalEnvelope with bot status and budget information
     """
-    from decimal import Decimal
+    from app.schemas.budget_alert import BotStatusResponse
     from app.services.cost_tracking.budget_alert_service import BudgetAlertService
     from app.services.cost_tracking.cost_tracking_service import CostTrackingService
-    from app.schemas.budget_alert import BotStatusResponse
 
     merchant_id = _get_merchant_id(request)
 
@@ -535,8 +532,8 @@ async def resume_bot(
     Returns:
         MinimalEnvelope with resume status
     """
-    from app.services.cost_tracking.budget_alert_service import BudgetAlertService
     from app.schemas.budget_alert import ResumeBotResponse
+    from app.services.cost_tracking.budget_alert_service import BudgetAlertService
 
     merchant_id = _get_merchant_id(request)
 
@@ -893,11 +890,11 @@ class GreetingTransformRequest(BaseModel):
         ...,
         description="The target personality tone to apply",
     )
-    bot_name: Optional[str] = Field(
+    bot_name: str | None = Field(
         None,
         description="Bot name for context (optional)",
     )
-    business_name: Optional[str] = Field(
+    business_name: str | None = Field(
         None,
         description="Business name for context (optional)",
     )
@@ -963,8 +960,8 @@ async def transform_greeting(
     Raises:
         APIError: If transformation fails
     """
-    from app.services.llm.llm_factory import LLMProviderFactory
     from app.services.llm.base_llm_service import LLMMessage
+    from app.services.llm.llm_factory import LLMProviderFactory
 
     merchant_id = _get_merchant_id(request)
 
@@ -1254,14 +1251,13 @@ async def update_merchant_mode(
             f"Failed to update mode: {str(e)}",
         )
 
-    from datetime import timezone
 
     logger.info(
         "merchant_mode_changed",
         merchant_id=merchant_id,
         old_mode=old_mode,
         new_mode=new_mode,
-        changed_at=datetime.now(timezone.utc).isoformat(),
+        changed_at=datetime.now(UTC).isoformat(),
     )
 
     return MinimalEnvelope(

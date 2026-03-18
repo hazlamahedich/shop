@@ -5,16 +5,13 @@ Tracks engagement metrics for pinned products including views and cart additions
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
-from sqlalchemy import select, and_
-from sqlalchemy.dialects.postgresql import insert
+import structlog
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product_pin_analytics import ProductPinAnalytics
-import structlog
-
 
 logger = structlog.get_logger(__name__)
 
@@ -45,7 +42,7 @@ async def track_pinned_product_view(
         )
         analytics = result.scalars().first()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if analytics:
             analytics.views_count += 1
@@ -102,7 +99,7 @@ async def track_pinned_product_cart_add(
         )
         analytics = result.scalars().first()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if analytics:
             analytics.cart_adds_count += 1
@@ -152,7 +149,7 @@ async def track_pinned_products_view(
 async def get_pinned_product_analytics(
     db: AsyncSession,
     merchant_id: int,
-    product_id: Optional[str] = None,
+    product_id: str | None = None,
 ) -> list[dict]:
     """Get analytics for pinned products.
 

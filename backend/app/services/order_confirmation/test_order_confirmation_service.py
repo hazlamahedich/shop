@@ -5,15 +5,13 @@ PSID extraction, and confirmation message sending.
 """
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.core.errors import APIError, ErrorCode
 from app.services.cart import CartService
-from app.services.order_confirmation import OrderConfirmationService
 from app.services.messenger.send_service import MessengerSendService
+from app.services.order_confirmation import OrderConfirmationService
 
 
 class TestOrderConfirmationService:

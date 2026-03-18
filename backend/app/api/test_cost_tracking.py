@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timedelta
 
-from app.models.llm_conversation_cost import LLMConversationCost
+import pytest
+
 from app.core.errors import ErrorCode
+from app.models.llm_conversation_cost import LLMConversationCost
 
 
 @pytest.mark.asyncio

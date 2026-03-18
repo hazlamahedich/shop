@@ -5,11 +5,12 @@ Uses GraphQL to query products and generate checkout URLs via Storefront API.
 
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, List
+from typing import Any
+
 import structlog
 
-from app.services.shopify_base import ShopifyBaseClient
 from app.core.errors import APIError, ErrorCode
+from app.services.shopify_base import ShopifyBaseClient
 
 SHOPIFY_STOREFRONT_API_URL = "https://{shop}/api/2024-01/graphql"
 
@@ -55,8 +56,8 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             return False
 
     async def list_products(
-        self, first: int = 100, after: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, first: int = 100, after: str | None = None
+    ) -> list[dict[str, Any]]:
         """List all products via Storefront API.
 
         Args:
@@ -166,8 +167,8 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             )
 
     async def search_products(
-        self, query: str = "", first: int = 10, filters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str = "", first: int = 10, filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Search products via Storefront API.
 
         Args:
@@ -279,7 +280,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
             )
 
     async def create_checkout_url(
-        self, items: List[Dict[str, Any]], custom_attributes: Optional[List[Dict[str, str]]] = None
+        self, items: list[dict[str, Any]], custom_attributes: list[dict[str, str]] | None = None
     ) -> str:
         """Generate Shopify checkout URL.
 
@@ -396,7 +397,7 @@ class ShopifyStorefrontClient(ShopifyBaseClient):
         except Exception:
             return False
 
-    def _get_mock_products(self) -> List[Dict[str, Any]]:
+    def _get_mock_products(self) -> list[dict[str, Any]]:
         """Get mock products for testing.
 
         Returns:

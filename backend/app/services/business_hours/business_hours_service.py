@@ -11,11 +11,9 @@ Provides functions for:
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import structlog
-
 
 logger = structlog.get_logger(__name__)
 
@@ -39,8 +37,8 @@ class BusinessHoursService:
 
     @staticmethod
     def is_within_business_hours(
-        hours_config: Optional[dict],
-        check_time: Optional[datetime] = None,
+        hours_config: dict | None,
+        check_time: datetime | None = None,
     ) -> bool:
         """Check if given time falls within configured business hours.
 
@@ -57,7 +55,7 @@ class BusinessHoursService:
         return is_within_business_hours(hours_config, check_time)
 
     @staticmethod
-    def get_formatted_hours(hours_config: Optional[dict]) -> str:
+    def get_formatted_hours(hours_config: dict | None) -> str:
         """Get formatted hours string for display.
 
         Args:
@@ -70,9 +68,9 @@ class BusinessHoursService:
 
     @staticmethod
     def get_next_business_hour(
-        hours_config: Optional[dict],
-        from_time: Optional[datetime] = None,
-    ) -> Optional[datetime]:
+        hours_config: dict | None,
+        from_time: datetime | None = None,
+    ) -> datetime | None:
         """Get next business hour start time.
 
         Args:
@@ -86,8 +84,8 @@ class BusinessHoursService:
 
 
 def is_within_business_hours(
-    hours_config: Optional[dict],
-    check_time: Optional[datetime] = None,
+    hours_config: dict | None,
+    check_time: datetime | None = None,
 ) -> bool:
     """Check if given time falls within configured business hours.
 
@@ -175,7 +173,7 @@ def is_within_business_hours(
     return False
 
 
-def get_formatted_hours(hours_config: Optional[dict]) -> str:
+def get_formatted_hours(hours_config: dict | None) -> str:
     """Format business hours into human-readable string.
 
     Args:
@@ -238,9 +236,9 @@ def get_formatted_hours(hours_config: Optional[dict]) -> str:
 
 
 def get_next_business_hour(
-    hours_config: Optional[dict],
-    from_time: Optional[datetime] = None,
-) -> Optional[datetime]:
+    hours_config: dict | None,
+    from_time: datetime | None = None,
+) -> datetime | None:
     """Get next business hour start time.
 
     Args:

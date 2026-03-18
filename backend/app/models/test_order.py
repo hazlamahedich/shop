@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from app.models.order import Order, OrderStatus
 
 

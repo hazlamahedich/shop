@@ -952,7 +952,6 @@ async def resolve_handoff(
     """
     from app.services.handoff.resolution_service import (
         HandoffResolutionService,
-        RESOLUTION_MERCHANT_RESOLVED,
     )
 
     merchant_id = _get_merchant_id(request)

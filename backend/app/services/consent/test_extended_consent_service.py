@@ -6,16 +6,16 @@ Tests for conversation consent with PostgreSQL persistence.
 """
 
 from __future__ import annotations
-from datetime import datetime, timezone
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.consent.extended_consent_service import ConversationConsentService
-from app.models.consent import Consent, ConsentType, ConsentSource
+from app.models.consent import Consent, ConsentSource, ConsentType
 from app.schemas.consent import ConsentStatus
+from app.services.consent.extended_consent_service import ConversationConsentService
 
 
 @pytest.fixture

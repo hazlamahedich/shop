@@ -8,12 +8,9 @@ Error codes: 4300-4399 (Bot Preview Mode)
 
 from __future__ import annotations
 
-from typing import Any, Optional
 from pydantic import Field, field_validator
-from datetime import datetime
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
-
+from app.schemas.base import BaseSchema, MetaData, MinimalEnvelope
 
 # Sample conversation starters for preview mode
 STARTER_PROMPTS = [
@@ -56,11 +53,11 @@ class PreviewMessageResponse(BaseSchema):
     confidence: int = Field(ge=0, le=100, description="Confidence score (0-100)")
     confidence_level: str = Field(description="Confidence level: high, medium, or low")
     metadata: PreviewMessageMetadata = Field(description="Additional metadata about the response")
-    products: Optional[list[dict]] = Field(
+    products: list[dict] | None = Field(
         default=None,
         description="Products returned from search queries",
     )
-    cart: Optional[dict] = Field(
+    cart: dict | None = Field(
         default=None,
         description="Cart state if cart operation was performed",
     )
@@ -73,10 +70,10 @@ class PreviewMessageMetadata(BaseSchema):
     for debugging and transparency.
     """
 
-    intent: Optional[str] = Field(None, description="Detected intent classification")
+    intent: str | None = Field(None, description="Detected intent classification")
     faq_matched: bool = Field(description="Whether an FAQ was matched")
     products_found: int = Field(default=0, description="Number of products found in search")
-    llm_provider: Optional[str] = Field(None, description="LLM provider used for response")
+    llm_provider: str | None = Field(None, description="LLM provider used for response")
 
 
 class PreviewSessionResponse(BaseSchema):

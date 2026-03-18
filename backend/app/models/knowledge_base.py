@@ -6,9 +6,9 @@ Story 8-11: Changed embedding column from Vector(1536) to JSONB for flexible
 dimension support (768 for Gemini/Ollama, 1536 for OpenAI).
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 def _utcnow_naive() -> datetime:
     """Return current UTC time as a naive datetime (for TIMESTAMP WITHOUT TIME ZONE columns)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class DocumentStatus(str, Enum):
@@ -147,11 +147,11 @@ class DocumentChunk(Base):
     )
     # Story 8-11: JSONB for flexible embedding dimensions (768 or 1536)
     # Cast to vector at query time: embedding::jsonb::float[]::vector(N)
-    embedding: Mapped[Optional[list[float]]] = mapped_column(
+    embedding: Mapped[list[float] | None] = mapped_column(
         JSONB,
         nullable=True,
     )
-    embedding_dimension: Mapped[Optional[int]] = mapped_column(
+    embedding_dimension: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )

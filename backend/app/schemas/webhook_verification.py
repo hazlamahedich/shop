@@ -5,14 +5,12 @@ Request and response schemas for webhook verification endpoints.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Optional
-
 from enum import Enum
+from typing import Any
+
 from pydantic import Field
 
 from app.schemas.base import BaseSchema, MetaData, MinimalEnvelope
-
 
 # ==================== Enums ====================
 
@@ -69,11 +67,11 @@ class FacebookWebhookStatus(BaseSchema):
 
     webhook_url: str = Field(description="Webhook URL")
     connected: bool = Field(description="Whether webhook is connected and working")
-    last_webhook_at: Optional[str] = Field(None, description="Last webhook received timestamp")
-    last_verified_at: Optional[str] = Field(None, description="Last verification timestamp")
+    last_webhook_at: str | None = Field(None, description="Last webhook received timestamp")
+    last_verified_at: str | None = Field(None, description="Last verification timestamp")
     subscription_status: SubscriptionStatus = Field(description="Subscription status")
     topics: list[str] = Field(default_factory=list, description="Subscribed webhook topics")
-    error: Optional[str] = Field(None, description="Error message if not connected")
+    error: str | None = Field(None, description="Error message if not connected")
 
 
 class ShopifyWebhookStatus(BaseSchema):
@@ -81,11 +79,11 @@ class ShopifyWebhookStatus(BaseSchema):
 
     webhook_url: str = Field(description="Webhook URL")
     connected: bool = Field(description="Whether webhook is connected and working")
-    last_webhook_at: Optional[str] = Field(None, description="Last webhook received timestamp")
-    last_verified_at: Optional[str] = Field(None, description="Last verification timestamp")
+    last_webhook_at: str | None = Field(None, description="Last webhook received timestamp")
+    last_verified_at: str | None = Field(None, description="Last verification timestamp")
     subscription_status: SubscriptionStatus = Field(description="Subscription status")
     topics: list[str] = Field(default_factory=list, description="Subscribed webhook topics")
-    error: Optional[str] = Field(None, description="Error message if not connected")
+    error: str | None = Field(None, description="Error message if not connected")
 
 
 class WebhookStatusResponse(BaseSchema):
@@ -106,15 +104,15 @@ class WebhookTestResponse(BaseSchema):
     test_id: str = Field(description="Unique test identifier")
     status: TestStatus = Field(description="Test status: success or failed")
     message: str = Field(description="Human-readable test result message")
-    test_message_id: Optional[str] = Field(None, description="Facebook message ID (if applicable)")
-    delivered_at: Optional[str] = Field(None, description="Delivery timestamp (if applicable)")
-    conversation_created: Optional[bool] = Field(None, description="Whether conversation was created")
-    test_order_id: Optional[str] = Field(None, description="Shopify test order ID (if applicable)")
-    webhook_received_at: Optional[str] = Field(None, description="Webhook receipt timestamp (if applicable)")
-    order_stored: Optional[bool] = Field(None, description="Whether order was stored")
-    page_id: Optional[str] = Field(None, description="Facebook Page ID (if applicable)")
-    shop_domain: Optional[str] = Field(None, description="Shopify shop domain (if applicable)")
-    webhook_active: Optional[bool] = Field(None, description="Whether webhook is active (Shopify)")
+    test_message_id: str | None = Field(None, description="Facebook message ID (if applicable)")
+    delivered_at: str | None = Field(None, description="Delivery timestamp (if applicable)")
+    conversation_created: bool | None = Field(None, description="Whether conversation was created")
+    test_order_id: str | None = Field(None, description="Shopify test order ID (if applicable)")
+    webhook_received_at: str | None = Field(None, description="Webhook receipt timestamp (if applicable)")
+    order_stored: bool | None = Field(None, description="Whether order was stored")
+    page_id: str | None = Field(None, description="Facebook Page ID (if applicable)")
+    shop_domain: str | None = Field(None, description="Shopify shop domain (if applicable)")
+    webhook_active: bool | None = Field(None, description="Whether webhook is active (Shopify)")
 
 
 # ==================== Webhook Resubscribe Schemas ====================
@@ -127,7 +125,7 @@ class WebhookResubscribeResponse(BaseSchema):
     status: ResubscribeStatus = Field(description="Re-subscription status: success, partial, or failed")
     message: str = Field(description="Human-readable result message")
     topics: list[Any] = Field(default_factory=list, description="Re-subscribed topics with status")
-    subscribed_at: Optional[str] = Field(None, description="Re-subscription timestamp")
+    subscribed_at: str | None = Field(None, description="Re-subscription timestamp")
 
 
 __all__ = [

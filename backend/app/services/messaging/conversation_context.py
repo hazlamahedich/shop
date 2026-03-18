@@ -7,15 +7,13 @@ for 24-hour session persistence.
 from __future__ import annotations
 
 import json
-import time
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
-
 
 logger = structlog.get_logger(__name__)
 
@@ -29,7 +27,7 @@ class ConversationContextManager:
 
     SESSION_TTL_SECONDS: int = 24 * 60 * 60  # 24 hours
 
-    def __init__(self, redis_client: Optional[redis.Redis] | None = None) -> None:
+    def __init__(self, redis_client: redis.Redis | None | None = None) -> None:
         """Initialize context manager.
 
         Args:
@@ -119,7 +117,7 @@ class ConversationContextManager:
 
             # Set created_at on first message
             if not context.get("created_at"):
-                context["created_at"] = datetime.now(timezone.utc).isoformat()
+                context["created_at"] = datetime.now(UTC).isoformat()
 
             # Save to Redis with TTL
             await self.redis.setex(
@@ -166,7 +164,7 @@ class ConversationContextManager:
             context["last_search_results"] = search_result
 
             # Update timestamp
-            context["last_message_at"] = datetime.now(timezone.utc).isoformat()
+            context["last_message_at"] = datetime.now(UTC).isoformat()
 
             # Save to Redis with TTL
             await self.redis.setex(
@@ -208,7 +206,7 @@ class ConversationContextManager:
                 context["clarification"] = state
 
             # Update timestamp
-            context["last_message_at"] = datetime.now(timezone.utc).isoformat()
+            context["last_message_at"] = datetime.now(UTC).isoformat()
 
             # Save to Redis with TTL
             await self.redis.setex(

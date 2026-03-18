@@ -14,24 +14,20 @@ Extends ConsentService to support:
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 import redis.asyncio as redis
 import structlog
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
-from app.schemas.consent import ConsentStatus
-from app.models.consent import Consent, ConsentType, ConsentSource
+from app.models.consent import Consent, ConsentType
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.deletion_audit_log import DeletionAuditLog
+from app.models.message import Message
+from app.schemas.consent import ConsentStatus
 from app.services.privacy.data_tier_service import DataTier
-
 
 DELETION_LOCK_TTL = 10
 DELETION_RATE_LIMIT_TTL = 3600
@@ -55,8 +51,8 @@ class ConversationConsentService:
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
-        db: Optional[AsyncSession] = None,
+        redis_client: redis.Redis | None = None,
+        db: AsyncSession | None = None,
     ) -> None:
         self.redis = redis_client
         self.db = db
@@ -66,8 +62,8 @@ class ConversationConsentService:
         self,
         session_id: str,
         merchant_id: int,
-        visitor_id: Optional[str] = None,
-    ) -> Optional[Consent]:
+        visitor_id: str | None = None,
+    ) -> Consent | None:
         """Get conversation consent record from database.
 
         Story 6-1 Enhancement: Lookup by visitor_id (primary) or session_id (fallback).
@@ -108,7 +104,7 @@ class ConversationConsentService:
         self,
         session_id: str,
         merchant_id: int,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
     ) -> Consent:
         """Get or create conversation consent record.
 
@@ -151,10 +147,10 @@ class ConversationConsentService:
         session_id: str,
         merchant_id: int,
         consent_granted: bool,
-        source: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        visitor_id: Optional[str] = None,
+        source: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        visitor_id: str | None = None,
     ) -> dict[str, Any]:
         """Record conversation consent choice with PostgreSQL persistence.
 
@@ -212,7 +208,7 @@ class ConversationConsentService:
         self,
         session_id: str,
         merchant_id: int,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
     ) -> bool:
         """Check if consent prompt should be shown.
 
@@ -242,7 +238,7 @@ class ConversationConsentService:
         self,
         session_id: str,
         merchant_id: int,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
     ) -> dict[str, Any]:
         """Handle "forget my preferences" request.
 
@@ -301,7 +297,7 @@ class ConversationConsentService:
     async def update_data_tier(
         self,
         session_id: str,
-        visitor_id: Optional[str],
+        visitor_id: str | None,
         new_tier: str,
     ) -> None:
         """Update data tier for conversations based on consent status.
@@ -317,9 +313,10 @@ class ConversationConsentService:
             visitor_id: Optional visitor identifier (primary lookup)
             new_tier: New data tier value (voluntary/operational/anonymized)
         """
+        from sqlalchemy import update
+
         from app.models.conversation import Conversation
         from app.models.message import Message
-        from sqlalchemy import update
 
         if self.db is None:
             self.logger.warning("update_data_tier_no_db", session_id=session_id)
@@ -623,7 +620,7 @@ class ConversationConsentService:
         self,
         session_id: str,
         merchant_id: int,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
     ) -> dict[str, Any]:
         """Delete voluntary data for GDPR/CCPA compliance.
 
@@ -777,7 +774,7 @@ class ConversationConsentService:
         self,
         session_id: str,
         merchant_id: int,
-        visitor_id: Optional[str] = None,
+        visitor_id: str | None = None,
     ) -> dict[str, Any]:
         """Handle "forget my preferences" with actual data deletion.
 

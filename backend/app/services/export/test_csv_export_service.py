@@ -6,18 +6,18 @@ Tests CSV generation, formatting, filter support, and Excel compatibility.
 from __future__ import annotations
 
 from datetime import datetime
+
 import pytest
 
-from app.services.export.csv_export_service import (
-    CSVExportService,
-    CSV_HEADERS,
-    UTF8_BOM,
-    MAX_EXPORT_CONVERSATIONS,
-)
-from app.core.errors import ErrorCode
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.merchant import Merchant
+from app.models.message import Message
+from app.services.export.csv_export_service import (
+    CSV_HEADERS,
+    MAX_EXPORT_CONVERSATIONS,
+    UTF8_BOM,
+    CSVExportService,
+)
 
 
 class TestCSVExportService:
@@ -461,7 +461,6 @@ class TestCSVExportService:
         self, service: CSVExportService, async_session
     ) -> None:
         """Test that export raises error when exceeding limit."""
-        from app.core.errors import APIError
 
         merchant = Merchant(
             merchant_key="test-shop-limit",

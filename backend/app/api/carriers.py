@@ -7,8 +7,7 @@ and carrier detection from tracking numbers.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -28,8 +27,8 @@ from app.schemas.carrier import (
     CarrierDetectionResult,
     SupportedCarrier,
 )
-from app.services.carrier.carrier_service import CarrierService
 from app.services.carrier.carrier_patterns import get_sorted_patterns
+from app.services.carrier.carrier_service import CarrierService
 
 logger = logging.getLogger(__name__)
 
@@ -348,7 +347,7 @@ async def update_merchant_carrier(
         for field, value in update_data.items():
             setattr(carrier, field, value)
 
-        carrier.updated_at = datetime.now(timezone.utc)
+        carrier.updated_at = datetime.now(UTC)
 
         await db.commit()
         await db.refresh(carrier)

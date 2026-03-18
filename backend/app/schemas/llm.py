@@ -7,8 +7,8 @@ testing, and status endpoints.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -56,9 +56,9 @@ class LLMProviderMetadata(BaseModel):
     id: str
     name: str
     description: str
-    pricing: Dict[str, Any]
-    models: List[str]
-    features: List[str]
+    pricing: dict[str, Any]
+    models: list[str]
+    features: list[str]
 
 
 class OllamaConfigRequest(BaseModel):
@@ -86,14 +86,14 @@ class LLMConfigureRequest(BaseModel):
     """LLM configuration request (union of all provider types)."""
 
     provider: LLMProvider
-    ollama_config: Optional[OllamaConfigRequest] = None
-    cloud_config: Optional[CloudConfigRequest] = None
-    backup_provider: Optional[str] = None
-    backup_api_key: Optional[str] = None
+    ollama_config: OllamaConfigRequest | None = None
+    cloud_config: CloudConfigRequest | None = None
+    backup_provider: str | None = None
+    backup_api_key: str | None = None
 
     @field_validator("backup_api_key")
     @classmethod
-    def validate_backup_api_key(cls, v: Optional[str], info) -> Optional[str]:
+    def validate_backup_api_key(cls, v: str | None, info) -> str | None:
         """Validate backup API key is provided if backup provider is set."""
         if info.data.get("backup_provider") and not v:
             raise ValueError("backup_api_key required when backup_provider is set")
@@ -103,13 +103,13 @@ class LLMConfigureRequest(BaseModel):
 class LLMUpdateRequest(BaseModel):
     """LLM configuration update request."""
 
-    provider: Optional[LLMProvider] = None
-    ollama_url: Optional[str] = None
-    ollama_model: Optional[str] = None
-    api_key: Optional[str] = None
-    model: Optional[str] = None
-    backup_provider: Optional[str] = None
-    backup_api_key: Optional[str] = None
+    provider: LLMProvider | None = None
+    ollama_url: str | None = None
+    ollama_model: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+    backup_provider: str | None = None
+    backup_api_key: str | None = None
 
 
 class LLMTestRequest(BaseModel):
@@ -131,11 +131,11 @@ class LLMStatusResponse(BaseModel):
     model: str
     status: LLMStatus
     configured_at: datetime
-    last_test_at: Optional[datetime]
-    test_result: Optional[Dict[str, Any]]
+    last_test_at: datetime | None
+    test_result: dict[str, Any] | None
     total_tokens_used: int
     total_cost_usd: float
-    backup_provider: Optional[str]
+    backup_provider: str | None
 
 
 class LLMTestResponse(BaseModel):
@@ -147,7 +147,7 @@ class LLMTestResponse(BaseModel):
     response: str
     tokens_used: int
     latency_ms: float
-    error: Optional[str]
+    error: str | None
 
 
 class LLMProviderInfo(BaseModel):
@@ -156,23 +156,23 @@ class LLMProviderInfo(BaseModel):
     id: str
     name: str
     description: str
-    pricing: Dict[str, Any]
-    models: List[str]
-    features: List[str]
+    pricing: dict[str, Any]
+    models: list[str]
+    features: list[str]
 
 
 class LLMProvidersResponse(BaseModel):
     """Available LLM providers response."""
 
-    providers: List[LLMProviderInfo]
+    providers: list[LLMProviderInfo]
 
 
 class LLMHealthResponse(BaseModel):
     """LLM health check response."""
 
     router: str
-    primary_provider: Optional[Dict[str, Any]]
-    backup_provider: Optional[Dict[str, Any]]
+    primary_provider: dict[str, Any] | None
+    backup_provider: dict[str, Any] | None
 
 
 # Envelope Schemas (for consistent API responses)
@@ -182,7 +182,7 @@ class MinimalLLMEnvelope(BaseModel):
     """Minimal envelope for LLM API responses."""
 
     data: Any
-    meta: Dict[str, Any]
+    meta: dict[str, Any]
 
 
 class LLMConfigureResponse(BaseModel):
@@ -198,7 +198,7 @@ class LLMUpdateResponse(BaseModel):
     """LLM update response."""
 
     message: str
-    updated_fields: List[str]
+    updated_fields: list[str]
 
 
 class LLMClearResponse(BaseModel):
@@ -216,11 +216,11 @@ class ClarificationState(BaseModel):
     active: bool = Field(False, description="Is clarification flow active?")
     attempt_count: int = Field(0, description="Number of clarification attempts")
     questions_asked: list[str] = Field(default_factory=list, description="Constraints asked about")
-    last_question: Optional[str] = Field(None, description="Last question asked")
-    original_intent: Optional[dict[str, Any]] = Field(
+    last_question: str | None = Field(None, description="Last question asked")
+    original_intent: dict[str, Any] | None = Field(
         None, description="Original intent being clarified"
     )
-    started_at: Optional[str] = Field(None, description="When clarification started")
+    started_at: str | None = Field(None, description="When clarification started")
 
     class Config:
         alias_generator = to_camel
@@ -239,9 +239,9 @@ class SwitchProviderRequest(BaseModel):
     provider_id: str = Field(
         ..., description="Provider ID (ollama, openai, anthropic, gemini, glm)"
     )
-    api_key: Optional[str] = Field(None, description="API key for cloud providers")
-    server_url: Optional[str] = Field(None, description="Ollama server URL")
-    model: Optional[str] = Field(None, description="Optional model override")
+    api_key: str | None = Field(None, description="API key for cloud providers")
+    server_url: str | None = Field(None, description="Ollama server URL")
+    model: str | None = Field(None, description="Optional model override")
 
     @field_validator("provider_id")
     @classmethod
@@ -254,7 +254,7 @@ class SwitchProviderRequest(BaseModel):
 
     @field_validator("api_key")
     @classmethod
-    def validate_api_key(cls, v: Optional[str], info) -> Optional[str]:
+    def validate_api_key(cls, v: str | None, info) -> str | None:
         """Validate API key is provided for cloud providers.
 
         Note: api_key is optional for updates to existing providers.
@@ -265,7 +265,7 @@ class SwitchProviderRequest(BaseModel):
 
     @field_validator("server_url")
     @classmethod
-    def validate_server_url(cls, v: Optional[str], info) -> Optional[str]:
+    def validate_server_url(cls, v: str | None, info) -> str | None:
         """Validate server URL is provided for Ollama.
 
         Note: server_url is optional for updates to existing providers.
@@ -284,7 +284,7 @@ class SwitchProviderResponse(BaseModel):
     success: bool = Field(True, description="Switch operation status")
     provider: ProviderInfo = Field(..., description="New provider information")
     switched_at: str = Field(..., description="ISO-8601 timestamp of switch")
-    previous_provider: Optional[str] = Field(None, description="Previous provider ID")
+    previous_provider: str | None = Field(None, description="Previous provider ID")
 
     class Config:
         alias_generator = to_camel
@@ -307,9 +307,9 @@ class ProviderValidationRequest(BaseModel):
     """Request schema for validating provider configuration."""
 
     provider_id: str = Field(..., description="Provider ID to validate")
-    api_key: Optional[str] = Field(None, description="API key for validation")
-    server_url: Optional[str] = Field(None, description="Server URL for validation")
-    model: Optional[str] = Field(None, description="Optional model for validation")
+    api_key: str | None = Field(None, description="API key for validation")
+    server_url: str | None = Field(None, description="Server URL for validation")
+    model: str | None = Field(None, description="Optional model for validation")
 
     @field_validator("provider_id")
     @classmethod
@@ -339,7 +339,7 @@ class ValidatedProvider(BaseModel):
     id: str
     name: str
     test_response: str = Field(..., description="Test call response message")
-    latency_ms: Optional[float] = Field(None, description="Test call latency in milliseconds")
+    latency_ms: float | None = Field(None, description="Test call latency in milliseconds")
 
     class Config:
         alias_generator = to_camel
@@ -350,7 +350,7 @@ class ProviderListResponse(BaseModel):
     """Response schema for available providers list."""
 
     current_provider: CurrentProviderInfo = Field(..., description="Current active provider")
-    providers: List[ProviderMetadata] = Field(..., description="All available providers")
+    providers: list[ProviderMetadata] = Field(..., description="All available providers")
 
 
 class CurrentProviderInfo(BaseModel):
@@ -377,8 +377,8 @@ class ProviderMetadata(BaseModel):
     name: str
     description: str
     pricing: ProviderPricing = Field(..., description="Pricing information")
-    models: List[str] = Field(..., description="Available models")
-    features: List[str] = Field(..., description="Provider features")
+    models: list[str] = Field(..., description="Available models")
+    features: list[str] = Field(..., description="Provider features")
     is_active: bool = Field(False, description="Is this the current provider")
     estimated_monthly_cost: float = Field(0.0, description="Estimated monthly cost based on usage")
 
@@ -405,7 +405,7 @@ class ModelDiscoveryRequest(BaseModel):
     provider_id: str = Field(
         ..., description="Provider ID (ollama, openai, anthropic, gemini, glm)"
     )
-    ollama_url: Optional[str] = Field(
+    ollama_url: str | None = Field(
         None, description="Ollama server URL (required for ollama provider)"
     )
 
@@ -443,7 +443,7 @@ class DiscoveredModel(BaseModel):
     is_downloaded: bool = Field(
         False, alias="isDownloaded", description="Is model downloaded (Ollama only)"
     )
-    features: List[str] = Field(default_factory=list, description="Model features")
+    features: list[str] = Field(default_factory=list, description="Model features")
 
     class Config:
         alias_generator = to_camel
@@ -454,9 +454,9 @@ class ModelDiscoveryResponse(BaseModel):
     """Response schema for model discovery."""
 
     provider: str = Field(..., description="Provider ID")
-    models: List[DiscoveredModel] = Field(..., description="Available models")
+    models: list[DiscoveredModel] = Field(..., description="Available models")
     cached: bool = Field(False, description="Is response from cache")
-    cache_info: Optional[Dict[str, Any]] = Field(
+    cache_info: dict[str, Any] | None = Field(
         None, alias="cacheInfo", description="Cache information"
     )
 

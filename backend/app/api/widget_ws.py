@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -65,7 +65,7 @@ async def widget_websocket(
     # Write to log file for persistent debugging
     with open("/tmp/ws_connections.log", "a") as log_file:
         log_file.write(
-            f"{datetime.now(timezone.utc).isoformat()} - websocket_connection_attempt - session_id={session_id}, manager_id={id(manager)}\n"
+            f"{datetime.now(UTC).isoformat()} - websocket_connection_attempt - session_id={session_id}, manager_id={id(manager)}\n"
         )
         log_file.flush()
 
@@ -82,7 +82,7 @@ async def widget_websocket(
         # Write to log file
         with open("/tmp/ws_connections.log", "a") as log_file:
             log_file.write(
-                f"{datetime.now(timezone.utc).isoformat()} - websocket_connection_accepted - session_id={session_id}, manager_id={id(manager)}, connection_count={manager.get_connection_count(session_id)}\n"
+                f"{datetime.now(UTC).isoformat()} - websocket_connection_accepted - session_id={session_id}, manager_id={id(manager)}, connection_count={manager.get_connection_count(session_id)}\n"
             )
             log_file.flush()
 
@@ -109,7 +109,7 @@ async def widget_websocket(
                     # Handle message
                     await _handle_message(websocket, session_id, message, manager)
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # No message received within timeout - client may be dead
                     logger.warning(
                         "websocket_timeout",
@@ -191,7 +191,7 @@ async def _handle_message(
             json.dumps(
                 {
                     "type": "pong",
-                    "data": {"timestamp": datetime.now(timezone.utc).isoformat()},
+                    "data": {"timestamp": datetime.now(UTC).isoformat()},
                 }
             )
         )
@@ -223,7 +223,7 @@ async def _heartbeat_loop(websocket: WebSocket, session_id: str) -> None:
                     json.dumps(
                         {
                             "type": "ping",
-                            "data": {"timestamp": datetime.now(timezone.utc).isoformat()},
+                            "data": {"timestamp": datetime.now(UTC).isoformat()},
                         }
                     )
                 )
@@ -262,5 +262,5 @@ async def websocket_status(session_id: str) -> dict[str, Any]:
     return {
         "sessionId": session_id,
         "activeConnections": manager.get_connection_count(session_id),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

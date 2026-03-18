@@ -12,12 +12,11 @@ Implements GDPR/compliance requirements for explicit consent.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-
-from sqlalchemy import String, Integer, DateTime, Boolean, Index, Text, Enum as SQLEnum
-from sqlalchemy.orm import Mapped, mapped_column
 import enum
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
@@ -71,7 +70,7 @@ class Consent(Base):
         nullable=False,
         index=True,
     )
-    visitor_id: Mapped[Optional[str]] = mapped_column(
+    visitor_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         index=True,
@@ -90,23 +89,23 @@ class Consent(Base):
         default=False,
         nullable=False,
     )
-    granted_at: Mapped[Optional[datetime]] = mapped_column(
+    granted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+    revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    ip_address: Mapped[Optional[str]] = mapped_column(
+    ip_address: Mapped[str | None] = mapped_column(
         String(45),
         nullable=True,
     )
-    user_agent: Mapped[Optional[str]] = mapped_column(
+    user_agent: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    source_channel: Mapped[Optional[str]] = mapped_column(
+    source_channel: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
     )
@@ -125,7 +124,7 @@ class Consent(Base):
     def __repr__(self) -> str:
         return f"<Consent(id={self.id}, session={self.session_id[:8]}..., type={self.consent_type}, granted={self.granted})>"
 
-    def grant(self, ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> None:
+    def grant(self, ip_address: str | None = None, user_agent: str | None = None) -> None:
         """Grant consent.
 
         Args:
@@ -133,7 +132,7 @@ class Consent(Base):
             user_agent: Optional user agent for audit
         """
         self.granted = True
-        self.granted_at = datetime.now(timezone.utc)
+        self.granted_at = datetime.now(UTC)
         self.revoked_at = None
         if ip_address:
             self.ip_address = ip_address
@@ -143,7 +142,7 @@ class Consent(Base):
     def revoke(self) -> None:
         """Revoke consent."""
         self.granted = False
-        self.revoked_at = datetime.now(timezone.utc)
+        self.revoked_at = datetime.now(UTC)
 
     def is_valid(self) -> bool:
         """Check if consent is currently valid.
@@ -159,9 +158,9 @@ class Consent(Base):
         session_id: str,
         merchant_id: int,
         consent_type: str,
-        source_channel: Optional[str] = None,
-        visitor_id: Optional[str] = None,
-    ) -> "Consent":
+        source_channel: str | None = None,
+        visitor_id: str | None = None,
+    ) -> Consent:
         """Create a new consent record.
 
         Args:

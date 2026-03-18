@@ -12,7 +12,6 @@ import structlog
 
 from app.services.intent import ClassificationResult
 
-
 logger = structlog.get_logger(__name__)
 
 

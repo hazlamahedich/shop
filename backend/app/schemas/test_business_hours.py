@@ -7,10 +7,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.business_hours import (
-    DayHours,
+    DAYS_OF_WEEK,
     BusinessHoursRequest,
     BusinessHoursResponse,
-    DAYS_OF_WEEK,
+    DayHours,
 )
 
 

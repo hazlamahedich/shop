@@ -9,21 +9,19 @@ Provides endpoints for:
 
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
+from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.models.merchant import Merchant
 from app.schemas.business_hours import (
+    BusinessHoursEnvelope,
     BusinessHoursRequest,
     BusinessHoursResponse,
-    BusinessHoursEnvelope,
 )
-from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 from app.services.business_hours import get_formatted_hours
-
 
 logger = structlog.get_logger(__name__)
 

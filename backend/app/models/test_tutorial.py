@@ -3,15 +3,15 @@
 Tests ORM operations, state transitions, and merchant relationships.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from sqlalchemy import select, text
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.tutorial import Tutorial
 from app.models.merchant import Merchant
+from app.models.tutorial import Tutorial
 
 
 def create_tutorial(**kwargs) -> Tutorial:

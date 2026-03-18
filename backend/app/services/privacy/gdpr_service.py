@@ -12,10 +12,7 @@ Orchestrates GDPR/CCPA deletion workflow with 30-day compliance window:
 
 from __future__ import annotations
 
-import asyncio
-import json
-from datetime import datetime, timezone, timedelta
-from typing import TYPE_CHECKING, Optional, Tuple
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import delete, select, update
@@ -49,9 +46,9 @@ class GDPRDeletionService:
         customer_id: str,
         merchant_id: int,
         request_type: DeletionRequestType,
-        customer_email: Optional[str] = None,
-        session_id: Optional[str] = None,
-        visitor_id: Optional[str] = None,
+        customer_email: str | None = None,
+        session_id: str | None = None,
+        visitor_id: str | None = None,
     ) -> DeletionAuditLog:
         """Process GDPR/CCPA deletion request within 30-day window.
 
@@ -85,7 +82,7 @@ class GDPRDeletionService:
             )
 
         # Log the request with deadline
-        request_timestamp = datetime.now(timezone.utc)
+        request_timestamp = datetime.now(UTC)
         processing_deadline = request_timestamp + timedelta(days=30)
 
         audit_log = DeletionAuditLog(
@@ -139,7 +136,7 @@ class GDPRDeletionService:
         db: AsyncSession,
         customer_id: str,
         merchant_id: int,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """Delete voluntary data for GDPR request by customer_id.
 
         Args:
@@ -250,7 +247,7 @@ class GDPRDeletionService:
         result = await db.execute(
             update(DeletionAuditLog)
             .where(DeletionAuditLog.id == audit_log_id)
-            .values(completion_date=datetime.now(timezone.utc))
+            .values(completion_date=datetime.now(UTC))
             .returning(DeletionAuditLog)
         )
 

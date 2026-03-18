@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import pytest
-import httpx
-from httpx import ASGITransport
 
-from app.services.llm.ollama_service import OllamaService
 from app.services.llm.base_llm_service import LLMMessage
+from app.services.llm.ollama_service import OllamaService
 
 
 @pytest.mark.asyncio

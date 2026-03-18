@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
 
 from pydantic import Field
 
@@ -61,7 +60,7 @@ class StartDeploymentRequest(BaseSchema):
     """Request to start a new deployment."""
 
     platform: Platform = Field(description="Deployment platform to use")
-    config: Optional[dict[str, str]] = Field(
+    config: dict[str, str] | None = Field(
         default=None, description="Platform-specific configuration (e.g., API keys, tokens)"
     )
 
@@ -74,7 +73,7 @@ class DeploymentLogEntry(BaseSchema):
 
     timestamp: datetime = Field(description="Log entry timestamp")
     level: LogLevel = Field(description="Log level (info, warning, error)")
-    step: Optional[DeploymentStep] = Field(None, description="Deployment step for this log")
+    step: DeploymentStep | None = Field(None, description="Deployment step for this log")
     message: str = Field(description="Log message")
 
 
@@ -85,11 +84,11 @@ class DeploymentState(BaseSchema):
     merchant_key: str = Field(description="Unique merchant key")
     status: DeploymentStatus = Field(description="Current deployment status")
     platform: Platform = Field(description="Deployment platform")
-    current_step: Optional[DeploymentStep] = Field(None, description="Current deployment step")
+    current_step: DeploymentStep | None = Field(None, description="Current deployment step")
     progress: int = Field(default=0, ge=0, le=100, description="Progress percentage (0-100)")
     logs: list[DeploymentLogEntry] = Field(default_factory=list, description="Deployment logs")
-    error_message: Optional[str] = Field(None, description="Error message if deployment failed")
-    troubleshooting_url: Optional[str] = Field(
+    error_message: str | None = Field(None, description="Error message if deployment failed")
+    troubleshooting_url: str | None = Field(
         None, description="Troubleshooting URL if deployment failed"
     )
     created_at: datetime = Field(description="Deployment creation timestamp")

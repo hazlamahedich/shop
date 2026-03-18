@@ -6,26 +6,23 @@ in a sandbox environment before exposing it to real customers.
 
 from __future__ import annotations
 
-from typing import Annotated
-
+import structlog
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
+from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 from app.schemas.preview import (
-    PreviewMessageRequest,
-    PreviewSessionResponse,
-    PreviewResetResponse,
     PreviewMessageEnvelope,
-    PreviewSessionEnvelope,
+    PreviewMessageRequest,
     PreviewResetEnvelope,
+    PreviewResetResponse,
+    PreviewSessionEnvelope,
+    PreviewSessionResponse,
 )
 from app.services.preview.preview_service import PreviewService
-
 
 # Maximum age for preview sessions before cleanup (1 hour)
 PREVIEW_SESSION_MAX_AGE_SECONDS = 3600
@@ -321,8 +318,8 @@ async def search_preview_products(
     Returns:
         Dictionary with products list including images, prices, inventory
     """
-    from app.services.shopify.product_service import fetch_products
     from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify.product_service import fetch_products
 
     merchant_id = get_merchant_id(request)
     merchant = await verify_merchant_exists(merchant_id, db)
@@ -421,8 +418,8 @@ async def get_preview_product(
     Returns:
         Product details with image, price, inventory
     """
-    from app.services.shopify.product_service import fetch_products
     from app.models.shopify_integration import ShopifyIntegration
+    from app.services.shopify.product_service import fetch_products
 
     merchant_id = get_merchant_id(request)
     await verify_merchant_exists(merchant_id, db)

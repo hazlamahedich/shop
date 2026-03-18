@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -89,7 +89,7 @@ class TrackingFormatter:
     """
 
     @staticmethod
-    def detect_carrier(tracking_number: str) -> Optional[CarrierInfo]:
+    def detect_carrier(tracking_number: str) -> CarrierInfo | None:
         """Detect carrier from tracking number format.
 
         Args:
@@ -119,10 +119,10 @@ class TrackingFormatter:
     @staticmethod
     def format_tracking_message(
         order_number: str,
-        tracking_number: Optional[str],
-        tracking_url: Optional[str] = None,
+        tracking_number: str | None,
+        tracking_url: str | None = None,
         personality: PersonalityType = PersonalityType.FRIENDLY,
-        tracking_company: Optional[str] = None,
+        tracking_company: str | None = None,
     ) -> str:
         """Format the tracking portion of the shipping notification.
 
@@ -184,9 +184,9 @@ class TrackingFormatter:
     @staticmethod
     def get_tracking_link(
         tracking_number: str,
-        tracking_url: Optional[str] = None,
-        tracking_company: Optional[str] = None,
-    ) -> Optional[str]:
+        tracking_url: str | None = None,
+        tracking_company: str | None = None,
+    ) -> str | None:
         """Get the tracking URL for a tracking number.
 
         Priority order:
@@ -224,7 +224,7 @@ class TrackingFormatter:
     async def get_tracking_link_with_custom_carriers(
         db: AsyncSession,
         order: Order,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get tracking URL with support for merchant's custom carriers.
 
         Priority order:

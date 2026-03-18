@@ -10,12 +10,12 @@ Tests the handoff flow orchestrator that connects:
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 
-from app.schemas.handoff import HandoffReason, HandoffResult, UrgencyLevel
+from app.schemas.handoff import HandoffReason, HandoffResult
 
 
 class MockRedis:
@@ -143,8 +143,8 @@ class TestHandoffFlowService:
     @pytest.mark.asyncio
     async def test_creates_alert_on_handoff_keyword(self, monkeypatch):
         """Test that HandoffAlert is created when handoff is triggered."""
-        from app.services.handoff.handoff_flow_service import HandoffFlowService
         from app.core.config import settings
+        from app.services.handoff.handoff_flow_service import HandoffFlowService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -188,8 +188,8 @@ class TestHandoffFlowService:
     @pytest.mark.asyncio
     async def test_high_urgency_with_checkout_context(self, monkeypatch):
         """Test that checkout context results in HIGH urgency alert."""
-        from app.services.handoff.handoff_flow_service import HandoffFlowService
         from app.core.config import settings
+        from app.services.handoff.handoff_flow_service import HandoffFlowService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -239,8 +239,8 @@ class TestHandoffFlowService:
     @pytest.mark.asyncio
     async def test_medium_urgency_with_low_confidence(self, monkeypatch):
         """Test that low_confidence reason results in MEDIUM urgency."""
-        from app.services.handoff.handoff_flow_service import HandoffFlowService
         from app.core.config import settings
+        from app.services.handoff.handoff_flow_service import HandoffFlowService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")

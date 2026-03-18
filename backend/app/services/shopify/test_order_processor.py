@@ -12,25 +12,24 @@ Tests:
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.order import Order, OrderStatus
+from app.models.order import OrderStatus
+from app.services.shopify.dlq_retry_worker import (
+    BACKOFF_DELAYS,
+    MAX_RETRY_ATTEMPTS,
+    DLQRetryWorker,
+)
 from app.services.shopify.order_processor import (
     map_shopify_status_to_order_status,
     parse_shopify_order,
     resolve_customer_psid,
     upsert_order,
-)
-from app.services.shopify.dlq_retry_worker import (
-    DLQRetryWorker,
-    BACKOFF_DELAYS,
-    MAX_RETRY_ATTEMPTS,
 )
 
 
@@ -354,7 +353,7 @@ class TestUpsertOrder:
 
         mock_existing = MagicMock()
         mock_existing.shopify_order_id = order_data["shopify_order_id"]
-        mock_existing.shopify_updated_at = datetime(2026, 2, 17, 9, 0, 0, tzinfo=timezone.utc)
+        mock_existing.shopify_updated_at = datetime(2026, 2, 17, 9, 0, 0, tzinfo=UTC)
         mock_existing.status = OrderStatus.PROCESSING.value
         mock_existing.fulfillment_status = None
         mock_existing.tracking_number = None
@@ -392,7 +391,7 @@ class TestUpsertOrder:
 
         mock_existing = MagicMock()
         mock_existing.shopify_order_id = order_data["shopify_order_id"]
-        mock_existing.shopify_updated_at = datetime(2026, 2, 17, 9, 0, 0, tzinfo=timezone.utc)
+        mock_existing.shopify_updated_at = datetime(2026, 2, 17, 9, 0, 0, tzinfo=UTC)
         mock_existing.status = OrderStatus.PROCESSING.value
         mock_existing.fulfillment_status = None
         mock_existing.tracking_number = None
@@ -426,7 +425,7 @@ class TestUpsertOrder:
 
         mock_existing = MagicMock()
         mock_existing.shopify_order_id = order_data["shopify_order_id"]
-        mock_existing.shopify_updated_at = datetime(2026, 2, 17, 10, 0, 0, tzinfo=timezone.utc)
+        mock_existing.shopify_updated_at = datetime(2026, 2, 17, 10, 0, 0, tzinfo=UTC)
         mock_existing.status = OrderStatus.SHIPPED.value
         mock_existing.id = 1
 
@@ -474,7 +473,6 @@ class TestDLQRetryWorker:
     def test_should_retry_returns_true_for_old_entry(self) -> None:
         """Test should_retry returns True for DLQ entry older than backoff."""
         worker = DLQRetryWorker()
-        from datetime import timedelta
 
         old_timestamp = (datetime.utcnow() - timedelta(minutes=2)).isoformat()
         retry_data = {

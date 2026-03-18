@@ -7,6 +7,7 @@ across all schema classes following the Minimal Envelope pattern.
 from __future__ import annotations
 
 from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 

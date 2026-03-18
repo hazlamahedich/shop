@@ -9,31 +9,29 @@ Story 5.6: Merchant Widget Settings UI
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
-from app.schemas.base import MinimalEnvelope, MetaData
+from app.schemas.base import MetaData
 from app.schemas.widget import (
     WidgetConfig,
-    WidgetConfigResponse,
     WidgetConfigEnvelope,
+    WidgetConfigResponse,
     WidgetTheme,
 )
 from app.schemas.widget_settings import (
     WidgetConfigUpdateRequest,
-    PartialWidgetTheme,
 )
-
 
 logger = structlog.get_logger(__name__)
 
@@ -48,7 +46,7 @@ def _create_meta() -> MetaData:
     """
     return MetaData(
         request_id=str(uuid4()),
-        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     )
 
 

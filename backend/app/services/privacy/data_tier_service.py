@@ -11,7 +11,7 @@ Provides data classification based on retention requirements:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -183,7 +183,7 @@ class DataTierService:
         return cls.classify_data_tier(data_type)
 
     @classmethod
-    async def get_tier_summary(cls, db: "AsyncSession", merchant_id: int) -> dict:
+    async def get_tier_summary(cls, db: AsyncSession, merchant_id: int) -> dict:
         """Get tier distribution summary for a merchant.
 
         Args:
@@ -214,8 +214,8 @@ class DataTierService:
     @classmethod
     async def update_tier(
         cls,
-        db: "AsyncSession",
-        model_class: type["DeclarativeBase"],
+        db: AsyncSession,
+        model_class: type[DeclarativeBase],
         record_id: int,
         new_tier: DataTier,
     ) -> None:
@@ -259,7 +259,7 @@ class DataTierService:
     @classmethod
     async def apply_retention_policy(
         cls,
-        db: "AsyncSession",
+        db: AsyncSession,
         tier: DataTier,
         days: int | None = None,
     ) -> int:
@@ -292,7 +292,7 @@ class DataTierService:
 
         # VOLUNTARY tier: Apply retention policy
         retention_days = days if days is not None else 30
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
 
         from app.models.conversation import Conversation
         from app.models.message import Message

@@ -6,13 +6,9 @@ for filter parameters and export limits.
 
 from __future__ import annotations
 
-from typing import Optional, List
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from pydantic.alias_generators import to_camel
+from pydantic import Field, field_validator
 
 from app.schemas.base import BaseSchema
-
 
 # Valid status and sentiment enum values (reused from conversation schema)
 VALID_STATUS_VALUES = ["active", "handoff", "closed"]
@@ -34,32 +30,32 @@ class ConversationExportRequest(BaseSchema):
         has_handoff: Filter by handoff presence (True=has, False=doesn't have)
     """
 
-    date_from: Optional[str] = Field(
+    date_from: str | None = Field(
         None,
         description="Start date filter (ISO 8601 format, e.g., 2026-02-01)",
         examples=["2026-02-01"],
     )
-    date_to: Optional[str] = Field(
+    date_to: str | None = Field(
         None,
         description="End date filter (ISO 8601 format, e.g., 2026-02-28)",
         examples=["2026-02-28"],
     )
-    search: Optional[str] = Field(
+    search: str | None = Field(
         None,
         description="Search term for customer ID or bot message content",
         examples=["running shoes"],
     )
-    status: Optional[List[str]] = Field(
+    status: list[str] | None = Field(
         None,
         description=f"Filter by status. Valid values: {', '.join(VALID_STATUS_VALUES)}",
         examples=[["active", "handoff"]],
     )
-    sentiment: Optional[List[str]] = Field(
+    sentiment: list[str] | None = Field(
         None,
         description=f"Filter by sentiment. Valid values: {', '.join(VALID_SENTIMENT_VALUES)}",
         examples=[["positive", "neutral"]],
     )
-    has_handoff: Optional[bool] = Field(
+    has_handoff: bool | None = Field(
         None,
         description="Filter by handoff presence. True=has handoff, False=no handoff",
         examples=[True, False],
@@ -67,7 +63,7 @@ class ConversationExportRequest(BaseSchema):
 
     @field_validator("date_from", "date_to")
     @classmethod
-    def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
+    def validate_date_format(cls, v: str | None) -> str | None:
         """Validate ISO 8601 date format.
 
         Args:
@@ -93,7 +89,7 @@ class ConversationExportRequest(BaseSchema):
 
     @field_validator("status")
     @classmethod
-    def validate_status_values(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_status_values(cls, v: list[str] | None) -> list[str] | None:
         """Validate status enum values.
 
         Args:
@@ -117,7 +113,7 @@ class ConversationExportRequest(BaseSchema):
 
     @field_validator("sentiment")
     @classmethod
-    def validate_sentiment_values(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_sentiment_values(cls, v: list[str] | None) -> list[str] | None:
         """Validate sentiment enum values.
 
         Args:

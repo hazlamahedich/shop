@@ -9,14 +9,12 @@ Story 5-2: Widget Session Management
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
-
 
 logger = structlog.get_logger(__name__)
 
@@ -41,7 +39,7 @@ class WidgetCleanupService:
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
     ) -> None:
         """Initialize cleanup service.
 
@@ -69,7 +67,7 @@ class WidgetCleanupService:
             - cleaned: Number of sessions successfully cleaned
             - errors: Number of cleanup errors
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stats = {
             "scanned": 0,
             "expired": 0,
@@ -139,7 +137,7 @@ class WidgetCleanupService:
                 error_type=type(e).__name__,
             )
 
-        stats["finished_at"] = datetime.now(timezone.utc).isoformat()
+        stats["finished_at"] = datetime.now(UTC).isoformat()
 
         self.logger.info(
             "widget_cleanup_completed",

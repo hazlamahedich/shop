@@ -6,8 +6,6 @@ Story 5.6: Merchant Widget Settings UI
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import Field
 
 from app.schemas.base import BaseSchema
@@ -21,12 +19,12 @@ class PartialWidgetTheme(BaseSchema):
     - position: Widget position on page
     """
 
-    primary_color: Optional[str] = Field(
+    primary_color: str | None = Field(
         None,
         pattern=r"^#[0-9a-fA-F]{6}$",
         description="Primary brand color in hex format (#RRGGBB)",
     )
-    position: Optional[str] = Field(
+    position: str | None = Field(
         None,
         pattern=r"^(bottom-right|bottom-left)$",
         description="Widget position on page",
@@ -40,21 +38,21 @@ class WidgetConfigUpdateRequest(BaseSchema):
     This allows granular updates without sending full config.
     """
 
-    enabled: Optional[bool] = Field(
+    enabled: bool | None = Field(
         None,
         description="Whether widget is enabled",
     )
-    bot_name: Optional[str] = Field(
+    bot_name: str | None = Field(
         None,
         max_length=50,
         description="Display name for the bot (max 50 chars)",
     )
-    welcome_message: Optional[str] = Field(
+    welcome_message: str | None = Field(
         None,
         max_length=500,
         description="Initial greeting message (max 500 chars)",
     )
-    theme: Optional[PartialWidgetTheme] = Field(
+    theme: PartialWidgetTheme | None = Field(
         None,
         description="Partial theme update",
     )

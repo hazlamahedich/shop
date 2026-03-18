@@ -9,7 +9,6 @@ CSRF enforcement is tested separately in test_csrf.py.
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ErrorCode
 from app.models.merchant import Merchant

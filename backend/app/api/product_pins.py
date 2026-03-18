@@ -11,27 +11,23 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Request, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.models.product_pin import ProductPin
 from app.schemas.product_pins import (
+    PaginationMeta,
+    ProductListResponse,
+    ProductPinDetailEnvelope,
+    ProductPinEnvelope,
+    ProductPinItem,
     ProductPinRequest,
     ProductPinResponse,
-    ProductPinDetailEnvelope,
-    ProductListResponse,
-    ProductPinEnvelope,
     ReorderPinsRequest,
-    ProductPinItem,
-    PaginationMeta,
 )
-from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
-
 
 logger = structlog.get_logger(__name__)
 
@@ -84,8 +80,8 @@ async def get_product_pins(
     # Get products merged from Shopify and pin status
     # Now includes ALL products (pinned + unpinned) from mock Shopify data
     from app.services.product_pin_service import (
-        get_pinned_products,
         check_pin_limit,
+        get_pinned_products,
     )
 
     # Fetch all products with pin status (now returns list of dicts)
@@ -352,4 +348,3 @@ async def reorder_pinned_products(
 
 
 # Import PaginationMeta from schemas
-from app.schemas.product_pins import PaginationMeta

@@ -20,11 +20,10 @@ AC 6: Database
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, DateTime, Boolean, Index, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, DateTime, Index, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
@@ -105,7 +104,7 @@ class Session(Base):
         self.revoked = True
 
     @classmethod
-    def create(cls, merchant_id: int, token_hash: str, hours: int = 24) -> "Session":
+    def create(cls, merchant_id: int, token_hash: str, hours: int = 24) -> Session:
         """Create a new session.
 
         Args:

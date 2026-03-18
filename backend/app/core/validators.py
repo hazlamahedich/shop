@@ -7,8 +7,6 @@ AC3: Session ID Validation
 from __future__ import annotations
 
 import re
-from typing import Optional
-
 
 UUID_V4_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -16,7 +14,7 @@ UUID_V4_PATTERN = re.compile(
 )
 
 
-def is_valid_session_id(session_id: Optional[str]) -> bool:
+def is_valid_session_id(session_id: str | None) -> bool:
     """Validate session_id is a properly formatted UUID v4.
 
     Performs format validation only - does not check if session exists.

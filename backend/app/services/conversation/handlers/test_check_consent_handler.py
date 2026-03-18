@@ -4,12 +4,12 @@ Story 6-1: Opt-In Consent Flow
 Check consent status intent handler tests.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from app.models.merchant import Merchant, PersonalityType
-from app.schemas.consent import ConsentStatus
 from app.services.conversation.handlers.check_consent_handler import (
     CheckConsentHandler,
 )
@@ -103,7 +103,7 @@ class TestCheckConsentHandler:
         mock_consent = MagicMock()
         mock_consent.granted = True
         mock_consent.revoked_at = None
-        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         mock_consent_service = MagicMock()
         mock_consent_service.get_consent_for_consent = AsyncMock(return_value=mock_consent)
         with patch(
@@ -135,7 +135,7 @@ class TestCheckConsentHandler:
         mock_consent = MagicMock()
         mock_consent.granted = True
         mock_consent.revoked_at = None
-        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         mock_consent_service = MagicMock()
         mock_consent_service.get_consent_for_consent = AsyncMock(return_value=mock_consent)
         with patch(
@@ -165,7 +165,7 @@ class TestCheckConsentHandler:
         """Test that handler returns opted-out status message."""
         mock_consent = MagicMock()
         mock_consent.granted = False
-        mock_consent.revoked_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        mock_consent.revoked_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         mock_consent.granted_at = None
         mock_consent_service = MagicMock()
         mock_consent_service.get_consent_for_consent = AsyncMock(return_value=mock_consent)
@@ -224,7 +224,7 @@ class TestCheckConsentHandler:
         mock_consent = MagicMock()
         mock_consent.granted = True
         mock_consent.revoked_at = None
-        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         mock_consent_service = MagicMock()
         mock_consent_service.get_consent_for_consent = AsyncMock(return_value=mock_consent)
         with patch(
@@ -285,7 +285,7 @@ class TestCheckConsentHandler:
         mock_consent = MagicMock()
         mock_consent.granted = True
         mock_consent.revoked_at = None
-        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=timezone.utc)
+        mock_consent.granted_at = datetime(2026, 3, 4, 12, 30, 0, tzinfo=UTC)
         mock_consent_service = MagicMock()
         mock_consent_service.get_consent_for_consent = AsyncMock(return_value=mock_consent)
         with patch(

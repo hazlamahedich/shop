@@ -6,9 +6,8 @@ Stores merchant's Shopify store connection details including encrypted access to
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,7 +41,7 @@ class ShopifyIntegration(Base):
         String(255),
         nullable=False,
     )
-    storefront_token_encrypted: Mapped[Optional[str]] = mapped_column(
+    storefront_token_encrypted: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
@@ -77,15 +76,15 @@ class ShopifyIntegration(Base):
         Boolean,
         default=False,
     )
-    webhook_topic_subscriptions: Mapped[Optional[list]] = mapped_column(
+    webhook_topic_subscriptions: Mapped[list | None] = mapped_column(
         JSONB,
         nullable=True,
     )
-    last_webhook_at: Mapped[Optional[datetime]] = mapped_column(
+    last_webhook_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    last_webhook_verified_at: Mapped[Optional[datetime]] = mapped_column(
+    last_webhook_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )

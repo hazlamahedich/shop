@@ -14,11 +14,11 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Annotated, Any, Literal
+from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -29,7 +29,6 @@ from app.core.errors import APIError, ErrorCode
 from app.models.handoff_alert import HandoffAlert
 from app.models.order import Order
 from app.schemas.base import BaseSchema
-from app.schemas.handoff import UrgencyLevel
 
 router = APIRouter()
 
@@ -187,8 +186,8 @@ async def _alert_to_response(
         if alert.conversation.handoff_triggered_at:
             triggered_at = alert.conversation.handoff_triggered_at
             if triggered_at.tzinfo is None:
-                triggered_at = triggered_at.replace(tzinfo=timezone.utc)
-            elapsed = datetime.now(timezone.utc) - triggered_at
+                triggered_at = triggered_at.replace(tzinfo=UTC)
+            elapsed = datetime.now(UTC) - triggered_at
             wait_time_seconds = int(elapsed.total_seconds())
 
     customer_ltv = 0.0

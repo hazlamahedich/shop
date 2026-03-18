@@ -10,30 +10,29 @@ Story 2-7: Persistent Cart Sessions
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
+
+import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from datetime import datetime
-from typing import Optional
 
-import structlog
-
+from app.background_jobs.gdpr_compliance_check import add_gdpr_job_to_scheduler
+from app.background_jobs.gdpr_email_sender import add_email_job_to_scheduler
 from app.core.database import async_session
+from app.services.cart.cart_retention import run_cart_retention_cleanup
 from app.services.data_retention import (
     DataRetentionService,
 )  # DEPRECATED: Story 6-5 - Use RetentionPolicy instead
 from app.services.privacy.retention_service import RetentionPolicy
-from app.services.cart.cart_retention import run_cart_retention_cleanup
 from app.tasks.handoff_followup_task import process_handoff_followups
-from app.tasks.queued_notification_task import process_queued_notifications
 from app.tasks.handoff_resolution_task import process_handoff_resolutions
-from app.background_jobs.gdpr_compliance_check import add_gdpr_job_to_scheduler
-from app.background_jobs.gdpr_email_sender import add_email_job_to_scheduler
+from app.tasks.queued_notification_task import process_queued_notifications
 
 logger = structlog.get_logger(__name__)
 
 # Global scheduler instance
-scheduler: Optional[AsyncIOScheduler] = None
+scheduler: AsyncIOScheduler | None = None
 
 # Retention service instance (DEPRECATED: Story 6-5 - Retained for session cleanup)
 retention_service = DataRetentionService()

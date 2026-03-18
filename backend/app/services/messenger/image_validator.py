@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import io
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -19,8 +19,6 @@ import structlog
 from PIL import Image
 
 from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
-
 
 logger = structlog.get_logger(__name__)
 
@@ -109,7 +107,7 @@ class ImageValidator:
     async def get_image_info(
         self,
         image_url: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get image information without downloading full file.
 
         Args:
@@ -176,9 +174,9 @@ class ImageValidator:
 
     def validate_image_dimensions(
         self,
-        width: Optional[int],
-        height: Optional[int],
-    ) -> Tuple[bool, Optional[str]]:
+        width: int | None,
+        height: int | None,
+    ) -> tuple[bool, str | None]:
         """Validate image dimensions meet requirements.
 
         Args:
@@ -219,8 +217,8 @@ class ImageValidator:
 
     def validate_file_size(
         self,
-        size_bytes: Optional[int],
-    ) -> Tuple[bool, Optional[str]]:
+        size_bytes: int | None,
+    ) -> tuple[bool, str | None]:
         """Validate image file size meets requirements.
 
         Args:
@@ -287,8 +285,8 @@ class ImageValidator:
     def generate_alt_text(
         self,
         product_title: str,
-        product_type: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        product_type: str | None = None,
+        tags: list[str] | None = None,
     ) -> str:
         """Generate alt text for product image.
 
@@ -333,7 +331,7 @@ class ImageValidator:
     def get_image_format(
         self,
         url: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Extract image format from URL.
 
         Args:

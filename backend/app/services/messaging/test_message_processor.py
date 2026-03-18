@@ -5,8 +5,9 @@ Unit tests for end-to-end message processing and routing logic.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.schemas.messaging import FacebookWebhookPayload, MessengerResponse
 from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
@@ -81,7 +82,13 @@ async def test_process_message_product_search(mock_session_service):
                  patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
 
                 # Mock search result
-                from app.schemas.shopify import ProductSearchResult, Product, ProductVariant, ProductImage, CurrencyCode
+                from app.schemas.shopify import (
+                    CurrencyCode,
+                    Product,
+                    ProductImage,
+                    ProductSearchResult,
+                    ProductVariant,
+                )
                 mock_search_result = ProductSearchResult(
                     products=[
                         Product(

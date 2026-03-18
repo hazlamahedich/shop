@@ -6,17 +6,16 @@ Automatically switches to backup if primary fails.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import structlog
 
+from app.core.errors import APIError, ErrorCode
 from app.services.llm.base_llm_service import (
-    BaseLLMService,
     LLMMessage,
     LLMResponse,
 )
 from app.services.llm.llm_factory import LLMProviderFactory
-from app.core.errors import APIError, ErrorCode
-
 
 logger = structlog.get_logger(__name__)
 
@@ -28,7 +27,7 @@ class LLMRouter:
     Automatically switches to backup if primary fails.
     """
 
-    def __init__(self, config: Dict[str, Any], is_testing: bool = False) -> None:
+    def __init__(self, config: dict[str, Any], is_testing: bool = False) -> None:
         """Initialize LLM router with configuration.
 
         Args:
@@ -60,8 +59,8 @@ class LLMRouter:
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        model: Optional[str] = None,
+        messages: list[LLMMessage],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
         use_backup: bool = False,
@@ -147,7 +146,7 @@ class LLMRouter:
                     f"LLM provider failed: {str(e)}",
                 )
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Perform health check on all configured providers.
 
         Returns:

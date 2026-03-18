@@ -5,15 +5,13 @@ Provides request/response schemas for greeting config GET/PUT endpoints.
 
 from __future__ import annotations
 
-from typing import Optional
-
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 from app.models.merchant import PersonalityType
 from app.schemas.base import MetaData
 
 
-def serialize_personality(v: Optional[PersonalityType]) -> Optional[str]:
+def serialize_personality(v: PersonalityType | None) -> str | None:
     """Serialize PersonalityType enum to string value."""
     if v is None:
         return None
@@ -30,7 +28,7 @@ class GreetingConfigUpdate(BaseModel):
         greeting_template: Optional custom greeting message
         use_custom_greeting: Boolean flag to enable custom greeting
     """
-    greeting_template: Optional[str] = Field(
+    greeting_template: str | None = Field(
         default=None,
         max_length=500,
         description="Custom greeting message (max 500 characters)",
@@ -51,20 +49,20 @@ class GreetingConfigResponse(BaseModel):
         default_template: Default greeting template for personality type
         available_variables: List of available placeholder variables
     """
-    greeting_template: Optional[str] = Field(
+    greeting_template: str | None = Field(
         default=None,
         description="Current greeting template",
     )
-    use_custom_greeting: Optional[bool] = Field(
+    use_custom_greeting: bool | None = Field(
         default=False,
         description="Whether custom greeting is enabled",
     )
-    personality: Optional[PersonalityType] = Field(
+    personality: PersonalityType | None = Field(
         default=None,
         description="Current personality type",
         serializer=serialize_personality,
     )
-    default_template: Optional[str] = Field(
+    default_template: str | None = Field(
         default=None,
         description="Default greeting template for personality type",
     )

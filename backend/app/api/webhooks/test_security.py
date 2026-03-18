@@ -11,16 +11,16 @@ Tests cover:
 
 from __future__ import annotations
 
-import pytest
-import hmac
-import hashlib
 import base64
+import hashlib
+import hmac
 import time
-from unittest.mock import Mock, patch, MagicMock
+
+import pytest
 
 from app.core.security import (
-    verify_webhook_signature,
     verify_shopify_webhook_hmac,
+    verify_webhook_signature,
 )
 
 
@@ -182,7 +182,7 @@ class TestFacebookWebhookSignatureVerification:
     def test_unicode_payload_verification(self):
         """Test signature verification with unicode payload."""
         app_secret = "test_app_secret"
-        payload = '{"message": "Hello 世界"}'.encode('utf-8')
+        payload = '{"message": "Hello 世界"}'.encode()
 
         signature = hmac.new(
             app_secret.encode(),
@@ -313,7 +313,7 @@ class TestShopifyWebhookHMACVerification:
     def test_unicode_payload_for_shopify(self):
         """Test Shopify HMAC verification with unicode payload."""
         api_secret = "test_api_secret"
-        payload = '{"order": "测试订单"}'.encode('utf-8')
+        payload = '{"order": "测试订单"}'.encode()
 
         hmac_digest = hmac.new(
             api_secret.encode(),

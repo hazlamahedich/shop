@@ -8,11 +8,10 @@ Pinned products get 2x relevance boost in recommendations.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -64,13 +63,13 @@ class ProductPin(Base):
         String(255),
         nullable=False,
     )
-    product_image_url: Mapped[Optional[str]] = mapped_column(
+    product_image_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
     pinned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
     pinned_order: Mapped[int] = mapped_column(
@@ -80,7 +79,7 @@ class ProductPin(Base):
     )
 
     # Relationships
-    merchant: Mapped["Merchant"] = relationship(
+    merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="product_pins",
     )

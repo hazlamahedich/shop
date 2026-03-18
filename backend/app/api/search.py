@@ -5,26 +5,25 @@ Provides unified search across conversations, FAQs, and other entities.
 
 from __future__ import annotations
 
-import structlog
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import or_, select, func
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.helpers import create_meta, get_merchant_id
 from app.core.database import get_db
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.faq import Faq
+from app.models.message import Message
 from app.schemas.search import (
     ConversationSearchResult,
     FaqSearchResult,
-    GlobalSearchResults,
     GlobalSearchResponse,
+    GlobalSearchResults,
 )
-from app.api.helpers import create_meta, get_merchant_id
-
 
 logger = structlog.get_logger(__name__)
 

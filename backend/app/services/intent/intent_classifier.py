@@ -8,16 +8,12 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
 from app.core.config import settings
-from app.core.errors import APIError, ErrorCode
 from app.core.input_sanitizer import sanitize_llm_input
-from app.services.llm.base_llm_service import BaseLLMService, LLMMessage, LLMResponse
-from app.services.llm.llm_factory import LLMProviderFactory
-from app.services.llm.llm_router import LLMRouter
 from app.services.intent.classification_schema import (
     ClassificationResult,
     ExtractedEntities,
@@ -25,10 +21,10 @@ from app.services.intent.classification_schema import (
 )
 from app.services.intent.prompt_templates import (
     get_classification_system_prompt,
-    get_context_aware_classification_prompt,
-    format_shopping_context,
 )
-
+from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
+from app.services.llm.llm_factory import LLMProviderFactory
+from app.services.llm.llm_router import LLMRouter
 
 logger = structlog.get_logger(__name__)
 
@@ -47,8 +43,8 @@ class IntentClassifier:
 
     def __init__(
         self,
-        llm_router: Optional[LLMRouter] = None,
-        llm_service: Optional[BaseLLMService] = None,
+        llm_router: LLMRouter | None = None,
+        llm_service: BaseLLMService | None = None,
     ) -> None:
         """Initialize intent classifier with LLM support.
 
@@ -83,7 +79,7 @@ class IntentClassifier:
             self.llm_router = LLMRouter(config)
 
     @classmethod
-    def with_external_llm(cls, llm_service: BaseLLMService) -> "IntentClassifier":
+    def with_external_llm(cls, llm_service: BaseLLMService) -> IntentClassifier:
         """Create classifier with an external LLM service.
 
         Story 5-10 Code Review Fix (C2):
@@ -105,8 +101,8 @@ class IntentClassifier:
     def for_merchant(
         cls,
         merchant: Any,
-        db: Optional[Any] = None,
-    ) -> "IntentClassifier":
+        db: Any | None = None,
+    ) -> IntentClassifier:
         """Create classifier with merchant's LLM configuration.
 
         Factory method that creates an IntentClassifier configured
@@ -154,7 +150,7 @@ class IntentClassifier:
     async def classify(
         self,
         message: str,
-        conversation_context: Optional[dict[str, Any]] = None,
+        conversation_context: dict[str, Any] | None = None,
     ) -> ClassificationResult:
         """Classify user message and extract entities.
 

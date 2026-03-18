@@ -22,10 +22,10 @@ mock_aiosmtplib.send = AsyncMock(return_value=None)
 sys.modules["aiosmtplib"] = mock_aiosmtplib
 
 from app.services.notification.handoff_email_provider import (
+    EMAIL_RATE_TTL,
+    HANDOFF_EMAIL_RATE_KEY,
     HandoffEmailProvider,
     NotificationError,
-    HANDOFF_EMAIL_RATE_KEY,
-    EMAIL_RATE_TTL,
 )
 
 

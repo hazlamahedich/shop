@@ -3,11 +3,83 @@
  *
  * Story 4-13: Geographic Analytics
  * Story 6-4: Anonymized Analytics Summary (Tier-Aware)
+ * Story 9-10: Widget Analytics
  *
  * Handles API calls for analytics endpoints populated by Shopify webhooks.
  */
 
 import { apiClient } from './api';
+
+// ────────────────────────────────────────────────────────────────
+// Widget Analytics (Story 9-10)
+// ────────────────────────────────────────────────────────────────
+
+export type WidgetEventType =
+  | 'widget_open'
+  | 'message_send'
+  | 'quick_reply_click'
+  | 'voice_input'
+  | 'proactive_trigger'
+  | 'carousel_engagement';
+
+export interface WidgetAnalyticsEventPayload {
+  type: WidgetEventType;
+  timestamp: string;
+  sessionId: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WidgetAnalyticsEventsRequest {
+  merchantId: number;
+  events: WidgetAnalyticsEventPayload[];
+}
+
+export interface WidgetAnalyticsEventsResponse {
+  accepted: number;
+}
+
+export interface WidgetAnalyticsMetrics {
+  merchantId: number;
+  period: {
+    start: string;
+    end: string;
+    days: number;
+  };
+  metrics: {
+    openRate: number;
+    messageRate: number;
+    quickReplyRate: number;
+    voiceInputRate: number;
+    proactiveConversionRate: number;
+    carouselEngagementRate: number;
+  };
+  trends: {
+    openRateChange: number;
+    messageRateChange: number;
+  };
+  performance: {
+    avgLoadTimeMs: number;
+    p95LoadTimeMs: number;
+    bundleSizeKb: number;
+  };
+}
+
+/**
+ * Flush widget analytics events to the backend.
+ * Used by the widget analytics utility for batch sending.
+ *
+ * @param payload Events payload with merchantId and events array
+ * @returns Number of accepted events
+ */
+export async function flushWidgetAnalyticsEvents(
+  payload: WidgetAnalyticsEventsRequest
+): Promise<WidgetAnalyticsEventsResponse> {
+  const response = await apiClient.post<WidgetAnalyticsEventsResponse>(
+    '/api/v1/analytics/widget/events',
+    payload as unknown as Record<string, unknown>
+  );
+  return response as unknown as WidgetAnalyticsEventsResponse;
+}
 
 // ────────────────────────────────────────────────────────────────
 // Geographic Analytics
@@ -56,7 +128,6 @@ export interface ConversationStats {
     total: number;
     avgMessagesPerConversation: number;
   };
-  // Additional fields the backend may return
   [key: string]: unknown;
 }
 
@@ -65,7 +136,6 @@ export interface OrderStats {
   totalRevenue: number;
   byStatus: Record<string, number>;
   avgOrderValue: number | null;
-  // MoM comparison fields
   previousPeriod?: {
     total: number;
     totalRevenue: number;
@@ -75,7 +145,6 @@ export interface OrderStats {
     ordersChangePercent: number | null;
     conversationsChangePercent: number | null;
   };
-  // Additional fields the backend may return
   [key: string]: unknown;
 }
 
@@ -155,8 +224,6 @@ export const analyticsService = {
   /**
    * Get sales breakdown by country, city, and province.
    * Data is populated by Shopify order webhooks.
-   *
-   * @returns GeographicAnalyticsResponse
    */
   async getGeographic(): Promise<GeographicAnalyticsResponse> {
     const response = await apiClient.get<GeographicAnalyticsResponse>(
@@ -168,8 +235,6 @@ export const analyticsService = {
   /**
    * Get anonymized analytics summary with order stats and conversation stats.
    * All data is tier=ANONYMIZED with no PII. 30-day window.
-   *
-   * @returns AnonymizedSummaryResponse
    */
   async getSummary(): Promise<AnonymizedSummaryResponse> {
     const response = await apiClient.get<AnonymizedSummaryResponse>(
@@ -180,10 +245,6 @@ export const analyticsService = {
 
   /**
    * Get top products sold in the last N days.
-   *
-   * @param days Number of days to include (default 30)
-   * @param limit Number of top products to return (default 5)
-   * @returns TopProductsResponse
    */
   async getTopProducts(days = 30, limit = 5): Promise<TopProductsResponse> {
     const response = await apiClient.get<TopProductsResponse>(
@@ -194,10 +255,6 @@ export const analyticsService = {
 
   /**
    * Get pending orders including unfulfilled orders and estimated delivery dates.
-   *
-   * @param limit Number of pending orders to return (default 10)
-   * @param offset Offset for pagination (default 0)
-   * @returns PendingOrdersResponse
    */
   async getPendingOrders(limit = 10, offset = 0): Promise<PendingOrdersResponse> {
     const response = await apiClient.get<PendingOrdersResponse>(
@@ -246,5 +303,48 @@ export const analyticsService = {
       `/api/v1/analytics/sentiment-trend?days=${days}`
     );
     return response as unknown;
+  },
+
+  // ────────────────────────────────────────────────────────────────
+  // Widget Analytics (Story 9-10)
+  // ────────────────────────────────────────────────────────────────
+
+  /**
+   * Send batched widget analytics events to the backend.
+   */
+  async sendWidgetEvents(
+    payload: WidgetAnalyticsEventsRequest
+  ): Promise<WidgetAnalyticsEventsResponse> {
+    return flushWidgetAnalyticsEvents(payload);
+  },
+
+  /**
+   * Get widget analytics metrics for the dashboard.
+   */
+  async getWidgetMetrics(days = 30): Promise<WidgetAnalyticsMetrics> {
+    const response = await apiClient.get<WidgetAnalyticsMetrics>(
+      `/api/v1/analytics/widget?days=${days}`
+    );
+    return response as unknown as WidgetAnalyticsMetrics;
+  },
+
+  /**
+   * Export widget analytics as CSV.
+   */
+  async exportWidgetAnalytics(
+    startDate: string,
+    endDate: string,
+    merchantId: number
+  ): Promise<Blob> {
+    const response = await fetch(
+      `/api/v1/analytics/widget/export?merchant_id=${merchantId}&start_date=${startDate}&end_date=${endDate}`,
+      {
+        credentials: 'include',
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.status}`);
+    }
+    return response.blob();
   },
 };

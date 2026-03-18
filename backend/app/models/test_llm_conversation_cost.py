@@ -5,14 +5,14 @@ Tests cost tracking, token counting, and merchant relationship.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime
+
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.merchant import Merchant
-from app.core.database import async_session
 
 
 @pytest.mark.asyncio

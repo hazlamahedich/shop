@@ -16,17 +16,16 @@ NFR-S8: CSRF tokens for state-changing operations
 
 from __future__ import annotations
 
-from typing import Callable, Awaitable
-from fastapi import Request, Response, HTTPException, status
+import os
+from collections.abc import Awaitable, Callable
+
+from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.config import settings
 from app.core.csrf import (
     CSRFProtection,
-    get_csrf_protection,
-    CSRFTokenError,
 )
-from app.core.config import settings
-import os
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):

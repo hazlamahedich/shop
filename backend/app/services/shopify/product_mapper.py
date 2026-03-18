@@ -6,7 +6,7 @@ logic for budget, size, and availability constraints.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from app.schemas.shopify import CurrencyCode, Product, ProductImage, ProductVariant
 from app.services.intent.classification_schema import ExtractedEntities
@@ -21,7 +21,7 @@ class ProductMapper:
     - Map extracted entities to search parameters
     """
 
-    def map_category(self, category: Optional[str]) -> Optional[str]:
+    def map_category(self, category: str | None) -> str | None:
         """Map category to Shopify product type/tag format.
 
         Args:
@@ -81,7 +81,7 @@ class ProductMapper:
 
                 products.append(product)
 
-            except (ValueError, KeyError) as e:
+            except (ValueError, KeyError):
                 # Skip malformed products but continue processing
                 # Note: In production, log this error
                 continue
@@ -160,7 +160,7 @@ class ProductMapper:
     def filter_by_budget(
         self,
         products: list[Product],
-        budget: Optional[float],
+        budget: float | None,
     ) -> list[Product]:
         """Filter products by budget constraint.
 
@@ -179,7 +179,7 @@ class ProductMapper:
     def filter_by_size(
         self,
         products: list[Product],
-        size: Optional[str],
+        size: str | None,
     ) -> list[Product]:
         """Filter products by size variant.
 

@@ -10,21 +10,20 @@ Story 5-12: Bot Personality Consistency
 Task 2.5: Update HandoffHandler to use PersonalityAwareResponseFormatter
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
+from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-
 
 logger = structlog.get_logger(__name__)
 
@@ -45,7 +44,7 @@ class HandoffHandler(BaseHandler):
         llm_service: BaseLLMService,
         message: str,
         context: ConversationContext,
-        entities: Optional[dict[str, Any]] = None,
+        entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
         """Handle human handoff request.
 
@@ -154,8 +153,9 @@ class HandoffHandler(BaseHandler):
             The conversation object if successful, None otherwise.
         """
         try:
-            from app.models.conversation import Conversation
             from datetime import datetime
+
+            from app.models.conversation import Conversation
 
             result = await db.execute(
                 select(Conversation).where(

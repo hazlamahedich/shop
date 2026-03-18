@@ -286,7 +286,7 @@ class Order(Base):
         "Merchant",
         back_populates="orders",
     )
-    disputes: Mapped[list["Dispute"]] = relationship(
+    disputes: Mapped[list[Dispute]] = relationship(
         "Dispute",
         back_populates="order",
         cascade="all, delete-orphan",

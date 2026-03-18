@@ -10,21 +10,17 @@ Only accessible when DEBUG=True or with X-Test-Mode header.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr
-
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.config import settings
 from app.core.auth import hash_password
+from app.core.config import settings
+from app.core.database import get_db
 from app.core.rate_limiter import RateLimiter
 from app.models.merchant import Merchant
 from app.models.session import Session
-
 
 router = APIRouter(tags=["test"])
 
@@ -40,7 +36,7 @@ class CreateMerchantResponse(BaseModel):
     """Response from merchant creation."""
 
     success: bool
-    merchant_id: Optional[int] = None
+    merchant_id: int | None = None
     message: str
 
 
@@ -183,7 +179,7 @@ async def reset_rate_limits(
 )
 async def clear_test_sessions(
     request: Request,
-    email: Optional[str] = None,
+    email: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """Clear test sessions for a merchant or all merchants.

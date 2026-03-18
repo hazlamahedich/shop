@@ -9,7 +9,7 @@ Tests Story 2-7: Persistent Cart Sessions
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -75,7 +75,7 @@ class TestCartRetentionService:
     async def test_get_cart_age_days(self, retention_service, mock_redis):
         """Test getting cart age in days."""
         psid = "test_psid_123"
-        created_at = datetime.now(timezone.utc) - timedelta(days=15)
+        created_at = datetime.now(UTC) - timedelta(days=15)
 
         timestamp_data = json.dumps({
             "psid": psid,
@@ -112,8 +112,8 @@ class TestCartRetentionService:
     async def test_cleanup_expired_extended_carts(self, retention_service, mock_redis):
         """Test cleanup of expired extended carts."""
         # Setup mock data
-        old_cart_time = datetime.now(timezone.utc) - timedelta(days=35)
-        recent_cart_time = datetime.now(timezone.utc) - timedelta(days=15)
+        old_cart_time = datetime.now(UTC) - timedelta(days=35)
+        recent_cart_time = datetime.now(UTC) - timedelta(days=15)
 
         old_timestamp = json.dumps({
             "psid": "old_psid",
@@ -132,8 +132,8 @@ class TestCartRetentionService:
             if cursor == "0":
                 # First call: return keys and new cursor (0 means done)
                 return 0, [
-                    f"cart_extended_timestamp:old_psid",
-                    f"cart_extended_timestamp:recent_psid"
+                    "cart_extended_timestamp:old_psid",
+                    "cart_extended_timestamp:recent_psid"
                 ]
             return 0, []
 
@@ -205,7 +205,7 @@ class TestCartRetentionService:
             # Return recent timestamp (should not be deleted)
             return json.dumps({
                 "psid": key.split(":")[-1],
-                "extended_at": datetime.now(timezone.utc).isoformat(),
+                "extended_at": datetime.now(UTC).isoformat(),
                 "retention_days": 30
             })
 

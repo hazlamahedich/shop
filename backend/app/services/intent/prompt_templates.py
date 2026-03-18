@@ -6,8 +6,7 @@ intent classification and entity extraction.
 
 from __future__ import annotations
 
-from typing import Any, Optional
-
+from typing import Any
 
 INTENT_CLASSIFICATION_SYSTEM_PROMPT = """You are a product discovery assistant for an e-commerce chatbot.
 Your task is to classify user messages and extract shopping-related entities.
@@ -187,9 +186,9 @@ def get_classification_system_prompt() -> str:
 
 
 def format_shopping_context(
-    last_viewed_products: Optional[list[dict[str, Any]]] = None,
-    last_search_query: Optional[str] = None,
-    last_search_category: Optional[str] = None,
+    last_viewed_products: list[dict[str, Any]] | None = None,
+    last_search_query: str | None = None,
+    last_search_category: str | None = None,
 ) -> str:
     """Format shopping context for inclusion in classification prompt.
 
@@ -224,7 +223,7 @@ def format_shopping_context(
 
 def get_context_aware_classification_prompt(
     base_prompt: str,
-    shopping_context: Optional[str] = None,
+    shopping_context: str | None = None,
 ) -> str:
     """Get classification prompt with shopping context.
 

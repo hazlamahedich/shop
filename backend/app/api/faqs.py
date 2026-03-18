@@ -12,27 +12,24 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, update
-from sqlalchemy.orm import selectinload
 import structlog
+from fastapi import APIRouter, Depends, Request, status
+from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.models.faq import Faq
 from app.schemas.faq import (
-    FaqRequest,
-    FaqUpdateRequest,
-    FaqResponse,
-    FaqListEnvelope,
     FaqEnvelope,
+    FaqListEnvelope,
     FaqReorderRequest,
+    FaqRequest,
+    FaqResponse,
+    FaqUpdateRequest,
 )
-from app.api.helpers import create_meta, get_merchant_id, verify_merchant_exists
-
 
 logger = structlog.get_logger(__name__)
 

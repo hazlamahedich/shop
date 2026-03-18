@@ -5,8 +5,9 @@ Tests co-located with model per project standards.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -54,8 +55,8 @@ async def test_shopify_integration_unique_merchant_id(db_session: AsyncSession, 
         db_session: Async database session fixture
         merchant: Test merchant fixture
     """
+
     from app.models.shopify_integration import ShopifyIntegration
-    from sqlalchemy import select
 
     integration1 = ShopifyIntegration(
         merchant_id=merchant.id,
@@ -92,8 +93,8 @@ async def test_shopify_integration_unique_shop_domain(db_session: AsyncSession, 
         db_session: Async database session fixture
         merchant: Test merchant fixture
     """
-    from app.models.shopify_integration import ShopifyIntegration
     from app.models.merchant import Merchant
+    from app.models.shopify_integration import ShopifyIntegration
 
     # Create a second merchant with required fields
     merchant2 = Merchant(

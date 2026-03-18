@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
@@ -63,7 +62,7 @@ class InvalidProviderError(EmbeddingError):
 class EmbeddingResult:
     """Result of embedding generation."""
 
-    embeddings: List[List[float]]
+    embeddings: list[list[float]]
     model: str
     provider: str
     dimension: int = 1536
@@ -89,9 +88,9 @@ class EmbeddingService:
     def __init__(
         self,
         provider: str,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        ollama_url: Optional[str] = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        ollama_url: str | None = None,
     ) -> None:
         """Initialize embedding service.
 
@@ -110,7 +109,7 @@ class EmbeddingService:
         self.ollama_url = ollama_url or settings().get(
             "OLLAMA_DEFAULT_URL", "http://localhost:11434"
         )
-        self._async_client: Optional[httpx.AsyncClient] = None
+        self._async_client: httpx.AsyncClient | None = None
 
         # Validate provider - Anthropic is explicitly not supported
         if self.provider == "anthropic":
@@ -155,7 +154,7 @@ class EmbeddingService:
         return self._async_client
 
     @async_client.setter
-    def async_client(self, value: Optional[httpx.AsyncClient]) -> None:
+    def async_client(self, value: httpx.AsyncClient | None) -> None:
         """Set async client (for testing)."""
         self._async_client = value
 
@@ -170,7 +169,7 @@ class EmbeddingService:
             await self._async_client.aclose()
             self._async_client = None
 
-    async def embed_texts(self, texts: List[str]) -> EmbeddingResult:
+    async def embed_texts(self, texts: list[str]) -> EmbeddingResult:
         """Generate embeddings for multiple texts.
 
         Args:
@@ -197,7 +196,7 @@ class EmbeddingService:
             return self._mock_embed_texts(texts)
 
         # Retry with exponential backoff
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(EMBEDDING_RETRY_MAX_ATTEMPTS):
             try:
                 if self.provider == "openai":
@@ -256,7 +255,7 @@ class EmbeddingService:
             f"Failed to generate embeddings: {last_error}",
         )
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """Generate embedding for a single query.
 
         Args:
@@ -271,7 +270,7 @@ class EmbeddingService:
         result = await self.embed_texts([query])
         return result.embeddings[0] if result.embeddings else []
 
-    async def _embed_texts_openai(self, texts: List[str]) -> EmbeddingResult:
+    async def _embed_texts_openai(self, texts: list[str]) -> EmbeddingResult:
         """Generate embeddings using OpenAI text-embedding-3-small.
 
         OpenAI supports batch embeddings (max 100 texts per batch).
@@ -283,7 +282,7 @@ class EmbeddingService:
             )
 
         # Process in batches of 100 (OpenAI limit)
-        all_embeddings: List[List[float]] = []
+        all_embeddings: list[list[float]] = []
         batch_size = 100
 
         for i in range(0, len(texts), batch_size):
@@ -316,14 +315,14 @@ class EmbeddingService:
             token_count=token_count,
         )
 
-    async def _embed_texts_ollama(self, texts: List[str]) -> EmbeddingResult:
+    async def _embed_texts_ollama(self, texts: list[str]) -> EmbeddingResult:
         """Generate embeddings using Ollama nomic-embed-text.
 
         Uses asyncio.gather() for concurrent requests with rate limiting.
         """
         semaphore = asyncio.Semaphore(10)  # Max 10 concurrent requests
 
-        async def embed_single(text: str) -> List[float]:
+        async def embed_single(text: str) -> list[float]:
             async with semaphore:
                 response = await self.async_client.post(
                     "/api/embeddings",
@@ -340,7 +339,7 @@ class EmbeddingService:
         embeddings = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Handle any failures - results can be List[float] or Exception
-        results: List[List[float]] = []
+        results: list[list[float]] = []
         for i, result in enumerate(embeddings):
             if isinstance(result, Exception):
                 logger.error("ollama_embedding_failed", text_index=i, error=str(result))
@@ -363,12 +362,12 @@ class EmbeddingService:
             token_count=token_count,
         )
 
-    def _mock_embed_texts(self, texts: List[str]) -> EmbeddingResult:
+    def _mock_embed_texts(self, texts: list[str]) -> EmbeddingResult:
         """Generate mock embeddings for testing."""
         import random
 
         # Generate deterministic mock embeddings based on text hash
-        embeddings: List[List[float]] = []
+        embeddings: list[list[float]] = []
         for text in texts:
             # Use text hash as seed for deterministic results
             random.seed(hash(text) % (2**32))

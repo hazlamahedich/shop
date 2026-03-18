@@ -7,15 +7,14 @@ including consent revocation and logging.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional
-
+from datetime import UTC, datetime
+from typing import Any
 
 import redis.asyncio as redis
 import structlog
 
 from app.core.config import settings
-from app.schemas.consent import ConsentRecord, ConsentStatus
+from app.schemas.consent import ConsentStatus
 from app.services.cart.cart_retention import CartRetentionService
 
 
@@ -38,7 +37,7 @@ class ConsentService:
 
     CONSENT_TTL_DAYS = 30  # Consent records kept for 30 days
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None) -> None:
+    def __init__(self, redis_client: redis.Redis | None = None) -> None:
         """Initialize consent service.
 
         Args:
@@ -96,7 +95,7 @@ class ConsentService:
 
         consent_data: dict[str, Any] = {
             "status": ConsentStatus.OPTED_IN if consent_granted else ConsentStatus.OPTED_OUT,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "psid": psid,
         }
 

@@ -2,9 +2,7 @@
 
 import os
 
-import pytest
-
-from app.core.config import settings, is_testing, is_debug
+from app.core.config import is_debug, is_testing, settings
 
 
 class TestConfig:

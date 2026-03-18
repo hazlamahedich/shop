@@ -7,18 +7,17 @@ Pricing fetched dynamically from OpenRouter via ModelDiscoveryService.
 from __future__ import annotations
 
 import asyncio
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
 import structlog
 
+from app.core.errors import APIError, ErrorCode
 from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
 )
-from app.core.errors import APIError, ErrorCode
-
 
 logger = structlog.get_logger(__name__)
 
@@ -130,7 +129,7 @@ class GLMService(BaseLLMService):
     async def _chat_with_retry(
         self,
         api_key: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         max_retries: int = 3,
     ) -> httpx.Response:
         """Execute chat request with exponential backoff retry.
@@ -208,8 +207,8 @@ class GLMService(BaseLLMService):
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        model: Optional[str] = None,
+        messages: list[LLMMessage],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
     ) -> LLMResponse:

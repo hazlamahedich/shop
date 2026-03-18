@@ -11,29 +11,26 @@ Story 5-11: Messenger Unified Service Migration
 
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 import json
-from typing import Any, Optional
 
 import httpx
+import redis.asyncio as redis
+import structlog
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
-
-import structlog
+from sqlalchemy import select
 
 from app.core.config import settings
-from app.schemas.messaging import FacebookWebhookPayload, MessengerResponse
-from app.services.messaging.message_processor import MessageProcessor
 from app.core.database import async_session
 from app.models.facebook_integration import FacebookIntegration
-from sqlalchemy import select
-from app.services.conversation.unified_conversation_service import UnifiedConversationService
-from app.services.conversation.messenger_adapter import MessengerAdapter
+from app.schemas.messaging import FacebookWebhookPayload, MessengerResponse
 from app.services.cart import CartService
 from app.services.consent import ConsentService
-import redis.asyncio as redis
-
+from app.services.conversation.messenger_adapter import MessengerAdapter
+from app.services.conversation.unified_conversation_service import UnifiedConversationService
+from app.services.messaging.message_processor import MessageProcessor
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = structlog.get_logger(__name__)
@@ -274,7 +271,7 @@ async def send_messenger_response(response: MessengerResponse) -> None:
 async def handle_consent_postback(
     psid: str,
     postback_payload: str,
-) -> Optional[MessengerResponse]:
+) -> MessengerResponse | None:
     """Handle consent postback directly without MessageProcessor.
 
     Story 5-11 GAP-4.3: Consent postback handling (platform-specific).

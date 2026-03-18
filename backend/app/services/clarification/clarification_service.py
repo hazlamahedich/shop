@@ -14,9 +14,7 @@ from typing import Any
 
 import structlog
 
-from app.services.clarification.question_generator import QuestionGenerator
-from app.services.intent import ClassificationResult, IntentType, IntentClassifier
-
+from app.services.intent import ClassificationResult, IntentClassifier, IntentType
 
 logger = structlog.get_logger(__name__)
 

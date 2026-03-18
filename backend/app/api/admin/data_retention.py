@@ -6,8 +6,7 @@ Protected endpoints for administrative operations.
 
 from __future__ import annotations
 
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -22,7 +21,7 @@ async def trigger_retention_cleanup(
         False,
         description="If true, only report what would be deleted without actually deleting"
     ),
-    voluntary_days: Optional[int] = Query(
+    voluntary_days: int | None = Query(
         None,
         description="Override voluntary data retention period (default: 30)"
     ),
@@ -70,7 +69,7 @@ async def trigger_retention_cleanup(
 
 @router.get("/stats")
 async def get_retention_stats(
-    voluntary_days: Optional[int] = Query(
+    voluntary_days: int | None = Query(
         None,
         description="Override voluntary data retention period for stats calculation (default: 30)"
     ),
@@ -127,7 +126,7 @@ async def get_conversations_to_delete(
         le=1000,
         description="Maximum number of conversations to return"
     ),
-    voluntary_days: Optional[int] = Query(
+    voluntary_days: int | None = Query(
         None,
         description="Override voluntary data retention period (default: 30)"
     ),

@@ -8,15 +8,15 @@ Tests for data tier classification service.
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.privacy.data_tier_service import DataTierService, DataTier
 from app.models.conversation import Conversation
 from app.models.order import Order
+from app.services.privacy.data_tier_service import DataTier, DataTierService
 
 
 class TestClassifyDataTier:
@@ -347,7 +347,7 @@ class TestApplyRetentionPolicy:
         self, db_session: AsyncSession
     ) -> None:
         """Test that apply_retention_policy() deletes old VOLUNTARY tier data."""
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+        cutoff_date = datetime.now(UTC) - timedelta(days=30)
 
         async with db_session as session:
             old_conv = Conversation(
@@ -362,7 +362,7 @@ class TestApplyRetentionPolicy:
                 platform="facebook",
                 platform_sender_id="user2",
                 data_tier=DataTier.VOLUNTARY,
-                created_at=datetime.now(timezone.utc) - timedelta(days=15),
+                created_at=datetime.now(UTC) - timedelta(days=15),
             )
 
             session.add_all([old_conv, recent_conv])
@@ -389,7 +389,7 @@ class TestApplyRetentionPolicy:
         self, db_session: AsyncSession
     ) -> None:
         """Test that apply_retention_policy() keeps all OPERATIONAL tier data."""
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+        cutoff_date = datetime.now(UTC) - timedelta(days=30)
 
         async with db_session as session:
             old_order = Order(

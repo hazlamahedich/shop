@@ -12,9 +12,8 @@ Tests cover:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -22,14 +21,14 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.handoff_alerts import (
-    router,
-    HandoffAlertResponse,
-    HandoffAlertListResponse,
     HandoffAlertListMeta,
-    UnreadCountResponse,
-    MarkReadResponse,
+    HandoffAlertListResponse,
+    HandoffAlertResponse,
     MarkAllReadResponse,
+    MarkReadResponse,
+    UnreadCountResponse,
     _alert_to_response,
+    router,
 )
 
 
@@ -157,9 +156,9 @@ class TestAlertToResponse:
 
     def test_alert_conversion_calculates_wait_time(self):
         """Test wait_time_seconds is calculated from handoff_triggered_at."""
-        from datetime import timezone, timedelta
+        from datetime import timedelta
 
-        triggered_at = datetime.now(timezone.utc) - timedelta(hours=2, minutes=30)
+        triggered_at = datetime.now(UTC) - timedelta(hours=2, minutes=30)
         mock_alert: Any = MockAlert(
             id=1,
             merchant_id=1,

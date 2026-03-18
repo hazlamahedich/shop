@@ -10,8 +10,8 @@ Story 5-10 Enhancement: Added returning shopper detection
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import redis.asyncio as redis
@@ -20,7 +20,6 @@ import structlog
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
 from app.schemas.widget import WidgetSessionData
-
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +50,7 @@ class WidgetSessionService:
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
     ) -> None:
         """Initialize session service.
 
@@ -106,8 +105,8 @@ class WidgetSessionService:
     async def _check_returning_shopper(
         self,
         merchant_id: int,
-        visitor_id: Optional[str],
-    ) -> tuple[Optional[str], bool]:
+        visitor_id: str | None,
+    ) -> tuple[str | None, bool]:
         """Check if visitor is a returning shopper.
 
         Story 5-10 Enhancement: Detects returning visitors via visitor_id.
@@ -137,9 +136,9 @@ class WidgetSessionService:
     async def create_session(
         self,
         merchant_id: int,
-        visitor_ip: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        visitor_id: Optional[str] = None,
+        visitor_ip: str | None = None,
+        user_agent: str | None = None,
+        visitor_id: str | None = None,
     ) -> WidgetSessionData:
         """Create a new anonymous widget session.
 
@@ -154,7 +153,7 @@ class WidgetSessionService:
         Returns:
             WidgetSessionData with session details
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.SESSION_TTL_SECONDS)
 
         # Check for returning shopper (Story 5-10)
@@ -190,7 +189,7 @@ class WidgetSessionService:
 
         return session
 
-    async def get_session(self, session_id: str) -> Optional[WidgetSessionData]:
+    async def get_session(self, session_id: str) -> WidgetSessionData | None:
         """Get an existing session by ID.
 
         Args:
@@ -229,7 +228,7 @@ class WidgetSessionService:
         if not session:
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.SESSION_TTL_SECONDS)
 
         session.last_activity_at = now
@@ -311,7 +310,7 @@ class WidgetSessionService:
                 f"Widget session {session_id} not found",
             )
 
-        if session.expires_at < datetime.now(timezone.utc):
+        if session.expires_at < datetime.now(UTC):
             # Session has expired, clean it up
             await self.end_session(session_id)
             raise APIError(
@@ -340,7 +339,7 @@ class WidgetSessionService:
             {
                 "role": role,
                 "content": content,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
 
@@ -405,9 +404,9 @@ class WidgetSessionService:
             return {"expired": False, "expires_at": None, "ttl": -1}
 
         # Calculate expiration time
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
 
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+        expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
         return {
             "expired": False,
             "expires_at": expires_at.isoformat(),
@@ -480,7 +479,7 @@ class WidgetSessionService:
 
         return True
 
-    async def get_session_metadata(self, session_id: str) -> Optional[dict[str, Any]]:
+    async def get_session_metadata(self, session_id: str) -> dict[str, Any] | None:
         """Get session metadata.
 
         Args:

@@ -14,22 +14,22 @@ Story 5-10: Widget Full App Integration (Task 9: Migrate to UnifiedConversationS
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Any
-from uuid import uuid4
 import difflib
-import structlog
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from uuid import uuid4
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
 from app.schemas.preview import (
-    PreviewMessageResponse,
-    PreviewMessageMetadata,
     STARTER_PROMPTS,
+    PreviewMessageMetadata,
+    PreviewMessageResponse,
 )
-from app.core.errors import APIError, ErrorCode
-
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +51,7 @@ class PreviewConversation:
 
     merchant_id: int
     preview_session_id: str = field(default_factory=lambda: str(uuid4()))
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     messages: list[dict[str, str]] = field(default_factory=list)
     message_count: int = 0
 
@@ -99,8 +99,8 @@ class PreviewService:
 
     def __init__(
         self,
-        db: Optional[AsyncSession] = None,
-        unified_service: Optional[Any] = None,
+        db: AsyncSession | None = None,
+        unified_service: Any | None = None,
     ) -> None:
         """Initialize the preview service.
 
@@ -139,7 +139,7 @@ class PreviewService:
             "starter_prompts": STARTER_PROMPTS.copy(),
         }
 
-    def get_session(self, session_id: str) -> Optional[PreviewConversation]:
+    def get_session(self, session_id: str) -> PreviewConversation | None:
         """Get an existing preview session.
 
         Args:
@@ -207,11 +207,10 @@ class PreviewService:
 
         This provides intent routing, product search, cart, and checkout support.
         """
+        from app.services.conversation.schemas import Channel, ConversationContext
         from app.services.conversation.unified_conversation_service import (
             UnifiedConversationService,
         )
-        from app.services.conversation.schemas import Channel, ConversationContext
-        from app.services.conversation.cart_key_strategy import CartKeyStrategy
 
         # Capture merchant_id before any operations that might cause session expiry
         merchant_id = merchant.id
@@ -279,12 +278,13 @@ class PreviewService:
         DEPRECATED: Use UnifiedConversationService instead.
         This method is kept for backward compatibility when no db session is available.
         """
-        from app.services.personality.bot_response_service import BotResponseService
-        from app.services.llm.llm_factory import LLMProviderFactory
-        from app.services.llm.base_llm_service import LLMMessage
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from app.models.merchant import Merchant as MerchantModel
+        from app.services.llm.base_llm_service import LLMMessage
+        from app.services.llm.llm_factory import LLMProviderFactory
+        from app.services.personality.bot_response_service import BotResponseService
 
         merchant_id = merchant.id
         if self.db:
@@ -364,9 +364,9 @@ class PreviewService:
 
         try:
             # Check for FAQ match first (higher confidence for FAQ responses)
-            from app.services.faq import match_faq, rephrase_faq_with_personality
             from app.models.faq import Faq
             from app.models.merchant import PersonalityType
+            from app.services.faq import match_faq, rephrase_faq_with_personality
 
             # Get merchant's FAQs (only if db is available)
             merchant_faqs = []
@@ -732,7 +732,7 @@ class PreviewService:
         Returns:
             Number of sessions removed
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)
+        cutoff = datetime.now(UTC) - timedelta(seconds=max_age_seconds)
         to_remove = []
 
         for session_id, session in self.sessions.items():

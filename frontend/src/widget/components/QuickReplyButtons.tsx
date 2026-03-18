@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { QuickReply, WidgetTheme } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useRipple } from '../hooks/useRipple';
+import { trackQuickReplyClick } from '../utils/analytics';
 
 export interface QuickReplyButtonsProps {
   quickReplies: QuickReply[];
@@ -119,6 +120,7 @@ export function QuickReplyButtons({
   const handleClick = (reply: QuickReply, index: number) => {
     if (disabled) return;
     setSelectedIndex(index);
+    trackQuickReplyClick(reply.text);
     onReply(reply);
   };
 

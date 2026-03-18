@@ -11,22 +11,23 @@ Tests follow-up message sending with:
 - Conversation state validation
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.handoff.offline_followup_service import (
-    OfflineFollowUpService,
-    FOLLOWUP_12H_MESSAGE,
-    FOLLOWUP_24H_MESSAGE_WITH_EMAIL,
-    FOLLOWUP_24H_MESSAGE_NO_EMAIL,
-    FOLLOWUP_12H_THRESHOLD_HOURS,
-    FOLLOWUP_24H_THRESHOLD_HOURS,
-    FACEBOOK_WINDOW_HOURS,
-)
-from app.models.message import Message
+import pytest
+
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant
+from app.models.message import Message
+from app.services.handoff.offline_followup_service import (
+    FACEBOOK_WINDOW_HOURS,
+    FOLLOWUP_12H_MESSAGE,
+    FOLLOWUP_12H_THRESHOLD_HOURS,
+    FOLLOWUP_24H_MESSAGE_NO_EMAIL,
+    FOLLOWUP_24H_MESSAGE_WITH_EMAIL,
+    FOLLOWUP_24H_THRESHOLD_HOURS,
+    OfflineFollowUpService,
+)
 
 
 @pytest.fixture
@@ -79,7 +80,7 @@ def test_conversation_pending_handoff():
     conv.platform_sender_id = "test_psid_123"
     conv.status = "handoff"
     conv.handoff_status = "pending"
-    conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=13)
+    conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=13)
     conv.conversation_data = {}
     return conv
 
@@ -93,9 +94,9 @@ def test_conversation_with_12h_sent():
     conv.platform_sender_id = "test_psid_456"
     conv.status = "handoff"
     conv.handoff_status = "pending"
-    conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=25)
+    conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=25)
     conv.conversation_data = {
-        "followup_12h_sent_at": (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat()
+        "followup_12h_sent_at": (datetime.now(UTC) - timedelta(hours=12)).isoformat()
     }
     return conv
 
@@ -109,10 +110,10 @@ def test_conversation_both_sent():
     conv.platform_sender_id = "test_psid_789"
     conv.status = "handoff"
     conv.handoff_status = "pending"
-    conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=30)
+    conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=30)
     conv.conversation_data = {
-        "followup_12h_sent_at": (datetime.now(timezone.utc) - timedelta(hours=18)).isoformat(),
-        "followup_24h_sent_at": (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(),
+        "followup_12h_sent_at": (datetime.now(UTC) - timedelta(hours=18)).isoformat(),
+        "followup_24h_sent_at": (datetime.now(UTC) - timedelta(hours=6)).isoformat(),
     }
     return conv
 
@@ -123,7 +124,7 @@ def recent_shopper_message():
     msg = MagicMock(spec=Message)
     msg.id = 1
     msg.sender = "customer"
-    msg.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    msg.created_at = datetime.now(UTC) - timedelta(hours=1)
     return msg
 
 
@@ -133,7 +134,7 @@ def old_shopper_message():
     msg = MagicMock(spec=Message)
     msg.id = 2
     msg.sender = "customer"
-    msg.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+    msg.created_at = datetime.now(UTC) - timedelta(hours=25)
     return msg
 
 

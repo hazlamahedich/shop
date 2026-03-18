@@ -5,11 +5,10 @@ storage and retrieval, and error handling.
 """
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import redis
 
 from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart, CartItem, CurrencyCode
@@ -63,7 +62,7 @@ class TestCheckoutService:
                     image_url="https://example.com/image.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=2,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
                 CartItem(
                     product_id="gid://shopify/Product/2",
@@ -73,13 +72,13 @@ class TestCheckoutService:
                     image_url="https://example.com/image2.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=1,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
             ],
             subtotal=109.97,
             currency_code=CurrencyCode.USD,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
 
     def test_get_checkout_token_key(self, checkout_service):
@@ -298,7 +297,7 @@ class TestCheckoutService:
         token_data = {
             "token": checkout_token,
             "url": f"https://checkout.shopify.com/{checkout_token}",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "psid": psid,
             "item_count": 2,
             "subtotal": 109.97,

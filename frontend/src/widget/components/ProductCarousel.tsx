@@ -5,6 +5,7 @@ import { ProductCardCompact } from './ProductCardCompact';
 import { CarouselArrows } from './CarouselArrows';
 import { CarouselDots } from './CarouselDots';
 import { useCarousel } from '../hooks/useCarousel';
+import { trackCarouselEngagement } from '../utils/analytics';
 
 export interface ProductCarouselProps {
   products: WidgetProduct[];
@@ -68,9 +69,11 @@ export function ProductCarousel({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
+      trackCarouselEngagement('swipe');
       scrollPrev();
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
+      trackCarouselEngagement('swipe');
       scrollNext();
     } else if (e.key === 'Home') {
       e.preventDefault();
@@ -79,6 +82,16 @@ export function ProductCarousel({
       e.preventDefault();
       scrollToIndex(products.length - 1);
     }
+  };
+
+  const handleProductClick = (product: WidgetProduct) => {
+    trackCarouselEngagement('click', product.id);
+    onProductClick?.(product);
+  };
+
+  const handleAddToCart = (product: WidgetProduct) => {
+    trackCarouselEngagement('add_to_cart', product.id);
+    onAddToCart?.(product);
   };
 
   if (products.length === 0) {
@@ -112,8 +125,8 @@ export function ProductCarousel({
             <ProductCardCompact
               product={product}
               theme={theme}
-              onAddToCart={onAddToCart}
-              onClick={onProductClick}
+              onAddToCart={handleAddToCart}
+              onClick={handleProductClick}
               isAdding={addingProductId === product.id}
               cardWidth={cardWidth}
             />

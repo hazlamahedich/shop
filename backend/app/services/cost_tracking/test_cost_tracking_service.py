@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+
 import pytest
 
-from app.services.cost_tracking.cost_tracking_service import CostTrackingService
 from app.models.llm_conversation_cost import LLMConversationCost
+from app.services.cost_tracking.cost_tracking_service import CostTrackingService
 
 
 @pytest.mark.asyncio
@@ -291,6 +292,7 @@ async def test_get_cost_summary_empty(db_session):
 
     # Explicit cleanup: delete any existing cost records for merchant_id=1
     from sqlalchemy import delete
+
     from app.models.llm_conversation_cost import LLMConversationCost
     await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
     await db_session.commit()
@@ -316,6 +318,7 @@ async def test_get_cost_summary_with_data(db_session):
 
     # Explicit cleanup: delete any existing cost records for merchant_id=1
     from sqlalchemy import delete
+
     from app.models.llm_conversation_cost import LLMConversationCost
     await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
     await db_session.commit()

@@ -5,23 +5,19 @@ Story 4-4 Task 2 & 3: Order polling with distributed locking, order comparison, 
 
 from __future__ import annotations
 
-import os
-import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from aioresponses import aioresponses
-from sqlalchemy import select
 
-from app.models.order import Order, OrderStatus
+from app.models.order import Order
 from app.models.shopify_integration import ShopifyIntegration
+from app.services.shopify.admin_client import ShopifyAPIError, ShopifyAuthError
 from app.services.shopify.order_polling_service import (
     OrderPollingService,
     PollingResult,
     PollingStatus,
 )
-from app.services.shopify.admin_client import ShopifyAPIError, ShopifyAuthError
 
 
 class TestOrderPollingService:
@@ -60,7 +56,7 @@ class TestOrderPollingService:
     @pytest.fixture
     def mock_orders_api_response(self):
         """Sample orders response from Shopify Admin API."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return {
             "orders": [
                 {
@@ -148,7 +144,7 @@ class TestOrderPollingService:
     @pytest.mark.asyncio
     async def test_filter_orders_within_24_hours(self, polling_service, mock_orders_api_response):
         """Test that only orders <24 hours old are processed."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         orders_data = [
             {
@@ -356,7 +352,7 @@ class TestOrderPollingService:
     @pytest.mark.asyncio
     async def test_compare_and_identify_updates_new_order(self, polling_service, mock_db):
         """Test identifying new orders that don't exist locally."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         shopify_orders = [
             {
                 "id": 999,
@@ -387,8 +383,8 @@ class TestOrderPollingService:
         shopify_orders = [
             {
                 "id": 123,
-                "updated_at": newer_ts.replace(tzinfo=timezone.utc).isoformat(),
-                "created_at": older_ts.replace(tzinfo=timezone.utc).isoformat(),
+                "updated_at": newer_ts.replace(tzinfo=UTC).isoformat(),
+                "created_at": older_ts.replace(tzinfo=UTC).isoformat(),
             }
         ]
 
@@ -418,8 +414,8 @@ class TestOrderPollingService:
         shopify_orders = [
             {
                 "id": 123,
-                "updated_at": older_ts.replace(tzinfo=timezone.utc).isoformat(),
-                "created_at": older_ts.replace(tzinfo=timezone.utc).isoformat(),
+                "updated_at": older_ts.replace(tzinfo=UTC).isoformat(),
+                "created_at": older_ts.replace(tzinfo=UTC).isoformat(),
             }
         ]
 
@@ -471,12 +467,12 @@ class TestOrderPollingService:
         """Test health status retrieval."""
         from app.services.shopify.order_polling_service import MerchantPollingStatus
 
-        polling_service._last_poll_timestamp = datetime.now(timezone.utc)
+        polling_service._last_poll_timestamp = datetime.now(UTC)
         polling_service._total_orders_synced = 42
         polling_service._errors_last_hour = 2
         polling_service._merchant_status = {
             1: MerchantPollingStatus(
-                last_poll=datetime.now(timezone.utc),
+                last_poll=datetime.now(UTC),
                 status="healthy",
             ),
         }

@@ -7,17 +7,17 @@ Pricing fetched dynamically from OpenRouter via ModelDiscoveryService.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from app.core.errors import APIError, ErrorCode
 from app.core.config import is_testing
-from app.services.llm.base_llm_service import BaseLLMService
-from app.services.llm.ollama_service import OllamaService
-from app.services.llm.openai_service import OpenAIService
+from app.core.errors import APIError, ErrorCode
 from app.services.llm.anthropic_service import AnthropicService
+from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.gemini_service import GeminiService
 from app.services.llm.glm_service import GLMService
 from app.services.llm.mock_service import MockLLMService
+from app.services.llm.ollama_service import OllamaService
+from app.services.llm.openai_service import OpenAIService
 
 
 class LLMProviderFactory:
@@ -41,7 +41,7 @@ class LLMProviderFactory:
     def create_provider(
         cls,
         provider_name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
     ) -> BaseLLMService:
         """Create LLM service instance for provider.
 
@@ -74,8 +74,8 @@ class LLMProviderFactory:
     def _enrich_config_with_pricing(
         cls,
         provider_name: str,
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         """Enrich config with pricing from ModelDiscoveryService.
 
         Args:
@@ -105,7 +105,7 @@ class LLMProviderFactory:
         return enriched
 
     @classmethod
-    def get_available_providers(cls) -> List[Dict[str, Any]]:
+    def get_available_providers(cls) -> list[dict[str, Any]]:
         """Get list of available providers with metadata.
 
         Returns:
@@ -185,7 +185,7 @@ class LLMProviderFactory:
         ]
 
     @classmethod
-    async def get_available_providers_async(cls) -> List[Dict[str, Any]]:
+    async def get_available_providers_async(cls) -> list[dict[str, Any]]:
         """Get list of available providers with dynamic pricing from OpenRouter.
 
         Returns:

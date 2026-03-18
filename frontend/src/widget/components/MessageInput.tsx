@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { WidgetTheme, VoiceInputConfig } from '../types/widget';
 import { VoiceInput } from './VoiceInput';
+import { trackMessageSend } from '../utils/analytics';
 
 export interface MessageInputProps {
   value: string;
@@ -29,22 +30,30 @@ export function MessageInput({
 }: MessageInputProps) {
   const [interimTranscript, setInterimTranscript] = React.useState('');
   
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (value.trim()) {
+      trackMessageSend(value.trim().length);
+    }
+    onSend();
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
+      if (value.trim()) {
+        trackMessageSend(value.trim().length);
+      }
       onSend();
     }
-  };
-
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    onSend();
   };
   
   const handleVoiceTranscript = (transcript: string) => {
     onChange(transcript);
     setInterimTranscript('');
-    inputRef?.current?.focus();
+    if (inputRef && typeof inputRef !== 'function' && inputRef.current) {
+      inputRef.current.focus();
+    }
   };
   
   const handleInterimTranscript = (transcript: string) => {

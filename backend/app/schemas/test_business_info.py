@@ -5,16 +5,16 @@ Story 1.11: Business Info & FAQ Configuration
 Tests Pydantic schema validation for business information.
 """
 
+
 import pytest
-from datetime import datetime
 from pydantic import ValidationError
 
+from app.schemas.base import MetaData
 from app.schemas.business_info import (
+    BusinessInfoEnvelope,
     BusinessInfoRequest,
     BusinessInfoResponse,
-    BusinessInfoEnvelope,
 )
-from app.schemas.base import MetaData
 
 
 class TestBusinessInfoRequest:

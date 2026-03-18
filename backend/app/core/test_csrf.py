@@ -14,14 +14,14 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
 from fastapi import Request, Response
 from starlette.datastructures import Headers
 
 from app.core.csrf import (
     CSRFProtection,
-    CSRFTokenError,
     get_csrf_protection,
     init_csrf_protection,
 )
@@ -379,8 +379,9 @@ class TestCSRFMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_requires_csrf_for_post(self):
         """Test that POST requests require CSRF token."""
-        from app.middleware.csrf import CSRFMiddleware
         from fastapi import HTTPException
+
+        from app.middleware.csrf import CSRFMiddleware
 
         middleware = CSRFMiddleware(None, "test-secret-key-12345678901234567890")
 
@@ -404,8 +405,9 @@ class TestCSRFMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_validates_csrf_for_put(self):
         """Test that PUT requests require valid CSRF token."""
-        from app.middleware.csrf import CSRFMiddleware
         from fastapi import HTTPException
+
+        from app.middleware.csrf import CSRFMiddleware
 
         middleware = CSRFMiddleware(None, "test-secret-key-12345678901234567890")
 

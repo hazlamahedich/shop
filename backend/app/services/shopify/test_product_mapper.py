@@ -11,8 +11,8 @@ from typing import Any
 import pytest
 
 from app.schemas.shopify import CurrencyCode, Product, ProductVariant
-from app.services.shopify.product_mapper import ProductMapper
 from app.services.intent.classification_schema import ExtractedEntities
+from app.services.shopify.product_mapper import ProductMapper
 
 
 class TestProductMapper:

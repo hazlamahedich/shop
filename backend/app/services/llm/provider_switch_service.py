@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +27,7 @@ class ProviderValidationError(Exception):
         self,
         error_code: ErrorCode,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.error_code = error_code
         self.message = message
@@ -67,10 +67,10 @@ class ProviderSwitchService:
         self,
         merchant_id: int,
         provider_id: str,
-        api_key: Optional[str] = None,
-        server_url: Optional[str] = None,
-        model: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        api_key: str | None = None,
+        server_url: str | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
         """Validate provider configuration with test call.
 
         Args:
@@ -143,10 +143,10 @@ class ProviderSwitchService:
         self,
         merchant_id: int,
         provider_id: str,
-        api_key: Optional[str] = None,
-        server_url: Optional[str] = None,
-        model: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        api_key: str | None = None,
+        server_url: str | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
         """Switch merchant's LLM provider with validation.
 
         Validates new provider configuration before applying changes.
@@ -253,11 +253,11 @@ class ProviderSwitchService:
     async def test_provider_call(
         self,
         provider_id: str,
-        api_key: Optional[str] = None,
-        server_url: Optional[str] = None,
-        model: Optional[str] = None,
+        api_key: str | None = None,
+        server_url: str | None = None,
+        model: str | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make a test call to provider API to verify connectivity.
 
         Args:
@@ -330,7 +330,7 @@ class ProviderSwitchService:
     async def get_current_provider(
         self,
         merchant_id: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get merchant's current LLM provider configuration.
 
         Args:
@@ -409,14 +409,14 @@ class ProviderSwitchService:
             )
         return config
 
-    async def _get_llm_config_optional(self, merchant_id: int) -> Optional[LLMConfiguration]:
+    async def _get_llm_config_optional(self, merchant_id: int) -> LLMConfiguration | None:
         """Get LLM configuration for merchant, or None if not found."""
         result = await self.db.execute(
             select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
         )
         return result.scalar_one_or_none()
 
-    async def _validate_ollama_config(self, server_url: Optional[str]) -> None:
+    async def _validate_ollama_config(self, server_url: str | None) -> None:
         """Validate Ollama server URL format.
 
         Raises:
@@ -451,7 +451,7 @@ class ProviderSwitchService:
     async def _validate_cloud_provider_config(
         self,
         provider_id: str,
-        api_key: Optional[str],
+        api_key: str | None,
     ) -> None:
         """Validate cloud provider API key format.
 

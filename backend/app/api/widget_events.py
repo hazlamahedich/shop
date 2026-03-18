@@ -11,9 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 from asyncio import Queue
-from datetime import datetime, timezone
-from typing import Any, Optional
-from uuid import uuid4
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Request
@@ -21,7 +20,6 @@ from fastapi.responses import StreamingResponse
 
 from app.core.errors import APIError, ErrorCode
 from app.core.validators import is_valid_session_id
-
 
 logger = structlog.get_logger(__name__)
 
@@ -147,7 +145,7 @@ class SSEConnectionManager:
 
 
 # Global SSE manager instance
-sse_manager: Optional[SSEConnectionManager] = None
+sse_manager: SSEConnectionManager | None = None
 
 
 def get_sse_manager() -> SSEConnectionManager:
@@ -192,7 +190,7 @@ async def _event_generator(
         SSE formatted event strings
     """
     keepalive_interval = 15  # seconds
-    last_keepalive = datetime.now(timezone.utc)
+    last_keepalive = datetime.now(UTC)
 
     try:
         # Send initial connection confirmation
@@ -204,7 +202,7 @@ async def _event_generator(
             "connected",
             {
                 "sessionId": session_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -227,9 +225,9 @@ async def _event_generator(
                 )
                 yield formatted_event
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send keepalive comment
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 yield f": keepalive {now.isoformat()}\n\n"
                 last_keepalive = now
 
@@ -331,5 +329,5 @@ async def sse_status(
     return {
         "sessionId": session_id,
         "activeConnections": manager.get_connection_count(session_id),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

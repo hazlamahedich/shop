@@ -12,69 +12,64 @@ Story 5.1: Backend Widget API
 from __future__ import annotations
 
 import os
-from typing import Optional
+from datetime import UTC
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-import structlog
 
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.core.rate_limiter import RateLimiter
+from app.core.sanitization import sanitize_message, validate_message_length
 from app.core.validators import is_valid_session_id
-from app.core.sanitization import sanitize_message, validate_message_length, MAX_MESSAGE_LENGTH
-from app.schemas.base import MetaData
+from app.models.merchant import Merchant
+from app.schemas.consent import (
+    ConsentStatus,
+    RecordConsentRequest,
+)
 from app.schemas.widget import (
     CreateSessionRequest,
-    WidgetSessionResponse,
-    WidgetSessionEnvelope,
-    WidgetSessionMetadataResponse,
-    WidgetSessionMetadataEnvelope,
     SendMessageRequest,
-    WidgetMessageResponse,
-    WidgetMessageEnvelope,
-    WidgetConfigResponse,
-    WidgetConfigEnvelope,
-    SuccessResponse,
     SuccessEnvelope,
+    SuccessResponse,
     WidgetConfig,
+    WidgetConfigEnvelope,
+    WidgetConfigResponse,
+    WidgetMessageEnvelope,
+    WidgetMessageHistoryEnvelope,
     WidgetMessageHistoryItem,
     WidgetMessageHistoryResponse,
-    WidgetMessageHistoryEnvelope,
+    WidgetMessageResponse,
+    WidgetSessionEnvelope,
+    WidgetSessionMetadataEnvelope,
+    WidgetSessionMetadataResponse,
+    WidgetSessionResponse,
     create_meta,
 )
 from app.schemas.widget_search import (
-    WidgetSearchRequest,
-    WidgetSearchResult,
-    WidgetSearchEnvelope,
     ProductSummary,
-    WidgetCartRequest,
-    WidgetCartUpdateRequest,
-    WidgetCartResponse,
     WidgetCartEnvelope,
     WidgetCartItem,
+    WidgetCartRequest,
+    WidgetCartResponse,
+    WidgetCartUpdateRequest,
+    WidgetCheckoutEnvelope,
     WidgetCheckoutRequest,
     WidgetCheckoutResponse,
-    WidgetCheckoutEnvelope,
     WidgetProductDetail,
     WidgetProductDetailEnvelope,
+    WidgetSearchEnvelope,
+    WidgetSearchRequest,
+    WidgetSearchResult,
 )
-from app.schemas.consent import (
-    ConsentStatus,
-    ConsentSource,
-    RecordConsentRequest,
-    ConsentPromptResponse as ConsentPromptResponseSchema,
-)
-from app.models.merchant import Merchant
-from app.services.widget.widget_session_service import WidgetSessionService
-from app.services.widget.widget_message_service import WidgetMessageService
 from app.services.personality.greeting_service import (
     get_effective_greeting,
-    substitute_greeting_variables,
 )
-
+from app.services.widget.widget_message_service import WidgetMessageService
+from app.services.widget.widget_session_service import WidgetSessionService
 
 logger = structlog.get_logger(__name__)
 
@@ -137,7 +132,7 @@ def _validate_session_id_format(session_id: str) -> None:
         )
 
 
-def _check_rate_limit(request: Request) -> Optional[int]:
+def _check_rate_limit(request: Request) -> int | None:
     """Check if client is rate limited using shared RateLimiter.
 
     Args:
@@ -149,7 +144,7 @@ def _check_rate_limit(request: Request) -> Optional[int]:
     return RateLimiter.check_widget_rate_limit(request)
 
 
-def _check_merchant_rate_limit(merchant_id: int, rate_limit: Optional[int]) -> Optional[int]:
+def _check_merchant_rate_limit(merchant_id: int, rate_limit: int | None) -> int | None:
     """Check per-merchant rate limit.
 
     Story 5-2 AC5: Per-merchant configurable rate limiting.
@@ -627,6 +622,7 @@ async def get_widget_config(
     # Get shop domain from Shopify integration
     shop_domain = None
     from sqlalchemy import select as sql_select
+
     from app.models.shopify_integration import ShopifyIntegration
 
     integration_result = await db.execute(
@@ -1086,10 +1082,10 @@ async def add_to_widget_cart(
     session_service = WidgetSessionService()
     session = await session_service.get_session_or_error(cart_request.session_id)
 
-    from app.services.cart.cart_service import CartService
-    from app.services.conversation.cart_key_strategy import CartKeyStrategy
-    from app.services.cart.shopify_cart_sync import ShopifyCartSync
     from app.schemas.cart import CartItem
+    from app.services.cart.cart_service import CartService
+    from app.services.cart.shopify_cart_sync import ShopifyCartSync
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
 
     cart_service = CartService()
     cart_key = CartKeyStrategy.for_widget(cart_request.session_id)
@@ -1108,7 +1104,7 @@ async def add_to_widget_cart(
 
     try:
         sync_service = ShopifyCartSync(merchant_id=session.merchant_id)
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         new_item = CartItem(
             product_id=cart_request.variant_id,
@@ -1117,7 +1113,7 @@ async def add_to_widget_cart(
             price=cart_request.price,
             image_url=cart_request.image_url or "",
             quantity=cart_request.quantity,
-            added_at=datetime.now(timezone.utc).isoformat(),
+            added_at=datetime.now(UTC).isoformat(),
         )
         cart = await sync_service.sync_add_item(cart_key, new_item)
     except Exception as e:
@@ -1201,8 +1197,8 @@ async def remove_from_widget_cart(
     session = await session_service.get_session_or_error(session_id)
 
     from app.services.cart.cart_service import CartService
-    from app.services.conversation.cart_key_strategy import CartKeyStrategy
     from app.services.cart.shopify_cart_sync import ShopifyCartSync
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
 
     cart_service = CartService()
     cart_key = CartKeyStrategy.for_widget(session_id)
@@ -1294,8 +1290,8 @@ async def update_widget_cart_item(
     session = await session_service.get_session_or_error(update_request.session_id)
 
     from app.services.cart.cart_service import CartService
-    from app.services.conversation.cart_key_strategy import CartKeyStrategy
     from app.services.cart.shopify_cart_sync import ShopifyCartSync
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
 
     cart_service = CartService()
     cart_key = CartKeyStrategy.for_widget(update_request.session_id)
@@ -1412,6 +1408,7 @@ async def widget_checkout(
         )
 
     from sqlalchemy import select as sql_select
+
     from app.models.shopify_integration import ShopifyIntegration
 
     integration_result = await db.execute(
@@ -1580,7 +1577,7 @@ async def get_widget_consent_status(
     request: Request,
     session_id: str,
     db: AsyncSession = Depends(get_db),
-    visitor_id: Optional[str] = None,
+    visitor_id: str | None = None,
 ):
     """Get user's consent status for conversation data storage.
 
@@ -1609,7 +1606,6 @@ async def get_widget_consent_status(
     session = await session_service.get_session_or_error(session_id)
 
     from app.services.consent.extended_consent_service import ConversationConsentService
-    from app.models.consent import ConsentType
 
     effective_visitor_id = visitor_id or session.visitor_id
 
@@ -1659,7 +1655,7 @@ async def forget_widget_preferences(
     request: Request,
     session_id: str,
     db: AsyncSession = Depends(get_db),
-    visitor_id: Optional[str] = None,
+    visitor_id: str | None = None,
 ):
     """Reset consent and delete user preferences.
 

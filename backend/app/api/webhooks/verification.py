@@ -6,7 +6,6 @@ Provides webhook verification, testing, and re-subscription endpoints for mercha
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,14 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
 from app.schemas.webhook_verification import (
-    WebhookStatusResponse,
-    WebhookTestResponse,
-    WebhookResubscribeResponse,
-    MinimalEnvelope,
     MetaData,
+    MinimalEnvelope,
 )
 from app.services.webhook_verification import WebhookVerificationService
-
 
 router = APIRouter()
 

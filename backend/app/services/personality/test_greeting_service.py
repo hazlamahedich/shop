@@ -7,12 +7,13 @@ and custom vs default greeting logic.
 from __future__ import annotations
 
 import pytest
+
 from app.models.merchant import PersonalityType
 from app.services.personality.greeting_service import (
-    get_default_greeting,
-    substitute_greeting_variables,
-    get_effective_greeting,
     DEFAULT_GREETINGS,
+    get_default_greeting,
+    get_effective_greeting,
+    substitute_greeting_variables,
 )
 
 

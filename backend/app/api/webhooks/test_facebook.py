@@ -6,17 +6,15 @@ Unit tests for webhook parsing, signature verification, and response handling.
 from __future__ import annotations
 
 import json
-from typing import Optional, Dict, Any
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi import HTTPException
 
 from app.api.webhooks.facebook import (
     facebook_messenger_webhook,
     facebook_webhook_verify,
     process_webhook_message,
-    send_messenger_response,
     verify_facebook_webhook_signature,
 )
 
@@ -24,7 +22,6 @@ from app.api.webhooks.facebook import (
 @pytest.fixture
 def mock_request():
     """Create a mock FastAPI request."""
-    from fastapi import Request
 
     class MockRequest:
         def __init__(self, body: bytes, headers: dict | None = None):
@@ -50,7 +47,6 @@ def mock_request():
 @pytest.mark.asyncio
 async def test_webhook_signature_valid():
     """Test valid webhook signature verification."""
-    from fastapi import Request
 
     with patch("app.api.webhooks.facebook.settings") as mock_settings:
         mock_settings.return_value = {"FACEBOOK_APP_SECRET": "test_secret"}
@@ -59,8 +55,8 @@ async def test_webhook_signature_valid():
         raw_body = b'{"test": "data"}'
 
         # Compute valid signature
-        import hmac
         import hashlib
+        import hmac
         expected_sig = hmac.new(
             app_secret.encode(),
             raw_body,
@@ -110,7 +106,6 @@ async def test_webhook_signature_missing():
 @pytest.mark.asyncio
 async def test_facebook_webhook_verify_valid():
     """Test Facebook webhook verification with valid token."""
-    from fastapi import Request
 
     with patch("app.api.webhooks.facebook.settings") as mock_settings:
         mock_settings.return_value = {"FACEBOOK_WEBHOOK_VERIFY_TOKEN": "test_token"}
@@ -172,7 +167,6 @@ async def test_facebook_messenger_webhook_valid():
                 }],
             }
 
-            from fastapi import Request
 
             class MockRequest:
                 async def body(self):
@@ -203,7 +197,6 @@ async def test_facebook_messenger_webhook_invalid_signature():
             "entry": [],
         }
 
-        from fastapi import Request
 
         class MockRequest:
             async def body(self):
@@ -229,7 +222,6 @@ async def test_facebook_messenger_webhook_invalid_payload():
     with patch("app.api.webhooks.facebook.verify_facebook_webhook_signature") as mock_verify:
         mock_verify.return_value = True
 
-        from fastapi import Request
 
         class MockRequest:
             async def body(self):

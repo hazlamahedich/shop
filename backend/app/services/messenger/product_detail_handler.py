@@ -6,14 +6,13 @@ variant selection, stock availability, and add-to-cart actions.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
 from app.core.config import settings
 from app.core.errors import APIError, ErrorCode
-from app.schemas.shopify import CurrencyCode, Product, ProductImage, ProductVariant
-
+from app.schemas.shopify import CurrencyCode, Product, ProductVariant
 
 logger = structlog.get_logger(__name__)
 
@@ -32,7 +31,7 @@ class ProductDetailHandler:
     def format_product_detail(
         self,
         product: Product,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Format product detail view for Messenger.
 
         Args:
@@ -143,7 +142,7 @@ class ProductDetailHandler:
             return f"{price_str} - {description}"
         return price_str
 
-    def _build_variant_elements(self, product: Product) -> List[Dict[str, Any]]:
+    def _build_variant_elements(self, product: Product) -> list[dict[str, Any]]:
         """Build variant selection elements.
 
         Args:
@@ -155,7 +154,7 @@ class ProductDetailHandler:
         elements = []
 
         # Group variants by option type (size, color, etc.)
-        option_groups: Dict[str, List[ProductVariant]] = {}
+        option_groups: dict[str, list[ProductVariant]] = {}
 
         for variant in product.variants:
             if not variant.available_for_sale:
@@ -186,8 +185,8 @@ class ProductDetailHandler:
     def format_variant_selection(
         self,
         product: Product,
-        selected_options: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        selected_options: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Format variant selection message.
 
         Args:
@@ -247,8 +246,8 @@ class ProductDetailHandler:
     def select_variant_by_options(
         self,
         product: Product,
-        options: Dict[str, str],
-    ) -> Optional[ProductVariant]:
+        options: dict[str, str],
+    ) -> ProductVariant | None:
         """Select variant matching specified options.
 
         Args:
@@ -277,7 +276,7 @@ class ProductDetailHandler:
     def get_available_variants(
         self,
         product: Product,
-    ) -> List[ProductVariant]:
+    ) -> list[ProductVariant]:
         """Get list of available variants.
 
         Args:
@@ -291,7 +290,7 @@ class ProductDetailHandler:
     def get_variant_summary(
         self,
         product: Product,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get summary of available variants.
 
         Args:

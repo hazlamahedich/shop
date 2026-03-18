@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
 
 import pytest
 from fastapi import status
@@ -12,8 +11,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.facebook_integration import FacebookIntegration
-from app.models.shopify_integration import ShopifyIntegration
 from app.models.merchant import Merchant
+from app.models.shopify_integration import ShopifyIntegration
 
 
 @pytest.mark.asyncio

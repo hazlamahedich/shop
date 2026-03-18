@@ -7,9 +7,10 @@ Story 4-9: Tests should_bot_respond logic including:
 - Auto-expiry of hybrid mode
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
+
+import pytest
 
 
 class TestShouldBotRespond:
@@ -43,8 +44,8 @@ class TestShouldBotRespond:
         mock_conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
-                "activated_at": datetime.now(timezone.utc).isoformat(),
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+                "activated_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
             }
         }
 
@@ -59,8 +60,8 @@ class TestShouldBotRespond:
         mock_conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
-                "activated_at": datetime.now(timezone.utc).isoformat(),
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+                "activated_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
             }
         }
 
@@ -75,8 +76,8 @@ class TestShouldBotRespond:
         mock_conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
-                "activated_at": datetime.now(timezone.utc).isoformat(),
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+                "activated_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
             }
         }
 
@@ -85,7 +86,7 @@ class TestShouldBotRespond:
 
     def test_returns_true_when_hybrid_mode_expired(self, message_processor, mock_conversation):
         """Bot should respond when hybrid mode has expired (2 hours passed)."""
-        expired_time = datetime.now(timezone.utc) - timedelta(hours=3)
+        expired_time = datetime.now(UTC) - timedelta(hours=3)
         mock_conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,

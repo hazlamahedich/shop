@@ -5,13 +5,14 @@ Tests CRUD operations and encryption/decryption of access tokens.
 
 from __future__ import annotations
 
-import pytest
-from sqlalchemy import select
 from datetime import datetime
 
+import pytest
+from sqlalchemy import select
+
+from app.core.security import decrypt_access_token, encrypt_access_token
 from app.models.facebook_integration import FacebookIntegration
 from app.models.merchant import Merchant
-from app.core.security import encrypt_access_token, decrypt_access_token
 
 
 class TestFacebookIntegrationModel:

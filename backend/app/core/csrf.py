@@ -20,7 +20,7 @@ Security Features:
 from __future__ import annotations
 
 import secrets
-from typing import Optional
+
 from fastapi import Request, Response
 from starlette.datastructures import Headers
 
@@ -88,7 +88,7 @@ class CSRFProtection:
     def validate_token(
         self,
         request: Request,
-        token: Optional[str],
+        token: str | None,
     ) -> bool:
         """Validate CSRF token from request.
 
@@ -154,7 +154,7 @@ class CSRFProtection:
             samesite="strict",
         )
 
-    def extract_token_from_headers(self, headers: Headers) -> Optional[str]:
+    def extract_token_from_headers(self, headers: Headers) -> str | None:
         """Extract CSRF token from request headers.
 
         Looks for token in X-CSRF-Token header (preferred) or
@@ -178,7 +178,7 @@ class CSRFProtection:
 
         return None
 
-    def parse_session_id_from_token(self, token: str) -> Optional[str]:
+    def parse_session_id_from_token(self, token: str) -> str | None:
         """Extract session ID from CSRF token.
 
         Args:
@@ -198,7 +198,7 @@ class CSRFProtection:
 
 
 # Singleton instance for application-wide use
-_csrf_protection: Optional[CSRFProtection] = None
+_csrf_protection: CSRFProtection | None = None
 
 
 def get_csrf_protection() -> CSRFProtection:

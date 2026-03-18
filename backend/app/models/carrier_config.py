@@ -70,7 +70,7 @@ class CarrierConfig(Base):
         nullable=False,
     )
 
-    merchant: Mapped["Merchant"] = relationship(
+    merchant: Mapped[Merchant] = relationship(
         "Merchant",
         back_populates="carrier_configs",
     )

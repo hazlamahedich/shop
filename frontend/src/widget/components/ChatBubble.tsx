@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { WidgetTheme } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { trackWidgetOpen } from '../utils/analytics';
 
 export interface ChatBubbleProps {
   isOpen: boolean;
@@ -18,10 +19,17 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
     ? { left: 20 }
     : { right: 20 };
 
+  const handleClick = () => {
+    if (!isOpen) {
+      trackWidgetOpen();
+    }
+    onClick();
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onClick();
+      handleClick();
     }
   };
 
@@ -38,14 +46,12 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
 
   const showBadge = !isOpen && unreadCount > 0;
 
-  // Hover scale animation (AC7)
   const shouldScale = isHovered && !reducedMotion;
   const bubbleTransform = shouldScale ? 'scale(1.05)' : 'scale(1)';
   const bubbleBoxShadow = isHovered
     ? '0 6px 16px rgba(0, 0, 0, 0.2)'
     : '0 4px 12px rgba(0, 0, 0, 0.15)';
 
-  // Badge pulse animation (AC6)
   const shouldPulse = showBadge && !reducedMotion;
 
   return (
@@ -53,7 +59,7 @@ export function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0
       type="button"
       className={`shopbot-chat-bubble ${showBadge ? 'has-unread' : ''}`}
       data-testid="chat-bubble"
-      onClick={onClick}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

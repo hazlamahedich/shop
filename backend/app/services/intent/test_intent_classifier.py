@@ -169,7 +169,7 @@ async def test_conversation_context_usage():
 async def test_llm_failure_fallback():
     """Test that LLM failure returns unknown intent."""
     from unittest.mock import AsyncMock, patch
-    from app.services.llm.base_llm_service import LLMResponse
+
 
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
@@ -361,7 +361,6 @@ class TestMerchantLLMSupport:
     @pytest.mark.asyncio
     async def test_no_service_or_router_raises_error(self):
         """Test that classification fails gracefully without service or router."""
-        from unittest.mock import MagicMock
 
         classifier = IntentClassifier(llm_service=None, llm_router=None)
         classifier.llm_router = None

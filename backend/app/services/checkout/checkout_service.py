@@ -6,14 +6,14 @@ checkout token tracking for order confirmation.
 
 from __future__ import annotations
 
-import json
 import asyncio
-from datetime import datetime, timezone
+import json
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlparse
-from typing import Any, Dict, Optional
 
-import structlog
 import redis.asyncio as redis
+import structlog
 
 from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart
@@ -44,9 +44,9 @@ class CheckoutService:
 
     def __init__(
         self,
-        redis_client: Optional[Any] = None,
-        shopify_client: Optional[ShopifyStorefrontClient] = None,
-        cart_service: Optional[CartService] = None,
+        redis_client: Any | None = None,
+        shopify_client: ShopifyStorefrontClient | None = None,
+        cart_service: CartService | None = None,
     ) -> None:
         """Initialize checkout service.
 
@@ -87,7 +87,7 @@ class CheckoutService:
     async def generate_checkout_url(
         self,
         psid: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate Shopify checkout URL from cart items.
 
         Args:
@@ -217,7 +217,7 @@ class CheckoutService:
             "retry_count": attempt,
         }
 
-    def _extract_checkout_token(self, checkout_url: str) -> Optional[str]:
+    def _extract_checkout_token(self, checkout_url: str) -> str | None:
         """Extract checkout token from Shopify checkout URL.
 
         Handles custom domains by extracting the last path segment.
@@ -263,7 +263,7 @@ class CheckoutService:
         token_data = {
             "token": checkout_token,
             "url": checkout_url,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "psid": psid,
             "item_count": cart.item_count,
             "subtotal": cart.subtotal,
@@ -305,7 +305,7 @@ class CheckoutService:
 
         reverse_lookup_data = {
             "psid": psid,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         # Store reverse lookup with same TTL
@@ -324,7 +324,7 @@ class CheckoutService:
             ttl_hours=self.CHECKOUT_TOKEN_TTL_HOURS,
         )
 
-    async def get_checkout_token(self, psid: str) -> Optional[Dict[str, Any]]:
+    async def get_checkout_token(self, psid: str) -> dict[str, Any] | None:
         """Retrieve checkout token data for order confirmation.
 
         Args:

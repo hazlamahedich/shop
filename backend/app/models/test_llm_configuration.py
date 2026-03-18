@@ -6,13 +6,10 @@ Tests model validation, relationships, and CRUD operations.
 from __future__ import annotations
 
 import pytest
-from datetime import datetime
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.llm_configuration import LLMConfiguration
 from app.models.merchant import Merchant
-from app.core.database import async_session
 
 
 @pytest.mark.asyncio

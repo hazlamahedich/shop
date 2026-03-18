@@ -9,14 +9,14 @@ Tests cover:
 
 from __future__ import annotations
 
-from typing import AsyncGenerator
+import os
+from collections.abc import AsyncGenerator
 
 import pytest
-import os
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
 from app.core.config import settings
+from app.main import app
 
 
 class TestSecurityHeadersMiddleware:
@@ -160,7 +160,6 @@ class TestHTTPSEnforcement:
     @pytest.mark.asyncio
     async def test_security_middleware_is_registered(self) -> None:
         """Test that SecurityHeadersMiddleware is registered with FastAPI app."""
-        from app.middleware.security import SecurityHeadersMiddleware
 
         # Check that security middleware is in the app's middleware stack
         # Middleware is added through setup_security_middleware() in main.py
@@ -179,8 +178,9 @@ class TestHTTPSEnforcement:
 
     def test_https_redirect_only_in_production(self) -> None:
         """Test HTTPS redirect is only enabled in production (NFR-S1)."""
-        from app.middleware.security import setup_security_middleware
         from unittest.mock import MagicMock
+
+        from app.middleware.security import setup_security_middleware
 
         # Create a mock app
         mock_app = MagicMock()

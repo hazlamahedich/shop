@@ -12,10 +12,8 @@ Key Features:
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from app.models.merchant import PersonalityType
-
 
 # Default greeting templates for each personality type
 # These match the AC specifications exactly
@@ -51,7 +49,7 @@ def get_default_greeting(personality: PersonalityType) -> str:
 
 def substitute_greeting_variables(
     template: str,
-    merchant_config: dict[str, Optional[str]],
+    merchant_config: dict[str, str | None],
 ) -> str:
     """Substitute placeholder variables in greeting template.
 
@@ -131,7 +129,7 @@ def substitute_greeting_variables(
     return result
 
 
-def get_effective_greeting(merchant_config: dict[str, Optional[str]]) -> str:
+def get_effective_greeting(merchant_config: dict[str, str | None]) -> str:
     """Get the effective greeting for a merchant.
 
     Returns custom greeting if use_custom_greeting is True and

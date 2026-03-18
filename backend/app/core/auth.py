@@ -17,21 +17,17 @@ NFR-S4: API keys stored as environment variables
 
 from __future__ import annotations
 
-import os
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from hashlib import sha256
-from typing import Union
+from typing import Any
 
 import bcrypt
 from fastapi import HTTPException, status
-from jose import JWTError, jwt, ExpiredSignatureError
-from pydantic import ValidationError
+from jose import ExpiredSignatureError, JWTError, jwt
 
 from app.core.config import settings
-from app.core.errors import ErrorCode, APIError
-
+from app.core.errors import APIError, ErrorCode
 
 # JWT Configuration
 JWT_SECRET = settings()["SECRET_KEY"]
@@ -57,7 +53,7 @@ class JWTPayload:
     iat: int
     session_id: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert payload to dictionary for JWT encoding."""
         return {
             "merchant_id": self.merchant_id,
@@ -68,7 +64,7 @@ class JWTPayload:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "JWTPayload":
+    def from_dict(cls, data: dict[str, Any]) -> JWTPayload:
         """Create payload from dictionary (from JWT decoding)."""
         return cls(
             merchant_id=data["merchant_id"],
@@ -230,7 +226,7 @@ def create_jwt(
         )
 
 
-def validate_jwt(token: str, secret_key: Optional[str] = None) -> JWTPayload:
+def validate_jwt(token: str, secret_key: str | None = None) -> JWTPayload:
     """Validate JWT and return payload.
 
     Supports key rotation by trying both current and previous keys.
@@ -317,7 +313,7 @@ def authenticate_merchant(
 
 async def get_current_merchant(
     db: AsyncSession,
-) -> Optional[Merchant]:
+) -> Merchant | None:
     """Get authenticated merchant from JWT token in request state.
 
     Args:

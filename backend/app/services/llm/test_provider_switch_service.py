@@ -8,13 +8,13 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ErrorCode
+from app.models.llm_configuration import LLMConfiguration
+from app.models.merchant import Merchant
 from app.services.llm.provider_switch_service import (
     ProviderSwitchService,
     ProviderValidationError,
 )
-from app.core.errors import ErrorCode
-from app.models.llm_configuration import LLMConfiguration
-from app.models.merchant import Merchant
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,7 @@ Story: Handoff Resolution Flow Enhancement
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -44,7 +44,7 @@ async def process_handoff_resolutions(db: AsyncSession) -> dict[str, Any]:
 
     logger.info(
         "handoff_resolution_task_started",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
     results = {
@@ -114,14 +114,14 @@ async def process_handoff_resolutions(db: AsyncSession) -> dict[str, Any]:
         logger.error(
             "handoff_resolution_task_error",
             error=str(e),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
         results["errors"] += 1
 
     logger.info(
         "handoff_resolution_task_completed",
         **results,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
     return results

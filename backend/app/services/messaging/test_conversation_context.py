@@ -6,8 +6,9 @@ Unit tests for Redis storage, TTL, and context retrieval.
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.messaging.conversation_context import ConversationContextManager
 

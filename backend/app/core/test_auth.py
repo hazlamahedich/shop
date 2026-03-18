@@ -10,20 +10,21 @@ Tests cover:
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timedelta
+
+import pytest
 from fastapi import HTTPException, status
 
 from app.core.auth import (
-    hash_password,
-    verify_password,
-    validate_password_requirements,
-    hash_token,
-    create_jwt,
-    validate_jwt,
-    authenticate_merchant,
-    validate_secret_key,
     JWTPayload,
+    authenticate_merchant,
+    create_jwt,
+    hash_password,
+    hash_token,
+    validate_jwt,
+    validate_password_requirements,
+    validate_secret_key,
+    verify_password,
 )
 from app.core.config import settings
 
@@ -222,7 +223,6 @@ class TestJWTValidation:
 
     def test_validate_jwt_expired_token_raises_401(self):
         """Expired JWT should raise 401 with expired error."""
-        import time
 
         # Create an already-expired token
         payload = JWTPayload(

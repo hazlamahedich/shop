@@ -14,10 +14,10 @@ Steps Overview:
 8. Smart Greetings & Product Pins - Greeting templates and product highlight pins
 """
 
-from typing import Dict, Any
+from typing import Any
 
 # Tutorial step definitions with content and actions
-TUTORIAL_STEPS: Dict[str, Dict[str, Any]] = {
+TUTORIAL_STEPS: dict[str, dict[str, Any]] = {
     "1": {
         "step": 1,
         "title": "Dashboard Overview",
@@ -220,7 +220,7 @@ def get_tutorial_step_content(step: int) -> str:
     return step_config.get("content", "<p>Step content not available.</p>")
 
 
-def get_all_steps() -> list[Dict[str, Any]]:
+def get_all_steps() -> list[dict[str, Any]]:
     """Get all tutorial step configurations.
 
     Returns:

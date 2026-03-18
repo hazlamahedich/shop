@@ -7,7 +7,6 @@ certificate verification for macOS compatibility.
 from __future__ import annotations
 
 import ssl
-from typing import Optional
 
 import certifi
 import httpx

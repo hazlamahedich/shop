@@ -326,8 +326,8 @@ class TestReturnToBotAPI:
         test_handoff_conversation,
     ):
         """Test that disabling hybrid mode changes status from handoff to active."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -366,8 +366,8 @@ class TestReturnToBotAPI:
         test_handoff_conversation,
     ):
         """Test that disabling hybrid mode resets handoff_status to none."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -405,8 +405,8 @@ class TestReturnToBotAPI:
         test_conversation_with_messages,
     ):
         """Test that disabling hybrid mode is idempotent if status is already active."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -445,8 +445,8 @@ class TestReturnToBotAPI:
         test_handoff_conversation,
     ):
         """Test that response includes conversationStatus and handoffStatus fields."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -485,8 +485,8 @@ class TestReturnToBotAPI:
         test_conversation_with_messages,
     ):
         """Test that disabling hybrid mode returns 400 for closed conversations (Story 4-10 Task 1)."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -524,8 +524,8 @@ class TestReturnToBotAPI:
         test_handoff_conversation,
     ):
         """Test that disabling hybrid mode resets handoff_status 'resolved' to 'none'."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -610,10 +610,11 @@ class TestConversationHistoryPreservation:
         test_handoff_conversation,
     ):
         """Test that return-to-bot preserves conversation context."""
-        from app.models.facebook_integration import FacebookIntegration
-        from app.core.security import encrypt_access_token
-        from app.models.message import Message
         from datetime import datetime
+
+        from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
+        from app.models.message import Message
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,

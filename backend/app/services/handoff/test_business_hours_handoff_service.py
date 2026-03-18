@@ -10,16 +10,14 @@ Tests cover:
 - Queue idempotency
 """
 
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
 
 import pytest
 
 from app.services.handoff.business_hours_handoff_service import (
-    BusinessHoursHandoffService,
-    HandoffMessageContext,
-    STANDARD_HANDOFF_MESSAGE,
     OFFLINE_HANDOFF_PREFIX,
+    STANDARD_HANDOFF_MESSAGE,
+    BusinessHoursHandoffService,
 )
 
 
@@ -90,7 +88,7 @@ class TestGetHandoffMessageContext:
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Within business hours should return online context."""
-        wednesday_10am = datetime(2026, 2, 18, 18, 0, 0, tzinfo=timezone.utc)
+        wednesday_10am = datetime(2026, 2, 18, 18, 0, 0, tzinfo=UTC)
         context = service.get_handoff_message_context(business_hours_config, wednesday_10am)
         assert context.is_offline is False
 
@@ -98,7 +96,7 @@ class TestGetHandoffMessageContext:
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Outside business hours should return offline context."""
-        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=timezone.utc)
+        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=UTC)
         context = service.get_handoff_message_context(business_hours_config, saturday_10am)
         assert context.is_offline is True
         assert "9" in context.business_hours_str and "AM" in context.business_hours_str
@@ -108,7 +106,7 @@ class TestGetHandoffMessageContext:
         self, service: BusinessHoursHandoffService, always_open_config: dict
     ) -> None:
         """Always open config should never be offline."""
-        any_time = datetime(2026, 2, 21, 10, 0, 0, tzinfo=timezone.utc)
+        any_time = datetime(2026, 2, 21, 10, 0, 0, tzinfo=UTC)
         context = service.get_handoff_message_context(always_open_config, any_time)
         assert context.is_offline is False
 
@@ -118,29 +116,29 @@ class TestFormatExpectedResponseTime:
 
     def test_less_than_one_hour(self, service: BusinessHoursHandoffService) -> None:
         """Response time < 1 hour should return 'less than 1 hour'."""
-        from_time = datetime(2026, 2, 18, 16, 30, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 16, 30, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert result == "less than 1 hour"
 
     def test_about_x_hours(self, service: BusinessHoursHandoffService) -> None:
         """Response time 1-6 hours should return 'about X hours'."""
-        from_time = datetime(2026, 2, 18, 14, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 14, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert result == "about 3 hours"
 
     def test_tomorrow_at_time(self, service: BusinessHoursHandoffService) -> None:
         """Response time next day should include 'tomorrow'."""
-        from_time = datetime(2026, 2, 18, 20, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 19, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 20, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 19, 17, 0, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert "tomorrow" in result.lower()
 
     def test_day_name_for_weekend(self, service: BusinessHoursHandoffService) -> None:
         """Response time > 1 day should include day name."""
-        from_time = datetime(2026, 2, 21, 10, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 23, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 21, 10, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 23, 17, 0, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert "on" in result.lower() and "at" in result.lower()
 
@@ -156,14 +154,14 @@ class TestIsOfflineHandoff:
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Within business hours should not be offline."""
-        wednesday_10am = datetime(2026, 2, 18, 18, 0, 0, tzinfo=timezone.utc)
+        wednesday_10am = datetime(2026, 2, 18, 18, 0, 0, tzinfo=UTC)
         assert service.is_offline_handoff(business_hours_config, wednesday_10am) is False
 
     def test_outside_hours_is_offline(
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Outside business hours should be offline."""
-        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=timezone.utc)
+        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=UTC)
         assert service.is_offline_handoff(business_hours_config, saturday_10am) is True
 
 
@@ -174,7 +172,7 @@ class TestBuildHandoffMessage:
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Within business hours should return standard handoff message."""
-        wednesday_10am = datetime(2026, 2, 18, 18, 0, 0, tzinfo=timezone.utc)
+        wednesday_10am = datetime(2026, 2, 18, 18, 0, 0, tzinfo=UTC)
         message = service.build_handoff_message(business_hours_config, wednesday_10am)
         assert message == STANDARD_HANDOFF_MESSAGE
 
@@ -182,7 +180,7 @@ class TestBuildHandoffMessage:
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Offline should include business hours in message."""
-        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=timezone.utc)
+        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=UTC)
         message = service.build_handoff_message(business_hours_config, saturday_10am)
         assert OFFLINE_HANDOFF_PREFIX in message
         assert "business hours" in message.lower()
@@ -211,7 +209,7 @@ class TestTimezoneHandling:
                 {"day": "sun", "is_open": False},
             ],
         }
-        utc_2pm = datetime(2026, 2, 18, 14, 0, 0, tzinfo=timezone.utc)
+        utc_2pm = datetime(2026, 2, 18, 14, 0, 0, tzinfo=UTC)
         context = service.get_handoff_message_context(est_config, utc_2pm)
         assert context.is_offline is False
 
@@ -225,7 +223,7 @@ class TestTimezoneHandling:
                 {"day": "sun", "is_open": False},
             ],
         }
-        friday_11pm_pst_in_utc = datetime(2026, 2, 21, 7, 0, 0, tzinfo=timezone.utc)
+        friday_11pm_pst_in_utc = datetime(2026, 2, 21, 7, 0, 0, tzinfo=UTC)
         context = service.get_handoff_message_context(crossover_config, friday_11pm_pst_in_utc)
         assert context.is_offline is False
 
@@ -259,8 +257,8 @@ class TestEdgeCases:
 
     def test_format_time_with_minutes(self, service: BusinessHoursHandoffService) -> None:
         """Should format times with minutes correctly."""
-        from_time = datetime(2026, 2, 18, 10, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 19, 17, 30, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 10, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 19, 17, 30, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert "on" in result.lower() or "tomorrow" in result.lower()
 
@@ -272,7 +270,7 @@ class TestQueueIdempotency:
         self, service: BusinessHoursHandoffService, business_hours_config: dict
     ) -> None:
         """Should return proper context for queue state management."""
-        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=timezone.utc)
+        saturday_10am = datetime(2026, 2, 21, 18, 0, 0, tzinfo=UTC)
         context = service.get_handoff_message_context(business_hours_config, saturday_10am)
 
         assert context.is_offline is True
@@ -308,26 +306,26 @@ class TestResponseTimeEdgeCases:
 
     def test_exactly_one_hour(self, service: BusinessHoursHandoffService) -> None:
         """Response time exactly 1 hour should return 'about 1 hours'."""
-        from_time = datetime(2026, 2, 18, 16, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 16, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert "about 1 hour" in result
 
     def test_exactly_six_hours(self, service: BusinessHoursHandoffService) -> None:
         """Response time exactly 6 hours should show day-appropriate message."""
-        from_time = datetime(2026, 2, 18, 11, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 11, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=UTC)
         result = service.format_expected_response_time(from_time, next_hour)
         assert "today" in result.lower() or "tomorrow" in result.lower()
 
     def test_format_time_noon(self, service: BusinessHoursHandoffService) -> None:
         """Should format noon correctly as '12 PM'."""
-        noon = datetime(2026, 2, 18, 12, 0, 0, tzinfo=timezone.utc)
+        noon = datetime(2026, 2, 18, 12, 0, 0, tzinfo=UTC)
         result = service._format_time_12h(noon)
         assert result == "12 PM"
 
     def test_format_time_midnight(self, service: BusinessHoursHandoffService) -> None:
         """Should format midnight correctly as '12 AM'."""
-        midnight = datetime(2026, 2, 18, 0, 0, 0, tzinfo=timezone.utc)
+        midnight = datetime(2026, 2, 18, 0, 0, 0, tzinfo=UTC)
         result = service._format_time_12h(midnight)
         assert result == "12 AM"

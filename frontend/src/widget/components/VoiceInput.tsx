@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import type { VoiceInputConfig } from '../types/widget';
+import { trackVoiceInput } from '../utils/analytics';
 
 export interface VoiceInputProps {
   config?: Partial<VoiceInputConfig>;
@@ -81,6 +82,7 @@ export function VoiceInput({
 }: VoiceInputProps) {
   const { state, isSupported, startListening, stopListening, cancelListening, setLanguage } = useVoiceInput(config);
   const [showError, setShowError] = React.useState(false);
+  const [startTime, setStartTime] = React.useState<number | null>(null);
   
   // Expose setLanguage for parent components
   React.useEffect(() => {
@@ -103,15 +105,19 @@ export function VoiceInput({
   
   React.useEffect(() => {
     if (state.finalTranscript && !state.isListening) {
+      const durationMs = startTime ? Date.now() - startTime : 0;
+      trackVoiceInput(durationMs, true);
       onTranscript?.(state.finalTranscript);
+      setStartTime(null);
     }
-  }, [state.finalTranscript, state.isListening, onTranscript]);
+  }, [state.finalTranscript, state.isListening, startTime, onTranscript]);
   
   const handleToggle = async () => {
     if (state.isListening) {
       stopListening();
     } else {
       setShowError(false);
+      setStartTime(Date.now());
       await startListening();
     }
   };

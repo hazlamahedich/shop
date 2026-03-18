@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 
 
 class ErrorCode(IntEnum):
@@ -314,9 +314,9 @@ class ErrorCode(IntEnum):
 class ErrorDetail:
     """Structured error detail for API responses."""
 
-    field: Optional[str] = None
+    field: str | None = None
     message: str = ""
-    code: Optional[ErrorCode] = None
+    code: ErrorCode | None = None
 
 
 class APIError(Exception):
@@ -326,7 +326,7 @@ class APIError(Exception):
         self,
         code: ErrorCode,
         message: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.code = code
         self.message = message
@@ -350,7 +350,7 @@ class ValidationError(APIError):
     def __init__(
         self,
         message: str,
-        fields: Optional[dict[str, str]] = None,
+        fields: dict[str, str] | None = None,
     ) -> None:
         details = {"fields": fields} if fields else None
         super().__init__(ErrorCode.VALIDATION_ERROR, message, details)
@@ -366,7 +366,7 @@ class AuthenticationError(APIError):
 class NotFoundError(APIError):
     """Resource not found error."""
 
-    def __init__(self, resource: str, identifier: Optional[str] = None) -> None:
+    def __init__(self, resource: str, identifier: str | None = None) -> None:
         message = f"{resource} not found"
         if identifier:
             message += f": {identifier}"

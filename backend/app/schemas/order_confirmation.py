@@ -5,9 +5,9 @@ Defines order data models and confirmation status.
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Optional
 from datetime import datetime
+from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -27,14 +27,14 @@ class OrderConfirmationRequest(BaseModel):
     order_number: int = Field(description="Shopify order number")
     order_url: str = Field(description="Shopify order URL")
     financial_status: str = Field(description="Order financial status (paid, pending, etc.)")
-    customer_email: Optional[str] = Field(None, description="Customer email")
-    psid: Optional[str] = Field(None, description="Facebook PSID from order attributes")
+    customer_email: str | None = Field(None, description="Customer email")
+    psid: str | None = Field(None, description="Facebook PSID from order attributes")
     created_at: str = Field(description="Order creation timestamp (ISO-8601)")
-    note_attributes: Optional[list[dict[str, str]]] = Field(
+    note_attributes: list[dict[str, str]] | None = Field(
         default_factory=list,
         description="Order note attributes for PSID lookup"
     )
-    attributes: Optional[list[dict[str, str]]] = Field(
+    attributes: list[dict[str, str]] | None = Field(
         default_factory=list,
         description="Order attributes for PSID lookup (GraphQL/Plus)"
     )
@@ -46,10 +46,10 @@ class OrderConfirmationResult(BaseModel):
     status: ConfirmationStatus = Field(description="Confirmation status")
     order_id: str = Field(description="Shopify order ID")
     order_number: int = Field(description="Shopify order number")
-    psid: Optional[str] = Field(None, description="Facebook PSID")
+    psid: str | None = Field(None, description="Facebook PSID")
     message: str = Field(description="User-facing message")
     cart_cleared: bool = Field(default=False, description="Whether cart was cleared")
-    confirmed_at: Optional[str] = Field(None, description="Confirmation timestamp (ISO-8601)")
+    confirmed_at: str | None = Field(None, description="Confirmation timestamp (ISO-8601)")
 
     class Config:
         use_enum_values = True

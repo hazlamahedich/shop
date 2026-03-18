@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Optional
 
 import structlog
 
@@ -34,7 +33,7 @@ class EmailService:
     - ses: AWS SES integration (production)
     """
 
-    def __init__(self, provider_client: Optional[any] = None):
+    def __init__(self, provider_client: any | None = None):
         """Initialize email service.
 
         Args:

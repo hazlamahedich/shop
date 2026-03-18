@@ -7,9 +7,8 @@ Story 1.2: localStorage to PostgreSQL migration implemented.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import Boolean, Integer, DateTime, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -50,7 +49,7 @@ class PrerequisiteChecklist(Base):
         default=False,
         nullable=False,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )

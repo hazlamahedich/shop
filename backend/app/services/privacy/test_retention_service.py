@@ -7,7 +7,6 @@ Task 7.2: Test retention policy execution for each tier
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -16,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.order import Order
-from app.services.privacy.retention_service import RetentionPolicy
 from app.services.privacy.data_tier_service import DataTier
+from app.services.privacy.retention_service import RetentionPolicy
 
 
 class TestRetentionPolicy:

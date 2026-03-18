@@ -9,18 +9,15 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 from io import StringIO
-from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.conversation import Conversation
-from app.models.llm_conversation_cost import LLMConversationCost
-from app.models.message import Message
 from app.core.errors import APIError, ErrorCode
+from app.models.conversation import Conversation
+from app.models.message import Message
 from app.services.export.cost_calculator import CostCalculator
-
 
 # CSV column headers (fixed order as per AC4)
 CSV_HEADERS = [
@@ -64,12 +61,12 @@ class CSVExportService:
         self,
         db: AsyncSession,
         merchant_id: int,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        search: Optional[str] = None,
-        status: Optional[list[str]] = None,
-        sentiment: Optional[list[str]] = None,
-        has_handoff: Optional[bool] = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        search: str | None = None,
+        status: list[str] | None = None,
+        sentiment: list[str] | None = None,
+        has_handoff: bool | None = None,
     ) -> tuple[str, int]:
         """Generate CSV export of conversations for a merchant.
 
@@ -117,12 +114,12 @@ class CSVExportService:
     def _build_filtered_query(
         self,
         merchant_id: int,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        search: Optional[str] = None,
-        status: Optional[list[str]] = None,
-        sentiment: Optional[list[str]] = None,
-        has_handoff: Optional[bool] = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        search: str | None = None,
+        status: list[str] | None = None,
+        sentiment: list[str] | None = None,
+        has_handoff: bool | None = None,
     ) -> select:
         """Build SQLAlchemy query with filters applied.
 
@@ -137,7 +134,7 @@ class CSVExportService:
 
         # Apply search filter (customer ID and bot message content)
         if search and search.strip():
-            from sqlalchemy import or_, exists
+            from sqlalchemy import or_
 
             search_pattern = f"%{search.strip()}%"
             customer_id_match = Conversation.platform_sender_id.ilike(search_pattern)

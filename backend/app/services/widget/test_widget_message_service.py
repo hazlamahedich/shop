@@ -8,15 +8,16 @@ Story 5.1: Backend Widget API
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.core.errors import APIError, ErrorCode
 from app.schemas.widget import WidgetSessionData
 from app.services.widget.widget_message_service import (
-    WidgetMessageService,
     MAX_MESSAGE_LENGTH,
+    WidgetMessageService,
 )
 
 
@@ -55,7 +56,7 @@ class TestWidgetMessageService:
     @pytest.fixture
     def test_session(self):
         """Create test session data."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return WidgetSessionData(
             session_id="test-session-id",
             merchant_id=1,
@@ -298,7 +299,8 @@ class TestWidgetMessageService:
         self, mock_session_service, test_session, mock_redis
     ):
         """Test that process_message uses UnifiedConversationService when db is provided."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
+
         from app.services.conversation.schemas import ConversationResponse
 
         # Create a mock db

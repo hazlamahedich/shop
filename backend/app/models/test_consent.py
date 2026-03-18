@@ -10,11 +10,7 @@ Tests for extended consent model including:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
-import pytest
-
-from app.models.consent import Consent, ConsentType, ConsentSource
+from app.models.consent import Consent, ConsentSource, ConsentType
 
 
 def test_consent_type_constants() -> None:

@@ -6,9 +6,8 @@ Stores merchant's Facebook Page connection details including encrypted access to
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,7 +40,7 @@ class FacebookIntegration(Base):
         String(255),
         nullable=False,
     )
-    page_picture_url: Mapped[Optional[str]] = mapped_column(
+    page_picture_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
@@ -68,11 +67,11 @@ class FacebookIntegration(Base):
         Boolean,
         default=False,
     )
-    last_webhook_at: Mapped[Optional[datetime]] = mapped_column(
+    last_webhook_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
-    last_webhook_verified_at: Mapped[Optional[datetime]] = mapped_column(
+    last_webhook_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )

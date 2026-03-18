@@ -7,10 +7,10 @@ Tracks status of deletion requests within 30-day processing window.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 from enum import Enum
 
-from sqlalchemy import String, Integer, DateTime, Text, Enum as SQLEnum
+from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -55,15 +55,15 @@ class DataDeletionRequest(Base):
         server_default=func.now(),
         nullable=False,
     )
-    processed_at: Mapped[Optional[datetime]] = mapped_column(
+    processed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    deleted_items: Mapped[Optional[str]] = mapped_column(
+    deleted_items: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )

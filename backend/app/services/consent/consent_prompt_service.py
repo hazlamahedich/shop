@@ -8,14 +8,12 @@ Provides personality-aware consent prompts using PersonalityAwareResponseFormatt
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
 
 import structlog
 
 from app.models.merchant import PersonalityType
 from app.schemas.consent import ConsentStatus
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-
 
 logger = structlog.get_logger(__name__)
 
@@ -129,7 +127,7 @@ class ConsentPromptService:
         self,
         personality: PersonalityType,
         status: ConsentStatus,
-        granted_at: Optional[datetime] = None,
+        granted_at: datetime | None = None,
         locale: str = "en_US",
     ) -> str:
         """Get personality-aware consent status check message.
@@ -164,7 +162,7 @@ class ConsentPromptService:
                 personality,
             )
 
-    def _format_localized_date(self, dt: Optional[datetime], locale: str = "en_US") -> str:
+    def _format_localized_date(self, dt: datetime | None, locale: str = "en_US") -> str:
         """Format date according to locale.
 
         Args:

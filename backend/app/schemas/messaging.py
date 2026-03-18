@@ -6,8 +6,7 @@ camelCase API compatibility.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +28,7 @@ class FacebookMessaging(BaseModel):
     """Facebook messaging entry from webhook."""
 
     sender_id: str = Field(alias="id", description="PSID of sender")
-    message_text: Optional[str] = Field(None, alias="text", description="Message text content")
+    message_text: str | None = Field(None, alias="text", description="Message text content")
 
     class Config:
         alias_generator = to_camel
@@ -62,7 +61,7 @@ class FacebookWebhookPayload(BaseModel):
         return ""
 
     @property
-    def message_text(self) -> Optional[str]:
+    def message_text(self) -> str | None:
         """Extract message text from first message."""
         if self.entry and self.entry[0].messaging:
             message = self.entry[0].messaging[0].get("message", {})
@@ -70,7 +69,7 @@ class FacebookWebhookPayload(BaseModel):
         return None
 
     @property
-    def postback_payload(self) -> Optional[str]:
+    def postback_payload(self) -> str | None:
         """Extract postback payload from button tap."""
         if self.entry and self.entry[0].messaging:
             postback = self.entry[0].messaging[0].get("postback", {})
@@ -108,11 +107,11 @@ class ClarificationState(BaseModel):
     questions_asked: list[str] = Field(
         default_factory=list, description="Constraints asked about"
     )
-    last_question: Optional[str] = Field(None, description="Last question asked")
-    original_intent: Optional[dict[str, Any]] = Field(
+    last_question: str | None = Field(None, description="Last question asked")
+    original_intent: dict[str, Any] | None = Field(
         None, description="Original intent being clarified"
     )
-    started_at: Optional[str] = Field(None, description="When clarification started")
+    started_at: str | None = Field(None, description="When clarification started")
 
     class Config:
         alias_generator = to_camel
@@ -123,13 +122,13 @@ class ConversationContext(BaseModel):
     """Conversation context for message processing."""
 
     psid: str = Field(description="Facebook Page-Scoped ID")
-    created_at: Optional[str] = Field(None, description="Session creation timestamp")
-    last_message_at: Optional[str] = Field(None, description="Last message timestamp")
+    created_at: str | None = Field(None, description="Session creation timestamp")
+    last_message_at: str | None = Field(None, description="Last message timestamp")
     message_count: int = Field(0, description="Number of messages in session")
     previous_intents: list[str] = Field(default_factory=list, description="Previous intent classifications")
     extracted_entities: dict[str, Any] = Field(default_factory=dict, description="Extracted entities from conversation")
     conversation_state: str = Field("active", description="Current conversation state")
-    clarification: Optional[ClarificationState] = Field(None, description="Clarification flow state")
+    clarification: ClarificationState | None = Field(None, description="Clarification flow state")
 
     class Config:
         alias_generator = to_camel

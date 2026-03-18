@@ -5,18 +5,19 @@ Story 1.11: Business Info & FAQ Configuration
 Tests Pydantic schema validation for FAQ management.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from pydantic import ValidationError
 
+from app.schemas.base import MetaData
 from app.schemas.faq import (
+    FaqEnvelope,
+    FaqListEnvelope,
+    FaqReorderRequest,
     FaqRequest,
     FaqResponse,
-    FaqListEnvelope,
-    FaqEnvelope,
-    FaqReorderRequest,
 )
-from app.schemas.base import MetaData
 
 
 class TestFaqRequest:

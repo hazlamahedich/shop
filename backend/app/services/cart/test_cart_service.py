@@ -5,14 +5,13 @@ TTL, and performance requirements.
 """
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import redis
 
 from app.core.errors import APIError, ErrorCode
-from app.schemas.cart import Cart, CartItem, CurrencyCode
+from app.schemas.cart import CurrencyCode
 from app.services.cart import CartService
 
 

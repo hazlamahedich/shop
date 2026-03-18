@@ -7,7 +7,7 @@ Monitors GDPR/CCPA 30-day compliance window and alerts on overdue requests.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import structlog
@@ -37,7 +37,7 @@ class GDPRComplianceMonitor:
         Returns:
             dict with compliance metrics and request lists
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Find overdue requests (past deadline, not completed)
         overdue = await db.execute(

@@ -4,12 +4,11 @@ Tests PSID passing to Shopify as custom attribute and reverse lookup.
 """
 
 import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, call
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.core.errors import APIError, ErrorCode
 from app.schemas.cart import Cart, CartItem, CurrencyCode
 from app.services.cart import CartService
 from app.services.checkout import CheckoutService
@@ -61,13 +60,13 @@ class TestCheckoutServicePSIDTracking:
                     image_url="https://example.com/image.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=2,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
             ],
             subtotal=59.98,
             currency_code=CurrencyCode.USD,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
 
     @pytest.mark.asyncio
@@ -145,7 +144,7 @@ class TestCheckoutServicePSIDTracking:
 
         # Store reverse lookup (this would be done during checkout)
         reverse_lookup_key = f"checkout_token_lookup:{checkout_token}"
-        reverse_lookup_data = json.dumps({"psid": psid, "created_at": datetime.now(timezone.utc).isoformat()})
+        reverse_lookup_data = json.dumps({"psid": psid, "created_at": datetime.now(UTC).isoformat()})
 
         await checkout_service.redis.setex(
             reverse_lookup_key,

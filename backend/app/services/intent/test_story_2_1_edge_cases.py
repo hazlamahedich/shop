@@ -12,9 +12,10 @@ Comprehensive edge case tests for intent classification covering:
 from __future__ import annotations
 
 import json
-import pytest
 import time
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.services.intent import IntentClassifier, IntentType
 from app.services.intent.classification_schema import ClassificationResult, ExtractedEntities

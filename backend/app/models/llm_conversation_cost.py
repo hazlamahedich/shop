@@ -7,9 +7,9 @@ and cost transparency. Supports cost estimation and real-time tracking.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey as SQLForeignKey
+from sqlalchemy import DateTime, Float, Integer, String
+from sqlalchemy import ForeignKey as SQLForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -87,7 +87,7 @@ class LLMConversationCost(Base):
         nullable=False,
         index=True,
     )
-    processing_time_ms: Mapped[Optional[float]] = mapped_column(
+    processing_time_ms: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )  # Response time in milliseconds

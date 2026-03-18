@@ -7,20 +7,14 @@ Story 1.14: Integrated with greeting service for variable substitution.
 
 from __future__ import annotations
 
-from typing import Optional
-
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.merchant import Merchant, PersonalityType
-from app.services.personality.personality_prompts import get_personality_system_prompt
 from app.services.personality.greeting_service import get_effective_greeting
-from app.services.llm.base_llm_service import LLMMessage
-from app.services.llm.llm_factory import LLMProviderFactory
-from app.core.config import settings
-import structlog
-
+from app.services.personality.personality_prompts import get_personality_system_prompt
 
 logger = structlog.get_logger(__name__)
 
@@ -86,7 +80,7 @@ class BotResponseService:
     Story 1.10: Bot Personality Configuration
     """
 
-    def __init__(self, db: Optional[AsyncSession] = None) -> None:
+    def __init__(self, db: AsyncSession | None = None) -> None:
         """Initialize the bot response service.
 
         Args:
@@ -96,8 +90,8 @@ class BotResponseService:
         self.logger = structlog.get_logger(__name__)
 
     async def _get_merchant(
-        self, merchant_id: int, db: Optional[AsyncSession] = None
-    ) -> Optional[Merchant]:
+        self, merchant_id: int, db: AsyncSession | None = None
+    ) -> Merchant | None:
         """Get merchant by ID.
 
         Args:
@@ -125,7 +119,7 @@ class BotResponseService:
     async def get_greeting(
         self,
         merchant_id: int,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> str:
         """Get personality-appropriate greeting for merchant.
 
@@ -165,7 +159,7 @@ class BotResponseService:
     async def get_help_response(
         self,
         merchant_id: int,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> str:
         """Get personality-appropriate help response.
 
@@ -187,7 +181,7 @@ class BotResponseService:
     async def get_error_response(
         self,
         merchant_id: int,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> str:
         """Get personality-appropriate error response.
 
@@ -209,7 +203,7 @@ class BotResponseService:
     async def get_system_prompt(
         self,
         merchant_id: int,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> str:
         """Get full system prompt with personality for LLM calls.
 
@@ -237,8 +231,8 @@ class BotResponseService:
         if db:
             try:
                 from app.services.product_context_service import (
-                    get_product_context_prompt_section,
                     get_order_context_prompt_section,
+                    get_product_context_prompt_section,
                 )
 
                 product_context = await get_product_context_prompt_section(db, merchant_id)
@@ -275,7 +269,7 @@ class BotResponseService:
 async def get_pinned_product_ids(
     self,
     merchant_id: int,
-    db: Optional[AsyncSession] = None,
+    db: AsyncSession | None = None,
 ) -> list[str]:
     """Get list of pinned product IDs for a merchant.
 
@@ -290,7 +284,6 @@ async def get_pinned_product_ids(
     Returns:
         List of product IDs that are pinned
     """
-    from app.services.product_pin_service import get_pinned_product_ids
 
     if db is None:
         if self.db is None:

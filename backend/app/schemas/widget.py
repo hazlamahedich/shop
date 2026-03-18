@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional, Any, Literal, List
-from uuid import UUID
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
-from app.schemas.base import BaseSchema, MinimalEnvelope, MetaData
+from app.schemas.base import BaseSchema, MetaData, MinimalEnvelope
 
 
 class QuickReply(BaseSchema):
@@ -34,8 +33,8 @@ class QuickReply(BaseSchema):
 
     id: str = Field(description="Unique identifier")
     text: str = Field(max_length=50, description="Button display text")
-    icon: Optional[str] = Field(default=None, max_length=10, description="Optional icon/emoji")
-    payload: Optional[str] = Field(
+    icon: str | None = Field(default=None, max_length=10, description="Optional icon/emoji")
+    payload: str | None = Field(
         default=None, max_length=100, description="Optional payload string"
     )
 
@@ -74,7 +73,7 @@ class ProactiveTriggerActionSchema(BaseSchema):
     """
 
     text: str = Field(min_length=1, max_length=100, description="Button display text")
-    pre_populated_message: Optional[str] = Field(
+    pre_populated_message: str | None = Field(
         default=None, max_length=500, description="Message to pre-fill in chat input"
     )
 
@@ -95,11 +94,11 @@ class ProactiveTriggerSchema(BaseSchema):
 
     type: TriggerType = Field(description="Trigger type")
     enabled: bool = Field(default=True, description="Whether this trigger is enabled")
-    threshold: Optional[int] = Field(
+    threshold: int | None = Field(
         default=None, ge=1, le=100, description="Threshold value (varies by type)"
     )
     message: str = Field(min_length=1, max_length=500, description="Message to display")
-    actions: List[ProactiveTriggerActionSchema] = Field(
+    actions: list[ProactiveTriggerActionSchema] = Field(
         default_factory=list, description="Action buttons"
     )
     cooldown: int = Field(
@@ -118,7 +117,7 @@ class ProactiveEngagementConfigSchema(BaseSchema):
     """
 
     enabled: bool = Field(default=True, description="Whether proactive engagement is enabled")
-    triggers: List[ProactiveTriggerSchema] = Field(
+    triggers: list[ProactiveTriggerSchema] = Field(
         default_factory=list, description="List of trigger configurations"
     )
 
@@ -178,7 +177,7 @@ class WidgetConfig(BaseSchema):
     )
     theme: WidgetTheme = Field(default_factory=WidgetTheme)
     allowed_domains: list[str] = Field(default_factory=list)
-    rate_limit: Optional[int] = Field(default=None, ge=1, le=1000)
+    rate_limit: int | None = Field(default=None, ge=1, le=1000)
 
 
 class WidgetSessionData(BaseSchema):
@@ -205,11 +204,11 @@ class WidgetSessionData(BaseSchema):
     created_at: datetime
     last_activity_at: datetime
     expires_at: datetime
-    visitor_ip: Optional[str] = None
-    user_agent: Optional[str] = None
-    visitor_id: Optional[str] = None
+    visitor_ip: str | None = None
+    user_agent: str | None = None
+    visitor_id: str | None = None
     is_returning_shopper: bool = False
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class CreateSessionRequest(BaseSchema):
@@ -223,7 +222,7 @@ class CreateSessionRequest(BaseSchema):
     """
 
     merchant_id: int
-    visitor_id: Optional[str] = Field(
+    visitor_id: str | None = Field(
         default=None, description="Visitor ID for returning shopper detection"
     )
 
@@ -301,13 +300,13 @@ class WidgetMessageResponse(BaseSchema):
     content: str
     sender: str = "bot"
     created_at: datetime
-    products: Optional[list[dict[str, Any]]] = None
-    cart: Optional[dict[str, Any]] = None
-    checkout_url: Optional[str] = None
-    consent_prompt_required: Optional[bool] = Field(
+    products: list[dict[str, Any]] | None = None
+    cart: dict[str, Any] | None = None
+    checkout_url: str | None = None
+    consent_prompt_required: bool | None = Field(
         default=None, description="Whether to show consent prompt (Story 6-1)"
     )
-    quick_replies: Optional[list[QuickReply]] = Field(
+    quick_replies: list[QuickReply] | None = Field(
         default=None, description="Quick reply buttons for user response (Story 9-4)"
     )
 
@@ -343,13 +342,13 @@ class WidgetConfigResponse(BaseSchema):
     welcome_message: str
     theme: WidgetTheme
     enabled: bool
-    personality: Optional[str] = Field(default=None, description="Bot personality type")
-    business_hours: Optional[str] = Field(default=None, description="Business hours for display")
-    shop_domain: Optional[str] = Field(default=None, description="Shopify shop domain for checkout")
-    voice_input_config: Optional[VoiceInputConfig] = Field(
+    personality: str | None = Field(default=None, description="Bot personality type")
+    business_hours: str | None = Field(default=None, description="Business hours for display")
+    shop_domain: str | None = Field(default=None, description="Shopify shop domain for checkout")
+    voice_input_config: VoiceInputConfig | None = Field(
         default=None, description="Voice input configuration (Story 9-5)"
     )
-    proactive_engagement_config: Optional[ProactiveEngagementConfigSchema] = Field(
+    proactive_engagement_config: ProactiveEngagementConfigSchema | None = Field(
         default=None, description="Proactive engagement configuration (Story 9-6)"
     )
 
@@ -401,7 +400,7 @@ class WidgetMessageHistoryResponse(BaseSchema):
 
     messages: list[WidgetMessageHistoryItem]
     expired: bool
-    expires_at: Optional[str] = None
+    expires_at: str | None = None
 
 
 class WidgetMessageHistoryEnvelope(MinimalEnvelope):

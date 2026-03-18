@@ -10,9 +10,10 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
-from fastapi import Request, Response, HTTPException
+from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.datastructures import Headers
 

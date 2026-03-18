@@ -8,9 +8,10 @@ Story 5-2: Widget Session Management
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock
 
 os.environ["IS_TESTING"] = "true"
 
@@ -76,7 +77,7 @@ class TestWidgetCleanupService:
         """Test that cleanup deletes expired sessions but not active ones."""
         import json
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         expired_session = {
             "session_id": "expired-123",
@@ -207,7 +208,7 @@ class TestWidgetSessionServiceActivityTracking:
         """Test that update_last_activity updates the timestamp."""
         import json
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         session_data = {
             "session_id": "test-session",
             "merchant_id": 1,

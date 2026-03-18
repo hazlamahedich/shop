@@ -6,16 +6,17 @@ Tests GDPR/CCPA compliance features for user data deletion.
 from __future__ import annotations
 
 import json
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.main import app
-from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
-from app.models.conversation import Conversation
-from app.models.message import Message
-from app.models.merchant import Merchant
 from app.core.database import async_session
+from app.main import app
+from app.models.conversation import Conversation
+from app.models.data_deletion_request import DeletionStatus
+from app.models.merchant import Merchant
+from app.models.message import Message
 
 
 class TestDataDeletionAPI:
@@ -198,8 +199,8 @@ class TestDataDeletionAPI:
     @pytest.mark.asyncio
     async def test_already_completed_request_raises_error(self):
         """Test that processing already completed request raises error."""
-        from app.services.data_deletion import DataDeletionService
         from app.core.errors import APIError
+        from app.services.data_deletion import DataDeletionService
 
         async with async_session() as db:
             service = DataDeletionService(db)
@@ -269,8 +270,8 @@ class TestDataDeletionAPI:
     @pytest.mark.asyncio
     async def test_deletion_request_duplicate_prevention(self):
         """Test that duplicate deletion requests are prevented."""
-        from app.services.data_deletion import DataDeletionService
         from app.core.errors import APIError
+        from app.services.data_deletion import DataDeletionService
 
         async with async_session() as db:
             service = DataDeletionService(db)

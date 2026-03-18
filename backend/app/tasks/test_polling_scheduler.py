@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,9 +20,9 @@ os.environ["TEST_DATABASE_URL"] = ""
 from app.tasks.polling_scheduler import (
     PollingScheduler,
     get_polling_scheduler,
-    start_polling_scheduler,
-    shutdown_polling_scheduler,
     get_polling_status,
+    shutdown_polling_scheduler,
+    start_polling_scheduler,
 )
 
 
@@ -158,7 +158,7 @@ class TestPollingScheduler:
     def test_get_status(self, scheduler, mock_polling_service):
         """Test getting scheduler status."""
         scheduler.polling_service = mock_polling_service
-        scheduler._started_at = datetime.now(timezone.utc)
+        scheduler._started_at = datetime.now(UTC)
         scheduler._in_flight_polls = 0
         scheduler._shutdown_requested = False
 

@@ -12,11 +12,11 @@ Provides endpoints for:
 
 from __future__ import annotations
 
-from typing import Any
-from datetime import datetime
 import time
-import structlog
+from datetime import datetime
+from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,44 +24,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode
-from app.core.security import encrypt_access_token, decrypt_access_token
 from app.core.input_sanitizer import validate_test_prompt
 from app.core.rate_limiter import check_llm_rate_limit
+from app.core.security import decrypt_access_token, encrypt_access_token
 from app.models.llm_configuration import LLMConfiguration
-from app.models.merchant import Merchant
 from app.schemas.llm import (
-    # Requests
-    LLMConfigureRequest,
-    LLMUpdateRequest,
-    LLMTestRequest,
-    # Responses
-    LLMStatusResponse,
-    LLMTestResponse,
-    LLMProvidersResponse,
-    LLMProviderInfo,
-    LLMHealthResponse,
-    LLMConfigureResponse,
-    LLMUpdateResponse,
-    LLMClearResponse,
-    MinimalLLMEnvelope,
-    # Provider Switching (Story 3.4)
-    SwitchProviderRequest,
-    SwitchProviderResponse,
-    ProviderValidationRequest,
-    ProviderValidationResponse,
-    ProviderListResponse,
-    CurrentProviderInfo,
-    ProviderMetadata,
-    # Model Discovery
     DiscoveredModel,
-    ModelDiscoveryResponse,
+    LLMConfigureRequest,
+    LLMTestRequest,
+    LLMUpdateRequest,
+    MinimalLLMEnvelope,
     ModelPricing,
+    ProviderValidationRequest,
+    SwitchProviderRequest,
 )
-from app.services.llm.llm_factory import LLMProviderFactory
+from app.schemas.messaging import FacebookEntry, FacebookWebhookPayload
 from app.services.llm.base_llm_service import LLMMessage
+from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.messaging.message_processor import MessageProcessor
-from app.schemas.messaging import FacebookWebhookPayload, FacebookEntry
-
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()

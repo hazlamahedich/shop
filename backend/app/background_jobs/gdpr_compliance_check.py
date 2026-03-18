@@ -8,9 +8,7 @@ Runs daily at 9 AM UTC to check compliance status.
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,7 +20,7 @@ from app.services.privacy.compliance_monitor import GDPRComplianceMonitor
 logger = structlog.get_logger(__name__)
 
 # Reference to main scheduler (imported from data_retention)
-_main_scheduler: Optional[AsyncIOScheduler] = None
+_main_scheduler: AsyncIOScheduler | None = None
 
 
 async def run_gdpr_compliance_check() -> dict:
@@ -37,10 +35,10 @@ async def run_gdpr_compliance_check() -> dict:
     Returns:
         Dictionary with compliance status and alert info
     """
-    logger.info("gdpr_compliance_check_started", timestamp=datetime.now(timezone.utc).isoformat())
+    logger.info("gdpr_compliance_check_started", timestamp=datetime.now(UTC).isoformat())
 
     results = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "compliant": True,
         "overdue_count": 0,
         "approaching_count": 0,

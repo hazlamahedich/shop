@@ -10,17 +10,15 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.models.product_pin import ProductPin
+from app.core.errors import APIError, ErrorCode
 from app.services.product_pin_service import (
     MAX_PINNED_PRODUCTS,
-    pin_product,
-    unpin_product,
     get_pinned_products,
+    pin_product,
     search_products,
+    unpin_product,
 )
-from app.core.errors import ErrorCode, APIError
 
 
 @pytest.mark.asyncio

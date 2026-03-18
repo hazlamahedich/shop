@@ -9,7 +9,6 @@ Story 8-4: Backend - RAG Service (Document Processing)
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import structlog
 from sqlalchemy import select
@@ -21,7 +20,7 @@ from app.models.llm_configuration import LLMConfiguration
 from app.models.merchant import Merchant
 from app.services.knowledge.chunker import DocumentChunker
 from app.services.rag.document_processor import DocumentProcessor, ProcessingResult
-from app.services.rag.embedding_service import EmbeddingService, EMBEDDING_DIMENSIONS
+from app.services.rag.embedding_service import EmbeddingService
 
 logger = structlog.get_logger(__name__)
 
@@ -31,9 +30,9 @@ class MerchantLLMConfig:
     """Merchant's LLM configuration with decrypted API key."""
 
     llm_provider: str
-    llm_api_key: Optional[str]
-    llm_model: Optional[str] = None
-    ollama_url: Optional[str] = None
+    llm_api_key: str | None
+    llm_model: str | None = None
+    ollama_url: str | None = None
 
 
 async def get_merchant_llm_config(db: AsyncSession, merchant_id: int) -> MerchantLLMConfig:

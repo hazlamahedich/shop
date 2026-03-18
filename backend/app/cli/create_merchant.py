@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from sqlalchemy import select
@@ -24,10 +23,9 @@ from sqlalchemy import select
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.core.database import async_session
 from app.core.auth import hash_password, validate_password_requirements
+from app.core.database import async_session
 from app.models.merchant import Merchant
-
 
 app = typer.Typer(help="Create merchant accounts")
 
@@ -142,8 +140,8 @@ async def create_merchant(email: str, password: str) -> Merchant:
 
 @app.command()
 def main(
-    email: Optional[str] = typer.Option(None, "--email", "-e", help="Merchant email"),
-    password: Optional[str] = typer.Option(None, "--password", "-p", help="Merchant password"),
+    email: str | None = typer.Option(None, "--email", "-e", help="Merchant email"),
+    password: str | None = typer.Option(None, "--password", "-p", help="Merchant password"),
 ) -> None:
     """Create a new merchant account.
 
@@ -164,7 +162,7 @@ def main(
 
         try:
             merchant = asyncio.run(create_merchant(email, password))
-            typer.echo(f"✓ Merchant account created successfully!")
+            typer.echo("✓ Merchant account created successfully!")
             typer.echo(f"  Merchant ID: {merchant.id}")
             typer.echo(f"  Merchant Key: {merchant.merchant_key}")
             typer.echo(f"  Email: {merchant.email}")
@@ -190,7 +188,7 @@ def main(
         try:
             merchant = asyncio.run(create_merchant(email, password))
             typer.echo()
-            typer.echo(f"✓ Merchant account created successfully!")
+            typer.echo("✓ Merchant account created successfully!")
             typer.echo(f"  Merchant ID: {merchant.id}")
             typer.echo(f"  Merchant Key: {merchant.merchant_key}")
             typer.echo(f"  Email: {merchant.email}")
