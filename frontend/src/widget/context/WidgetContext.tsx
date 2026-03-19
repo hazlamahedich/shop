@@ -13,7 +13,6 @@ import {
   getCachedMessages,
   clearMessageCache,
   saveWidgetPosition,
-  loadWidgetPosition,
   getStoredPosition,
   setStoredPosition,
   isValidSessionId,
@@ -29,15 +28,34 @@ const initialConsentState: ConsentState = {
   status: 'pending',
 };
 
+const validatePosition = (pos: { x: number; y: number }): boolean => {
+  if (typeof window === 'undefined') return true;
+  const buffer = 50;
+  return (
+    pos.x >= -buffer && 
+    pos.x <= window.innerWidth - 380 + buffer &&
+    pos.y >= -buffer && 
+    pos.y <= window.innerHeight - 600 + buffer
+  );
+};
+
 const getDefaultPosition = (): { x: number; y: number } => {
   if (typeof window === 'undefined') {
-    return { x: 0, y: 0 };
+    return { x: 800, y: 400 };
   }
-  // Default width: 380, height: 600
-  // Positioned at bottom-right with standard 20px padding from right and 90px from bottom (above bubble)
+  
+  // Get viewport dimensions, falling back to desktop defaults if not ready
+  const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
+  const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
+  
+  // Widget size 380x600. Target bottom-right with 20px padding and 90px bottom offset (bubble space)
+  const targetX = vWidth - 380 - 20;
+  const targetY = vHeight - 600 - 90;
+  
+  // Ensure we stay within viewport even on very small screens (min 0)
   return {
-    x: window.innerWidth - 380 - 20,
-    y: window.innerHeight - 600 - 90,
+    x: Math.max(0, targetX),
+    y: Math.max(0, targetY),
   };
 };
 
@@ -52,7 +70,7 @@ const initialState: WidgetState = {
   errors: [],
   connectionStatus: 'disconnected',
   consentState: initialConsentState,
-  position: getDefaultPosition(),
+  position: null,
   isDragging: false,
   isMinimized: false,
   unreadCount: 0,
@@ -260,6 +278,14 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       // Load stored theme preference
       const storedTheme = getStoredTheme(merchantId);
       dispatch({ type: 'SET_THEME_MODE', payload: storedTheme || 'auto' });
+
+      // Load stored position (Story 9-2)
+      const savedPosition = getStoredPosition(merchantId);
+      if (savedPosition && validatePosition(savedPosition)) {
+        dispatch({ type: 'SET_POSITION', payload: savedPosition });
+      } else {
+        dispatch({ type: 'SET_POSITION', payload: getDefaultPosition() });
+      }
 
       // Check for provided session ID (injection for tests)
       let sessionId = initialSessionId;

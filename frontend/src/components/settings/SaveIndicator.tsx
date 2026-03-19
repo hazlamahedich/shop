@@ -14,7 +14,7 @@ interface SaveIndicatorProps {
 export function SaveIndicator({ saving, lastSaved }: SaveIndicatorProps) {
   if (saving) {
     return (
-      <div data-testid="save-indicator" className="flex items-center gap-2 text-sm text-slate-600">
+      <div data-testid="save-indicator" className="flex items-center gap-2 text-sm text-white/60">
         <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
           <circle
             className="opacity-25"
@@ -39,7 +39,7 @@ export function SaveIndicator({ saving, lastSaved }: SaveIndicatorProps) {
   if (lastSaved) {
     const timeStr = lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return (
-      <div data-testid="save-indicator" className="flex items-center gap-2 text-sm text-green-600">
+      <div data-testid="save-indicator" className="flex items-center gap-2 text-sm text-green-400">
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>

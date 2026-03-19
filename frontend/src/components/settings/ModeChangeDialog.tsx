@@ -124,7 +124,7 @@ export function ModeChangeDialog({
               <div
                 key={index}
                 className={`flex items-center gap-2 text-sm ${
-                  isSwitchingToGeneral ? 'text-gray-600' : 'text-gray-700'
+                  isSwitchingToGeneral ? 'text-white/60' : 'text-white/70'
                 }`}
               >
                 <span className={isSwitchingToGeneral ? 'text-red-500' : 'text-green-500'}>
@@ -137,17 +137,17 @@ export function ModeChangeDialog({
 
           {/* Additional info */}
           <div
-            className={`p-3 rounded-lg ${
-              isSwitchingToGeneral
-                ? 'bg-amber-50 border border-amber-200'
-                : 'bg-blue-50 border border-blue-200'
-            }`}
-          >
-            <p
-              className={`text-sm ${
-                isSwitchingToGeneral ? 'text-amber-800' : 'text-blue-800'
+              className={`p-3 rounded-lg ${
+                isSwitchingToGeneral
+                  ? 'bg-amber-500/10 border border-amber-500/20'
+                  : 'bg-blue-500/10 border border-blue-500/20'
               }`}
-            >
+          >
+              <p
+                className={`text-sm ${
+                  isSwitchingToGeneral ? 'text-amber-300' : 'text-blue-300'
+                }`}
+              >
               {additionalInfo}
             </p>
           </div>
@@ -159,10 +159,10 @@ export function ModeChangeDialog({
                 type="checkbox"
                 checked={acknowledged}
                 onChange={(e) => setAcknowledged(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="mt-1 h-4 w-4 rounded border-white/20 text-emerald-500 focus:ring-emerald-500/50 bg-white/[0.03]"
                 disabled={loading}
               />
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-white/60">
                 I understand that my store data will be preserved but inactive
               </span>
             </label>

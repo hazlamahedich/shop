@@ -217,12 +217,15 @@ function isValidPosition(position: unknown): position is WidgetPosition {
 function isPositionWithinViewport(position: WidgetPosition): boolean {
   if (typeof window === 'undefined') return true;
   const padding = 10;
-  const minSize = 100;
+  // Account for typical widget dimensions if not provided (380x600)
+  const width = 380;
+  const height = 600;
+  
   return (
-    position.x >= -window.innerWidth + minSize + padding &&
-    position.x <= window.innerWidth - padding &&
-    position.y >= -window.innerHeight + minSize + padding &&
-    position.y <= window.innerHeight - padding
+    position.x >= 0 &&
+    position.x <= window.innerWidth - width - padding &&
+    position.y >= 0 &&
+    position.y <= window.innerHeight - height - padding
   );
 }
 

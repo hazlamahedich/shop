@@ -59,7 +59,7 @@ export function BotPreview() {
                     <span className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.2em]">Sandbox Mode</span>
                   </div>
                 </div>
-                <p className="text-[11px] font-black text-emerald-900/40 mt-2 uppercase tracking-[0.2em]">
+                <p className="text-[11px] font-black text-emerald-500/50 mt-2 uppercase tracking-[0.2em]">
                   Test your bot configuration in an isolated neural environment
                 </p>
               </div>
@@ -70,7 +70,7 @@ export function BotPreview() {
 
       {/* Navigation / Breadcrumb */}
       <nav className="relative z-10 bg-[#0a0a0a]/40 border-b border-white/[0.03] py-3" aria-label="Breadcrumb">
-        <div className="max-w-7xl mx-auto px-10 flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-900/40">
+        <div className="max-w-7xl mx-auto px-10 flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50">
           <button onClick={handleBack} className="hover:text-emerald-400 transition-colors">Dashboard</button>
           <span className="opacity-20">/</span>
           <span className="text-emerald-500">Preview Engine</span>
@@ -87,24 +87,24 @@ export function BotPreview() {
                  <Terminal size={22} className="text-emerald-500" />
                  Preview Protocol
                </h2>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                 <div className="flex items-start gap-4">
-                    <Zap size={16} className="text-emerald-500 mt-1" />
-                    <p className="text-[11px] font-black text-emerald-900/60 uppercase tracking-widest leading-relaxed">Use quick-try buttons for automated neural firing</p>
-                 </div>
-                 <div className="flex items-start gap-4">
-                    <Cpu size={16} className="text-emerald-500 mt-1" />
-                    <p className="text-[11px] font-black text-emerald-900/60 uppercase tracking-widest leading-relaxed">Neural analysis provides real-time accuracy scoring</p>
-                 </div>
-                 <div className="flex items-start gap-4">
-                    <Activity size={16} className="text-emerald-500 mt-1" />
-                    <p className="text-[11px] font-black text-emerald-900/60 uppercase tracking-widest leading-relaxed">Transient mode: Data streams are not persisted</p>
-                 </div>
-                 <div className="flex items-start gap-4">
-                    <ShieldCheck size={16} className="text-emerald-500 mt-1" />
-                    <p className="text-[11px] font-black text-emerald-900/60 uppercase tracking-widest leading-relaxed">Isolated sandbox: External systems are shielded</p>
-                 </div>
-               </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                  <div className="flex items-start gap-4">
+                     <Zap size={16} className="text-emerald-500 mt-1" />
+                     <p className="text-[11px] font-black text-emerald-400/70 uppercase tracking-widest leading-relaxed">Use quick-try buttons for automated neural firing</p>
+                  </div>
+                  <div className="flex items-start gap-4">
+                     <Cpu size={16} className="text-emerald-500 mt-1" />
+                     <p className="text-[11px] font-black text-emerald-400/70 uppercase tracking-widest leading-relaxed">Neural analysis provides real-time accuracy scoring</p>
+                  </div>
+                  <div className="flex items-start gap-4">
+                     <Activity size={16} className="text-emerald-500 mt-1" />
+                     <p className="text-[11px] font-black text-emerald-400/70 uppercase tracking-widest leading-relaxed">Transient mode: Data streams are not persisted</p>
+                  </div>
+                  <div className="flex items-start gap-4">
+                     <ShieldCheck size={16} className="text-emerald-500 mt-1" />
+                     <p className="text-[11px] font-black text-emerald-400/70 uppercase tracking-widest leading-relaxed">Isolated sandbox: External systems are shielded</p>
+                  </div>
+                </div>
              </div>
            </div>
         </GlassCard>
@@ -132,41 +132,41 @@ export function BotPreview() {
 
         {/* Analysis Matrices */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12">
-          <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[32px] space-y-6 hover:bg-emerald-500/[0.02] hover:border-emerald-500/20 transition-all duration-500 group">
-            <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-emerald-900/40 group-hover:bg-emerald-500 group-hover:text-black transition-all">
-              <Zap size={22} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-black text-white uppercase tracking-tight">Personality Core</h3>
-              <p className="text-xs text-white/30 font-medium leading-relaxed uppercase tracking-widest">
-                Real-time validation of configured tone (Friendly, Professional, or Enthusiastic).
-              </p>
-            </div>
-          </div>
+           <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[32px] space-y-6 hover:bg-emerald-500/[0.02] hover:border-emerald-500/20 transition-all duration-500 group">
+             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-emerald-400/60 group-hover:bg-emerald-500 group-hover:text-black transition-all">
+               <Zap size={22} />
+             </div>
+             <div className="space-y-2">
+               <h3 className="font-black text-white uppercase tracking-tight">Personality Core</h3>
+               <p className="text-xs text-white/50 font-medium leading-relaxed uppercase tracking-widest">
+                 Real-time validation of configured tone (Friendly, Professional, or Enthusiastic).
+               </p>
+             </div>
+           </div>
 
-          <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[32px] space-y-6 hover:bg-emerald-500/[0.02] hover:border-emerald-500/20 transition-all duration-500 group">
-            <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-emerald-900/40 group-hover:bg-emerald-500 group-hover:text-black transition-all">
-              <FileText size={22} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-black text-white uppercase tracking-tight">Intelligence Matrix</h3>
-              <p className="text-xs text-white/30 font-medium leading-relaxed uppercase tracking-widest">
-                FAQ and Business Hour integration analysis across all neural responses.
-              </p>
-            </div>
-          </div>
+           <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[32px] space-y-6 hover:bg-emerald-500/[0.02] hover:border-emerald-500/20 transition-all duration-500 group">
+             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-emerald-400/60 group-hover:bg-emerald-500 group-hover:text-black transition-all">
+               <FileText size={22} />
+             </div>
+             <div className="space-y-2">
+               <h3 className="font-black text-white uppercase tracking-tight">Intelligence Matrix</h3>
+               <p className="text-xs text-white/50 font-medium leading-relaxed uppercase tracking-widest">
+                 FAQ and Business Hour integration analysis across all neural responses.
+               </p>
+             </div>
+           </div>
 
-          <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[32px] space-y-6 hover:bg-emerald-500/[0.02] hover:border-emerald-500/20 transition-all duration-500 group">
-            <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-emerald-900/40 group-hover:bg-emerald-500 group-hover:text-black transition-all">
-              <ShoppingBag size={22} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-black text-white uppercase tracking-tight">Commerce Array</h3>
-              <p className="text-xs text-white/30 font-medium leading-relaxed uppercase tracking-widest">
-                Testing catalog lookup efficiency and product recommendation fidelity.
-              </p>
-            </div>
-          </div>
+           <div className="p-8 bg-white/[0.02] border border-white/[0.05] rounded-[32px] space-y-6 hover:bg-emerald-500/[0.02] hover:border-emerald-500/20 transition-all duration-500 group">
+             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-emerald-400/60 group-hover:bg-emerald-500 group-hover:text-black transition-all">
+               <ShoppingBag size={22} />
+             </div>
+             <div className="space-y-2">
+               <h3 className="font-black text-white uppercase tracking-tight">Commerce Array</h3>
+               <p className="text-xs text-white/50 font-medium leading-relaxed uppercase tracking-widest">
+                 Testing catalog lookup efficiency and product recommendation fidelity.
+               </p>
+             </div>
+           </div>
         </div>
       </main>
     </div>

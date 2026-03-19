@@ -67,7 +67,7 @@ export function ModeToggle({
       {fetching && (
         <div className="flex items-center justify-center py-4">
           <span className="animate-spin mr-2">⏳</span>
-          <span className="text-sm text-gray-600">Loading mode settings...</span>
+           <span className="text-sm text-white/60">Loading mode settings...</span>
         </div>
       )}
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${fetching ? 'opacity-50' : ''}`}>
@@ -85,8 +85,8 @@ export function ModeToggle({
                 'relative p-4 rounded-lg border-2 text-left transition-all',
                 'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
                 isSelected
-                  ? 'border-primary bg-primary/5'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+                  ? 'border-emerald-500/50 bg-emerald-500/10'
+                  : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]',
                 isDisabled && 'opacity-50 cursor-not-allowed'
               )}
               aria-pressed={isSelected}
@@ -95,7 +95,7 @@ export function ModeToggle({
               {/* Selected indicator */}
               {isSelected && (
                 <div className="absolute top-3 right-3">
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
                     <Check className="w-4 h-4 text-white" />
                   </div>
                 </div>
@@ -106,7 +106,7 @@ export function ModeToggle({
                 <div
                   className={cn(
                     'p-2 rounded-lg',
-                    isSelected ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600'
+                    isSelected ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/[0.03] text-white/60'
                   )}
                 >
                   {option.icon}
@@ -115,22 +115,22 @@ export function ModeToggle({
                   <h3
                     className={cn(
                       'font-medium text-sm',
-                      isSelected ? 'text-primary' : 'text-gray-900'
+                      isSelected ? 'text-emerald-400' : 'text-white/80'
                     )}
                   >
                     {option.label}
                   </h3>
-                  <p className="text-xs text-gray-600 mt-0.5">{option.description}</p>
+                  <p className="text-xs text-white/50 mt-0.5">{option.description}</p>
                 </div>
               </div>
 
               {/* Features */}
               <ul className="space-y-1.5">
                 {option.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2 text-xs text-gray-600">
+                  <li key={index} className="flex items-start gap-2 text-xs text-white/50">
                     <span className={cn(
                       'mt-0.5',
-                      isSelected ? 'text-primary' : 'text-gray-500'
+                      isSelected ? 'text-emerald-400' : 'text-white/40'
                     )}>•</span>
                     <span>{feature}</span>
                   </li>
@@ -143,11 +143,11 @@ export function ModeToggle({
 
       {/* Current mode indicator */}
       <div className="flex items-center justify-center pt-2">
-        <p className="text-sm text-gray-600">
-          Current mode: <span className="font-medium text-gray-900">
-            {currentMode === 'general' ? 'General Chatbot' : 'E-commerce Assistant'}
-          </span>
-        </p>
+         <p className="text-sm text-white/60">
+           Current mode: <span className="font-medium text-white/80">
+             {currentMode === 'general' ? 'General Chatbot' : 'E-commerce Assistant'}
+           </span>
+         </p>
       </div>
     </div>
   );

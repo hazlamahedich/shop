@@ -66,14 +66,14 @@ export function WebhookStatusCard({
     }
     if (status?.connected) {
       return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+        <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 gap-1">
           <CheckCircle2 className="h-3 w-3" />
           Connected
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1">
+      <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-1">
         <XCircle className="h-3 w-3" />
         Not Connected
       </Badge>
@@ -83,13 +83,13 @@ export function WebhookStatusCard({
   const getSubscriptionStatusBadge = () => {
     if (status?.subscriptionStatus === 'active') {
       return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20">
           Active
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+      <Badge variant="outline" className="bg-white/[0.03] text-white/60 border-white/10">
         Inactive
       </Badge>
     );
@@ -124,7 +124,7 @@ export function WebhookStatusCard({
             variant={lastTestResult.status === 'success' ? 'default' : 'destructive'}
             className={
               lastTestResult.status === 'success'
-                ? 'bg-green-50 text-green-800 border-green-200'
+                ? 'bg-green-500/10 text-green-400 border-green-500/20'
                 : undefined
             }
           >
@@ -143,7 +143,7 @@ export function WebhookStatusCard({
             variant={lastResubscribeResult.status === 'success' ? 'default' : 'destructive'}
             className={
               lastResubscribeResult.status === 'success'
-                ? 'bg-green-50 text-green-800 border-green-200'
+                ? 'bg-green-500/10 text-green-400 border-green-500/20'
                 : undefined
             }
           >
@@ -159,16 +159,16 @@ export function WebhookStatusCard({
         {/* Status Details */}
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-slate-500">Subscription:</span>
+            <span className="text-white/50">Subscription:</span>
             <span className="ml-2">{getSubscriptionStatusBadge()}</span>
           </div>
           <div>
-            <span className="text-slate-500">Topics:</span>
+            <span className="text-white/50">Topics:</span>
             <span className="ml-2">{status?.topics?.length || 0} subscribed</span>
           </div>
           {status?.lastWebhookAt && (
             <div className="col-span-2">
-              <span className="text-slate-500">Last webhook:</span>
+              <span className="text-white/50">Last webhook:</span>
               <span className="ml-2">{new Date(status.lastWebhookAt).toLocaleString()}</span>
             </div>
           )}
@@ -194,8 +194,8 @@ export function WebhookStatusCard({
 
         {/* Webhook URL */}
         <div className="pt-2 border-t">
-          <p className="text-xs text-slate-500 mb-1">Webhook URL:</p>
-          <code className="text-xs bg-slate-100 px-2 py-1 rounded block break-all">
+          <p className="text-xs text-white/50 mb-1">Webhook URL:</p>
+          <code className="text-xs bg-white/[0.05] px-2 py-1 rounded block break-all">
             {status?.webhookUrl || 'Not configured'}
           </code>
         </div>

@@ -37,7 +37,7 @@ export interface ChatWindowProps {
   consentState?: ConsentState;
   onRecordConsent?: (consented: boolean) => Promise<void>;
   onClearHistory?: () => Promise<void>;
-  position?: WidgetPosition;
+  position?: WidgetPosition | null;
   isDragging?: boolean;
   isMinimized?: boolean;
   onDragStart?: (e: React.MouseEvent | React.TouchEvent) => void;
@@ -216,10 +216,17 @@ function ChatWindow({
   if (!isOpen) return null;
 
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isDefaultPosition = !position || isMobile;
+  const windowPosition = position || { x: 0, y: 0 };
+
   const windowStyle: React.CSSProperties = {
     position: 'fixed',
-    top: 0,
-    left: 0,
+    bottom: isDefaultPosition ? 90 : 'auto',
+    right: isDefaultPosition ? 20 : 'auto',
+    top: isDefaultPosition ? 'auto' : 0,
+    left: isDefaultPosition ? 'auto' : 0,
+    transform: isDefaultPosition ? 'none' : `translate(${windowPosition.x}px, ${windowPosition.y}px)`,
     width: theme.width,
     height: theme.height,
     maxWidth: 'calc(100vw - 40px)',
@@ -234,7 +241,6 @@ function ChatWindow({
     fontFamily: theme.fontFamily,
     fontSize: theme.fontSize,
     color: theme.textColor,
-    transform: `translate(${position.x}px, ${position.y}px)`,
     transition: isDragging ? 'none' : 'transform 0.2s ease-out',
     userSelect: isDragging ? 'none' : 'auto',
   };

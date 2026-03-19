@@ -99,7 +99,7 @@ export function WebhookVerification() {
   const getOverallStatusBadge = () => {
     if (!status) {
       return (
-        <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+        <Badge variant="outline" className="bg-white/[0.03] text-white/60 border-white/10">
           Unknown
         </Badge>
       );
@@ -108,28 +108,28 @@ export function WebhookVerification() {
     switch (status.overallStatus) {
       case 'ready':
         return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+          <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 gap-1">
             <CheckCircle2 className="h-3 w-3" />
             Ready to Go Live
           </Badge>
         );
       case 'partial':
         return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1">
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 gap-1">
             <AlertCircle className="h-3 w-3" />
             Partial Setup
           </Badge>
         );
       case 'not_connected':
         return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1">
+          <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-1">
             <AlertCircle className="h-3 w-3" />
             Not Connected
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+          <Badge variant="outline" className="bg-white/[0.03] text-white/60 border-white/10">
             Unknown
           </Badge>
         );
@@ -158,7 +158,7 @@ export function WebhookVerification() {
         </CardHeader>
         {status?.canGoLive && (
           <CardContent className="pt-0">
-            <Alert className="bg-green-50 text-green-800 border-green-200">
+            <Alert className="bg-green-500/10 text-green-400 border-green-500/20">
               <CheckCircle2 className="h-4 w-4" />
               All webhooks are verified and working! Your bot is ready to accept customers.
             </Alert>
@@ -181,7 +181,7 @@ export function WebhookVerification() {
       {!status && !error && (
         <Card>
           <CardContent className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-2 text-slate-500">
+            <div className="flex items-center gap-2 text-white/50">
               <Loader2 className="h-5 w-5 animate-spin" />
               Loading webhook status...
             </div>
@@ -226,23 +226,23 @@ export function WebhookVerification() {
         <CardHeader>
           <CardTitle className="text-base">Troubleshooting</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-slate-600">
+        <CardContent className="space-y-2 text-sm text-white/60">
           <p>
-            <strong>Webhook not connected?</strong> Make sure you've completed the Facebook Page and
+            <strong className="text-white/80">Webhook not connected?</strong> Make sure you've completed the Facebook Page and
             Shopify store connection steps in the onboarding process.
           </p>
           <p>
-            <strong>Test webhook failing?</strong> Try clicking "Resubscribe" to re-establish the
+            <strong className="text-white/80">Test webhook failing?</strong> Try clicking "Resubscribe" to re-establish the
             webhook subscription. If that doesn't work, check your platform's developer dashboard
             for webhook settings.
           </p>
           <p>
-            <strong>Need help?</strong> Consult the{' '}
+            <strong className="text-white/80">Need help?</strong> Consult the{' '}
             <a
               href="https://developers.facebook.com/docs/messenger-platform/webhooks"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-blue-400 hover:underline"
             >
               Facebook webhook documentation
             </a>{' '}
@@ -251,7 +251,7 @@ export function WebhookVerification() {
               href="https://shopify.dev/docs/api/admin-rest/latest/resources/webhook"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-blue-400 hover:underline"
             >
               Shopify webhook documentation
             </a>

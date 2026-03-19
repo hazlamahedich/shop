@@ -1,2 +1,2 @@
-error: unknown option '-50'
-error: unknown option '-50'
+error: unknown option '--report=list'
+error: unknown option '--report=list'

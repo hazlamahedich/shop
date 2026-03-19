@@ -166,7 +166,7 @@ export function EmbeddingSettings() {
         )}
 
         {success && (
-          <Alert className="bg-green-50 text-green-800 border-green-200" data-testid="embedding-success-alert">
+          <Alert className="bg-green-500/10 text-green-400 border-green-500/20" data-testid="embedding-success-alert">
             <CheckCircle2 className="w-4 h-4" />
             {success}
           </Alert>
@@ -189,7 +189,7 @@ export function EmbeddingSettings() {
         </div>
 
         {settings && (
-          <div className="space-y-2 text-sm text-slate-600" data-testid="embedding-settings-info">
+          <div className="space-y-2 text-sm text-white/60" data-testid="embedding-settings-info">
             <div className="flex justify-between">
               <span>Current Model:</span>
               <span className="font-medium" data-testid="current-model">{settings.model}</span>
@@ -212,14 +212,14 @@ export function EmbeddingSettings() {
               <span data-testid="re-embed-progress-percent">{reEmbedStatus.progress_percent}%</span>
             </div>
             <Progress value={reEmbedStatus.progress_percent} data-testid="re-embed-progress-bar" />
-            <div className="text-xs text-slate-500" data-testid="re-embed-progress-text">
+            <div className="text-xs text-white/50" data-testid="re-embed-progress-text">
               {reEmbedStatus.completed_documents} of {reEmbedStatus.total_documents} documents
             </div>
           </div>
         )}
 
         {dimensionChange && (
-          <Alert className="bg-amber-50 text-amber-800 border-amber-200" data-testid="dimension-change-warning">
+          <Alert className="bg-amber-500/10 text-amber-400 border-amber-500/20" data-testid="dimension-change-warning">
             <AlertTriangle className="w-4 h-4" />
             Dimension change detected. Documents will need to be re-embedded.
           </Alert>
@@ -235,7 +235,7 @@ export function EmbeddingSettings() {
             <RefreshCw className={`w-4 h-4 mr-2 ${saving ? 'animate-spin' : ''}`} />
             Re-embed All Documents
           </Button>
-          <p className="text-xs text-slate-500 mt-2">
+          <p className="text-xs text-white/50 mt-2">
             Manually trigger re-embedding of all documents with the current provider.
           </p>
         </div>
