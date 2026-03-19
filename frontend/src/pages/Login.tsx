@@ -157,9 +157,9 @@ export default function Login() {
                 </button>
 
                 <div className="flex items-center justify-center gap-8">
-                  <Link to="/register" className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.2em] hover:text-emerald-400 transition-colors">Generate Account</Link>
+                  <Link to="/register" className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] hover:text-emerald-400 transition-colors">Generate Account</Link>
                   <div className="w-px h-3 bg-white/[0.05]" />
-                  <button className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.2em] hover:text-emerald-400 transition-colors">Recover ID</button>
+                  <button className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] hover:text-emerald-400 transition-colors">Recover ID</button>
                 </div>
               </div>
             </form>
