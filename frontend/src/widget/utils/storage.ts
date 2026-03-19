@@ -123,6 +123,7 @@ export interface CachedMessage {
   products?: import('../types/widget').WidgetProduct[];
   cart?: import('../types/widget').WidgetCart;
   checkoutUrl?: string;
+  contactOptions?: import('../types/widget').ContactOption[];
 }
 
 export interface MessageCacheMeta {

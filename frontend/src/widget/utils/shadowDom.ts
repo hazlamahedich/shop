@@ -9,6 +9,7 @@ import animationsStyles from '../styles/animations.css?inline';
 import faqQuickButtonsStyles from '../styles/faq-quick-buttons.css?inline';
 import suggestedRepliesStyles from '../styles/suggested-replies.css?inline';
 import feedbackRatingStyles from '../styles/feedback-rating.css?inline';
+import contactCardStyles from '../styles/contact-card.css?inline';
 
 const THEME_STYLE_ID = 'widget-theme-variables';
 const GLASSMORPHISM_STYLE_ID = 'widget-glassmorphism-styles';
@@ -20,6 +21,7 @@ const MESSAGE_GROUPING_STYLE_ID = 'widget-message-grouping-styles';
 const ANIMATIONS_STYLE_ID = 'widget-animations-styles';
 const SUGGESTED_REPLIES_STYLE_ID = 'widget-suggested-replies-styles';
 const FEEDBACK_RATING_STYLE_ID = 'widget-feedback-rating-styles';
+const CONTACT_CARD_STYLE_ID = 'widget-contact-card-styles';
 
 export function createShadowContainer(target: HTMLElement): ShadowRoot {
   return target.attachShadow({ mode: 'open' });
@@ -145,6 +147,18 @@ export function injectFeedbackRatingStyles(shadow: ShadowRoot): void {
   const style = document.createElement('style');
   style.setAttribute('data-id', FEEDBACK_RATING_STYLE_ID);
   style.textContent = feedbackRatingStyles;
+  if (existingStyle) {
+    existingStyle.replaceWith(style);
+  } else {
+    shadow.appendChild(style);
+  }
+}
+
+export function injectContactCardStyles(shadow: ShadowRoot): void {
+  const existingStyle = shadow.querySelector(`style[data-id="${CONTACT_CARD_STYLE_ID}"]`);
+  const style = document.createElement('style');
+  style.setAttribute('data-id', CONTACT_CARD_STYLE_ID);
+  style.textContent = contactCardStyles;
   if (existingStyle) {
     existingStyle.replaceWith(style);
   } else {

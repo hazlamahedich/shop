@@ -84,7 +84,7 @@ class RecordConsentRequest(BaseModel):
         "populate_by_name": True,
     }
 
-    session_id: str = Field(description="Widget session ID")
+    session_id: str | None = Field(default=None, description="Widget session ID")
     consent_granted: bool = Field(description="Whether user granted consent")
     source: ConsentSource = Field(
         default=ConsentSource.WIDGET, description="Source channel for consent"

@@ -19,21 +19,22 @@ import { test, expect, Page } from '@playwright/test';
 import {
   loadWidgetWithSession,
   mockWidgetSession,
+  WIDGET_CONFIG_DEFAULTS,
 } from '../helpers/widget-test-helpers';
-
-interface ContactOption {
-  type: 'phone' | 'email' | 'custom';
-  label: string;
-  value: string;
-  icon?: string;
-}
-
-interface BusinessHoursConfig {
-  timezone?: string;
-  hours?: Record<string, { open: string; close: string } | null>;
-}
+import {
+  ContactOption,
+  BusinessHoursConfig,
+  createContactOption,
+  createPhoneOption,
+  createEmailOption,
+  createCustomOption,
+  createDefaultContactOptions,
+  createStandardBusinessHours,
+} from '../helpers/contact-option-factory';
 
 async function mockGeneralModeConfig(page: Page, contactOptions?: ContactOption[]) {
+  const options = contactOptions || createDefaultContactOptions();
+  
   await page.route('**/api/v1/widget/config/*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -41,11 +42,7 @@ async function mockGeneralModeConfig(page: Page, contactOptions?: ContactOption[
         data: {
           ...WIDGET_CONFIG_DEFAULTS,
           onboardingMode: 'general',
-          contactOptions: contactOptions || [
-            { type: 'phone', label: 'Call Support', value: '+1-555-123-4567', icon: '📞' },
-            { type: 'email', label: 'Email Support', value: 'support@example.com', icon: '✉️' },
-            { type: 'custom', label: 'Schedule a Call', value: 'https://calendly.com/support', icon: '📅' },
-          ],
+          contactOptions: options,
         },
       }),
     });
@@ -62,11 +59,7 @@ async function mockWidgetMessageWithContactOptions(
 ) {
   const {
     content = "I'd be happy to connect you with our team. Here are your contact options:",
-    contactOptions = [
-      { type: 'phone', label: 'Call Support', value: '+1-555-123-4567', icon: '📞' },
-      { type: 'email', label: 'Email Support', value: 'support@example.com', icon: '✉️' },
-      { type: 'custom', label: 'Schedule a Call', value: 'https://calendly.com/support', icon: '📅' },
-    ],
+    contactOptions = createDefaultContactOptions(),
     businessHours = null,
   } = options;
 
@@ -92,12 +85,14 @@ async function mockWidgetMessageWithContactOptions(
 }
 
 async function mockHandoffWithContactOptions(page: Page, contactOptions?: ContactOption[]) {
+  const options = contactOptions || [
+    createPhoneOption(),
+    createEmailOption(),
+  ];
+  
   await mockWidgetMessageWithContactOptions(page, {
     content: "I'm connecting you with a human agent. Here's how to reach us:",
-    contactOptions: contactOptions || [
-      { type: 'phone', label: 'Call Support', value: '+1-555-123-4567', icon: '📞' },
-      { type: 'email', label: 'Email Support', value: 'support@example.com', icon: '✉️' },
-    ],
+    contactOptions: options,
   });
 }
 
@@ -124,6 +119,10 @@ async function setupWidgetWithConsentDismissed(page: Page) {
 }
 
 test.describe('[P0] Story 10-5: Contact Card Widget', () => {
+  test.afterEach(async ({ page }) => {
+    await page.unroute('**/api/v1/widget/**');
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockWidgetSession(page);
@@ -131,7 +130,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await setupWidgetWithConsentDismissed(page);
   });
 
-  test('[10.5-E2E-001] AC1: Contact card appears on handoff detection', async ({ page }) => {
+  test('[P0][10.5-E2E-001] AC1: Contact card appears on handoff detection', async ({ page }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -150,7 +149,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(customOption.first()).toBeVisible();
   });
 
-  test('[10.5-E2E-002] AC2: Phone number click triggers action', async ({ page }) => {
+  test('[P0][10.5-E2E-002] AC2: Phone number click triggers action', async ({ page }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -162,7 +161,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(phoneOption).toHaveAttribute('aria-label', 'Call Support');
   });
 
-  test('[10.5-E2E-003] AC3: Email address opens mailto', async ({ page }) => {
+  test('[P0][10.5-E2E-003] AC3: Email address opens mailto', async ({ page }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -174,7 +173,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(emailOption).toHaveAttribute('aria-label', 'Email Support');
   });
 
-  test('[10.5-E2E-004] AC4: Custom option opens URL', async ({ page, context }) => {
+  test('[P1][10.5-E2E-004] AC4: Custom option opens URL', async ({ page, context }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -186,7 +185,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(customOption).toHaveAttribute('aria-label', 'Schedule a Call');
   });
 
-  test('[10.5-E2E-005] AC5: Business hours indicator visible', async ({ page }) => {
+  test('[P1][10.5-E2E-005] AC5: Business hours indicator visible', async ({ page }) => {
     const businessHours: BusinessHoursConfig = {
       timezone: 'America/New_York',
       hours: {
@@ -210,7 +209,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(contactCard).toBeVisible();
   });
 
-  test('[10.5-E2E-006] AC7: Keyboard navigation works', async ({ page }) => {
+  test('[P2][10.5-E2E-006] AC7: Keyboard navigation works', async ({ page }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -222,7 +221,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(phoneOption).toBeFocused();
   });
 
-  test('[10.5-E2E-007] AC7: Accessibility attributes present', async ({ page }) => {
+  test('[P1][10.5-E2E-007] AC7: Accessibility attributes present', async ({ page }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -242,7 +241,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(customOption).toHaveAttribute('aria-label', 'Schedule a Call');
   });
 
-  test('[10.5-E2E-008] AC1: Contact card with multiple options', async ({ page }) => {
+  test('[P2][10.5-E2E-008] AC1: Contact card with multiple options', async ({ page }) => {
     const multipleOptions: ContactOption[] = [
       { type: 'phone', label: 'US Support', value: '+1-555-111-1111', icon: '📞' },
       { type: 'phone', label: 'UK Support', value: '+44-20-1234-5678', icon: '📞' },
@@ -270,7 +269,7 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(customOptions).toHaveCount(2);
   });
 
-  test('[10.5-E2E-009] AC1: Contact card styling matches theme', async ({ page }) => {
+  test('[P3][10.5-E2E-009] AC1: Contact card styling matches theme', async ({ page }) => {
     await mockHandoffWithContactOptions(page);
     await loadWidgetWithSession(page, crypto.randomUUID());
     await openWidget(page);
@@ -283,11 +282,13 @@ test.describe('[P0] Story 10-5: Contact Card Widget', () => {
     await expect(phoneOption).toBeVisible();
   });
 
-  test('[10.5-E2E-010] AC6: Merchant configuration UI', async ({ page }) => {
-    test.skip('Merchant configuration UI test - requires dashboard authentication');
+ // P2: Merchant configuration UI (requires dashboard authentication)
+  test('[P2][10.5-E2E-010] AC6: Merchant configuration UI', async ({ page }) => {
+    test.skip(true, 'Merchant configuration UI test - requires dashboard authentication');
   });
 
-  test('[10.5-E2E-011] AC8: Dashboard chat interface', async ({ page }) => {
-    test.skip('Dashboard chat interface not implemented yet - AC8');
+  // P2: Dashboard chat interface (not implemented yet)
+  test('[P2][10.5-E2E-011] AC8: Dashboard chat interface', async ({ page }) => {
+    test.skip(true, 'Dashboard chat interface not implemented yet - AC8');
   });
 });

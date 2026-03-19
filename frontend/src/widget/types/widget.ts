@@ -53,6 +53,7 @@ export interface WidgetConfig {
   faqQuickButtons?: FAQQuickButtonsConfig;
   onboardingMode?: 'general' | 'ecommerce';
   feedbackEnabled?: boolean;
+  contactOptions?: ContactOption[];
 }
 
 export interface WidgetSession {
@@ -112,6 +113,13 @@ export interface FeedbackRating {
   createdAt: string;
 }
 
+export interface ContactOption {
+  type: 'phone' | 'email' | 'custom';
+  label: string;
+  value: string;
+  icon?: string;
+}
+
 export interface WidgetMessage {
   messageId: string;
   content: string;
@@ -127,6 +135,7 @@ export interface WidgetMessage {
   suggestedReplies?: string[];
   feedbackEnabled?: boolean;
   userRating?: FeedbackRatingValue;
+  contactOptions?: ContactOption[];
 }
 
 export interface MessageGroup {

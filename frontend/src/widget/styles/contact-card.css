@@ -1,0 +1,99 @@
+.contact-card {
+  padding: 12px 16px;
+  background-color: var(--card-bg-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.contact-card__header {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 12px;
+}
+.contact-card__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.contact-card__option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  min-height: 44px;
+  border-radius: 8px;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+.contact-card__option:hover {
+  background-color: var(--hover-bg-color);
+}
+.contact-card__option:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+.contact-card__option--phone {
+  flex-direction: row;
+  align-items: center;
+}
+.contact-card__option--email {
+  flex-direction: row;
+  align-items: center;
+}
+.contact-card__option--custom {
+  flex-direction: row;
+  align-items: center;
+}
+.contact-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+.contact-card__label {
+  flex: 1;
+  font-size: 14px;
+}
+.contact-card__value {
+  flex: 1;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.contact-card__business-hours {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.contact-card__business-hours--available {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+.contact-card__business-hours--unavailable {
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+/* Dark mode styles */
+.contact-card--dark .contact-card__header {
+  color: #f3f4f6;
+}
+
+.contact-card--dark . contact-card__option {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.contact-card--dark . contact-card__option:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .contact-card__option {
+    transition: none;
+  }
+}

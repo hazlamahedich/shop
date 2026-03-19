@@ -1,11 +1,12 @@
 import * as React from 'react';
-import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup, FeedbackRatingValue } from '../types/widget';
+import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup, FeedbackRatingValue, ContactOption } from '../types/widget';
 import { ProductList } from './ProductCard';
 import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
 import { MessageAvatar } from './MessageAvatar';
 import { SourceCitation } from './SourceCitation';
 import { FeedbackRating } from './FeedbackRating';
+import { ContactCard } from './ContactCard';
 import { groupMessages, getGroupPosition } from '../utils/messageGrouping';
 import { formatRelativeTime, formatAbsoluteTime } from '../utils/timeFormatting';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -494,6 +495,15 @@ function MessageBubbleInGroup({
           userRating={message.userRating}
           theme={theme}
           onSubmit={onFeedbackSubmit}
+        />
+      )}
+
+      {showRichContent && !isUser && message.contactOptions && message.contactOptions.length > 0 && (
+        <ContactCard
+          contactOptions={message.contactOptions}
+          theme={theme}
+          conversationId={sessionId}
+          onContactClick={() => {}}
         />
       )}
     </div>

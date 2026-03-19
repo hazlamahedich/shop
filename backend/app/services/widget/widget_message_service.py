@@ -266,6 +266,18 @@ class WidgetMessageService:
         if response.quick_replies:
             result["quick_replies"] = response.quick_replies
 
+        # Story 10-1: Pass through sources if present
+        if response.sources:
+            result["sources"] = response.sources
+
+        # Story 10-3: Pass through suggested_replies if present
+        if response.suggested_replies:
+            result["suggested_replies"] = response.suggested_replies
+
+        # Story 10-5: Pass through contact_options if present
+        if response.contact_options:
+            result["contact_options"] = response.contact_options
+
         # Save response metadata to session for next request (Story 6-2)
         # This preserves pending lookup flags and other state
         if response.metadata:

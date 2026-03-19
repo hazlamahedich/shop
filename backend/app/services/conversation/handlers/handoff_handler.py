@@ -115,6 +115,8 @@ class HandoffHandler(BaseHandler):
                 business_hours_config=business_hours_config,
             )
 
+        contact_options = self._get_contact_options(merchant)
+
         logger.info(
             "handoff_triggered_unified",
             merchant_id=merchant.id,
@@ -126,8 +128,39 @@ class HandoffHandler(BaseHandler):
             message=handoff_message,
             intent="human_handoff",
             confidence=1.0,
+            contact_options=contact_options,
             metadata={"handoff_triggered": True},
         )
+
+    def _get_contact_options(self, merchant: Merchant) -> list[dict[str, Any]] | None:
+        """Extract contact options from merchant's configuration.
+
+        Args:
+            merchant: Merchant ORM model
+
+        Returns:
+            List of contact options or None if not configured
+        """
+        # Story 9-1: Unified contact options column
+        contact_options = getattr(merchant, "contact_options", []) or []
+        
+        # Fallback to widget_config for backward compatibility during migration
+        if not contact_options and merchant.widget_config:
+            contact_options = merchant.widget_config.get("contactOptions", [])
+
+        if not contact_options:
+            return None
+
+        return [
+            {
+                "type": opt.get("type"),
+                "label": opt.get("label"),
+                "value": opt.get("value"),
+                "icon": opt.get("icon"),
+            }
+            for opt in contact_options
+            if opt.get("type") and opt.get("label") and opt.get("value")
+        ]
 
     async def _update_conversation_handoff_status(
         self,

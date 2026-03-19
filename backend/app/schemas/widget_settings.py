@@ -3,6 +3,7 @@
 Provides partial update schemas for the widget configuration UI.
 Story 5.6: Merchant Widget Settings UI
 Story 10-2: FAQ Quick Buttons Configuration
+Story 10-5: Contact Options Configuration
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from app.schemas.base import BaseSchema
+from app.schemas.widget import ContactOptionSchema
 
 
 class PartialWidgetTheme(BaseSchema):
@@ -87,4 +89,8 @@ class WidgetConfigUpdateRequest(BaseSchema):
     feedback_enabled: bool | None = Field(
         None,
         description="Whether feedback rating collection is enabled (Story 10-4)",
+    )
+    contact_options: list[ContactOptionSchema] | None = Field(
+        None,
+        description="Contact options for escalation (Story 10-5)",
     )

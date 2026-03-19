@@ -288,9 +288,18 @@ class ConversationResponse(BaseModel):
         description="RAG source citations for knowledge-based responses (Story 10-1)",
     )
     suggested_replies: list[str] | None = Field(
-        None,
+        default=None,
         description="Server-generated follow-up question suggestions (Story 10-3)",
     )
+    contact_options: list[dict[str, Any]] | None = Field(
+        None,
+        description="Contact options for escalation (Story 10-5)",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata",
+    )
+
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",

@@ -368,28 +368,14 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
               }
             } else if (history.messages.length > 0) {
               // Convert backend messages to widget format
-              const messages: CachedMessage[] = history.messages.map((msg, index) => ({
-                messageId: `history-${index}`,
+              const messages: CachedMessage[] = history.messages.map((msg) => ({
+                messageId: msg.messageId || crypto.randomUUID(),
                 content: msg.content,
-                sender: msg.role === 'user' ? 'user' : 'bot',
-                createdAt: msg.timestamp,
-                products: msg.products ? msg.products.map((p: any) => ({
-                  id: p.id || p.product_id,
-                  variantId: p.variantId || p.variant_id,
-                  title: p.title,
-                  price: p.price,
-                  available: p.available ?? true,
-                })) : undefined,
-                cart: msg.cart ? {
-                  items: (msg.cart.items || []).map((item: any) => ({
-                    variantId: item.variant_id || item.variantId,
-                    title: item.title,
-                    price: item.price,
-                    quantity: item.quantity,
-                  })),
-                  itemCount: msg.cart.item_count ?? msg.cart.itemCount,
-                  total: msg.cart.total,
-                } : undefined,
+                sender: msg.sender,
+                createdAt: msg.createdAt,
+                products: msg.products,
+                cart: msg.cart,
+                contactOptions: msg.contactOptions,
               }));
               
               console.log('[WidgetContext] Dispatching', messages.length, 'messages to state');
@@ -725,13 +711,14 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
               createdAt: data.createdAt,
             };
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
-          } else if (event.type === 'handoff_resolved') {
-            const data = event.data as { id: number; content: string; createdAt: string };
+            } else if (event.type === 'handoff_resolved') {
+            const data = event.data as { id: number; content: string; createdAt: string; contactOptions?: any[] };
             const resolutionMessage = {
               messageId: `resolution-${data.id}`,
               content: data.content,
               sender: 'bot' as const,
               createdAt: data.createdAt,
+              contactOptions: data.contactOptions,
             };
             dispatch({ type: 'ADD_MESSAGE', payload: resolutionMessage });
           }

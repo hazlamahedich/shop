@@ -11,6 +11,7 @@ import type {
   ConsentPromptResponse,
   FAQQuickButton,
   FeedbackRatingValue,
+  ContactOption,
 } from '../types/widget';
 import {
   WidgetCartSchema,
@@ -176,64 +177,99 @@ export class WidgetApiClient {
     await this.request(`/session/${sessionId}`, { method: 'DELETE' });
   }
 
-  async sendMessage(sessionId: string, message: string): Promise<WidgetMessage & { consent_prompt_required?: boolean }> {
-    const data = await this.request<{ data: unknown }>('/message', {
-      method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, message: message }),
-    });
-    const rawData = data.data as Record<string, unknown>;
-    const parsed = WidgetMessageSchema.safeParse(data.data);
-    if (!parsed.success) {
-      throw new WidgetApiException(0, 'Invalid message response');
-    }
+  async getMessageHistory(sessionId: string): Promise<{ messages: WidgetMessage[]; expired: boolean }> {
+    const data = await this.request<{ data: { messages: any[]; expired: boolean } }>(
+      `/session/${sessionId}/messages`
+    );
+    const messages = (data.data.messages || []).map((m: any) => ({
+      messageId: m.id || m.message_id || '',
+      content: m.content,
+      sender: m.role === 'user' ? 'user' : 'bot',
+      createdAt: m.timestamp || m.created_at || '',
+      products: m.products,
+      cart: m.cart,
+      contactOptions: m.contact_options || m.contactOptions,
+    })) as WidgetMessage[];
+
     return {
-      messageId: (parsed.data.messageId || parsed.data.message_id) ?? '',
-      content: parsed.data.content,
-      sender: parsed.data.sender,
-      createdAt: (parsed.data.createdAt || parsed.data.created_at) ?? '',
-      products: parsed.data.products?.map((p: Record<string, unknown>) => ({
-        id: (p.id || p.product_id) as string,
-        variantId: (p.variantId || p.variant_id) as string,
-        title: p.title as string,
-        description: p.description as string | undefined,
-        price: p.price as number,
-        imageUrl: (p.imageUrl || p.image_url) as string | undefined,
-        available: p.available as boolean,
-        productType: (p.productType || p.product_type) as string | undefined,
-        isPinned: (p.isPinned || p.is_pinned) as boolean | undefined,
-      })),
-      cart: parsed.data.cart
-        ? {
-            items: (
-              (parsed.data.cart as Record<string, unknown>).items as Record<string, unknown>[]
-            ).map((item: Record<string, unknown>) => ({
-              variantId: item.variant_id as string,
-              title: item.title as string,
-              price: item.price as number,
-              quantity: item.quantity as number,
-            })),
-            itemCount: (parsed.data.cart as Record<string, unknown>).item_count as number,
-            total: (parsed.data.cart as Record<string, unknown>).total as number,
-          }
-        : undefined,
-      checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
-      intent: parsed.data.intent ?? undefined,
-      confidence: parsed.data.confidence ?? undefined,
-      quick_replies: parsed.data.quick_replies ?? undefined,
-      consent_prompt_required: (rawData.consentPromptRequired ?? rawData.consent_prompt_required) as boolean | undefined,
-      sources: (rawData.sources as Array<{
-        documentId: number;
-        title: string;
-        documentType: import('../types/widget').SourceDocumentType;
-        relevanceScore: number;
-        url?: string;
-        chunkIndex?: number;
-      }>) ?? undefined,
-      suggestedReplies: (rawData.suggestedReplies ?? rawData.suggested_replies) as string[] ?? undefined,
-      feedbackEnabled: (rawData.feedbackEnabled ?? rawData.feedback_enabled) as boolean | undefined,
-      userRating: (rawData.userRating ?? rawData.user_rating) as 'positive' | 'negative' | null | undefined,
+      messages,
+      expired: data.data.expired || false,
     };
   }
+
+  async sendMessage(sessionId: string, message: string): Promise<WidgetMessage & { consent_prompt_required?: boolean }> {
+    try {
+      const data = await this.request<{ data: unknown }>('/message', {
+        method: 'POST',
+        body: JSON.stringify({ session_id: sessionId, message: message }),
+      });
+      
+      const rawData = data.data as Record<string, unknown>;
+      const parsed = WidgetMessageSchema.safeParse(data.data);
+      
+      if (!parsed.success) {
+        console.error('[WidgetClient] Parse error:', parsed.error);
+        throw new WidgetApiException(0, 'Invalid message response');
+      }
+
+      return {
+        messageId: (parsed.data.messageId || parsed.data.message_id) ?? '',
+        content: parsed.data.content,
+        sender: parsed.data.sender,
+        createdAt: (parsed.data.createdAt || parsed.data.created_at) ?? '',
+        products: parsed.data.products?.map((p: Record<string, unknown>) => ({
+          id: (p.id || p.product_id) as string,
+          variantId: (p.variantId || p.variant_id) as string,
+          title: p.title as string,
+          description: p.description as string | undefined,
+          price: p.price as number,
+          imageUrl: (p.imageUrl || p.image_url) as string | undefined,
+          available: p.available as boolean,
+          productType: (p.productType || p.product_type) as string | undefined,
+          isPinned: (p.isPinned || p.is_pinned) as boolean | undefined,
+        })),
+        cart: parsed.data.cart
+          ? {
+              items: (
+                (parsed.data.cart as Record<string, unknown>).items as Record<string, unknown>[]
+              ).map((item: Record<string, unknown>) => ({
+                variantId: item.variant_id as string,
+                title: item.title as string,
+                price: item.price as number,
+                quantity: item.quantity as number,
+              })),
+              itemCount: (parsed.data.cart as Record<string, unknown>).item_count as number,
+              total: (parsed.data.cart as Record<string, unknown>).total as number,
+            }
+          : undefined,
+        checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
+        intent: parsed.data.intent ?? undefined,
+        confidence: parsed.data.confidence ?? undefined,
+        quick_replies: parsed.data.quick_replies ?? undefined,
+        sources: (rawData.sources as Array<{
+          documentId: number;
+          title: string;
+          documentType: import('../types/widget').SourceDocumentType;
+          relevanceScore: number;
+          url?: string;
+          chunkIndex?: number;
+        }>) ?? undefined,
+        suggestedReplies: (rawData.suggestedReplies ?? rawData.suggested_replies) as string[],
+        feedbackEnabled: (rawData.feedbackEnabled ?? rawData.feedback_enabled) as boolean | undefined,
+        userRating: (rawData.userRating ?? rawData.user_rating) as 'positive' | 'negative' | null | undefined,
+        contactOptions: (rawData.contactOptions ?? rawData.contact_options) as Array<{
+          type: 'phone' | 'email' | 'custom';
+          label: string;
+          value: string;
+          icon?: string;
+        }> ?? undefined,
+      } as WidgetMessage;
+    } catch (error) {
+      if (error instanceof WidgetApiException) throw error;
+      throw new WidgetApiException(0, `Invalid message response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
 
   async getConfig(merchantId: string): Promise<WidgetConfig> {
     const data = await this.request<{ data: unknown }>(`/config/${merchantId}`);
@@ -250,6 +286,7 @@ export class WidgetApiClient {
       shopDomain: parsed.data.shopDomain,
       proactiveEngagementConfig: parsed.data.proactiveEngagementConfig,
       onboardingMode: parsed.data.onboardingMode,
+      contactOptions: parsed.data.contactOptions,
     };
   }
 
@@ -428,7 +465,7 @@ export class WidgetApiClient {
       const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : '';
       const data = await this.request<{ data: unknown }>(`/consent/${sessionId}${queryParam}`, {
         method: 'POST',
-        body: JSON.stringify({ consented }),
+        body: JSON.stringify({ consent_granted: consented }),
       });
       const parsed = ConsentPromptResponseSchema.safeParse(data.data);
       if (!parsed.success) {
@@ -477,24 +514,14 @@ export class WidgetApiClient {
     };
   }
 
-  async getMessageHistory(sessionId: string): Promise<{
-    messages: Array<{
-      role: string;
-      content: string;
-      timestamp: string;
-      products?: any[];
-      cart?: any;
-    }>;
-    expired: boolean;
-    expiresAt: string | null;
-  }> {
-    const data = await this.request<{ data: unknown }>(`/session/${sessionId}/messages`);
-    const rawData = data.data as Record<string, unknown>;
-    return {
-      messages: (rawData.messages as Array<{ role: string; content: string; timestamp: string; products?: any[]; cart?: any }>) || [],
-      expired: rawData.expired as boolean,
-      expiresAt: rawData.expires_at as string | null,
-    };
+  async getContactConfig(merchantId: string): Promise<ContactOption[] | null> {
+    try {
+      const config = await this.getConfig(merchantId);
+      return (config as any).contactOptions ?? (config as any).contact_options ?? [];
+    } catch (error) {
+      console.error('[WidgetClient] getContactConfig error:', error);
+      return [];
+    }
   }
 
   async clearMessageHistory(sessionId: string): Promise<{ success: boolean }> {

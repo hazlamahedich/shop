@@ -219,12 +219,11 @@ class ErrorCode(IntEnum):
     # Story 10-4: Feedback rating error codes
     MESSAGE_NOT_FOUND = 7063  # Message ID does not exist for feedback
 
-    # Story 6-1: Consent flow error codes
-    CONSENT_REQUIRED = 7070  # Operation requires consent but user has not opted in
-    CONSENT_CHECK_FAILED = 7071  # Failed to verify consent status
-    CONSENT_RECORD_FAILED_DB = 7072  # Failed to record consent choice to database
-    CONSENT_PROMPT_FAILED = 7073  # Failed to generate consent prompt
-    CONSENT_FORGET_FAILED = 7074  # Failed to forget user preferences
+    # Story 10-5: Contact card error codes
+    INVALID_PHONE_FORMAT = 7080  # Phone number format invalid
+    INVALID_EMAIL_FORMAT = 7081  # Email address format invalid
+    INVALID_URL_FORMAT = 7082  # Custom URL format invalid
+    NO_CONTACT_OPTIONS = 7083  # At least one contact option required
 
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001

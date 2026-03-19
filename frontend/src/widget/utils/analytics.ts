@@ -260,3 +260,14 @@ export function trackCarouselEngagement(
     productId,
   });
 }
+
+export function logContactInteraction(
+  contactType: 'phone' | 'email' | 'custom',
+  action?: string
+): void {
+  widgetAnalytics.track('quick_reply_click', {
+    contactType,
+    action,
+    label: `contact_${contactType}`,
+  });
+}

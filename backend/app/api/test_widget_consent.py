@@ -393,3 +393,64 @@ class TestWidgetConsentGetAPI:
 
             assert result["data"]["status"] == "pending"
             assert result["data"]["can_store_conversation"] is False
+
+class TestWidgetConsentPostAPI:
+    """API contract tests for POST /widget/consent/{session_id} endpoint."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database session."""
+        return AsyncMock(spec=AsyncSession)
+
+    @pytest.fixture
+    def mock_session(self):
+        """Create mock widget session."""
+        session = MagicMock()
+        session.session_id = "550e8400-e29b-41d4-a716-446655440000"
+        session.merchant_id = 1
+        session.visitor_id = "visitor_123"
+        session.expires_at = datetime.now(UTC)
+        return session
+
+    @pytest.fixture
+    def mock_request(self):
+        """Create mock request."""
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {"X-Test-Mode": "true", "User-Agent": "test-agent"}
+        mock_request.client = MagicMock()
+        mock_request.client.host = "192.168.1.1"
+        return mock_request
+
+    @pytest.mark.asyncio
+    async def test_6_1_api_004_post_consent_returns_200_with_valid_session(
+        self, mock_request, mock_db, mock_session
+    ):
+        """[P0][6-1-API-004] POST /widget/consent/{session_id} - Returns 200 on success."""
+        from app.api.widget import record_widget_consent
+        from app.schemas.consent import RecordConsentRequest
+
+        consent_req = RecordConsentRequest(consent_granted=True)
+
+        with (
+            patch("app.api.widget.WidgetSessionService") as mock_service_class,
+            patch(
+                "app.services.consent.extended_consent_service.ConversationConsentService"
+            ) as mock_consent_class,
+        ):
+            mock_service = AsyncMock()
+            mock_service.get_session_or_error.return_value = mock_session
+            mock_service_class.return_value = mock_service
+
+            mock_consent = AsyncMock()
+            mock_consent_class.return_value = mock_consent
+
+            result = await record_widget_consent(
+                request=mock_request,
+                session_id="550e8400-e29b-41d4-a716-446655440000",
+                consent_request=consent_req,
+                db=mock_db,
+            )
+
+            assert result["data"]["status"] == "opted_in"
+            assert result["data"]["can_store_conversation"] is True
+            mock_consent.record_conversation_consent.assert_called_once()
