@@ -192,7 +192,7 @@ development_status:
   10-2-faq-quick-buttons-widget: done # Code review complete 2026-03-18: All ACs implemented (AC5 deferred per story scope), 49+ tests passing, documentation fixed
   10-3-quick-reply-chips-widget: done # Code review complete: All issues fixed (documentation updates, File List corrected)
   10-4-feedback-rating-widget: in-progress # Chat widget: Thumbs up/down on bot responses
-  10-5-contact-card-widget: in-progress # Chat widget: Contact options for escalation
+  10-5-contact-card-widget: review # Code review in progress: 6 HIGH + 5 MEDIUM issues fixed (touch targets, error handling, business hours, toast notifications, file list)
   10-6-enable-existing-widgets-general-mode: backlog # Dashboard: Configure widget visibility by mode
   10-7-knowledge-effectiveness-widget: backlog # Dashboard: RAG match rate, confidence metrics
   10-8-top-topics-widget: backlog # Dashboard: Most queried topics with trends
