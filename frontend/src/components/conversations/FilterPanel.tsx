@@ -77,12 +77,12 @@ export const FilterPanel = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Date Range */}
         <div className="space-y-4">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+          <label className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest block">
             Date Range
           </label>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="date-from" className="block text-[10px] font-bold text-slate-600 mb-2 uppercase tracking-tight">
+              <label htmlFor="date-from" className="block text-[10px] font-bold text-emerald-500/50 mb-2 uppercase tracking-tight">
                 From
               </label>
               <input
@@ -91,7 +91,20 @@ export const FilterPanel = () => {
                 name="date-from"
                 value={dateFrom}
                 onChange={(e) => handleDateFromChange(e.target.value)}
-                className="block w-full px-4 py-2.5 bg-black/40 border border-emerald-500/10 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all"
+                className="block w-full px-4 py-2.5 bg-black/40 border border-emerald-500/10 rounded-xl text-sm text-white/80 placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all"
+              />
+            </div>
+            <div>
+              <label htmlFor="date-to" className="block text-[10px] font-bold text-emerald-500/50 mb-2 uppercase tracking-tight">
+                To
+              </label>
+              <input
+                type="date"
+                id="date-to"
+                name="date-to"
+                value={dateTo}
+                onChange={(e) => handleDateToChange(e.target.value)}
+                className="block w-full px-4 py-2.5 bg-black/40 border border-emerald-500/10 rounded-xl text-sm text-white/80 placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all"
               />
             </div>
             <div>
@@ -112,7 +125,7 @@ export const FilterPanel = () => {
 
         {/* Status Filter */}
         <div className="space-y-4">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+          <label className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest block">
             Status
           </label>
           <div className="flex flex-wrap gap-2">
@@ -138,7 +151,7 @@ export const FilterPanel = () => {
 
         {/* Sentiment Filter */}
         <div className="space-y-4">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+          <label className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest block">
             Sentiment
           </label>
           <div className="flex flex-wrap gap-2">
@@ -165,7 +178,7 @@ export const FilterPanel = () => {
 
         {/* Handoff Filter */}
         <div className="space-y-4">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+          <label className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest block">
             Handoff Status
           </label>
           <div className="flex items-center gap-6">
@@ -177,7 +190,7 @@ export const FilterPanel = () => {
                 onChange={() => setHasHandoffFilter(true)}
                 className="h-4 w-4 bg-black/40 border-emerald-500/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0"
               />
-              <span className="ml-2 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">Has handoff</span>
+                <span className="ml-2 text-xs font-bold text-white/50 group-hover:text-emerald-400 transition-colors uppercase tracking-tight">Has handoff</span>
             </label>
             <label className="inline-flex items-center group cursor-pointer">
               <input
@@ -187,7 +200,7 @@ export const FilterPanel = () => {
                 onChange={() => setHasHandoffFilter(false)}
                 className="h-4 w-4 bg-black/40 border-emerald-500/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0"
               />
-              <span className="ml-2 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">No handoff</span>
+                <span className="ml-2 text-xs font-bold text-white/50 group-hover:text-emerald-400 transition-colors uppercase tracking-tight">No handoff</span>
             </label>
             <label className="inline-flex items-center group cursor-pointer">
               <input
@@ -197,7 +210,7 @@ export const FilterPanel = () => {
                 onChange={() => setHasHandoffFilter(null)}
                 className="h-4 w-4 bg-black/40 border-emerald-500/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0"
               />
-              <span className="ml-2 text-xs font-bold text-slate-400 group-hover:text-slate-200 transition-colors uppercase tracking-tight">Any</span>
+                <span className="ml-2 text-xs font-bold text-white/50 group-hover:text-emerald-400 transition-colors uppercase tracking-tight">Any</span>
             </label>
           </div>
         </div>

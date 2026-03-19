@@ -37,12 +37,12 @@ export function CostComparisonCard() {
   const safeManyChatEstimate = manyChatEstimate > 0 ? manyChatEstimate : 1;
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+    <div className="bg-white/[0.03] p-6 rounded-xl border border-white/10 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-gray-900">Cost Comparison</h3>
         <button
           onClick={() => setShowTooltip(!showTooltip)}
-          className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          className="text-white/40 hover:text-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 rounded"
           aria-label="View comparison methodology"
           aria-expanded={showTooltip}
         >
@@ -51,35 +51,35 @@ export function CostComparisonCard() {
       </div>
 
       {showTooltip && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 border border-gray-200">
+        <div className="mb-4 p-3 bg-white/[0.03] rounded-lg text-sm text-white/60 border border-white/10">
           {methodology}
         </div>
       )}
 
-      <p className="text-gray-600 mb-4">
+      <p className="text-white/60 mb-4">
         You spent{' '}
-        <span className="font-bold text-gray-900">
+        <span className="font-bold text-white/80">
           {formatCost(merchantSpend, 4)}
         </span>{' '}
         this month vs.{' '}
-        <span className="font-bold text-gray-900">
+        <span className="font-bold text-white/80">
           ~${manyChatEstimate.toFixed(0)}-{(manyChatEstimate * 1.5).toFixed(0)}
         </span>{' '}
         with ManyChat
       </p>
 
       {hasSavings ? (
-        <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-          <span className="font-semibold text-green-800">
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+          <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+          <span className="font-semibold text-green-400">
             You saved {formatCost(savingsAmount, 4)} ({savingsPercentage.toFixed(0)}
             %)
           </span>
         </div>
       ) : hasNeutralOrNegativeSavings ? (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-          <span className="text-sm text-amber-800">
+        <div className="flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+          <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <span className="text-sm text-amber-300">
             Consider reviewing your LLM provider configuration for cost optimization
           </span>
         </div>
@@ -88,12 +88,12 @@ export function CostComparisonCard() {
       <div className="mt-4 space-y-3">
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="font-medium text-gray-700">Shop (You)</span>
-            <span className="font-bold text-green-600">
+            <span className="font-medium text-white/60">Shop (You)</span>
+            <span className="font-bold text-green-400">
               {formatCost(merchantSpend, 4)}
             </span>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-3">
+          <div className="w-full bg-white/[0.05] rounded-full h-3">
             <div
               className="bg-green-500 h-3 rounded-full transition-all duration-300"
               style={{
@@ -105,14 +105,14 @@ export function CostComparisonCard() {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="font-medium text-gray-700">ManyChat (Est.)</span>
-            <span className="font-bold text-gray-600">
+            <span className="font-medium text-white/60">ManyChat (Est.)</span>
+            <span className="font-bold text-white/50">
               {formatCost(manyChatEstimate, 2)}
             </span>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-3">
+          <div className="w-full bg-white/[0.05] rounded-full h-3">
             <div
-              className="bg-gray-400 h-3 rounded-full transition-all duration-300"
+              className="bg-white/20 h-3 rounded-full transition-all duration-300"
               style={{ width: '100%' }}
             />
           </div>

@@ -37,42 +37,42 @@ const getStatusColors = (status: BudgetProgress['budgetStatus']) => {
     case 'green':
       return {
         bg: 'bg-green-500',
-        bgLight: 'bg-green-100',
-        text: 'text-green-700',
-        border: 'border-green-200',
+        bgLight: 'bg-green-500/10',
+        text: 'text-green-400',
+        border: 'border-green-500/20',
         bgHover: 'hover:bg-green-600',
       };
     case 'yellow':
       return {
         bg: 'bg-yellow-500',
-        bgLight: 'bg-yellow-100',
-        text: 'text-yellow-700',
-        border: 'border-yellow-200',
+        bgLight: 'bg-yellow-500/10',
+        text: 'text-yellow-400',
+        border: 'border-yellow-500/20',
         bgHover: 'hover:bg-yellow-600',
       };
     case 'red':
       return {
         bg: 'bg-red-500',
-        bgLight: 'bg-red-100',
-        text: 'text-red-700',
-        border: 'border-red-200',
+        bgLight: 'bg-red-500/10',
+        text: 'text-red-400',
+        border: 'border-red-500/20',
         bgHover: 'hover:bg-red-600',
       };
     case 'no_limit':
       return {
-        bg: 'bg-gray-500',
-        bgLight: 'bg-gray-100',
-        text: 'text-gray-700',
-        border: 'border-gray-200',
-        bgHover: 'hover:bg-gray-600',
+        bg: 'bg-white/20',
+        bgLight: 'bg-white/[0.03]',
+        text: 'text-white/60',
+        border: 'border-white/10',
+        bgHover: 'hover:bg-white/30',
       };
     default:
       return {
-        bg: 'bg-gray-500',
-        bgLight: 'bg-gray-100',
-        text: 'text-gray-700',
-        border: 'border-gray-200',
-        bgHover: 'hover:bg-gray-600',
+        bg: 'bg-white/20',
+        bgLight: 'bg-white/[0.03]',
+        text: 'text-white/60',
+        border: 'border-white/10',
+        bgHover: 'hover:bg-white/30',
       };
   }
 };
@@ -148,11 +148,11 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
   // Loading skeleton
   if (loading) {
     return (
-      <div className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm ${className}`}>
+      <div className={`bg-white/[0.03] p-6 rounded-xl border border-white/10 shadow-sm ${className}`}>
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-          <div className="h-8 bg-gray-200 rounded w-full"></div>
+          <div className="h-6 bg-white/10 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-white/10 rounded w-full mb-2"></div>
+          <div className="h-8 bg-white/10 rounded w-full"></div>
         </div>
       </div>
     );
@@ -161,9 +161,9 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
   // No data state
   if (!budgetProgress) {
     return (
-      <div className={`bg-white p-6 rounded-xl border border-gray-200 shadow-sm ${className}`}>
-        <h3 className="font-bold text-gray-900 mb-2">Budget Progress</h3>
-        <p className="text-sm text-gray-600">Unable to load budget data</p>
+      <div className={`bg-white/[0.03] p-6 rounded-xl border border-white/10 shadow-sm ${className}`}>
+        <h3 className="font-bold text-white/80 mb-2">Budget Progress</h3>
+        <p className="text-sm text-white/50">Unable to load budget data</p>
       </div>
     );
   }
@@ -177,7 +177,7 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-gray-900">Budget Progress</h3>
+        <h3 className="font-bold text-white/80">Budget Progress</h3>
         <div className="flex items-center space-x-2">
           {/* Status indicator dot */}
           <span
@@ -193,27 +193,27 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
       {/* Spend Display */}
       <div className="mb-4">
         {budgetCap === null ? (
-          <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-lg font-bold text-gray-900">
+          <div className="text-center py-4 bg-white/[0.03] rounded-lg border border-white/10">
+            <p className="text-lg font-bold text-white/80">
               {formatCost(monthlySpend, 2)} spent this month
             </p>
-            <div className="flex items-center justify-center mt-2 text-gray-600">
+            <div className="flex items-center justify-center mt-2 text-white/50">
               <span className="text-sm">No budget limit</span>
-              <span className="mx-2 text-gray-400">|</span>
-              <span className="text-sm text-gray-600">Unlimited spending</span>
+              <span className="mx-2 text-white/20">|</span>
+              <span className="text-sm text-white/50">Unlimited spending</span>
             </div>
           </div>
         ) : (
           <div className="flex justify-between items-end">
             <div>
-              <p className="text-sm text-gray-600">Monthly spend</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-white/50">Monthly spend</p>
+              <p className="text-2xl font-bold text-white/80">
                 {formatCost(monthlySpend, 2)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Budget cap</p>
-              <p className="text-lg font-bold text-gray-700">
+              <p className="text-sm text-white/50">Budget cap</p>
+              <p className="text-lg font-bold text-white/70">
                 {formatCost(budgetCap, 2)}
               </p>
             </div>
@@ -234,7 +234,7 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
             className="relative"
           >
             {/* Background track */}
-            <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+            <div className="w-full bg-white/[0.05] rounded-full h-4 overflow-hidden">
               {/* Animated progress fill */}
               <div
                 className={`h-full ${colors.bg} ${colors.bgHover} transition-all duration-500 ease-out rounded-full`}
@@ -249,7 +249,7 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
               {clampedPercentage.toFixed(1)}% of budget used
             </span>
             {remaining > 0 && (
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-white/50">
                 {formatCost(remaining, 2)} remaining
               </span>
             )}

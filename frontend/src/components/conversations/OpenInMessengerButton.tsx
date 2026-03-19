@@ -1,10 +1,8 @@
 /**
- * OpenInMessengerButton Component - Story 4-9: Open in Messenger Reply
- * Story 4-10: Return to Bot - Added toast notification
+ * OpenInMessengerButton Component
  *
- * Button that opens Facebook Messenger at a specific conversation.
- * Supports smart state: shows "Open in Messenger" or "Return to Bot"
- * depending on hybrid mode status.
+ * Industrial Technical Dashboard design with terminal aesthetics.
+ * Button for hybrid mode control and Messenger integration.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -22,7 +20,7 @@ interface OpenInMessengerButtonProps {
 }
 
 export default function OpenInMessengerButton({
-  conversationId,
+  conversationId: _conversationId,
   platformSenderId,
   hybridMode,
   facebookPage,
@@ -90,26 +88,26 @@ export default function OpenInMessengerButton({
         data-testid={isHybridModeActive ? 'return-to-bot-btn' : 'open-in-messenger-btn'}
         onClick={handleClick}
         disabled={isDisabled}
-        className={`
-          inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
-          transition-colors duration-200
-          ${
-            isHybridModeActive
-              ? 'bg-green-600 hover:bg-green-700 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }
-          ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        `}
+        className="inline-flex items-center gap-3 px-5 py-3 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
+        style={{
+          fontFamily: 'JetBrains Mono, monospace',
+          backgroundColor: isHybridModeActive ? '#00FF8810' : '#0A0A0A',
+          border: `1px solid ${isHybridModeActive ? '#00FF8840' : '#2f2f2f'}`,
+          color: isHybridModeActive ? '#00FF88' : '#FFFFFF',
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '0.15em',
+        }}
         aria-label={isHybridModeActive ? 'Return control to bot' : 'Open conversation in Messenger'}
       >
         {(isLoading || isToggling) ? (
-          <Loader2 size={16} className="animate-spin" />
+          <Loader2 size={14} className="animate-spin" />
         ) : isHybridModeActive ? (
-          <Bot size={16} />
+          <Bot size={14} />
         ) : (
-          <MessageCircle size={16} />
+          <MessageCircle size={14} />
         )}
-        <span>
+        <span className="uppercase">
           {isHybridModeActive ? 'Return to Bot' : 'Open in Messenger'}
         </span>
       </button>
@@ -117,11 +115,25 @@ export default function OpenInMessengerButton({
       {showTooltip && (
         <div
           data-testid="no-facebook-tooltip"
-          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 
-                     bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10"
+          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-4 py-3 whitespace-nowrap z-10"
+          style={{
+            backgroundColor: '#0A0A0A',
+            border: '1px solid #2f2f2f',
+          }}
         >
-          Connect a Facebook page to enable Messenger replies
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+          <span 
+            className="text-[10px] font-medium"
+            style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a8a8a' }}
+          >
+            Connect Facebook page to enable Messenger
+          </span>
+          <div 
+            className="absolute top-full left-1/2 transform -translate-x-1/2"
+            style={{
+              border: '4px solid transparent',
+              borderTopColor: '#2f2f2f',
+            }}
+          />
         </div>
       )}
 
@@ -130,15 +142,27 @@ export default function OpenInMessengerButton({
           data-testid="return-to-bot-toast"
           role="status"
           aria-live="polite"
-          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 
-                     bg-green-600 text-white text-sm rounded-lg shadow-lg whitespace-nowrap z-20
-                     animate-fade-in"
+          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-4 py-3 whitespace-nowrap z-20 animate-in fade-in slide-in-from-bottom-2 duration-300"
+          style={{
+            backgroundColor: '#00FF88',
+          }}
         >
-          <div className="flex items-center gap-2">
-            <Check size={16} />
-            <span>Bot is back in control</span>
+          <div className="flex items-center gap-3">
+            <Check size={14} style={{ color: '#0C0C0C' }} />
+            <span 
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ fontFamily: 'JetBrains Mono, monospace', color: '#0C0C0C' }}
+            >
+              Bot resumed control
+            </span>
           </div>
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-green-600" />
+          <div 
+            className="absolute top-full left-1/2 transform -translate-x-1/2"
+            style={{
+              border: '4px solid transparent',
+              borderTopColor: '#00FF88',
+            }}
+          />
         </div>
       )}
     </div>

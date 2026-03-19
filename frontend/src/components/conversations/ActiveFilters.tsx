@@ -58,7 +58,7 @@ export const ActiveFilters = ({ className = '' }: ActiveFiltersProps) => {
 
   return (
     <div className={`flex items-center gap-2 flex-wrap ${className}`}>
-      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mr-1">Active filters:</span>
+      <span className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mr-1">Active filters:</span>
 
       {/* Search Query */}
       {filters.searchQuery && (
@@ -132,11 +132,11 @@ interface FilterChipProps {
 }
 
 const FilterChip = ({ label, onRemove, icon, color = 'emerald' }: FilterChipProps) => {
-  const colorClasses: Record<Exclude<typeof color, undefined>, string> = {
+const colorClasses: Record<Exclude<typeof color, undefined>, string> = {
     emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20 hover:text-emerald-300',
     amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20 hover:text-amber-300',
-    slate: 'bg-slate-500/10 text-slate-400 border-slate-500/20 hover:bg-slate-500/20 hover:text-slate-300',
-  };
+    slate: 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/70',
+};
 
   return (
     <button

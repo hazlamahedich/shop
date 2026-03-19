@@ -1,5 +1,5 @@
 /**
- * BudgetHardStopModal Component
+ * BudgetHardStopModal Component - Industrial Technical Dashboard
  *
  * Displays modal when bot is paused due to budget limit
  * Implements focus trap for accessibility (AC3)
@@ -48,7 +48,6 @@ export function BudgetHardStopModal({
   const pauseReason = botStatus?.pauseReason ?? 'Budget limit reached';
   const budgetCap = merchantSettings?.budgetCap ?? botStatus?.budgetCap;
   const monthlySpend = botStatus?.monthlySpend ?? 0;
-  // Can resume if no budget cap set (unlimited) OR budget cap > monthly spend
   const canResume = budgetCap === null || budgetCap === undefined || budgetCap > monthlySpend;
 
   useEffect(() => {
@@ -124,59 +123,62 @@ export function BudgetHardStopModal({
       aria-describedby="hard-stop-description"
     >
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         onClick={handleClose}
         aria-hidden="true"
       />
 
       <div
         ref={modalRef}
-        className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+        className="relative bg-[#0A0A0A] border border-red-500/30 shadow-2xl max-w-md w-full mx-4 p-6"
         data-testid="budget-hard-stop-modal"
       >
         <div className="text-center mb-6">
-          <span className="text-5xl mb-4 block" role="img" aria-label="Bot Paused">
-            ⛔
-          </span>
-          <h2 id="hard-stop-title" className="text-2xl font-bold text-red-600 mb-2">
+          <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-red-500/20 border border-red-500/30">
+            <span className="text-3xl">⛔</span>
+          </div>
+          <h2
+            id="hard-stop-title"
+            className="text-xl font-bold text-red-400 font-['Space_Grotesk'] uppercase tracking-wide mb-2"
+          >
             Bot Paused
           </h2>
-          <p id="hard-stop-description" className="text-gray-600">
+          <p id="hard-stop-description" className="text-white/60 font-mono text-sm">
             {pauseReason}
           </p>
         </div>
 
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="bg-red-500/10 border border-red-500/20 p-4 mb-6">
           {budgetCap !== null && budgetCap !== undefined ? (
             <>
               <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Current Budget:</span>
-                <span className="font-semibold">${budgetCap.toFixed(2)}</span>
+                <span className="text-white/60 font-mono text-xs">Current Budget:</span>
+                <span className="font-bold text-white font-mono">${budgetCap.toFixed(2)}</span>
               </div>
               <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Spent:</span>
-                <span className="font-semibold text-red-600">${monthlySpend.toFixed(2)}</span>
+                <span className="text-white/60 font-mono text-xs">Spent:</span>
+                <span className="font-bold text-red-400 font-mono">${monthlySpend.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-red-200">
-                <span className="text-gray-600">Status:</span>
-                <span className="font-semibold text-red-600">Budget Exceeded</span>
+              <div className="flex justify-between pt-2 border-t border-red-500/20">
+                <span className="text-white/60 font-mono text-xs">Status:</span>
+                <span className="font-bold text-red-400 font-mono uppercase tracking-wide">Budget Exceeded</span>
               </div>
             </>
           ) : (
             <>
               <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Spent:</span>
-                <span className="font-semibold text-red-600">${monthlySpend.toFixed(2)}</span>
+                <span className="text-white/60 font-mono text-xs">Spent:</span>
+                <span className="font-bold text-red-400 font-mono">${monthlySpend.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-red-200">
-                <span className="text-gray-600">Status:</span>
-                <span className="font-semibold text-green-600">No Budget Limit - Ready to Resume</span>
+              <div className="flex justify-between pt-2 border-t border-red-500/20">
+                <span className="text-white/60 font-mono text-xs">Status:</span>
+                <span className="font-bold text-emerald-400 font-mono uppercase tracking-wide">No Budget Limit - Ready to Resume</span>
               </div>
             </>
           )}
         </div>
 
-        <p className="text-sm text-gray-600 mb-6 text-center">
+        <p className="text-xs text-white/40 font-mono mb-6 text-center leading-relaxed">
           {budgetCap !== null && budgetCap !== undefined
             ? 'Your bot is not responding to customer messages. Increase your budget above your current spend to resume operations.'
             : 'Your bot was paused but now has no budget limit. You can resume operations immediately.'}
@@ -186,9 +188,9 @@ export function BudgetHardStopModal({
           <button
             ref={firstFocusableRef}
             onClick={handleIncreaseBudget}
-            className="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-medium
-                       hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500
-                       focus:ring-offset-2 transition-colors"
+            className="w-full px-4 py-3 bg-emerald-500 text-black text-[10px] font-bold font-mono uppercase tracking-[2px]
+                       hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50
+                       focus:ring-offset-2 focus:ring-offset-[#0A0A0A] transition-colors"
             aria-label="Increase budget to resume bot"
           >
             Increase Budget
@@ -198,12 +200,12 @@ export function BudgetHardStopModal({
             ref={lastFocusableRef}
             onClick={handleResumeBot}
             disabled={!canResume || isResuming}
-            className={`w-full px-4 py-3 rounded-lg font-medium transition-colors
-                        focus:outline-none focus:ring-2 focus:ring-offset-2
+            className={`w-full px-4 py-3 text-[10px] font-bold font-mono uppercase tracking-[2px] transition-colors
+                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0A0A0A]
                         ${
                           canResume
-                            ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
-                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                            ? 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500/50'
+                            : 'bg-white/10 text-white/40 cursor-not-allowed border border-white/10'
                         }`}
             aria-label="Resume bot operations"
             aria-disabled={!canResume}
@@ -215,8 +217,8 @@ export function BudgetHardStopModal({
         {onClose && (
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700
-                       focus:outline-none focus:ring-2 focus:ring-gray-500 rounded"
+            className="absolute top-4 right-4 text-white/40 hover:text-white/60
+                       focus:outline-none focus:ring-2 focus:ring-white/30 rounded"
             aria-label="Close modal"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

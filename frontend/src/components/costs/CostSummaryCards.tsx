@@ -1,33 +1,20 @@
 /**
- * CostSummaryCards Component
+ * CostSummaryCards Component - Industrial Technical Dashboard
  *
  * Displays dashboard summary cards for LLM cost tracking:
  * - Total cost with trend indicator (vs previous period)
  * - Total tokens processed
  * - Total request count
  * - Average cost per request
- * - Top provider by usage
  *
  * Story 3-5: Real-Time Cost Tracking
  */
 
 import React, { useMemo } from 'react';
-import { DollarSign, Hash, Zap, Cpu, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useCostTrackingStore } from '../../stores/costTrackingStore';
 import { formatCost, formatTokens } from '../../types/cost';
 import type { CostSummary } from '../../types/cost';
-
-interface CardData {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  colorClass: string;
-  bgColorClass: string;
-  trend?: {
-    value: number;
-    label: string;
-  };
-}
 
 interface TrendIndicatorProps {
   value: number;
@@ -37,7 +24,7 @@ interface TrendIndicatorProps {
 const TrendIndicator: React.FC<TrendIndicatorProps> = ({ value, label }) => {
   if (value === 0) {
     return (
-      <span className="flex items-center text-xs text-gray-600">
+      <span className="flex items-center text-xs text-white/40 font-mono">
         <Minus size={14} className="mr-1" />
         No change from {label}
       </span>
@@ -45,35 +32,36 @@ const TrendIndicator: React.FC<TrendIndicatorProps> = ({ value, label }) => {
   }
 
   const isPositive = value > 0;
-  const colorClass = isPositive ? 'text-red-600' : 'text-green-600';
+  const colorClass = isPositive ? 'text-red-400' : 'text-emerald-400';
   const Icon = isPositive ? TrendingUp : TrendingDown;
 
   return (
-    <span className={`flex items-center text-xs ${colorClass}`}>
+    <span className={`flex items-center text-xs font-mono ${colorClass}`}>
       <Icon size={14} className="mr-1" />
       {Math.abs(value).toFixed(1)}% vs {label}
     </span>
   );
 };
 
-// Reusable stat card component
 const StatCard: React.FC<{
   label: string;
   value: string;
-  icon: React.ReactNode;
-  colorClass: string;
-  bgColorClass: string;
+  iconBg: string;
+  iconBorder: string;
+  iconColor: string;
+  iconSymbol: string;
+  valueColor: string;
   trend?: React.ReactNode;
-}> = ({ label, value, icon, colorClass, bgColorClass, trend }) => (
-  <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+}> = ({ label, value, iconBg, iconBorder, iconColor, iconSymbol, valueColor, trend }) => (
+  <div className="bg-[#0A0A0A] border border-emerald-500/15 p-5">
     <div className="flex items-start justify-between">
       <div className="flex-1">
-        <p className="text-sm font-medium text-gray-600 mb-1">{label}</p>
-        <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
+        <p className="text-[11px] font-semibold text-white/60 font-mono tracking-[2px] uppercase mb-1">{label}</p>
+        <p className={`text-[28px] font-bold font-mono tracking-tight ${valueColor}`}>{value}</p>
         {trend && <div className="mt-2">{trend}</div>}
       </div>
-      <div className={`p-3 rounded-lg ${bgColorClass}`}>
-        {icon}
+      <div className={`w-10 h-10 flex items-center justify-center ${iconBg} border ${iconBorder}`}>
+        <span className={`text-lg font-bold font-mono ${iconColor}`}>{iconSymbol}</span>
       </div>
     </div>
   </div>
@@ -88,14 +76,12 @@ export const CostSummaryCards: React.FC<{
     lastUpdate,
   } = useCostTrackingStore();
 
-  // Determine top provider
   const topProvider = useMemo(() => {
     if (!costSummary?.costsByProvider) return null;
 
     const providers = Object.entries(costSummary.costsByProvider);
     if (providers.length === 0) return null;
 
-    // Sort by request count (primary) and cost (secondary)
     const sorted = providers.sort(([, a], [, b]) => {
       if (a.requests !== b.requests) {
         return b.requests - a.requests;
@@ -110,15 +96,11 @@ export const CostSummaryCards: React.FC<{
     };
   }, [costSummary]);
 
-  // Calculate trends if previous period data available
   const costTrend = useMemo(() => {
     if (!costSummary || !previousPeriodSummary) return null;
-
     const current = costSummary.totalCostUsd;
     const previous = previousPeriodSummary.totalCostUsd;
-
     if (previous === 0) return null;
-
     return {
       value: ((current - previous) / previous) * 100,
       label: 'previous period',
@@ -127,12 +109,9 @@ export const CostSummaryCards: React.FC<{
 
   const tokensTrend = useMemo(() => {
     if (!costSummary || !previousPeriodSummary) return null;
-
     const current = costSummary.totalTokens;
     const previous = previousPeriodSummary.totalTokens;
-
     if (previous === 0) return null;
-
     return {
       value: ((current - previous) / previous) * 100,
       label: 'previous period',
@@ -141,126 +120,113 @@ export const CostSummaryCards: React.FC<{
 
   const requestsTrend = useMemo(() => {
     if (!costSummary || !previousPeriodSummary) return null;
-
     const current = costSummary.requestCount;
     const previous = previousPeriodSummary.requestCount;
-
     if (previous === 0) return null;
-
     return {
       value: ((current - previous) / previous) * 100,
       label: 'previous period',
     };
   }, [costSummary, previousPeriodSummary]);
 
-  // Loading state
   if (costSummaryLoading && !costSummary) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-            <div className="h-8 bg-gray-200 rounded w-32 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-28"></div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // No data state
-  if (!costSummary) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
-        <div className="text-center">
-          <DollarSign size={32} className="text-gray-400 mx-auto mb-3" />
-          <p className="text-sm text-gray-600">No cost data available</p>
-          <p className="text-xs text-gray-500 mt-1">Data will appear once LLM requests are made</p>
+      <div className="px-10 pt-8 pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-[#0A0A0A] border border-emerald-500/15 p-5 animate-pulse">
+              <div className="h-4 bg-white/10 w-24 mb-2"></div>
+              <div className="h-8 bg-white/10 w-32 mb-2"></div>
+              <div className="h-3 bg-white/10 w-28"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
-  // Prepare card data
-  const cards: CardData[] = [
-    {
-      label: 'Total Cost',
-      value: formatCost(costSummary.totalCostUsd, 4),
-      icon: <DollarSign size={20} className="text-blue-600" />,
-      colorClass: 'text-blue-600',
-      bgColorClass: 'bg-blue-50',
-      trend: costTrend ? { value: costTrend.value, label: costTrend.label } : undefined,
-    },
-    {
-      label: 'Total Tokens',
-      value: formatTokens(costSummary.totalTokens),
-      icon: <Hash size={20} className="text-purple-600" />,
-      colorClass: 'text-purple-600',
-      bgColorClass: 'bg-purple-50',
-      trend: tokensTrend ? { value: tokensTrend.value, label: tokensTrend.label } : undefined,
-    },
-    {
-      label: 'Total Requests',
-      value: costSummary.requestCount.toLocaleString(),
-      icon: <Zap size={20} className="text-green-600" />,
-      colorClass: 'text-green-600',
-      bgColorClass: 'bg-green-50',
-      trend: requestsTrend ? { value: requestsTrend.value, label: requestsTrend.label } : undefined,
-    },
-    {
-      label: 'Avg Cost/Request',
-      value: formatCost(costSummary.avgCostPerRequest),
-      icon: <Cpu size={20} className="text-orange-600" />,
-      colorClass: 'text-orange-600',
-      bgColorClass: 'bg-orange-50',
-    },
-  ];
+  if (!costSummary) {
+    return (
+      <div className="px-10 pt-8 pb-4">
+        <div className="bg-[#0A0A0A] border border-emerald-500/15 p-8">
+          <div className="text-center">
+            <span className="text-4xl font-mono text-white/40">$</span>
+            <p className="text-sm text-white/60 font-mono mt-3">No cost data available</p>
+            <p className="text-xs text-white/40 font-mono mt-1">Data will appear once LLM requests are made</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="px-10 pt-8 pb-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Cost Overview</h3>
+        <h3 className="text-lg font-bold text-white font-['Space_Grotesk'] uppercase tracking-wide">Cost Overview</h3>
         {lastUpdate && (
-          <span className="text-xs text-gray-600">
+          <span className="text-xs text-white/60 font-mono">
             Last updated: {new Date(lastUpdate).toLocaleTimeString()}
           </span>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {cards.map((card) => (
-          <StatCard
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            icon={card.icon}
-            colorClass={card.colorClass}
-            bgColorClass={card.bgColorClass}
-            trend={
-              card.trend ? (
-                <TrendIndicator value={card.trend.value} label={card.trend.label} />
-              ) : undefined
-            }
-          />
-        ))}
+        <StatCard
+          label="Total Cost"
+          value={formatCost(costSummary.totalCostUsd, 4)}
+          iconBg="bg-blue-500/15"
+          iconBorder="border-blue-500/30"
+          iconColor="text-blue-400"
+          iconSymbol="$"
+          valueColor="text-blue-400"
+          trend={costTrend ? <TrendIndicator value={costTrend.value} label={costTrend.label} /> : undefined}
+        />
+        <StatCard
+          label="Total Tokens"
+          value={formatTokens(costSummary.totalTokens)}
+          iconBg="bg-purple-500/15"
+          iconBorder="border-purple-500/30"
+          iconColor="text-purple-400"
+          iconSymbol="#"
+          valueColor="text-purple-400"
+          trend={tokensTrend ? <TrendIndicator value={tokensTrend.value} label={tokensTrend.label} /> : undefined}
+        />
+        <StatCard
+          label="Total Requests"
+          value={costSummary.requestCount.toLocaleString()}
+          iconBg="bg-emerald-500/15"
+          iconBorder="border-emerald-500/30"
+          iconColor="text-emerald-400"
+          iconSymbol="⚡"
+          valueColor="text-emerald-400"
+          trend={requestsTrend ? <TrendIndicator value={requestsTrend.value} label={requestsTrend.label} /> : undefined}
+        />
+        <StatCard
+          label="Avg Cost/Request"
+          value={formatCost(costSummary.avgCostPerRequest)}
+          iconBg="bg-orange-500/15"
+          iconBorder="border-orange-500/30"
+          iconColor="text-orange-400"
+          iconSymbol="◎"
+          valueColor="text-orange-400"
+        />
       </div>
 
-      {/* Top Provider Card */}
       {topProvider && (
-        <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+        <div className="bg-[#0A0A0A] border border-emerald-500/15 p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="p-3 rounded-lg bg-gray-50">
-                <Cpu size={20} className="text-gray-600" />
+              <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10">
+                <span className="text-lg font-mono text-white/60">◈</span>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Top Provider</p>
-                <p className="text-lg font-semibold text-gray-900 capitalize">{topProvider.name}</p>
+                <p className="text-[11px] font-semibold text-white/60 font-mono tracking-[2px] uppercase">Top Provider</p>
+                <p className="text-base font-bold text-white font-['Space_Grotesk'] capitalize">{topProvider.name}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">{topProvider.requests} requests</p>
-              <p className="text-sm font-medium text-gray-900">{formatCost(topProvider.costUsd, 4)}</p>
+              <p className="text-xs text-white/60 font-mono">{topProvider.requests} requests</p>
+              <p className="text-sm font-bold text-emerald-400 font-mono">{formatCost(topProvider.costUsd, 4)}</p>
             </div>
           </div>
         </div>

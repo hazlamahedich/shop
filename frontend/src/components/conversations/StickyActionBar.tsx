@@ -1,8 +1,8 @@
 /**
- * StickyActionBar Component - Story 4-9: Open in Messenger Reply
+ * StickyActionBar Component
  *
- * Fixed bottom action bar with prominent "Open in Messenger" / "Return to Bot" button.
- * Party Mode: Sally - sticky positioning for easy merchant access.
+ * Industrial Technical Dashboard design with terminal aesthetics.
+ * Fixed bottom action bar for hybrid mode control.
  */
 
 import OpenInMessengerButton from './OpenInMessengerButton';
@@ -48,29 +48,56 @@ export default function StickyActionBar({
   return (
     <div
       data-testid="sticky-action-bar"
-      className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/80 backdrop-blur-xl border-t border-emerald-500/10 
-                 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] p-4 z-40 md:ml-64 animate-in fade-in slide-in-from-bottom-4 duration-500"
+      className="fixed bottom-0 left-0 right-0 z-40 md:ml-64"
+      style={{ 
+        backgroundColor: '#0A0A0A', 
+        borderTop: '1px solid #2f2f2f',
+      }}
     >
-      <div className="max-w-4xl mx-auto flex items-center justify-between gap-6">
+      <div className="max-w-5xl mx-auto flex items-center justify-between gap-6 px-8 py-4">
         <div className="flex-1">
           {isHybridModeActive && remainingSeconds !== undefined && (
-            <div className="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/10 px-4 py-2 rounded-full w-fit">
+            <div 
+              className="flex items-center gap-4 px-4 py-3"
+              style={{ backgroundColor: '#00FF8810', border: '1px solid #00FF8840' }}
+            >
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span 
+                  className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  style={{ backgroundColor: '#00FF88' }}
+                />
+                <span 
+                  className="relative inline-flex rounded-full h-2 w-2"
+                  style={{ backgroundColor: '#00FF88' }}
+                />
               </span>
-              <span className="text-sm font-medium text-emerald-400">
-                Merchant in Control • <span className="text-emerald-500/60 font-normal">Bot resumes in</span> {formatRemainingTime(remainingSeconds)}
+              <span 
+                className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00FF88' }}
+              >
+                OVERRIDE ACTIVE
+              </span>
+              <span 
+                className="text-[10px] font-medium"
+                style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+              >
+                Bot resumes in {formatRemainingTime(remainingSeconds)}
               </span>
             </div>
           )}
           {!isHybridModeActive && (
-            <div className="flex items-center gap-3 text-zinc-400 group cursor-default">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-center group-hover:border-emerald-500/20 transition-colors">
-                <MessageCircle size={14} className="text-emerald-500/40" />
+            <div className="flex items-center gap-4">
+              <div 
+                className="w-9 h-9 flex items-center justify-center"
+                style={{ backgroundColor: '#080808', border: '1px solid #2f2f2f' }}
+              >
+                <MessageCircle size={14} style={{ color: '#6a6a6a' }} />
               </div>
-              <p className="text-sm">
-                Click to respond to this customer directly in Messenger
+              <p 
+                className="text-[10px] font-medium uppercase tracking-widest"
+                style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+              >
+                Click to initiate manual override in Messenger
               </p>
             </div>
           )}

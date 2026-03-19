@@ -2,12 +2,12 @@
  * Conversations Page
  *
  * Displays a paginated list of customer conversations with search and filter capabilities.
- * Re-imagined with high-fidelity Mantis aesthetic.
+ * Industrial Technical Dashboard design with terminal aesthetics.
  */
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, SlidersHorizontal, MessageSquare, ArrowUpDown } from 'lucide-react';
+import { AlertCircle, SlidersHorizontal, MessageSquare, ChevronDown, Download } from 'lucide-react';
 import { useConversationStore } from '../stores/conversationStore';
 import ConversationCard from '../components/conversations/ConversationCard';
 import Pagination from '../components/ui/Pagination';
@@ -16,7 +16,6 @@ import { FilterPanel } from '../components/conversations/FilterPanel';
 import { ActiveFilters } from '../components/conversations/ActiveFilters';
 import { SavedFilters } from '../components/conversations/SavedFilters';
 import { ExportButton, ExportProgress, ExportOptionsModal } from '../components/export';
-import { GlassCard } from '../components/ui/GlassCard';
 
 const Conversations: React.FC = () => {
   const navigate = useNavigate();
@@ -40,7 +39,6 @@ const Conversations: React.FC = () => {
 
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
-  // Sync filters from URL and fetch conversations on mount
   useEffect(() => {
     syncWithUrl();
   }, [syncWithUrl]);
@@ -59,18 +57,20 @@ const Conversations: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0C0C0C' }}>
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-10 pt-8 pb-6">
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
-            <MessageSquare size={12} />
-            Neural Logs
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full" style={{ backgroundColor: '#00FF8810' }}>
+            <MessageSquare size={12} style={{ color: '#00FF88' }} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00FF88' }}>
+              Neural Logs
+            </span>
           </div>
-          <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
+          <h1 className="text-5xl font-bold tracking-tight" style={{ fontFamily: 'Space Grotesk, sans-serif', color: '#FFFFFF', letterSpacing: '-1px' }}>
             Conversations
           </h1>
-          <p className="text-lg text-emerald-900/40 font-medium max-w-xl">
+          <p className="text-sm" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a8a8a' }}>
             Monitor real-time customer interactions and neural response accuracy.
           </p>
         </div>
@@ -80,80 +80,112 @@ const Conversations: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-            className={`h-14 px-8 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl border transition-all duration-300 flex items-center gap-3 ${
-              isFilterPanelOpen
-                ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
-                : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20'
-            }`}
+            className="flex items-center gap-3 px-6 py-3.5 border transition-all duration-300"
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              backgroundColor: isFilterPanelOpen ? '#00FF88' : '#0A0A0A',
+              color: isFilterPanelOpen ? '#0C0C0C' : '#FFFFFF',
+              borderColor: isFilterPanelOpen ? '#00FF88' : '#2f2f2f',
+              borderRadius: 0,
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.2em',
+            }}
           >
-            <SlidersHorizontal size={18} />
-            {isFilterPanelOpen ? 'Close Filters' : 'Filter Array'}
+            <SlidersHorizontal size={16} />
+            {isFilterPanelOpen ? 'CLOSE FILTERS' : 'FILTER ARRAY'}
           </button>
         </div>
       </div>
 
       <ExportProgress />
 
-      <GlassCard accent="mantis" className="flex-1 flex flex-col border-emerald-500/5 bg-emerald-500/[0.01] overflow-hidden">
-        {/* Search and Sort Sub-header */}
-        <div className="p-8 border-b border-white/[0.03] space-y-8 bg-white/[0.01]">
+      {/* Main Content Card */}
+      <div className="flex-1 flex flex-col mx-10 mb-8 border" style={{ backgroundColor: '#0A0A0A', borderColor: '#2f2f2f' }}>
+        {/* Search and Sort Section */}
+        <div className="p-6 space-y-6" style={{ backgroundColor: '#0A0A0A', borderBottom: '1px solid #2f2f2f' }}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
-            <div className="lg:col-span-2 space-y-4">
-              <label className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] ml-1">Search Registry</label>
+            <div className="lg:col-span-2 space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.3em]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>
+                Search Registry
+              </label>
               <SearchBar placeholder="Scan by customer ID or message content..." />
             </div>
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em] ml-1">Sort Index</label>
-              <div className="relative group">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.3em]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>
+                Sort Index
+              </label>
+              <div className="relative">
                 <select
                   value={`${sortBy}-${sortOrder}`}
                   onChange={handleSortChange}
-                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 pr-12 text-white font-black text-xs uppercase tracking-widest appearance-none transition-all focus:border-emerald-500/40 focus:bg-emerald-500/[0.03] cursor-pointer"
+                  className="w-full py-3.5 px-5 pr-10 appearance-none cursor-pointer transition-all focus:outline-none"
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    backgroundColor: '#080808',
+                    border: '1px solid #2f2f2f',
+                    color: '#FFFFFF',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    borderRadius: 0,
+                  }}
                   disabled={loadingState === 'loading'}
                 >
-                  <option value="updated_at-desc" className="bg-[#030303]">Last Updated (Newest)</option>
-                  <option value="updated_at-asc" className="bg-[#030303]">Last Updated (Oldest)</option>
-                  <option value="created_at-desc" className="bg-[#030303]">Created (Newest)</option>
-                  <option value="created_at-asc" className="bg-[#030303]">Created (Oldest)</option>
-                  <option value="status-asc" className="bg-[#030303]">Status (A-Z)</option>
-                  <option value="status-desc" className="bg-[#030303]">Status (Z-A)</option>
+                  <option value="updated_at-desc" style={{ backgroundColor: '#0C0C0C' }}>Last Updated (Newest)</option>
+                  <option value="updated_at-asc" style={{ backgroundColor: '#0C0C0C' }}>Last Updated (Oldest)</option>
+                  <option value="created_at-desc" style={{ backgroundColor: '#0C0C0C' }}>Created (Newest)</option>
+                  <option value="created_at-asc" style={{ backgroundColor: '#0C0C0C' }}>Created (Oldest)</option>
+                  <option value="status-asc" style={{ backgroundColor: '#0C0C0C' }}>Status (A-Z)</option>
+                  <option value="status-desc" style={{ backgroundColor: '#0C0C0C' }}>Status (Z-A)</option>
                 </select>
-                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-900/40">
-                  <ArrowUpDown size={16} />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#6a6a6a' }}>
+                  <ChevronDown size={14} />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
             <ActiveFilters />
             <SavedFilters />
           </div>
         </div>
 
-        {/* Filter Panel Transition */}
+        {/* Filter Panel */}
         {isFilterPanelOpen && (
-          <div className="px-8 py-8 border-b border-emerald-500/10 bg-emerald-500/[0.03] animate-in slide-in-from-top-4 duration-500">
+          <div className="px-6 py-6" style={{ backgroundColor: '#080808', borderBottom: '1px solid #2f2f2f' }}>
             <FilterPanel />
           </div>
         )}
 
         {/* List Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/[0.005]">
+        <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#0C0C0C' }}>
           {error && (
-            <div className="flex flex-col items-center justify-center h-full p-20 text-center space-y-8">
-              <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center text-red-500">
-                <AlertCircle size={40} />
+            <div className="flex flex-col items-center justify-center h-full p-20 text-center space-y-6">
+              <div className="w-16 h-16 flex items-center justify-center" style={{ backgroundColor: '#FF444420', border: '1px solid #FF444440' }}>
+                <AlertCircle size={32} style={{ color: '#FF4444' }} />
               </div>
-              <div className="space-y-4">
-                <p className="text-xl font-black text-white uppercase tracking-tight">Access Protocol Failure</p>
-                <p className="text-xs text-emerald-900/40 max-w-sm mx-auto uppercase tracking-widest font-black leading-relaxed">
+              <div className="space-y-2">
+                <p className="text-xl font-bold uppercase" style={{ fontFamily: 'Space Grotesk, sans-serif', color: '#FFFFFF' }}>
+                  Access Protocol Failure
+                </p>
+                <p className="text-xs uppercase tracking-widest font-bold max-w-sm mx-auto" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>
                   {error}
                 </p>
               </div>
               <button
                 onClick={handleRetry}
-                className="h-14 px-8 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-500 hover:text-black transition-all duration-300"
+                className="px-6 py-3 border transition-all duration-300"
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  backgroundColor: '#00FF8810',
+                  borderColor: '#00FF8840',
+                  color: '#00FF88',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  letterSpacing: '0.2em',
+                  borderRadius: 0,
+                }}
               >
                 Retry Neural Handshake
               </button>
@@ -162,19 +194,23 @@ const Conversations: React.FC = () => {
 
           {loadingState === 'loading' && !error && (
             <div className="flex flex-col items-center justify-center h-full gap-4">
-              <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-              <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.4em]">Parsing Logs...</p>
+              <div className="w-10 h-10 border-2 animate-spin" style={{ borderColor: '#2f2f2f', borderTopColor: '#00FF88' }} />
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>
+                Parsing Logs...
+              </p>
             </div>
           )}
 
           {loadingState === 'success' && conversations.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full p-20 text-center space-y-6">
-              <div className="w-20 h-20 bg-white/[0.02] border border-white/[0.05] rounded-full flex items-center justify-center mx-auto text-emerald-900/10">
-                <MessageSquare size={40} />
+            <div className="flex flex-col items-center justify-center h-full p-20 text-center space-y-4">
+              <div className="w-16 h-16 flex items-center justify-center" style={{ backgroundColor: '#1A1A1A' }}>
+                <MessageSquare size={32} style={{ color: '#6a6a6a' }} />
               </div>
               <div className="space-y-2">
-                <p className="text-white/60 font-bold">Neural logs are empty.</p>
-                <p className="text-xs text-emerald-900/30 max-w-sm mx-auto uppercase tracking-widest font-black leading-relaxed">
+                <p className="font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a8a8a' }}>
+                  Neural logs are empty.
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>
                   No interactions found matching the current calibration profile.
                 </p>
               </div>
@@ -182,7 +218,7 @@ const Conversations: React.FC = () => {
           )}
 
           {loadingState === 'success' && conversations.length > 0 && (
-            <div className="divide-y divide-white/[0.03]">
+            <div>
               {conversations.map((conversation) => (
                 <ConversationCard
                   key={conversation.id}
@@ -196,7 +232,16 @@ const Conversations: React.FC = () => {
 
         {/* Pagination Footer */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="p-8 border-t border-white/[0.03] bg-white/[0.01]">
+          <div className="px-6 py-5 flex items-center justify-between" style={{ backgroundColor: '#0A0A0A', borderTop: '1px solid #2f2f2f' }}>
+            <div className="flex items-center gap-4">
+              <span className="text-[11px]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a8a8a' }}>
+                SHOWING {((pagination.page - 1) * pagination.perPage) + 1}-{Math.min(pagination.page * pagination.perPage, pagination.total)} OF {pagination.total} RECORDS
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>PER PAGE:</span>
+                <span className="text-[11px]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#FFFFFF' }}>{pagination.perPage}</span>
+              </div>
+            </div>
             <Pagination
               currentPage={pagination.page}
               totalPages={pagination.totalPages}
@@ -214,7 +259,7 @@ const Conversations: React.FC = () => {
             />
           </div>
         )}
-      </GlassCard>
+      </div>
 
       <ExportOptionsModal />
     </div>

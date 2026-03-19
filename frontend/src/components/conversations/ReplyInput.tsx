@@ -1,9 +1,8 @@
 /**
  * ReplyInput Component
  *
- * Input component for merchant to reply to conversations.
- * Platform-aware: shows appropriate UI for Messenger/Widget.
- * Hidden for Preview conversations (read-only).
+ * Industrial Technical Dashboard design with terminal aesthetics.
+ * Platform-aware input for merchant replies.
  */
 
 import React, { useState } from 'react';
@@ -20,31 +19,27 @@ interface ReplyInputProps {
 const platformConfig = {
   messenger: {
     icon: MessageCircle,
-    label: 'Send via Messenger',
-    placeholder: 'Type your reply to send via Facebook Messenger...',
-    color: 'text-emerald-400',
-    borderColor: 'border-emerald-500/20',
+    label: 'MESSENGER TRANSMISSION',
+    placeholder: 'Compose transmission via Facebook Messenger protocol...',
+    color: '#00FF88',
   },
   facebook: {
     icon: MessageCircle,
-    label: 'Send via Messenger',
-    placeholder: 'Type your reply to send via Facebook Messenger...',
-    color: 'text-emerald-400',
-    borderColor: 'border-emerald-500/20',
+    label: 'MESSENGER TRANSMISSION',
+    placeholder: 'Compose transmission via Facebook Messenger protocol...',
+    color: '#00FF88',
   },
   widget: {
     icon: Globe,
-    label: 'Send to Widget',
-    placeholder: 'Type your reply to send to the customer on your website...',
-    color: 'text-emerald-400',
-    borderColor: 'border-emerald-500/20',
+    label: 'WIDGET TRANSMISSION',
+    placeholder: 'Compose transmission via website widget interface...',
+    color: '#00FF88',
   },
   preview: {
     icon: AlertCircle,
-    label: 'Preview is Read-Only',
-    placeholder: 'Cannot reply to preview conversations',
-    color: 'text-zinc-500',
-    borderColor: 'border-zinc-500/20',
+    label: 'READ-ONLY MODE',
+    placeholder: 'Preview sessions cannot transmit to external clients',
+    color: '#6a6a6a',
   },
 };
 
@@ -87,69 +82,107 @@ export const ReplyInput: React.FC<ReplyInputProps> = ({
 
   if (isPreview) {
     return (
-      <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border-t border-emerald-500/10 p-4">
-        <div className="flex items-center gap-2 text-zinc-500 text-sm">
-          <AlertCircle size={16} />
-          <span>Preview conversations are read-only. They are not sent to real customers.</span>
-        </div>
+      <div className="flex items-center gap-4 px-5 py-4">
+        <AlertCircle size={16} style={{ color: '#6a6a6a' }} />
+        <span 
+          className="text-[11px] font-medium"
+          style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+        >
+          Preview sessions are read-only. No external transmission possible.
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#0a0a0a]/60 backdrop-blur-2xl border-t border-emerald-500/10 p-4 relative z-10">
-      <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-4">
-        {/* Platform indicator & Errors */}
-        <div className="flex items-center justify-between gap-4">
-          <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-wider ${config.color}`}>
-            <PlatformIcon size={14} />
-            <span>{config.label}</span>
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20 animate-in fade-in slide-in-from-top-1">
-              <AlertCircle size={14} />
-              <span>{error}</span>
-            </div>
-          )}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div 
+          className="flex items-center gap-3 px-4 py-3"
+          style={{ backgroundColor: '#FF444420', border: '1px solid #FF444440' }}
+        >
+          <AlertCircle size={14} style={{ color: '#FF4444' }} />
+          <span 
+            className="text-[10px] font-bold uppercase tracking-widest"
+            style={{ fontFamily: 'JetBrains Mono, monospace', color: '#FF4444' }}
+          >
+            {error}
+          </span>
         </div>
+      )}
 
-        {/* Input area */}
-        <div className="relative group">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={config.placeholder}
-            disabled={isDisabled}
-            rows={2}
-            className="w-full bg-black/40 border border-emerald-500/10 rounded-xl px-4 py-3 text-emerald-50/90 placeholder:text-emerald-900/40 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed custom-scrollbar"
-            maxLength={5000}
-          />
-          
-          <div className="absolute bottom-3 right-3 flex items-center gap-3">
-            {/* Character count */}
-            <span className={`text-[10px] font-medium transition-colors ${
-              message.length > 4500 ? 'text-amber-500' : 'text-emerald-900/40'
-            }`}>
-              {message.length.toLocaleString()} / 5,000
-            </span>
-
-            <button
-              type="submit"
-              disabled={!message.trim() || isDisabled}
-              className="flex items-center justify-center w-10 h-10 bg-emerald-500 text-black rounded-lg hover:bg-emerald-400 disabled:bg-emerald-500/10 disabled:text-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all duration-300 group-hover:scale-105 active:scale-95 disabled:scale-100 disabled:shadow-none"
+      <div className="flex items-end gap-4">
+        <div className="flex-1 space-y-3">
+          <div className="flex items-center gap-3">
+            <PlatformIcon size={14} style={{ color: config.color }} />
+            <span 
+              className="text-[9px] font-bold uppercase tracking-[0.3em]"
+              style={{ fontFamily: 'JetBrains Mono, monospace', color: config.color }}
             >
-              {isLoading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <Send size={18} />
-              )}
-            </button>
+              {config.label}
+            </span>
+          </div>
+
+          <div 
+            className="relative"
+            style={{ backgroundColor: '#080808', border: '1px solid #2f2f2f' }}
+          >
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={config.placeholder}
+              disabled={isDisabled}
+              rows={2}
+              className="w-full px-5 py-4 bg-transparent resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#FFFFFF',
+                lineHeight: 1.5,
+              }}
+              maxLength={5000}
+            />
+
+            <div className="absolute bottom-3 right-3 flex items-center gap-4">
+              <span 
+                className="text-[10px] font-semibold"
+                style={{ 
+                  fontFamily: 'JetBrains Mono, monospace', 
+                  color: message.length > 4500 ? '#FF8800' : '#6a6a6a' 
+                }}
+              >
+                {message.length.toLocaleString()}/5000
+              </span>
+            </div>
           </div>
         </div>
-      </form>
-    </div>
+
+        <button
+          type="submit"
+          disabled={!message.trim() || isDisabled}
+          className="flex items-center gap-3 px-6 py-4 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: message.trim() && !isDisabled ? '#00FF88' : '#0A0A0A',
+            border: '1px solid #2f2f2f',
+            color: message.trim() && !isDisabled ? '#0C0C0C' : '#6a6a6a',
+          }}
+        >
+          {isLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Send size={16} />
+          )}
+          <span 
+            className="text-[10px] font-bold uppercase tracking-[0.2em]"
+            style={{ fontFamily: 'JetBrains Mono, monospace' }}
+          >
+            TRANSMIT
+          </span>
+        </button>
+      </div>
+    </form>
   );
 };
 

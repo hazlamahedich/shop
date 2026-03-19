@@ -1,18 +1,17 @@
 /**
- * ConversationHistory Page - Story 4-8: Conversation History View
+ * ConversationHistory Page
  *
  * Displays full conversation history including bot context for handoff conversations.
- * Re-imagined with Mantis aesthetic.
+ * Industrial Technical Dashboard design with terminal aesthetics.
  */
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Bot, User, AlertCircle, CheckCircle, Store, ShieldCheck, Activity, Terminal } from 'lucide-react';
+import { ArrowLeft, Bot, User, AlertCircle, CheckCircle, Activity, Send, Clock } from 'lucide-react';
 import { conversationsService } from '../services/conversations';
 import ContextSidebar from '../components/conversations/ContextSidebar';
 import StickyActionBar from '../components/conversations/StickyActionBar';
 import ReplyInput from '../components/conversations/ReplyInput';
-import { GlassCard } from '../components/ui/GlassCard';
 import type { 
   ConversationHistoryResponse, 
   HybridModeState, 
@@ -23,6 +22,16 @@ import type {
 function formatConfidence(score: number | null | undefined): string {
   if (score === null || score === undefined) return '';
   return `${Math.round(score * 100)}%`;
+}
+
+function formatTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit',
+    hour12: false 
+  });
 }
 
 export default function ConversationHistory() {
@@ -162,76 +171,114 @@ export default function ConversationHistory() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#030303] gap-4">
-        <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.4em]">Deciphering Stream...</p>
+      <div className="flex flex-col items-center justify-center h-screen gap-4" style={{ backgroundColor: '#0C0C0C' }}>
+        <div className="w-10 h-10 border-2 animate-spin" style={{ borderColor: '#2f2f2f', borderTopColor: '#00FF88' }} />
+        <p className="text-[10px] font-bold uppercase tracking-[0.4em]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}>
+          Deciphering Stream...
+        </p>
       </div>
     );
   }
 
   if (error || !history) {
     return (
-      <div className="flex h-screen bg-[#030303] items-center justify-center p-8">
-        <GlassCard accent="error" className="p-12 text-center max-w-lg space-y-8 border-red-500/10">
-          <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500">
-            <AlertCircle size={40} />
+      <div className="flex h-screen items-center justify-center p-8" style={{ backgroundColor: '#0C0C0C' }}>
+        <div className="p-12 text-center max-w-lg space-y-8" style={{ backgroundColor: '#0A0A0A', border: '1px solid #FF444440' }}>
+          <div className="w-16 h-16 flex items-center justify-center mx-auto" style={{ backgroundColor: '#FF444420' }}>
+            <AlertCircle size={32} style={{ color: '#FF4444' }} />
           </div>
           <div className="space-y-4">
-            <h2 className="text-xl font-black text-white uppercase tracking-tight">Data Stream Interrupted</h2>
-            <p className="text-xs text-red-500/60 font-black uppercase tracking-widest leading-relaxed">
+            <h2 className="text-xl font-bold uppercase tracking-tight" style={{ fontFamily: 'Space Grotesk, sans-serif', color: '#FFFFFF' }}>
+              Data Stream Interrupted
+            </h2>
+            <p className="text-xs uppercase tracking-widest font-bold leading-relaxed" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#FF4444' }}>
               {error || 'Neural link target not found.'}
             </p>
           </div>
           <button
             onClick={handleBack}
-            className="h-14 px-8 bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all"
+            className="px-6 py-3.5 border transition-all"
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              backgroundColor: '#080808',
+              borderColor: '#2f2f2f',
+              color: '#FFFFFF',
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.2em',
+              borderRadius: 0,
+            }}
           >
             Back to Registry
           </button>
-        </GlassCard>
+        </div>
       </div>
     );
   }
 
   return (
-    <div data-testid="conversation-history-page" className="flex h-screen bg-[#030303] animate-in fade-in duration-1000">
+    <div data-testid="conversation-history-page" className="flex h-screen" style={{ backgroundColor: '#0C0C0C' }}>
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden pb-20 relative">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] pointer-events-none mix-blend-overlay"></div>
-        <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-emerald-500/[0.05] to-transparent pointer-events-none"></div>
-
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Header */}
-        <header className="relative z-10 bg-[#0a0a0a]/80 backdrop-blur-3xl border-b border-white/[0.03] px-10 py-6 flex items-center justify-between shadow-2xl">
-          <div className="flex items-center gap-8">
+        <header 
+          className="relative z-10 flex items-center justify-between px-8 py-5"
+          style={{ backgroundColor: '#0A0A0A', borderBottom: '1px solid #2f2f2f' }}
+        >
+          <div className="flex items-center gap-6">
             <button
               onClick={handleBack}
-              className="w-12 h-12 flex items-center justify-center bg-white/5 hover:bg-emerald-500/10 text-white/40 hover:text-emerald-400 rounded-2xl border border-white/5 hover:border-emerald-500/20 transition-all duration-500 group"
+              className="w-11 h-11 flex items-center justify-center transition-all duration-300 group"
+              style={{ backgroundColor: '#080808', border: '1px solid #2f2f2f' }}
             >
-              <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+              <ArrowLeft size={18} style={{ color: '#8a8a8a' }} className="group-hover:-translate-x-0.5 transition-transform" />
             </button>
             <div>
               <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-black text-white uppercase tracking-tight">Stream Analysis</h1>
-                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Live Sync</span>
+                <h1 
+                  className="text-xl font-bold uppercase tracking-tight"
+                  style={{ fontFamily: 'Space Grotesk, sans-serif', color: '#FFFFFF' }}
+                >
+                  Stream Analysis
+                </h1>
+                <div 
+                  className="flex items-center gap-2 px-3 py-1.5"
+                  style={{ backgroundColor: '#00FF8810', border: '1px solid #00FF8840' }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" style={{ backgroundColor: '#00FF88' }} />
+                  <span 
+                    className="text-[9px] font-bold uppercase tracking-widest"
+                    style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00FF88' }}
+                  >
+                    Live Sync
+                  </span>
                 </div>
               </div>
-              <p className="text-[11px] font-black text-emerald-900/40 mt-1 uppercase tracking-widest">
-                ID: <span className="text-white/60 font-mono tracking-normal">{history.data.customer.maskedId}</span>
+              <p 
+                className="text-[10px] font-semibold mt-1 uppercase tracking-widest"
+                style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+              >
+                ID: <span style={{ color: '#8a8a8a' }}>{history.data.customer.maskedId}</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-6">
             {history.data.handoff.urgencyLevel && (
-              <div className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 ${
-                history.data.handoff.urgencyLevel === 'high' 
-                  ? 'bg-red-500/5 border-red-500/20 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]' 
-                  : 'bg-amber-500/5 border-amber-500/20 text-amber-500'
-              }`}>
-                <Activity size={14} className={history.data.handoff.urgencyLevel === 'high' ? 'animate-bounce' : ''} />
-                {history.data.handoff.urgencyLevel} Priority Status
+              <div 
+                className="px-4 py-2 flex items-center gap-3"
+                style={{
+                  backgroundColor: history.data.handoff.urgencyLevel === 'high' ? '#FF880020' : '#FF880010',
+                  border: `1px solid ${history.data.handoff.urgencyLevel === 'high' ? '#FF880040' : '#FF880020'}`,
+                }}
+              >
+                <Activity size={14} style={{ color: '#FF8800' }} className={history.data.handoff.urgencyLevel === 'high' ? 'animate-bounce' : ''} />
+                <span 
+                  className="text-[10px] font-bold uppercase tracking-widest"
+                  style={{ fontFamily: 'JetBrains Mono, monospace', color: '#FF8800' }}
+                >
+                  {history.data.handoff.urgencyLevel.toUpperCase()} Priority Status
+                </span>
               </div>
             )}
           </div>
@@ -239,17 +286,28 @@ export default function ConversationHistory() {
 
         {/* Success Announcement Overlay */}
         {successMessage && (
-          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-            <div className="px-8 py-4 bg-emerald-500 text-black font-black text-[11px] uppercase tracking-[0.35em] rounded-2xl shadow-[0_20px_50px_rgba(16,185,129,0.3)] animate-in fade-in zoom-in duration-500 flex items-center gap-4">
-              <CheckCircle size={18} />
-              {successMessage}
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+            <div 
+              className="px-6 py-3 flex items-center gap-3 animate-in fade-in zoom-in duration-500"
+              style={{ 
+                backgroundColor: '#00FF88', 
+                boxShadow: '0 10px 40px rgba(0, 255, 136, 0.3)',
+              }}
+            >
+              <CheckCircle size={16} style={{ color: '#0C0C0C' }} />
+              <span 
+                className="text-[10px] font-bold uppercase tracking-[0.3em]"
+                style={{ fontFamily: 'JetBrains Mono, monospace', color: '#0C0C0C' }}
+              >
+                {successMessage}
+              </span>
             </div>
           </div>
         )}
 
         {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto px-10 py-12 custom-scrollbar relative z-10 scroll-smooth">
-          <div data-testid="message-list" className="max-w-4xl mx-auto space-y-12">
+        <div className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar relative z-10" style={{ backgroundColor: '#0C0C0C' }}>
+          <div data-testid="message-list" className="max-w-3xl mx-auto space-y-8">
             {messages.map((message, index) => {
               const isCustomer = message.sender === 'customer';
               const isMerchant = message.sender === 'merchant';
@@ -260,66 +318,108 @@ export default function ConversationHistory() {
                   key={message.id}
                   data-testid="message-bubble"
                   data-sender={message.sender}
-                  className={`flex ${isCustomer ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-4`}
-                  style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
+                  className={`flex ${isCustomer ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`flex flex-col ${isCustomer ? 'items-end' : 'items-start'} max-w-[80%]`}>
-                    {/* Identification Label */}
-                    <div className="flex items-center gap-3 mb-4 px-2">
+                  <div className={`flex flex-col ${isCustomer ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                    {/* Sender Label */}
+                    <div className="flex items-center gap-3 mb-3">
                       {!isCustomer && (
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-colors ${
-                          isBot ? 'bg-white/5 border-white/10 text-emerald-900/40' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                        }`}>
-                          {isBot ? <Bot size={16} /> : <Terminal size={16} />}
+                        <div 
+                          className="w-8 h-8 flex items-center justify-center"
+                          style={{ 
+                            backgroundColor: '#0A0A0A', 
+                            border: '1px solid #2f2f2f',
+                            color: isBot ? '#6a6a6a' : '#00FF88'
+                          }}
+                        >
+                          {isBot ? <Bot size={14} /> : <User size={14} />}
                         </div>
                       )}
-                      <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${
-                        isCustomer ? 'text-emerald-900/40' : isBot ? 'text-emerald-900/40' : 'text-emerald-500'
-                      }`}>
-                        {isCustomer ? 'Neural External (Client)' : isBot ? 'AI Assistant' : 'Override Identity (You)'}
+                      <span 
+                        className="text-[9px] font-bold uppercase tracking-[0.3em]"
+                        style={{ 
+                          fontFamily: 'JetBrains Mono, monospace', 
+                          color: isCustomer ? '#6a6a6a' : isBot ? '#6a6a6a' : '#00FF88' 
+                        }}
+                      >
+                        {isCustomer ? 'NEURAL EXTERNAL [CLIENT]' : isBot ? 'AI ASSISTANT' : 'OVERRIDE IDENTITY [YOU]'}
                       </span>
                       {isCustomer && (
-                        <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 text-emerald-900/40 flex items-center justify-center">
-                          <User size={16} />
+                        <div 
+                          className="w-8 h-8 flex items-center justify-center"
+                          style={{ backgroundColor: '#0A0A0A', border: '1px solid #2f2f2f', color: '#6a6a6a' }}
+                        >
+                          <User size={14} />
                         </div>
                       )}
                     </div>
 
-                    {/* Message Container */}
+                    {/* Message Bubble */}
                     <div
-                      className={`relative px-8 py-6 rounded-[32px] border transition-all duration-500 group/message ${
-                        isCustomer
-                          ? 'bg-white/[0.03] border-white/[0.05] text-white/90 hover:border-emerald-500/20 hover:bg-emerald-500/[0.02]'
-                          : isMerchant
-                          ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_10px_40px_rgba(16,185,129,0.2)] font-black'
-                          : 'bg-[#0a0a0a] border-white/[0.03] text-white/50'
-                      }`}
+                      className="px-6 py-5 transition-all duration-300"
+                      style={{
+                        backgroundColor: isCustomer 
+                          ? '#0A0A0A' 
+                          : isMerchant 
+                            ? '#00FF88' 
+                            : '#080808',
+                        border: isMerchant ? 'none' : '1px solid #2f2f2f',
+                        color: isMerchant ? '#0C0C0C' : isCustomer ? '#FFFFFF' : '#8a8a8a',
+                      }}
                     >
-                      <p className="text-base leading-relaxed tracking-tight">{message.content}</p>
+                      <p 
+                        className="text-sm leading-relaxed"
+                        style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: isMerchant ? 600 : 500 }}
+                      >
+                        {message.content}
+                      </p>
 
-                      {/* Bot Confidence Array */}
+                      {/* Bot Confidence */}
                       {isBot && message.confidenceScore !== null && message.confidenceScore !== undefined && (
-                        <div className="mt-6 pt-6 border-t border-white/[0.03] flex items-center justify-between gap-6">
-                          <span className="text-[9px] font-black text-emerald-900/20 uppercase tracking-[0.4em]">Neural Accuracy</span>
+                        <div 
+                          className="mt-5 pt-5 flex items-center justify-between gap-6"
+                          style={{ borderTop: '1px solid #2f2f2f' }}
+                        >
+                          <span 
+                            className="text-[9px] font-bold uppercase tracking-[0.4em]"
+                            style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+                          >
+                            Neural Accuracy
+                          </span>
                           <div className="flex items-center gap-3">
-                             <div className="w-24 h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                               <div 
-                                 className="h-full bg-emerald-500/30 rounded-full" 
-                                 style={{ width: `${Math.round(message.confidenceScore * 100)}%` }}
-                                ></div>
-                             </div>
-                             <span className="text-[10px] font-mono font-black text-emerald-500/40">
-                               {formatConfidence(message.confidenceScore)}
-                             </span>
+                            <div 
+                              className="w-24 h-1 overflow-hidden"
+                              style={{ backgroundColor: '#1A1A1A' }}
+                            >
+                              <div 
+                                className="h-full transition-all duration-500"
+                                style={{ 
+                                  backgroundColor: '#00FF8840', 
+                                  width: `${Math.round(message.confidenceScore * 100)}%` 
+                                }}
+                              />
+                            </div>
+                            <span 
+                              className="text-[10px] font-bold"
+                              style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00FF88' }}
+                            >
+                              {formatConfidence(message.confidenceScore)}
+                            </span>
                           </div>
                         </div>
                       )}
                     </div>
 
                     {/* Timestamp */}
-                    <span className="mt-3 px-3 text-[9px] font-black text-emerald-900/20 uppercase tracking-[0.2em]">
-                      Synced {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
+                    <div className="flex items-center gap-2 mt-2 px-2">
+                      <Clock size={10} style={{ color: '#6a6a6a' }} />
+                      <span 
+                        className="text-[9px] font-semibold uppercase tracking-[0.2em]"
+                        style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+                      >
+                        Synced {formatTime(message.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
@@ -328,16 +428,17 @@ export default function ConversationHistory() {
         </div>
 
         {/* Input Interface */}
-        <div className="relative z-20 px-10 pb-10">
-          <div className="max-w-4xl mx-auto">
-            <GlassCard className="p-2 border-emerald-500/10 bg-emerald-500/5 backdrop-blur-3xl rounded-[40px] shadow-2xl overflow-hidden">
-              <ReplyInput
-                conversationId={history.data.conversationId}
-                platform={history.data.platform as 'messenger' | 'widget' | 'preview' | 'facebook'}
-                onSend={handleSendReply}
-                isLoading={isReplyLoading}
-              />
-            </GlassCard>
+        <div 
+          className="relative z-20 px-8 py-5"
+          style={{ backgroundColor: '#0A0A0A', borderTop: '1px solid #2f2f2f' }}
+        >
+          <div className="max-w-3xl mx-auto">
+            <ReplyInput
+              conversationId={history.data.conversationId}
+              platform={history.data.platform as 'messenger' | 'widget' | 'preview' | 'facebook'}
+              onSend={handleSendReply}
+              isLoading={isReplyLoading}
+            />
           </div>
         </div>
       </div>

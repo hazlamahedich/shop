@@ -1,72 +1,44 @@
 /**
  * ConversationCard Component
  *
- * Displays a single conversation in the list with:
- * - Masked customer ID
- * - Source badge (Widget/Messenger/Preview)
- * - Last message preview
- * - Status badge
- * - Message count
- * - Created date and updated time
- *
- * Uses business timezone for timestamp calculations (from businessHoursStore).
+ * Industrial Technical Dashboard design with terminal aesthetics.
+ * Displays conversation status, customer ID, platform, message preview, and metrics.
  */
 
 import React from 'react';
-import { MessageSquare, Clock, Globe, MessageCircle, Eye } from 'lucide-react';
+import { MessageSquare, Globe, MessageCircle, Eye } from 'lucide-react';
 import type {
   Conversation as ConversationType,
   ConversationStatus,
 } from '../../types/conversation';
-import { useBusinessHoursStore } from '../../stores/businessHoursStore';
 
 interface ConversationCardProps {
   conversation: ConversationType;
   onClick?: () => void;
 }
 
-const statusStyles: Record<ConversationStatus, string> = {
-  active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]',
-  handoff: 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.1)]',
-  closed: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
-};
-
-const statusLabels: Record<ConversationStatus, string> = {
-  active: 'Active',
-  handoff: 'Handoff',
-  closed: 'Closed',
+const statusConfig: Record<ConversationStatus, { color: string; bgColor: string; borderColor: string; label: string }> = {
+  active: { color: '#00FF88', bgColor: '#00FF8810', borderColor: '#00FF8840', label: 'OPEN' },
+  handoff: { color: '#FF8800', bgColor: '#FF880020', borderColor: '#FF880040', label: 'HANDOFF' },
+  closed: { color: '#6a6a6a', bgColor: 'transparent', borderColor: '#2f2f2f', label: 'CLOSED' },
 };
 
 interface PlatformConfig {
   icon: React.ReactNode;
   label: string;
-  className: string;
 }
 
 const platformConfigs: Record<string, PlatformConfig> = {
-  widget: {
-    icon: <Globe size={12} />,
-    label: 'Website Chat',
-    className: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-  },
-  messenger: {
-    icon: <MessageCircle size={12} />,
-    label: 'Messenger',
-    className: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-  },
-  preview: {
-    icon: <Eye size={12} />,
-    label: 'Preview',
-    className: 'bg-slate-500/10 text-slate-400 border border-slate-500/20',
-  },
+  widget: { icon: <Globe size={14} />, label: 'WIDGET' },
+  messenger: { icon: <MessageCircle size={14} />, label: 'MESSENGER' },
+  preview: { icon: <Eye size={14} />, label: 'PREVIEW' },
 };
 
 const getPlatformConfig = (platform: string): PlatformConfig => {
   const safePlatform = platform || 'unknown';
   return platformConfigs[safePlatform] || {
-    icon: <MessageSquare size={12} />,
-    label: safePlatform.charAt(0).toUpperCase() + safePlatform.slice(1),
-    className: 'bg-white/5 text-slate-400 border border-white/10',
+    icon: <MessageSquare size={14} />,
+    label: safePlatform.toUpperCase(),
   };
 };
 
@@ -77,7 +49,7 @@ const parseAsUTC = (timestamp: string): Date => {
   return new Date(timestamp + 'Z');
 };
 
-const formatTimestamp = (timestamp: string, timezone?: string): string => {
+const formatTimestamp = (timestamp: string): string => {
   const date = parseAsUTC(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -85,100 +57,114 @@ const formatTimestamp = (timestamp: string, timezone?: string): string => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 7) return `${diffDays}d`;
-  
-  try {
-    return date.toLocaleDateString(undefined, timezone ? { timeZone: timezone } : undefined);
-  } catch {
-    return date.toLocaleDateString();
-  }
-};
-
-const formatCreatedDate = (timestamp: string, timezone?: string): string => {
-  const date = parseAsUTC(timestamp);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  
-  try {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      timeZone: timezone 
-    });
-  } catch {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
+  if (diffMins < 1) return 'NOW';
+  if (diffMins < 60) return `${diffMins} MIN AGO`;
+  if (diffHours < 24) return `${diffHours} HR AGO`;
+  if (diffDays === 1) return '1 DAY AGO';
+  if (diffDays < 7) return `${diffDays} DAYS AGO`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 };
 
 const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onClick }) => {
-  const timezone = useBusinessHoursStore((state) => state.config?.timezone);
   const platformConfig = getPlatformConfig(conversation.platform);
+  const status = statusConfig[conversation.status];
 
   return (
     <div
       onClick={onClick}
       data-testid="conversation-card"
-      className="p-6 border-b border-emerald-500/5 hover:bg-emerald-500/[0.03] cursor-pointer transition-all duration-300 group relative overflow-hidden"
+      className="flex items-center gap-5 px-6 py-5 cursor-pointer transition-all duration-200 group relative"
+      style={{
+        backgroundColor: '#0A0A0A',
+        borderBottom: '1px solid #2f2f2f',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = '#080808';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = '#0A0A0A';
+      }}
     >
-      <div className="absolute inset-y-0 left-0 w-1 bg-emerald-500 scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-center shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
-      
-      {/* Header: Source badge and updated time */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase rounded-lg ${platformConfig.className}`}>
-            {platformConfig.icon}
-            {platformConfig.label}
+      {/* Status Indicator */}
+      <div className="flex items-center gap-3 w-28 flex-shrink-0">
+        <div
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{
+            backgroundColor: status.color,
+            boxShadow: conversation.status === 'active' ? `0 0 8px ${status.color}` : 'none',
+          }}
+        />
+        <span
+          className="text-[10px] font-bold uppercase tracking-widest"
+          style={{ fontFamily: 'JetBrains Mono, monospace', color: status.color }}
+        >
+          [{status.label}]
+        </span>
+      </div>
+
+      {/* Content Section */}
+      <div className="flex-1 min-w-0">
+        {/* Header Row */}
+        <div className="flex items-center gap-3 mb-2">
+          <span
+            className="text-[13px] font-semibold"
+            style={{ fontFamily: 'JetBrains Mono, monospace', color: '#FFFFFF' }}
+          >
+            {conversation.platformSenderIdMasked}
+          </span>
+          <span
+            className="text-[10px] font-medium"
+            style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+          >
+            // {platformConfig.label}
           </span>
         </div>
-        <span className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-black/20 px-2 py-1 rounded-md">
-          <Clock size={12} className="mr-1.5 text-emerald-500/70" />
-          {formatTimestamp(conversation.updatedAt, timezone)}
-        </span>
-      </div>
 
-      {/* Customer ID and created date */}
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500/20 transition-colors duration-300">
-            <MessageSquare size={18} />
-          </div>
-          <h4 className="font-bold text-base text-slate-100 group-hover:text-emerald-400 transition-colors duration-300">
-            {conversation.platformSenderIdMasked}
-          </h4>
-        </div>
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md border border-white/5">
-          {formatCreatedDate(conversation.createdAt, timezone)}
-        </span>
-      </div>
-
-      {/* Last message preview */}
-      <p className="text-sm text-slate-400 line-clamp-2 mb-5 group-hover:text-slate-300 transition-colors duration-300 leading-relaxed pl-12">
-        {conversation.lastMessage || 'No messages yet'}
-      </p>
-
-      {/* Footer: Status badge and message count */}
-      <div className="flex items-center justify-between pl-12">
-        <span
-          className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all duration-300 ${
-            statusStyles[conversation.status]
-          }`}
+        {/* Message Preview */}
+        <p
+          className="text-[12px] font-medium truncate"
+          style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a8a8a' }}
         >
-          {statusLabels[conversation.status]}
+          {conversation.lastMessage || 'No messages in queue'}
+        </p>
+      </div>
+
+      {/* Meta Section */}
+      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wider"
+          style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+        >
+          {formatTimestamp(conversation.updatedAt)}
         </span>
 
         {conversation.messageCount > 0 && (
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-white/5 px-2.5 py-1 rounded-lg bg-black/20">
-            {conversation.messageCount} messages
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[9px] font-semibold"
+              style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6a6a6a' }}
+            >
+              MSGS:
+            </span>
+            <span
+              className="text-[11px] font-bold"
+              style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a8a8a' }}
+            >
+              {conversation.messageCount}
+            </span>
+          </div>
         )}
       </div>
+
+      {/* Hover indicator line */}
+      <div
+        className="absolute bottom-0 left-0 h-px transition-all duration-300 opacity-0 group-hover:opacity-100"
+        style={{
+          backgroundColor: status.color,
+          boxShadow: `0 0 10px ${status.color}`,
+          width: '100%',
+        }}
+      />
     </div>
   );
 };
