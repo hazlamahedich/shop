@@ -559,7 +559,6 @@ async def send_widget_message(
         data=WidgetMessageResponse(
             message_id=response["message_id"],
             content=response["content"],
-            sender=response["sender"],
             created_at=response["created_at"],
             products=response.get("products"),
             cart=response.get("cart"),
@@ -567,6 +566,8 @@ async def send_widget_message(
             consent_prompt_required=response.get("consent_prompt_required"),
             quick_replies=response.get("quick_replies"),
             sources=response.get("sources"),
+            suggested_replies=response.get("suggested_replies"),
+            contact_options=response.get("contact_options"),
         ),
         meta=create_meta(),
     )
@@ -681,6 +682,7 @@ async def get_widget_config(
             onboarding_mode=getattr(merchant, "onboarding_mode", "general"),
             faq_quick_buttons=faq_quick_buttons_config,
             feedback_enabled=feedback_enabled,
+            contact_options=widget_config.contact_options,
         ),
         meta=create_meta(),
     )
@@ -1578,12 +1580,13 @@ async def widget_checkout(
 
 
 @router.post(
-    "/widget/consent",
+    "/widget/consent/{session_id}",
     summary="Record consent choice",
     description="Record user's consent choice for conversation data storage",
 )
 async def record_widget_consent(
     request: Request,
+    session_id: str,
     consent_request: RecordConsentRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -1603,7 +1606,7 @@ async def record_widget_consent(
     Raises:
         APIError: If session invalid or recording fails
     """
-    if not is_valid_session_id(consent_request.session_id):
+    if not is_valid_session_id(session_id):
         raise APIError(
             ErrorCode.VALIDATION_ERROR,
             "Invalid session ID format",
@@ -1618,7 +1621,7 @@ async def record_widget_consent(
         )
 
     session_service = WidgetSessionService()
-    session = await session_service.get_session_or_error(consent_request.session_id)
+    session = await session_service.get_session_or_error(session_id)
 
     from app.services.consent.extended_consent_service import ConversationConsentService
 
@@ -1629,7 +1632,7 @@ async def record_widget_consent(
 
     consent_service = ConversationConsentService(db=db)
     await consent_service.record_conversation_consent(
-        session_id=consent_request.session_id,
+        session_id=session_id,
         merchant_id=session.merchant_id,
         consent_granted=consent_request.consent_granted,
         source=consent_request.source.value if consent_request.source else "widget",
@@ -1645,28 +1648,28 @@ async def record_widget_consent(
 
             message_service = WidgetMessageService(db=db, session_service=session_service)
             conversation_id = await message_service.retroactively_save_conversation_history(
-                session_id=consent_request.session_id,
+                session_id=session_id,
                 merchant_id=session.merchant_id,
             )
 
             if conversation_id:
                 logger.info(
                     "widget_conversation_retroactively_saved",
-                    session_id=consent_request.session_id,
+                    session_id=session_id,
                     conversation_id=conversation_id,
                     merchant_id=session.merchant_id,
                 )
         except Exception as e:
             logger.warning(
                 "widget_conversation_retroactive_save_failed",
-                session_id=consent_request.session_id,
+                session_id=session_id,
                 merchant_id=session.merchant_id,
                 error=str(e),
             )
 
     logger.info(
         "widget_consent_recorded",
-        session_id=consent_request.session_id,
+        session_id=session_id,
         merchant_id=session.merchant_id,
         consent_granted=consent_request.consent_granted,
         visitor_id=visitor_id,

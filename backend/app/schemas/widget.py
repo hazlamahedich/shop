@@ -214,6 +214,9 @@ class WidgetConfig(BaseSchema):
     feedback_enabled: bool = Field(
         default=True, description="Whether feedback rating collection is enabled"
     )
+    contact_options: list[ContactOptionSchema] | None = Field(
+        default=None, description="Contact options for escalation (Story 10-5)"
+    )
 
 
 class WidgetSessionData(BaseSchema):
@@ -317,6 +320,24 @@ class SendMessageRequest(BaseSchema):
     message: str = Field(min_length=1, max_length=4000)
 
 
+class ContactOptionSchema(BaseSchema):
+    """Contact option for escalation.
+
+    Story 10-5: Contact Card Widget
+
+    Attributes:
+        type: Contact type (phone, email, custom)
+        label: Display label for the option
+        value: Phone number, email address, or custom URL
+        icon: Optional icon identifier
+    """
+
+    type: str = Field(description="Contact type: phone, email, custom")
+    label: str = Field(description="Display label")
+    value: str = Field(description="Phone number, email address, or custom URL")
+    icon: str | None = Field(default=None, description="Optional icon identifier")
+
+
 class WidgetMessageResponse(BaseSchema):
     """Response for widget message.
 
@@ -354,6 +375,11 @@ class WidgetMessageResponse(BaseSchema):
         default=None,
         alias="suggestedReplies",
         description="Server-generated follow-up question suggestions (Story 10-3)",
+    )
+    contact_options: list[ContactOptionSchema] | None = Field(
+        default=None,
+        alias="contactOptions",
+        description="Contact options for escalation (Story 10-5)",
     )
 
 
@@ -429,6 +455,11 @@ class WidgetConfigResponse(BaseSchema):
     feedback_enabled: bool = Field(
         default=True, description="Whether feedback rating collection is enabled (Story 10-4)"
     )
+    contact_options: list[ContactOptionSchema] | None = Field(
+        default=None,
+        alias="contactOptions",
+        description="Contact options for escalation (Story 10-5)",
+    )
 
 
 class WidgetConfigEnvelope(MinimalEnvelope):
@@ -501,9 +532,11 @@ class WidgetMessageHistoryItem(BaseSchema):
         timestamp: Message timestamp
     """
 
+    message_id: str | None = Field(default=None, alias="messageId")
     role: str
     content: str
     timestamp: str
+    contact_options: list[ContactOptionSchema] | None = Field(default=None, alias="contactOptions")
 
 
 class WidgetMessageHistoryResponse(BaseSchema):
