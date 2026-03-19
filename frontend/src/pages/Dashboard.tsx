@@ -18,6 +18,7 @@ import { TopProductsWidget } from '../components/dashboard/TopProductsWidget';
 import { GeographicSnapshotWidget } from '../components/dashboard/GeographicSnapshotWidget';
 import { FinancialOverviewWidget } from '../components/dashboard/FinancialOverviewWidget';
 import { QualityMetricsWidget } from '../components/dashboard/QualityMetricsWidget';
+import { FeedbackAnalyticsWidget } from '../components/dashboard/FeedbackAnalyticsWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -177,6 +178,12 @@ const Dashboard = () => {
             {isWidgetVisible('peak-hours', onboardingMode) && (
               <div data-testid="peak-hours-heatmap-widget-container">
                 <PeakHoursHeatmapWidget />
+              </div>
+            )}
+
+            {!isEcommerce && isWidgetVisible('feedback-analytics', onboardingMode) && (
+              <div data-testid="feedback-analytics-widget-container">
+                <FeedbackAnalyticsWidget />
               </div>
             )}
 

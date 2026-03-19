@@ -25,12 +25,12 @@ export type WidgetEventType =
 export interface WidgetAnalyticsEventPayload {
   type: WidgetEventType;
   timestamp: string;
-  sessionId: string;
+  session_id: string;
   metadata?: Record<string, unknown>;
 }
 
 export interface WidgetAnalyticsEventsRequest {
-  merchantId: number;
+  merchant_id: number;
   events: WidgetAnalyticsEventPayload[];
 }
 
@@ -347,4 +347,41 @@ export const analyticsService = {
     }
     return response.blob();
   },
+
+  // ────────────────────────────────────────────────────────────────
+  // Feedback Analytics (Story 10-4)
+  // ────────────────────────────────────────────────────────────────
+
+  async getFeedbackAnalytics(startDate?: string, endDate?: string): Promise<FeedbackAnalyticsResponse> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    const queryString = params.toString();
+    const response = await apiClient.get<FeedbackAnalyticsResponse>(
+      `/api/v1/feedback/analytics${queryString ? `?${queryString}` : ''}`
+    );
+    return response as unknown as FeedbackAnalyticsResponse;
+  },
 };
+
+export interface RecentNegativeFeedback {
+  messageId: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface DailyFeedbackTrend {
+  date: string;
+  positive: number;
+  negative: number;
+}
+
+export interface FeedbackAnalyticsResponse {
+  totalRatings: number;
+  positiveCount: number;
+  negativeCount: number;
+  positivePercent: number;
+  negativePercent: number;
+  recentNegative: RecentNegativeFeedback[];
+  trend: DailyFeedbackTrend[];
+}

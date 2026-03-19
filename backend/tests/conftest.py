@@ -200,6 +200,7 @@ async def _reset_database():
             await conn.execute(text("TRUNCATE TABLE deletion_audit_log CASCADE;"))
 
         # Truncate tables in correct order (child tables first, then parents)
+        await conn.execute(text("TRUNCATE TABLE message_feedback CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE conversations CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE messages CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE orders CASCADE;"))
@@ -358,3 +359,61 @@ def auth_headers(merchant_id: int) -> dict[str, str]:
 
     # Return headers with Bearer token (Story 4-12: middleware supports this)
     return {"Authorization": f"Bearer {token}"}
+
+
+# =============================================================================
+# FIXTURE: Test Conversation (Function Scope)
+# =============================================================================
+
+
+@pytest.fixture(scope="function")
+async def test_conversation(async_session: AsyncSession, test_merchant: int):
+    """Create a test conversation for feedback tests.
+
+    Args:
+        async_session: Database session
+        test_merchant: Merchant ID from test_merchant fixture
+
+    Returns:
+        Conversation object
+    """
+    from app.models.conversation import Conversation
+
+    conversation = Conversation(
+        merchant_id=test_merchant,
+        platform="messenger",
+        platform_sender_id="test-sender-123",
+    )
+    async_session.add(conversation)
+    await async_session.flush()
+    await async_session.commit()
+    return conversation
+
+
+# =============================================================================
+# FIXTURE: Test Message (Function Scope)
+# =============================================================================
+
+
+@pytest.fixture(scope="function")
+async def test_message(async_session: AsyncSession, test_conversation):
+    """Create a test message for feedback tests.
+
+    Args:
+        async_session: Database session
+        test_conversation: Conversation from test_conversation fixture
+
+    Returns:
+        Message object
+    """
+    from app.models.message import Message
+
+    message = Message(
+        conversation_id=test_conversation.id,
+        content="Test message content",
+        sender="bot",
+    )
+    async_session.add(message)
+    await async_session.flush()
+    await async_session.commit()
+    return message

@@ -66,7 +66,7 @@ export function ProductCard({
 
   return (
     <div
-      className="product-card bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md hover:border-blue-300 transition-all duration-200"
+      className="product-card bg-white/[0.03] border border-white/10 rounded-lg overflow-hidden hover:bg-white/[0.05] hover:border-emerald-500/30 transition-all duration-200"
       onClick={handleCardClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
@@ -74,7 +74,7 @@ export function ProductCard({
       aria-label={`View details for ${title}`}
       data-testid={`product-card-${id}`}
     >
-      <div className="relative aspect-square bg-gray-100 cursor-pointer">
+      <div className="relative aspect-square bg-white/[0.02] cursor-pointer">
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -94,7 +94,7 @@ export function ProductCard({
           }`}
         >
           <svg
-            className="w-12 h-12 text-gray-400"
+            className="w-12 h-12 text-white/20"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -122,20 +122,20 @@ export function ProductCard({
       </div>
 
       <div className="p-3">
-        <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 cursor-pointer" title={title}>
+        <h4 className="text-sm font-medium text-white line-clamp-2 mb-1 cursor-pointer" title={title}>
           {title}
         </h4>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-lg font-semibold text-blue-600">${price}</p>
+          <p className="text-lg font-semibold text-emerald-400">${price}</p>
           <button
             onClick={handleAddToCart}
             disabled={!inStock}
             className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
               added
-                ? 'bg-green-500 text-white'
+                ? 'bg-emerald-500 text-black'
                 : inStock
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-emerald-500 text-black hover:bg-emerald-400'
+                : 'bg-white/10 text-white/40 cursor-not-allowed'
             }`}
             aria-label={inStock ? `Add ${title} to cart` : 'Out of stock'}
           >

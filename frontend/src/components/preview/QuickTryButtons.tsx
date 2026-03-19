@@ -31,7 +31,7 @@ export function QuickTryButtons({
 
   return (
     <div className={`quick-try-buttons ${className}`} data-testid="quick-try-buttons">
-      <p className="text-sm text-gray-600 mb-2">Quick try:</p>
+      <p className="text-sm text-white/60 mb-2">Quick try:</p>
       <div className="flex flex-wrap gap-2">
         {starterPrompts.map((prompt, index) => (
           <button
@@ -39,7 +39,7 @@ export function QuickTryButtons({
             type="button"
             onClick={() => onPromptClick(prompt)}
             disabled={disabled}
-            className="quick-try-button px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="quick-try-button px-3 py-1.5 text-sm bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={`Try prompt: ${prompt}`}
             data-testid={`quick-try-button-${index}`}
             data-prompt={prompt}

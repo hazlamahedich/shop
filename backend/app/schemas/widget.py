@@ -199,6 +199,7 @@ class WidgetConfig(BaseSchema):
         theme: Visual theme configuration
         allowed_domains: Optional domain whitelist for CORS
         rate_limit: Optional per-merchant rate limit (requests per minute)
+        feedback_enabled: Whether feedback rating collection is enabled (Story 10-4)
     """
 
     enabled: bool = Field(default=True)
@@ -210,6 +211,9 @@ class WidgetConfig(BaseSchema):
     theme: WidgetTheme = Field(default_factory=WidgetTheme)
     allowed_domains: list[str] = Field(default_factory=list)
     rate_limit: int | None = Field(default=None, ge=1, le=1000)
+    feedback_enabled: bool = Field(
+        default=True, description="Whether feedback rating collection is enabled"
+    )
 
 
 class WidgetSessionData(BaseSchema):
@@ -384,6 +388,7 @@ class WidgetConfigResponse(BaseSchema):
     Story 9-5: Added voice_input_config for voice input interface.
     Story 9-6: Added proactive_engagement_config for proactive engagement triggers.
     Story 10-2: Added onboarding_mode and faq_quick_buttons for FAQ quick buttons.
+    Story 10-4: Added feedback_enabled for feedback rating collection.
 
     Attributes:
         bot_name: Display name for the bot
@@ -397,6 +402,7 @@ class WidgetConfigResponse(BaseSchema):
         proactive_engagement_config: Proactive engagement configuration (Story 9-6)
         onboarding_mode: Merchant's onboarding mode ('general' or 'ecommerce')
         faq_quick_buttons: FAQ quick buttons configuration (Story 10-2)
+        feedback_enabled: Whether feedback rating collection is enabled (Story 10-4)
     """
 
     bot_name: str
@@ -419,6 +425,9 @@ class WidgetConfigResponse(BaseSchema):
     )
     faq_quick_buttons: FAQQuickButtonsConfigResponse | None = Field(
         default=None, description="FAQ quick buttons configuration (Story 10-2)"
+    )
+    feedback_enabled: bool = Field(
+        default=True, description="Whether feedback rating collection is enabled (Story 10-4)"
     )
 
 

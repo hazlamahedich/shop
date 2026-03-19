@@ -1,6 +1,6 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
-import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode, QuickReply, FAQQuickButton } from '../types/widget';
+import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode, QuickReply, FAQQuickButton, FeedbackRatingValue } from '../types/widget';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -46,6 +46,7 @@ export interface ChatWindowProps {
   onThemeToggle?: () => void;
   faqQuickButtons?: FAQQuickButton[];
   onFaqButtonClick?: (button: FAQQuickButton) => void;
+  onFeedbackSubmit?: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
 function ChatWindow({
@@ -80,6 +81,7 @@ function ChatWindow({
   onThemeToggle,
   faqQuickButtons,
   onFaqButtonClick,
+  onFeedbackSubmit,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
@@ -213,14 +215,11 @@ function ChatWindow({
 
   if (!isOpen) return null;
 
-  const positionStyle = theme.position === 'bottom-left'
-    ? { left: 20, right: 'auto' as const }
-    : { right: 20, left: 'auto' as const };
 
   const windowStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 90,
-    ...positionStyle,
+    top: 0,
+    left: 0,
     width: theme.width,
     height: theme.height,
     maxWidth: 'calc(100vw - 40px)',
@@ -235,9 +234,7 @@ function ChatWindow({
     fontFamily: theme.fontFamily,
     fontSize: theme.fontSize,
     color: theme.textColor,
-    transform: position.x !== 0 || position.y !== 0 
-      ? `translate(${position.x}px, ${position.y}px)` 
-      : undefined,
+    transform: `translate(${position.x}px, ${position.y}px)`,
     transition: isDragging ? 'none' : 'transform 0.2s ease-out',
     userSelect: isDragging ? 'none' : 'auto',
   };
@@ -259,6 +256,7 @@ function ChatWindow({
         role="dialog"
         aria-modal="true"
         aria-label="Chat window"
+        data-testid="chat-window"
         className={`shopbot-chat-window ${isDragging ? 'dragging' : ''}`}
         style={windowStyle}
       >
@@ -481,6 +479,8 @@ function ChatWindow({
           isCheckingOut={isCheckingOut}
           onQuickRepliesAvailable={handleQuickRepliesAvailable}
           onSuggestedRepliesAvailable={handleSuggestedRepliesAvailable}
+          sessionId={sessionId}
+          onFeedbackSubmit={onFeedbackSubmit}
         />
 
         {/* Story 10-3: Suggested Reply Chips */}

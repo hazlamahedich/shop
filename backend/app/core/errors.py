@@ -216,6 +216,9 @@ class ErrorCode(IntEnum):
     CUSTOMER_PROFILE_ERROR = 7061  # Customer profile create/update failed
     GEOGRAPHIC_QUERY_ERROR = 7062  # Analytics query failed
 
+    # Story 10-4: Feedback rating error codes
+    MESSAGE_NOT_FOUND = 7063  # Message ID does not exist for feedback
+
     # Story 6-1: Consent flow error codes
     CONSENT_REQUIRED = 7070  # Operation requires consent but user has not opted in
     CONSENT_CHECK_FAILED = 7071  # Failed to verify consent status

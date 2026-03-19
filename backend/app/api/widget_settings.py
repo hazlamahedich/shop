@@ -114,6 +114,7 @@ def _parse_widget_config(config: dict[str, Any] | None) -> WidgetConfig:
         theme=theme,
         allowed_domains=widget_data.get("allowed_domains", []),
         rate_limit=widget_data.get("rate_limit"),
+        feedback_enabled=widget_data.get("feedback_enabled", True),
     )
 
 
@@ -156,6 +157,9 @@ def _merge_widget_config(
         if update.faq_quick_buttons.faq_ids is not None:
             faq_config["faq_ids"] = update.faq_quick_buttons.faq_ids
         widget_config["faq_quick_buttons"] = faq_config
+
+    if update.feedback_enabled is not None:
+        widget_config["feedback_enabled"] = update.feedback_enabled
 
     return widget_config
 
@@ -208,6 +212,7 @@ async def get_widget_config(
             welcome_message=widget_config.welcome_message,
             theme=widget_config.theme,
             enabled=widget_config.enabled,
+            feedback_enabled=widget_config.feedback_enabled,
         ),
         meta=_create_meta(),
     )
@@ -295,6 +300,7 @@ async def update_widget_config(
                 welcome_message=widget_config.welcome_message,
                 theme=widget_config.theme,
                 enabled=widget_config.enabled,
+                feedback_enabled=widget_config.feedback_enabled,
             ),
             meta=_create_meta(),
         )

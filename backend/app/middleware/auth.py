@@ -79,6 +79,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/merchant/mode",  # Story 8.1: Mode update uses CSRF token from client
         "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
         "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
+        "/api/v1/feedback",  # Story 10-4: Feedback submission (session-based auth)
     ]
 
     def __init__(self, app) -> None:

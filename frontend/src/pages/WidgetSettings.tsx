@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Save, Loader2, Palette, Code, Sparkles, Layout, Terminal, HelpCircle } from 'lucide-react';
+import { Save, Loader2, Palette, Code, Sparkles, Layout, Terminal, HelpCircle, ThumbsUp } from 'lucide-react';
 import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import { useAuthStore } from '../stores/authStore';
 import { EmbedCodePreview } from '../components/widget/EmbedCodePreview';
@@ -75,6 +75,11 @@ export default function WidgetSettings() {
     setConfig({ enabled: !config.enabled });
   };
 
+  const handleToggleFeedbackEnabled = () => {
+    if (!config) return;
+    setConfig({ feedbackEnabled: !config.feedbackEnabled });
+  };
+
   const handlePrimaryColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!config) return;
     setConfig({
@@ -107,6 +112,7 @@ export default function WidgetSettings() {
           primaryColor: config.theme.primaryColor,
           position: config.theme.position,
         },
+        feedbackEnabled: config.feedbackEnabled,
       });
       toast('System calibration successful', 'success');
     } catch (err) {
@@ -214,6 +220,34 @@ export default function WidgetSettings() {
                   `} />
                 </button>
               </div>
+
+              {/* Story 10-4 AC8: Feedback Rating Toggle (General Mode only) */}
+              {merchant?.onboardingMode === 'general' && (
+                <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
+                      <ThumbsUp size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-white font-black uppercase tracking-widest text-[11px]">Feedback Ratings</h4>
+                      <p className="text-[10px] text-emerald-900/40 font-bold uppercase tracking-widest mt-1">Collect thumbs up/down on bot responses</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleFeedbackEnabled}
+                    className={`
+                      relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-4 border-transparent transition-all duration-500 
+                      ${(config.feedbackEnabled ?? true) ? 'bg-emerald-500' : 'bg-white/10'}
+                    `}
+                  >
+                    <span className={`
+                      pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-xl transition-all duration-500
+                      ${(config.feedbackEnabled ?? true) ? 'translate-x-6' : 'translate-x-0'}
+                    `} />
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-6">
                 <div className="space-y-4">

@@ -10,6 +10,7 @@ import type {
   WidgetProductDetail,
   ConsentPromptResponse,
   FAQQuickButton,
+  FeedbackRatingValue,
 } from '../types/widget';
 import {
   WidgetCartSchema,
@@ -229,6 +230,8 @@ export class WidgetApiClient {
         chunkIndex?: number;
       }>) ?? undefined,
       suggestedReplies: (rawData.suggestedReplies ?? rawData.suggested_replies) as string[] ?? undefined,
+      feedbackEnabled: (rawData.feedbackEnabled ?? rawData.feedback_enabled) as boolean | undefined,
+      userRating: (rawData.userRating ?? rawData.user_rating) as 'positive' | 'negative' | null | undefined,
     };
   }
 
@@ -511,6 +514,42 @@ export class WidgetApiClient {
     } catch {
       return [];
     }
+  }
+
+  async submitFeedback(
+    messageId: string,
+    rating: FeedbackRatingValue,
+    sessionId: string,
+    comment?: string
+  ): Promise<{ id: number; messageId: string; rating: string; createdAt: string }> {
+    const apiBase = getWidgetApiBase().replace('/api/v1/widget', '');
+    const url = `${apiBase}/api/v1/feedback`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messageId,
+        rating,
+        sessionId,
+        comment,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      const error = parseApiError(data);
+      throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.data.id,
+      messageId: data.data.messageId,
+      rating: data.data.rating,
+      createdAt: data.data.createdAt,
+    };
   }
 }
 

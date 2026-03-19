@@ -1,10 +1,11 @@
 import * as React from 'react';
-import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup } from '../types/widget';
+import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup, FeedbackRatingValue } from '../types/widget';
 import { ProductList } from './ProductCard';
 import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
 import { MessageAvatar } from './MessageAvatar';
 import { SourceCitation } from './SourceCitation';
+import { FeedbackRating } from './FeedbackRating';
 import { groupMessages, getGroupPosition } from '../utils/messageGrouping';
 import { formatRelativeTime, formatAbsoluteTime } from '../utils/timeFormatting';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -24,6 +25,8 @@ export interface MessageListProps {
   isCheckingOut?: boolean;
   onQuickRepliesAvailable?: (replies: QuickReply[]) => void;
   onSuggestedRepliesAvailable?: (suggestions: string[]) => void;
+  sessionId?: string;
+  onFeedbackSubmit?: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
 export function MessageList({
@@ -41,6 +44,8 @@ export function MessageList({
   isCheckingOut,
   onQuickRepliesAvailable,
   onSuggestedRepliesAvailable,
+  sessionId,
+  onFeedbackSubmit,
 }: MessageListProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const prevMessageIdsRef = React.useRef<Set<string>>(new Set());
@@ -158,6 +163,8 @@ export function MessageList({
           isCheckingOut={isCheckingOut}
           newMessageIds={newMessageIds}
           reducedMotion={reducedMotion}
+          sessionId={sessionId}
+          onFeedbackSubmit={onFeedbackSubmit}
         />
       ))}
       <div ref={messagesEndRef} />
@@ -178,6 +185,8 @@ interface MessageGroupComponentProps {
   isCheckingOut?: boolean;
   newMessageIds: Set<string>;
   reducedMotion: boolean;
+  sessionId?: string;
+  onFeedbackSubmit?: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
 function MessageGroupComponent({
@@ -193,6 +202,8 @@ function MessageGroupComponent({
   isCheckingOut,
   newMessageIds,
   reducedMotion,
+  sessionId,
+  onFeedbackSubmit,
 }: MessageGroupComponentProps) {
   const isUser = group.sender === 'user';
   const isSystem = group.sender === 'system';
@@ -287,6 +298,8 @@ function MessageGroupComponent({
                   isCheckingOut={isCheckingOut}
                   isNew={newMessageIds.has(message.messageId)}
                   reducedMotion={reducedMotion}
+                  sessionId={sessionId}
+                  onFeedbackSubmit={onFeedbackSubmit}
                 />
                 {isLast && (
                   <div
@@ -331,6 +344,8 @@ interface MessageBubbleInGroupProps {
   isCheckingOut?: boolean;
   isNew?: boolean;
   reducedMotion?: boolean;
+  sessionId?: string;
+  onFeedbackSubmit?: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
 function MessageBubbleInGroup({
@@ -349,6 +364,8 @@ function MessageBubbleInGroup({
   isCheckingOut,
   isNew = false,
   reducedMotion = false,
+  sessionId,
+  onFeedbackSubmit,
 }: MessageBubbleInGroupProps) {
   const isUser = sender === 'user';
 
@@ -468,6 +485,16 @@ function MessageBubbleInGroup({
         <div className="message-bubble__sources">
           <SourceCitation sources={message.sources} theme={theme} />
         </div>
+      )}
+
+      {showRichContent && !isUser && sender === 'bot' && onFeedbackSubmit && (
+        <FeedbackRating
+          messageId={message.messageId}
+          feedbackEnabled={message.feedbackEnabled}
+          userRating={message.userRating}
+          theme={theme}
+          onSubmit={onFeedbackSubmit}
+        />
       )}
     </div>
   );

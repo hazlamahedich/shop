@@ -5,13 +5,14 @@ import { WidgetErrorBoundary } from './components/WidgetErrorBoundary';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ProactiveModal } from './components/ProactiveModal';
 import { useProactiveTriggers } from './hooks/useProactiveTriggers';
-import type { WidgetTheme, ProactiveTriggerAction } from './types/widget';
+import type { WidgetTheme, ProactiveTriggerAction, FeedbackRatingValue } from './types/widget';
 import { DEFAULT_PROACTIVE_CONFIG } from './types/widget';
 import { mergeThemes } from './utils/themeMerge';
 import { useThemeDetection } from './hooks/useThemeDetection';
 import { GlassmorphismChatWindow } from './components/GlassmorphismChatWindow';
 import { getNextThemeMode } from './components/ThemeToggle';
 import { positioningStyles } from './utils/styles';
+import { widgetClient } from './api/widgetClient';
 
 const ChatWindow = React.lazy(() => import('./components/ChatWindow'));
 
@@ -103,6 +104,23 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     const nextMode = getNextThemeMode(state.themeMode);
     setThemeMode(nextMode);
   }, [state.themeMode, setThemeMode]);
+
+  const handleFeedbackSubmit = React.useCallback(
+    async (messageId: string, rating: FeedbackRatingValue, comment?: string) => {
+      const sessionId = state.session?.sessionId;
+      if (!sessionId) {
+        console.error('[Widget] Cannot submit feedback: no session ID');
+        return;
+      }
+      try {
+        await widgetClient.submitFeedback(messageId, rating, sessionId, comment);
+      } catch (error) {
+        console.error('[Widget] Failed to submit feedback:', error);
+        throw error;
+      }
+    },
+    [state.session?.sessionId]
+  );
 
   const prefetchChatWindow = React.useCallback(() => {
     import('./components/ChatWindow');
@@ -1036,6 +1054,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                     themeMode={state.themeMode}
                     onThemeToggle={handleThemeToggle}
                     faqQuickButtons={state.faqQuickButtons}
+                    onFeedbackSubmit={handleFeedbackSubmit}
                   />
                 </GlassmorphismChatWindow>
               </React.Suspense>

@@ -40,9 +40,9 @@ export function MessageList({
   if (messages.length === 0) {
     return (
       <div className={`message-list flex items-center justify-center h-full ${className}`} data-testid={dataTestId}>
-        <div className="text-center text-gray-500">
+        <div className="text-center text-white/50">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400"
+            className="mx-auto h-12 w-12 text-white/30"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -56,7 +56,7 @@ export function MessageList({
             />
           </svg>
           <p className="mt-2">Start a conversation to test your bot.</p>
-          <p className="text-sm">Use the quick-try buttons or type a message below.</p>
+          <p className="text-sm text-white/40">Use the quick-try buttons or type a message below.</p>
         </div>
       </div>
     );

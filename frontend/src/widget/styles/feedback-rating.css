@@ -1,0 +1,138 @@
+.feedback-rating {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.feedback-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease, opacity 150ms ease;
+}
+
+.feedback-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.feedback-button:active {
+  transform: scale(0.95);
+}
+
+.feedback-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--widget-primary, #4f46e5);
+}
+
+.feedback-button--selected {
+  background-color: var(--widget-primary, #4f46e5);
+  color: white;
+}
+
+.feedback-button--selected:hover {
+  background-color: var(--widget-primary, #4f46e5);
+  opacity: 0.9;
+}
+
+.feedback-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.feedback-rating--dark .feedback-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.feedback-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 12px;
+  flex: 1;
+  max-width: 300px;
+}
+
+.feedback-rating--dark .feedback-comment-form {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.feedback-comment-label {
+  font-size: 12px;
+  color: var(--widget-text, #1f2937);
+}
+
+.feedback-comment-textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background-color: white;
+  color: var(--widget-text, #1f2937);
+  font-family: var(--widget-font, inherit);
+  font-size: 14px;
+  resize: none;
+}
+
+.feedback-rating--dark .feedback-comment-textarea {
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.feedback-comment-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.feedback-comment-skip {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--widget-text, #1f2937);
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.feedback-comment-skip:hover {
+  opacity: 1;
+}
+
+.feedback-comment-submit {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background-color: var(--widget-primary, #4f46e5);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.feedback-comment-submit:hover {
+  opacity: 0.9;
+}
+
+.feedback-comment-count {
+  font-size: 11px;
+  color: var(--widget-text, #1f2937);
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-button {
+    transition: none;
+  }
+}

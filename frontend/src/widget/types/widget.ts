@@ -52,6 +52,7 @@ export interface WidgetConfig {
   proactiveEngagementConfig?: ProactiveEngagementConfig;
   faqQuickButtons?: FAQQuickButtonsConfig;
   onboardingMode?: 'general' | 'ecommerce';
+  feedbackEnabled?: boolean;
 }
 
 export interface WidgetSession {
@@ -102,6 +103,15 @@ export interface SourceCitation {
   chunkIndex?: number;
 }
 
+export type FeedbackRatingValue = 'positive' | 'negative';
+
+export interface FeedbackRating {
+  messageId: string;
+  rating: FeedbackRatingValue;
+  comment?: string;
+  createdAt: string;
+}
+
 export interface WidgetMessage {
   messageId: string;
   content: string;
@@ -115,6 +125,8 @@ export interface WidgetMessage {
   quick_replies?: QuickReply[];
   sources?: SourceCitation[];
   suggestedReplies?: string[];
+  feedbackEnabled?: boolean;
+  userRating?: FeedbackRatingValue;
 }
 
 export interface MessageGroup {

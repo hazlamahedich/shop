@@ -18,7 +18,7 @@ export type WidgetEventType =
 export interface WidgetAnalyticsEvent {
   type: WidgetEventType;
   timestamp: string;
-  sessionId: string;
+  session_id: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -112,7 +112,7 @@ class WidgetAnalyticsImpl {
     const event: WidgetAnalyticsEvent = {
       type,
       timestamp: new Date().toISOString(),
-      sessionId: this.sessionId,
+      session_id: this.sessionId,
       metadata: {
         ...metadata,
         reducedMotion: this.reducedMotion,
@@ -186,7 +186,7 @@ class WidgetAnalyticsImpl {
     try {
       const { flushWidgetAnalyticsEvents } = await import('../../services/analyticsService');
       const result = await flushWidgetAnalyticsEvents({
-        merchantId: this.merchantId!,
+        merchant_id: this.merchantId!,
         events: queue,
       });
       return result.accepted;

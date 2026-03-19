@@ -191,26 +191,26 @@ export function MessageBubble({
         {message.products.slice(0, 5).map((product) => (
           <div
             key={product.product_id}
-            className="border rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            className="border border-white/10 rounded-lg p-3 bg-white/[0.03] hover:bg-white/[0.05] transition-colors cursor-pointer"
             onClick={() => onProductClick?.(product.product_id)}
           >
             {product.image_url && (
               <img
                 src={product.image_url}
                 alt={product.title}
-                className="w-full h-32 object-contain rounded mb-2 bg-gray-50"
+                className="w-full h-32 object-contain rounded mb-2 bg-white/[0.02]"
               />
             )}
-            <h4 className="font-medium text-sm text-gray-900 line-clamp-2">
+            <h4 className="font-medium text-sm text-white line-clamp-2">
               {product.title}
             </h4>
             {product.price !== null && (
-              <p className="text-sm font-semibold text-gray-700 mt-1">
+              <p className="text-sm font-semibold text-emerald-400 mt-1">
                 ${product.price.toFixed(2)}
               </p>
             )}
             <button
-              className="mt-2 w-full text-xs bg-blue-500 text-white py-1.5 px-3 rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-2 w-full text-xs bg-emerald-500 text-black py-1.5 px-3 rounded hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!product.available}
             >
               {product.available ? 'Add to Cart' : 'Out of Stock'}
@@ -230,12 +230,12 @@ export function MessageBubble({
       <div
         className={`max-w-[85%] rounded-lg px-4 py-2 ${
           isUser
-            ? 'bg-blue-500 text-white rounded-br-sm'
-            : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+            ? 'bg-emerald-500 text-black rounded-br-sm'
+            : 'bg-white/[0.05] text-white/90 border border-white/10 rounded-bl-sm'
         }`}
       >
         {isBot && (
-          <div className="text-xs font-semibold text-gray-600 mb-1">
+          <div className="text-xs font-semibold text-emerald-400 mb-1">
             {botName}
           </div>
         )}
@@ -244,7 +244,7 @@ export function MessageBubble({
           {message.content}
         </p>
 
-        <div className={`text-xs mt-1 ${isUser ? 'text-blue-100' : 'text-gray-500'}`}>
+        <div className={`text-xs mt-1 ${isUser ? 'text-black/60' : 'text-white/40'}`}>
           {formatTimestamp(message.timestamp)}
         </div>
 

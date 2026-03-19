@@ -658,6 +658,7 @@ async def get_widget_config(
 
     # Story 10-2: Get FAQ quick buttons config from merchant.config
     faq_quick_buttons_config = None
+    feedback_enabled = True
     if merchant.config and "widget_config" in merchant.config:
         widget_cfg = merchant.config.get("widget_config", {})
         if "faq_quick_buttons" in widget_cfg:
@@ -666,6 +667,7 @@ async def get_widget_config(
                 enabled=fb_cfg.get("enabled", True),
                 faq_ids=fb_cfg.get("faq_ids", []),
             )
+        feedback_enabled = widget_cfg.get("feedback_enabled", True)
 
     return WidgetConfigEnvelope(
         data=WidgetConfigResponse(
@@ -678,6 +680,7 @@ async def get_widget_config(
             shop_domain=shop_domain,
             onboarding_mode=getattr(merchant, "onboarding_mode", "general"),
             faq_quick_buttons=faq_quick_buttons_config,
+            feedback_enabled=feedback_enabled,
         ),
         meta=create_meta(),
     )

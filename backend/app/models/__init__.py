@@ -21,6 +21,7 @@ from app.models.llm_configuration import LLMConfiguration
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.merchant import Merchant
 from app.models.message import Message
+from app.models.message_feedback import FeedbackRating, MessageFeedback
 from app.models.onboarding import PrerequisiteChecklist
 from app.models.order import Order, OrderStatus
 from app.models.product_pin import ProductPin
@@ -38,6 +39,8 @@ __all__ = [
     "ShopifyIntegration",
     "Conversation",
     "Message",
+    "MessageFeedback",
+    "FeedbackRating",
     "LLMConfiguration",
     "LLMConversationCost",
     "Tutorial",

@@ -33,9 +33,11 @@ const getDefaultPosition = (): { x: number; y: number } => {
   if (typeof window === 'undefined') {
     return { x: 0, y: 0 };
   }
+  // Default width: 380, height: 600
+  // Positioned at bottom-right with standard 20px padding from right and 90px from bottom (above bubble)
   return {
-    x: window.innerWidth - 420,
-    y: window.innerHeight - 600,
+    x: window.innerWidth - 380 - 20,
+    y: window.innerHeight - 600 - 90,
   };
 };
 
@@ -68,11 +70,12 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return { ...state, isTyping: action.payload };
     case 'SET_SESSION':
       return { ...state, session: action.payload };
-    case 'ADD_MESSAGE':
+    case 'ADD_MESSAGE': {
       const newUnreadCount = state.isMinimized && action.payload.sender !== 'user' 
         ? state.unreadCount + 1 
         : state.unreadCount;
       return { ...state, messages: [...state.messages, action.payload], unreadCount: newUnreadCount };
+    }
     case 'SET_MESSAGES':
       return { ...state, messages: action.payload };
     case 'SET_CONFIG':
@@ -666,6 +669,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         content: state.config.welcomeMessage,
         sender: 'bot' as const,
         createdAt: new Date().toISOString(),
+        feedbackEnabled: false,
       };
       dispatch({ type: 'ADD_MESSAGE', payload: greetingMessage });
     }
@@ -721,6 +725,18 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       if (cleanup) cleanup();
     };
   }, [state.session?.sessionId, state.isOpen]);
+
+  // Initialize analytics when session is available
+  React.useEffect(() => {
+    if (!state.session?.sessionId) return;
+    
+    import('../utils/analytics').then(({ widgetAnalytics }) => {
+      widgetAnalytics.initialize({
+        merchantId: parseInt(merchantId, 10),
+        sessionId: state.session!.sessionId,
+      });
+    });
+  }, [state.session?.sessionId, merchantId]);
 
   const retryLastAction = React.useCallback(() => {
     if (!lastActionRef.current) return;

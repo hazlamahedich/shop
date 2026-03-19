@@ -189,9 +189,9 @@ development_status:
   
   epic-10: in-progress # Story 10-1 created
   10-1-source-citations-widget: review # Implementation complete,13 unit tests, 8 E2E tests, sources integrated
-  10-2-faq-quick-buttons-widget: backlog # Chat widget: Clickable FAQ chips at conversation start
-  10-3-quick-reply-chips-widget: backlog # Chat widget: Suggested follow-up questions
-  10-4-feedback-rating-widget: backlog # Chat widget: Thumbs up/down on bot responses
+  10-2-faq-quick-buttons-widget: done # Code review complete 2026-03-18: All ACs implemented (AC5 deferred per story scope), 49+ tests passing, documentation fixed
+  10-3-quick-reply-chips-widget: done # Code review complete: All issues fixed (documentation updates, File List corrected)
+  10-4-feedback-rating-widget: in-progress # Chat widget: Thumbs up/down on bot responses
   10-5-contact-card-widget: backlog # Chat widget: Contact options for escalation
   10-6-enable-existing-widgets-general-mode: backlog # Dashboard: Configure widget visibility by mode
   10-7-knowledge-effectiveness-widget: backlog # Dashboard: RAG match rate, confidence metrics

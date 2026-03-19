@@ -58,6 +58,8 @@ class WidgetConfigUpdateRequest(BaseSchema):
 
     All fields are optional - only provided fields are updated.
     This allows granular updates without sending full config.
+
+    Story 10-4: Added feedback_enabled for feedback rating toggle.
     """
 
     enabled: bool | None = Field(
@@ -81,4 +83,8 @@ class WidgetConfigUpdateRequest(BaseSchema):
     faq_quick_buttons: FAQQuickButtonsConfigUpdate | None = Field(
         None,
         description="FAQ quick buttons configuration (Story 10-2)",
+    )
+    feedback_enabled: bool | None = Field(
+        None,
+        description="Whether feedback rating collection is enabled (Story 10-4)",
     )

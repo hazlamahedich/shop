@@ -20,6 +20,7 @@ interface PartialWidgetTheme {
 interface WidgetConfigUpdateRequest {
   enabled?: boolean;
   theme?: PartialWidgetTheme;
+  feedbackEnabled?: boolean;
 }
 
 interface WidgetSettingsState {
@@ -76,6 +77,7 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
           ...(data.theme || {}),
         },
         allowedDomains: data.allowedDomains ?? [],
+        feedbackEnabled: data.feedbackEnabled ?? true,
       };
 
       set({ config, loading: false, hasUnsavedChanges: false });
@@ -103,6 +105,7 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
           ...(data.theme || {}),
         },
         allowedDomains: data.allowedDomains ?? [],
+        feedbackEnabled: data.feedbackEnabled ?? true,
       };
 
       set({ config, saving: false, hasUnsavedChanges: false });

@@ -71,6 +71,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/settings/embedding-provider",  # Story 8-11: Embedding provider settings
         "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
         "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
+        "/api/v1/feedback",  # Story 10-4: Feedback submission (session-based auth from widget) (X-Merchant-Id header auth in DEBUG mode)
         "/docs",
         "/redoc",
         "/openapi.json",

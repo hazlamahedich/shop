@@ -115,13 +115,13 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
 
   return (
     <div className={`preview-chat flex flex-col h-full ${className}`} data-testid="preview-chat">
-      {/* Preview mode badge */}
-      <div className="flex items-center justify-between px-4 py-2 bg-blue-50 border-b border-blue-200">
+      {/* Preview mode badge - DARK THEME */}
+      <div className="flex items-center justify-between px-4 py-2 bg-emerald-500/[0.08] border-b border-emerald-500/20">
         <div className="flex items-center gap-2">
-          <span className="px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-200 rounded">
+          <span className="px-2 py-1 text-xs font-semibold text-emerald-400 bg-emerald-500/20 rounded">
             PREVIEW MODE
           </span>
-          <span className="text-sm text-blue-600">
+          <span className="text-sm text-emerald-400/80">
             Sandbox environment - No real customers will see these messages
           </span>
         </div>
@@ -129,7 +129,7 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
           {/* Cart button */}
           <button
             onClick={handleCartClick}
-            className="relative p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            className="relative p-2 text-white/60 hover:text-white/90 hover:bg-white/10 rounded-lg transition-colors"
             aria-label={`Shopping cart with ${itemCount} items`}
             data-testid="cart-button"
           >
@@ -142,7 +142,7 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
               />
             </svg>
             {itemCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold text-white bg-blue-600 rounded-full min-w-[18px] text-center">
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold text-white bg-emerald-500 rounded-full min-w-[18px] text-center">
                 {itemCount > 99 ? '99+' : itemCount}
               </span>
             )}
@@ -181,9 +181,9 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
         data-testid="preview-messages"
       />
 
-      {/* Quick-try buttons */}
+      {/* Quick-try buttons - DARK THEME */}
       {starterPrompts.length > 0 && messages.length === 0 && (
-        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <div className="px-4 py-3 border-t border-white/[0.05] bg-white/[0.03]">
           <QuickTryButtons
             starterPrompts={starterPrompts}
             onPromptClick={handleQuickTry}
@@ -192,8 +192,8 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
         </div>
       )}
 
-      {/* Message input */}
-      <div className="px-4 py-3 border-t border-gray-200 bg-white">
+      {/* Message input - DARK THEME */}
+      <div className="px-4 py-3 border-t border-white/[0.05] bg-[#0a0a0a]">
         <div className="flex gap-2">
           <input
             ref={inputRef}
@@ -204,7 +204,7 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
             placeholder="Type a message to test your bot..."
             disabled={isLoading}
             maxLength={1000}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex-1 px-3 py-2 border border-white/10 bg-white/[0.05] text-white placeholder:text-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500/50 disabled:opacity-50"
             aria-label="Message input"
             data-testid="message-input"
           />
@@ -255,7 +255,7 @@ export function PreviewChat({ className = '', botName, merchantId }: PreviewChat
             )}
           </Button>
         </div>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-white/40">
           Messages are limited to 1000 characters. This is a sandbox environment.
         </p>
       </div>

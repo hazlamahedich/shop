@@ -46,11 +46,11 @@ function getConfidenceColor(level: 'high' | 'medium' | 'low'): string {
 function getConfidenceTextColor(level: 'high' | 'medium' | 'low'): string {
   switch (level) {
     case 'high':
-      return 'text-green-700';
+      return 'text-emerald-400';
     case 'medium':
-      return 'text-yellow-700';
+      return 'text-amber-400';
     case 'low':
-      return 'text-red-700';
+      return 'text-red-400';
   }
 }
 
@@ -82,20 +82,20 @@ export function ConfidenceIndicator({
   return (
     <div className={`confidence-indicator ${className}`} data-testid="confidence-indicator">
       <div className="flex items-center gap-2 text-sm">
-        <span className="font-medium text-gray-700">Confidence:</span>
+        <span className="font-medium text-white/60">Confidence:</span>
         <span
           className={`font-bold ${textColor}`}
           aria-label={`Confidence level: ${confidenceLevel}, score: ${confidence}%`}
         >
           {confidence}%
         </span>
-        <span className={`text-xs px-2 py-0.5 rounded ${textColor} bg-opacity-20 ${barColor} bg-opacity-10`}>
+        <span className={`text-xs px-2 py-0.5 rounded ${textColor} bg-white/10`}>
           {confidenceLevel.charAt(0).toUpperCase() + confidenceLevel.slice(1)}
         </span>
       </div>
 
       {/* Confidence bar */}
-      <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden" role="progressbar" aria-valuenow={confidence} aria-valuemin={0} aria-valuemax={100}>
+      <div className="mt-2 h-2 bg-white/10 rounded-full overflow-hidden" role="progressbar" aria-valuenow={confidence} aria-valuemin={0} aria-valuemax={100}>
         <div
           className={`h-full ${barColor} transition-all duration-300 ease-out`}
           style={{ width: barWidth }}
@@ -111,7 +111,7 @@ export function ConfidenceIndicator({
 
       {/* Technical details (optional) */}
       {showDetails && metadata && (
-        <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+        <div className="mt-2 p-2 bg-white/[0.03] rounded text-xs text-white/50 border border-white/5">
           <div className="grid grid-cols-2 gap-1">
             <span className="font-medium">Intent:</span>
             <span>{metadata.intent}</span>

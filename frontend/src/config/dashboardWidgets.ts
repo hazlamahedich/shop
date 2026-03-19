@@ -8,6 +8,7 @@ export const WIDGET_CONFIG = {
   
   // General mode specific
   'knowledge-base': { modes: ['general'] as const, name: 'Knowledge Base Status' },
+  'feedback-analytics': { modes: ['general'] as const, name: 'Feedback Ratings' },
   
   // Both modes (always visible)
   'conversation-overview': { modes: ['general', 'ecommerce'] as const, name: 'Conversation Overview' },
