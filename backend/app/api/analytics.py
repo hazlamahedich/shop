@@ -317,3 +317,22 @@ async def get_knowledge_effectiveness(
     service = AggregatedAnalyticsService(db)
     effectiveness_data = await service.get_knowledge_effectiveness(merchant_id, days)
     return {"data": effectiveness_data}
+
+
+@router.get("/top-topics")
+async def get_top_topics(
+    request: Request,
+    days: int = Query(7, ge=1, le=90, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get top topics for dashboard widget.
+
+    Story 10-8: Top Topics Widget
+
+    Returns most frequently queried topics from RAG query logs.
+    Uses simple frequency ranking (MVP approach).
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    topics_data = await service.get_top_topics(merchant_id, days)
+    return {"data": topics_data}

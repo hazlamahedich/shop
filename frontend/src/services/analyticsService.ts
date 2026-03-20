@@ -370,11 +370,18 @@ export const analyticsService = {
     return (response as unknown as { data: KnowledgeEffectivenessResponse }).data;
   },
 
-  async getKnowledgeGaps(days = 30, limit = 10): Promise<KnowledgeGapsData> {
+  async getKnowledgeGapsData(days = 30, limit = 10): Promise<KnowledgeGapsData> {
     const response = await apiClient.get<KnowledgeGapsData>(
       `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
     );
     return response as unknown as KnowledgeGapsData;
+  },
+
+  async getTopTopics(days = 7): Promise<TopTopicsResponse> {
+    const response = await apiClient.get<{ data: TopTopicsResponse }>(
+      `/api/v1/analytics/top-topics?days=${days}`
+    );
+    return (response as unknown as { data: TopTopicsResponse }).data;
   },
 };
 
@@ -407,4 +414,20 @@ export interface KnowledgeEffectivenessResponse {
   avgConfidence: number | null;
   trend: number[];
   lastUpdated: string;
+}
+
+export interface TopTopic {
+  name: string;
+  queryCount: number;
+  trend: 'up' | 'down' | 'stable' | 'new';
+}
+
+ export interface TopTopicsResponse {
+  topics: TopTopic[];
+  lastUpdated: string;
+  period: {
+    days: number;
+    startDate: string;
+    endDate: string;
+  };
 }

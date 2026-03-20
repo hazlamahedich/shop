@@ -9,7 +9,7 @@ All aggregated data is stored as tier=ANONYMIZED.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import structlog
@@ -22,6 +22,7 @@ from app.models.conversation import Conversation
 from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.message import Message
 from app.models.order import Order
+from app.models.rag_query_log import RAGQueryLog
 from app.services.privacy.data_tier_service import DataTier
 
 logger = structlog.get_logger(__name__)
@@ -1546,6 +1547,123 @@ class AggregatedAnalyticsService:
         except Exception as e:
             logger.error(
                 "knowledge_effectiveness_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            raise
+
+    async def get_top_topics(
+        self,
+        merchant_id: int,
+        days: int = 7,
+        limit: int = 10,
+    ) -> dict[str, Any]:
+        """Get top topics for dashboard widget.
+
+        Story 10-8: Top Topics Widget.
+
+        Extracts most frequently queried topics from RAG query logs.
+        Uses simple frequency ranking (MVP approach).
+
+        Args:
+            merchant_id: Merchant ID
+            days: Number of days to analyze (default 7, max 90)
+            limit: Maximum topics to return (default 10)
+
+        Returns:
+            Dict with topics data:
+            {
+                "topics": [
+                    {"name": "topic", "queryCount": 10, "trend": "up"}
+                ],
+                "lastUpdated": "ISO-8601",
+                "period": {"days": 7, "startDate": "...", "endDate": "..."}
+            }
+        """
+        try:
+            days = min(max(1, days), 90)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+            current_period_start = cutoff_date
+            current_period_end = datetime.now(timezone.utc)
+
+            previous_period_start = current_period_start - timedelta(days=days)
+            previous_period_end = current_period_start
+
+            current_result = await self.db.execute(
+                select(
+                    RAGQueryLog.query,
+                    func.count(RAGQueryLog.id).label("query_count"),
+                )
+                .where(RAGQueryLog.merchant_id == merchant_id)
+                .where(RAGQueryLog.created_at >= current_period_start)
+                .where(RAGQueryLog.created_at < current_period_end)
+                .group_by(RAGQueryLog.query)
+                .order_by(func.count(RAGQueryLog.id).desc())
+                .limit(limit)
+            )
+            current_rows = current_result.all()
+
+            previous_result = await self.db.execute(
+                select(
+                    RAGQueryLog.query,
+                    func.count(RAGQueryLog.id).label("query_count"),
+                )
+                .where(RAGQueryLog.merchant_id == merchant_id)
+                .where(RAGQueryLog.created_at >= previous_period_start)
+                .where(RAGQueryLog.created_at < previous_period_end)
+                .group_by(RAGQueryLog.query)
+            )
+            previous_rows = previous_result.all()
+            previous_counts = {row.query: row.query_count for row in previous_rows}
+
+            topics = []
+            for row in current_rows:
+                topic_name = row.query
+                current_count = row.query_count
+                previous_count = previous_counts.get(topic_name, 0)
+
+                if previous_count == 0:
+                    trend = "new"
+                else:
+                    change = ((current_count - previous_count) / previous_count) * 100
+                    if change > 10:
+                        trend = "up"
+                    elif change < -10:
+                        trend = "down"
+                    else:
+                        trend = "stable"
+
+                topics.append(
+                    {
+                        "name": topic_name,
+                        "queryCount": current_count,
+                        "trend": trend,
+                    }
+                )
+
+            period_data = {
+                "days": days,
+                "startDate": current_period_start.isoformat(),
+                "endDate": current_period_end.isoformat(),
+            }
+
+            logger.info(
+                "top_topics_retrieved",
+                merchant_id=merchant_id,
+                days=days,
+                topic_count=len(topics),
+            )
+
+            return {
+                "topics": topics,
+                "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                "period": period_data,
+            }
+
+        except Exception as e:
+            logger.error(
+                "top_topics_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )

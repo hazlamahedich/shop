@@ -195,7 +195,7 @@ development_status:
   10-5-contact-card-widget: done # Code review complete 2026-03-20: All ACs implemented (6 HIGH + 5 MEDIUM issues fixed), merchant UI, API endpoint, styles, schema updates
   10-6-enable-existing-widgets-general-mode: done # Dashboard: Configure widget visibility by mode - Unit tests passing (9/9), knowledge-gap widget added to config and wrapped with guard. Code review fixes: test artifacts removed, File List updated, ACs verified
   10-7-knowledge-effectiveness-widget: in-progress # Implementation started
-  10-8-top-topics-widget: backlog # Dashboard: Most queried topics with trends
+  10-8-top-topics-widget: in-progress # Dashboard: Most queried topics with trends
   10-9-response-time-distribution-widget: backlog # Dashboard: P50/P95/P99 response times
   10-10-faq-usage-widget: backlog # Dashboard: FAQ click frequency and optimization
   

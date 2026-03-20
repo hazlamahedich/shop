@@ -20,6 +20,7 @@ import { FinancialOverviewWidget } from '../components/dashboard/FinancialOvervi
 import { QualityMetricsWidget } from '../components/dashboard/QualityMetricsWidget';
 import { FeedbackAnalyticsWidget } from '../components/dashboard/FeedbackAnalyticsWidget';
 import { KnowledgeEffectivenessWidget } from '../components/dashboard/KnowledgeEffectivenessWidget';
+import { TopTopicsWidget } from '../components/dashboard/TopTopicsWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -191,6 +192,12 @@ const Dashboard = () => {
             {!isEcommerce && isWidgetVisible('knowledge-effectiveness', onboardingMode) && (
               <div data-testid="knowledge-effectiveness-widget-container">
                 <KnowledgeEffectivenessWidget />
+              </div>
+            )}
+
+            {!isEcommerce && isWidgetVisible('top-topics', onboardingMode) && (
+              <div data-testid="top-topics-widget-container">
+                <TopTopicsWidget />
               </div>
             )}
 
