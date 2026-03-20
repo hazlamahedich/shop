@@ -85,10 +85,7 @@ async function mockWidgetMessageWithContactOptions(
 }
 
 async function mockHandoffWithContactOptions(page: Page, contactOptions?: ContactOption[]) {
-  const options = contactOptions || [
-    createPhoneOption(),
-    createEmailOption(),
-  ];
+  const options = contactOptions || createDefaultContactOptions();
   
   await mockWidgetMessageWithContactOptions(page, {
     content: "I'm connecting you with a human agent. Here's how to reach us:",
