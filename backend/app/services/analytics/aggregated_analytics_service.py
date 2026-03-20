@@ -1447,3 +1447,106 @@ class AggregatedAnalyticsService:
                 error=str(e),
             )
             raise
+
+    async def get_knowledge_effectiveness(
+        self,
+        merchant_id: int,
+        days: int = 7,
+    ) -> dict[str, Any]:
+        """Get knowledge base effectiveness metrics.
+
+        Story 10-7: KnowledgeEffectivenessWidget.
+
+        Returns:
+        - Total queries
+        - Successful matches
+        - No-match rate
+        - Average confidence score
+        - 7-day trend sparkline
+
+        Args:
+            merchant_id: Merchant ID
+            days: Number of days to analyze (default 7)
+
+        Returns:
+            Dict with knowledge effectiveness metrics
+        """
+        from app.models.rag_query_log import RAGQueryLog
+
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+            total_result = await self.db.execute(
+                select(func.count(RAGQueryLog.id))
+                .where(RAGQueryLog.merchant_id == merchant_id)
+                .where(RAGQueryLog.created_at >= cutoff_date)
+            )
+            total_queries = total_result.scalar() or 0
+
+            matched_result = await self.db.execute(
+                select(func.count(RAGQueryLog.id))
+                .where(RAGQueryLog.merchant_id == merchant_id)
+                .where(RAGQueryLog.created_at >= cutoff_date)
+                .where(RAGQueryLog.matched == True)
+            )
+            successful_matches = matched_result.scalar() or 0
+
+            no_match_rate = 0.0
+            if total_queries > 0:
+                no_match_rate = round(
+                    ((total_queries - successful_matches) / total_queries) * 100, 1
+                )
+
+            confidence_result = await self.db.execute(
+                select(func.avg(RAGQueryLog.confidence))
+                .where(RAGQueryLog.merchant_id == merchant_id)
+                .where(RAGQueryLog.created_at >= cutoff_date)
+                .where(RAGQueryLog.confidence.isnot(None))
+            )
+            avg_confidence = confidence_result.scalar()
+            avg_confidence = round(float(avg_confidence), 2) if avg_confidence else None
+
+            daily_trend_result = await self.db.execute(
+                select(
+                    func.date(RAGQueryLog.created_at).label("date"),
+                    func.avg(RAGQueryLog.confidence).label("avg_confidence"),
+                )
+                .where(RAGQueryLog.merchant_id == merchant_id)
+                .where(RAGQueryLog.created_at >= cutoff_date)
+                .where(RAGQueryLog.matched == True)
+                .where(RAGQueryLog.confidence.isnot(None))
+                .group_by(func.date(RAGQueryLog.created_at))
+                .order_by(func.date(RAGQueryLog.created_at))
+            )
+            daily_rows = daily_trend_result.all()
+
+            trend = [round(float(row.avg_confidence or 0), 2) for row in daily_rows]
+
+            last_updated = datetime.now(UTC).isoformat()
+
+            logger.info(
+                "knowledge_effectiveness_retrieved",
+                merchant_id=merchant_id,
+                days=days,
+                total_queries=total_queries,
+                successful_matches=successful_matches,
+                no_match_rate=no_match_rate,
+                avg_confidence=avg_confidence,
+            )
+
+            return {
+                "totalQueries": total_queries,
+                "successfulMatches": successful_matches,
+                "noMatchRate": no_match_rate,
+                "avgConfidence": avg_confidence,
+                "trend": trend,
+                "lastUpdated": last_updated,
+            }
+
+        except Exception as e:
+            logger.error(
+                "knowledge_effectiveness_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            raise

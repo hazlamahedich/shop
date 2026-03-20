@@ -19,6 +19,7 @@ import { GeographicSnapshotWidget } from '../components/dashboard/GeographicSnap
 import { FinancialOverviewWidget } from '../components/dashboard/FinancialOverviewWidget';
 import { QualityMetricsWidget } from '../components/dashboard/QualityMetricsWidget';
 import { FeedbackAnalyticsWidget } from '../components/dashboard/FeedbackAnalyticsWidget';
+import { KnowledgeEffectivenessWidget } from '../components/dashboard/KnowledgeEffectivenessWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -187,15 +188,23 @@ const Dashboard = () => {
               </div>
             )}
 
+            {!isEcommerce && isWidgetVisible('knowledge-effectiveness', onboardingMode) && (
+              <div data-testid="knowledge-effectiveness-widget-container">
+                <KnowledgeEffectivenessWidget />
+              </div>
+            )}
+
             {isWidgetVisible('customer-sentiment', onboardingMode) && isWidgetVisible('benchmark-comparison', onboardingMode) && (
               <div data-testid="quality-metrics-widget-container">
                 <QualityMetricsWidget />
               </div>
             )}
 
-            <div data-testid="knowledge-gap-widget-container">
-              <KnowledgeGapWidget />
-            </div>
+            {isWidgetVisible('knowledge-gap', onboardingMode) && (
+              <div data-testid="knowledge-gap-widget-container">
+                <KnowledgeGapWidget />
+              </div>
+            )}
 
             {isEcommerce && isWidgetVisible('top-products', onboardingMode) && (
               <div data-testid="top-products-widget-container">

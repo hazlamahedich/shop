@@ -19,6 +19,8 @@ export const WIDGET_CONFIG = {
   'peak-hours': { modes: ['general', 'ecommerce'] as const, name: 'Peak Hours' },
   'benchmark-comparison': { modes: ['general', 'ecommerce'] as const, name: 'Benchmark Comparison' },
   'customer-sentiment': { modes: ['general', 'ecommerce'] as const, name: 'Customer Sentiment' },
+  'knowledge-gap': { modes: ['general', 'ecommerce'] as const, name: 'Knowledge Gap' },
+  'knowledge-effectiveness': { modes: ['general'] as const, name: 'Knowledge Effectiveness' },
 } as const;
 
 export type WidgetId = keyof typeof WIDGET_CONFIG;

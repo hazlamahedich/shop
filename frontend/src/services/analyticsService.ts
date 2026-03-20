@@ -362,6 +362,20 @@ export const analyticsService = {
     );
     return response as unknown as FeedbackAnalyticsResponse;
   },
+
+  async getKnowledgeEffectiveness(days = 7): Promise<KnowledgeEffectivenessResponse> {
+    const response = await apiClient.get<{ data: KnowledgeEffectivenessResponse }>(
+      `/api/v1/analytics/knowledge-effectiveness?days=${days}`
+    );
+    return (response as unknown as { data: KnowledgeEffectivenessResponse }).data;
+  },
+
+  async getKnowledgeGaps(days = 30, limit = 10): Promise<KnowledgeGapsData> {
+    const response = await apiClient.get<KnowledgeGapsData>(
+      `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
+    );
+    return response as unknown as KnowledgeGapsData;
+  },
 };
 
 export interface RecentNegativeFeedback {
@@ -384,4 +398,13 @@ export interface FeedbackAnalyticsResponse {
   negativePercent: number;
   recentNegative: RecentNegativeFeedback[];
   trend: DailyFeedbackTrend[];
+}
+
+export interface KnowledgeEffectivenessResponse {
+  totalQueries: number;
+  successfulMatches: number;
+  noMatchRate: number;
+  avgConfidence: number | null;
+  trend: number[];
+  lastUpdated: string;
 }

@@ -294,3 +294,26 @@ async def get_sentiment_trend(
     service = AggregatedAnalyticsService(db)
     sentiment_data = await service.get_sentiment_trend(merchant_id, days)
     return sentiment_data
+
+
+@router.get("/knowledge-effectiveness")
+async def get_knowledge_effectiveness(
+    request: Request,
+    days: int = Query(7, ge=1, le=30, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get knowledge base effectiveness metrics.
+
+    Story 10-7: KnowledgeEffectivenessWidget
+
+    Returns metrics on how effectively the knowledge base answers questions:
+    - Total queries
+    - Successful matches
+    - No-match rate
+    - Average confidence score
+    - 7-day trend sparkline
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    effectiveness_data = await service.get_knowledge_effectiveness(merchant_id, days)
+    return {"data": effectiveness_data}

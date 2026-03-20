@@ -30,6 +30,7 @@ from app.models.session import Session
 from app.models.shopify_integration import ShopifyIntegration
 from app.models.tutorial import Tutorial
 from app.models.widget_analytics_event import WidgetAnalyticsEvent
+from app.models.rag_query_log import RAGQueryLog
 
 __all__ = [
     "Merchant",
@@ -65,4 +66,5 @@ __all__ = [
     "DocumentChunk",
     "DocumentStatus",
     "WidgetAnalyticsEvent",
+    "RAGQueryLog",
 ]
