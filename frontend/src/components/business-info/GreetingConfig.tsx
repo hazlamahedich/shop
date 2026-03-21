@@ -1,27 +1,6 @@
-/**
- * Greeting Configuration Component
- *
- * Story 1.14: Smart Greeting Templates
- *
- * Provides:
- * - Display of current personality-based default greeting
- * - Custom greeting textarea with placeholder variable hints
- * - "Use custom greeting" checkbox/toggle
- * - Live preview of how greeting will appear to customers
- * - "Reset to Default" button
- * - Help text for placeholder variables
- * - Suggestion panel with personality-appropriate greeting
- * - Tone mismatch warning for Professional personality
- *
- * WCAG 2.1 AA accessible.
- */
-
 import React from 'react';
-import { MessageSquare, Info, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
+import { Info, RotateCcw, AlertTriangle, Loader2, Terminal, Cpu } from 'lucide-react';
 
-/**
- * Greeting configuration state interface
- */
 interface GreetingConfigProps {
   personality: string | null;
   greetingTemplate: string | null;
@@ -46,47 +25,53 @@ interface GreetingConfigProps {
   onSaveAnyway?: () => void;
 }
 
-/**
- * Variable badges for available placeholders
- */
 const VariableBadges: React.FC<{ variables: string[] }> = ({ variables }) => {
   if (variables.length === 0) return null;
 
   return (
-    <span className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-2 mt-3">
       {variables.map((v) => (
         <span
           key={v}
-          className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-xs font-mono rounded-md"
-          dangerouslySetInnerHTML={{ __html: '&quot;' + v + '&quot;' }}
+          className="inline-flex items-center px-2.5 py-1 bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-emerald-400 rounded-lg shadow-sm backdrop-blur-md"
+          dangerouslySetInnerHTML={{ __html: '{' + v + '}' }}
         />
       ))}
-    </span>
-  );
-};
-
-/**
- * GreetingPreview Component
- *
- * Shows live preview of how the greeting will appear
- */
-const GreetingPreview: React.FC<{ message: string }> = ({ message }) => {
-  return (
-    <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <div className="flex items-center gap-2 mb-2">
-        <MessageSquare size={16} className="text-gray-600" />
-        <span className="text-sm font-medium text-gray-700">Preview</span>
-      </div>
-      <p className="text-gray-800 italic">&quot;{message || 'Your greeting will appear here...'}&quot;</p>
     </div>
   );
 };
 
-/**
- * GreetingConfig Component
- *
- * Main component for greeting configuration with live preview.
- */
+const GreetingPreview: React.FC<{ message: string; personality: string | null }> = ({ message, personality }) => {
+  const getGlowColor = (p: string | null) => {
+    switch (p) {
+      case 'professional': return 'shadow-[0_0_20px_rgba(99,102,241,0.2)] text-indigo-500';
+      case 'enthusiastic': return 'shadow-[0_0_20px_rgba(168,85,247,0.2)] text-purple-500';
+      default: return 'shadow-[0_0_20px_rgba(16,185,129,0.2)] text-emerald-500';
+    }
+  };
+
+  const glowClass = getGlowColor(personality);
+
+  return (
+    <div className={`mt-8 p-6 bg-black/40 border border-white/5 rounded-[24px] backdrop-blur-2xl relative overflow-hidden group ${glowClass}`}>
+      <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
+        <Cpu size={32} />
+      </div>
+      
+      <div className="flex items-center gap-2 mb-4">
+        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${personality === 'professional' ? 'bg-indigo-500' : personality === 'enthusiastic' ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Neural Output Preview</span>
+      </div>
+      
+      <div className="relative">
+        <p className="text-sm text-white/90 leading-relaxed font-medium italic pl-4 border-l-2 border-white/10">
+          &quot;{message || 'Awaiting input for intelligence synthesis...'}&quot;
+        </p>
+      </div>
+    </div>
+  );
+};
+
 export const GreetingConfig: React.FC<GreetingConfigProps> = ({
   personality,
   greetingTemplate,
@@ -107,37 +92,9 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
   onDismissWarning,
   onSaveAnyway,
 }) => {
-  // Local state for custom greeting input
   const [customText, setCustomText] = React.useState(greetingTemplate || '');
   const [useCustom, setUseCustom] = React.useState(useCustomGreeting);
 
-  // Get personality display name
-  const getPersonalityName = (p: string | null): string => {
-    switch (p) {
-      case 'professional':
-        return 'Professional';
-      case 'enthusiastic':
-        return 'Enthusiastic';
-      case 'friendly':
-      default:
-        return 'Friendly';
-    }
-  };
-
-  // Get personality color for display
-  const getPersonalityColor = (p: string | null): string => {
-    switch (p) {
-      case 'professional':
-        return 'text-indigo-700 bg-indigo-50';
-      case 'enthusiastic':
-        return 'text-amber-700 bg-amber-50';
-      case 'friendly':
-      default:
-        return 'text-green-700 bg-green-50';
-    }
-  };
-
-  // Build preview message with variable substitution (client-side)
   const buildPreviewMessage = (): string => {
     let message: string;
 
@@ -146,37 +103,31 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
     } else if (defaultTemplate) {
       message = defaultTemplate;
     } else {
-      message = "Hi! I'm your shopping assistant from the store.";
+      message = "Protocol active. Awaiting merchant identity for greeting initialization.";
     }
 
-    // Simple variable substitution for preview
-    // Note: Real substitution happens on backend with actual merchant data
     return message
-      .replace(/{bot_name}/g, botName || 'Your Bot')
-      .replace(/{business_name}/g, businessName || 'Your Business')
-      .replace(/{business_hours}/g, businessHours || '9 AM - 6 PM');
+      .replace(/{bot_name}/g, botName || '[BOT_ID]')
+      .replace(/{business_name}/g, businessName || '[CORE_ENTITY]')
+      .replace(/{business_hours}/g, businessHours || '[TEMPORAL_WINDOW]');
   };
 
   const previewMessage = buildPreviewMessage();
 
-  // Handle custom text change
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setCustomText(value);
 
-    // Auto-enable custom greeting when user starts typing
     if (value.trim().length > 0 && !useCustom) {
       setUseCustom(true);
     }
 
-    // Update parent
     onUpdate({
       greeting_template: value || undefined,
       use_custom_greeting: useCustom || value.trim().length > 0 ? true : false,
     });
   };
 
-  // Handle toggle change
   const handleToggleChange = (checked: boolean) => {
     setUseCustom(checked);
     onUpdate({
@@ -185,169 +136,143 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
     });
   };
 
-  // Handle reset to default
   const handleReset = () => {
     setCustomText('');
     setUseCustom(false);
     onReset();
   };
 
-  const personalityColor = getPersonalityColor(personality);
-  const personalityName = getPersonalityName(personality);
-
   return (
-    <div className="space-y-6">
-      {/* Personality Info */}
-      {personality && (
-        <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200">
+    <div className="space-y-8 font-space-grotesk">
+      {/* Configuration Hub */}
+      <div className="relative p-8 bg-white/[0.02] border border-white/5 rounded-[32px] backdrop-blur-3xl overflow-hidden group">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-30" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 relative z-10">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              Default Greeting Template
+            <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+              <Terminal size={20} className="text-emerald-400" />
+              Greeting Logic
             </h3>
-            <p className="text-sm text-gray-600">
-              Based on your <span className={`font-medium px-2 py-0.5 rounded ${personalityColor}`}>
-                {personalityName}
-              </span>{' '}personality
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mt-1">
+              Command Sequence Override
             </p>
           </div>
-        </div>
-      )}
 
-      {/* Default Template Display (read-only) */}
-      {defaultTemplate && (
-        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-gray-700">Default Template:</span>
-            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-md ${personalityColor}`}>
-              {personalityName}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 font-mono bg-white p-3 rounded border border-gray-300">
-            {defaultTemplate}
-          </p>
-        </div>
-      )}
-
-      {/* Custom Greeting Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Customize Your Greeting
-          </h3>
-          <div className="flex items-center gap-3">
-            {/* Use Custom Greeting Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useCustom}
-                onChange={(e) => handleToggleChange(e.target.checked)}
-                disabled={disabled}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                aria-describedby="use-custom-greeting-desc"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Use custom greeting
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-3 cursor-pointer group/toggle">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={useCustom}
+                  onChange={(e) => handleToggleChange(e.target.checked)}
+                  disabled={disabled}
+                  className="sr-only"
+                />
+                <div className={`w-10 h-6 rounded-full transition-all duration-300 ${useCustom ? 'bg-emerald-600' : 'bg-white/10'}`} />
+                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useCustom ? 'translate-x-4' : ''}`} />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/60 group-hover/toggle:text-white transition-colors">
+                Manual Protocol
               </span>
             </label>
 
-            {/* Reset Button */}
             <button
               type="button"
               onClick={handleReset}
               disabled={disabled}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              aria-label="Reset to default greeting template"
+              className="flex items-center gap-2 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/50 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 hover:text-white transition-all disabled:opacity-20"
             >
-              <RotateCcw size={16} />
-              Reset to Default
+              <RotateCcw size={12} />
+              Reset Core
             </button>
           </div>
-          <p id="use-custom-greeting-desc" className="text-sm text-gray-600">
-            Enable to use your custom greeting instead of the personality default.
-          </p>
         </div>
 
-        {/* Custom Greeting Textarea */}
-        <div className="mt-4">
-          <label htmlFor="custom-greeting" className="block text-sm font-medium text-gray-700 mb-2">
-            Custom Greeting Message
-          </label>
-          <textarea
-            id="custom-greeting"
-            value={customText}
-            onChange={handleTextChange}
-            disabled={disabled}
-            rows={4}
-            maxLength={500}
-            placeholder={`Enter your custom greeting. Use variables like {bot_name}, {business_name}, or {business_hours}.`}
-            className="w-full px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-            aria-describedby="greeting-help greeting-counter"
-          />
-          <div className="flex items-center justify-between mt-2">
-            <p id="greeting-help" className="text-xs text-gray-600">
-              <Info size={12} className="inline mr-1" />
-              Available variables:{' '}
-              <VariableBadges variables={availableVariables} />
-            </p>
-            <span id="greeting-counter" className="text-xs text-gray-600">
+        {/* Neural Input Interface */}
+        <div className="relative z-10">
+          <div className="relative group/input">
+            <textarea
+              id="custom-greeting"
+              value={customText}
+              onChange={handleTextChange}
+              disabled={disabled}
+              rows={5}
+              maxLength={500}
+              placeholder={`Synthesize your custom greeting protocol...`}
+              className="w-full px-6 py-5 bg-black/40 border-2 border-white/5 rounded-2xl text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-0 transition-all duration-500 font-medium resize-none"
+            />
+            <div className="absolute top-4 right-4 text-[10px] font-black text-white/20 font-mono tracking-tighter">
               {customText.length}/500
-            </span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">Available Tokens</p>
+              <VariableBadges variables={availableVariables} />
+            </div>
+            
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/20">
+              <Info size={12} className="text-emerald-500/50" />
+              Tokens auto-hydrate on execution
+            </div>
           </div>
         </div>
 
-        {/* Suggestion Panel - NOW BELOW CUSTOM GREETING */}
+        {/* AI Suggestion Pulse */}
         {showSuggestion && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-            <div className="flex items-start justify-between gap-4">
+          <div className="mt-8 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl animate-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-start justify-between gap-6">
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-800 mb-1">
-                  💡 Suggested greeting for {personalityName} personality:
-                </p>
+                <div className="flex items-center gap-2 mb-3">
+                  <Cpu size={14} className="text-emerald-400 animate-pulse" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/80">
+                    AI Intent Alignment Suggestion
+                  </p>
+                </div>
                 {suggestionLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <div className="flex items-center gap-3 text-xs text-emerald-400/60 font-medium">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Transforming your greeting...</span>
+                    Neural mapping in progress...
                   </div>
                 ) : suggestedGreeting ? (
-                  <p className="text-sm text-blue-700 italic">
+                  <p className="text-sm text-white/90 italic font-medium">
                     &quot;{suggestedGreeting}&quot;
                   </p>
-                ) : (
-                  <p className="text-sm text-blue-600 italic">
-                    Enter a custom greeting above to see a personality-matched suggestion.
-                  </p>
-                )}
+                ) : null}
               </div>
               {onApplySuggestion && suggestedGreeting && !suggestionLoading && (
                 <button
                   type="button"
                   onClick={onApplySuggestion}
                   disabled={disabled}
-                  className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-md hover:bg-blue-50 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-emerald-500/20 border border-emerald-500/30 rounded-xl hover:bg-emerald-500/30 transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                 >
-                  Apply
+                  Sync Logic
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {/* Tone Mismatch Warning */}
+        {/* Hazard Warning UI */}
         {toneMismatchWarning && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="mt-6 p-6 bg-amber-500/5 border border-amber-500/10 rounded-2xl animate-in shake duration-500">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm text-amber-800">{toneMismatchWarning}</p>
-                <div className="flex gap-2 mt-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-amber-500 mb-2">Tone Parity Alert</p>
+                <p className="text-sm text-white/80 font-medium">{toneMismatchWarning}</p>
+                <div className="flex gap-4 mt-4">
                   {onSaveAnyway && (
                     <button
                       type="button"
                       onClick={onSaveAnyway}
                       disabled={disabled}
-                      className="px-3 py-1.5 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-md hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-6 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-white bg-amber-500/20 border border-amber-500/30 rounded-xl hover:bg-amber-500/30 transition-all"
                     >
-                      Save Anyway
+                      Bypass & Save
                     </button>
                   )}
                   {onDismissWarning && (
@@ -355,9 +280,9 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
                       type="button"
                       onClick={onDismissWarning}
                       disabled={disabled}
-                      className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors"
                     >
-                      Dismiss
+                      Recalibrate
                     </button>
                   )}
                 </div>
@@ -367,33 +292,8 @@ export const GreetingConfig: React.FC<GreetingConfigProps> = ({
         )}
       </div>
 
-      {/* Live Preview */}
-      <GreetingPreview message={previewMessage} />
-
-      {/* Help Section */}
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
-          <Info size={16} />
-          About Greeting Variables
-        </h4>
-        <div className="space-y-2 text-sm text-blue-800">
-          <p>
-            <strong dangerouslySetInnerHTML={{ __html: '&quot;{bot_name}&quot;' }} />
-            <span> — The name you&apos;ve given your bot (from Bot Configuration).</span>
-          </p>
-          <p>
-            <strong dangerouslySetInnerHTML={{ __html: '&quot;{business_name}&quot;' }} />
-            <span> — Your business name (from Business Info).</span>
-          </p>
-          <p>
-            <strong dangerouslySetInnerHTML={{ __html: '&quot;{business_hours}&quot;' }} />
-            <span> — Your business hours (from Business Info).</span>
-          </p>
-          <p className="text-blue-700 text-xs mt-2">
-            These variables are automatically replaced with your actual information when the bot sends its greeting.
-          </p>
-        </div>
-      </div>
+      {/* Output Simulation */}
+      <GreetingPreview message={previewMessage} personality={personality} />
     </div>
   );
 };

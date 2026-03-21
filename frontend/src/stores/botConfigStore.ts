@@ -41,6 +41,10 @@ export interface BotConfigState {
   personality: string | null;
   customGreeting: string | null;
 
+  // Tactical HUD Metrics
+  latency: number;
+  cognitiveLoad: number;
+
   // Story 1.14: Greeting config data
   greetingTemplate: string | null;
   useCustomGreeting: boolean;
@@ -107,6 +111,8 @@ export const useBotConfigStore = create<BotConfigState>()(
       botName: null,
       personality: null,
       customGreeting: null,
+      latency: 240,
+      cognitiveLoad: 12.4,
       // Story 1.14: Greeting config initial state
       greetingTemplate: null,
       useCustomGreeting: false,
@@ -360,6 +366,8 @@ export const useBotConfigStore = create<BotConfigState>()(
           botName: null,
           personality: null,
           customGreeting: null,
+          latency: 240,
+          cognitiveLoad: 12.4,
           // Story 1.14: Reset greeting config
           greetingTemplate: null,
           useCustomGreeting: false,

@@ -1,17 +1,5 @@
-/**
- * Personality Configuration Page
- *
- * Story 1.10: Bot Personality Configuration
- *
- * Allows merchants to:
- * - Select their bot's personality from predefined options
- * - Customize the bot's greeting message
- * - Save and persist their configuration
- */
-
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { Badge } from '../components/ui/Badge';
+import { Save, AlertCircle, Loader2, Binary, Activity, ShieldCheck, Zap } from 'lucide-react';
 import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty } from '../stores/personalityStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { useBotConfigStore } from '../stores/botConfigStore';
@@ -20,7 +8,7 @@ import { PersonalityCard } from '../components/personality/PersonalityCard';
 import { GreetingConfig } from '../components/business-info/GreetingConfig';
 import type { PersonalityType } from '../types/enums';
 import { PersonalityDisplay, PersonalityDefaultGreetings } from '../types/enums';
-import { hasToneMismatch, getToneMismatchMessage, isToneMatch } from '../utils/toneDetection';
+import { isToneMatch, getToneMismatchMessage, hasToneMismatch } from '../utils/toneDetection';
 import { merchantConfigApi } from '../services/merchantConfig';
 
 const PersonalityConfig: React.FC = () => {
@@ -59,7 +47,7 @@ const PersonalityConfig: React.FC = () => {
       try {
         await fetchPersonalityConfig();
       } catch (err) {
-        setLocalError('Failed to load personality configuration');
+        setLocalError('Neural link failure: Failed to retrieve personality configuration.');
         console.error('Failed to initialize personality config:', err);
       }
     };
@@ -207,7 +195,7 @@ const PersonalityConfig: React.FC = () => {
 
   const performSave = async () => {
     if (!selectedPersonality) {
-      setLocalError('Please select a personality');
+      setLocalError('ARCHETYPE_NOT_SELECTED: Please select a neural profile.');
       return;
     }
 
@@ -230,14 +218,14 @@ const PersonalityConfig: React.FC = () => {
       }, 3000);
     } catch (err) {
       setSaveStatus('error');
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save configuration';
+      const errorMessage = err instanceof Error ? err.message : 'UPLINK_FAILURE: Protocol sync interrupted.';
       setLocalError(errorMessage);
     }
   };
 
   const handleSave = async () => {
     if (!selectedPersonality) {
-      setLocalError('Please select a personality');
+      setLocalError('ARCHETYPE_NOT_SELECTED: Please select a neural profile.');
       return;
     }
 
@@ -255,56 +243,72 @@ const PersonalityConfig: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      {/* Page Header */}
-      <div className="flex flex-col gap-2 border-b border-white/5 pb-8">
-        <h1 className="text-4xl font-black text-white tracking-tight mantis-glow-text leading-tight">Bot Personality</h1>
-        <p className="text-white/60 font-medium leading-relaxed max-w-2xl">
-          Define your brand voice with precision. Choose a personality archetype and fine-tune your bot&apos;s initial greeting for a premium customer experience.
-        </p>
+    <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 pb-20 font-space-grotesk">
+      {/* HUD Header */}
+      <div className="relative group">
+        <div className="flex flex-col gap-4 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-1 bg-emerald-500 rounded-full shadow-[0_0_15px_#10b981]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500/60">System Configuration</span>
+          </div>
+          <h1 className="text-5xl font-black text-white tracking-tighter mantis-glow-text leading-[1.1]">
+            Behavioral Matrix
+          </h1>
+          <p className="text-white/50 font-medium leading-relaxed max-w-2xl text-lg">
+            Calibrate neural archetypes and refine output sequences for optimal brand alignment and high-precision customer interaction.
+          </p>
+        </div>
+        
+        {/* Background Accents */}
+        <div className="absolute -top-20 -left-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
       </div>
 
-      {/* Status Messages */}
-      <div className="space-y-4 relative z-20">
+      {/* Global Status Interface */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
         {(error || localError) && (
-          <div className="p-5 bg-red-500/5 border border-red-500/10 rounded-[24px] flex items-start gap-4 backdrop-blur-xl animate-in shake duration-500" role="alert">
-            <div className="p-2 bg-red-500/20 rounded-xl text-red-400">
-              <AlertCircle className="w-5 h-5" />
+          <div className="md:col-span-3 p-6 bg-red-500/5 border border-red-500/20 rounded-[32px] flex items-start gap-4 backdrop-blur-3xl animate-in shake duration-500" role="alert">
+            <div className="p-3 bg-red-500/20 rounded-2xl text-red-400">
+              <AlertCircle className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-red-400">Configuration Error</h3>
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-red-500">Neural Sync Error</h3>
               <p className="text-sm text-red-400/80 mt-1 font-medium italic">{error || localError}</p>
             </div>
           </div>
         )}
 
         {saveStatus === 'success' && (
-          <div className="p-5 bg-emerald-500/5 border border-emerald-500/10 rounded-[24px] flex items-start gap-4 backdrop-blur-xl animate-in slide-in-from-top-4 duration-500" role="status" aria-live="polite">
-            <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          <div className="md:col-span-3 p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-[32px] flex items-start gap-4 backdrop-blur-3xl animate-in slide-in-from-top-4 duration-500" role="status">
+            <div className="p-3 bg-emerald-500/20 rounded-2xl text-emerald-400">
+              <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-emerald-400">Profile Updated</h3>
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500">Parameters Synchronized</h3>
               <p className="text-sm text-emerald-400/80 mt-1 font-medium italic">
-                Personality metrics calibrated. Your bot is now utilizing the updated brand voice for all active sessions.
+                Archetype calibration complete. Neural output sequences have been propogated to all active customer sessions.
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Personality Selection */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 border-l-2 border-emerald-500 pl-4 py-1">Archetype Selection</h2>
+      {/* Primary Archetype Selection */}
+      <section className="space-y-8">
+        <div className="flex items-center justify-between border-b border-white/5 pb-6">
+          <div className="flex items-center gap-4">
+            <Binary className="text-white/20 w-5 h-5" />
+            <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-white/40">Select Neural Archetype</h2>
+          </div>
           {selectedPersonality && (
-            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-black uppercase tracking-tighter shadow-lg">
-              Active: {PersonalityDisplay[selectedPersonality]}
-            </Badge>
+            <div className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+              <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">
+                Active Protocol: {PersonalityDisplay[selectedPersonality]}
+              </span>
+            </div>
           )}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {(Object.keys(PersonalityDisplay) as PersonalityType[]).map((type) => (
             <PersonalityCard
               key={type}
@@ -316,79 +320,88 @@ const PersonalityConfig: React.FC = () => {
         </div>
       </section>
 
-      {/* Greeting Customization */}
+      {/* Logic Customization Interface */}
       {selectedPersonality && (
-        <section className="space-y-6 pt-10 border-t border-white/5 relative group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full -mr-32 -mt-32 blur-[100px] transition-all duration-700 group-hover:bg-emerald-500/10" />
-          
-          <div className="flex items-center justify-between relative z-10">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 border-l-2 border-emerald-500 pl-4 py-1">Greeting Logic</h2>
+        <section className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+            <Activity className="text-white/20 w-5 h-5" />
+            <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-white/40">Greeting Logic Modulation</h2>
           </div>
 
-          <div className="glass-card p-1 border-none shadow-2xl relative z-10 overflow-hidden rounded-[32px]">
-            <div className="p-8">
-              <GreetingConfig
-                personality={selectedPersonality}
-                greetingTemplate={greetingValue || null}
-                useCustomGreeting={!!greetingValue}
-                defaultTemplate={getDefaultGreeting()}
-                availableVariables={['bot_name', 'business_name', 'business_hours']}
-                botName={botName}
-                businessName={businessName}
-                businessHours={businessHours}
-                onUpdate={(data) => {
-                  if (data.greeting_template !== undefined) {
-                    handleGreetingChange(data.greeting_template);
-                  }
-                }}
-                onReset={handleResetGreeting}
-                disabled={loading}
-                showSuggestion={!suggestionApplied && !!transformedGreeting}
-                suggestedGreeting={getSuggestedGreeting()}
-                suggestionLoading={transformLoading}
-                onApplySuggestion={handleApplySuggestion}
-                toneMismatchWarning={showToneWarning ? getToneMismatchMessage(greetingValue) : null}
-                onDismissWarning={handleDismissWarning}
-                onSaveAnyway={handleSaveAnyway}
-              />
-            </div>
-          </div>
+          <GreetingConfig
+            personality={selectedPersonality}
+            greetingTemplate={greetingValue || null}
+            useCustomGreeting={!!greetingValue}
+            defaultTemplate={getDefaultGreeting()}
+            availableVariables={['bot_name', 'business_name', 'business_hours']}
+            botName={botName}
+            businessName={businessName}
+            businessHours={businessHours}
+            onUpdate={(data) => {
+              if (data.greeting_template !== undefined) {
+                handleGreetingChange(data.greeting_template);
+              }
+            }}
+            onReset={handleResetGreeting}
+            disabled={loading}
+            showSuggestion={!suggestionApplied && !!transformedGreeting}
+            suggestedGreeting={getSuggestedGreeting()}
+            suggestionLoading={transformLoading}
+            onApplySuggestion={handleApplySuggestion}
+            toneMismatchWarning={showToneWarning ? getToneMismatchMessage(greetingValue) : null}
+            onDismissWarning={handleDismissWarning}
+            onSaveAnyway={handleSaveAnyway}
+          />
         </section>
       )}
 
-      {/* Footer Controls */}
-      <div className="flex items-center justify-between pt-10 border-t border-white/5 pb-20">
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${isDirty ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'} shadow-[0_0_10px_currentColor]`} />
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 italic">
-            {isDirty ? 'Awaiting Calibration' : 'Core Logic Synchronized'}
-          </p>
-        </div>
-        
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={loading || !selectedPersonality || saveStatus === 'saving'}
-          className="group relative inline-flex items-center gap-3 px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] text-white transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {/* Button Background */}
-          <div className={`absolute inset-0 bg-emerald-600 transition-all duration-500 group-hover:bg-emerald-500 group-disabled:bg-zinc-800`} />
-          <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.3)] opacity-0 group-hover:opacity-100 transition-opacity" />
+      {/* Global Controls Footer */}
+      <div className="fixed bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black via-black/80 to-transparent z-50 pointer-events-none">
+        <div className="max-w-6xl mx-auto flex items-center justify-between pointer-events-auto">
+          <div className="flex items-center gap-6 glass-card px-8 py-4 rounded-full border-white/10">
+            <div className="flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full ${isDirty ? 'bg-amber-500 animate-pulse shadow-[0_0_10px_#f59e0b]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+                {isDirty ? 'Awaiting Calibration' : 'Core Logic Synchronized'}
+              </span>
+            </div>
+            <div className="w-px h-4 bg-white/10" />
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-white/20" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Version 2.4.0</span>
+            </div>
+          </div>
           
-          <span className="relative z-10 flex items-center gap-3">
-            {saveStatus === 'saving' ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Optimizing...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                Apply Configuration
-              </>
-            )}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={loading || !selectedPersonality || saveStatus === 'saving'}
+            className="group relative inline-flex items-center gap-4 px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_30px_rgba(16,185,129,0.2)]"
+          >
+            {/* Action Background */}
+            <div className={`absolute inset-0 bg-emerald-600 transition-all duration-500 group-hover:bg-emerald-500 group-disabled:bg-zinc-800`} />
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            
+            <span className="relative z-10 flex items-center gap-3 text-white">
+              {saveStatus === 'saving' ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Calibrating...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                  Apply Matrix Configuration
+                </>
+              )}
+            </span>
+            
+            {/* Terminal accent */}
+            <div className="absolute right-0 bottom-0 p-1 opacity-20 group-hover:opacity-40 transition-opacity font-mono text-[8px] text-white">
+              SNC_v2
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );
