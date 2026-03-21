@@ -1,16 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, ShoppingBag, Package } from 'lucide-react';
+import { ShoppingBag, Package, DollarSign } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]',
-  confirmed: 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]',
-  processing: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.1)]',
-  shipped: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]',
-  delivered: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]',
-  cancelled: 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.1)]',
-  refunded: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_10px_rgba(249,115,22,0.1)]',
+  pending: 'text-amber-400 border-amber-400/20 bg-amber-400/5',
+  confirmed: 'text-blue-400 border-blue-400/20 bg-blue-400/5',
+  processing: 'text-indigo-400 border-indigo-400/20 bg-indigo-400/5',
+  shipped: 'text-cyan-400 border-cyan-400/20 bg-cyan-400/5',
+  delivered: 'text-[#00f5d4] border-[#00f5d4]/20 bg-[#00f5d4]/5',
+  cancelled: 'text-rose-400 border-rose-400/20 bg-rose-400/5',
+  refunded: 'text-orange-400 border-orange-400/20 bg-orange-400/5',
 };
 
 function formatCurrency(value: number, currency = 'USD'): string {
@@ -54,38 +54,57 @@ export function RevenueWidget() {
 
   return (
     <StatCard
-      title="Revenue (30 days)"
-      value={isError ? 'N/A' : formatCurrency(totalRevenue)}
-      subValue={
-        isError
-          ? 'Could not load data'
-          : totalOrders > 0
-          ? `${totalOrders} orders · Avg ${formatCurrency(avgOrder)}`
-          : 'No orders yet'
-      }
-      icon={<TrendingUp size={18} />}
+      title="Revenue Stream"
+      value={isError ? 'ERR' : formatCurrency(totalRevenue)}
+      subValue="GROSS_CAPITAL_30D"
+      icon={<DollarSign size={18} />}
       trend={revenueTrend}
       accentColor="purple"
       isLoading={isLoading}
       data-testid="revenue-widget"
     >
-      {topStatuses.length > 0 ? (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {topStatuses.map(([status, count]) => (
-            <span
-              key={status}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-tight border backdrop-blur-sm transition-all duration-300 hover:scale-[1.05] ${STATUS_COLORS[status] ?? 'bg-white/5 text-white/40 border-white/5'}`}
-            >
-              <ShoppingBag size={10} className="opacity-70" />
-              {status} <span className="opacity-50 font-black ml-0.5">{count}</span>
-            </span>
-          ))}
+      <div className="space-y-4 mt-4">
+        <div className="grid grid-cols-2 gap-2">
+            <div className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/hex">
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-tighter mb-1">TOTAL_ORDERS</p>
+                <p className="text-xl font-black text-white group-hover/hex:text-purple-400 transition-colors">{totalOrders}</p>
+            </div>
+            <div className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/hex">
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-tighter mb-1">AVG_TICKET</p>
+                <p className="text-xl font-black text-white group-hover/hex:text-purple-400 transition-colors">{formatCurrency(avgOrder)}</p>
+            </div>
         </div>
-      ) : !isLoading && totalOrders === 0 ? (
-        <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] flex items-center gap-2 mt-2">
-          <Package size={12} className="opacity-30" /> SHOPIFY WEBHOOKS INITIALIZING...
-        </p>
-      ) : null}
+
+        {topStatuses.length > 0 ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">FULFILLMENT_PIPELINE</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {topStatuses.map(([status, count]) => (
+                <div
+                  key={status}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-tighter transition-all hover:bg-white/10 ${STATUS_COLORS[status] ?? 'text-white/40 border-white/10 bg-white/5'}`}
+                >
+                  <ShoppingBag size={10} strokeWidth={3} />
+                  <span>{status}</span>
+                  <span className="opacity-40">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : !isLoading && totalOrders === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 opacity-30 grayscale">
+            <Package size={24} className="text-white/20" />
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] mt-2">LINK_OFFLINE</p>
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+           <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.4em]">MARKET_TELEMETRY_PASS</span>
+           <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] animate-pulse" />
+        </div>
+      </div>
     </StatCard>
   );
 }

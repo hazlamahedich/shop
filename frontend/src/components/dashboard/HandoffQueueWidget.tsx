@@ -1,23 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Bell, AlertTriangle, CheckCheck, Clock, ChevronRight, Crown } from 'lucide-react';
+import { Bell, AlertTriangle, CheckCheck, Clock, ChevronRight, Crown, Activity } from 'lucide-react';
 import { handoffAlertsService, HandoffAlert } from '../../services/handoffAlerts';
 
 const URGENCY_CONFIG = {
   high: {
-    dot: 'bg-red-500',
-    badge: 'bg-red-100 text-red-700 border border-red-200',
-    label: 'High',
+    dot: 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]',
+    badge: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+    label: 'CRITICAL',
   },
   medium: {
-    dot: 'bg-yellow-400',
-    badge: 'bg-yellow-100 text-yellow-700 border border-yellow-200',
-    label: 'Medium',
+    dot: 'bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)]',
+    badge: 'bg-amber-400/10 text-amber-400 border border-amber-400/20',
+    label: 'ELEVATED',
   },
   low: {
-    dot: 'bg-green-400',
-    badge: 'bg-green-100 text-green-700 border border-green-200',
-    label: 'Low',
+    dot: 'bg-[#00f5d4] shadow-[0_0_15px_rgba(0,245,212,0.5)]',
+    badge: 'bg-[#00f5d4]/10 text-[#00f5d4] border border-[#00f5d4]/20',
+    label: 'STABLE',
   },
 };
 
@@ -37,61 +37,47 @@ function AlertRow({
   const urgency = URGENCY_CONFIG[alert.urgencyLevel] ?? URGENCY_CONFIG.low;
   return (
     <div
-      className={`group flex items-start gap-3 rounded-xl p-3 transition-colors duration-150 hover:bg-white/[0.03] ${
-        !alert.isRead ? 'bg-emerald-500/[0.03]' : ''
+      className={`group/row flex items-center gap-4 p-3 rounded-2xl transition-all duration-300 hover:bg-white/5 border border-transparent hover:border-white/10 ${
+        !alert.isRead ? 'bg-[#00f5d4]/[0.03]' : ''
       }`}
     >
-      {/* Urgency dot */}
-      <div className="mt-1.5 flex-shrink-0">
-        <span
-          className={`inline-block h-2.5 w-2.5 rounded-full ${urgency.dot} ring-2 ring-[#0a0a0a] shadow-[0_0_10px_rgba(0,0,0,0.5)]`}
-        />
+      <div className="flex-shrink-0 relative h-2 w-2">
+        <span className={`absolute inset-0 rounded-full ${urgency.dot} z-10`} />
+        {!alert.isRead && (
+          <span className={`absolute inset-0 rounded-full ${urgency.dot} animate-ping opacity-50`} />
+        )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span
-            className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${urgency.badge}`}
-          >
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${urgency.badge}`}>
             {urgency.label}
           </span>
           {alert.isVip && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wider">
-              <Crown size={9} />
-              VIP
-            </span>
-          )}
-          {alert.handoffReason && (
-            <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">
-              · {alert.handoffReason.replace(/_/g, ' ')}
+            <span className="flex items-center gap-1 text-[8px] font-black text-amber-400 uppercase tracking-tighter">
+              <Crown size={8} /> VIP
             </span>
           )}
         </div>
-        <p className="text-sm font-medium text-white/80 truncate">
-          {alert.conversationPreview ?? 'No preview available'}
+        <p className="text-[11px] font-bold text-white/70 truncate group-hover/row:text-white transition-colors">
+          {alert.conversationPreview ?? 'DATA_STREAM_NULL'}
         </p>
-        <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold text-white/40 uppercase tracking-wider">
-          <div className="flex items-center gap-1">
-            <Clock size={10} />
-            <span>Waiting {formatWaitTime(alert.waitTimeSeconds)}</span>
-          </div>
-          {alert.customerLtv !== null && alert.customerLtv > 0 && (
-            <span className="text-emerald-500/60 uppercase tracking-widest font-black">
-              · ${alert.customerLtv.toFixed(0)} LTV
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Take Over button */}
-      <button
-        onClick={() => onTakeOver(alert.conversationId)}
-        className="flex-shrink-0 invisible group-hover:visible flex items-center gap-0.5 rounded-lg bg-emerald-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-black hover:bg-emerald-400 transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-        aria-label={`Take over conversation ${alert.conversationId}`}
-      >
-        Take Over <ChevronRight size={11} />
-      </button>
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col items-end">
+           <span className="text-[10px] font-black text-white/80">
+              {formatWaitTime(alert.waitTimeSeconds)}
+           </span>
+           <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">LATENCY</span>
+        </div>
+        <button
+          onClick={() => onTakeOver(alert.conversationId)}
+          className="h-8 w-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-white/40 hover:bg-[#00f5d4] hover:text-black hover:border-transparent transition-all group/btn shadow-inner"
+        >
+          <ChevronRight size={14} strokeWidth={3} className="group-hover/btn:translate-x-0.5 transition-transform" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -102,7 +88,7 @@ export function HandoffQueueWidget() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['handoffAlerts', 'queue'],
-    queryFn: () => handoffAlertsService.getQueue({ limit: 5, sortBy: 'urgency_desc' }),
+    queryFn: () => handoffAlertsService.getQueue({ limit: 4, sortBy: 'urgency_desc' }),
     refetchInterval: 30_000,
     staleTime: 15_000,
   });
@@ -123,84 +109,60 @@ export function HandoffQueueWidget() {
   }
 
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl bg-[#0a0a0a]/40 border border-white/[0.05] shadow-2xl backdrop-blur-md"
-      data-testid="handoff-queue-widget"
-    >
-      {/* Top accent strip */}
-      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-emerald-500/40 via-emerald-400/20 to-transparent opacity-60" />
+    <div className="relative group/widget h-full bg-white/5 rounded-[2.5rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl p-6 transition-all duration-500 hover:border-[#00f5d4]/30" data-testid="handoff-queue-widget">
+      {/* HUD Accents */}
+      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover/widget:opacity-30 transition-opacity">
+         <div className="w-12 h-12 border-t-2 border-r-2 border-[#00f5d4] rounded-tr-xl" />
+      </div>
 
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-              <Bell size={18} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white uppercase tracking-widest leading-none">Handoff Queue</h3>
-              <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-2">
-                {isLoading ? 'Scanning...' : `${totalWaiting} in queue`}
-                {unreadCount > 0 && (
-                  <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-emerald-500 px-1 text-[8px] font-black text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]">
-                    {unreadCount}
-                  </span>
-                )}
-              </p>
-            </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-[#00f5d4]/10 border border-[#00f5d4]/20 rounded-2xl text-[#00f5d4] shadow-[0_0_20px_rgba(0,245,212,0.1)]">
+            <Bell size={18} strokeWidth={2.5} />
           </div>
-
-          {unreadCount > 0 && (
-            <button
-              onClick={() => markAllMutation.mutate()}
-              disabled={markAllMutation.isPending}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[9px] font-black text-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-500 transition-all disabled:opacity-50 uppercase tracking-widest border border-transparent hover:border-emerald-500/20"
-              aria-label="Mark all handoff alerts as read"
-            >
-              <CheckCheck size={13} />
-              Mark Clear
-            </button>
-          )}
+          <div>
+            <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Signal Queue</h3>
+            <p className="text-[10px] font-bold text-[#00f5d4]/60 uppercase tracking-widest mt-0.5">
+              {isLoading ? 'SCANNING...' : `${totalWaiting} ACTIVE_SIGNALS`}
+            </p>
+          </div>
         </div>
 
-        {/* Content */}
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 rounded-xl bg-white/[0.02] border border-white/[0.03] animate-pulse" />
-            ))}
-          </div>
-        ) : isError ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center bg-red-500/[0.02] border border-red-500/10 rounded-2xl">
-            <AlertTriangle size={24} className="text-red-500/40 mb-3" />
-            <p className="text-[10px] font-extrabold text-red-500/60 uppercase tracking-widest">Neural Link Severed</p>
-          </div>
-        ) : alerts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center bg-emerald-500/[0.01] border border-white/[0.03] rounded-2xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/5 border border-emerald-500/20 mb-4 shadow-[0_0_20px_rgba(16,185,129,0.05)]">
-              <CheckCheck size={24} className="text-emerald-500" />
-            </div>
-            <p className="text-xs font-black text-white uppercase tracking-[0.2em] mb-1">Grid Clear</p>
-            <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest">No spectral handoffs active.</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {alerts.map((alert) => (
-              <AlertRow key={alert.id} alert={alert} onTakeOver={handleTakeOver} />
-            ))}
-          </div>
-        )}
-
-        {/* View all link */}
-        {alerts.length > 0 && (
+        {unreadCount > 0 && (
           <button
-            onClick={() => navigate('/handoff-queue')}
-            className="mt-4 w-full rounded-xl border border-white/[0.05] bg-white/[0.02] py-2.5 text-[9px] font-black text-white/30 hover:bg-emerald-500/5 hover:text-emerald-500 hover:border-emerald-500/20 transition-all uppercase tracking-[0.3em]"
+            onClick={() => markAllMutation.mutate()}
+            className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[9px] font-black text-rose-400 uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
           >
-            Access Full Mesh →
+            PURGE {unreadCount}
           </button>
         )}
       </div>
+
+      <div className="space-y-1">
+        {isLoading ? (
+          [1, 2, 3].map(i => <div key={i} className="h-14 bg-white/5 rounded-2xl animate-pulse" />)
+        ) : isError ? (
+          <div className="py-10 text-center border border-rose-500/20 rounded-3xl bg-rose-500/5">
+            <AlertTriangle size={24} className="mx-auto text-rose-500/40 mb-2" />
+            <span className="text-[10px] font-black text-rose-500/60 uppercase tracking-widest">Neural Link Severed</span>
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="py-10 text-center border border-white/5 rounded-3xl bg-white/[0.02]">
+            <CheckCheck size={24} className="mx-auto text-[#00f5d4]/20 mb-2" />
+            <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Sector Optimal</span>
+          </div>
+        ) : (
+          alerts.map(alert => <AlertRow key={alert.id} alert={alert} onTakeOver={handleTakeOver} />)
+        )}
+      </div>
+
+      <button
+        onClick={() => navigate('/conversations?view=handoff')}
+        className="w-full mt-6 flex items-center justify-between px-5 py-3 rounded-2xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/30 hover:bg-[#00f5d4]/10 transition-all group/more"
+      >
+        <span className="text-[10px] font-black text-white/30 group-hover/more:text-white uppercase tracking-[0.3em]">Full Topology</span>
+        <Activity size={12} className="text-[#00f5d4] animate-pulse" />
+      </button>
     </div>
   );
 }

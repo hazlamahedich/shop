@@ -8,28 +8,15 @@
  */
 
 import { apiClient } from './api';
-import type { ApiEnvelope, ConversationCost, CostSummary, CostSummaryParams } from '../types/cost';
-
-export interface BudgetAlert {
-  id: number;
-  threshold: number;
-  message: string;
-  createdAt: string;
-  isRead: boolean;
-}
-
-export interface BudgetAlertListResponse {
-  alerts: BudgetAlert[];
-  unreadCount: number;
-}
-
-export interface BotStatus {
-  isPaused: boolean;
-  pauseReason: string | null;
-  budgetPercentage: number | null;
-  budgetCap: number | null;
-  monthlySpend: number | null;
-}
+import type { 
+  ApiEnvelope, 
+  ConversationCost, 
+  CostSummary, 
+  CostSummaryParams,
+  BudgetAlert,
+  BudgetAlertListResponse,
+  BotStatus
+} from '../types/cost';
 
 export interface ResumeBotResponse {
   success: boolean;
@@ -128,7 +115,7 @@ export const costTrackingService = {
    * @returns Promise with success status
    */
   async markAlertRead(alertId: number): Promise<ApiEnvelope<{ success: boolean }>> {
-    return apiClient.post<{ success: boolean }>(`/api/merchant/budget-alerts/${alertId}/read`);
+    return apiClient.post<{ success: boolean }>(`/api/merchant/budget-alerts/${alertId}/read`, {});
   },
 
   /**
@@ -146,7 +133,7 @@ export const costTrackingService = {
    * @returns Promise with resume response
    */
   async resumeBot(): Promise<ApiEnvelope<ResumeBotResponse>> {
-    return apiClient.post<ResumeBotResponse>('/api/merchant/bot/resume');
+    return apiClient.post<ResumeBotResponse>('/api/merchant/bot/resume', {});
   },
 
   /**

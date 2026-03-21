@@ -36,35 +36,28 @@ const Sidebar = () => {
     }
   };
 
-  // Navigation items - Sprint Change 2026-02-13: Support store-dependent items
+  // Navigation items
   interface NavItem {
     icon: React.ElementType;
     label: string;
     path: string;
-    requiresStore?: boolean; // If true, only shown when store is connected
-    badgeType?: 'conversations' | 'handoff'; // Which badge to show
+    requiresStore?: boolean;
+    badgeType?: 'conversations' | 'handoff';
   }
 
-  // Build nav items array based on mode
   const baseNavItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: TestTube, label: 'Test Your Bot', path: '/bot-preview' },
     { icon: MessageSquare, label: 'Conversations', path: '/conversations', badgeType: 'conversations' },
     { icon: Users, label: 'Handoff Queue', path: '/handoff-queue', badgeType: 'handoff' },
     { icon: DollarSign, label: 'Costs', path: '/costs' },
-    // Sprint Change 2026-02-13: Store-dependent navigation items
-    // Uncomment when Products and Orders pages are implemented:
-    // { icon: Package, label: 'Products', path: '/products', requiresStore: true },
-    // { icon: ShoppingCart, label: 'Orders', path: '/orders', requiresStore: true },
     { icon: Info, label: 'Business Info & FAQ', path: '/business-info-faq' },
   ];
 
-  // Story 8-8: Add Knowledge Base only in General mode
   if (merchant?.onboardingMode === 'general') {
     baseNavItems.push({ icon: BookOpen, label: 'Knowledge Base', path: '/knowledge-base' });
   }
 
-  // Add remaining items
   baseNavItems.push(
     { icon: Smile, label: 'Bot Personality', path: '/personality' },
     { icon: Bot, label: 'Bot Config', path: '/bot-config' },
@@ -73,13 +66,10 @@ const Sidebar = () => {
   );
 
   const navItems = baseNavItems;
-
-  // Filter nav items based on store connection
   const visibleNavItems = navItems.filter((item) =>
     item.requiresStore ? hasStoreConnected : true
   );
 
-  // Get user initials for avatar
   const getUserInitials = () => {
     if (!merchant?.email) return 'MA';
     const email = merchant.email;
@@ -88,33 +78,33 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className="w-64 glass-card h-screen fixed left-0 top-0 flex flex-col z-50 rounded-none border-y-0 border-l-0">
+    <aside className="w-64 glass-card h-screen fixed left-0 top-0 flex flex-col z-50 rounded-none border-y-0 border-l-0 shadow-[20px_0_40px_rgba(0,0,0,0.3)]">
       <div className="p-8 mb-4">
-        <div className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent mantis-glow-text">
-          Mantis
+        <div className="text-3xl font-black bg-gradient-to-r from-[#00f5d4] to-[#00d1b2] bg-clip-text text-transparent mantis-glow-text tracking-tighter">
+          MANTIS
         </div>
       </div>
 
-      <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
         {visibleNavItems.map((item) => (
           <a
             key={item.path}
             href={item.path}
             data-testid={item.path === '/conversations' ? 'nav-conversations' : undefined}
-            className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 group ${
+            className={`flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-300 group ${
               isActive(item.path)
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)] glow-active'
-                : 'text-white/50 hover:bg-emerald-500/5 hover:text-emerald-300'
+                ? 'bg-[#00f5d4]/10 text-[#00f5d4] border border-[#00f5d4]/20 shadow-[0_0_20px_rgba(0,245,212,0.1)] glow-active'
+                : 'text-white/40 hover:bg-white/5 hover:text-[#00f5d4]/80'
             }`}
           >
             <div className="flex items-center space-x-3">
-              <item.icon size={20} className={isActive(item.path) ? 'text-emerald-400' : 'group-hover:text-emerald-400 transition-colors'} />
-              <span className="font-medium">{item.label}</span>
+              <item.icon size={18} className={isActive(item.path) ? 'text-[#00f5d4]' : 'group-hover:text-[#00f5d4] transition-colors'} />
+              <span className="text-xs font-bold uppercase tracking-widest">{item.label}</span>
             </div>
             {item.badgeType === 'conversations' && activeCount > 0 && (
               <span
                 data-testid="conversations-active-badge"
-                className="bg-emerald-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                className="bg-[#00f5d4] text-black text-[9px] font-black px-1.5 py-0.5 rounded-md min-w-[18px] text-center shadow-[0_0_10px_rgba(0,245,212,0.4)]"
               >
                 {activeCount > 99 ? '99+' : activeCount}
               </span>
@@ -122,7 +112,7 @@ const Sidebar = () => {
             {item.badgeType === 'handoff' && unreadCount > 0 && (
               <span
                 data-testid="handoff-unread-badge"
-                className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md min-w-[18px] text-center shadow-[0_0_10px_rgba(239,68,68,0.3)]"
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
@@ -131,17 +121,17 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="p-6 border-t border-emerald-500/10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center font-bold text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+      <div className="p-6 border-t border-white/5">
+        <div className="flex items-center justify-between group cursor-pointer p-2 rounded-2xl hover:bg-white/5 transition-colors">
+          <div className="flex items-center space-x-3 overflow-hidden">
+            <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#00f5d4] to-[#00d1b2] flex items-center justify-center font-black text-black text-xs shadow-[0_0_15px_rgba(0,245,212,0.3)]">
               {getUserInitials()}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-slate-100 truncate">
+              <p className="text-xs font-black text-white truncate uppercase tracking-tight">
                 {merchant?.bot_name || 'Merchant'}
               </p>
-              <p className="text-[10px] font-black text-emerald-500/40 uppercase tracking-widest truncate">
+              <p className="text-[9px] font-bold text-white/30 truncate tracking-tight">
                 {merchant?.email || 'Not logged in'}
               </p>
             </div>
@@ -149,10 +139,10 @@ const Sidebar = () => {
           {isAuthenticated && (
             <button
               onClick={handleLogout}
-              className="p-2 text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg transition-all duration-200"
+              className="p-2 text-white/20 hover:text-red-400 rounded-lg transition-all duration-200"
               title="Logout"
             >
-              <LogOut size={18} className="text-emerald-500/40" />
+              <LogOut size={16} />
             </button>
           )}
         </div>

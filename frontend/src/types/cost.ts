@@ -100,6 +100,27 @@ export interface CostSummaryParams {
   dateTo?: string; // ISO 8601 date string
 }
 
+export interface BudgetAlert {
+  id: number;
+  threshold: number;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export interface BudgetAlertListResponse {
+  alerts: BudgetAlert[];
+  unreadCount: number;
+}
+
+export interface BotStatus {
+  isPaused: boolean;
+  pauseReason: string | null;
+  budgetPercentage: number | null;
+  budgetCap: number | null;
+  monthlySpend: number | null;
+}
+
 /**
  * Cost tracking store state
  */
@@ -147,7 +168,22 @@ export interface CostTrackingState {
   clearErrors: () => void;
   reset: () => void;
 
+  // Budget alerts (Story 3-8)
+  budgetAlerts: BudgetAlert[];
+  budgetAlertsLoading: boolean;
+  budgetAlertsError: string | null;
+  unreadAlertsCount: number;
+
+  // Bot status (Story 3-8)
+  botStatus: BotStatus | null;
+  botStatusLoading: boolean;
+  botStatusError: string | null;
+
   // Actions - Budget (Story 3-6, 3-8)
+  fetchBudgetAlerts: (unreadOnly?: boolean) => Promise<void>;
+  markAlertRead: (alertId: number) => Promise<void>;
+  fetchBotStatus: () => Promise<void>;
+  resumeBot: () => Promise<{ success: boolean; message: string; newBudget: number | null }>;
   getBudgetRecommendation: () => Promise<{
     recommendedBudget: number;
     rationale: string;

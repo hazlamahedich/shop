@@ -1,20 +1,20 @@
 /**
- * Budget Configuration Component - Industrial Technical Dashboard
+ * Budget Configuration Component - Hyper-Luminous Observer Aesthetic
  *
  * Provides budget cap management interface:
  * - Display current budget cap with edit capability
  * - Show current spend vs budget with percentage
- * - Inline validation for invalid inputs
- * - Immediate save on valid input change
+ * - High-speed tactical inputs
  *
  * Story 3-6: Budget Cap Configuration
  */
 
 import { useState, useEffect } from 'react';
-import { DollarSign, Save, AlertCircle, Infinity } from 'lucide-react';
+import { DollarSign, Save, AlertCircle, Infinity, ShieldCheck } from 'lucide-react';
 import { useCostTrackingStore } from '../../stores/costTrackingStore';
 import { formatCost } from '../../types/cost';
 import { useToast } from '../../context/ToastContext';
+import { GlassCard } from '../ui/GlassCard';
 import {
   Dialog,
   DialogContent,
@@ -129,7 +129,7 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
   const handleRemoveBudgetCap = async () => {
     setIsSaving(true);
     try {
-      await updateMerchantSettings(null as any);
+      await updateMerchantSettings(null as unknown as number);
       toast('Budget cap removed. No limit set.', 'success');
       getMerchantSettings();
     } catch (error) {
@@ -145,22 +145,27 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
   const budgetPercentage = newBudgetValue > 0 ? Math.min((currentSpend / newBudgetValue) * 100, 100) : 0;
 
   return (
-    <div className="bg-[#0A0A0A] border border-emerald-500/15 p-6">
-      <div className="flex justify-between items-start mb-4">
-        <h3 className="text-sm font-bold text-white font-['Space_Grotesk'] uppercase tracking-wide">Budget Overview</h3>
+    <GlassCard accent="mantis" className="p-8 space-y-8 border-white/[0.03] bg-white/[0.01]">
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <h3 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+             <ShieldCheck size={20} className="text-emerald-500" />
+             Protocol Controls
+          </h3>
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Resource allocation management</p>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-3">
+      <div className="space-y-6">
+        <div className="space-y-4">
           <div>
-            <label htmlFor="budget-input" className="block text-[10px] font-semibold text-white/60 font-mono tracking-[2px] uppercase mb-2">
-              Monthly Budget Cap
+            <label htmlFor="budget-input" className="block text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-3">
+              Monthly Resource Cap (USD)
             </label>
-            <div className="relative">
-              <DollarSign
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
-                size={16}
-              />
+            <div className="relative group">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-emerald-500 transition-colors">
+                 <DollarSign size={18} />
+              </div>
               <input
                 id="budget-input"
                 type="number"
@@ -169,35 +174,37 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
                 step="0.01"
                 min="0"
                 disabled={merchantSettingsLoading || isSaving}
-                className={`w-full pl-9 pr-4 py-2.5 text-sm font-mono bg-white/5 border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
-                  validationError ? 'border-red-500/50 bg-red-500/5' : 'border-white/10'
+                className={`w-full pl-12 pr-4 h-14 text-lg font-black bg-white/5 border transition-all focus:outline-none rounded-2xl ${
+                  validationError 
+                    ? 'border-rose-500/50 text-rose-500 placeholder:text-rose-500/20' 
+                    : 'border-white/10 text-white placeholder:text-white/10 focus:border-emerald-500/50'
                 } ${merchantSettingsLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                placeholder="Enter budget amount"
+                placeholder="0.00"
               />
             </div>
             {validationError && (
-              <div className="mt-1.5 flex items-start text-xs text-red-400 font-mono">
-                <AlertCircle size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+              <div className="mt-2 flex items-start text-[10px] text-rose-400 font-black uppercase tracking-widest">
+                <AlertCircle size={14} className="mr-2 flex-shrink-0" />
                 <span>{validationError}</span>
               </div>
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             <button
               onClick={() => setShowConfirmation(true)}
               disabled={!!validationError || isSaving || merchantSettingsLoading}
-              className="flex-1 py-2.5 bg-blue-500 text-white text-[10px] font-bold font-mono uppercase tracking-[2px] hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="flex-1 h-14 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             >
               {isSaving ? (
                 <>
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                  Saving...
+                  <div className="animate-spin h-4 w-4 border-2 border-black border-t-transparent rounded-full mr-2" />
+                  Updating...
                 </>
               ) : (
                 <>
                   <Save size={14} className="mr-2" />
-                  Save Budget
+                  Save Protocol
                 </>
               )}
             </button>
@@ -205,42 +212,44 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
             <button
               onClick={() => setShowNoLimitConfirmation(true)}
               disabled={isSaving || merchantSettingsLoading}
-              className="py-2.5 px-3 bg-white/10 border border-white/10 text-white/60 text-sm font-medium hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-14 h-14 bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               title="Remove budget cap (no limit)"
             >
-              <Infinity size={16} />
+              <Infinity size={20} />
             </button>
           </div>
         </div>
 
         {currentSpend > 0 && (
-          <div className="pt-4 border-t border-white/10">
+          <div className="pt-8 border-t border-white/[0.03] space-y-4">
             {budgetInput === '' ? (
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-white/60 font-mono font-medium">Budget Usage</span>
-                <span className="font-medium text-white/60 font-mono">No Limit Set</span>
+              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-emerald-500/60">
+                <span>Neural Consumption</span>
+                <span>Unlimited Range</span>
               </div>
             ) : (
               <>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-white/60 font-mono font-semibold tracking-[2px] uppercase">Budget Usage</span>
-                  <span className="font-bold text-white font-mono">{budgetPercentage.toFixed(0)}%</span>
+                <div className="flex justify-between items-end">
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Neural Consumption</span>
+                  <span className={`text-xl font-black ${budgetPercentage > 90 ? 'text-rose-500' : 'text-emerald-500'} tracking-tight`}>
+                    {budgetPercentage.toFixed(1)}%
+                  </span>
                 </div>
-                <div className="w-full bg-white/10 h-2 overflow-hidden">
+                <div className="relative w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5">
                   <div
-                    className={`h-2 transition-all duration-500 ${
+                    className={`h-full transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.2)] ${
                       budgetPercentage > 90
-                        ? 'bg-red-500'
+                        ? 'bg-rose-500 shadow-rose-500/30'
                         : budgetPercentage > 70
-                          ? 'bg-orange-500'
+                          ? 'bg-amber-500 shadow-amber-500/30'
                           : 'bg-emerald-500'
                     }`}
                     style={{ width: `${budgetPercentage}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-white/40 font-mono mt-2">
-                  <span>{formatCost(currentSpend, 2)} spent</span>
-                  <span>of {formatCost(newBudgetValue, 2)} budget</span>
+                <div className="flex justify-between text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
+                  <span>{formatCost(currentSpend, 2)} Consumed</span>
+                  <span>Target: {formatCost(newBudgetValue, 2)}</span>
                 </div>
               </>
             )}
@@ -249,85 +258,82 @@ export const BudgetConfiguration = ({ currentSpend = 0 }: BudgetConfigurationPro
       </div>
 
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent>
+        <DialogContent className="bg-[#0a0a0f] border-emerald-500/20 text-white">
           <DialogHeader>
-            <DialogTitle>Confirm Budget Update</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to update your monthly budget cap to{' '}
-              <span className="font-bold text-white font-mono">
+            <DialogTitle className="text-xl font-black uppercase tracking-tight">Confirm Protocol Update</DialogTitle>
+            <DialogDescription className="text-white/60 text-sm font-medium">
+              Are you sure you want to update your monthly resource cap to{' '}
+              <span className="font-black text-emerald-400">
                 {formatCost(parseFloat(budgetInput) || 0, 2)}
               </span>
-              ? This will be used to monitor your spending and send alerts if exceeded.
+              ? This will be used to monitor neural activity and send override alerts.
             </DialogDescription>
           </DialogHeader>
           {isBelowCurrentSpend && (
-            <div className="bg-red-500/10 border border-red-500/30 p-4 mt-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold text-red-300 font-['Space_Grotesk'] uppercase tracking-wide">Warning: Budget below current spend</p>
-                  <p className="text-sm text-red-400/80 font-mono mt-1">
-                    Your current monthly spend is <strong>{formatCost(currentSpend, 2)}</strong>, which 
-                    exceeds your new budget cap. Your bot will be <strong>paused immediately</strong> after 
-                    saving.
-                  </p>
-                </div>
+            <div className="bg-rose-500/5 border border-rose-500/20 p-6 rounded-2xl mt-4 space-y-2">
+              <div className="flex items-center gap-3">
+                <AlertCircle size={20} className="text-rose-500 flex-shrink-0" />
+                <p className="font-black text-rose-500 text-[10px] uppercase tracking-widest">Critical Alert: Range Error</p>
               </div>
+              <p className="text-sm text-rose-500/60 font-medium">
+                Current consumption <strong>{formatCost(currentSpend, 2)}</strong> exceeds new limit. 
+                Bot activity will be <strong>inhibited immediately</strong>.
+              </p>
             </div>
           )}
-          <DialogFooter className="mt-6 flex space-x-2">
+          <DialogFooter className="mt-8 flex gap-3">
+            <button
+               onClick={() => setShowConfirmation(false)}
+               disabled={isSaving}
+               className="flex-1 h-12 text-[10px] font-black uppercase tracking-widest text-white/40 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all font-mono"
+             >
+               Abort
+             </button>
             <button
               onClick={() => {
                 setShowConfirmation(false);
                 handleSave();
               }}
               disabled={isSaving}
-              className="flex-1 py-2 px-4 bg-blue-500 text-white text-sm font-bold font-mono uppercase tracking-wide hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="flex-1 h-12 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]"
             >
-              {isSaving ? 'Updating...' : 'Confirm Update'}
-            </button>
-            <button
-              onClick={() => setShowConfirmation(false)}
-              disabled={isSaving}
-              className="flex-1 py-2 px-4 text-sm font-medium text-white/60 bg-white/10 border border-white/10 hover:bg-white/20 transition-colors font-mono"
-            >
-              Cancel
+              {isSaving ? 'Synching...' : 'Authorize Policy'}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showNoLimitConfirmation} onOpenChange={setShowNoLimitConfirmation}>
-        <DialogContent>
+        <DialogContent className="bg-[#0a0a0f] border-white/10 text-white">
           <DialogHeader>
-            <DialogTitle>Remove Budget Cap</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to remove your budget cap? This means there will be no limit on
-              your monthly spending and you won't receive budget alerts.
+            <DialogTitle className="text-xl font-black uppercase tracking-tight">Disable Resource Cap</DialogTitle>
+            <DialogDescription className="text-white/60 text-sm font-medium">
+              Are you sure you want to remove the resource cap? This will allow unlimited neural load 
+              and disable all budget surveillance alerts.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-6 flex space-x-2">
+          <DialogFooter className="mt-8 flex gap-3">
+            <button
+               onClick={() => setShowNoLimitConfirmation(false)}
+               disabled={isSaving}
+               className="flex-1 h-12 text-[10px] font-black uppercase tracking-widest text-white/40 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all font-mono"
+             >
+               Abort
+             </button>
             <button
               onClick={() => {
                 setShowNoLimitConfirmation(false);
                 handleRemoveBudgetCap();
               }}
               disabled={isSaving}
-              className="flex-1 py-2 px-4 bg-white/20 text-white text-sm font-bold font-mono uppercase tracking-wide hover:bg-white/30 transition-colors disabled:opacity-50"
+              className="flex-1 h-12 bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 rounded-xl border border-white/10 transition-all"
             >
-              {isSaving ? 'Removing...' : 'Remove Cap'}
-            </button>
-            <button
-              onClick={() => setShowNoLimitConfirmation(false)}
-              disabled={isSaving}
-              className="flex-1 py-2 px-4 text-sm font-medium text-white/60 bg-white/10 border border-white/10 hover:bg-white/20 transition-colors font-mono"
-            >
-              Cancel
+              {isSaving ? 'Synching...' : 'Execute Policy'}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </GlassCard>
   );
 };
 

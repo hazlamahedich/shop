@@ -1,168 +1,96 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { Funnel, TrendingDown, TrendingUp, ChevronRight } from 'lucide-react';
+import { Target, ChevronRight, ArrowDown } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
+import { StatCard } from './StatCard';
 
 interface FunnelStage {
   name: string;
   count: number;
-  percentage: number;
-  dropoffFromPrevious: number | null;
+  percent: number;
+  prevPercent?: number;
+  dropoffPercent?: number;
 }
 
-interface ConversionFunnelData {
+interface FunnelData {
+  stages: FunnelStage[];
+  totalSessions: number;
+  overallConversionRate: number;
   period: {
     days: number;
     startDate: string;
     endDate: string;
   };
-  stages: FunnelStage[];
-  overallConversionRate: number;
-  momChange: number | null;
 }
 
-const STAGE_COLORS = [
-  'bg-blue-500',
-  'bg-indigo-500',
-  'bg-purple-500',
-  'bg-pink-500',
-  'bg-red-500',
-];
-
 export function ConversionFunnelWidget() {
-  const navigate = useNavigate();
-
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'conversion-funnel'],
-    queryFn: () => analyticsService.getConversionFunnel(),
-    staleTime: 60_000,
+    queryFn: () => analyticsService.getConversionFunnel(30),
     refetchInterval: 120_000,
+    staleTime: 60_000,
   });
 
-  const funnelData = data as ConversionFunnelData | undefined;
+  const funnelData = data as FunnelData | undefined;
   const stages = funnelData?.stages || [];
+  const conversionRate = Math.round((funnelData?.overallConversionRate || 0) * 100);
 
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl glass-card border-none shadow-lg"
+    <StatCard
+      title="Commerce Junction"
+      value={isLoading ? '...' : `${conversionRate}%`}
+      subValue="CORE_CONVERSION_EFFICIENCY"
+      icon={<Target size={18} />}
+      accentColor={conversionRate > 3 ? 'mantis' : conversionRate > 1 ? 'yellow' : 'red'}
       data-testid="conversion-funnel-widget"
+      isLoading={isLoading}
     >
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 to-purple-400 opacity-60" />
-
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-white/60 uppercase tracking-wide">
-              Conversion Funnel
-            </p>
-            <p className="text-xs text-white/40 mt-0.5">
-              Bot to sale journey
-            </p>
-          </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 ring-4 ring-blue-500/20">
-            <Funnel size={18} />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-10 bg-white/10 rounded animate-pulse" />
-            ))}
-          </div>
-        ) : isError ? (
-          <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-white/60">Unable to load funnel data</p>
-          </div>
-        ) : stages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8">
-            <Funnel size={32} className="text-white/40 mb-2" />
-            <p className="text-sm text-white/60">No funnel data yet</p>
-            <p className="text-xs text-white/40 mt-1">
-              Data will appear after conversations start
-            </p>
+      <div className="space-y-4 mt-4">
+        {isError ? (
+          <div className="py-10 text-center border border-rose-500/20 rounded-3xl bg-rose-500/5">
+            <span className="text-[10px] font-black text-rose-500/60 uppercase tracking-widest">Funnel Sync Offline</span>
           </div>
         ) : (
-          <>
-            <div className="space-y-2">
-              {stages.map((stage, index) => (
-                <div key={stage.name}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-white">
-                      {stage.name}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-white/60">
-                        {stage.count.toLocaleString()}
-                      </span>
-                      <span className="text-xs font-medium text-white">
-                        {stage.percentage}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="relative h-6 bg-white/10 rounded overflow-hidden">
-                    <div
-                      className={`h-full ${STAGE_COLORS[index]} transition-all duration-500`}
-                      style={{ width: `${stage.percentage}%` }}
-                    />
-                    {index > 0 && stage.dropoffFromPrevious !== null && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        {stage.dropoffFromPrevious > 20 ? (
-                          <TrendingDown size={12} className="text-red-400" />
-                        ) : (
-                          <TrendingUp size={12} className="text-green-400" />
-                        )}
-                        <span
-                          className={`text-xs ${
-                            stage.dropoffFromPrevious > 20
-                              ? 'text-red-400'
-                              : 'text-green-400'
-                          }`}
-                        >
-                          -{stage.dropoffFromPrevious}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
+          <div className="space-y-3">
+            {stages.map((stage, idx) => (
+              <div key={stage.name} className="relative">
+                <div className="flex items-center justify-between mb-1.5 px-1">
+                   <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-white/80 uppercase tracking-tighter">{stage.name}</span>
+                      <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">#{idx + 1}</span>
+                   </div>
+                   <span className="text-[10px] font-black text-white group-hover:text-[#00f5d4] transition-colors">{stage.count.toLocaleString()}</span>
                 </div>
-              ))}
-            </div>
+                
+                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#00f5d4]/20 to-[#00f5d4] rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(0,245,212,0.2)]"
+                    style={{ width: `${stage.percent}%` }}
+                  />
+                </div>
 
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-white/60">Overall Conversion</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold text-white">
-                      {funnelData?.overallConversionRate || 0}%
-                    </p>
-                    {funnelData?.momChange !== null && funnelData?.momChange !== undefined && (
-                      <span
-                        className={`text-xs font-medium ${
-                          funnelData.momChange >= 0
-                            ? 'text-green-400'
-                            : 'text-red-400'
-                        }`}
-                      >
-                        {funnelData.momChange >= 0 ? '▲' : '▼'}{' '}
-                        {Math.abs(funnelData.momChange)}% MoM
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => navigate('/analytics')}
-                  className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  View Details
-                  <ChevronRight size={12} />
-                </button>
+                {stage.dropoffPercent !== undefined && stage.dropoffPercent > 0 && (
+                   <div className="flex items-center justify-center gap-1 mt-1 opacity-40 hover:opacity-100 transition-opacity">
+                      <ArrowDown size={8} className="text-rose-400" />
+                      <span className="text-[8px] font-black text-rose-400 uppercase tracking-widest">LEAKAGE: {Math.round(stage.dropoffPercent)}%</span>
+                   </div>
+                )}
               </div>
-            </div>
-          </>
+            ))}
+          </div>
         )}
+
+        <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#00f5d4] animate-pulse" />
+                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">MESH_FLOW_OPTIMIZED</span>
+            </div>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10 hover:border-[#00f5d4]/40 hover:bg-[#00f5d4]/10 transition-all group/opt">
+                <span className="text-[9px] font-black text-[#00f5d4]/60 group-hover/opt:text-[#00f5d4] uppercase tracking-widest">OPTIMIZE</span>
+                <ChevronRight size={10} className="text-[#00f5d4]/40 group-hover/opt:text-[#00f5d4]" />
+            </button>
+        </div>
       </div>
-    </div>
+    </StatCard>
   );
 }
 

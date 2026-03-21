@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle, ArrowRight, Users, TrendingDown, Cpu } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
@@ -20,30 +21,34 @@ interface AlertItem {
 
 function AlertRow({ alert }: { alert: AlertItem }) {
   const severityStyles = {
-    critical: 'bg-rose-500/10 border-rose-500/20 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.1)]',
-    warning: 'bg-amber-500/10 border-amber-500/20 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.1)]',
-    info: 'bg-blue-500/10 border-blue-500/20 text-blue-200 shadow-[0_0_15px_rgba(59,130,246,0.1)]',
+    critical: 'bg-rose-500/10 border-rose-500/20 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.1)]',
+    warning: 'bg-yellow-400/10 border-yellow-400/20 text-yellow-200 shadow-[0_0_20px_rgba(250,204,21,0.1)]',
+    info: 'bg-[#00f5d4]/10 border-[#00f5d4]/20 text-[#00f5d4] shadow-[0_0_20px_rgba(0,245,212,0.1)]',
   };
 
   const iconColors = {
     critical: 'text-rose-400',
-    warning: 'text-amber-400',
-    info: 'text-blue-400',
+    warning: 'text-yellow-400',
+    info: 'text-[#00f5d4]',
   };
 
   return (
-    <div className={`flex items-center justify-between gap-3 p-3 rounded-xl border backdrop-blur-md transition-all duration-300 hover:scale-[1.01] ${severityStyles[alert.severity]}`}>
-      <div className="flex items-center gap-2.5">
-        <span className={`${iconColors[alert.severity]} drop-shadow-sm`}>{alert.icon}</span>
-        <span className="text-xs font-bold tracking-wide uppercase">{alert.message}</span>
+    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl border backdrop-blur-xl transition-all duration-400 group/alert hover:translate-x-1 ${severityStyles[alert.severity]}`}>
+      <div className="flex items-center gap-3">
+        <span className={`${iconColors[alert.severity]} drop-shadow-[0_0_5px_currentColor] group-hover/alert:scale-110 transition-transform`}>
+          {React.cloneElement(alert.icon as React.ReactElement, { size: 14, strokeWidth: 3 })}
+        </span>
+        <span className="text-[10px] font-black tracking-[0.1em] uppercase group-hover/alert:text-white transition-colors">
+          {alert.message}
+        </span>
       </div>
       {alert.action && (
         <Link
           to={alert.action.href}
-          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter hover:text-white transition-colors bg-white/10 px-2 py-1 rounded-md border border-white/10"
+          className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-all bg-white/5 hover:bg-white/10 px-2.5 py-1.5 rounded border border-white/5 hover:border-white/20 shadow-inner"
         >
           {alert.action.label}
-          <ArrowRight size={10} />
+          <ArrowRight size={10} strokeWidth={3} />
         </Link>
       )}
     </div>
@@ -79,8 +84,8 @@ export function AlertsWidget() {
     alerts.push({
       id: 'unread-handoffs',
       severity: unreadHandoffs > 5 ? 'critical' : 'warning',
-      message: `${unreadHandoffs} unread handoff${unreadHandoffs > 1 ? 's' : ''} waiting`,
-      action: { label: 'View Queue', href: '/conversations?view=handoff' },
+      message: `${unreadHandoffs} INTERCEPT_WAITS_ACTIVE`,
+      action: { label: 'ACCESS_HUB', href: '/conversations?view=handoff' },
       icon: <Users size={14} />,
     });
   }
@@ -89,16 +94,16 @@ export function AlertsWidget() {
     alerts.push({
       id: 'bot-critical',
       severity: 'critical',
-      message: 'Bot health critical - high fallback rate',
-      action: { label: 'View Details', href: '/analytics' },
+      message: 'NEURAL_LINK_DEGRADED_CRITICAL',
+      action: { label: 'DIAGNOSTIC', href: '/analytics' },
       icon: <Cpu size={14} />,
     });
   } else if (botQuality?.healthStatus === 'warning') {
     alerts.push({
       id: 'bot-warning',
       severity: 'warning',
-      message: 'Bot needs attention',
-      action: { label: 'View Details', href: '/analytics' },
+      message: 'BOT_ANOMALY_DETECTED',
+      action: { label: 'DIAGNOSTIC', href: '/analytics' },
       icon: <AlertTriangle size={14} />,
     });
   }
@@ -109,8 +114,8 @@ export function AlertsWidget() {
     alerts.push({
       id: 'conversion-drop',
       severity: 'warning',
-      message: `High drop-off at first funnel stage (${firstStageDropoff.toFixed(0)}%)`,
-      action: { label: 'View Funnel', href: '/analytics' },
+      message: `LEAKAGE_DETECTED: ${firstStageDropoff.toFixed(0)}%_DROPOFF`,
+      action: { label: 'ANALYSIS', href: '/analytics' },
       icon: <TrendingDown size={14} />,
     });
   }
@@ -121,23 +126,26 @@ export function AlertsWidget() {
 
   return (
     <StatCard
-      title="Alerts"
+      title="Critical Signal Hub"
       value={hasAlerts ? `${criticalCount + warningCount}` : '0'}
-      subValue={hasAlerts ? `${criticalCount} critical, ${warningCount} warning` : 'All clear'}
-      icon={hasAlerts ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
-      accentColor={criticalCount > 0 ? 'red' : warningCount > 0 ? 'orange' : 'green'}
+      subValue={hasAlerts ? `${criticalCount}_CRIT / ${warningCount}_WARN` : 'TELEMETRY_NOMINAL'}
+      icon={hasAlerts ? <AlertTriangle size={18} strokeWidth={2.5} /> : <CheckCircle size={18} strokeWidth={2.5} />}
+      accentColor={criticalCount > 0 ? 'red' : warningCount > 0 ? 'orange' : 'mantis'}
       data-testid="alerts-widget"
     >
       {hasAlerts ? (
-        <div className="space-y-2 mt-2">
+        <div className="space-y-2 mt-4">
           {alerts.map((alert) => (
             <AlertRow key={alert.id} alert={alert} />
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center gap-2 py-6 text-emerald-400/60 transition-opacity duration-500">
-          <CheckCircle size={16} className="animate-pulse" />
-          <span className="text-xs font-bold uppercase tracking-widest">SYSTEMS OPTIMAL</span>
+        <div className="flex flex-col items-center justify-center gap-3 py-10 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700">
+          <div className="relative">
+             <CheckCircle size={32} className="text-[#00f5d4] animate-pulse" />
+             <div className="absolute inset-0 bg-[#00f5d4]/20 blur-xl animate-pulse" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#00f5d4] drop-shadow-[0_0_10px_rgba(0,245,212,0.5)]">GRID_NOMINAL</span>
         </div>
       )}
     </StatCard>

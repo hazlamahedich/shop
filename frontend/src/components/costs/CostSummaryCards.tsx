@@ -1,44 +1,44 @@
 /**
- * CostSummaryCards Component - Industrial Technical Dashboard
+ * CostSummaryCards Component - Hyper-Luminous Observer Aesthetic
  *
- * Displays dashboard summary cards for LLM cost tracking:
- * - Total cost with trend indicator (vs previous period)
+ * Displays tactical summary metrics for LLM cost tracking:
+ * - Total cost (Neural Investment)
+ * - Budget Reservoir (Remaining)
  * - Total tokens processed
- * - Total request count
  * - Average cost per request
  *
  * Story 3-5: Real-Time Cost Tracking
  */
 
 import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Activity, Zap, Cpu, Target } from 'lucide-react';
 import { useCostTrackingStore } from '../../stores/costTrackingStore';
 import { formatCost, formatTokens } from '../../types/cost';
+import { GlassCard } from '../ui/GlassCard';
 import type { CostSummary } from '../../types/cost';
 
 interface TrendIndicatorProps {
   value: number;
-  label: string;
 }
 
-const TrendIndicator: React.FC<TrendIndicatorProps> = ({ value, label }) => {
+const TrendIndicator: React.FC<TrendIndicatorProps> = ({ value }) => {
   if (value === 0) {
     return (
-      <span className="flex items-center text-xs text-white/40 font-mono">
-        <Minus size={14} className="mr-1" />
-        No change from {label}
+      <span className="flex items-center text-[10px] text-white/20 font-black uppercase tracking-widest">
+        <Minus size={12} className="mr-1" />
+        Stable
       </span>
     );
   }
 
   const isPositive = value > 0;
-  const colorClass = isPositive ? 'text-red-400' : 'text-emerald-400';
+  const colorClass = isPositive ? 'text-rose-500' : 'text-emerald-400';
   const Icon = isPositive ? TrendingUp : TrendingDown;
 
   return (
-    <span className={`flex items-center text-xs font-mono ${colorClass}`}>
-      <Icon size={14} className="mr-1" />
-      {Math.abs(value).toFixed(1)}% vs {label}
+    <span className={`flex items-center text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
+      <Icon size={12} className="mr-1" />
+      {Math.abs(value).toFixed(1)}% Flux
     </span>
   );
 };
@@ -46,25 +46,34 @@ const TrendIndicator: React.FC<TrendIndicatorProps> = ({ value, label }) => {
 const StatCard: React.FC<{
   label: string;
   value: string;
-  iconBg: string;
-  iconBorder: string;
-  iconColor: string;
-  iconSymbol: string;
-  valueColor: string;
+  subLabel?: string;
+  icon: React.ReactNode;
+  accentColor: string;
   trend?: React.ReactNode;
-}> = ({ label, value, iconBg, iconBorder, iconColor, iconSymbol, valueColor, trend }) => (
-  <div className="bg-[#0A0A0A] border border-emerald-500/15 p-5">
-    <div className="flex items-start justify-between">
-      <div className="flex-1">
-        <p className="text-[11px] font-semibold text-white/60 font-mono tracking-[2px] uppercase mb-1">{label}</p>
-        <p className={`text-[28px] font-bold font-mono tracking-tight ${valueColor}`}>{value}</p>
-        {trend && <div className="mt-2">{trend}</div>}
+}> = ({ label, value, subLabel, icon, accentColor, trend }) => (
+  <GlassCard accent="mantis" className="p-6 relative overflow-hidden group border-white/[0.03] bg-white/[0.01]">
+    {/* Subtle Background Glow */}
+    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-3xl opacity-5 transition-opacity group-hover:opacity-10 bg-${accentColor}`} />
+    
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 text-${accentColor}`}>
+          {icon}
+        </div>
+        {trend}
       </div>
-      <div className={`w-10 h-10 flex items-center justify-center ${iconBg} border ${iconBorder}`}>
-        <span className={`text-lg font-bold font-mono ${iconColor}`}>{iconSymbol}</span>
+      
+      <div className="space-y-1">
+        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] leading-none">{label}</p>
+        <div className="flex items-baseline gap-2">
+           <p className="text-3xl font-black text-white tracking-tighter leading-none">{value}</p>
+        </div>
+        {subLabel && (
+          <p className="text-[9px] font-black text-white/20 uppercase tracking-widest pt-1">{subLabel}</p>
+        )}
       </div>
     </div>
-  </div>
+  </GlassCard>
 );
 
 export const CostSummaryCards: React.FC<{
@@ -73,28 +82,12 @@ export const CostSummaryCards: React.FC<{
   const {
     costSummary,
     costSummaryLoading,
-    lastUpdate,
+    merchantSettings,
   } = useCostTrackingStore();
 
-  const topProvider = useMemo(() => {
-    if (!costSummary?.costsByProvider) return null;
-
-    const providers = Object.entries(costSummary.costsByProvider);
-    if (providers.length === 0) return null;
-
-    const sorted = providers.sort(([, a], [, b]) => {
-      if (a.requests !== b.requests) {
-        return b.requests - a.requests;
-      }
-      return b.costUsd - a.costUsd;
-    });
-
-    return {
-      name: sorted[0][0],
-      requests: sorted[0][1].requests,
-      costUsd: sorted[0][1].costUsd,
-    };
-  }, [costSummary]);
+  const budgetCap = merchantSettings?.budgetCap || 50;
+  const remainingBudget = Math.max(0, budgetCap - (costSummary?.totalCostUsd || 0));
+  const budgetPercentage = budgetCap > 0 ? (remainingBudget / budgetCap) * 100 : 0;
 
   const costTrend = useMemo(() => {
     if (!costSummary || !previousPeriodSummary) return null;
@@ -103,7 +96,6 @@ export const CostSummaryCards: React.FC<{
     if (previous === 0) return null;
     return {
       value: ((current - previous) / previous) * 100,
-      label: 'previous period',
     };
   }, [costSummary, previousPeriodSummary]);
 
@@ -114,123 +106,58 @@ export const CostSummaryCards: React.FC<{
     if (previous === 0) return null;
     return {
       value: ((current - previous) / previous) * 100,
-      label: 'previous period',
-    };
-  }, [costSummary, previousPeriodSummary]);
-
-  const requestsTrend = useMemo(() => {
-    if (!costSummary || !previousPeriodSummary) return null;
-    const current = costSummary.requestCount;
-    const previous = previousPeriodSummary.requestCount;
-    if (previous === 0) return null;
-    return {
-      value: ((current - previous) / previous) * 100,
-      label: 'previous period',
     };
   }, [costSummary, previousPeriodSummary]);
 
   if (costSummaryLoading && !costSummary) {
     return (
-      <div className="px-10 pt-8 pb-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-[#0A0A0A] border border-emerald-500/15 p-5 animate-pulse">
-              <div className="h-4 bg-white/10 w-24 mb-2"></div>
-              <div className="h-8 bg-white/10 w-32 mb-2"></div>
-              <div className="h-3 bg-white/10 w-28"></div>
-            </div>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-40 bg-white/[0.02] border border-white/[0.05] rounded-3xl animate-pulse" />
+        ))}
       </div>
     );
   }
 
-  if (!costSummary) {
-    return (
-      <div className="px-10 pt-8 pb-4">
-        <div className="bg-[#0A0A0A] border border-emerald-500/15 p-8">
-          <div className="text-center">
-            <span className="text-4xl font-mono text-white/40">$</span>
-            <p className="text-sm text-white/60 font-mono mt-3">No cost data available</p>
-            <p className="text-xs text-white/40 font-mono mt-1">Data will appear once LLM requests are made</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!costSummary) return null;
 
   return (
-    <div className="px-10 pt-8 pb-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-white font-['Space_Grotesk'] uppercase tracking-wide">Cost Overview</h3>
-        {lastUpdate && (
-          <span className="text-xs text-white/60 font-mono">
-            Last updated: {new Date(lastUpdate).toLocaleTimeString()}
-          </span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          label="Total Cost"
-          value={formatCost(costSummary.totalCostUsd, 4)}
-          iconBg="bg-blue-500/15"
-          iconBorder="border-blue-500/30"
-          iconColor="text-blue-400"
-          iconSymbol="$"
-          valueColor="text-blue-400"
-          trend={costTrend ? <TrendIndicator value={costTrend.value} label={costTrend.label} /> : undefined}
+          label="Neural Investment"
+          value={formatCost(costSummary.totalCostUsd, 2)}
+          subLabel={`${costSummary.requestCount.toLocaleString()} TOTAL TRANSMISSIONS`}
+          icon={<Activity size={20} />}
+          accentColor="emerald-400"
+          trend={costTrend ? <TrendIndicator value={costTrend.value} /> : undefined}
         />
+        
         <StatCard
-          label="Total Tokens"
+          label="Budget Reservoir"
+          value={budgetCap === null ? 'UNLIMITED' : formatCost(remainingBudget, 2)}
+          subLabel={`${budgetPercentage.toFixed(1)}% CAPACITY REMAINING`}
+          icon={<Target size={20} />}
+          accentColor="blue-400"
+        />
+
+        <StatCard
+          label="Token Throughput"
           value={formatTokens(costSummary.totalTokens)}
-          iconBg="bg-purple-500/15"
-          iconBorder="border-purple-500/30"
-          iconColor="text-purple-400"
-          iconSymbol="#"
-          valueColor="text-purple-400"
-          trend={tokensTrend ? <TrendIndicator value={tokensTrend.value} label={tokensTrend.label} /> : undefined}
+          subLabel="CUMULATIVE SPECTRAL DEPTH"
+          icon={<Cpu size={20} />}
+          accentColor="purple-400"
+          trend={tokensTrend ? <TrendIndicator value={tokensTrend.value} /> : undefined}
         />
+
         <StatCard
-          label="Total Requests"
-          value={costSummary.requestCount.toLocaleString()}
-          iconBg="bg-emerald-500/15"
-          iconBorder="border-emerald-500/30"
-          iconColor="text-emerald-400"
-          iconSymbol="⚡"
-          valueColor="text-emerald-400"
-          trend={requestsTrend ? <TrendIndicator value={requestsTrend.value} label={requestsTrend.label} /> : undefined}
-        />
-        <StatCard
-          label="Avg Cost/Request"
-          value={formatCost(costSummary.avgCostPerRequest)}
-          iconBg="bg-orange-500/15"
-          iconBorder="border-orange-500/30"
-          iconColor="text-orange-400"
-          iconSymbol="◎"
-          valueColor="text-orange-400"
+          label="Intelligence ROI"
+          value={formatCost(costSummary.avgCostPerRequest, 4)}
+          subLabel="EFFICIENCY INDEX PER NODE"
+          icon={<Zap size={20} />}
+          accentColor="amber-400"
         />
       </div>
-
-      {topProvider && (
-        <div className="bg-[#0A0A0A] border border-emerald-500/15 p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10">
-                <span className="text-lg font-mono text-white/60">◈</span>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold text-white/60 font-mono tracking-[2px] uppercase">Top Provider</p>
-                <p className="text-base font-bold text-white font-['Space_Grotesk'] capitalize">{topProvider.name}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-white/60 font-mono">{topProvider.requests} requests</p>
-              <p className="text-sm font-bold text-emerald-400 font-mono">{formatCost(topProvider.costUsd, 4)}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

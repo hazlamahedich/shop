@@ -478,6 +478,16 @@ export interface ResponseTimeDistributionData {
   lastUpdated: string;
   period: string;
   count: number;
+  responseTypeBreakdown?: {
+    rag: {
+      count: number;
+      percentiles: ResponseTimePercentiles;
+    };
+    general: {
+      count: number;
+      percentiles: ResponseTimePercentiles;
+    };
+  };
 }
 
 export interface ResponseTimeDistributionResponse {

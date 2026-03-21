@@ -82,52 +82,58 @@
   }
 
   [data-theme='mantis'] {
-    /* Theme: Premium Mantis Cinematic (Green Glow) */
-    --mantis-bg: #030303;
-    --mantis-glow: #22c55e;
-    --mantis-glow-muted: rgba(34, 197, 94, 0.4);
-    --mantis-glass-bg: rgba(255, 255, 255, 0.06);
-    --mantis-glass-border: rgba(255, 255, 255, 0.12);
+    /* Theme: Premium Mantis Cinematic (Cybernetic Glow) */
+    --mantis-bg: #0d0d12;
+    --mantis-glow: #00f5d4; /* Vibrant Teal */
+    --mantis-glow-muted: rgba(0, 245, 212, 0.2);
+    --mantis-glass-bg: rgba(255, 255, 255, 0.03);
+    --mantis-glass-border: rgba(255, 255, 255, 0.08);
     
     --card-bg: var(--mantis-glass-bg);
     --card-border: var(--mantis-glass-border);
-    --card-shadow: 0 0 40px rgba(0, 0, 0, 0.7), 0 0 1px rgba(255, 255, 255, 0.15);
-    --card-radius: 16px;
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --card-radius: 24px;
     --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.75);
-    --stat-bg: rgba(255, 255, 255, 0.05);
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --stat-bg: rgba(255, 255, 255, 0.02);
 
-    /* Mantis Emerald Text Tokens (Accessibility Fix) */
-    --mantis-text-dim: #10b981; /* Emerald 500 equivalent for base */
-    --mantis-text-muted: rgba(16, 185, 129, 0.6); /* emerald-500 @ 60% opacity */
+    /* Typography */
+    --font-heading: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    /* Mantis Text Tokens */
+    --mantis-text-dim: #00f5d4;
+    --mantis-text-muted: rgba(0, 245, 212, 0.4);
 
     /* Animation Tokens */
-    --scanline-color: rgba(34, 197, 94, 0.05);
+    --scanline-color: rgba(0, 245, 212, 0.03);
   }
 
   .glass-card {
     background: var(--card-bg);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid var(--card-border);
     box-shadow: var(--card-shadow);
     border-radius: var(--card-radius);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .glass-card:hover {
-    border-color: rgba(34, 197, 94, 0.3);
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6), 0 0 15px rgba(34, 197, 94, 0.1);
+    border-color: rgba(0, 245, 212, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 245, 212, 0.05);
+    transform: translateY(-2px);
   }
 
   .mantis-glow-text {
     color: var(--mantis-glow);
-    text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+    text-shadow: 0 0 20px rgba(0, 245, 212, 0.4);
+    font-family: var(--font-heading);
   }
 
   .mantis-glow-border {
     border-color: var(--mantis-glow);
-    box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+    box-shadow: 0 0 15px rgba(0, 245, 212, 0.2);
   }
 
   .scanline-overlay {

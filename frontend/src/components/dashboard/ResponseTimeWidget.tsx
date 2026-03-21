@@ -182,16 +182,78 @@ export function ResponseTimeWidget() {
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-white/5">
-              <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.2em]">
-                {count} RESPONSES_TRACKED
-              </span>
-              <span className="text-[9px] font-bold text-white/20">{days}D_WINDOW</span>
-            </div>
+            {/* Response Type Breakdown (AC5) */}
+            {data?.responseTypeBreakdown && (
+              <div className="mt-4 pt-3 border-t border-white/5">
+                <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">
+                  Response Type Breakdown
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* RAG Responses */}
+                  <div className="p-3 rounded-lg bg-white/5">
+                    <div className="text-[9px] font-bold text-[#00f5d4] uppercase tracking-wider">
+                      RAG
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/50">P50</span>
+                        <span className="text-sm font-bold text-white/80">
+                          {formatMs(data.responseTypeBreakdown.rag.percentiles.p50)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/50">P95</span>
+                        <span className="text-sm font-bold text-white/80">
+                          {formatMs(data.responseTypeBreakdown.rag.percentiles.p95)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/50">P99</span>
+                        <span className="text-sm font-bold text-white/80">
+                          {formatMs(data.responseTypeBreakdown.rag.percentiles.p99)}
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-white/40 mt-2">
+                        {data.responseTypeBreakdown.rag.count} responses
+                      </div>
+                    </div>
+                    {/* General Responses */}
+                    <div className="p-3 rounded-lg bg-white/5">
+                      <div className="text-[9px] font-bold text-white/30 uppercase tracking-wider">
+                        General
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-white/50">P50</span>
+                          <span className="text-sm font-bold text-white/80">
+                            {formatMs(data.responseTypeBreakdown.general.percentiles.p50)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-white/50">P95</span>
+                          <span className="text-sm font-bold text-white/80">
+                            {formatMs(data.responseTypeBreakdown.general.percentiles.p95)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-white/50">P99</span>
+                          <span className="text-sm font-bold text-white/80">
+                            {formatMs(data.responseTypeBreakdown.general.percentiles.p99)}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-white/40 mt-2">
+                          {data.responseTypeBreakdown.general.count} responses
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
-      </div>
-    </StatCard>
+      )}
+    )}
   );
 }
 

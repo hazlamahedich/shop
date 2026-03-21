@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingBag, Image as ImageIcon } from 'lucide-react';
+import { ShoppingBag, ChevronRight, Package } from 'lucide-react';
 import { analyticsService, TopProduct } from '../../services/analyticsService';
+import { StatCard } from './StatCard';
 
 function formatRevenue(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
@@ -19,105 +20,66 @@ export function TopProductsWidget() {
   const products: TopProduct[] = data?.items ?? [];
 
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl glass-card border-none shadow-lg col-span-1 lg:col-span-2"
-      data-testid="top-products-widget"
-    >
-      {/* Top accent strip */}
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-pink-400 to-orange-400 opacity-60" />
-
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/10 text-pink-400 ring-4 ring-pink-500/20">
-              <ShoppingBag size={16} />
+    <div className="md:col-span-2">
+      <StatCard
+        title="Inventory Velocity"
+        value={isLoading ? '...' : products.length.toString()}
+        subValue="TOP_PERFORMING_SKUS"
+        icon={<ShoppingBag size={18} />}
+        accentColor="mantis"
+        data-testid="top-products-widget"
+        isLoading={isLoading}
+      >
+        <div className="mt-4 space-y-2">
+          {isError ? (
+            <div className="py-10 text-center border border-rose-500/20 rounded-3xl bg-rose-500/5">
+              <span className="text-[10px] font-black text-rose-500/60 uppercase tracking-widest">Velocity Data N/A</span>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white leading-none">
-                Top Products
-              </h3>
-              <p className="text-xs text-white/60 mt-0.5">
-                By quantity sold (Last 30 Days)
-              </p>
+          ) : products.length === 0 && !isLoading ? (
+            <div className="py-10 text-center border border-white/5 rounded-3xl bg-white/[0.02]">
+              <Package size={24} className="mx-auto text-white/10 mb-2" />
+              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">No Sales Traffic</span>
             </div>
-          </div>
-        </div>
-
-        {/* Body */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded bg-white/10 animate-pulse flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-3/4 rounded bg-white/10 animate-pulse" />
-                  <div className="h-3 w-1/4 rounded bg-white/10 animate-pulse" />
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                   <div className="h-4 w-16 rounded bg-white/10 animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : isError ? (
-          <p className="text-sm text-white/60 text-center py-4">
-            Could not load top products.
-          </p>
-        ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 mb-2">
-              <ShoppingBag size={18} className="text-white/40" />
-            </div>
-            <p className="text-sm text-white/60">No top products yet.</p>
-            <p className="text-xs text-white/40 mt-0.5">
-              Top selling products will appear once orders are placed.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-white/60 bg-white/5 border-b border-white/10">
-                <tr>
-                  <th className="font-medium px-4 py-2 rounded-tl-lg">Product</th>
-                  <th className="font-medium px-4 py-2 text-right">Qty</th>
-                  <th className="font-medium px-4 py-2 text-right rounded-tr-lg">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {products.map((product) => (
-                  <tr key={product.productId} className="hover:bg-white/5 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {product.imageUrl ? (
-                          <div className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden border border-white/10 bg-white/5">
-                            <img src={product.imageUrl} alt={product.title} className="h-full w-full object-cover" />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
-                            <ImageIcon size={16} />
-                          </div>
-                        )}
-                        <span className="font-medium text-white line-clamp-2 max-w-[200px] sm:max-w-xs" title={product.title}>
-                          {product.title}
-                        </span>
+          ) : (
+            <div className="space-y-1">
+              {products.map((product) => (
+                <div key={product.productId} className="flex items-center justify-between p-2 rounded-xl group/item hover:bg-white/5 transition-all border border-transparent hover:border-white/5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden border border-white/10 bg-white/5 relative">
+                      {product.imageUrl ? (
+                        <img src={product.imageUrl} alt={product.title} className="h-full w-full object-cover group-hover/item:scale-110 transition-transform duration-500" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-white/10"><Package size={14} /></div>
+                      )}
+                      <div className="absolute inset-0 bg-[#00f5d4]/10 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-black text-white/80 group-hover/item:text-white truncate uppercase tracking-tight">
+                        {product.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                         <span className="text-[9px] font-black text-[#00f5d4] uppercase tracking-tighter bg-[#00f5d4]/5 px-1.5 py-0.5 rounded border border-[#00f5d4]/10">
+                            {product.quantitySold} QTY
+                         </span>
+                         <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">REVENUE: {formatRevenue(product.totalRevenue)}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-medium text-white/80 bg-white/10 px-2 py-0.5 rounded-md">
-                        {product.quantitySold}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-white font-medium whitespace-nowrap">
-                      {formatRevenue(product.totalRevenue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                      {/* Sales Density Indicator */}
+                      <div className="mt-1.5 h-1 w-full bg-white/5 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-[#00f5d4] shadow-[0_0_5px_rgba(0,245,212,0.5)]" style={{ width: `${Math.min(100, (product.quantitySold / 50) * 100)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={14} className="text-white/10 group-hover/item:text-white/60 group-hover/item:translate-x-1 transition-all" />
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <button className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-[9px] font-black text-white/20 hover:text-white hover:bg-white/5 rounded-xl transition-all uppercase tracking-[0.3em]">
+             Full Inventory Scan <ChevronRight size={10} />
+          </button>
+        </div>
+      </StatCard>
     </div>
   );
 }
