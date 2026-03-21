@@ -383,6 +383,13 @@ export const analyticsService = {
     );
     return (response as unknown as { data: TopTopicsResponse }).data;
   },
+
+  async getResponseTimeDistribution(days = 7): Promise<ResponseTimeDistributionResponse> {
+    const response = await apiClient.get<{ data: ResponseTimeDistributionData }>(
+      `/api/v1/analytics/response-time-distribution?days=${days}`
+    );
+    return (response as unknown as { data: ResponseTimeDistributionData }).data;
+  },
 };
 
 export interface RecentNegativeFeedback {
@@ -430,4 +437,49 @@ export interface TopTopic {
     startDate: string;
     endDate: string;
   };
+}
+
+export interface ResponseTimePercentiles {
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+}
+
+export interface ResponseTimeHistogramBucket {
+  label: string;
+  count: number;
+  color: string;
+}
+
+export interface ResponseTimeComparison {
+  deltaMs: number;
+  deltaPercent: number;
+  trend: 'improving' | 'degrading' | 'stable';
+}
+
+export interface ResponseTimeWarning {
+  show: boolean;
+  message: string;
+  severity: 'warning' | 'critical';
+}
+
+export interface ResponseTimeDistributionData {
+  percentiles: ResponseTimePercentiles;
+  histogram: ResponseTimeHistogramBucket[];
+  previousPeriod: {
+    percentiles: ResponseTimePercentiles;
+    comparison: {
+      p50: ResponseTimeComparison | null;
+      p95: ResponseTimeComparison | null;
+      p99: ResponseTimeComparison | null;
+    } | null;
+  };
+  warning: ResponseTimeWarning | null;
+  lastUpdated: string;
+  period: string;
+  count: number;
+}
+
+export interface ResponseTimeDistributionResponse {
+  data: ResponseTimeDistributionData;
 }

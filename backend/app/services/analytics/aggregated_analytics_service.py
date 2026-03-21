@@ -1668,3 +1668,179 @@ class AggregatedAnalyticsService:
                 error=str(e),
             )
             raise
+
+    async def get_response_time_distribution(
+        self,
+        merchant_id: int,
+        days: int = 7,
+    ) -> dict[str, Any]:
+        """Get response time distribution metrics.
+
+        Story 10-9: ResponseTimeWidget.
+
+        Returns:
+        - Percentile metrics (P50, P95, P99)
+        - Histogram distribution
+        - Previous period comparison
+        - Warning for slow responses
+
+        Args:
+            merchant_id: Merchant ID
+            days: Number of days to analyze (default 7, max 30)
+
+        Returns:
+            Dict with response time distribution data
+        """
+        try:
+            days = min(max(1, days), 30)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+            result = await self.db.execute(
+                select(LLMConversationCost.processing_time_ms)
+                .where(LLMConversationCost.merchant_id == merchant_id)
+                .where(LLMConversationCost.created_at >= cutoff_date)
+                .where(LLMConversationCost.processing_time_ms.isnot(None))
+                .order_by(LLMConversationCost.created_at)
+            )
+            times = [float(row.processing_time_ms) for row in result.all()]
+
+            if not times:
+                return {
+                    "percentiles": {"p50": None, "p95": None, "p99": None},
+                    "histogram": [],
+                    "previousPeriod": {
+                        "percentiles": {"p50": None, "p95": None, "p99": None},
+                        "comparison": None,
+                    },
+                    "warning": None,
+                    "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                    "period": f"{days}d",
+                    "count": 0,
+                }
+
+            times_sorted = sorted(times)
+            count = len(times_sorted)
+
+            def percentile(data: list[float], p: float) -> int | None:
+                if not data:
+                    return None
+                k = (len(data) - 1) * p / 100
+                f = int(k)
+                c = f + 1 if f + 1 < len(data) else f
+                if f == c:
+                    return int(data[f])
+                return int(data[f] * (c - k) + data[c] * (k - f))
+
+            p50 = percentile(times_sorted, 50)
+            p95 = percentile(times_sorted, 95)
+            p99 = percentile(times_sorted, 99)
+
+            BUCKETS = [
+                {"label": "0-1s", "min": 0, "max": 1000, "color": "green"},
+                {"label": "1-2s", "min": 1000, "max": 2000, "color": "green"},
+                {"label": "2-3s", "min": 2000, "max": 3000, "color": "green"},
+                {"label": "3-5s", "min": 3000, "max": 5000, "color": "yellow"},
+                {"label": "5s+", "min": 5000, "max": None, "color": "red"},
+            ]
+
+            histogram = [{"label": b["label"], "count": 0, "color": b["color"]} for b in BUCKETS]
+
+            for time_ms in times:
+                for i, bucket in enumerate(BUCKETS):
+                    if bucket["max"] is None:
+                        if time_ms >= bucket["min"]:
+                            histogram[i]["count"] += 1
+                            break
+                    else:
+                        if bucket["min"] <= time_ms < bucket["max"]:
+                            histogram[i]["count"] += 1
+                            break
+
+            prev_cutoff = cutoff_date - timedelta(days=days)
+            prev_end = cutoff_date
+
+            prev_result = await self.db.execute(
+                select(LLMConversationCost.processing_time_ms)
+                .where(LLMConversationCost.merchant_id == merchant_id)
+                .where(LLMConversationCost.created_at >= prev_cutoff)
+                .where(LLMConversationCost.created_at < prev_end)
+                .where(LLMConversationCost.processing_time_ms.isnot(None))
+                .order_by(LLMConversationCost.created_at)
+            )
+            prev_times = [float(row.processing_time_ms) for row in prev_result.all()]
+
+            prev_p50 = percentile(sorted(prev_times), 50) if prev_times else None
+            prev_p95 = percentile(sorted(prev_times), 95) if prev_times else None
+            prev_p99 = percentile(sorted(prev_times), 99) if prev_times else None
+
+            comparison = None
+            if p50 is not None and prev_p50 is not None:
+
+                def calc_delta(current: int | None, previous: int | None):
+                    if current is None or previous is None or previous == 0:
+                        return None
+                    delta_ms = current - previous
+                    delta_percent = round((delta_ms / previous) * 100, 1)
+                    if delta_ms < 0:
+                        trend = "improving"
+                    elif delta_ms > 0:
+                        trend = "degrading"
+                    else:
+                        trend = "stable"
+                    return {
+                        "deltaMs": delta_ms,
+                        "deltaPercent": delta_percent,
+                        "trend": trend,
+                    }
+
+                comparison = {
+                    "p50": calc_delta(p50, prev_p50),
+                    "p95": calc_delta(p95, prev_p95),
+                    "p99": calc_delta(p99, prev_p99),
+                }
+
+            warning = None
+            if p95 is not None:
+                if p95 > 5000:
+                    warning = {
+                        "show": True,
+                        "message": "P95 response time exceeds 5 seconds. Consider optimizing knowledge base.",
+                        "severity": "critical",
+                    }
+                elif p95 > 3000:
+                    warning = {
+                        "show": True,
+                        "message": "P95 response time is elevated. Monitor for performance issues.",
+                        "severity": "warning",
+                    }
+
+            logger.info(
+                "response_time_distribution_retrieved",
+                merchant_id=merchant_id,
+                days=days,
+                count=count,
+                p50=p50,
+                p95=p95,
+                p99=p99,
+            )
+
+            return {
+                "percentiles": {"p50": p50, "p95": p95, "p99": p99},
+                "histogram": histogram,
+                "previousPeriod": {
+                    "percentiles": {"p50": prev_p50, "p95": prev_p95, "p99": prev_p99},
+                    "comparison": comparison,
+                },
+                "warning": warning,
+                "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                "period": f"{days}d",
+                "count": count,
+            }
+
+        except Exception as e:
+            logger.error(
+                "response_time_distribution_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            raise

@@ -7,10 +7,9 @@ And dashboard analytics including summary, knowledge gaps, etc.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-import json
-import hashlib
 import structlog
 from typing import Any
 
@@ -355,3 +354,57 @@ async def get_top_topics(
         media_type="application/json",
     )
     return response
+
+
+@router.get("/top-products")
+async def get_top_products(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    limit: int = Query(5, ge=1, le=100, description="Maximum number of products to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get top selling products for dashboard widget.
+
+    Story 7: Dashboard Widgets.
+    Returns most sold products with quantity and revenue.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    products = await service.get_top_products(merchant_id, days, limit)
+    return {"items": products, "merchantId": merchant_id, "days": days}
+
+
+@router.get("/pending-orders")
+async def get_pending_orders(
+    request: Request,
+    limit: int = Query(5, ge=1, le=100, description="Maximum number of orders to return"),
+    offset: int = Query(0, ge=0, description="Number of orders to offset"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get pending orders for dashboard widget.
+
+    Returns orders awaiting fulfillment.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    orders = await service.get_pending_orders(merchant_id, limit, offset)
+    return {"items": orders, "merchantId": merchant_id}
+
+
+@router.get("/response-time-distribution")
+async def get_response_time_distribution(
+    request: Request,
+    days: int = Query(7, ge=1, le=30, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get response time distribution metrics for dashboard widget.
+
+    Story 10-9: ResponseTimeWidget
+
+    Returns percentile metrics (P50, P95, P99), histogram distribution,
+    previous period comparison, and warning for slow responses.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_response_time_distribution(merchant_id, days)
+    return {"data": data}

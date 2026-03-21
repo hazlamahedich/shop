@@ -22,6 +22,7 @@ export const WIDGET_CONFIG = {
   'knowledge-gap': { modes: ['general', 'ecommerce'] as const, name: 'Knowledge Gap' },
   'knowledge-effectiveness': { modes: ['general'] as const, name: 'Knowledge Effectiveness' },
   'top-topics': { modes: ['general'] as const, name: 'Top Topics' },
+  'response-time': { modes: ['general'] as const, name: 'Response Time' },
 } as const;
 
 export type WidgetId = keyof typeof WIDGET_CONFIG;

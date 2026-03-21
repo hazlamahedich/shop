@@ -1,10 +1,10 @@
-import { Store, RefreshCw, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, Activity, Cpu, Layers, Store } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { GlassCard } from '../components/ui/GlassCard';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
 import { useHasStoreConnected, useAuthStore } from '../stores/authStore';
 import { RetentionJobStatus } from '../components/retention/RetentionJobStatus';
-import { isWidgetVisible } from '../config/dashboardWidgets';
 
 import { HandoffQueueWidget } from '../components/dashboard/HandoffQueueWidget';
 import { BotQualityWidget } from '../components/dashboard/BotQualityWidget';
@@ -21,6 +21,12 @@ import { QualityMetricsWidget } from '../components/dashboard/QualityMetricsWidg
 import { FeedbackAnalyticsWidget } from '../components/dashboard/FeedbackAnalyticsWidget';
 import { KnowledgeEffectivenessWidget } from '../components/dashboard/KnowledgeEffectivenessWidget';
 import { TopTopicsWidget } from '../components/dashboard/TopTopicsWidget';
+import { RevenueWidget } from '../components/dashboard/RevenueWidget';
+import { AICostWidget } from '../components/dashboard/AICostWidget';
+import { PendingOrdersWidget } from '../components/dashboard/PendingOrdersWidget';
+import { BenchmarkComparisonWidget } from '../components/dashboard/BenchmarkComparisonWidget';
+import { CustomerSentimentWidget } from '../components/dashboard/CustomerSentimentWidget';
+import { ResponseTimeWidget } from '../components/dashboard/ResponseTimeWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -35,199 +41,224 @@ function LastUpdatedBadge() {
     : 'loading…';
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-white/40 font-medium tracking-tight">
-      <RefreshCw size={11} className="animate-spin-slow text-[var(--mantis-glow)]/60" />
-      Updated at {label}
+    <span className="flex items-center gap-1.5 text-[10px] text-white/40 font-bold uppercase tracking-widest">
+      <RefreshCw size={11} className="animate-spin-slow text-[#00f5d4]/60" />
+      Syncing: {label}
     </span>
   );
 }
 
-function CompactZoneHeader({ icon, title, description, colorClass }: { icon: React.ReactNode; title: string; description: string; colorClass?: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className={`w-5 h-5 rounded flex items-center justify-center ${colorClass || 'bg-white/10'}`}>
-        {icon}
-      </div>
-      <h3 className="text-sm font-semibold text-white">{title}</h3>
-      <span className="text-[10px] text-white/40 font-normal">{description}</span>
-    </div>
-  );
-}
+type TabType = 'live' | 'rag' | 'market';
 
 const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState<TabType>('live');
   const hasStoreConnected = useHasStoreConnected();
   const onboardingMode = useAuthStore((state) => state.merchant?.onboardingMode);
   const isEcommerce = onboardingMode !== 'general';
 
+  const tabs: { id: TabType; label: string; icon: React.ElementType }[] = [
+    { id: 'live', label: 'Live Ops', icon: Activity },
+    { id: 'rag', label: 'RAG Intel', icon: Cpu },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen bg-[#0d0d12]/50">
       <TutorialPrompt />
 
       <div data-testid="dashboard-content" className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-white/5 pb-4">
+        {/* Mantis HUD Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 pb-6 border-b border-white/5 relative">
+          <div className="absolute -left-6 top-1/2 -translate-y-1/2 w-1 h-12 bg-[#00f5d4] shadow-[0_0_20px_rgba(0,245,212,0.5)] rounded-r-full" />
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
-            <p className="text-sm text-white/50 mt-0.5">
+            <div className="flex items-center gap-3">
+              <h2 className="text-3xl font-black text-white tracking-tighter uppercase font-heading">
+                {onboardingMode === 'general' ? 'Knowledge Hub' : 'Command Center'}
+              </h2>
+              <div className="px-2 py-0.5 bg-[#00f5d4]/10 border border-[#00f5d4]/20 rounded text-[10px] font-black text-[#00f5d4] tracking-widest uppercase">
+                {onboardingMode === 'general' ? 'RAG HUD' : 'v2.0 HUD'}
+              </div>
+            </div>
+            <p className="text-xs text-white/30 mt-1 font-bold uppercase tracking-widest">
               {onboardingMode === 'general' 
-                ? 'Your knowledge base at a glance.'
-                : 'Your store at a glance — live data from Shopify.'}
+                ? 'System intelligence and knowledge distribution'
+                : 'Real-time commerce telemetry from Shopify'}
             </p>
           </div>
-          <div className="bg-white/5 px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10">
-            <LastUpdatedBadge />
+          
+          <div className="flex items-center gap-4">
+            <div className="bg-white/5 px-4 py-2 rounded-2xl backdrop-blur-xl border border-white/10 shadow-inner">
+              <LastUpdatedBadge />
+            </div>
           </div>
         </div>
 
-        {isEcommerce && !hasStoreConnected && (
-          <GlassCard accent="amber" className="bg-amber-500/5 border-amber-500/20">
+        {/* High-Tech Tab Navigation - Only for Ecommerce */}
+        {isEcommerce && (
+          <div className="flex items-center gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 w-fit backdrop-blur-md">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${
+                  activeTab === tab.id
+                    ? 'bg-[#00f5d4] text-black shadow-[0_0_20px_rgba(0,245,212,0.3)]'
+                    : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+                }`}
+              >
+                <tab.icon size={14} strokeWidth={3} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {isEcommerce && !hasStoreConnected && activeTab === 'market' && (
+          <GlassCard accent="mantis" className="bg-[#00f5d4]/5 border-[#00f5d4]/20 animate-pulse">
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#00f5d4]/20 text-[#00f5d4]">
                 <Store size={20} />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-amber-500">No e-commerce store connected</p>
-                <p className="text-xs text-amber-200/60 mt-0.5">
-                  Revenue stats will appear once you{' '}
-                  <a href="/bot-config" className="text-white hover:text-amber-400 font-bold underline">
-                    connect a Shopify store
+              <div>
+                <p className="text-sm font-black text-[#00f5d4] uppercase tracking-wide">Telemetry Locked</p>
+                <p className="text-[11px] text-[#00f5d4]/50 mt-0.5 font-bold uppercase tracking-tight">
+                  Connect Shopify to initialize commerce data flows.
+                  <a href="/bot-config" className="ml-2 text-white hover:text-[#00f5d4] underline transition-colors">
+                    Access Configuration
                   </a>
-                  .
                 </p>
               </div>
             </div>
           </GlassCard>
         )}
 
-        <section className="glass-card p-5 border-none shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-red-500/5 rounded-full -mr-24 -mt-24 blur-[80px]" />
-          
-          <CompactZoneHeader 
-            icon={<AlertTriangle size={12} className="text-red-400" />}
-            title="Action Required"
-            description="What needs attention now"
-            colorClass="bg-red-500/20"
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
-            {isWidgetVisible('handoff-queue', onboardingMode) && (
-              <div className="md:col-span-2" data-testid="handoff-queue-widget-container">
-                <HandoffQueueWidget />
+        <div className="grid grid-cols-1 gap-6">
+          {!isEcommerce ? (
+            /* CONSOLIDATED KNOWLEDGE HUB VIEW */
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {/* Primary Analytics & Sentiment */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1">
+                  <AICostWidget />
+                </div>
+                <div className="md:col-span-2">
+                  <CustomerSentimentWidget />
+                </div>
               </div>
-            )}
 
-            {isWidgetVisible('bot-quality', onboardingMode) && (
-              <div data-testid="bot-quality-widget-container">
-                <BotQualityWidget />
+              {/* RAG Core Efficiency & Base Knowledge */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2">
+                  <KnowledgeBaseWidget />
+                </div>
+                <div>
+                  <KnowledgeEffectivenessWidget />
+                </div>
               </div>
-            )}
 
-            {isWidgetVisible('alerts', onboardingMode) && (
-              <div data-testid="alerts-widget-container">
-                <AlertsWidget />
-              </div>
-            )}
-
-            {!isEcommerce && isWidgetVisible('knowledge-base', onboardingMode) && (
-              <div className="md:col-span-2" data-testid="knowledge-base-widget-container">
-                <KnowledgeBaseWidget />
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="glass-card p-5 border-none shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full -mr-24 -mt-24 blur-[80px]" />
-
-          <CompactZoneHeader 
-            icon={<Activity size={12} className="text-blue-400" />}
-            title="Business Health"
-            description="Key metrics at a glance"
-            colorClass="bg-blue-500/20"
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-            {isWidgetVisible('ai-cost', onboardingMode) && (
-              <div data-testid="financial-overview-widget-container">
-                <FinancialOverviewWidget />
-              </div>
-            )}
-
-            {isWidgetVisible('conversation-overview', onboardingMode) && (
-              <div data-testid="conversation-overview-widget-container">
-                <ConversationOverviewWidget />
-              </div>
-            )}
-
-            {isEcommerce && isWidgetVisible('conversion-funnel', onboardingMode) && (
-              <div data-testid="conversion-funnel-widget-container">
-                <ConversionFunnelWidget />
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="glass-card p-5 border-none shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-teal-500/5 rounded-full -mr-24 -mt-24 blur-[80px]" />
-
-          <CompactZoneHeader 
-            icon={<TrendingUp size={12} className="text-teal-400" />}
-            title="Insights & Trends"
-            description="Patterns and analytics"
-            colorClass="bg-teal-500/20"
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-            {isWidgetVisible('peak-hours', onboardingMode) && (
-              <div data-testid="peak-hours-heatmap-widget-container">
-                <PeakHoursHeatmapWidget />
-              </div>
-            )}
-
-            {!isEcommerce && isWidgetVisible('feedback-analytics', onboardingMode) && (
-              <div data-testid="feedback-analytics-widget-container">
-                <FeedbackAnalyticsWidget />
-              </div>
-            )}
-
-            {!isEcommerce && isWidgetVisible('knowledge-effectiveness', onboardingMode) && (
-              <div data-testid="knowledge-effectiveness-widget-container">
-                <KnowledgeEffectivenessWidget />
-              </div>
-            )}
-
-            {!isEcommerce && isWidgetVisible('top-topics', onboardingMode) && (
-              <div data-testid="top-topics-widget-container">
-                <TopTopicsWidget />
-              </div>
-            )}
-
-            {isWidgetVisible('customer-sentiment', onboardingMode) && isWidgetVisible('benchmark-comparison', onboardingMode) && (
-              <div data-testid="quality-metrics-widget-container">
-                <QualityMetricsWidget />
-              </div>
-            )}
-
-            {isWidgetVisible('knowledge-gap', onboardingMode) && (
-              <div data-testid="knowledge-gap-widget-container">
+              {/* Gaps & Intelligence (Response metrics) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <KnowledgeGapWidget />
+                <ResponseTimeWidget />
               </div>
-            )}
 
-            {isEcommerce && isWidgetVisible('top-products', onboardingMode) && (
-              <div data-testid="top-products-widget-container">
-                <TopProductsWidget />
+              {/* Operational Status Section (within hub) */}
+              <div className="pt-6 border-t border-white/5">
+                <div className="flex items-center gap-2 mb-6">
+                  <Activity size={14} className="text-[#00f5d4]" />
+                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Operational Pulse</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <HandoffQueueWidget />
+                  <AlertsWidget />
+                  <BotQualityWidget />
+                </div>
               </div>
-            )}
+            </div>
+          ) : (
+            /* STANDARD COMMERCE DASHBOARD (TABBED) */
+            <>
+              {activeTab === 'live' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {/* Operational Telemetry (Top Row) */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="md:col-span-1">
+                      <RevenueWidget />
+                    </div>
+                    <div className="md:col-span-1">
+                      <AICostWidget />
+                    </div>
+                    <div className="md:col-span-2">
+                      <PendingOrdersWidget />
+                    </div>
+                  </div>
 
-            {isEcommerce && isWidgetVisible('geographic', onboardingMode) && (
-              <div data-testid="geographic-widget-container">
-                <GeographicSnapshotWidget />
-              </div>
-            )}
-          </div>
-        </section>
+                  {/* Signals & Distribution (Middle Row) */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="md:col-span-2">
+                      <HandoffQueueWidget />
+                    </div>
+                    <div className="md:col-span-2">
+                      <ConversationOverviewWidget />
+                    </div>
+                  </div>
+
+                  {/* Quality & Sentiment Zone */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <BenchmarkComparisonWidget />
+                    <CustomerSentimentWidget />
+                    <FinancialOverviewWidget />
+                  </div>
+
+                  {/* Behavior & Analytics (E-commerce Section) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <PeakHoursHeatmapWidget />
+                    <TopProductsWidget />
+                    <ConversionFunnelWidget />
+                  </div>
+
+                  {/* Geographic Distribution */}
+                  <div className="grid grid-cols-1 gap-6">
+                    <GeographicSnapshotWidget />
+                  </div>
+
+                  {/* Real-time Alerts & Stability (Bottom Row) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <AlertsWidget />
+                    <BotQualityWidget />
+                    <QualityMetricsWidget />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'rag' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {/* Neural Core Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2">
+                      <KnowledgeBaseWidget />
+                    </div>
+                    <div>
+                      <KnowledgeEffectivenessWidget />
+                    </div>
+                  </div>
+
+                  {/* Semantic Analysis & Gaps */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <KnowledgeGapWidget />
+                    <TopTopicsWidget />
+                    <FeedbackAnalyticsWidget />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         <div className="pt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Layers size={14} className="text-[#00f5d4]" />
+            <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Background Processes</span>
+          </div>
           <RetentionJobStatus />
         </div>
       </div>
