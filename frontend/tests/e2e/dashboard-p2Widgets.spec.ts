@@ -44,3 +44,4 @@ test.describe('Dashboard P2 Widgets E2E', () => {
   const zone3Header = page.locator('section:bg-purple-50\\/30 >> h3');
   await expect(zone3Header).toContain('Zone 3: Insights & Trends');
 });
+});
