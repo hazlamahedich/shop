@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import json
+import hashlib
 import structlog
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from fastapi import status
@@ -335,4 +339,19 @@ async def get_top_topics(
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     topics_data = await service.get_top_topics(merchant_id, days)
-    return {"data": topics_data}
+
+    import hashlib
+
+    data_str = str(topics_data)
+    etag = hashlib.md5(data_str.encode()).hexdigest()
+
+    response = PlainTextResponse(
+        content=json.dumps({"data": topics_data}),
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "ETag": f'"{etag}"',
+            "Vary": "Accept-Encoding",
+        },
+        media_type="application/json",
+    )
+    return response

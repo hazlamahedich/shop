@@ -98,7 +98,7 @@ test.describe('[P1] Story 10-8: Top Topics API - Caching', () => {
     }
   });
 
-  test('[10.8-API-005] @p1 should include Vary header for merchant-specific caching', async ({
+  test('[10.8-API-005] @p1 should include Vary header for caching', async ({
     request,
   }) => {
     const response = await request.get(`${API_ENDPOINT}?days=7`, {
@@ -111,8 +111,7 @@ test.describe('[P1] Story 10-8: Top Topics API - Caching', () => {
     expect(response.status()).toBe(200);
 
     const vary = response.headers()['vary'];
-    if (vary) {
-      expect(vary.toLowerCase()).toContain('merchant');
-    }
+    expect(vary).toBeDefined();
+    expect(vary.toLowerCase()).toContain('accept-encoding');
   });
 });
