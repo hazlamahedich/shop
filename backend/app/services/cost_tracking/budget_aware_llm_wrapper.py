@@ -99,14 +99,12 @@ class BudgetAwareLLMWrapper(BaseLLMService):
         return self.llm_service.provider_name
 
     def set_response_type(self, response_type: str | None) -> None:
-        """Set the response type for AC5 response type breakdown."""
+        """Set the response type for AC5 response type breakdown.
+
         Args:
-            response_type: 'rag', ' 'general', or None
+            response_type: 'rag', 'general', or None
         """
         self._response_type = response_type
-
-    def get_response_type(self) -> str | None:
-        return self._response_type
 
     def get_response_type(self) -> str | None:
         """Get the response type for cost tracking.

@@ -1,0 +1,6 @@
+ERROR: usage: __main__.py [options] [file_or_dir] [file_or_dir] [...]
+__main__.py: error: [Errno 2] No such file or directory: 'p0| @smoke'
+
+ERROR: usage: __main__.py [options] [file_or_dir] [file_or_dir] [...]
+__main__.py: error: [Errno 2] No such file or directory: 'p0| @smoke'
+

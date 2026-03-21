@@ -1695,7 +1695,7 @@ class AggregatedAnalyticsService:
         """
         try:
             days = min(max(1, days), 30)
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
 
             result = await self.db.execute(
                 select(LLMConversationCost.processing_time_ms, LLMConversationCost.response_type)

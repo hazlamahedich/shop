@@ -42,13 +42,13 @@ export function ResponseTimeWidget() {
     refetchInterval: 120_000,
   });
 
-  const responseData = data?.data;
-  const percentiles = responseData?.percentiles;
-  const histogram = responseData?.histogram ?? [];
-  const warning = responseData?.warning;
-  const previousPeriod = responseData?.previousPeriod;
+  const percentiles = data?.percentiles;
+  const histogram = data?.histogram ?? [];
+  const warning = data?.warning;
+  const previousPeriod = data?.previousPeriod;
   const comparison = previousPeriod?.comparison;
-  const count = responseData?.count ?? 0;
+  const count = data?.count ?? 0;
+  const responseTypeBreakdown = data?.responseTypeBreakdown;
 
   const p50 = percentiles?.p50 ?? null;
   const p95 = percentiles?.p95 ?? null;
@@ -75,7 +75,10 @@ export function ResponseTimeWidget() {
     >
       <div className="space-y-4 mt-4">
         {isError ? (
-          <div className="flex items-center justify-center py-8">
+          <div
+            data-testid="response-time-error"
+            className="flex items-center justify-center py-8"
+          >
             <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">
               SIGNAL_DECODE_ERROR
             </p>
@@ -84,6 +87,7 @@ export function ResponseTimeWidget() {
           <>
             {warning && warning.show && (
               <div
+                data-testid="response-time-warning"
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
                   warning.severity === 'critical'
                     ? 'bg-rose-400/10 border-rose-400/20 text-rose-400'
@@ -98,7 +102,10 @@ export function ResponseTimeWidget() {
             )}
 
             <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric">
+              <div
+                data-testid="p50-metric"
+                className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric"
+              >
                 <p className="text-[9px] font-bold text-white/30 uppercase tracking-tighter mb-1">
                   P50
                 </p>
@@ -106,7 +113,10 @@ export function ResponseTimeWidget() {
                   {formatMs(p50)}
                 </p>
               </div>
-              <div className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric">
+              <div
+                data-testid="p95-metric"
+                className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric"
+              >
                 <p className="text-[9px] font-bold text-white/30 uppercase tracking-tighter mb-1">
                   P95
                 </p>
@@ -114,7 +124,10 @@ export function ResponseTimeWidget() {
                   {formatMs(p95)}
                 </p>
               </div>
-              <div className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric">
+              <div
+                data-testid="p99-metric"
+                className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric"
+              >
                 <p className="text-[9px] font-bold text-white/30 uppercase tracking-tighter mb-1">
                   P99
                 </p>
@@ -125,7 +138,7 @@ export function ResponseTimeWidget() {
             </div>
 
             {histogram.length > 0 && (
-              <div className="space-y-2">
+              <div data-testid="histogram-container" className="space-y-2">
                 <p className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">
                   DISTRIBUTION
                 </p>
@@ -140,7 +153,11 @@ export function ResponseTimeWidget() {
                           : 'bg-rose-400';
 
                     return (
-                      <div key={bucket.label} className="flex items-center gap-2">
+                      <div
+                        key={bucket.label}
+                        data-testid={`histogram-bar-${bucket.label}`}
+                        className="flex items-center gap-2"
+                      >
                         <span className="text-[9px] font-bold text-white/40 w-10 text-right">
                           {bucket.label}
                         </span>
@@ -161,7 +178,7 @@ export function ResponseTimeWidget() {
             )}
 
             {comparison && comparison.p95 && (
-              <div className="pt-3 border-t border-white/5">
+              <div data-testid="comparison-trend" className="pt-3 border-t border-white/5">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.2em]">
                     PERIOD_COMPARISON
@@ -183,77 +200,86 @@ export function ResponseTimeWidget() {
             )}
 
             {/* Response Type Breakdown (AC5) */}
-            {data?.responseTypeBreakdown && (
+            {responseTypeBreakdown && (
               <div className="mt-4 pt-3 border-t border-white/5">
                 <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">
                   Response Type Breakdown
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
                   {/* RAG Responses */}
-                  <div className="p-3 rounded-lg bg-white/5">
+                  <div data-testid="rag-responses" className="p-3 rounded-lg bg-white/5">
                     <div className="text-[9px] font-bold text-[#00f5d4] uppercase tracking-wider">
                       RAG
                     </div>
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-white/50">P50</span>
-                        <span className="text-sm font-bold text-white/80">
-                          {formatMs(data.responseTypeBreakdown.rag.percentiles.p50)}
+                        <span data-testid="rag-p50" className="text-sm font-bold text-white/80">
+                          {formatMs(responseTypeBreakdown.rag.percentiles.p50)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-white/50">P95</span>
-                        <span className="text-sm font-bold text-white/80">
-                          {formatMs(data.responseTypeBreakdown.rag.percentiles.p95)}
+                        <span data-testid="rag-p95" className="text-sm font-bold text-white/80">
+                          {formatMs(responseTypeBreakdown.rag.percentiles.p95)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-white/50">P99</span>
-                        <span className="text-sm font-bold text-white/80">
-                          {formatMs(data.responseTypeBreakdown.rag.percentiles.p99)}
+                        <span data-testid="rag-p99" className="text-sm font-bold text-white/80">
+                          {formatMs(responseTypeBreakdown.rag.percentiles.p99)}
                         </span>
                       </div>
                       <div className="text-[9px] text-white/40 mt-2">
-                        {data.responseTypeBreakdown.rag.count} responses
+                        {responseTypeBreakdown.rag.count} responses
                       </div>
                     </div>
                     {/* General Responses */}
-                    <div className="p-3 rounded-lg bg-white/5">
+                    <div data-testid="general-responses" className="p-3 rounded-lg bg-white/5">
                       <div className="text-[9px] font-bold text-white/30 uppercase tracking-wider">
                         General
                       </div>
                       <div className="mt-2 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-white/50">P50</span>
-                          <span className="text-sm font-bold text-white/80">
-                            {formatMs(data.responseTypeBreakdown.general.percentiles.p50)}
+                          <span data-testid="general-p50" className="text-sm font-bold text-white/80">
+                            {formatMs(responseTypeBreakdown.general.percentiles.p50)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-white/50">P95</span>
-                          <span className="text-sm font-bold text-white/80">
-                            {formatMs(data.responseTypeBreakdown.general.percentiles.p95)}
+                          <span data-testid="general-p95" className="text-sm font-bold text-white/80">
+                            {formatMs(responseTypeBreakdown.general.percentiles.p95)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-white/50">P99</span>
-                          <span className="text-sm font-bold text-white/80">
-                            {formatMs(data.responseTypeBreakdown.general.percentiles.p99)}
+                          <span data-testid="general-p99" className="text-sm font-bold text-white/80">
+                            {formatMs(responseTypeBreakdown.general.percentiles.p99)}
                           </span>
                         </div>
                         <div className="text-[9px] text-white/40 mt-2">
-                          {data.responseTypeBreakdown.general.count} responses
+                          {responseTypeBreakdown.general.count} responses
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
+              </div>
+            )}
+
+            {count === 0 && !responseTypeBreakdown && (
+              <div data-testid="response-time-empty" className="text-center py-8">
+                <p className="text-sm text-white/50">No response time data available yet</p>
+                <p className="text-xs text-gray-400 mt-4">
+                  Response times will appear after customers start conversations with your bot.
+                </p>
               </div>
             )}
           </>
         )}
-      )}
-    )}
+      </div>
+    </StatCard>
   );
 }
 

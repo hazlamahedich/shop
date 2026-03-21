@@ -1,6 +1,5 @@
 import React from 'react';
-import { TacticalHUDHeader } from './TacticalHUDHeader';
-import { TacticalHUDSidebar } from './TacticalHUDSidebar';
+// TacticalHUDHeader and TacticalHUDSidebar removed as they are redundant with the global Mantis layout.
 
 interface TacticalHUDProps {
   children: React.ReactNode;
@@ -8,20 +7,16 @@ interface TacticalHUDProps {
 
 export const TacticalHUD: React.FC<TacticalHUDProps> = ({ children }) => {
   return (
-    <div className="fixed inset-0 bg-[#0d0d12] text-white flex flex-col font-sans overflow-hidden">
+    <div className="relative min-h-[calc(100vh-120px)] w-full bg-[#0d0d12]/40 text-white flex flex-col font-sans overflow-hidden rounded-3xl border border-white/5">
       {/* Global Scanline Overlay */}
-      <div className="scanline-overlay pointer-events-none opacity-[0.05]" />
+      <div className="scanline-overlay pointer-events-none opacity-[0.05] absolute inset-0 z-50" />
       
       {/* Animated Background Orbs */}
-      <div className="liquid-orb top-0 -left-20 w-[600px] h-[600px] bg-[var(--mantis-glow)]/10" />
-      <div className="liquid-orb bottom-0 -right-20 w-[600px] h-[600px] bg-purple-500/5" />
+      <div className="liquid-orb top-0 -left-20 w-[600px] h-[600px] bg-[var(--mantis-glow)]/10 blur-[100px] pointer-events-none" />
+      <div className="liquid-orb bottom-0 -right-20 w-[600px] h-[600px] bg-purple-500/5 blur-[100px] pointer-events-none" />
 
-      <TacticalHUDHeader />
-      
-      <div className="flex flex-1 overflow-hidden">
-        <TacticalHUDSidebar />
-        
-        <main className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
+      <div className="flex flex-1 relative z-10 p-2 sm:p-4 lg:p-10 custom-scrollbar overflow-y-auto">
+        <div className="w-full relative">
           {/* Neural Grid Overlay */}
           <div className="absolute inset-0 opacity-[0.02] pointer-events-none" 
                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.2) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
@@ -29,7 +24,7 @@ export const TacticalHUD: React.FC<TacticalHUDProps> = ({ children }) => {
           <div className="max-w-7xl mx-auto space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
             {children}
           </div>
-        </main>
+        </div>
       </div>
 
       <style>{`

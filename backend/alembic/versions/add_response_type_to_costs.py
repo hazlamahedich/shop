@@ -10,28 +10,23 @@ from alembic import op
 import sqlalchemy as sa
 
 
-# revision identifiers
 revision = "a1b2c3d4e5f7"
 down_revision = "243f8387c787"
 branch_labels = None
-depends_on = None
-branch_labels = None
-depends_on = None
+depends = None
 
 
 def upgrade():
-    # Add response_type column to llm_conversation_costs table
-    # Values: 'rag', 'general', 'unknown'
-    # Default: 'unknown' for existing rows
     op.add_column(
         "llm_conversation_costs",
-        "response_type",
-        sa.String(20),
-        nullable=True,
-        server_default="unknown",
+        sa.Column(
+            "response_type",
+            sa.String(20),
+            nullable=True,
+            server_default="unknown",
+        ),
     )
 
-    # Create index for efficient querying by response_type
     op.create_index(
         "idx_llm_costs_response_type",
         "llm_conversation_costs",
@@ -40,11 +35,9 @@ def upgrade():
 
 
 def downgrade():
-    # Drop index first
     op.drop_index(
         "idx_llm_costs_response_type",
         table_name="llm_conversation_costs",
     )
 
-    # Drop column
     op.drop_column("llm_conversation_costs", "response_type")

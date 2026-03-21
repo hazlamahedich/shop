@@ -707,19 +707,22 @@ class UnifiedConversationService:
         else:
             if llm_config.api_key_encrypted:
                 from app.core.security import decrypt_access_token
+
                 config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
-        llm_service = LLMProviderFactory.create_provider(
-            provider_name=provider_name,
-            config=config,
-        )
-        return BudgetAwareLLMWrapper(
-            llm_service=llm_service,
-            db=db,
-            merchant_id=self.merchant_id,
-            conversation_id=self.conversation_id,
-            track_costs=self.track_costs,
-            redis_client=None,
-        )
+
+        try:
+            llm_service = LLMProviderFactory.create_provider(
+                provider_name=provider_name,
+                config=config,
+            )
+            return BudgetAwareLLMWrapper(
+                llm_service=llm_service,
+                db=db,
+                merchant_id=self.merchant_id,
+                conversation_id=self.conversation_id,
+                track_costs=self.track_costs,
+                redis_client=None,
+            )
         except Exception as e:
             self.logger.warning(
                 "merchant_llm_config_failed",
