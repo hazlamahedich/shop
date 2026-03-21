@@ -1677,12 +1677,14 @@ class AggregatedAnalyticsService:
         """Get response time distribution metrics.
 
         Story 10-9: ResponseTimeWidget.
+        Story 10-9 AC5: Response type breakdown (RAG vs General).
 
         Returns:
         - Percentile metrics (P50, P95, P99)
         - Histogram distribution
         - Previous period comparison
         - Warning for slow responses
+        - Breakdown by response type (RAG vs General)
 
         Args:
             merchant_id: Merchant ID
@@ -1696,13 +1698,14 @@ class AggregatedAnalyticsService:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             result = await self.db.execute(
-                select(LLMConversationCost.processing_time_ms)
+                select(LLMConversationCost.processing_time_ms, LLMConversationCost.response_type)
                 .where(LLMConversationCost.merchant_id == merchant_id)
                 .where(LLMConversationCost.created_at >= cutoff_date)
                 .where(LLMConversationCost.processing_time_ms.isnot(None))
                 .order_by(LLMConversationCost.created_at)
             )
-            times = [float(row.processing_time_ms) for row in result.all()]
+            rows = result.all()
+            times = [float(row.processing_time_ms) for row in rows]
 
             if not times:
                 return {
@@ -1814,6 +1817,34 @@ class AggregatedAnalyticsService:
                         "severity": "warning",
                     }
 
+            rag_times = [
+                float(row.processing_time_ms) for row in rows if row.response_type == "rag"
+            ]
+            general_times = [
+                float(row.processing_time_ms)
+                for row in rows
+                if row.response_type in ("general", "unknown", None)
+            ]
+
+            rag_p50 = percentile(sorted(rag_times), 50) if rag_times else None
+            rag_p95 = percentile(sorted(rag_times), 95) if rag_times else None
+            rag_p99 = percentile(sorted(rag_times), 99) if rag_times else None
+
+            general_p50 = percentile(sorted(general_times), 50) if general_times else None
+            general_p95 = percentile(sorted(general_times), 95) if general_times else None
+            general_p99 = percentile(sorted(general_times), 99) if general_times else None
+
+            response_type_breakdown = {
+                "rag": {
+                    "count": len(rag_times),
+                    "percentiles": {"p50": rag_p50, "p95": rag_p95, "p99": rag_p99},
+                },
+                "general": {
+                    "count": len(general_times),
+                    "percentiles": {"p50": general_p50, "p95": general_p95, "p99": general_p99},
+                },
+            }
+
             logger.info(
                 "response_time_distribution_retrieved",
                 merchant_id=merchant_id,
@@ -1822,6 +1853,8 @@ class AggregatedAnalyticsService:
                 p50=p50,
                 p95=p95,
                 p99=p99,
+                rag_count=len(rag_times),
+                general_count=len(general_times),
             )
 
             return {
@@ -1835,6 +1868,7 @@ class AggregatedAnalyticsService:
                 "lastUpdated": datetime.now(timezone.utc).isoformat(),
                 "period": f"{days}d",
                 "count": count,
+                "responseTypeBreakdown": response_type_breakdown,
             }
 
         except Exception as e:

@@ -679,7 +679,7 @@ class UnifiedConversationService:
         self,
         merchant: Merchant,
         db: AsyncSession,
-        context: ConversationContext | None = None,
+        context: ConversationContext | None,
     ) -> BaseLLMService:
         """Get LLM service for merchant's configuration.
 
@@ -696,27 +696,30 @@ class UnifiedConversationService:
         """
         base_llm = None
 
-        try:
-            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                llm_config = merchant.llm_configuration
-                provider_name = llm_config.provider or "ollama"
+        llm_config = merchant.llm_configuration
 
-                config = {
-                    "model": llm_config.ollama_model or llm_config.cloud_model,
-                }
+        provider_name = llm_config.provider or "ollama"
+        model = llm_config.ollama_model or llm_config.cloud_model
 
-                if provider_name == "ollama":
-                    config["ollama_url"] = llm_config.ollama_url
-                else:
-                    if llm_config.api_key_encrypted:
-                        from app.core.security import decrypt_access_token
-
-                        config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
-
-                base_llm = LLMProviderFactory.create_provider(
-                    provider_name=provider_name,
-                    config=config,
-                )
+        config = {"model": model}
+        if provider_name == "ollama":
+            config["ollama_url"] = llm_config.ollama_url
+        else:
+            if llm_config.api_key_encrypted:
+                from app.core.security import decrypt_access_token
+                config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
+        llm_service = LLMProviderFactory.create_provider(
+            provider_name=provider_name,
+            config=config,
+        )
+        return BudgetAwareLLMWrapper(
+            llm_service=llm_service,
+            db=db,
+            merchant_id=self.merchant_id,
+            conversation_id=self.conversation_id,
+            track_costs=self.track_costs,
+            redis_client=None,
+        )
         except Exception as e:
             self.logger.warning(
                 "merchant_llm_config_failed",

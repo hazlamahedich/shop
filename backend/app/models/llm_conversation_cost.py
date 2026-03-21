@@ -92,6 +92,12 @@ class LLMConversationCost(Base):
         nullable=True,
     )  # Response time in milliseconds
 
+    response_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=True,
+        server_default="unknown",
+    )  # Type of response: 'rag', 'general', 'unknown'
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

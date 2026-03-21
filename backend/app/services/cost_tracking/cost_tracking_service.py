@@ -50,6 +50,7 @@ class CostTrackingService:
         output_cost_usd: float,
         total_cost_usd: float,
         processing_time_ms: float | None = None,
+        response_type: str | None = "unknown",
     ) -> LLMConversationCost:
         """Create a new LLM cost record.
 
@@ -66,6 +67,7 @@ class CostTrackingService:
             output_cost_usd: Output cost in USD
             total_cost_usd: Total cost in USD
             processing_time_ms: Request processing time in milliseconds
+            response_type: Type of response ('rag', 'general', 'unknown')
 
         Returns:
             Created LLMConversationCost record
@@ -101,6 +103,7 @@ class CostTrackingService:
             total_cost_usd=total_cost_usd,
             request_timestamp=datetime.utcnow(),
             processing_time_ms=processing_time_ms,
+            response_type=response_type,
         )
 
         db.add(cost_record)
@@ -114,6 +117,7 @@ class CostTrackingService:
             model=model,
             total_cost_usd=total_cost_usd,
             total_tokens=total_tokens,
+            response_type=response_type,
         )
 
         return cost_record
@@ -454,6 +458,7 @@ async def track_llm_request(
     conversation_id: str,
     merchant_id: int,
     processing_time_ms: float | None = None,
+    response_type: str | None = "unknown",
 ) -> LLMConversationCost | None:
     """Track an LLM request automatically after receiving a response.
 
@@ -466,6 +471,7 @@ async def track_llm_request(
         conversation_id: Conversation identifier (platform_sender_id)
         merchant_id: Merchant ID for isolation
         processing_time_ms: Request processing time in milliseconds (optional)
+        response_type: Type of response ('rag', 'general', 'unknown')
 
     Returns:
         Created cost record, or None if tracking is disabled (e.g., Ollama)
@@ -473,6 +479,7 @@ async def track_llm_request(
     Example:
         response = await llm_service.chat(messages)
         await track_llm_request(db, response, conversation_id="user123", merchant_id=1)
+
 
     Note:
         - Ollama requests are tracked with $0.00 cost (local hosting)
@@ -517,6 +524,7 @@ async def track_llm_request(
             output_cost_usd=output_cost_usd,
             total_cost_usd=total_cost_usd,
             processing_time_ms=processing_time_ms,
+            response_type=response_type,
         )
 
         logger.info(

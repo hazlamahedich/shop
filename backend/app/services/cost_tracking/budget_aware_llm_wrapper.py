@@ -72,11 +72,49 @@ class BudgetAwareLLMWrapper(BaseLLMService):
         self.config = getattr(llm_service, "config", {})
         self.budget_service = BudgetAlertService(db, redis_client)
         self.cost_service = CostTrackingService()
+        self._response_type: str | None = None
+
+        self._last_rag_context: list[RetrievedChunk] | None = None
+        """Initialize budget-aware wrapper.
+
+        Args:
+            llm_service: The LLM service to wrap
+            db: Database session
+            merchant_id: Merchant ID for cost isolation
+            conversation_id: Conversation ID for cost association
+            track_costs: Whether to track costs
+            redis_client: Optional Redis client for pause state
+        """
+        self.llm_service = llm_service
+        self.db = db
+        self.merchant_id = merchant_id
+        self.conversation_id = conversation_id
+        self.track_costs = track_costs
+        self.config = getattr(llm_service, "config", {})
+        self.budget_service = BudgetAlertService(db, redis_client)
+        self.cost_service = CostTrackingService()
 
     @property
     def provider_name(self) -> str:
-        """Return provider name from wrapped service."""
         return self.llm_service.provider_name
+
+    def set_response_type(self, response_type: str | None) -> None:
+        """Set the response type for AC5 response type breakdown."""
+        Args:
+            response_type: 'rag', ' 'general', or None
+        """
+        self._response_type = response_type
+
+    def get_response_type(self) -> str | None:
+        return self._response_type
+
+    def get_response_type(self) -> str | None:
+        """Get the response type for cost tracking.
+
+        Returns:
+            Response type string or None if not set
+        """
+        return self._response_type
 
     async def test_connection(self) -> bool:
         """Test LLM connectivity (delegated to wrapped service)."""

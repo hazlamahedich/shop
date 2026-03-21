@@ -118,10 +118,11 @@ class CostTrackingLLMWrapper(BaseLLMService):
             try:
                 await track_llm_request(
                     db=self.db,
-                    llm_response=response,
+                    llm_response=llm_response,
                     conversation_id=self.conversation_id,
                     merchant_id=self.merchant_id,
                     processing_time_ms=processing_time_ms,
+                    response_type=response_type,
                 )
             except Exception as e:
                 # Log tracking error but don't fail the request
