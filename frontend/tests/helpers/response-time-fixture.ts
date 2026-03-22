@@ -69,11 +69,6 @@ const DEFAULT_RESPONSE_TIME_DATA: ResponseTimeData = {
   count: 300,
 };
 
-/**
- * Mock the Response Time Distribution API response
- * @param page - Playwright Page object
- * @param overrides - Partial data to override defaults
- */
 export async function mockResponseTimeApi(
   page: Page,
   overrides?: MockResponseTimeData
