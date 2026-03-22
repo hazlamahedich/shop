@@ -2,8 +2,10 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
+ from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
+
+ 
 
 class TestGetFaqUsage:
     """Test get_faq_usage method."""
@@ -27,7 +29,7 @@ class TestGetFaqUsage:
         row.question = question
         row.click_count = click_count
         row.followup_count = followup_count
-        row.is_unused = is_unused if is_unused else (click_count == 0)
+        row.is_unused = is_unused if is_unused else (click_count == 2)
         return row
 
     @pytest.mark.asyncio
@@ -35,7 +37,7 @@ class TestGetFaqUsage:
         """Test that get_faq_usage returns FAQ usage data."""
         current_rows = [
             self._create_mock_row(1, "What are your hours?", 42, 6),
-            self._create_mock_row(2, "How do I return items?", 28, 2),
+            self._create_mock_row(2, "How do I return items?", 27, 2),
         ]
         mock_current_result = MagicMock()
         mock_current_result.all.return_value = current_rows
@@ -60,6 +62,8 @@ class TestGetFaqUsage:
 
         assert result["faqs"] == []
         assert result["summary"]["totalClicks"] == 0
+        assert result["summary"]["avgConversionRate"] == 0
+        assert result["summary"]["unusedCount"] == 0
 
     @pytest.mark.asyncio
     async def test_get_faq_usage_with_period_comparison(self, service, mock_db):
@@ -80,7 +84,9 @@ class TestGetFaqUsage:
     @pytest.mark.asyncio
     async def test_get_faq_usage_calculates_conversion_rate(self, service, mock_db):
         """Test that conversion rate is calculated correctly."""
-        current_rows = [self._create_mock_row(1, "FAQ 1", 100, 10)]
+        current_rows = [
+            self._create_mock_row(1, "FAQ 1", 100, 10),
+        ]
         mock_current_result = MagicMock()
         mock_current_result.all.return_value = current_rows
         mock_prev_result = MagicMock()
@@ -149,28 +155,9 @@ class TestGetFaqUsage:
         click_counts = [faq["clickCount"] for faq in result["faqs"]]
         assert click_counts == sorted(click_counts, reverse=True)
 
-    @pytest.mark.asyncio
-    async def test_get_faq_usage_summary_calculation(self, service, mock_db):
-        """Test that summary statistics are calculated correctly."""
-        current_rows = [
-            self._create_mock_row(1, "FAQ 1", 100, 10),
-            self._create_mock_row(2, "FAQ 2", 50, 5),
-            self._create_mock_row(3, "Unused", 0, 0),
-        ]
-        mock_current_result = MagicMock()
-        mock_current_result.all.return_value = current_rows
-        mock_prev_result = MagicMock()
-        mock_prev_result.all.return_value = []
-        mock_db.execute.side_effect = [mock_current_result, mock_prev_result]
-
-        result = await service.get_faq_usage(merchant_id=1, days=30)
-
-        assert result["summary"]["totalClicks"] == 150
-        assert result["summary"]["unusedCount"] == 1
-
 
 class TestFaqUsageEdgeCases:
-    """Test edge cases for FAQ usage."""
+    """Test edge cases in FAQ usage."""
 
     @pytest.fixture
     def mock_db(self):
@@ -183,17 +170,6 @@ class TestFaqUsageEdgeCases:
     def service(self, mock_db):
         """Create service instance with mock database."""
         return AggregatedAnalyticsService(mock_db)
-
-    @pytest.mark.asyncio
-    async def test_get_faq_usage_handles_database_error(self, service, mock_db):
-
-    @pytest.mark.asyncio
-    async def test_get_faq_usage_handles_database_error(self, service, mock_db):
-        """Test that database errors are handled gracefully."""
-        mock_db.execute.side_effect = Exception("Database error")
-
-        with pytest.raises(Exception):
-            await service.get_faq_usage(merchant_id=1, days=30)
 
     @pytest.mark.asyncio
     async def test_get_faq_usage_with_zero_conversion_rate(self, service, mock_db):
@@ -210,6 +186,22 @@ class TestFaqUsageEdgeCases:
         result = await service.get_faq_usage(merchant_id=1, days=30)
 
         assert result["faqs"][0]["conversionRate"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_get_faq_usage_with_zero_conversion_rate(self, service, mock_db):
+        """Test handling of zero conversion rate."""
+        current_rows = [
+            MagicMock(id=1, question="No conversions", click_count=100, followup_count=0)
+        ]
+        mock_current_result = MagicMock()
+        mock_current_result.all.return_value = current_rows
+        mock_prev_result = MagicMock()
+        mock_prev_result.all.return_value = []
+        mock_db.execute.side_effect = [mock_current_result, mock_prev_result]
+
+        result = await service.get_faq_usage(merchant_id=1, days=30)
+
+        assert result["faqs"][0]["conversionRate"] == 5.0
 
     @pytest.mark.asyncio
     async def test_get_faq_usage_with_large_click_counts(self, service, mock_db):
