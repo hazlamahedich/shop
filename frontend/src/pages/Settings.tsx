@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, ShoppingBag, ChevronDown, ExternalLink, MessageSquare, Webhook, Download, Code, ShieldCheck, ToggleRight, Loader2 } from 'lucide-react';
+import { ShoppingBag, ChevronDown, MessageSquare, Download, ShieldCheck, ToggleRight, Facebook, Store, Smartphone, ChevronRight } from 'lucide-react';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { useAuthStore } from '../stores/authStore';
+import { useBusinessInfoStore } from '../stores/businessInfoStore';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/input';
@@ -15,7 +16,8 @@ import { useToast } from '../context/ToastContext';
 import type { OnboardingMode } from '../types/onboarding';
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState('integrations');
+  const [activeTab, setActiveTab] = useState('general');
+  const businessName = useBusinessInfoStore((state) => state.businessName);
   const [showFacebookConfig, setShowFacebookConfig] = useState(false);
   const [facebookAppId, setFacebookAppId] = useState('');
   const [facebookAppSecret, setFacebookAppSecret] = useState('');
@@ -57,6 +59,27 @@ const Settings = () => {
     clearShopifyError,
     setMerchantId,
   } = useIntegrationsStore();
+
+  const ProfileSummary = () => (
+    <div className="glass-panel rounded-2xl p-8 mb-10 flex items-center justify-between overflow-hidden relative group">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-primary-container/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 group-hover:bg-primary-container/10 transition-colors duration-500" />
+      <div className="flex items-center gap-8 relative z-10">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-2 border-primary-container/30 glow-primary flex items-center justify-center bg-surface-container text-primary-container text-3xl font-headline font-bold">
+            {businessName ? businessName.charAt(0).toUpperCase() : (merchant?.email?.charAt(0).toUpperCase() || 'M')}
+          </div>
+          <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary-fixed rounded-full border-4 border-surface-dim" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold font-headline mb-1 tracking-tight text-[#d7fff3]">{businessName || 'Merchant'}</h2>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={16} className="text-primary-container" />
+            <span className="text-sm font-medium text-on-surface-variant">Enterprise Plan</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (merchant?.id) {
@@ -182,25 +205,7 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Profile Summary Card */}
-      <div className="glass-panel rounded-2xl p-8 mb-10 flex items-center justify-between overflow-hidden relative group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary-container/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 group-hover:bg-primary-container/10 transition-colors duration-500" />
-        <div className="flex items-center gap-8 relative z-10">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full border-2 border-primary-container/30 glow-primary flex items-center justify-center bg-surface-container text-primary-container text-3xl font-headline font-bold">
-              {merchant?.businessName ? merchant.businessName.charAt(0).toUpperCase() : 'M'}
-            </div>
-            <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary-fixed rounded-full border-4 border-surface-dim" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold font-headline mb-1 tracking-tight text-[#d7fff3]">{merchant?.businessName || 'Merchant'}</h2>
-            <div className="flex items-center gap-2">
-              <ShieldCheck size={16} className="text-primary-container" />
-              <span className="text-sm font-medium text-on-surface-variant">Enterprise Plan</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ProfileSummary />
 
       {/* Content - Showing Integrations */}
       {activeTab === 'integrations' && (

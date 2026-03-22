@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Save, AlertCircle, Loader2, Binary, Activity, ShieldCheck, Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Save, AlertCircle, Loader2, Binary, Activity, ShieldCheck, Zap, Settings } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
 import { usePersonalityStore, selectPersonality, selectCustomGreeting, selectPersonalityLoading, selectPersonalityError, selectPersonalityIsDirty } from '../stores/personalityStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { useBotConfigStore } from '../stores/botConfigStore';
@@ -12,6 +14,7 @@ import { isToneMatch, getToneMismatchMessage, hasToneMismatch } from '../utils/t
 import { merchantConfigApi } from '../services/merchantConfig';
 
 const PersonalityConfig: React.FC = () => {
+  const merchant = useAuthStore((state) => state.merchant);
   const personality = usePersonalityStore(selectPersonality);
   const customGreeting = usePersonalityStore(selectCustomGreeting);
   const loading = usePersonalityStore(selectPersonalityLoading);
@@ -257,6 +260,30 @@ const PersonalityConfig: React.FC = () => {
           <p className="text-white/50 font-medium leading-relaxed max-w-2xl text-lg">
             Calibrate neural archetypes and refine output sequences for optimal brand alignment and high-precision customer interaction.
           </p>
+
+          <div className="flex items-center gap-3 mt-4">
+            <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 backdrop-blur-md transition-all ${
+              merchant?.onboardingMode === 'ecommerce' 
+                ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' 
+                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+            }`}>
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                merchant?.onboardingMode === 'ecommerce' ? 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
+              }`} />
+              <span className="text-xs font-black uppercase tracking-widest">
+                {merchant?.onboardingMode === 'ecommerce' ? 'E-commerce Protocol Active' : 'General Assistance Mode'}
+              </span>
+              <div className="w-px h-3 bg-white/10" />
+              <Link 
+                to="/settings" 
+                className="flex items-center gap-1.5 hover:text-white transition-colors"
+                title="Change Operating Mode"
+              >
+                <Settings size={12} className="animate-spin-slow" />
+                <span className="text-[10px] font-bold">RECONFIGURE</span>
+              </Link>
+            </div>
+          </div>
         </div>
         
         {/* Background Accents */}

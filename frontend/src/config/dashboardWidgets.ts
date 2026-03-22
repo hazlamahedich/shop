@@ -23,6 +23,7 @@ export const WIDGET_CONFIG = {
   'knowledge-effectiveness': { modes: ['general'] as const, name: 'Knowledge Effectiveness' },
   'top-topics': { modes: ['general'] as const, name: 'Top Topics' },
   'response-time': { modes: ['general'] as const, name: 'Response Time' },
+  'faq-usage': { modes: ['general'] as const, name: 'FAQ Usage' },
 } as const;
 
 export type WidgetId = keyof typeof WIDGET_CONFIG;

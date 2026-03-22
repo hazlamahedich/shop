@@ -11,7 +11,9 @@
  */
 
 import React, { useEffect } from 'react';
-import { Info, AlertCircle, Palette } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Info, AlertCircle, Palette, Settings } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../context/ToastContext';
 import { useBotConfigStore } from '../stores/botConfigStore';
 import { ProductPinList } from '../components/business-info/ProductPinList';
@@ -22,6 +24,7 @@ import { SystemStatusHUD } from '../components/bot-config/SystemStatusHUD';
 import { OutputSimulationHUD } from '../components/bot-config/OutputSimulationHUD';
 
 export const BotConfig: React.FC = () => {
+  const merchant = useAuthStore((state) => state.merchant);
   const {
     fetchBotConfig,
     error,
@@ -73,9 +76,32 @@ export const BotConfig: React.FC = () => {
         {/* Page Header - Technical Style */}
         <div className="mb-12 animate-fade-in">
           <div className="flex flex-col gap-2">
-            <h1 className="text-4xl font-black font-headline tracking-tighter text-white uppercase italic">
-              Bot Config <span className="text-[var(--mantis-glow)]">_HUD</span>
-            </h1>
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-4xl font-black font-headline tracking-tighter text-white uppercase italic">
+                Bot Config <span className="text-[var(--mantis-glow)]">_HUD</span>
+              </h1>
+              
+              <div className={`px-4 py-1.5 rounded-full border flex items-center gap-3 backdrop-blur-md transition-all ${
+                merchant?.onboardingMode === 'ecommerce' 
+                  ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+              }`}>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  merchant?.onboardingMode === 'ecommerce' ? 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
+                }`} />
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  System Mode: {merchant?.onboardingMode === 'ecommerce' ? 'E-commerce' : 'General'}
+                </span>
+                <div className="w-px h-3 bg-white/10" />
+                <Link 
+                  to="/settings" 
+                  className="flex items-center gap-1.5 hover:text-white transition-colors"
+                >
+                  <Settings size={12} className="animate-spin-slow" />
+                  <span className="text-[9px] font-bold tracking-tighter">RECONFIG</span>
+                </Link>
+              </div>
+            </div>
             <p className="text-sm text-white/40 max-w-2xl leading-relaxed uppercase font-bold tracking-tight">
               Tactical Interface for Neural Identity and Priority Alignment.
             </p>

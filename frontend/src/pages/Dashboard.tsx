@@ -27,6 +27,7 @@ import { PendingOrdersWidget } from '../components/dashboard/PendingOrdersWidget
 import { BenchmarkComparisonWidget } from '../components/dashboard/BenchmarkComparisonWidget';
 import { CustomerSentimentWidget } from '../components/dashboard/CustomerSentimentWidget';
 import { ResponseTimeWidget } from '../components/dashboard/ResponseTimeWidget';
+import { FAQUsageWidget } from '../components/dashboard/FAQUsageWidget';
 import { analyticsService } from '../services/analyticsService';
 
 function LastUpdatedBadge() {
@@ -160,6 +161,9 @@ const Dashboard = () => {
                 <KnowledgeGapWidget />
                 <ResponseTimeWidget />
               </div>
+
+              {/* FAQ Usage Widget */}
+              <FAQUsageWidget />
 
               {/* Operational Status Section (within hub) */}
               <div className="pt-6 border-t border-white/5">

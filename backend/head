@@ -1,8 +1,8 @@
-  File "<string>", line 1
-    python -c "from app.schemas.widget import WidgetConfigResponse"
-  File "<string>", line 1
-    python -c "from app.schemas.widget import WidgetConfigResponse"
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-SyntaxError: invalid syntax
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-SyntaxError: invalid syntax
+usage: alembic [-h] [--version] [-c CONFIG] [-n NAME] [-x X] [--raiseerr] [-q]
+               {branches,check,current,downgrade,edit,ensure_version,heads,history,init,list_templates,merge,revision,show,stamp,upgrade}
+               ...
+usage: alembic [-h] [--version] [-c CONFIG] [-n NAME] [-x X] [--raiseerr] [-q]
+               {branches,check,current,downgrade,edit,ensure_version,heads,history,init,list_templates,merge,revision,show,stamp,upgrade}
+               ...
+alembic: error: unrecognized arguments: -5
+alembic: error: unrecognized arguments: -5

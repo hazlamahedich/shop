@@ -31,6 +31,8 @@ from app.models.shopify_integration import ShopifyIntegration
 from app.models.tutorial import Tutorial
 from app.models.widget_analytics_event import WidgetAnalyticsEvent
 from app.models.rag_query_log import RAGQueryLog
+from app.models.faq_interaction_log import FaqInteractionLog
+from app.models.webhook_verification_log import WebhookVerificationLog
 
 __all__ = [
     "Merchant",
@@ -67,4 +69,6 @@ __all__ = [
     "DocumentStatus",
     "WidgetAnalyticsEvent",
     "RAGQueryLog",
+    "FaqInteractionLog",
+    "WebhookVerificationLog",
 ]
