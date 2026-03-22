@@ -1,16 +1,7 @@
 /**
  * FaqItemCard Component
  *
- * Story 1.11: Business Info & FAQ Configuration
- *
- * Displays a single FAQ item in the FAQ list with:
- * - Question (truncated at 50 chars if needed)
- * - Answer preview
- * - Keywords display (if provided)
- * - Edit and Delete action buttons
- * - Drag handle for reordering
- *
- * WCAG 2.1 AA accessible.
+ * Designed for "Mantis HUD"
  */
 
 import * as React from 'react';
@@ -18,36 +9,18 @@ import { Edit2, Trash2, GripVertical, Tag } from 'lucide-react';
 import type { FaqItem } from '../../stores/businessInfoStore';
 
 export interface FaqItemCardProps {
-  /** The FAQ item to display */
   faq: FaqItem;
-  /** Callback when edit button is clicked */
   onEdit: (faq: FaqItem) => void;
-  /** Callback when delete button is clicked */
   onDelete: (faq: FaqItem) => void;
-  /** Whether actions are disabled (during delete operations) */
   disabled?: boolean;
-  /** Whether this card is being dragged */
   isDragging?: boolean;
 }
 
-/**
- * Truncate text to a maximum length and add ellipsis
- */
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + '...';
 }
 
-/**
- * FaqItemCard Component
- *
- * A card displaying an FAQ item with:
- * - Question text
- * - Answer preview (truncated)
- * - Keywords (if provided)
- * - Edit and Delete action buttons
- * - Drag handle for reordering
- */
 export const FaqItemCard: React.FC<FaqItemCardProps> = ({
   faq,
   onEdit,
@@ -55,40 +28,30 @@ export const FaqItemCard: React.FC<FaqItemCardProps> = ({
   disabled = false,
   isDragging = false,
 }) => {
-  // Truncate question for display if needed
   const displayQuestion = truncateText(faq.question, 50);
   const isQuestionTruncated = faq.question.length > 50;
-
-  // Truncate answer for preview
   const answerPreview = truncateText(faq.answer, 100);
-
-  // Parse keywords for display
   const keywordList = faq.keywords
     ? faq.keywords.split(',').map((k) => k.trim()).filter(Boolean)
     : [];
 
-  const handleEditClick = () => {
-    onEdit(faq);
-  };
-
-  const handleDeleteClick = () => {
-    onDelete(faq);
-  };
+  const handleEditClick = () => onEdit(faq);
+  const handleDeleteClick = () => onDelete(faq);
 
   return (
     <div
-      className={`group bg-white border rounded-lg p-4 transition-all duration-200 ${
+      className={`group bg-[#1f1f25]/80 backdrop-blur-md border rounded-xl p-4 transition-all duration-300 ${
         isDragging
-          ? 'border-primary/50 shadow-lg opacity-75'
-          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+          ? 'border-[#00f5d4]/50 shadow-[0_0_20px_rgba(0,245,212,0.2)] opacity-75'
+          : 'border-[#3a4a46]/20 hover:border-[#00f5d4]/30 hover:shadow-[0_0_15px_rgba(0,245,212,0.1)]'
       }`}
       role="article"
       aria-label={`FAQ: ${displayQuestion}`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-4">
         {/* Drag Handle */}
         <div
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-600 p-1 -ml-1"
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-[#3a4a46] hover:text-[#00f5d4] p-1 -ml-1 transition-colors"
           aria-label="Drag to reorder this FAQ item"
           draggable={true}
         >
@@ -97,33 +60,30 @@ export const FaqItemCard: React.FC<FaqItemCardProps> = ({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Question */}
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+          <h3 className="text-sm font-bold text-[#e4e1e9] mb-1 font-['Inter']">
             {displayQuestion}
             {isQuestionTruncated && (
-              <span className="font-normal text-gray-500 ml-1">...</span>
+              <span className="font-normal text-[#b9cac4]/50 ml-1">...</span>
             )}
           </h3>
 
-          {/* Answer Preview */}
-          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+          <p className="text-xs text-[#b9cac4]/80 mb-3 line-clamp-2 leading-relaxed font-['Inter']">
             {answerPreview}
           </p>
 
-          {/* Keywords */}
           {keywordList.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {keywordList.slice(0, 3).map((keyword, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-md"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#1b1b20] border border-[#3a4a46]/30 text-[#b9cac4] text-[10px] uppercase font-bold tracking-widest rounded-md font-['Space_Grotesk']"
                 >
-                  <Tag size={10} strokeWidth={2} />
+                  <Tag size={10} strokeWidth={2} className="text-[#00dfc1]" />
                   {keyword}
                 </span>
               ))}
               {keywordList.length > 3 && (
-                <span className="text-xs text-gray-500">
+                <span className="text-[10px] text-[#3a4a46] font-bold uppercase tracking-widest mt-1">
                   +{keywordList.length - 3} more
                 </span>
               )}
@@ -132,27 +92,25 @@ export const FaqItemCard: React.FC<FaqItemCardProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Edit Button */}
+        <div className="flex flex-col items-center gap-2 flex-shrink-0 border-l border-[#3a4a46]/20 pl-4 ml-2">
           <button
             type="button"
             onClick={handleEditClick}
             disabled={disabled}
-            className="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2.5 text-[#b9cac4] bg-[#1b1b20] border border-[#3a4a46]/30 hover:text-[#00dfc1] hover:border-[#00f5d4]/40 hover:bg-[#00f5d4]/5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
             aria-label={`Edit FAQ: ${displayQuestion}`}
           >
-            <Edit2 size={16} strokeWidth={2} />
+            <Edit2 size={14} strokeWidth={2.5} className="group-hover/btn:drop-shadow-[0_0_8px_rgba(0,245,212,0.5)]" />
           </button>
 
-          {/* Delete Button */}
           <button
             type="button"
             onClick={handleDeleteClick}
             disabled={disabled}
-            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2.5 text-[#b9cac4] bg-[#1b1b20] border border-[#3a4a46]/30 hover:text-[#ffb4ab] hover:border-[#ffb4ab]/40 hover:bg-[#ffb4ab]/5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
             aria-label={`Delete FAQ: ${displayQuestion}`}
           >
-            <Trash2 size={16} strokeWidth={2} />
+            <Trash2 size={14} strokeWidth={2.5} className="group-hover/btn:drop-shadow-[0_0_8px_rgba(255,180,171,0.5)]" />
           </button>
         </div>
       </div>

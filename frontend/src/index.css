@@ -136,6 +136,16 @@
     box-shadow: 0 0 15px rgba(0, 245, 212, 0.2);
   }
 
+  .glass-panel {
+    background: rgba(27, 27, 32, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(58, 74, 70, 0.15);
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 15px rgba(0, 245, 212, 0.2);
+  }
+
   .scanline-overlay {
     position: fixed;
     inset: 0;

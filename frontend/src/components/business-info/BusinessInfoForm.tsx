@@ -3,14 +3,12 @@
  *
  * Story 1.11: Business Info & FAQ Configuration
  *
+ * Redesigned for "Mantis HUD".
  * Displays a form for entering and editing business information including:
  * - Business Name (max 100 characters)
  * - Business Description (max 500 characters with character count)
  *
  * Note: Business Hours moved to BusinessHoursConfig component (Story 3.10)
- *
- * Provides form validation, character counts, and help text.
- * WCAG 2.1 AA accessible.
  */
 
 import * as React from 'react';
@@ -55,22 +53,22 @@ export const BusinessInfoForm = React.forwardRef<
 
   // Handle business name change
   const handleBusinessNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.slice(0, 100); // Enforce max length
+    const value = e.target.value.slice(0, 100);
     setBusinessName(value);
   };
 
   // Handle business description change
   const handleBusinessDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value.slice(0, 500); // Enforce max length
+    const value = e.target.value.slice(0, 500);
     setBusinessDescription(value);
   };
 
   // Character count color based on remaining characters
   const getCharacterCountColor = () => {
     const remaining = 500 - descriptionLength;
-    if (remaining < 50) return 'text-red-600';
-    if (remaining < 100) return 'text-amber-600';
-    return 'text-gray-600';
+    if (remaining < 50) return 'text-[#ffb4ab]';
+    if (remaining < 100) return 'text-[#f9a826]';
+    return 'text-[#00dfc1]';
   };
 
   return (
@@ -83,10 +81,10 @@ export const BusinessInfoForm = React.forwardRef<
       {error && (
         <div
           role="alert"
-          className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+          className="p-4 bg-[#ffb4ab]/5 border border-[#ffb4ab]/20 rounded-lg flex items-start gap-3 backdrop-blur-md"
         >
           <svg
-            className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+            className="w-5 h-5 text-[#ffb4ab] flex-shrink-0 mt-0.5"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -96,7 +94,7 @@ export const BusinessInfoForm = React.forwardRef<
               clipRule="evenodd"
             />
           </svg>
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm text-[#ffb4ab]">{error}</p>
         </div>
       )}
 
@@ -104,9 +102,9 @@ export const BusinessInfoForm = React.forwardRef<
       <div className="space-y-2">
         <label
           htmlFor="business-name"
-          className="flex items-center gap-2 text-sm font-medium text-gray-700"
+          className="flex items-center gap-2 text-[10px] text-[#b9cac4] uppercase tracking-widest font-['Inter'] ml-1"
         >
-          <Building2 size={16} className="text-gray-600" />
+          <Building2 size={14} className="text-[#00dfc1]" />
           Business Name
         </label>
         <input
@@ -117,24 +115,26 @@ export const BusinessInfoForm = React.forwardRef<
           disabled={disabled}
           maxLength={100}
           placeholder="e.g., Alex's Athletic Gear"
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-full bg-[#1b1b20]/60 border-0 border-b-2 border-[#3a4a46] focus:border-[#00f5d4] focus:ring-0 text-sm py-3 px-4 text-[#e4e1e9] transition-all outline-none rounded-t-lg disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#b9cac4]/30"
           aria-describedby="business-name-description"
         />
-        <p id="business-name-description" className="text-xs text-gray-600">
-          The name of your business as it should appear in bot responses.
-        </p>
-        <p className="text-xs text-gray-600 text-right">
-          {(businessName?.length || 0)} / 100
-        </p>
+        <div className="flex justify-between items-center px-1">
+          <p id="business-name-description" className="text-[10px] text-[#b9cac4]/60 font-medium">
+            The name of your business as it should appear in bot responses.
+          </p>
+          <p className="text-[10px] font-mono text-[#b9cac4]/50">
+            {(businessName?.length || 0)} / 100
+          </p>
+        </div>
       </div>
 
       {/* Business Description Field */}
-      <div className="space-y-2">
+      <div className="space-y-2 mt-2">
         <label
           htmlFor="business-description"
-          className="flex items-center gap-2 text-sm font-medium text-gray-700"
+          className="flex items-center gap-2 text-[10px] text-[#b9cac4] uppercase tracking-widest font-['Inter'] ml-1"
         >
-          <FileText size={16} className="text-gray-600" />
+          <FileText size={14} className="text-[#00dfc1]" />
           Business Description
         </label>
         <textarea
@@ -145,19 +145,16 @@ export const BusinessInfoForm = React.forwardRef<
           maxLength={500}
           rows={4}
           placeholder="Describe what your business sells and what makes it unique..."
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+          className="w-full bg-[#1b1b20]/60 border-0 border-b-2 border-[#3a4a46] focus:border-[#00f5d4] focus:ring-0 text-sm py-3 px-4 text-[#e4e1e9] transition-all outline-none resize-none rounded-t-lg disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#b9cac4]/30"
           aria-describedby="business-description-description business-description-count"
         />
-        <p id="business-description-description" className="text-xs text-gray-600">
-          A brief description that helps the bot explain what your business sells.
-        </p>
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-gray-600">
-            This description is used when customers ask "What do you sell?"
+        <div className="flex justify-between items-start px-1">
+          <p id="business-description-description" className="text-[10px] text-[#b9cac4]/60 leading-relaxed font-medium max-w-[70%]">
+            A brief description that helps the bot explain what your business sells. This description is used when customers ask &quot;What do you sell?&quot;
           </p>
           <p
             id="business-description-count"
-            className={`text-xs font-medium ${getCharacterCountColor()}`}
+            className={`text-[10px] font-mono font-bold ${getCharacterCountColor()}`}
           >
             {descriptionLength} / 500
           </p>
@@ -165,9 +162,9 @@ export const BusinessInfoForm = React.forwardRef<
       </div>
 
       {/* Help Note */}
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
-          <strong>Tip:</strong> This business information helps the bot provide more accurate
+      <div className="p-4 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg backdrop-blur-sm mt-4">
+        <p className="text-xs text-[#82d3ff] tracking-wide leading-relaxed">
+          <strong className="text-[#00bbf9]">Tip:</strong> This business information helps the bot provide more accurate
           and personalized responses to customer questions.
         </p>
       </div>

@@ -408,3 +408,83 @@ async def get_response_time_distribution(
     service = AggregatedAnalyticsService(db)
     data = await service.get_response_time_distribution(merchant_id, days)
     return {"data": data}
+
+
+@router.get("/faq-usage")
+async def get_faq_usage(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    include_unused: bool = Query(True, description="Include FAQs with 0 clicks"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get FAQ usage analytics for dashboard widget.
+
+    Story 10-10: FAQ Usage Widget
+
+    Returns top FAQs by click frequency, click counts, conversion rates,
+    unused FAQ highlighting, and period comparison.
+    """
+    import hashlib
+
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_faq_usage(merchant_id, days, include_unused)
+
+    data_str = json.dumps(data, default=str)
+    etag = hashlib.md5(data_str.encode()).hexdigest()
+
+    response = PlainTextResponse(
+        content=data_str,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "ETag": f'"{etag}"',
+            "Vary": "Accept-Encoding",
+        },
+        media_type="application/json",
+    )
+    return response
+
+
+@router.get("/faq-usage/export", response_class=PlainTextResponse)
+async def export_faq_usage_csv(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export FAQ usage data as CSV.
+
+    Story 10-10: FAQ Usage Widget
+
+    Returns CSV with FAQ question, click count. conversion rate. and period.
+    """
+    import csv
+    import io
+
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_faq_usage(merchant_id, days, include_unused=True)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["FAQ Question", "Clicks", "Conversion Rate (%)", "Follow-ups", "Period"])
+
+    for faq in data.get("faqs", []):
+        writer.writerow(
+            [
+                faq.get("question", ""),
+                faq.get("clickCount", 0),
+                faq.get("conversionRate", 0),
+                faq.get("followupCount", 0),
+                data.get("period", {}).get("days", 30),
+            ]
+        )
+
+    csv_content = output.getvalue()
+
+    return PlainTextResponse(
+        content=csv_content,
+        headers={
+            "Content-Disposition": f'attachment; filename="faq-usage-{days}d.csv"',
+            "Content-Type": "text/csv",
+        },
+    )

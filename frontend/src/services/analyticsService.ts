@@ -384,11 +384,18 @@ export const analyticsService = {
     return (response as unknown as { data: TopTopicsResponse }).data;
   },
 
-  async getResponseTimeDistribution(days = 7): Promise<ResponseTimeDistributionResponse> {
+  async getResponseTimeDistribution(days = 7): Promise<ResponseTimeDistributionData> {
     const response = await apiClient.get<{ data: ResponseTimeDistributionData }>(
       `/api/v1/analytics/response-time-distribution?days=${days}`
     );
     return (response as unknown as { data: ResponseTimeDistributionData }).data;
+  },
+
+  async getFaqUsage(days = 30): Promise<FaqUsageData> {
+    const response = await apiClient.get<{ data: FaqUsageData }>(
+      `/api/v1/analytics/faq-usage?days=${days}`
+    );
+    return (response as unknown as { data: FaqUsageData }).data;
   },
 };
 
@@ -463,6 +470,23 @@ export interface ResponseTimeWarning {
   severity: 'warning' | 'critical';
 }
 
+export interface KnowledgeGap {
+  id?: string;
+  topic?: string;
+  description?: string;
+  suggestedAction?: string;
+}
+
+export interface KnowledgeGapsData {
+  period: {
+    days: number;
+    startDate: string;
+    endDate: string;
+  };
+  gaps: KnowledgeGap[];
+  totalGaps: number;
+}
+
 export interface ResponseTimeDistributionData {
   percentiles: ResponseTimePercentiles;
   histogram: ResponseTimeHistogramBucket[];
@@ -490,6 +514,42 @@ export interface ResponseTimeDistributionData {
   };
 }
 
-export interface ResponseTimeDistributionResponse {
-  data: ResponseTimeDistributionData;
+
+export interface FaqUsageItem {
+  id: number;
+  question: string;
+  clickCount: number;
+  conversionRate: number;
+  followupCount: number;
+  isUnused: boolean;
+  previousPeriod: {
+    clickCount: number;
+    conversionRate: number;
+  };
+  change: {
+    clickChange: number | null;
+    conversionChange: number | null;
+  };
+}
+
+export interface FaqUsageSummary {
+  totalFaqs: number;
+  totalClicks: number;
+  avgConversionRate: number;
+  unusedCount: number;
+}
+
+export interface FaqUsageData {
+  period: {
+    days: number;
+    startDate: string;
+    endDate: string;
+  };
+  faqs: FaqUsageItem[];
+  summary: FaqUsageSummary;
+  lastUpdated: string;
+}
+
+export interface FaqUsageResponse {
+  data: FaqUsageData;
 }

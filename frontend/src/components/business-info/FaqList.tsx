@@ -168,19 +168,19 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
   if (faqsLoadingState === 'loading' && faqs.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center py-12 ${className}`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
-        <p className="text-sm text-gray-600">Loading FAQ items...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00f5d4] mb-4 shadow-[0_0_15px_rgba(0,245,212,0.3)]" />
+        <p className="text-sm text-[#b9cac4]/60 font-['Inter']">Loading FAQ items...</p>
       </div>
     );
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={`space-y-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">FAQ Items</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-lg font-bold text-[#e4e1e9] font-['Space_Grotesk']">FAQ Items</h2>
+          <p className="text-sm text-[#b9cac4]/60 font-medium mt-1">
             Create frequently asked questions for automatic bot responses.
           </p>
         </div>
@@ -188,7 +188,7 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
           type="button"
           onClick={handleAddClick}
           disabled={faqsLoadingState === 'loading'}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-[#001219] bg-[#00f5d4] rounded-lg hover:shadow-[0_0_20px_rgba(0,245,212,0.4)] hover:scale-[1.02] focus:ring-2 focus:ring-[#00f5d4] focus:ring-offset-2 focus:ring-offset-[#1b1b20] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           <PlusCircle size={18} />
           Add FAQ Item
@@ -199,17 +199,17 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
       {error && (
         <div
           role="alert"
-          className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+          className="p-4 bg-[#ffb4ab]/5 border border-[#ffb4ab]/20 rounded-lg flex items-start gap-3 backdrop-blur-md"
         >
-          <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle size={20} className="text-[#ffb4ab] flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-red-800">Error</p>
-            <p className="text-sm text-red-700 mt-1">{error}</p>
+            <p className="text-sm font-bold text-[#ffb4ab]">Error</p>
+            <p className="text-xs text-[#ffb4ab]/80 mt-1">{error}</p>
           </div>
           <button
             type="button"
             onClick={clearError}
-            className="text-red-600 hover:text-red-800"
+            className="text-[#ffb4ab]/60 hover:text-[#ffb4ab] transition-colors"
             aria-label="Dismiss error"
           >
             ×
@@ -220,16 +220,18 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
       {/* FAQ List */}
       {faqs.length === 0 ? (
         // Empty state
-        <div className="text-center py-12 px-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-          <MessageSquare size={48} className="mx-auto text-gray-500 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No FAQ items yet</h3>
-          <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
-            Create FAQ items to help your bot automatically answer common customer questions.
+        <div className="text-center py-16 px-6 bg-[#1b1b20]/50 rounded-2xl border-2 border-dashed border-[#3a4a46]/40 hover:border-[#00f5d4]/30 hover:bg-[#1b1b20]/80 transition-all group">
+          <div className="w-20 h-20 mx-auto bg-[#3a4a46]/20 rounded-full flex items-center justify-center mb-6 group-hover:bg-[#00f5d4]/10 transition-colors">
+            <MessageSquare size={32} className="text-[#3a4a46] group-hover:text-[#00f5d4] transition-colors" />
+          </div>
+          <h3 className="text-lg font-bold text-[#e4e1e9] mb-2 font-['Space_Grotesk']">No FAQ items yet</h3>
+          <p className="text-sm text-[#b9cac4]/60 mb-8 max-w-md mx-auto leading-relaxed">
+            Create FAQ items to help your bot automatically answer common customer questions and improve resolution rates.
           </p>
           <button
             type="button"
             onClick={handleAddClick}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-bold text-[#00f5d4] bg-[#00f5d4]/10 border border-[#00f5d4]/20 rounded-lg hover:bg-[#00f5d4]/20 hover:shadow-[0_0_15px_rgba(0,245,212,0.15)] transition-all"
           >
             <PlusCircle size={18} />
             Create your first FAQ
@@ -261,9 +263,9 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
 
       {/* Help text */}
       {faqs.length > 0 && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Tip:</strong> Drag and drop FAQ items to reorder them. The bot will use this
+        <div className="p-4 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg backdrop-blur-sm mt-4">
+          <p className="text-xs text-[#82d3ff] tracking-wide leading-relaxed">
+            <strong className="text-[#00bbf9]">Tip:</strong> Drag and drop FAQ items to reorder them. The bot will use this
             order when multiple FAQs match a customer&apos;s question.
           </p>
         </div>

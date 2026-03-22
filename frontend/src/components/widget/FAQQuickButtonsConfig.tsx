@@ -57,7 +57,7 @@ export function FAQQuickButtonsConfig({
   const fetchFAQs = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get<{ data: FAQ[] }>(`/api/v1/merchants/faqs`);
+      const response = await apiClient.get<{ data: FAQ[] }>(`/api/v1/merchant/faqs`);
       setFaqs(response.data || []);
     } catch (error) {
       console.error('Failed to fetch FAQs:', error);

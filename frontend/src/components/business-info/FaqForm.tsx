@@ -141,16 +141,16 @@ export const FaqForm: React.FC<FaqFormProps> = ({
   // Character count colors
   const getQuestionCountColor = () => {
     const length = formData.question.length;
-    if (length > 180) return 'text-red-600';
-    if (length > 150) return 'text-amber-600';
-    return 'text-gray-600';
+    if (length > 180) return 'text-[#ffb4ab]';
+    if (length > 150) return 'text-[#f9a826]';
+    return 'text-[#b9cac4]';
   };
 
   const getAnswerCountColor = () => {
     const length = formData.answer.length;
-    if (length > 900) return 'text-red-600';
-    if (length > 750) return 'text-amber-600';
-    return 'text-gray-600';
+    if (length > 900) return 'text-[#ffb4ab]';
+    if (length > 750) return 'text-[#f9a826]';
+    return 'text-[#b9cac4]';
   };
 
   // Close modal on escape key
@@ -169,30 +169,30 @@ export const FaqForm: React.FC<FaqFormProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="faq-form-title"
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-[#001219]/80 backdrop-blur-sm"
         onClick={disabled ? undefined : onCancel}
         aria-hidden="true"
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-[#1f1f25] border border-[#3a4a46]/30 shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 id="faq-form-title" className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-6 border-b border-[#3a4a46]/30 bg-[#1b1b20]/50">
+          <h2 id="faq-form-title" className="text-xl font-bold text-[#e4e1e9] font-['Space_Grotesk']">
             {faq ? 'Edit FAQ Item' : 'Add FAQ Item'}
           </h2>
           <button
             type="button"
             onClick={onCancel}
             disabled={disabled}
-            className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-[#b9cac4] hover:text-[#00f5d4] hover:bg-[#00f5d4]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Close dialog"
           >
             <X size={20} />
@@ -201,15 +201,15 @@ export const FaqForm: React.FC<FaqFormProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Question Field */}
             <div className="space-y-2">
               <label
                 htmlFor="faq-question"
-                className="flex items-center gap-2 text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 text-[10px] text-[#b9cac4] uppercase tracking-widest font-['Inter'] ml-1"
               >
-                <HelpCircle size={16} className="text-gray-600" />
-                Question <span className="text-red-500">*</span>
+                <HelpCircle size={14} className="text-[#00dfc1]" />
+                Question <span className="text-[#ffb4ab]">*</span>
               </label>
               <input
                 id="faq-question"
@@ -219,27 +219,27 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 disabled={disabled}
                 maxLength={200}
                 placeholder="e.g., What are your shipping options?"
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                className={`w-full bg-[#1b1b20] py-3 px-4 text-sm text-[#e4e1e9] border border-[#3a4a46]/40 rounded-lg focus:ring-1 focus:ring-[#00f5d4] focus:border-[#00f5d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#b9cac4]/30 ${
                   errors.question
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300'
+                    ? 'border-[#ffb4ab]/50 focus:ring-[#ffb4ab] focus:border-[#ffb4ab]'
+                    : ''
                 }`}
                 aria-describedby="faq-question-description faq-question-count"
                 aria-invalid={!!errors.question}
                 aria-required="true"
               />
-              <p id="faq-question-description" className="text-xs text-gray-600">
+              <p id="faq-question-description" className="text-[10px] text-[#b9cac4]/60 font-medium px-1">
                 The question customers might ask about your business.
               </p>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center px-1">
                 {errors.question && (
-                  <p className="text-xs text-red-600" role="alert">
+                  <p className="text-[10px] text-[#ffb4ab]" role="alert">
                     {errors.question}
                   </p>
                 )}
                 <p
                   id="faq-question-count"
-                  className={`text-xs font-medium ml-auto ${getQuestionCountColor()}`}
+                  className={`text-[10px] font-mono font-bold ml-auto ${getQuestionCountColor()}`}
                 >
                   {formData.question.length} / 200
                 </p>
@@ -250,10 +250,10 @@ export const FaqForm: React.FC<FaqFormProps> = ({
             <div className="space-y-2">
               <label
                 htmlFor="faq-answer"
-                className="flex items-center gap-2 text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 text-[10px] text-[#b9cac4] uppercase tracking-widest font-['Inter'] ml-1"
               >
-                <MessageSquare size={16} className="text-gray-600" />
-                Answer <span className="text-red-500">*</span>
+                <MessageSquare size={14} className="text-[#00dfc1]" />
+                Answer <span className="text-[#ffb4ab]">*</span>
               </label>
               <textarea
                 id="faq-answer"
@@ -263,27 +263,27 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 maxLength={1000}
                 rows={5}
                 placeholder="e.g., We offer free shipping on orders over $50. Standard shipping takes 3-5 business days."
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed resize-none ${
+                className={`w-full bg-[#1b1b20] py-3 px-4 text-sm text-[#e4e1e9] border border-[#3a4a46]/40 rounded-lg focus:ring-1 focus:ring-[#00f5d4] focus:border-[#00f5d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed resize-none placeholder-[#b9cac4]/30 ${
                   errors.answer
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300'
+                    ? 'border-[#ffb4ab]/50 focus:ring-[#ffb4ab] focus:border-[#ffb4ab]'
+                    : ''
                 }`}
                 aria-describedby="faq-answer-description faq-answer-count"
                 aria-invalid={!!errors.answer}
                 aria-required="true"
               />
-              <p id="faq-answer-description" className="text-xs text-gray-600">
+              <p id="faq-answer-description" className="text-[10px] text-[#b9cac4]/60 font-medium px-1">
                 The answer the bot will provide when this question is matched.
               </p>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center px-1">
                 {errors.answer && (
-                  <p className="text-xs text-red-600" role="alert">
+                  <p className="text-[10px] text-[#ffb4ab]" role="alert">
                     {errors.answer}
                   </p>
                 )}
                 <p
                   id="faq-answer-count"
-                  className={`text-xs font-medium ml-auto ${getAnswerCountColor()}`}
+                  className={`text-[10px] font-mono font-bold ml-auto ${getAnswerCountColor()}`}
                 >
                   {formData.answer.length} / 1000
                 </p>
@@ -294,10 +294,10 @@ export const FaqForm: React.FC<FaqFormProps> = ({
             <div className="space-y-2">
               <label
                 htmlFor="faq-keywords"
-                className="flex items-center gap-2 text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 text-[10px] text-[#b9cac4] uppercase tracking-widest font-['Inter'] ml-1"
               >
-                <Tag size={16} className="text-gray-600" />
-                Keywords <span className="text-gray-500">(optional)</span>
+                <Tag size={14} className="text-[#00dfc1]" />
+                Keywords <span className="text-[#b9cac4]/50 normal-case tracking-normal">(optional)</span>
               </label>
               <input
                 id="faq-keywords"
@@ -307,52 +307,52 @@ export const FaqForm: React.FC<FaqFormProps> = ({
                 disabled={disabled}
                 maxLength={500}
                 placeholder="e.g., shipping, delivery, returns"
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                className={`w-full bg-[#1b1b20] py-3 px-4 text-sm text-[#e4e1e9] border border-[#3a4a46]/40 rounded-lg focus:ring-1 focus:ring-[#00f5d4] focus:border-[#00f5d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#b9cac4]/30 ${
                   errors.keywords
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300'
+                    ? 'border-[#ffb4ab]/50 focus:ring-[#ffb4ab] focus:border-[#ffb4ab]'
+                    : ''
                 }`}
                 aria-describedby="faq-keywords-description faq-keywords-count"
                 aria-invalid={!!errors.keywords}
               />
-              <p id="faq-keywords-description" className="text-xs text-gray-600">
+              <p id="faq-keywords-description" className="text-[10px] text-[#b9cac4]/60 font-medium px-1">
                 Comma-separated keywords that help the bot match customer questions to this FAQ.
               </p>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center px-1">
                 {errors.keywords && (
-                  <p className="text-xs text-red-600" role="alert">
+                  <p className="text-[10px] text-[#ffb4ab]" role="alert">
                     {errors.keywords}
                   </p>
                 )}
-                <p id="faq-keywords-count" className="text-xs text-gray-500 ml-auto">
+                <p id="faq-keywords-count" className="text-[10px] font-mono font-bold text-[#b9cac4]/50 ml-auto">
                   {formData.keywords.length} / 500
                 </p>
               </div>
             </div>
 
             {/* Help Note */}
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> Keywords help the bot match customer questions even when they
+            <div className="p-4 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg backdrop-blur-sm mt-6">
+              <p className="text-xs text-[#82d3ff] tracking-wide leading-relaxed">
+                <strong className="text-[#00bbf9]">Tip:</strong> Keywords help the bot match customer questions even when they
                 don&apos;t use the exact wording of your FAQ question.
               </p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-[#3a4a46]/30 bg-[#1b1b20]/50">
             <button
               type="button"
               onClick={onCancel}
               disabled={disabled}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 text-sm font-bold text-[#b9cac4] bg-[#1b1b20] border border-[#3a4a46]/40 rounded-lg hover:text-[#e4e1e9] hover:bg-[#3a4a46]/20 hover:border-[#3a4a46] focus:ring-2 focus:ring-[#b9cac4] focus:ring-offset-2 focus:ring-offset-[#1b1b20] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={disabled}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 text-sm font-bold text-[#00f5d4] bg-[#00f5d4]/10 border border-[#00f5d4]/30 rounded-lg hover:bg-[#00f5d4]/20 hover:shadow-[0_0_15px_rgba(0,245,212,0.15)] focus:ring-2 focus:ring-[#00f5d4] focus:ring-offset-2 focus:ring-offset-[#1b1b20] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {disabled ? (
                 <span className="flex items-center gap-2">

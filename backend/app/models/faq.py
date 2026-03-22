@@ -61,10 +61,14 @@ class Faq(Base):
         nullable=False,
     )
 
-    # Relationships
     merchant: Mapped["Merchant"] = relationship(
         "Merchant",
         back_populates="faqs",
+    )
+    interaction_logs: Mapped[list["FaqInteractionLog"]] = relationship(
+        "FaqInteractionLog",
+        back_populates="faq",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

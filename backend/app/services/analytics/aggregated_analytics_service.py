@@ -1582,10 +1582,10 @@ class AggregatedAnalyticsService:
         """
         try:
             days = min(max(1, days), 90)
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
             current_period_start = cutoff_date
-            current_period_end = datetime.now(timezone.utc)
+            current_period_end = datetime.now(timezone.utc).replace(tzinfo=None)
 
             previous_period_start = current_period_start - timedelta(days=days)
             previous_period_end = current_period_start
@@ -1695,7 +1695,7 @@ class AggregatedAnalyticsService:
         """
         try:
             days = min(max(1, days), 30)
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
             result = await self.db.execute(
                 select(LLMConversationCost.processing_time_ms, LLMConversationCost.response_type)
@@ -1874,6 +1874,176 @@ class AggregatedAnalyticsService:
         except Exception as e:
             logger.error(
                 "response_time_distribution_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            raise
+
+    async def get_faq_usage(
+        self,
+        merchant_id: int,
+        days: int = 30,
+        include_unused: bool = True,
+    ) -> dict[str, Any]:
+        """Get FAQ usage analytics for dashboard widget.
+
+        Story 10-10: FAQ Usage Widget.
+
+        Returns:
+        - Top FAQs by click frequency
+        - Click count and conversion rate per FAQ
+        - Unused FAQs (0 clicks in period)
+        - Period comparison (current vs previous)
+
+        Args:
+            merchant_id: Merchant ID
+            days: Number of days to analyze (default 30)
+            include_unused: Whether to include FAQs with 0 clicks
+
+        Returns:
+            Dict with FAQ usage data
+        """
+        from app.models.faq import Faq
+        from app.models.faq_interaction_log import FaqInteractionLog
+        from sqlalchemy import and_
+
+        try:
+            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+            prev_cutoff = cutoff_date - timedelta(days=days)
+            prev_end = cutoff_date
+
+            current_result = await self.db.execute(
+                select(
+                    Faq.id,
+                    Faq.question,
+                    func.count(FaqInteractionLog.id).label("click_count"),
+                    func.sum(FaqInteractionLog.had_followup).label("followup_count"),
+                )
+                .outerjoin(
+                    FaqInteractionLog,
+                    and_(
+                        FaqInteractionLog.faq_id == Faq.id,
+                        FaqInteractionLog.merchant_id == merchant_id,
+                        FaqInteractionLog.clicked_at >= cutoff_date,
+                    ),
+                )
+                .where(Faq.merchant_id == merchant_id)
+                .group_by(Faq.id, Faq.question)
+                .order_by(func.count(FaqInteractionLog.id).desc())
+            )
+            current_rows = current_result.all()
+
+            prev_result = await self.db.execute(
+                select(
+                    Faq.id,
+                    func.count(FaqInteractionLog.id).label("click_count"),
+                    func.sum(FaqInteractionLog.had_followup).label("followup_count"),
+                )
+                .outerjoin(
+                    FaqInteractionLog,
+                    and_(
+                        FaqInteractionLog.faq_id == Faq.id,
+                        FaqInteractionLog.merchant_id == merchant_id,
+                        FaqInteractionLog.clicked_at >= prev_cutoff,
+                        FaqInteractionLog.clicked_at < prev_end,
+                    ),
+                )
+                .where(Faq.merchant_id == merchant_id)
+                .group_by(Faq.id)
+            )
+            prev_data = {row.id: row for row in prev_result.all()}
+
+            faq_items = []
+            unused_faqs = []
+
+            for row in current_rows:
+                click_count = row.click_count or 0
+                followup_count = row.followup_count or 0
+
+                conversion_rate = 0.0
+                if click_count > 0:
+                    conversion_rate = round((followup_count / click_count) * 100, 1)
+
+                prev_row = prev_data.get(row.id)
+                prev_click_count = prev_row.click_count if prev_row else 0
+                prev_followup_count = prev_row.followup_count if prev_row else 0
+
+                prev_conversion_rate = 0.0
+                if prev_click_count > 0:
+                    prev_conversion_rate = round((prev_followup_count / prev_click_count) * 100, 1)
+
+                click_change = None
+                if prev_click_count > 0:
+                    click_change = round(
+                        ((click_count - prev_click_count) / prev_click_count) * 100, 1
+                    )
+
+                conversion_change = None
+                if prev_conversion_rate > 0:
+                    conversion_change = round(conversion_rate - prev_conversion_rate, 1)
+
+                item = {
+                    "id": row.id,
+                    "question": row.question,
+                    "clickCount": click_count,
+                    "conversionRate": conversion_rate,
+                    "followupCount": followup_count,
+                    "isUnused": False,
+                    "previousPeriod": {
+                        "clickCount": prev_click_count,
+                        "conversionRate": prev_conversion_rate,
+                    },
+                    "change": {
+                        "clickChange": click_change,
+                        "conversionChange": conversion_change,
+                    },
+                }
+
+                if click_count == 0:
+                    unused_faqs.append(item)
+                else:
+                    faq_items.append(item)
+
+            if include_unused:
+                faq_items.extend(unused_faqs)
+
+            total_clicks = sum(item["clickCount"] for item in faq_items)
+            total_faqs = len(current_rows)
+            total_unused = len(unused_faqs)
+
+            avg_conversion_rate = 0.0
+            if total_clicks > 0:
+                total_followups = sum(item["followupCount"] for item in faq_items)
+                avg_conversion_rate = round((total_followups / total_clicks) * 100, 1)
+
+            logger.info(
+                "faq_usage_retrieved",
+                merchant_id=merchant_id,
+                days=days,
+                total_faqs=total_faqs,
+                total_clicks=total_clicks,
+                avg_conversion_rate=avg_conversion_rate,
+            )
+
+            return {
+                "period": {
+                    "days": days,
+                    "startDate": cutoff_date.isoformat(),
+                    "endDate": datetime.now(timezone.utc).isoformat(),
+                },
+                "faqs": faq_items,
+                "summary": {
+                    "totalFaqs": total_faqs,
+                    "totalClicks": total_clicks,
+                    "avgConversionRate": avg_conversion_rate,
+                    "unusedCount": total_unused,
+                },
+                "lastUpdated": datetime.now(timezone.utc).isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(
+                "faq_usage_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )

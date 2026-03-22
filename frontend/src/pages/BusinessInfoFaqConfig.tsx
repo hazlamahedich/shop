@@ -1,23 +1,15 @@
 /**
  * BusinessInfoFaqConfig Page Component
  *
- * Story 1.11: Business Info & FAQ Configuration
- * Story 3.10: Business Hours Configuration (moved from Settings)
- *
- * Main page for configuring business information, hours, and FAQ items.
- * Integrates BusinessInfoForm, BusinessHoursConfig, and FaqList components with:
- * - Save Configuration button for business info
- * - Auto-save for business hours (via BusinessHoursConfig)
- * - Automatic persistence for FAQ operations
- * - Loading states and error handling
- * - Navigation breadcrumbs
- *
- * WCAG 2.1 AA accessible.
+ * Designed using "Mantis HUD" deep dark aesthetic.
+ * Incorporates:
+ * - Business Info Form
+ * - Business Hours Configuration
+ * - FAQ Database
  */
 
 import * as React from 'react';
 import { useEffect } from 'react';
-import { Info, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useBusinessInfoStore } from '../stores/businessInfoStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
@@ -25,18 +17,6 @@ import { BusinessInfoForm } from '../components/business-info/BusinessInfoForm';
 import { FaqList } from '../components/business-info/FaqList';
 import { BusinessHoursConfig } from '../components/settings/BusinessHoursConfig';
 
-/**
- * BusinessInfoFaqConfig Component
- *
- * Main configuration page for business information, hours, and FAQ items.
- *
- * Features:
- * - Business information form with save functionality
- * - Business hours configuration with auto-save
- * - FAQ list with add/edit/delete operations
- * - Automatic loading of existing configuration
- * - Success and error notifications
- */
 export const BusinessInfoFaqConfig: React.FC = () => {
   const {
     businessName,
@@ -52,37 +32,30 @@ export const BusinessInfoFaqConfig: React.FC = () => {
   } = useBusinessInfoStore();
 
   const markBotConfigComplete = useOnboardingPhaseStore((state) => state.markBotConfigComplete);
-
   const { toast } = useToast();
 
-  // Load configuration on mount
   useEffect(() => {
     const loadConfig = async () => {
       try {
         await Promise.all([
           fetchBusinessInfo(),
-          // FAQs are loaded by FaqList component
         ]);
       } catch (err) {
         console.error('Failed to load configuration:', err);
         toast('Failed to load configuration', 'error');
       }
     };
-
     loadConfig();
   }, [fetchBusinessInfo, toast]);
 
-  // Handle save business info
   const handleSaveBusinessInfo = async () => {
     clearError();
-
     try {
       await updateBusinessInfo({
-        businessName: businessName,
-        businessDescription: businessDescription,
-        businessHours: businessHours,
+        businessName,
+        businessDescription,
+        businessHours,
       });
-
       markBotConfigComplete('businessInfo');
       toast('Business info saved successfully!', 'success');
     } catch (err) {
@@ -91,176 +64,133 @@ export const BusinessInfoFaqConfig: React.FC = () => {
     }
   };
 
-  // Is any operation in progress?
   const isLoading = loadingState === 'loading' || faqsLoadingState === 'loading';
-  const hasConfig = businessName || businessDescription || businessHours;
+  const hasConfig = !!(businessName || businessDescription || businessHours);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-emerald-50">
-      {/* Breadcrumb Navigation */}
-      <nav className="border-b border-emerald-500/10 bg-black/20 backdrop-blur-xl" aria-label="Breadcrumb">
-        <div className="max-w-7xl mx-auto px-10 py-4">
-          <ol className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em]">
-            <li>
-              <a href="/dashboard" className="text-emerald-900/40 hover:text-emerald-400 transition-all duration-500">
-                Primary Dashboard
-              </a>
-            </li>
-            <li className="text-emerald-900/20">/</li>
-            <li>
-              <span className="text-emerald-400 mantis-glow-text">Intelligence Config & FAQ</span>
-            </li>
-          </ol>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#131318] text-[#e4e1e9] font-['Inter'] relative z-0 pb-20 overflow-x-hidden">
+      {/* Background Ambience */}
+      <div className="fixed top-[20%] right-[-10%] w-[50%] h-[30%] bg-[#00bbf9]/5 blur-[120px] pointer-events-none -z-10 rounded-full" />
+      <div className="fixed bottom-[10%] left-[-10%] w-[40%] h-[20%] bg-[#00f5d4]/5 blur-[100px] pointer-events-none -z-10 rounded-full" />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-10 py-16 space-y-16">
+      <main className="max-w-7xl mx-auto px-6 py-12 space-y-10">
+        {/* Breadcrumb */}
+        <nav className="flex items-center space-x-2 text-[10px] uppercase tracking-[0.15em] text-[#b9cac4]/60 font-['Inter']">
+          <span>Primary Dashboard</span>
+          <span className="material-symbols-outlined text-[12px]">chevron_right</span>
+          <span className="text-[#00dfc1]">Intelligence Config & FAQ</span>
+        </nav>
+
         {/* Page Header */}
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-blue-500/20 blur-3xl opacity-20 -z-10" />
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-            <div className="space-y-4">
-              <h1 className="text-6xl font-black tracking-tight text-white mantis-glow-text leading-none">
-                Intelligence Engine
-              </h1>
-              <p className="text-xl text-emerald-900/60 font-medium max-w-2xl leading-relaxed">
-                Configure your bot&apos;s primary knowledge base. Fine-tune business heuristics, operational hours, and rapid-response logic.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 px-6 py-2.5 bg-emerald-500/5 text-emerald-400 border border-emerald-500/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] backdrop-blur-md shadow-2xl">
-              <Info size={14} className="text-emerald-500 shadow-glow" />
-              <span>Reference Stories 1.11, 3.10</span>
+        <section className="space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h1 className="text-4xl lg:text-5xl font-['Space_Grotesk'] font-bold tracking-tight text-[#e4e1e9] uppercase">
+              Intelligence Engine
+            </h1>
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-[#00f5d4]/10 border border-[#00f5d4]/20 rounded-sm w-fit shadow-[0_0_15px_rgba(0,245,212,0.1)]">
+              <span className="material-symbols-outlined text-[16px] text-[#00f5d4]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              <span className="text-[10px] font-bold text-[#00f5d4] uppercase tracking-widest">Verified Schema</span>
             </div>
           </div>
-        </div>
+          <div className="flex items-center">
+            <span className="text-[11px] font-['Inter'] text-[#b9cac4] bg-[#1f1f25] px-3 py-1.5 rounded border border-[#3a4a46]/30 shadow-sm">
+              Reference Stories 1.11, 3.10
+            </span>
+          </div>
+        </section>
 
-        {/* Error Display (page-level) */}
+        {/* Global Error Alert */}
         {error && (
-          <div
-            role="alert"
-            className="p-8 bg-red-500/5 border border-red-500/10 rounded-[32px] flex items-start gap-6 backdrop-blur-2xl animate-in shake duration-700 shadow-2xl relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-            <AlertCircle size={24} className="text-red-500 flex-shrink-0 mt-0.5 shadow-glow" />
-            <div className="flex-1 space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400">System Fault Detected</p>
-              <p className="text-base text-red-400/80 font-medium leading-relaxed">{error}</p>
+          <div className="bg-[#1f1f25]/60 backdrop-blur-[12px] p-5 rounded-xl border border-[#3a4a46]/15 border-l-4 border-l-[#ffb4ab] flex items-center justify-between shadow-[0_0_15px_rgba(255,180,171,0.15)] animate-shake">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#ffb4ab]">warning</span>
+              <span className="text-sm font-medium text-[#ffb4ab] uppercase tracking-wide">System Fault Detected: {error}</span>
             </div>
             <button
-              type="button"
               onClick={clearError}
-              className="p-2 text-red-400/40 hover:text-red-400 transition-colors bg-white/5 rounded-xl border border-white/5"
-              aria-label="Dismiss fault"
+              className="text-[#b9cac4] hover:text-[#ffb4ab] transition-colors"
+              aria-label="Dismiss error"
             >
-              ×
+              <span className="material-symbols-outlined">close</span>
             </button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Left Column: Business Info + Hours */}
-          <div className="lg:col-span-4 space-y-10">
-            {/* Business Info Form */}
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[40px] border border-emerald-500/10 p-10 shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full -mr-24 -mt-24 blur-3xl transition-all duration-700 group-hover:bg-emerald-500/10" />
-              
-              <div className="flex items-center justify-between mb-10 relative z-10">
-                <h2 className="text-2xl font-black text-white tracking-tight">Standard Heuristics</h2>
-                {hasConfig && (
-                  <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl border border-emerald-500/20 shadow-glow shadow-emerald-500/20">
-                    <CheckCircle2 size={12} />
-                    Verified
-                  </span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column */}
+          <div className="lg:col-span-5 xl:col-span-4 space-y-6">
+            
+            {/* Business Info Section */}
+            <section className="bg-[#1f1f25]/60 backdrop-blur-[12px] p-6 rounded-2xl border border-[#3a4a46]/15 shadow-xl space-y-6 hover:border-[#00f5d4]/20 transition-all duration-500 group">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold text-[#26fedc] uppercase tracking-[0.2em] font-['Space_Grotesk'] group-hover:drop-shadow-[0_0_8px_rgba(0,245,212,0.4)] transition-all">
+                  Standard Heuristics
+                </h2>
+                {!isDirty && hasConfig && (
+                  <span className="text-[10px] text-[#d7fff3]/60 font-['Inter'] italic">Status: Synchronized</span>
                 )}
               </div>
-
-              <div className="space-y-10 relative z-10">
-                <div className="mantis-form-overrides">
-                  <BusinessInfoForm disabled={isLoading} />
-                </div>
-
-                {/* Save Button */}
-                <div className="pt-10 border-t border-white/5">
-                  <button
-                    type="button"
-                    onClick={handleSaveBusinessInfo}
-                    disabled={isLoading || !isDirty}
-                    className="w-full px-8 py-4 text-[11px] font-black uppercase tracking-[0.25em] text-white bg-emerald-600 border border-transparent rounded-2xl hover:bg-emerald-500 disabled:opacity-30 disabled:grayscale transition-all shadow-2xl hover:shadow-emerald-500/40 relative overflow-hidden group/save"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/save:animate-shimmer" />
-                    <span className="relative z-10">
-                      {isLoading ? (
-                        <span className="flex items-center justify-center gap-3">
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Syncing Data...
-                        </span>
-                      ) : (
-                        'Commit Business Schema'
-                      )}
-                    </span>
-                  </button>
-                  {!isDirty && hasConfig && (
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-center text-emerald-900/40 mt-4 animate-pulse">
-                      Status: Synchronized
-                    </p>
-                  )}
-                </div>
+              
+              <div className="space-y-6">
+                <BusinessInfoForm disabled={isLoading} />
+                <button
+                  type="button"
+                  onClick={handleSaveBusinessInfo}
+                  disabled={isLoading || !isDirty}
+                  className="w-full py-3.5 bg-gradient-to-r from-[#26fedc] to-[#00f5d4] text-[#00201a] font-['Space_Grotesk'] font-bold uppercase tracking-widest rounded-xl shadow-[0_0_20px_rgba(0,245,212,0.25)] active:scale-[0.98] hover:shadow-[0_0_30px_rgba(0,245,212,0.4)] transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Syncing...' : 'Commit Business Schema'}
+                </button>
               </div>
-            </div>
+            </section>
 
-            {/* Business Hours Config (Story 3.10) */}
-            <div className="mantis-hours-overrides">
+            {/* Business Hours Section */}
+            <section className="bg-[#1f1f25]/60 backdrop-blur-[12px] p-6 rounded-2xl border border-[#3a4a46]/15 shadow-xl space-y-5 hover:border-[#00bbf9]/20 transition-all duration-500">
+              <h2 className="text-xs font-bold text-[#82d3ff] uppercase tracking-[0.2em] font-['Space_Grotesk']">
+                Operating Hours
+              </h2>
               <BusinessHoursConfig />
-            </div>
+            </section>
           </div>
 
-          {/* FAQ List */}
-          <div className="lg:col-span-8">
-            <div className="bg-[#0a0a0a]/60 backdrop-blur-3xl rounded-[48px] border border-white/5 p-10 shadow-2xl relative overflow-hidden min-h-[600px] flex flex-col">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full -mr-48 -mt-48 blur-[120px] pointer-events-none" />
+          {/* Right Column: FAQs */}
+          <div className="lg:col-span-7 xl:col-span-8 flex flex-col">
+            <section className="flex-1 bg-[#1f1f25]/40 backdrop-blur-[12px] p-8 rounded-2xl border border-[#3a4a46]/15 shadow-xl hover:border-white/10 transition-all duration-500 flex flex-col min-h-[500px]">
               <FaqList />
-            </div>
+            </section>
           </div>
         </div>
 
-        {/* Help Section */}
-        <div className="p-10 bg-[#0a0a0a]/40 backdrop-blur-2xl border border-emerald-500/10 rounded-[40px] shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-[60px]" />
-          <h3 className="text-3xl font-black text-white tracking-tight mb-8 mantis-glow-text">Intelligence Protocol</h3>
-          <div className="grid md:grid-cols-3 gap-10 text-base text-emerald-900/60 font-medium leading-relaxed">
-            <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl transition-all duration-700 hover:bg-white/[0.04] hover:-translate-y-2 group/card">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-glow" />
-                Context Hook
-              </h4>
-              <p>
-                Dynamic business heuristics are automatically injected into the bot&apos;s reasoning cycle. Every response leverages your defined identity schema.
+        {/* Intelligence Protocol (Bottom Section) */}
+        <section className="pt-10 pb-6 border-t border-[#3a4a46]/10">
+          <h2 className="text-xs font-bold text-[#b9cac4] uppercase tracking-[0.3em] font-['Space_Grotesk'] text-center mb-6">
+            Intelligence Protocols
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-[#1b1b20] p-6 rounded-xl flex flex-col items-center text-center space-y-4 border border-[#3a4a46]/20 shadow-lg hover:border-[#00f5d4]/20 hover:-translate-y-1 transition-all">
+              <span className="material-symbols-outlined text-[#00dfc1] text-3xl drop-shadow-[0_0_12px_rgba(0,245,212,0.3)]">anchor</span>
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#e4e1e9]">Context Hook</h3>
+              <p className="text-xs text-[#b9cac4]/80 leading-relaxed max-w-[250px]">
+                Business heuristics are deeply injected into the AI&apos;s reasoning cycles, defining base identity.
               </p>
             </div>
-            <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl transition-all duration-700 hover:bg-white/[0.04] hover:-translate-y-2 group/card">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                Operational Logic
-              </h4>
-              <p>
-                Automated 운영 시간 control. The engine intelligently manages human handoff protocols based on your operational window and timezone synchronization.
+            <div className="bg-[#1b1b20] p-6 rounded-xl flex flex-col items-center text-center space-y-4 border border-[#3a4a46]/20 shadow-lg hover:border-[#00bbf9]/20 hover:-translate-y-1 transition-all">
+              <span className="material-symbols-outlined text-[#79d1ff] text-3xl drop-shadow-[0_0_12px_rgba(121,209,255,0.3)]">account_tree</span>
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#e4e1e9]">Operational Logic</h3>
+              <p className="text-xs text-[#b9cac4]/80 leading-relaxed max-w-[250px]">
+                Controls human handoff and fallback parameters intelligently based on specified operating windows.
               </p>
             </div>
-            <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl transition-all duration-700 hover:bg-white/[0.04] hover:-translate-y-2 group/card">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400 mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-                Instant Retrieval
-              </h4>
-              <p>
-                FAQ primitives are indexed for high-speed pattern matching. The bot executes immediate recovery of pre-defined datasets for common query patterns.
+            <div className="bg-[#1b1b20] p-6 rounded-xl flex flex-col items-center text-center space-y-4 border border-[#3a4a46]/20 shadow-lg hover:border-[#ffced1]/20 hover:-translate-y-1 transition-all">
+              <span className="material-symbols-outlined text-[#ffb2b8] text-3xl drop-shadow-[0_0_12px_rgba(255,178,184,0.3)]">database</span>
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#e4e1e9]">Instant Retrieval</h3>
+              <p className="text-xs text-[#b9cac4]/80 leading-relaxed max-w-[250px]">
+                Pre-defined datasets are indexed and deployed for sub-50ms contextual recovery during chat.
               </p>
             </div>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );
