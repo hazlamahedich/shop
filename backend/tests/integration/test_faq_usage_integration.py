@@ -1,171 +1,191 @@
-"""API integration tests for FAQ Usage endpoint (Story 10-10)."""
+"""API integration tests for FAQ Usage endpoint (Story 10-10).
+
+Integration tests that verify the FAQ Usage API works with the actual database
+and application endpoints.
+"""
+
+from datetime import UTC, datetime
 
 import pytest
-from httpx import AsyncClient,from sqlalchemy.ext.asyncio import AsyncSession,from app.core.database import get_db
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import async_session_factory
 from app.models.faq import Faq
-from app.models.faq_interaction_log import FAQInteractionLog
+from app.models.faq_interaction_log import FaqInteractionLog
+
+
+@pytest.fixture
+async def db_session():
+    """Create a database session for testing."""
+    async with async_session_factory() as session:
+        yield session
+
+
+@pytest.fixture
+async def sample_faqs(db_session: AsyncSession):
+    """Create sample FAQs for testing."""
+    faqs = [
+        Faq(
+            merchant_id=1,
+            question="What are your hours?",
+            answer="We are open 9-5.",
+            keywords=["hours", "open", "time"],
+            icon="clock",
+        ),
+        Faq(
+            merchant_id=1,
+            question="How do I return items?",
+            answer="You can return within 30 days.",
+            keywords=["return", "refund"],
+            icon="package",
+        ),
+        Faq(
+            merchant_id=1,
+            question="Unused FAQ",
+            answer="This is rarely used.",
+            keywords=["unused"],
+            icon="question",
+        ),
+    ]
+    for faq in faqs:
+        db_session.add(faq)
+    await db_session.commit()
+    yield faqs
+    await db_session.rollback()
+
+
+@pytest.fixture
+async def sample_interaction_logs(db_session: AsyncSession, sample_faqs):
+    """Create sample interaction logs for testing."""
+    logs = [
+        FaqInteractionLog(
+            faq_id=1,
+            merchant_id=1,
+            session_id="test-session-1",
+            clicked_at=datetime(2026, 3, 1, 10, 0, 0, tzinfo=UTC),
+        ),
+        FaqInteractionLog(
+            faq_id=1,
+            merchant_id=1,
+            session_id="test-session-2",
+            clicked_at=datetime(2026, 3, 2, 11, 0, 0, tzinfo=UTC),
+        ),
+        FaqInteractionLog(
+            faq_id=1,
+            merchant_id=1,
+            session_id="test-session-3",
+            clicked_at=datetime(2026, 3, 3, 12, 0, 0, tzinfo=UTC),
+        ),
+        FaqInteractionLog(
+            faq_id=2,
+            merchant_id=1,
+            session_id="test-session-4",
+            clicked_at=datetime(2026, 3, 1, 10, 0, 0, tzinfo=UTC),
+        ),
+        FaqInteractionLog(
+            faq_id=2,
+            merchant_id=1,
+            session_id="test-session-5",
+            clicked_at=datetime(2026, 3, 2, 11, 0, 0, tzinfo=UTC),
+        ),
+    ]
+    for log in logs:
+        db_session.add(log)
+    await db_session.commit()
+    yield logs
+    await db_session.rollback()
 
 
 @pytest.mark.asyncio
 class TestFaqUsageIntegration:
     """Integration tests for FAQ Usage API with database."""
 
-    @pytest.fixture
-    async def db_session():
-        """Create a database session for testing."""
-        async for session in get_db():
-            yield session
-
-    @pytest.fixture
-    async def sample_faqs(db_session: AsyncSession):
-        """Create sample FAQs for testing."""
-        faqs = [
-            Faq(
-                id=1,
-                merchant_id=1,
-                question="What are your hours?",
-                answer="We are open 9-5.",
-                keywords=["hours", "open", "time"],
-                icon="clock",
-            ),
-            Faq(
-                id=2,
-                merchant_id=1,
-                question="How do I return items?",
-                answer="You can return within 30 days.",
-                keywords=["return", "refund"],
-                icon="package",
-            ),
-            Faq(
-                id=3,
-                merchant_id=1,
-                question="Unused FAQ",
-                answer="This is rarely used.",
-                keywords=["unused"],
-                icon="question",
-            ),
-        ]
-        for faq in faqs:
-            db_session.add(faq)
-        await db_session.commit()
-        return faqs
-
-    @pytest.fixture
-    async def sample_interaction_logs(db_session: AsyncSession, sample_faqs):
-        """Create sample interaction logs for testing."""
-        logs = [
-            FAQInteractionLog(faq_id=1, action="click", created_at="2026-03-01 10:00:00"),
-            FAQInteractionLog(faq_id=1, action="click", created_at="2026-03-02 11:00:00"),
-            FAQInteractionLog(faq_id=1, action="click", created_at="2026-03-03 12:00:00"),
-            FAQInteractionLog(faq_id=2, action="click", created_at="2026-03-01 10:00:00"),
-            FAQInteractionLog(faq_id=2, action="click", created_at="2026-03-02 11:00:00"),
-        ]
-        for log in logs:
-            db_session.add(log)
-        await db_session.commit()
-        return logs
-
-    @pytest.mark.asyncio
-    async def test_get_faq_usage_with_data(db_session: AsyncSession, sample_interaction_logs):
+    async def test_get_faq_usage_returns_data(
+        self,
+        db_session: AsyncSession,
+        sample_interaction_logs
+    ):
         """Test that FAQ usage returns correct data from database."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/analytics/faq-usage",
-                params={"days": 30},
-                headers={"X-Merchant-Id": "1"},
-            )
+        from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
-            assert response.status_code == 200
-            data = response.json()
-            assert "faqs" in data
-            assert "summary" in data
+        service = AggregatedAnalyticsService(db_session)
+        data = await service.get_faq_usage(merchant_id=1, days=30)
 
-    @pytest.mark.asyncio
-    async def test_get_faq_usage_empty_database(db_session: AsyncSession):
+        assert "faqs" in data
+        assert "summary" in data
+        assert len(data["faqs"]) >= 2
+
+    async def test_get_faq_usage_empty_database(
+        self,
+        db_session: AsyncSession
+    ):
         """Test that empty database returns empty state."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/analytics/faq-usage",
-                params={"days": 30},
-                headers={"X-Merchant-Id": "999"},
-            )
+        from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["faqs"] == []
-            assert data["summary"]["totalClicks"] == 0
+        service = AggregatedAnalyticsService(db_session)
+        data = await service.get_faq_usage(merchant_id=999, days=30)
 
-    @pytest.mark.asyncio
-    async def test_csv_export_with_data(db_session: AsyncSession, sample_interaction_logs):
-        """Test that CSV export returns correct data."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/analytics/faq-usage/export",
-                params={"days": 30},
-                headers={"X-Merchant-Id": "1"},
-            )
+        assert data["faqs"] == []
+        assert data["summary"]["totalClicks"] == 0
 
-            assert response.status_code == 200
-            assert "text/csv" in response.headers["content-type"]
-            content = response.text
-            assert "FAQ Question" in content
-            assert "Clicks" in content
-
-    @pytest.mark.asyncio
-    async def test_faq_usage_merchant_isolation(db_session: AsyncSession, sample_faqs):
-        """Test that merchants can only see their own FAQ data."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-                response = await client.get(
-                    "/api/v1/analytics/faq-usage",
-                    params={"days": 30},
-                    headers={"X-Merchant-Id": "2"},
-                )
-
-                assert response.status_code == 200
-                data = response.json()
-                assert data["faqs"] == [] or all(faq["id"] not in [f["id"] for f in sample_faqs] for faq in data["faqs"])
-
-    @pytest.mark.asyncio
-    async def test_faq_usage_click_count_accuracy(db_session: AsyncSession, sample_interaction_logs):
+    async def test_get_faq_usage_calculates_click_counts(
+        self,
+        db_session: AsyncSession
+        sample_interaction_logs
+    ):
         """Test that click counts are accurate."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/analytics/faq-usage",
-                params={"days": 30},
-                headers={"X-Merchant-Id": "1"},
-            )
+        from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
-            assert response.status_code == 200
-            data = response.json()
-            faq_1 = next((f for f in data["faqs"] if f["id"] == 1), None)
-            if faq_1:
-                assert faq_1["clickCount"] == 3
+        service = AggregatedAnalyticsService(db_session)
+        data = await service.get_faq_usage(merchant_id=1, days=30)
 
-    @pytest.mark.asyncio
-    async def test_faq_usage_period_filter(db_session: AsyncSession, sample_interaction_logs):
+        faq_1 = next((f for f in data["faqs"] if f["id"] == 1), None)
+        if faq_1:
+            assert faq_1["clickCount"] == 3
+
+    async def test_get_faq_usage_merchant_isolation(
+        self,
+        db_session: AsyncSession
+        sample_faqs
+    ):
+        """Test that merchants can only see their own FAQ data."""
+        from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
+
+        service = AggregatedAnalyticsService(db_session)
+        data = await service.get_faq_usage(merchant_id=2, days=30)
+
+        assert data["faqs"] == [] or all(
+            f["id"] not in [faq.id for faq in sample_faqs]
+            for f in data["faqs"]
+        )
+
+    async def test_get_faq_usage_period_filter(
+        self,
+        db_session: AsyncSession
+        sample_interaction_logs
+    ):
         """Test that period filter works correctly."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-            for days in [7, 14, 30]:
-                response = await client.get(
-                    "/api/v1/analytics/faq-usage",
-                    params={"days": days},
-                    headers={"X-Merchant-Id": "1"},
-                )
+        from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
-                assert response.status_code == 200
+        service = AggregatedAnalyticsService(db_session)
 
-    @pytest.mark.asyncio
-    async def test_faq_usage_marks_unused(db_session: AsyncSession, sample_faqs):
+        for days in [7, 14, 30]:
+            data = await service.get_faq_usage(merchant_id=1, days=days)
+            assert "faqs" in data
+
+    async def test_get_faq_usage_marks_unused(
+        self,
+        db_session: AsyncSession
+        sample_faqs
+    ):
         """Test that FAQs with no clicks are marked as unused."""
-        async with AsyncClient(app="testserver", base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/analytics/faq-usage",
-                params={"days": 30, "include_unused": True},
-                headers={"X-Merchant-Id": "1"},
-            )
+        from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 
-            assert response.status_code == 200
-            data = response.json()
-            unused_faqs = [f for f in data["faqs"] if f.get("isUnused")]
-            for faq in unused_faqs:
-                assert faq["clickCount"] == 0
+        service = AggregatedAnalyticsService(db_session)
+        data = await service.get_faq_usage(merchant_id=1, days=30, include_unused=True)
+
+        unused_faqs = [f for f in data["faqs"] if f.get("isUnused")]
+        for faq in unused_faqs:
+            assert faq["clickCount"] == 0

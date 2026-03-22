@@ -20,14 +20,14 @@ class TestGetFaqUsage:
         """Create service instance with mock database."""
         return AggregatedAnalyticsService(mock_db)
 
-    def _create_mock_row(self, faq_id, question, click_count, followup_count):
+    def _create_mock_row(self, faq_id, question, click_count, followup_count, is_unused=False):
         """Helper to create a mock database row."""
         row = MagicMock()
         row.id = faq_id
         row.question = question
         row.click_count = click_count
         row.followup_count = followup_count
-        row.isUnused = click_count == 0
+        row.is_unused = is_unused if is_unused else (click_count == 0)
         return row
 
     @pytest.mark.asyncio
@@ -91,15 +91,13 @@ class TestGetFaqUsage:
 
         assert result["faqs"][0]["conversionRate"] == 10.0
 
-    @pytest.mark.asyncio
-    async def test_get_faq_usage_marks_unused_faqs(self, service, mock_db):
-        """Test that unused FAQs are marked correctly."""
+    def test_get_faq_usage_marks_unused_faqs(self, service, mock_db):
+        """Test that FAQs with 0 clicks are marked as unused."""
         current_rows = [self._create_mock_row(1, "Unused FAQ", 0, 0)]
         mock_current_result = MagicMock()
         mock_current_result.all.return_value = current_rows
         mock_prev_result = MagicMock()
         mock_prev_result.all.return_value = []
-        mock_db.execute.side_effect = [mock_current_result, mock_prev_result]
 
         result = await service.get_faq_usage(merchant_id=1, days=30, include_unused=True)
 
@@ -185,6 +183,9 @@ class TestFaqUsageEdgeCases:
     def service(self, mock_db):
         """Create service instance with mock database."""
         return AggregatedAnalyticsService(mock_db)
+
+    @pytest.mark.asyncio
+    async def test_get_faq_usage_handles_database_error(self, service, mock_db):
 
     @pytest.mark.asyncio
     async def test_get_faq_usage_handles_database_error(self, service, mock_db):

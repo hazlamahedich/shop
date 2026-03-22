@@ -1988,7 +1988,7 @@ class AggregatedAnalyticsService:
                     "clickCount": click_count,
                     "conversionRate": conversion_rate,
                     "followupCount": followup_count,
-                    "isUnused": False,
+                    "isUnused": click_count == 0,
                     "previousPeriod": {
                         "clickCount": prev_click_count,
                         "conversionRate": prev_conversion_rate,

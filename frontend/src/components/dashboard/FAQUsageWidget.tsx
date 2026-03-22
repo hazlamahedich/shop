@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { HelpCircle, TrendingUp, TrendingDown, Minus, AlertTriangle, ExternalLink, RefreshCw, Download } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
+import { useToast } from '../../hooks/useDataExport';
 
 function getTrendIcon(trend: string | undefined) {
   switch (trend) {
@@ -13,6 +14,14 @@ function getTrendIcon(trend: string | undefined) {
     default:
       return <Minus size={12} className="text-white/20" />;
   }
+}
+
+function getTrendColor(change: number | null | undefined): string {
+  if (change === null || change === undefined) return 'text-white/20';
+  if (change > 0) return 'text-[#00f5d4]';
+  if (change < 0) return 'text-rose-400';
+  return 'text-white/50';
+}
 }
 
 function getTrendColor(change: number | null | undefined): string {
@@ -59,8 +68,10 @@ export function FAQUsageWidget() {
       a.download = `faq-usage-${days}d.csv`;
       a.click();
       URL.revokeObjectURL(url);
+      toast('FAQ usage data exported successfully', 'success');
     } catch (error) {
       console.error('CSV export failed:', error);
+      toast('Failed to export FAQ usage data. Please try again.', 'error');
     }
   };
 
@@ -118,7 +129,7 @@ export function FAQUsageWidget() {
           </div>
         </div>
 
-        {isError ? (
+ {isError ? (
           <div
             data-testid="faq-usage-error"
             className="flex items-center justify-center py-8"
@@ -126,12 +137,12 @@ export function FAQUsageWidget() {
             <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">
               SIGNAL_DECODE_ERROR
             </p>
-          </div>
+          </>
         ) : (
           <>
             {/* Summary stats */}
             {summary && (
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-3 gap-1 mb-4">
                 <div
                   data-testid="total-clicks"
                   className="bg-white/5 border border-white/5 p-3 rounded-xl backdrop-blur-sm group/metric"
@@ -167,79 +178,77 @@ export function FAQUsageWidget() {
                 </div>
               </div>
             )}
-
-            {/* FAQ list */}
-            {faqs.length > 0 ? (
-              <div data-testid="faq-list-container" className="space-y-2 max-h-64 overflow-y-auto">
-                {faqs.map((faq) => (
-                  <div
-                    key={faq.id}
-                    data-testid={`faq-item-${faq.id}`}
-                    onClick={() => handleFAQClick(faq.id)}
-                    className={`p-3 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 hover:border-[#00f5d4]/30 transition-colors group/item ${faq.isUnused ? 'opacity-50' : ''}`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span
-                        className="text-sm font-medium text-white truncate flex-1"
-                        title={faq.question}
-                      >
-                        {faq.question}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs">
-                      <span
-                        data-testid={`faq-clicks-${faq.id}`}
-                        className="text-white/60"
-                      >
-                        {faq.clickCount} clicks
-                      </span>
-                      <span
-                        data-testid={`faq-conversion-${faq.id}`}
-                        className="text-white/30"
-                      >
-                        {faq.conversionRate.toFixed(1)}% conversion
-                      </span>
-                      {faq.change && faq.change.clickChange !== null && (
-                        <span
-                          data-testid={`faq-change-${faq.id}`}
-                          className={`flex items-center gap-1 text-[9px] font-bold ${getTrendColor(faq.change.clickChange)}`}
-                        >
-                          {getTrendIcon(faq.change.clickChange > 0 ? 'up' : 'down')}
-                          <span>
-                            {faq.change.clickChange > 0 ? '+' : ''}{Math.abs(faq.change.clickChange)}%
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    {faq.isUnused && (
-                      <div
-                        data-testid={`unused-faq-warning-${faq.id}`}
-                        className="flex items-center gap-1 text-amber-400 mt-2"
-                      >
-                        <AlertTriangle size={10} />
-                        <span className="text-[9px]">No clicks in {days} days</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div data-testid="faq-usage-empty" className="text-center py-8">
-                <p className="text-sm text-white/50">No FAQ data available yet.</p>
-                <p className="text-xs text-gray-400 mt-4">
-                  Create FAQs in{' '}
-                  <a href="/bot-config" className="text-[#00f5d4] hover:underline">
-                    Bot Config
-                  </a>{' '}
-                  <span> to start tracking FAQ usage.</span>
-                </p>
-              </div>
-            )}
           </>
         )}
-      </div>
+      </>
+    ) : (
+      <>
+        {/* FAQ list */}
+        {faqs.length > 0 ? (
+          <div data-testid="faq-list-container" className="space-y-2 max-h-64 overflow-y-auto">
+            {faqs.map((faq) => (
+              <div
+                key={faq.id}
+                data-testid={`faq-item-${faq.id}`}
+                onClick={() => handleFAQClick(faq.id)}
+                className={`p-3 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 hover:border-[#00f5d4]/30 transition-colors group/item ${faq.isUnused ? 'opacity-50' : ''}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span
+                    className="text-sm font-medium text-white truncate flex-1"
+                    title={faq.question}
+                  >
+                    {faq.question}
+                  </span>
+                <div className="flex items-center gap-3 text-xs">
+                  <span
+                    data-testid={`faq-clicks-${faq.id}`}
+                    className="text-white/60"
+                  >
+                    {faq.clickCount} clicks
+                  </span>
+                  <span
+                    data-testid={`faq-conversion-${faq.id}`}
+                    className="text-white/30"
+                  >
+                    {faq.conversionRate.toFixed(1)}% conversion
+                  </span>
+                  {faq.change && faq.change.clickChange !== null && (
+                    <span
+                      data-testid={`faq-change-${faq.id}`}
+                      className={`flex items-center gap-1 text-[9px] font-bold ${getTrendColor(faq.change.clickChange)}`}
+                    >
+                      {getTrendIcon(faq.change.clickChange > 0 ? 'up' : 'down')}
+                      <span>
+                        {faq.change.clickChange > 0 ? '+' : ''}{Math.abs(faq.change.clickChange)}%
+                      </span>
+                    </div>
+                  {faq.isUnused && (
+                    <div
+                      data-testid={`unused-faq-warning-${faq.id}`}
+                      className="flex items-center gap-1 text-amber-400 mt-1"
+                    >
+                      <AlertTriangle size={10} />
+                      <span className="text-[9px]">No clicks in {days} days</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+          </div>
+        ) : (
+          <div data-testid="faq-usage-empty" className="text-center py-8">
+            <p className="text-sm text-white/50">No FAQ data available yet.</p>
+            <p className="text-xs text-gray-400 mt-4">
+              Create FAQs in{' '}
+              <a href="/bot-config" className="text-[#00f5d4] hover:underline">
+              {' '}
+              <span> to start tracking FAQ usage.</span>
+            </p>
+          </div>
+        )}
+      </>
     </StatCard>
-    );
+  );
 }
 
 export default FAQUsageWidget;

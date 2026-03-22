@@ -9,6 +9,7 @@
  */
 
 import { apiClient } from './api';
+import type { FaqUsageData } from '../types/analytics';
 
 // ────────────────────────────────────────────────────────────────
 // Widget Analytics (Story 9-10)
@@ -392,10 +393,10 @@ export const analyticsService = {
   },
 
   async getFaqUsage(days = 30): Promise<FaqUsageData> {
-    const response = await apiClient.get<{ data: FaqUsageData }>(
+    const response = await apiClient.get<FaqUsageData>(
       `/api/v1/analytics/faq-usage?days=${days}`
     );
-    return (response as unknown as { data: FaqUsageData }).data;
+    return response as unknown as FaqUsageData;
   },
 };
 
@@ -514,42 +515,3 @@ export interface ResponseTimeDistributionData {
   };
 }
 
-
-export interface FaqUsageItem {
-  id: number;
-  question: string;
-  clickCount: number;
-  conversionRate: number;
-  followupCount: number;
-  isUnused: boolean;
-  previousPeriod: {
-    clickCount: number;
-    conversionRate: number;
-  };
-  change: {
-    clickChange: number | null;
-    conversionChange: number | null;
-  };
-}
-
-export interface FaqUsageSummary {
-  totalFaqs: number;
-  totalClicks: number;
-  avgConversionRate: number;
-  unusedCount: number;
-}
-
-export interface FaqUsageData {
-  period: {
-    days: number;
-    startDate: string;
-    endDate: string;
-  };
-  faqs: FaqUsageItem[];
-  summary: FaqUsageSummary;
-  lastUpdated: string;
-}
-
-export interface FaqUsageResponse {
-  data: FaqUsageData;
-}
