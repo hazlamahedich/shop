@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
+import { Clock, TrendingUp, TrendingDown, Minus, AlertTriangle, RefreshCw } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 
@@ -33,9 +33,10 @@ function getTrendColor(trend: string | undefined): string {
 }
 
 export function ResponseTimeWidget() {
-  const [days] = useState(7);
+  const [days, setDays] = useState(7);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['analytics', 'response-time-distribution', days],
     queryFn: () => analyticsService.getResponseTimeDistribution(days),
     staleTime: 60_000,
@@ -63,6 +64,12 @@ export function ResponseTimeWidget() {
 
   const maxCount = histogram.length > 0 ? Math.max(...histogram.map((b) => b.count)) : 0;
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
+
   return (
     <StatCard
       title="Response Time"
@@ -74,6 +81,27 @@ export function ResponseTimeWidget() {
       isLoading={isLoading}
     >
       <div className="space-y-4 mt-4">
+        <div className="flex items-center justify-between gap-2">
+          <select
+            data-testid="time-range-selector"
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#00f5d4]"
+          >
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+            <option value={30}>30 days</option>
+          </select>
+          <button
+            data-testid="refresh-button"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoading}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-white/50 hover:text-white/80 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
+        </div>
         {isError ? (
           <div
             data-testid="response-time-error"
