@@ -609,6 +609,7 @@ function ChatWindow({
           placeholder="Type a message..."
           inputRef={inputRef as React.Ref<HTMLInputElement>}
           theme={theme}
+          themeMode={themeMode}
         />
       </div>
     </FocusTrap>

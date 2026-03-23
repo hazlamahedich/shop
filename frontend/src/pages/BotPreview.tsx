@@ -34,7 +34,6 @@ export function BotPreview() {
     <div className="min-h-screen bg-[#030303] text-white flex flex-col relative overflow-hidden animate-in fade-in duration-1000">
       {/* Neural Background Overlays */}
       <div className="absolute inset-x-0 top-0 h-[600px] bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent pointer-events-none"></div>
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] pointer-events-none mix-blend-overlay"></div>
 
       {/* Header */}
       <header className="relative z-10 bg-[#0a0a0a]/80 backdrop-blur-3xl border-b border-white/[0.03] py-8">

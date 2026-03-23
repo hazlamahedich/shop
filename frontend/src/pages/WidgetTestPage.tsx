@@ -58,7 +58,6 @@ export default function WidgetTestPage() {
     <div className="min-h-screen bg-[#030303] text-white p-10 font-sans relative overflow-hidden">
       {/* Background Depth */}
       <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-emerald-500/10 to-transparent pointer-events-none"></div>
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none"></div>
 
       <div className="max-w-4xl mx-auto space-y-12">
         <div className="space-y-4">

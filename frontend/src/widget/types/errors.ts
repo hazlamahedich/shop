@@ -181,7 +181,7 @@ export function createWidgetError(
   if (error && typeof error === 'object') {
     const err = error as Record<string, unknown>;
     status = (err.status as number) || (err.statusCode as number) || 0;
-    errorCode = err.error_code as number | undefined;
+    errorCode = (err.error_code as number) || (err.code as number) || undefined;
     message = (err.message as string) || message;
     detail = err.detail as string | undefined;
     retryAfter = err.retry_after as number | undefined;

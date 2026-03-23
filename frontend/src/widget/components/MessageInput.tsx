@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetTheme, VoiceInputConfig } from '../types/widget';
+import type { WidgetTheme, VoiceInputConfig, ThemeMode } from '../types/widget';
 import { VoiceInput } from './VoiceInput';
 import { trackMessageSend } from '../utils/analytics';
 
@@ -11,6 +11,7 @@ export interface MessageInputProps {
   placeholder: string;
   inputRef?: React.Ref<HTMLInputElement>;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   maxLength?: number;
   voiceInputConfig?: Partial<VoiceInputConfig>;
   showVoiceInput?: boolean;
@@ -24,6 +25,7 @@ export function MessageInput({
   placeholder,
   inputRef,
   theme,
+  themeMode,
   maxLength = 2000,
   voiceInputConfig,
   showVoiceInput = true,
@@ -74,6 +76,12 @@ export function MessageInput({
         flexShrink: 0,
       }}
     >
+      <style>{`
+        .shopbot-message-input::placeholder {
+          color: ${theme.textColor};
+          opacity: 0.5;
+        }
+      `}</style>
       {interimTranscript && (
         <div
           data-testid="voice-interim-transcript"
@@ -106,6 +114,7 @@ export function MessageInput({
         <input
           ref={inputRef}
           type="text"
+          className="shopbot-message-input"
           data-testid="message-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -117,12 +126,15 @@ export function MessageInput({
           style={{
             flex: 1,
             padding: '10px 14px',
-            border: '1px solid #e5e7eb',
+            border: themeMode === 'dark' ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.2)',
             borderRadius: 20,
             fontSize: theme.fontSize,
             fontFamily: theme.fontFamily,
             outline: 'none',
-            backgroundColor: disabled ? '#f9fafb' : 'white',
+            color: theme.textColor,
+            backgroundColor: disabled 
+              ? (themeMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)') 
+              : 'transparent',
           }}
         />
         <button

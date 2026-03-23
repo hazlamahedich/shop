@@ -29,8 +29,8 @@ export const WidgetConfigSchema = z.object({
   proactive_engagement_config: z.any().optional(),
   onboardingMode: z.enum(['general', 'ecommerce']).optional(),
   onboarding_mode: z.enum(['general', 'ecommerce']).optional(),
-  contactOptions: z.array(z.any()).optional(),
-  contact_options: z.array(z.any()).optional(),
+  contactOptions: z.array(z.any()).nullable().optional(),
+  contact_options: z.array(z.any()).nullable().optional(),
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
   botName: data.botName || data.bot_name || 'Assistant',
