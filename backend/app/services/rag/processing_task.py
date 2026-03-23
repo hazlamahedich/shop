@@ -119,34 +119,28 @@ async def process_document_background(document_id: int, merchant_id: int) -> Pro
     """
     async with async_session() as db:
         try:
-            # Get merchant's LLM config (with decrypted API key)
+            # Get merchant and their LLM config
+            result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+            merchant = result.scalar_one_or_none()
+            if not merchant:
+                raise APIError(ErrorCode.MERCHANT_NOT_FOUND, f"Merchant {merchant_id} not found")
+
             merchant_config = await get_merchant_llm_config(db, merchant_id)
 
-            # Initialize embedding service using merchant's provider
-            # Fall back to OpenAI if provider doesn't support embeddings (like Anthropic)
-            provider = merchant_config.llm_provider
+            # Initialize embedding service using merchant's embedding settings (Story 8-11)
+            provider = merchant.embedding_provider
+            model = merchant.embedding_model
+            
+            # Use merchant's decrypted API key for cloud providers
+            api_key = merchant_config.llm_api_key
+            
+            # Fallback for OpenAI if using Anthropic for chat but no specific embedding provider
+            # (Though current schema handles this via Merchant fields)
             if provider == "anthropic":
-                # Anthropic doesn't support embeddings - use OpenAI fallback
-                logger.warning(
-                    "embedding_provider_fallback",
-                    merchant_id=merchant_id,
-                    original_provider="anthropic",
-                    fallback_provider="openai",
-                )
                 from app.core.config import settings
-
                 provider = "openai"
                 api_key = settings().get("OPENAI_API_KEY")
                 model = "text-embedding-3-small"
-            else:
-                api_key = merchant_config.llm_api_key
-                # Use embedding-specific model, not chat model
-                if provider == "openai":
-                    model = "text-embedding-3-small"
-                elif provider == "ollama":
-                    model = "nomic-embed-text"
-                else:
-                    model = None
 
             embedding_service = EmbeddingService(
                 provider=provider,

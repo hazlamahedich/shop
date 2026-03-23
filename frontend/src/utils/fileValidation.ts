@@ -120,6 +120,11 @@ export function getFileTypeNameFromMimeType(mimeType: string): string {
     'text/plain': 'TXT',
     'text/markdown': 'MD',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+    // Fallback for cases where backend sends the extension directly
+    'pdf': 'PDF',
+    'txt': 'TXT',
+    'md': 'MD',
+    'docx': 'DOCX',
   };
 
   return mimeMap[mimeType] || 'Unknown';

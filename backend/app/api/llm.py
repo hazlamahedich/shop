@@ -28,6 +28,7 @@ from app.core.input_sanitizer import validate_test_prompt
 from app.core.rate_limiter import check_llm_rate_limit
 from app.core.security import decrypt_access_token, encrypt_access_token
 from app.models.llm_configuration import LLMConfiguration
+from app.models.merchant import Merchant
 from app.schemas.llm import (
     DiscoveredModel,
     LLMConfigureRequest,
@@ -51,7 +52,7 @@ def _get_merchant_id_from_request(request: Request) -> int:
     """Extract merchant_id from authenticated request.
 
     Uses request.state.merchant_id set by authentication middleware.
-    Falls back to X-Merchant-Id header in DEBUG mode or X-Test-Mode for testing.
+    Falls back to X-Merchant-Id header in DEBUG mode.
     Defaults to merchant_id=1 for development when no auth is present.
 
     Args:
@@ -109,6 +110,44 @@ def _get_merchant_id_from_request(request: Request) -> int:
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Authentication required",
+    )
+
+
+
+async def sync_merchant_embedding_settings(
+    db: AsyncSession, merchant_id: int, provider: str, ollama_model: str | None = None
+) -> None:
+    """Synchronize merchant embedding settings with LLM provider.
+
+    Ensures that embedding_provider and embedding_model are updated to match
+    the chosen LLM provider to prevent manual configuration mismatches.
+    """
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = result.scalar_one_or_none()
+
+    if not merchant:
+        return
+
+    # Map LLM provider to best-fit embedding provider and model
+    if provider == "gemini":
+        merchant.embedding_provider = "gemini"
+        merchant.embedding_model = "gemini-embedding-001"
+        merchant.embedding_dimension = 768
+    elif provider == "openai":
+        merchant.embedding_provider = "openai"
+        merchant.embedding_model = "text-embedding-3-small"
+        merchant.embedding_dimension = 1536
+    elif provider == "ollama":
+        merchant.embedding_provider = "ollama"
+        if ollama_model:
+            merchant.embedding_model = ollama_model
+        merchant.embedding_dimension = 768  # Default for nomic-embed-text
+
+    logger.info(
+        "synchronized_embedding_settings",
+        merchant_id=merchant_id,
+        provider=merchant.embedding_provider,
+        model=merchant.embedding_model,
     )
 
 
@@ -217,6 +256,12 @@ async def configure_llm(
     )
 
     db.add(llm_config)
+    
+    # Sync embedding settings with the new provider
+    await sync_merchant_embedding_settings(
+        db, merchant_id, request_obj.provider, ollama_model
+    )
+    
     await db.commit()
     await db.refresh(llm_config)
 
@@ -442,6 +487,11 @@ async def update_llm(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update",
+        )
+
+    if "provider" in updated_fields or "model" in updated_fields:
+        await sync_merchant_embedding_settings(
+            db, merchant_id, config.provider, config.ollama_model
         )
 
     await db.commit()
@@ -804,6 +854,14 @@ async def switch_llm_provider(
             api_key=request_obj.api_key,
             server_url=request_obj.server_url,
             model=request_obj.model,
+        )
+
+        # Sync embedding settings with the new provider
+        await sync_merchant_embedding_settings(
+            db, 
+            merchant_id, 
+            request_obj.provider_id, 
+            request_obj.model
         )
 
         return {

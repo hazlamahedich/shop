@@ -20,9 +20,9 @@ if TYPE_CHECKING:
     from app.models.merchant import Merchant
 
 
-def _utcnow_naive() -> datetime:
-    """Return current UTC time as a naive datetime (for TIMESTAMP WITHOUT TIME ZONE columns)."""
-    return datetime.now(UTC).replace(tzinfo=None)
+def _utcnow_aware() -> datetime:
+    """Return current UTC time as an aware datetime."""
+    return datetime.now(UTC)
 
 
 class DocumentStatus(str, Enum):
@@ -93,14 +93,14 @@ class KnowledgeDocument(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=_utcnow_naive,
+        DateTime(timezone=True),
+        default=_utcnow_aware,
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=_utcnow_naive,
-        onupdate=_utcnow_naive,
+        DateTime(timezone=True),
+        default=_utcnow_aware,
+        onupdate=_utcnow_aware,
         nullable=False,
     )
 
@@ -160,8 +160,8 @@ class DocumentChunk(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=_utcnow_naive,
+        DateTime(timezone=True),
+        default=_utcnow_aware,
         nullable=False,
     )
 

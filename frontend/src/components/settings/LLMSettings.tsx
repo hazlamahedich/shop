@@ -192,6 +192,16 @@ export function LLMSettings() {
             <p className="text-xs text-white/50 mt-1">
               Your API key is encrypted and stored securely. Enter a new key above to update it.
             </p>
+            {['anthropic', 'glm'].includes(currentProvider) && (
+              <Alert className="mt-4 bg-indigo-500/10 text-indigo-300 border-indigo-500/20">
+                <p className="text-sm">
+                  <span className="font-semibold">{currentProvider === 'anthropic' ? 'Anthropic (Claude)' : 'GLM'}</span> does 
+                  not provide native embeddings. To use a knowledge base, 
+                  you must also have a valid OpenAI API key or a local Ollama 
+                  instance configured for embeddings.
+                </p>
+              </Alert>
+            )}
           </div>
         )}
 
@@ -212,6 +222,13 @@ export function LLMSettings() {
           </div>
           {modelsCached && (
             <p className="text-xs text-white/40 mb-2">Models cached (24h TTL)</p>
+          )}
+          {['anthropic', 'glm'].includes(currentProvider) && (
+            <Alert className="mt-2 text-xs bg-indigo-50 border-indigo-100 text-indigo-800">
+              <span className="font-semibold">Note:</span> {configuration.provider === 'anthropic' ? 'Anthropic' : 'GLM'} does 
+              not support embeddings natively in our system. This setup will use your 
+              existing embedding settings (OpenAI by default).
+            </Alert>
           )}
           <Select
             label=""

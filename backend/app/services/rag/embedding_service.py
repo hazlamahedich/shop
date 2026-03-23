@@ -109,6 +109,7 @@ class EmbeddingService:
         self.ollama_url = ollama_url or settings().get(
             "OLLAMA_DEFAULT_URL", "http://localhost:11434"
         )
+        self.gemini_api_key = api_key if self.provider == "gemini" else None
         self._async_client: httpx.AsyncClient | None = None
 
         # Validate provider - Anthropic is explicitly not supported
@@ -145,6 +146,11 @@ class EmbeddingService:
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
                     },
+                )
+            elif self.provider == "gemini":
+                self._async_client = httpx.AsyncClient(
+                    base_url="https://generativelanguage.googleapis.com/v1beta",
+                    timeout=60.0,
                 )
             else:  # ollama
                 self._async_client = httpx.AsyncClient(
@@ -201,6 +207,8 @@ class EmbeddingService:
             try:
                 if self.provider == "openai":
                     return await self._embed_texts_openai(texts)
+                elif self.provider == "gemini":
+                    return await self._embed_texts_gemini(texts)
                 else:  # ollama
                     return await self._embed_texts_ollama(texts)
             except RateLimitError as e:
@@ -358,6 +366,56 @@ class EmbeddingService:
             embeddings=results,
             model=self.model or "nomic-embed-text",
             provider="ollama",
+            dimension=self.dimension,
+            token_count=token_count,
+        )
+
+    async def _embed_texts_gemini(self, texts: list[str]) -> EmbeddingResult:
+        """Generate embeddings using Gemini text-embedding-004.
+
+        Gemini supports batch embeddings (v1beta API).
+        """
+        if not self.api_key:
+            raise APIError(
+                ErrorCode.LLM_API_KEY_MISSING,
+                "Gemini API key not configured for embeddings",
+            )
+
+        # Process in batches of 100 (Gemini limit is actually 100 per batchEmbedContents)
+        all_embeddings: list[list[float]] = []
+        batch_size = 100
+
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            
+            requests = [
+                {
+                    "model": f"models/{self.model}",
+                    "content": {"parts": [{"text": text_content}]},
+                }
+                for text_content in batch
+            ]
+
+            response = await self.async_client.post(
+                f"/models/{self.model}:batchEmbedContents",
+                params={"key": self.api_key},
+                json={"requests": requests},
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # Extract embeddings in order
+            batch_embeddings = [item["values"] for item in data["embeddings"]]
+            all_embeddings.extend(batch_embeddings)
+
+        # Estimate token count (rough approximation: 1 token ≈ 4 chars)
+        total_chars = sum(len(t) for t in texts)
+        token_count = total_chars // 4
+
+        return EmbeddingResult(
+            embeddings=all_embeddings,
+            model=self.model or "text-embedding-004",
+            provider="gemini",
             dimension=self.dimension,
             token_count=token_count,
         )

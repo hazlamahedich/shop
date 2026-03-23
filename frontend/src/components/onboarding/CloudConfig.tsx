@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Alert } from '@/components/ui/Alert';
 import { getProviderModels, DiscoveredModel } from '@/services/llmProvider';
@@ -125,6 +125,13 @@ export function CloudConfig({ onConfigure, isConfiguring = false }: CloudConfigP
               </option>
             ))}
           </select>
+          {['anthropic', 'glm'].includes(provider) && (
+            <Alert className="mt-2 text-xs bg-indigo-50 border-indigo-100 text-indigo-800">
+              <span className="font-semibold">Note:</span> {selectedProvider?.name} does 
+              not support embeddings natively in our system. This setup will use your 
+              existing embedding settings (OpenAI by default).
+            </Alert>
+          )}
         </div>
 
         <div>

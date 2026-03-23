@@ -188,6 +188,18 @@ class TestProcessDocumentBackground:
                 "app.services.rag.processing_task.get_merchant_llm_config",
                 return_value=mock_llm_config,
             ):
+                # Mock db.execute to return a result that yields our mock merchant
+                mock_merchant = Merchant(
+                    id=1,
+                    merchant_key="test-merchant",
+                    platform="messenger",
+                    embedding_provider="openai",
+                    embedding_model="text-embedding-3-small",
+                )
+                mock_result = MagicMock()
+                mock_result.scalar_one_or_none.return_value = mock_merchant
+                mock_db.execute.return_value = mock_result
+
                 with patch(
                     "app.services.rag.processing_task.DocumentProcessor"
                 ) as mock_processor_class:
@@ -231,6 +243,18 @@ class TestProcessDocumentBackground:
                 "app.services.rag.processing_task.get_merchant_llm_config",
                 return_value=mock_llm_config,
             ):
+                # Mock db.execute to return a result that yields our mock merchant
+                mock_merchant = Merchant(
+                    id=1,
+                    merchant_key="test-merchant",
+                    platform="messenger",
+                    embedding_provider="openai",
+                    embedding_model="text-embedding-3-small",
+                )
+                mock_result = MagicMock()
+                mock_result.scalar_one_or_none.return_value = mock_merchant
+                mock_db.execute.return_value = mock_result
+
                 with patch(
                     "app.services.rag.processing_task.DocumentProcessor"
                 ) as mock_processor_class:
@@ -270,6 +294,18 @@ class TestProcessDocumentBackground:
                 "app.services.rag.processing_task.get_merchant_llm_config",
                 return_value=mock_llm_config,
             ):
+                # Mock db.execute to return a result that yields our mock merchant
+                mock_merchant = Merchant(
+                    id=1,
+                    merchant_key="test-merchant",
+                    platform="messenger",
+                    embedding_provider="openai",
+                    embedding_model="text-embedding-3-small",
+                )
+                mock_result = MagicMock()
+                mock_result.scalar_one_or_none.return_value = mock_merchant
+                mock_db.execute.return_value = mock_result
+
                 with patch(
                     "app.services.rag.processing_task.DocumentProcessor"
                 ) as mock_processor_class:
