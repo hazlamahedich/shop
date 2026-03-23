@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Save, Loader2, Palette, Code, Sparkles, Layout, Terminal, HelpCircle, ThumbsUp } from 'lucide-react';
+import { Save, Loader2, Palette, Code, Sparkles, Layout, Terminal, ThumbsUp } from 'lucide-react';
 import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import { useAuthStore } from '../stores/authStore';
 import { EmbedCodePreview } from '../components/widget/EmbedCodePreview';
@@ -113,6 +113,7 @@ export default function WidgetSettings() {
           position: config.theme.position,
         },
         feedbackEnabled: config.feedbackEnabled,
+        contactOptions: config.contactOptions,
       });
       toast('System calibration successful', 'success');
     } catch (err) {
@@ -298,6 +299,7 @@ export default function WidgetSettings() {
               </div>
             </div>
           </GlassCard>
+
 
           {/* Story 10-2 AC5: FAQ Quick Buttons Configuration (General Mode only) */}
           {merchant?.onboardingMode === 'general' && (

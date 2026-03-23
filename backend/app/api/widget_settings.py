@@ -24,6 +24,7 @@ from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
 from app.schemas.base import MetaData
 from app.schemas.widget import (
+    ContactOptionSchema,
     WidgetConfig,
     WidgetConfigEnvelope,
     WidgetConfigResponse,
@@ -107,14 +108,23 @@ def _parse_widget_config(config: dict[str, Any] | None) -> WidgetConfig:
         font_size=theme_data.get("font_size", 14),
     )
 
+    # Story 10-5: Contact Options
+    contact_options_data = widget_data.get("contact_options", [])
+    contact_options = [
+        ContactOptionSchema(**opt) for opt in contact_options_data
+    ]
+
     return WidgetConfig(
         enabled=widget_data.get("enabled", True),
         bot_name=widget_data.get("bot_name", "Shopping Assistant"),
-        welcome_message=widget_data.get("welcome_message", "Hi! How can I help you today?"),
+        welcome_message=widget_data.get(
+            "welcome_message", "Hi! How can I help you today?"
+        ),
         theme=theme,
         allowed_domains=widget_data.get("allowed_domains", []),
         rate_limit=widget_data.get("rate_limit"),
         feedback_enabled=widget_data.get("feedback_enabled", True),
+        contact_options=contact_options,
     )
 
 
@@ -161,6 +171,11 @@ def _merge_widget_config(
     if update.feedback_enabled is not None:
         widget_config["feedback_enabled"] = update.feedback_enabled
 
+    if update.contact_options is not None:
+        widget_config["contact_options"] = [
+            opt.model_dump() for opt in update.contact_options
+        ]
+
     return widget_config
 
 
@@ -189,7 +204,9 @@ async def get_widget_config(
     """
     merchant_id = _get_merchant_id(request)
 
-    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    result = await db.execute(
+        select(Merchant).where(Merchant.id == merchant_id)
+    )
     merchant = result.scalars().first()
 
     if not merchant:
@@ -213,6 +230,7 @@ async def get_widget_config(
             theme=widget_config.theme,
             enabled=widget_config.enabled,
             feedback_enabled=widget_config.feedback_enabled,
+            contact_options=widget_config.contact_options,
         ),
         meta=_create_meta(),
     )
@@ -251,7 +269,9 @@ async def update_widget_config(
     try:
         merchant_id = _get_merchant_id(request)
 
-        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        result = await db.execute(
+            select(Merchant).where(Merchant.id == merchant_id)
+        )
         merchant = result.scalars().first()
 
         if not merchant:
@@ -301,6 +321,7 @@ async def update_widget_config(
                 theme=widget_config.theme,
                 enabled=widget_config.enabled,
                 feedback_enabled=widget_config.feedback_enabled,
+                contact_options=widget_config.contact_options,
             ),
             meta=_create_meta(),
         )

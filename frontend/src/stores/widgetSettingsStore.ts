@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import type { WidgetConfig } from '../widget/types/widget';
+import type { WidgetConfig, ContactOption } from '../widget/types/widget';
 import { apiClient } from '../services/api';
 
 interface PartialWidgetTheme {
@@ -21,6 +21,7 @@ interface WidgetConfigUpdateRequest {
   enabled?: boolean;
   theme?: PartialWidgetTheme;
   feedbackEnabled?: boolean;
+  contactOptions?: ContactOption[];
 }
 
 interface WidgetSettingsState {
@@ -78,6 +79,7 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
         },
         allowedDomains: data.allowedDomains ?? [],
         feedbackEnabled: data.feedbackEnabled ?? true,
+        contactOptions: data.contactOptions || [],
       };
 
       set({ config, loading: false, hasUnsavedChanges: false });
@@ -106,6 +108,7 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
         },
         allowedDomains: data.allowedDomains ?? [],
         feedbackEnabled: data.feedbackEnabled ?? true,
+        contactOptions: data.contactOptions || [],
       };
 
       set({ config, saving: false, hasUnsavedChanges: false });

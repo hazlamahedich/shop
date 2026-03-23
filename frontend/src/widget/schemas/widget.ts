@@ -80,8 +80,8 @@ export const WidgetMessageSchema = z.object({
   intent: z.string().nullable().optional(),
   confidence: z.number().nullable().optional(),
   quick_replies: z.array(QuickReplySchema).nullable().optional(),
-  contactOptions: z.array(z.any()).optional(),
-  contact_options: z.array(z.any()).optional(),
+  contactOptions: z.array(z.any()).nullable().optional(),
+  contact_options: z.array(z.any()).nullable().optional(),
 }).passthrough();
 
 export const WidgetApiErrorSchema = z.object({
