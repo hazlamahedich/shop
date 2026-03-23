@@ -130,24 +130,24 @@ export function findOptimalPosition(
   }
   
   return {
-    edge: 'center',
-    x: (viewport.width - widgetSize.width) / 2,
-    y: (viewport.height - widgetSize.height) / 2,
+    x: Math.max(0, (viewport.width - widgetSize.width) / 2),
+    y: Math.max(0, (viewport.height - widgetSize.height) / 2),
   };
+
 }
 
 export function constrainToViewport(
   position: WidgetPosition,
   widgetSize: { width: number; height: number },
   config: PositioningConfig = DEFAULT_POSITIONING_CONFIG
-): WidgetPosition {
+ ): WidgetPosition {
   if (typeof window === 'undefined') return position;
   
   const { viewportPadding } = config;
   const minX = viewportPadding;
-  const maxX = window.innerWidth - widgetSize.width - viewportPadding;
+  const maxX = Math.max(0, window.innerWidth - widgetSize.width - viewportPadding);
   const minY = viewportPadding;
-  const maxY = window.innerHeight - widgetSize.height - viewportPadding;
+  const maxY = Math.max(0, window.innerHeight - widgetSize.height - viewportPadding);
   
   return {
     ...position,

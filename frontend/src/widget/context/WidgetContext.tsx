@@ -1,5 +1,14 @@
 import * as React from 'react';
-import type { WidgetAction, WidgetState, WidgetProduct, ConnectionStatus, ConsentState, ThemeMode } from '../types/widget';
+import type { 
+  WidgetAction, 
+  WidgetState, 
+  WidgetProduct, 
+  ConnectionStatus, 
+  ConsentState, 
+  ThemeMode,
+  ContactOption,
+  WidgetPosition
+} from '../types/widget';
 import { createWidgetError } from '../types/errors';
 import { shopifyCartClient } from '../api/shopifyCartClient';
 import { 
@@ -20,14 +29,12 @@ import {
   setStoredTheme,
   type CachedMessage,
 } from '../utils/storage';
-import type { WidgetPosition } from '../types/widget';
 
 const initialConsentState: ConsentState = {
   promptShown: false,
   canStoreConversation: false,
   status: 'pending',
 };
-
 const validatePosition = (pos: { x: number; y: number }): boolean => {
   if (typeof window === 'undefined') return true;
   const buffer = 50;
@@ -189,13 +196,12 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
   const consentPromptShownRef = React.useRef(false);
   const lastCachedLengthRef = React.useRef<number>(0);
 
-  // Load theme synchronously on mount (before async initWidget completes)
   React.useEffect(() => {
     const storedTheme = getStoredTheme(merchantId);
     if (storedTheme && storedTheme !== state.themeMode) {
       dispatch({ type: 'SET_THEME_MODE', payload: storedTheme });
     }
-  }, [merchantId]);
+  }, [merchantId, state.themeMode, dispatch]);
 
   React.useEffect(() => {
     if (!state.session?.sessionId || state.messages.length === 0) {
@@ -249,167 +255,173 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
     [merchantId]
   );
 
-  const initWidget = React.useCallback(async () => {
-    console.log('[WidgetContext] initWidget starting...');
-    lastActionRef.current = { type: 'initWidget' };
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'CLEAR_ERROR' });
-
-    try {
-      const { widgetClient } = await import('../api/widgetClient');
-      console.log('[WidgetContext] Fetching config for merchant:', merchantId);
-      const config = await widgetClient.getConfig(merchantId);
-      console.log('[WidgetContext] Config loaded:', !!config);
-      dispatch({ type: 'SET_CONFIG', payload: config });
-
-      // Fetch FAQ quick buttons if in General Mode (Story 10-2)
-      if (config.onboardingMode === 'general') {
-        try {
-          const faqButtons = await widgetClient.getFaqButtons(merchantId);
-          dispatch({ type: 'SET_FAQ_QUICK_BUTTONS', payload: faqButtons });
-        } catch (error) {
-          console.warn('[WidgetContext] Failed to fetch FAQ buttons:', error);
-        }
-      }
-
-      // Register the shop domain so isOnShopify() correctly detects custom-domain stores
-      shopifyCartClient.setShopDomain(config.shopDomain);
-
-      // Load stored theme preference
-      const storedTheme = getStoredTheme(merchantId);
-      dispatch({ type: 'SET_THEME_MODE', payload: storedTheme || 'auto' });
-
-      // Load stored position (Story 9-2)
-      const savedPosition = getStoredPosition(merchantId);
-      if (savedPosition && validatePosition(savedPosition)) {
-        dispatch({ type: 'SET_POSITION', payload: savedPosition });
-      } else {
-        dispatch({ type: 'SET_POSITION', payload: getDefaultPosition() });
-      }
-
-      // Check for provided session ID (injection for tests)
-      let sessionId = initialSessionId;
+  const initWidget = React.useCallback(
+    async (mId: string) => {
+      if (!mId) return;
       
-      if (!sessionId) {
-        // Find existing session in storage
-        console.log('[WidgetContext] Checking storage for key:', SESSION_KEY);
-        console.log('[WidgetContext] sessionStorage value:', sessionStorage.getItem(SESSION_KEY));
-        console.log('[WidgetContext] localStorage value:', localStorage.getItem(SESSION_KEY));
+      // Avoid redundant initialization if already loaded for this merchant
+      if (state.config && state.config.merchantId === mId && !state.isLoading) {
+        return;
+      }
+
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
+
+      try {
+        const { widgetClient } = await import('../api/widgetClient');
+        console.log('[WidgetContext] Fetching config for merchant:', merchantId);
+        const config = await widgetClient.getConfig(merchantId);
+        console.log('[WidgetContext] Config loaded:', !!config);
+        dispatch({ type: 'SET_CONFIG', payload: config });
+
+        // Fetch FAQ quick buttons if in General Mode (Story 10-2)
+        if (config.onboardingMode === 'general') {
+          try {
+            const faqButtons = await widgetClient.getFaqButtons(merchantId);
+            dispatch({ type: 'SET_FAQ_QUICK_BUTTONS', payload: faqButtons });
+          } catch (error) {
+            console.warn('[WidgetContext] Failed to fetch FAQ buttons:', error);
+          }
+        }
+
+        // Register the shop domain so isOnShopify() correctly detects custom-domain stores
+        shopifyCartClient.setShopDomain(config.shopDomain);
+
+        // Load stored theme preference
+        const storedTheme = getStoredTheme(merchantId);
+        dispatch({ type: 'SET_THEME_MODE', payload: storedTheme || 'auto' });
+
+        // Load stored position (Story 9-2)
+        const savedPosition = getStoredPosition(merchantId);
+        if (savedPosition && validatePosition(savedPosition)) {
+          dispatch({ type: 'SET_POSITION', payload: savedPosition });
+        } else {
+          dispatch({ type: 'SET_POSITION', payload: null });
+        }
+
+        // Check for provided session ID (injection for tests)
+        let sessionId = initialSessionId;
         
-        sessionId = safeStorage.get(SESSION_KEY) ?? undefined;
-        console.log('[WidgetContext] safeStorage.get result:', sessionId);
-      } else {
-        console.log('[WidgetContext] Using injected sessionId:', sessionId);
-      }
-      
-      const visitorId = getOrCreateVisitorId();
-      console.log('[WidgetContext] sessionId from safeStorage.get:', sessionId);
-      
-      // Validate session ID format before attempting to use it
-      if (sessionId && !isValidSessionId(sessionId)) {
-        console.warn('[WidgetContext] Invalid session ID format, clearing:', sessionId);
-        safeStorage.remove(SESSION_KEY);
-        sessionId = undefined;
-      }
-      
-      // Validate session ID format before attempting to use it
-      if (sessionId && isValidSessionId(sessionId)) {
-        console.log('[WidgetContext] Valid session found:', sessionId);
-        const session = await getSession(sessionId)
-        console.log('[WidgetContext] Session fetched:', !!session);
-        if (session) {
-          dispatch({ type: 'SET_SESSION', payload: session })
+        if (!sessionId) {
+          // Find existing session in storage
+          console.log('[WidgetContext] Checking storage for key:', SESSION_KEY);
+          console.log('[WidgetContext] sessionStorage value:', sessionStorage.getItem(SESSION_KEY));
+          console.log('[WidgetContext] localStorage value:', localStorage.getItem(SESSION_KEY));
           
-          // Try to load messages from localStorage cache first (instant display)
-          const cachedMessages = getCachedMessages(sessionId);
-          if (cachedMessages && cachedMessages.length > 0) {
-            dispatch({ type: 'SET_MESSAGES', payload: cachedMessages });
-          }
-          
-          // Load existing consent status if available
-          try {
-            const consentStatus = await widgetClient.getConsentStatus(sessionId, visitorId);
-            if (consentStatus) {
-              const newConsentState: ConsentState = {
-                promptShown: consentStatus.consent_message_shown || false,
-                canStoreConversation: consentStatus.can_store_conversation,
-                status: consentStatus.status,
-              };
-              dispatch({ type: 'SET_CONSENT_STATE', payload: newConsentState });
-              
-              // Mark ref to prevent showing prompt again if already shown
-              if (consentStatus.consent_message_shown) {
-                consentPromptShownRef.current = true;
-              }
-            }
-          } catch (error) {
-            // Ignore consent status load errors - will prompt on first message
-          }
-          
-          // Fetch message history from backend
-          try {
-            console.log('[WidgetContext] Fetching message history for session:', sessionId);
-            const history = await widgetClient.getMessageHistory(sessionId);
-            console.log('[WidgetContext] Received history:', history.messages.length, 'messages');
-            if (history.expired) {
-              // History expired - clear cache and show message
-              clearMessageCache(sessionId);
-              dispatch({ type: 'SET_MESSAGES', payload: [] });
-              
-              // Show expired notification
-              if (cachedMessages && cachedMessages.length > 0) {
-                const expiredMessage = {
-                  messageId: 'session-expired',
-                  content: 'Your previous conversation has expired. Starting fresh!',
-                  sender: 'system' as const,
-                  createdAt: new Date().toISOString(),
-                };
-                dispatch({ type: 'SET_MESSAGES', payload: [expiredMessage] });
-              }
-            } else if (history.messages.length > 0) {
-              // Convert backend messages to widget format
-              const messages: CachedMessage[] = history.messages.map((msg) => ({
-                messageId: msg.messageId || crypto.randomUUID(),
-                content: msg.content,
-                sender: msg.sender,
-                createdAt: msg.createdAt,
-                products: msg.products,
-                cart: msg.cart,
-                contactOptions: msg.contactOptions,
-              }));
-              
-              console.log('[WidgetContext] Dispatching', messages.length, 'messages to state');
-              dispatch({ type: 'SET_MESSAGES', payload: messages });
-              
-              // Update cache
-              cacheMessages(sessionId, messages);
-              
-              // Mark greeting as shown if we have history
-              if (messages.length > 0) {
-                greetingShownRef.current = true;
-              }
-            }
-          } catch (error) {
-            console.error('[WidgetContext] Failed to load history:', error);
-            // Failed to load history - keep cached messages if available
-          }
-          
-          dispatch({ type: 'SET_LOADING', payload: false })
-          return
+          sessionId = safeStorage.get(SESSION_KEY) ?? undefined;
+          console.log('[WidgetContext] safeStorage.get result:', sessionId);
+        } else {
+          console.log('[WidgetContext] Using injected sessionId:', sessionId);
         }
-      }
+        
+        const visitorId = getOrCreateVisitorId();
+        console.log('[WidgetContext] sessionId from safeStorage.get:', sessionId);
+        
+        // Validate session ID format before attempting to use it
+        if (sessionId && !isValidSessionId(sessionId)) {
+          console.warn('[WidgetContext] Invalid session ID format, clearing:', sessionId);
+          safeStorage.remove(SESSION_KEY);
+          sessionId = undefined;
+        }
+        
+        // Validate session ID format before attempting to use it
+        if (sessionId && isValidSessionId(sessionId)) {
+          console.log('[WidgetContext] Valid session found:', sessionId);
+          const session = await getSession(sessionId)
+          console.log('[WidgetContext] Session fetched:', !!session);
+          if (session) {
+            dispatch({ type: 'SET_SESSION', payload: session })
+            
+            // Try to load messages from localStorage cache first (instant display)
+            const cachedMessages = getCachedMessages(sessionId);
+            if (cachedMessages && cachedMessages.length > 0) {
+              dispatch({ type: 'SET_MESSAGES', payload: cachedMessages });
+            }
+            
+            // Load existing consent status if available
+            try {
+              const consentStatus = await widgetClient.getConsentStatus(sessionId, visitorId);
+              if (consentStatus) {
+                const newConsentState: ConsentState = {
+                  promptShown: consentStatus.consent_message_shown || false,
+                  canStoreConversation: consentStatus.can_store_conversation,
+                  status: consentStatus.status,
+                };
+                dispatch({ type: 'SET_CONSENT_STATE', payload: newConsentState });
+                
+                // Mark ref to prevent showing prompt again if already shown
+                if (consentStatus.consent_message_shown) {
+                  consentPromptShownRef.current = true;
+                }
+              }
+            } catch (error) {
+              // Ignore consent status load errors - will prompt on first message
+            }
+            
+            // Fetch message history from backend
+            try {
+              console.log('[WidgetContext] Fetching message history for session:', sessionId);
+              const history = await widgetClient.getMessageHistory(sessionId);
+              console.log('[WidgetContext] Received history:', history.messages.length, 'messages');
+              if (history.expired) {
+                // History expired - clear cache and show message
+                clearMessageCache(sessionId);
+                dispatch({ type: 'SET_MESSAGES', payload: [] });
+                
+                // Show expired notification
+                if (cachedMessages && cachedMessages.length > 0) {
+                  const expiredMessage = {
+                    messageId: 'session-expired',
+                    content: 'Your previous conversation has expired. Starting fresh!',
+                    sender: 'system' as const,
+                    createdAt: new Date().toISOString(),
+                  };
+                  dispatch({ type: 'SET_MESSAGES', payload: [expiredMessage] });
+                }
+              } else if (history.messages.length > 0) {
+                // Convert backend messages to widget format
+                const messages: CachedMessage[] = history.messages.map((msg) => ({
+                  messageId: msg.messageId || crypto.randomUUID(),
+                  content: msg.content,
+                  sender: msg.sender,
+                  createdAt: msg.createdAt,
+                  products: msg.products,
+                  cart: msg.cart,
+                  contactOptions: msg.contactOptions,
+                }));
+                
+                console.log('[WidgetContext] Dispatching', messages.length, 'messages to state');
+                dispatch({ type: 'SET_MESSAGES', payload: messages });
+                
+                // Update cache
+                cacheMessages(sessionId, messages);
+                
+                // Mark greeting as shown if we have history
+                if (messages.length > 0) {
+                  greetingShownRef.current = true;
+                }
+              }
+            } catch (error) {
+              console.error('[WidgetContext] Failed to load history:', error);
+              // Failed to load history - keep cached messages if available
+            }
+            
+            dispatch({ type: 'SET_LOADING', payload: false })
+            return
+          }
+        }
 
-      const newSession = await createSession(visitorId)
-      dispatch({ type: 'SET_SESSION', payload: newSession })
-      safeStorage.set(SESSION_KEY, newSession.sessionId)
-      safeStorage.set(MERCHANT_KEY, merchantId)
-    } catch (error) {
-      console.error('[WidgetContext] initWidget error:', error);
-      addError(error, { action: 'Retry' });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false })
-    }
-  }, [merchantId, initialSessionId, createSession, getSession, addError])
+        const newSession = await createSession(visitorId)
+        dispatch({ type: 'SET_SESSION', payload: newSession })
+        safeStorage.set(SESSION_KEY, newSession.sessionId)
+        safeStorage.set(MERCHANT_KEY, merchantId)
+      } catch (error) {
+        console.error('[WidgetContext] initWidget error:', error);
+        addError(error, { action: 'Retry' });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false })
+      }
+    }, [merchantId, initialSessionId, createSession, getSession, addError, state.config, state.isLoading])
 
   const toggleChat = React.useCallback(() => {
     dispatch({ type: 'SET_OPEN', payload: !state.isOpen });
@@ -438,58 +450,6 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
     [state.session, addError]
   );
 
-  const sendMessage = React.useCallback(
-    async (content: string) => {
-      if (!content.trim()) return;
-
-      // Validate session exists and has valid UUID format
-      if (!state.session?.sessionId || !isValidSessionId(state.session.sessionId)) {
-        // Clear invalid session from storage
-        safeStorage.remove(SESSION_KEY);
-        
-        // Create new session
-        const visitorId = getVisitorId() || undefined;
-        const newSession = await createSession(visitorId);
-        dispatch({ type: 'SET_SESSION', payload: newSession });
-        safeStorage.set(SESSION_KEY, newSession.sessionId);
-        
-        // Use new session ID
-        state.session = newSession;
-      }
-
-      lastActionRef.current = { type: 'sendMessage', payload: content };
-
-      const userMessage = {
-        messageId: crypto.randomUUID(),
-        content,
-        sender: 'user' as const,
-        createdAt: new Date().toISOString(),
-      };
-      dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
-      dispatch({ type: 'SET_TYPING', payload: true });
-
-      try {
-        const { widgetClient } = await import('../api/widgetClient');
-        const botMessage = await widgetClient.sendMessage(state.session!.sessionId, content);
-        dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
-
-        if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
-          consentPromptShownRef.current = true;
-          dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
-        }
-
-        if (shopifyCartClient.isOnShopify() && botMessage.cart) {
-          syncCartToShopify(botMessage.cart);
-        }
-      } catch (error) {
-        addError(error, { action: 'Try Again' });
-      } finally {
-        dispatch({ type: 'SET_TYPING', payload: false });
-      }
-    },
-    [state.session, addError]
-  );
-
   const syncCartToShopify = React.useCallback(
     async (cart: { items: Array<{ variantId?: string; quantity: number }>; itemCount?: number }) => {
       if (!shopifyCartClient.isOnShopify()) return;
@@ -513,7 +473,60 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
           // Ignore Shopify sync errors
         }
     },
-    []
+    [shopifyCartClient]
+  );
+
+  const sendMessage = React.useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
+
+      let currentSessionId = state.session?.sessionId;
+      // Validate session exists and has valid UUID format
+      if (!currentSessionId || !isValidSessionId(currentSessionId)) {
+        // Clear invalid session from storage
+        safeStorage.remove(SESSION_KEY);
+        
+        // Create new session
+        const visitorId = getVisitorId() || undefined;
+        const newSession = await createSession(visitorId);
+        dispatch({ type: 'SET_SESSION', payload: newSession });
+        safeStorage.set(SESSION_KEY, newSession.sessionId);
+        
+        // Use new session ID
+        currentSessionId = newSession.sessionId;
+      }
+
+      lastActionRef.current = { type: 'sendMessage', payload: content };
+
+      const userMessage = {
+        messageId: crypto.randomUUID(),
+        content,
+        sender: 'user' as const,
+        createdAt: new Date().toISOString(),
+      };
+      dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
+      dispatch({ type: 'SET_TYPING', payload: true });
+
+      try {
+        const { widgetClient } = await import('../api/widgetClient');
+        const botMessage = await widgetClient.sendMessage(currentSessionId!, content);
+        dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
+
+        if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+          consentPromptShownRef.current = true;
+          dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
+        }
+
+        if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+          syncCartToShopify(botMessage.cart);
+        }
+      } catch (error) {
+        addError(error, { action: 'Try Again' });
+      } finally {
+        dispatch({ type: 'SET_TYPING', payload: false });
+      }
+    },
+    [state.session, addError, createSession, syncCartToShopify]
   );
 
   const addToCart = React.useCallback(
@@ -712,7 +725,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
             };
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
             } else if (event.type === 'handoff_resolved') {
-            const data = event.data as { id: number; content: string; createdAt: string; contactOptions?: any[] };
+            const data = event.data as { id: number; content: string; createdAt: string; contactOptions?: ContactOption[] };
             const resolutionMessage = {
               messageId: `resolution-${data.id}`,
               content: data.content,
@@ -737,7 +750,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
     return () => {
       if (cleanup) cleanup();
     };
-  }, [state.session?.sessionId, state.isOpen]);
+  }, [state.session?.sessionId, state.isOpen, state.session]);
 
   // Initialize analytics when session is available
   React.useEffect(() => {
@@ -749,14 +762,14 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         sessionId: state.session!.sessionId,
       });
     });
-  }, [state.session?.sessionId, merchantId]);
+  }, [state.session?.sessionId, merchantId, state.session]);
 
   const retryLastAction = React.useCallback(() => {
     if (!lastActionRef.current) return;
     const { type, payload } = lastActionRef.current;
     switch (type) {
       case 'initWidget':
-        initWidget();
+        initWidget(merchantId);
         break;
       case 'sendMessage':
         if (typeof payload === 'string') sendMessage(payload);
@@ -768,7 +781,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         checkout();
         break;
     }
-  }, [initWidget, sendMessage, addToCart, checkout]);
+  }, [initWidget, sendMessage, addToCart, checkout, merchantId]);
 
   const endSession = React.useCallback(async () => {
     if (state.session?.sessionId && isValidSessionId(state.session.sessionId)) {
@@ -841,7 +854,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
   const setThemeMode = React.useCallback((mode: ThemeMode) => {
     dispatch({ type: 'SET_THEME_MODE', payload: mode });
     setStoredTheme(merchantId, mode);
-  }, [merchantId]);
+  }, [merchantId, dispatch]);
 
   const value = React.useMemo(
     () => ({

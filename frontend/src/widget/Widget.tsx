@@ -175,6 +175,25 @@ function WidgetInner({ theme }: WidgetInnerProps) {
           cursor: grabbing;
         }
         
+        .shopbot-chat-window.is-default-position {
+          position: fixed !important;
+          bottom: 90px !important;
+          right: 20px !important;
+          left: auto !important;
+          top: auto !important;
+          transform: none !important;
+        }
+
+        @media (max-width: 767px) {
+          .shopbot-chat-window.is-default-position {
+            bottom: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0 !important;
+          }
+        }
+        
         /* Smart Positioning Styles */
         ${positioningStyles}
         

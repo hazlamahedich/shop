@@ -42,6 +42,7 @@ export interface WidgetTheme {
 export type PersonalityType = 'friendly' | 'professional' | 'enthusiastic';
 
 export interface WidgetConfig {
+  merchantId: string;
   enabled: boolean;
   botName: string;
   welcomeMessage: string;

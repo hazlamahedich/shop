@@ -233,6 +233,7 @@ def _is_allowed_origin(origin: str) -> bool:
     - Configured CORS_ORIGINS (localhost)
     - Any .myshopify.com domain for widget
     - trycloudflare.com domains for testing
+    - vercel.app domains for widget embedding on Vercel-hosted sites
 
     Args:
         origin: The request origin header
@@ -256,6 +257,9 @@ def _is_allowed_origin(origin: str) -> bool:
         if hostname.endswith(".trycloudflare.com"):
             return True
 
+        if hostname.endswith(".vercel.app"):
+            return True
+
     except Exception:
         pass
 
@@ -263,12 +267,28 @@ def _is_allowed_origin(origin: str) -> bool:
 
 
 # Configure CORS - limit to specific methods for better security
+# regex matches:
+# 1. *.myshopify.com (with optional port)
+# 2. *.trycloudflare.com (with optional port)
+# 3. *.vercel.app (with optional port)
+# 4. localhost and other origins from settings
+cors_patterns = [
+    r"https?://([a-z0-9-]+\.)?myshopify\.com(:\d+)?",
+    r"https?://([a-z0-9-]+\.)?trycloudflare\.com(:\d+)?",
+    r"https?://[a-z0-9-]+\.vercel\.app(:\d+)?",
+]
+
+# Add custom origins from settings, escaping special characters
+for origin in settings()["CORS_ORIGINS"]:
+    if origin:
+        pattern = origin.replace(".", r"\.").replace(":", r":")
+        cors_patterns.append(pattern)
+
+allow_origin_regex = "^(" + "|".join(cors_patterns) + ")$"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://([a-z0-9-]+\.)?myshopify\.com(:\d+)?|https?://([a-z0-9-]+\.)?trycloudflare\.com(:\d+)?|"
-    + "|".join(
-        origin.replace(".", r"\.").replace(":", r":") for origin in settings()["CORS_ORIGINS"]
-    ),
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[

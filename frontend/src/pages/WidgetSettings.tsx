@@ -14,6 +14,7 @@ import { useAuthStore } from '../stores/authStore';
 import { EmbedCodePreview } from '../components/widget/EmbedCodePreview';
 import { GlassCard } from '../components/ui/GlassCard';
 import { FAQQuickButtonsConfig } from '../components/widget/FAQQuickButtonsConfig';
+import { ContactOption } from '../widget/types/widget';
 import {
   validateWidgetSettings,
   hasValidationErrors,
@@ -113,7 +114,7 @@ export default function WidgetSettings() {
           position: config.theme.position,
         },
         feedbackEnabled: config.feedbackEnabled,
-        contactOptions: config.contactOptions,
+        contactOptions: config.contactOptions as ContactOption[], // Explicitly cast to ContactOption[]
       });
       toast('System calibration successful', 'success');
     } catch (err) {
@@ -141,7 +142,7 @@ export default function WidgetSettings() {
 
   if (error && !config) {
     return (
-      <GlassCard accent="error" className="p-8 text-center max-w-lg mx-auto">
+      <GlassCard accent="red" className="p-8 text-center max-w-lg mx-auto">
         <p className="text-red-500 font-bold mb-4">{error}</p>
         <button
           onClick={() => fetchConfig()}

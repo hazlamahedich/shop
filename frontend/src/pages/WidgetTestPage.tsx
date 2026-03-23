@@ -50,9 +50,9 @@ function getSessionId() {
 }
 
 export default function WidgetTestPage() {
-  const theme = { ...defaultTheme, ...parseThemeFromUrl() };
-  const merchantId = getMerchantId();
-  const sessionId = getSessionId();
+  const theme = React.useMemo(() => ({ ...defaultTheme, ...parseThemeFromUrl() }), []);
+  const merchantId = React.useMemo(() => getMerchantId(), []);
+  const sessionId = React.useMemo(() => getSessionId(), []);
 
   return (
     <div className="min-h-screen bg-[#030303] text-white p-10 font-sans relative overflow-hidden">
