@@ -4,16 +4,12 @@
  * Story 1.11: Business Info & FAQ Configuration
  *
  * Redesigned for "Mantis HUD".
- * Displays a form for entering and editing business information including:
- * - Business Name (max 100 characters)
- * - Business Description (max 500 characters with character count)
- *
- * Note: Business Hours moved to BusinessHoursConfig component (Story 3.10)
  */
 
 import * as React from 'react';
 import { Building2, FileText } from 'lucide-react';
 import { useBusinessInfoStore } from '../../stores/businessInfoStore';
+import { ContactOptionsConfig } from '../widget/ContactOptionsConfig';
 
 export interface BusinessInfoFormProps {
   /** Optional CSS class name */
@@ -24,12 +20,6 @@ export interface BusinessInfoFormProps {
 
 /**
  * BusinessInfoForm Component
- *
- * A form component for managing business information with:
- * - Text input for business name (max 100 chars)
- * - Textarea for business description (max 500 chars with character count)
- * - Validation and error display
- * - Loading states
  */
 export const BusinessInfoForm = React.forwardRef<
   HTMLFormElement,
@@ -116,11 +106,10 @@ export const BusinessInfoForm = React.forwardRef<
           maxLength={100}
           placeholder="e.g., Alex's Athletic Gear"
           className="w-full bg-[#1b1b20]/60 border-0 border-b-2 border-[#3a4a46] focus:border-[#00f5d4] focus:ring-0 text-sm py-3 px-4 text-[#e4e1e9] transition-all outline-none rounded-t-lg disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#b9cac4]/30"
-          aria-describedby="business-name-description"
         />
         <div className="flex justify-between items-center px-1">
-          <p id="business-name-description" className="text-[10px] text-[#b9cac4]/60 font-medium">
-            The name of your business as it should appear in bot responses.
+          <p className="text-[10px] text-[#b9cac4]/60 font-medium">
+            The name appearing in bot responses.
           </p>
           <p className="text-[10px] font-mono text-[#b9cac4]/50">
             {(businessName?.length || 0)} / 100
@@ -129,7 +118,7 @@ export const BusinessInfoForm = React.forwardRef<
       </div>
 
       {/* Business Description Field */}
-      <div className="space-y-2 mt-2">
+      <div className="space-y-2">
         <label
           htmlFor="business-description"
           className="flex items-center gap-2 text-[10px] text-[#b9cac4] uppercase tracking-widest font-['Inter'] ml-1"
@@ -144,28 +133,28 @@ export const BusinessInfoForm = React.forwardRef<
           disabled={disabled}
           maxLength={500}
           rows={4}
-          placeholder="Describe what your business sells and what makes it unique..."
+          placeholder="Describe what your business sells..."
           className="w-full bg-[#1b1b20]/60 border-0 border-b-2 border-[#3a4a46] focus:border-[#00f5d4] focus:ring-0 text-sm py-3 px-4 text-[#e4e1e9] transition-all outline-none resize-none rounded-t-lg disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#b9cac4]/30"
-          aria-describedby="business-description-description business-description-count"
         />
         <div className="flex justify-between items-start px-1">
-          <p id="business-description-description" className="text-[10px] text-[#b9cac4]/60 leading-relaxed font-medium max-w-[70%]">
-            A brief description that helps the bot explain what your business sells. This description is used when customers ask &quot;What do you sell?&quot;
+          <p className="text-[10px] text-[#b9cac4]/60 leading-relaxed font-medium max-w-[70%]">
+            Helps the bot explain what your business sells.
           </p>
-          <p
-            id="business-description-count"
-            className={`text-[10px] font-mono font-bold ${getCharacterCountColor()}`}
-          >
+          <p className={`text-[10px] font-mono font-bold ${getCharacterCountColor()}`}>
             {descriptionLength} / 500
           </p>
         </div>
       </div>
 
-      {/* Help Note */}
+      {/* Story 10-5: Contact Options Configuration */}
+      <div className="pt-6 border-t border-[#3a4a46]/30">
+        <ContactOptionsConfig />
+      </div>
+
+      {/* Tip Note */}
       <div className="p-4 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg backdrop-blur-sm mt-4">
-        <p className="text-xs text-[#82d3ff] tracking-wide leading-relaxed">
-          <strong className="text-[#00bbf9]">Tip:</strong> This business information helps the bot provide more accurate
-          and personalized responses to customer questions.
+        <p className="text-xs text-[#82d3ff] tracking-wide leading-relaxed text-center">
+          <strong className="text-[#00bbf9]">Tip:</strong> This business information helps the bot providing personalization.
         </p>
       </div>
     </form>
