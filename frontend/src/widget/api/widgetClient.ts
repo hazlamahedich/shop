@@ -82,8 +82,20 @@ export class WidgetApiException extends Error {
 }
 
 function parseApiError(data: unknown): WidgetApiError {
-  if (typeof data === 'object' && data !== null && 'error_code' in data && 'message' in data) {
-    return data as WidgetApiError;
+  if (typeof data === 'object' && data !== null) {
+    if ('error_code' in data && 'message' in data) {
+      return data as WidgetApiError;
+    }
+    if ('detail' in data && typeof (data as any).detail === 'object' && (data as any).detail !== null) {
+      const detail = (data as any).detail;
+      if ('error_code' in detail && 'message' in detail) {
+        return detail as WidgetApiError;
+      }
+    } else if ('detail' in data && typeof (data as any).detail === 'string') {
+      return { error_code: 0, message: (data as any).detail };
+    } else if ('detail' in data && Array.isArray((data as any).detail)) {
+      return { error_code: 0, message: `Validation error: ${JSON.stringify((data as any).detail)}` };
+    }
   }
   return { error_code: 0, message: 'Unknown error' };
 }

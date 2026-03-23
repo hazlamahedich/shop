@@ -268,6 +268,9 @@ class ConversationResponse(BaseModel):
     """
 
     message: str = Field(description="Response message text")
+    message_id: int | None = Field(
+        None, description="Database ID of the bot message"
+    )
     intent: str | None = Field(None, description="Classified intent")
     confidence: float | None = Field(None, description="Classification confidence")
     checkout_url: str | None = Field(None, description="Checkout URL if applicable")

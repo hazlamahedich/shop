@@ -244,8 +244,9 @@ class WidgetMessageService:
             response_length=len(bot_message),
         )
 
+        bot_msg_id = str(response.message_id) if response.message_id else str(uuid4())
         result = {
-            "message_id": str(uuid4()),
+            "message_id": bot_msg_id,
             "content": bot_message,
             "sender": "bot",
             "created_at": datetime.now(UTC),

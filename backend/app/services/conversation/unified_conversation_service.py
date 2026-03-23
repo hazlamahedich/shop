@@ -459,7 +459,7 @@ class UnifiedConversationService:
             # Capture merchant_id before persistence (which may rollback and expire objects)
             merchant_id_for_log = context.merchant_id
 
-            await self._persist_conversation_message(
+            res = await self._persist_conversation_message(
                 db=db,
                 context=context,
                 merchant_id=context.merchant_id,
@@ -469,6 +469,10 @@ class UnifiedConversationService:
                 confidence=confidence,
                 cart=response.cart,
             )
+
+            if res:
+                _, bot_msg_id = res
+                response.message_id = bot_msg_id
 
             self.logger.info(
                 "unified_conversation_complete",
@@ -1338,7 +1342,7 @@ class UnifiedConversationService:
         intent: str,
         confidence: float,
         cart: dict | None = None,
-    ) -> int | None:
+    ) -> tuple[int, int] | None:
         """Persist conversation and messages to database.
 
         Story 5-10 Code Review Fix (C8):
@@ -1361,7 +1365,7 @@ class UnifiedConversationService:
             cart: Optional cart state to persist
 
         Returns:
-            Conversation ID if persisted, None on failure
+            Tuple of (conversation_id, bot_message_id) if persisted, None on failure
         """
         can_store_conversation = context.consent_state.can_store_conversation
 
@@ -1424,6 +1428,7 @@ class UnifiedConversationService:
                 },
             )
             db.add(bot_msg)
+            await db.flush()  # Ensure IDs are generated
 
             if cart is not None:
                 if conversation.conversation_data is None:
@@ -1469,7 +1474,7 @@ class UnifiedConversationService:
                 channel=context.channel,
             )
 
-            return conversation.id
+            return conversation.id, bot_msg.id
 
         except Exception as e:
             self.logger.warning(

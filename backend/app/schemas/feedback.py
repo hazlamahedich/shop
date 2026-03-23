@@ -11,15 +11,19 @@ from pydantic import BaseModel, Field, field_validator
 class FeedbackCreate(BaseModel):
     """Schema for creating feedback."""
 
-    message_id: int = Field(alias="messageId", description="ID of the message being rated")
+    message_id: str = Field(
+        alias="messageId", description="ID of the message being rated"
+    )
     conversation_id: Optional[int] = Field(
         default=None,
         alias="conversationId",
-        description="ID of the conversation (optional, looked up from message if not provided)",
+        description="ID of the conversation (optional, looked up from message)",
     )
     rating: str = Field(description="Rating value: 'positive' or 'negative'")
     comment: Optional[str] = Field(
-        default=None, max_length=500, description="Optional comment for negative feedback"
+        default=None,
+        max_length=500,
+        description="Optional comment for negative feedback",
     )
     session_id: str = Field(alias="sessionId", description="Widget session ID")
 

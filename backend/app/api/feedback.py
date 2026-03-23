@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
@@ -41,7 +40,7 @@ async def submit_feedback(
     AC2: Clicking again updates rating (upsert behavior).
 
     Args:
-        feedback: Feedback data including message_id, rating, and optional comment
+        feedback: Feedback data including message_id, rating, and comment
         db: Database session
 
     Returns:
@@ -50,7 +49,33 @@ async def submit_feedback(
     Raises:
         HTTPException: If message not found
     """
-    message = await db.get(Message, feedback.message_id)
+    # Try to convert string message_id to int for database lookup
+    try:
+        message_id_int = int(feedback.message_id)
+    except (ValueError, TypeError):
+        # If it's a UUID or non-numeric, it's not persisted in DB.
+        # We return success to UI but log that it wasn't stored.
+        logger.info(
+            "Feedback ignored for non-persistent message",
+            extra={
+                "message_id": feedback.message_id,
+                "session_id": feedback.session_id[:8],
+            },
+        )
+        return MinimalEnvelope(
+            data={
+                "id": 0,
+                "messageId": feedback.message_id,
+                "rating": feedback.rating,
+                "createdAt": datetime.now(timezone.utc).isoformat(),
+            },
+            meta=MetaData(
+                request_id=str(uuid.uuid4()),
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+
+    message = await db.get(Message, message_id_int)
     if not message:
         raise HTTPException(
             status_code=404,
@@ -190,8 +215,12 @@ async def get_feedback_analytics(
         elif row.rating == FeedbackRating.NEGATIVE:
             negative_count = int(row.count)
     total_ratings = positive_count + negative_count
-    positive_percent = (positive_count / total_ratings * 100) if total_ratings > 0 else 0.0
-    negative_percent = (negative_count / total_ratings * 100) if total_ratings > 0 else 0.0
+    positive_percent = (
+        (positive_count / total_ratings * 100) if total_ratings > 0 else 0.0
+    )
+    negative_percent = (
+        (negative_count / total_ratings * 100) if total_ratings > 0 else 0.0
+    )
     recent_negative_query = (
         select(MessageFeedback)
         .join(Message)
@@ -216,8 +245,12 @@ async def get_feedback_analytics(
     trend: list[DailyFeedbackTrend] = []
     for i in range(7):
         day = end_date - timedelta(days=6 - i)
-        day_start = datetime.combine(day, datetime.min.time()).replace(tzinfo=timezone.utc)
-        day_end = datetime.combine(day, datetime.max.time()).replace(tzinfo=timezone.utc)
+        day_start = datetime.combine(day, datetime.min.time()).replace(
+            tzinfo=timezone.utc
+        )
+        day_end = datetime.combine(day, datetime.max.time()).replace(
+            tzinfo=timezone.utc
+        )
         day_query = (
             select(
                 MessageFeedback.rating,
