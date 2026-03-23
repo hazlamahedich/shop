@@ -187,16 +187,16 @@ development_status:
   # See: _bmad-output/planning-artifacts/epics/epic-10-general-mode-widgets.md
   # Interactive Demo: http://localhost:5175/general-mode-demo
   
-  epic-10: in-progress # Story 10-1 created
-  10-1-source-citations-widget: review # Implementation complete,13 unit tests, 8 E2E tests, sources integrated
+  epic-10: done # 2026-03-22: ALL 10 STORIES COMPLETE - General Mode widgets with source citations, FAQ buttons, quick replies, feedback rating, contact card, mode-aware dashboard, knowledge effectiveness, top topics, response time, FAQ usage
+  10-1-source-citations-widget: done # Implementation complete, 13 unit tests, 8 E2E tests, sources integrated
   10-2-faq-quick-buttons-widget: done # Code review complete 2026-03-18: All ACs implemented (AC5 deferred per story scope), 49+ tests passing, documentation fixed
   10-3-quick-reply-chips-widget: done # Code review complete: All issues fixed (documentation updates, File List corrected)
-  10-4-feedback-rating-widget: in-progress # Chat widget: Thumbs up/down on bot responses
+  10-4-feedback-rating-widget: done # Chat widget: Thumbs up/down on bot responses
   10-5-contact-card-widget: done # Code review complete 2026-03-20: All ACs implemented (6 HIGH + 5 MEDIUM issues fixed), merchant UI, API endpoint, styles, schema updates
   10-6-enable-existing-widgets-general-mode: done # Dashboard: Configure widget visibility by mode - Unit tests passing (9/9), knowledge-gap widget added to config and wrapped with guard. Code review fixes: test artifacts removed, File List updated, ACs verified
-  10-7-knowledge-effectiveness-widget: in-progress # Implementation started
-  10-8-top-topics-widget: in-progress # Dashboard: Most queried topics with trends
+  10-7-knowledge-effectiveness-widget: done # Dashboard: Knowledge base effectiveness metrics
+  10-8-top-topics-widget: done # Dashboard: Most queried topics with trends
   10-9-response-time-distribution-widget: done # Dashboard: P50/P95/P99 response times
   10-10-faq-usage-widget: done # Code review complete 2026-03-22: 5 HIGH + 4 MEDIUM issues fixed (integration test syntax, unit test mock, widget states, toast notification, TypeScript types)
   
-  epic-10-retrospective: optional
+  epic-10-retrospective: done # 2026-03-22: Retrospective complete. Key outcomes: Widget consistency, test quality, documentation. Action items added to AGENTS.md: Widget Client Checklist, Mock Data Validation Guide. ~10 hours testing friction identified.

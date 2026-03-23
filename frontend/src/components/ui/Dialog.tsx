@@ -207,7 +207,7 @@ export function DialogContent({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/50"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
@@ -218,7 +218,7 @@ export function DialogContent({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-50 w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-lg",
+          "relative z-50 w-full max-w-lg rounded-xl border border-white/10 bg-[#0d1117]/95 backdrop-blur-xl p-6 shadow-2xl shadow-black/50",
           "focus:outline-none",
           className
         )}
@@ -228,7 +228,7 @@ export function DialogContent({
         {showCloseButton && (
           <button
             type="button"
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="absolute right-4 top-4 rounded-sm text-white/50 transition-colors hover:text-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             onClick={() => onOpenChange(false)}
             aria-label="Close dialog"
           >
@@ -267,7 +267,7 @@ export interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElemen
 
 export function DialogTitle({ children, className = "" }: DialogTitleProps) {
   return (
-    <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)}>
+    <h2 className={cn("text-lg font-semibold leading-none tracking-tight text-white", className)}>
       {children}
     </h2>
   );
@@ -277,7 +277,7 @@ export interface DialogDescriptionProps extends React.HTMLAttributes<HTMLParagra
 
 export function DialogDescription({ children, className = "" }: DialogDescriptionProps) {
   return (
-    <p className={cn("text-sm text-slate-600", className)}>
+    <p className={cn("text-sm text-white/60", className)}>
       {children}
     </p>
   );

@@ -90,8 +90,8 @@ export function ModeChangeDialog({
       ];
 
   const additionalInfo = isSwitchingToGeneral
-    ? 'Your Shopify and Facebook data will be preserved but won\'t be used.'
-    : 'To use these features, you\'ll need to connect your Shopify store.';
+    ? "Your Shopify and Facebook data will be preserved but won't be used."
+    : "To use these features, you'll need to connect your Shopify store.";
 
   const confirmButtonText = isSwitchingToGeneral
     ? 'Switch to General'
@@ -100,24 +100,34 @@ export function ModeChangeDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
-        className="sm:max-w-lg"
+        className="sm:max-w-lg border-0 p-0 overflow-hidden"
         showCloseButton={!loading}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="mode-dialog-title"
         aria-describedby="mode-dialog-description"
       >
-        <DialogHeader>
-          <DialogTitle id="mode-dialog-title" className="flex items-center gap-2">
-            {isSwitchingToGeneral && <AlertTriangle className="w-5 h-5 text-amber-500" />}
-            {title}
-          </DialogTitle>
-          <DialogDescription id="mode-dialog-description">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
+        {/* Accent top border */}
+        <div
+          className={`h-0.5 w-full ${
+            isSwitchingToGeneral
+              ? 'bg-gradient-to-r from-amber-500/80 via-orange-500/60 to-transparent'
+              : 'bg-gradient-to-r from-emerald-500/80 via-teal-500/60 to-transparent'
+          }`}
+        />
 
-        <div className="space-y-4">
+        {/* Inner padding wrapper */}
+        <div className="p-6 space-y-4">
+          <DialogHeader>
+            <DialogTitle id="mode-dialog-title" className="flex items-center gap-2">
+              {isSwitchingToGeneral && <AlertTriangle className="w-5 h-5 text-amber-500" />}
+              {title}
+            </DialogTitle>
+            <DialogDescription id="mode-dialog-description">
+              {description}
+            </DialogDescription>
+          </DialogHeader>
+
           {/* Feature list */}
           <div className="space-y-2">
             {features.map((feature, index) => (
@@ -127,7 +137,7 @@ export function ModeChangeDialog({
                   isSwitchingToGeneral ? 'text-white/60' : 'text-white/70'
                 }`}
               >
-                <span className={isSwitchingToGeneral ? 'text-red-500' : 'text-green-500'}>
+                <span className={isSwitchingToGeneral ? 'text-red-400' : 'text-emerald-400'}>
                   {isSwitchingToGeneral ? '✗' : '✓'}
                 </span>
                 {feature}
@@ -137,17 +147,17 @@ export function ModeChangeDialog({
 
           {/* Additional info */}
           <div
-              className={`p-3 rounded-lg ${
-                isSwitchingToGeneral
-                  ? 'bg-amber-500/10 border border-amber-500/20'
-                  : 'bg-blue-500/10 border border-blue-500/20'
-              }`}
+            className={`p-3 rounded-lg ${
+              isSwitchingToGeneral
+                ? 'bg-amber-500/10 border border-amber-500/20'
+                : 'bg-blue-500/10 border border-blue-500/20'
+            }`}
           >
-              <p
-                className={`text-sm ${
-                  isSwitchingToGeneral ? 'text-amber-300' : 'text-blue-300'
-                }`}
-              >
+            <p
+              className={`text-sm ${
+                isSwitchingToGeneral ? 'text-amber-300' : 'text-blue-300'
+              }`}
+            >
               {additionalInfo}
             </p>
           </div>
@@ -167,35 +177,35 @@ export function ModeChangeDialog({
               </span>
             </label>
           )}
-        </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            ref={cancelButtonRef}
-            variant="outline"
-            onClick={handleClose}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={onConfirm}
-            disabled={loading || (isSwitchingToGeneral && !acknowledged)}
-            className={isSwitchingToGeneral ? 'bg-amber-600 hover:bg-amber-700' : ''}
-          >
-            {loading ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                Updating...
-              </>
-            ) : (
-              <>
-                {confirmButtonText}
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              ref={cancelButtonRef}
+              variant="outline"
+              onClick={handleClose}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={onConfirm}
+              disabled={loading || (isSwitchingToGeneral && !acknowledged)}
+              className={isSwitchingToGeneral ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}
+            >
+              {loading ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  {confirmButtonText}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

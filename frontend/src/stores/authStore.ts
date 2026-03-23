@@ -251,7 +251,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           get()._startRefreshTimer();
         }
       } catch (error) {
-        console.error('fetchMe: Error', error);
+        // 401 is expected for unauthenticated users - don't log as error
+        if (error instanceof Error && !error.message.includes('401')) {
+          console.error('fetchMe: Error', error);
+        }
         // Don't set error state on fetchMe failure - it's expected during initial load
         set({
           isAuthenticated: false,

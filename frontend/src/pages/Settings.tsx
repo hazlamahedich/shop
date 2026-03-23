@@ -360,25 +360,25 @@ const Settings = () => {
                   <div className="glass-panel rounded-2xl p-6 border-blue-500/20 animate-in fade-in slide-in-from-top-4">
                     <form onSubmit={handleSaveFacebookCredentials} className="space-y-4">
                       <div>
-                        <Label htmlFor="facebook-app-id" className="text-xs text-on-surface-variant">Meta App ID</Label>
+                        <Label htmlFor="facebook-app-id" className="text-sm font-medium text-white mb-2 block">Meta App ID</Label>
                         <Input
                           id="facebook-app-id"
                           value={facebookAppId}
                           onChange={(e) => setFacebookAppId(e.target.value)}
-                          className="bg-surface-container border-outline-variant text-[#e4e1e9] mt-1"
+                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="facebook-app-secret" className="text-xs text-on-surface-variant">Meta App Secret</Label>
+                        <Label htmlFor="facebook-app-secret" className="text-sm font-medium text-white mb-2 block">Meta App Secret</Label>
                         <Input
                           id="facebook-app-secret"
                           type="password"
                           value={facebookAppSecret}
                           onChange={(e) => setFacebookAppSecret(e.target.value)}
-                          className="bg-surface-container border-outline-variant text-[#e4e1e9] mt-1"
+                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
                         />
                       </div>
-                      <Button type="submit" disabled={isSavingFacebook || !facebookAppId || !facebookAppSecret} className="w-full bg-blue-600 hover:bg-blue-500">
+                      <Button type="submit" disabled={isSavingFacebook || !facebookAppId || !facebookAppSecret} className="w-full bg-blue-600 hover:bg-blue-500 text-white h-11">
                         {isSavingFacebook ? 'Processing...' : 'Secure & Connect Meta App'}
                       </Button>
                     </form>
@@ -388,29 +388,29 @@ const Settings = () => {
                   <div className="glass-panel rounded-2xl p-6 border-primary-container/20 animate-in fade-in slide-in-from-top-4">
                     <form onSubmit={handleSaveShopifyCredentials} className="space-y-4">
                       <div>
-                        <Label htmlFor="shopify-api-key" className="text-xs text-on-surface-variant">Shopify Client ID</Label>
+                        <Label htmlFor="shopify-api-key" className="text-sm font-medium text-white mb-2 block">Shopify Client ID</Label>
                         <Input
                           id="shopify-api-key"
                           value={shopifyApiKey}
                           onChange={(e) => setShopifyApiKey(e.target.value)}
-                          className="bg-surface-container border-outline-variant text-[#e4e1e9] mt-1"
+                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="shopify-api-secret" className="text-xs text-on-surface-variant">Shopify Client Secret</Label>
+                        <Label htmlFor="shopify-api-secret" className="text-sm font-medium text-white mb-2 block">Shopify Client Secret</Label>
                         <Input
                           id="shopify-api-secret"
                           type="password"
                           value={shopifyApiSecret}
                           onChange={(e) => setShopifyApiSecret(e.target.value)}
-                          className="bg-surface-container border-outline-variant text-[#e4e1e9] mt-1"
+                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
                         />
                       </div>
-                      <Button type="submit" disabled={isSavingShopify || !shopifyApiKey || !shopifyApiSecret} className="w-full bg-primary-container hover:bg-primary-fixed text-on-primary-container">
+                      <Button type="submit" disabled={isSavingShopify || !shopifyApiKey || !shopifyApiSecret} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white h-11">
                         {isSavingShopify ? 'Saving...' : 'Authorize Shopify Access'}
                       </Button>
                       {shopifyCredentialsStatus === 'success' && <p className="text-xs text-primary-fixed-dim mt-2">{shopifyCredentialsMessage}</p>}
-                      {shopifyCredentialsStatus === 'error' && <p className="text-xs text-error mt-2">{shopifyCredentialsMessage}</p>}
+                      {shopifyCredentialsStatus === 'error' && <p className="text-xs text-red-400 mt-2">{shopifyCredentialsMessage}</p>}
                     </form>
                   </div>
               )}

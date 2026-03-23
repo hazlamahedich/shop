@@ -445,6 +445,23 @@ async def get_faq_usage(
     return response
 
 
+@router.get("/geographic")
+async def get_geographic_analytics(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get geographic breakdown of orders by country, city, and province.
+
+    Story 4-13: Geographic Analytics
+
+    Returns sales breakdown by country, city, and province.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_geographic_analytics(merchant_id)
+    return data
+
+
 @router.get("/faq-usage/export", response_class=PlainTextResponse)
 async def export_faq_usage_csv(
     request: Request,

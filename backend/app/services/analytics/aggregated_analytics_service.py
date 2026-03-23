@@ -1097,7 +1097,11 @@ class AggregatedAnalyticsService:
                 select(func.sum(LLMConversationCost.total_cost_usd).label("total_cost"))
                 .join(
                     Conversation,
-                    func.cast(LLMConversationCost.conversation_id, Integer) == Conversation.id,
+                    func.cast(
+                        func.regexp_replace(LLMConversationCost.conversation_id, r"^conv-", ""),
+                        Integer,
+                    )
+                    == Conversation.id,
                 )
                 .where(Conversation.merchant_id == merchant_id)
                 .where(LLMConversationCost.created_at >= cutoff_date)
@@ -2048,3 +2052,113 @@ class AggregatedAnalyticsService:
                 error=str(e),
             )
             raise
+
+    async def get_geographic_analytics(
+        self,
+        merchant_id: int,
+    ) -> dict[str, Any]:
+        """Get geographic breakdown of orders by country, city, and province.
+
+        Story 4-13: Geographic Analytics
+
+        Args:
+            merchant_id: Merchant ID
+
+        Returns:
+            Dict with byCountry, byCity, byProvince breakdowns
+        """
+        try:
+            by_country_result = await self.db.execute(
+                select(
+                    Order.shipping_country.label("country"),
+                    func.count(Order.id).label("order_count"),
+                    func.sum(Order.total).label("total_revenue"),
+                )
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.shipping_country.isnot(None))
+                .group_by(Order.shipping_country)
+                .order_by(func.sum(Order.total).desc())
+            )
+            by_country = [
+                {
+                    "country": row.country,
+                    "countryName": None,
+                    "orderCount": row.order_count,
+                    "totalRevenue": float(row.total_revenue or 0),
+                }
+                for row in by_country_result
+            ]
+
+            by_city_result = await self.db.execute(
+                select(
+                    Order.shipping_city.label("city"),
+                    Order.shipping_country.label("country"),
+                    func.count(Order.id).label("order_count"),
+                    func.sum(Order.total).label("total_revenue"),
+                )
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.shipping_city.isnot(None))
+                .group_by(Order.shipping_city, Order.shipping_country)
+                .order_by(func.sum(Order.total).desc())
+                .limit(20)
+            )
+            by_city = [
+                {
+                    "city": row.city,
+                    "country": row.country,
+                    "orderCount": row.order_count,
+                    "totalRevenue": float(row.total_revenue or 0),
+                }
+                for row in by_city_result
+            ]
+
+            by_province_result = await self.db.execute(
+                select(
+                    Order.shipping_province.label("province"),
+                    Order.shipping_country.label("country"),
+                    func.count(Order.id).label("order_count"),
+                    func.sum(Order.total).label("total_revenue"),
+                )
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.shipping_province.isnot(None))
+                .group_by(Order.shipping_province, Order.shipping_country)
+                .order_by(func.sum(Order.total).desc())
+                .limit(20)
+            )
+            by_province = [
+                {
+                    "province": row.province,
+                    "country": row.country,
+                    "orderCount": row.order_count,
+                    "totalRevenue": float(row.total_revenue or 0),
+                }
+                for row in by_province_result
+            ]
+
+            total_orders = sum(c["orderCount"] for c in by_country)
+            total_revenue = sum(c["totalRevenue"] for c in by_country)
+
+            logger.info(
+                "geographic_analytics_retrieved",
+                merchant_id=merchant_id,
+                total_countries=len(by_country),
+                total_cities=len(by_city),
+                total_provinces=len(by_province),
+            )
+
+            return {
+                "byCountry": by_country,
+                "byCity": by_city,
+                "byProvince": by_province,
+                "totalOrders": total_orders,
+                "totalRevenue": total_revenue,
+            }
+
+        except Exception as e:
+            logger.error(
+                "geographic_analytics_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            raise
+

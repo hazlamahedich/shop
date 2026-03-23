@@ -195,6 +195,7 @@
 
   body {
     @apply font-sans antialiased text-gray-700;
+    background-color: #0d0d12;
   }
 
   /* Interactive Tutorial Modal Overlay */

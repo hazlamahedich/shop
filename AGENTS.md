@@ -285,6 +285,113 @@ bd sync && git push
 
 ---
 
+## 🔌 Widget Client Update Checklist
+
+**CRITICAL:** When adding new fields to `WidgetMessage` interface, you MUST also update `widgetClient.ts` extraction.
+
+### Widget-Affecting Changes Checklist
+
+Complete this checklist whenever you add new fields to the widget API response:
+
+```markdown
+□ **Step 1: Add to WidgetMessage Interface**
+   - File: `frontend/src/widget/types/widget.ts`
+   - Add new field with proper type annotation
+   - Example: `sources?: SourceCitation[]`
+
+□ **Step 2: Add to Backend Schema**
+   - File: `backend/app/schemas/widget.py`
+   - Add field to `WidgetMessageResponse` with Pydantic `Field(alias="...")`
+   - Example: `sources: list[SourceCitation] | None = Field(default=None, alias="sources")`
+
+□ **Step 3: Update widgetClient.ts Extraction** ⚠️ MOST COMMONLY MISSED
+   - File: `frontend/src/widget/api/widgetClient.ts`
+   - Find the `sendMessage()` method return statement
+   - Add extraction for new field from API response
+   - Example:
+     ```typescript
+     sources: (rawData.sources as SourceCitation[]) ?? undefined,
+     ```
+
+□ **Step 4: Verify E2E Tests**
+   - Run widget E2E tests to verify field is accessible
+   - Check for `undefined` errors in test output
+   - Reference: Stories 10-1, 10-3, 10-4, 10-5, 10-10 all missed this step
+```
+
+### Common Widget Fields Reference
+
+| Field | Type | Added In | Stories Affected |
+|-------|------|----------|------------------|
+| `sources` | `SourceCitation[]` | 10-1 | E2E tests failed |
+| `suggestedReplies` | `string[]` | 10-3 | E2E tests failed |
+| `feedbackEnabled` | `boolean` | 10-4 | E2E tests failed |
+| `userRating` | `FeedbackRatingValue` | 10-4 | E2E tests failed |
+| `quick_replies` | `QuickReply[]` | 10-2 | Already extracted |
+
+### Verification Command
+
+```bash
+# After adding new field, verify extraction works
+cd frontend
+npm test -- --run --grep "widget"
+```
+
+---
+
+## 🎭 Mock Data Validation Guide
+
+**CRITICAL:** Mock data must match test expectations to avoid E2E test failures.
+
+### Mock Data Checklist
+
+Complete this checklist when creating mock data for E2E tests:
+
+```markdown
+□ **Step 1: Identify Required Fields**
+   - Review test assertions to identify expected fields
+   - Check component props/interfaces for required data
+   - Reference: Story 10-5 mock only had phone/email, tests expected custom option
+
+□ **Step 2: Match Backend Schema**
+   - Ensure mock data structure matches `WidgetMessageResponse` schema
+   - Use correct field names (camelCase for API)
+   - Include all optional fields that tests may check
+
+□ **Step 3: Use Factory Functions**
+   - Create reusable mock factories in `tests/helpers/`
+   - Use TypeScript interfaces for type safety
+   - Example:
+     ```typescript
+     // tests/helpers/widget-test-helpers.ts
+     export function createMockMessage(overrides?: Partial<WidgetMessage>): WidgetMessage {
+       return {
+         messageId: 'test-id',
+         content: 'Test message',
+         sender: 'bot',
+         createdAt: new Date().toISOString(),
+         ...overrides,
+       };
+     }
+     ```
+
+□ **Step 4: Validate Mock Before Running Tests**
+   - Ensure mock covers all test scenarios
+   - Check for missing fields that cause `undefined` errors
+   - Run tests with verbose output to catch issues early
+```
+
+### Common Mock Data Pitfalls
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Missing optional fields | Mock only includes required fields | Include all fields that tests check |
+| Wrong field names | Using snake_case instead of camelCase | Use API field names (camelCase) |
+| Incomplete nested objects | Partial mock of complex types | Mock full object structure |
+| Missing array items | Empty arrays for list fields | Include sample items |
+
+---
+
 ## 🧪 E2E Test Standards
 
 **CRITICAL:** Follow these standards when writing E2E tests to ensure reliability and maintainability.

@@ -68,7 +68,7 @@ const Header = () => {
   const recentAlerts = alerts.slice(0, 5);
 
   return (
-    <header className="bg-[#030303]/40 backdrop-blur-xl border-b border-emerald-500/10 h-16 flex items-center justify-between px-8 pl-72 fixed top-0 right-0 w-full z-40 transition-all duration-300">
+    <header className="bg-[#030303]/80 backdrop-blur-xl border-b border-emerald-500/10 h-16 flex items-center justify-between px-8 pl-72 fixed top-0 right-0 w-full z-40 transition-all duration-300">
       <GlobalSearch />
 
       <div className="flex items-center space-x-6">

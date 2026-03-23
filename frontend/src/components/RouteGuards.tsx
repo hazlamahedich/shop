@@ -11,7 +11,6 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
 import { useTutorialStore } from '../stores/tutorialStore';
 import { useHasStoreConnected } from '../stores/authStore';
-import { TutorialPrompt } from './onboarding/TutorialPrompt';
 
 export interface RouteGuardProps {
   children: React.ReactNode;
@@ -70,12 +69,7 @@ export function OnboardingGuard({ children, requireAuth = true, isAuthenticated 
       }
       // If tutorial not completed/skipped, show tutorial prompt as overlay
       if (!isCompleted && !isSkipped) {
-        return (
-          <>
-            <TutorialPrompt />
-            {children}
-          </>
-        );
+        return <>{children}</>;
       }
       // Redirect to bot config for setup completion
       return <Navigate to="/bot-config" replace />;
@@ -90,7 +84,6 @@ export function OnboardingGuard({ children, requireAuth = true, isAuthenticated 
  * Redirects authenticated users away from auth pages.
  */
 export function AuthGuard({ children, isAuthenticated = false }: RouteGuardProps) {
-  const location = useLocation();
 
   // If already authenticated, redirect to dashboard or onboarding
   if (isAuthenticated) {
