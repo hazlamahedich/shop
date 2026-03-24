@@ -16,10 +16,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import httpx
+import pytest
 from httpx import ASGITransport
 
 from app.core.config import settings

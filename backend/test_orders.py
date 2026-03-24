@@ -1,8 +1,10 @@
 import asyncio
+
 from sqlalchemy import select
+
 from app.core.database import async_session
-from app.models.merchant import Merchant
 from app.models.order import Order
+
 
 async def main():
     async with async_session() as db:

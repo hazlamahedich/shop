@@ -10,20 +10,20 @@ Usage:
     python test_handoff_resolution_manual.py
 """
 
+import asyncio
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import async_session
-from app.models.merchant import Merchant, PersonalityType
 from app.models.conversation import Conversation
+from app.models.merchant import Merchant, PersonalityType
 from app.models.message import Message
 from app.services.handoff.handoff_resolution_service import HandoffResolutionService
 
@@ -135,7 +135,7 @@ async def verify_stored_message(db: AsyncSession, message_id: int):
     message = result.scalars().first()
 
     if message:
-        print(f"✅ Message found in database:")
+        print("✅ Message found in database:")
         print(f"   ID: {message.id}")
         print(f"   Sender: {message.sender}")
         print(f"   Content: {message.content}")

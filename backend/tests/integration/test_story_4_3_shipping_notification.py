@@ -12,21 +12,14 @@ Tests the full webhook flow including:
 
 from __future__ import annotations
 
-import json
-import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ErrorCode
-from app.models.conversation import Conversation
-from app.models.merchant import Merchant
 from app.models.order import Order
-from app.models.shopify_integration import ShopifyIntegration
 
 
 class TestShippingNotificationFlow:

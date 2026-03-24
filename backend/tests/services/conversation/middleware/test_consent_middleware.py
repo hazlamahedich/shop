@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.consent import Consent, ConsentType
 from app.services.conversation.middleware.consent_middleware import (
     ConsentMiddleware,
-    ConsentRequiredError,
 )
 from app.services.conversation.schemas import (
     Channel,

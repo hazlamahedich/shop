@@ -12,15 +12,14 @@ from __future__ import annotations
 
 import os
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
+from app.models.knowledge_base import DocumentStatus, KnowledgeDocument
 from app.models.merchant import Merchant
 from tests.conftest import auth_headers as make_auth_headers
 

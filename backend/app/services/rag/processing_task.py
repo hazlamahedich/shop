@@ -130,10 +130,10 @@ async def process_document_background(document_id: int, merchant_id: int) -> Pro
             # Initialize embedding service using merchant's embedding settings (Story 8-11)
             provider = merchant.embedding_provider
             model = merchant.embedding_model
-            
+
             # Use merchant's decrypted API key for cloud providers
             api_key = merchant_config.llm_api_key
-            
+
             # Fallback for OpenAI if using Anthropic for chat but no specific embedding provider
             # (Though current schema handles this via Merchant fields)
             if provider == "anthropic":

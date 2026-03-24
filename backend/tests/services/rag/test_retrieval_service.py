@@ -12,14 +12,14 @@ Test Coverage:
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
-from app.services.rag.embedding_service import EmbeddingResult, EmbeddingService
-from app.services.rag.retrieval_service import RetrievedChunk, RetrievalService
+from app.services.rag.embedding_service import EmbeddingService
+from app.services.rag.retrieval_service import RetrievalService, RetrievedChunk
 
 
 class TestRetrievalServiceInit:
@@ -202,7 +202,7 @@ class TestRetrieveRelevantChunks:
 
         # Mock embedding timeout
         mock_embedding.embed_query = AsyncMock(
-            side_effect=asyncio.TimeoutError("Embedding timeout")
+            side_effect=TimeoutError("Embedding timeout")
         )
 
         service = RetrievalService(mock_db, mock_embedding)

@@ -7,10 +7,10 @@ Create Date: 2026-02-17
 Story 5-1: Backend Widget API
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "023_add_widget_config"

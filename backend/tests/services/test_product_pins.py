@@ -16,13 +16,13 @@ This avoids pytest fixture collision with test class names.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import APIError, ErrorCode
 from app.models.product_pin import ProductPin
-from app.core.errors import ErrorCode, APIError
-
 
 # =============================================================================
 # Test Fixtures
@@ -90,7 +90,7 @@ class TestProductPinning:
         mock_merchant: MagicMock,
     ) -> None:
         """Test pin limit is enforced (10 products max)."""
-        from app.services.product_pin_service import pin_product, MAX_PINNED_PRODUCTS
+        from app.services.product_pin_service import MAX_PINNED_PRODUCTS, pin_product
 
         # Arrange: Pin 10 products first
         for i in range(MAX_PINNED_PRODUCTS):
@@ -367,7 +367,7 @@ class TestPinLimit:
         mock_merchant: MagicMock,
     ) -> None:
         """Test pin limit checking returns correct info."""
-        from app.services.product_pin_service import check_pin_limit, MAX_PINNED_PRODUCTS
+        from app.services.product_pin_service import MAX_PINNED_PRODUCTS, check_pin_limit
 
         # Arrange: Pin 5 products
         for i in range(5):

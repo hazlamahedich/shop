@@ -11,20 +11,17 @@ Test Coverage:
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
-from app.core.errors import APIError, ErrorCode
 from app.services.rag.embedding_service import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODELS,
     EmbeddingResult,
     EmbeddingService,
     InvalidProviderError,
-    RateLimitError,
 )
 
 

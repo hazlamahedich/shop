@@ -6,14 +6,10 @@ Story 10-4: Feedback Rating Widget
 from __future__ import annotations
 
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
-
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.message import Message
 from app.models.conversation import Conversation
+from app.models.message import Message
 from tests.conftest import auth_headers
 
 

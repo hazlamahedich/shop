@@ -9,17 +9,17 @@ Story 9-10: Analytics & Performance Monitoring
 - Supports GDPR compliance with 30-day retention policy
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-
 
 revision: str = "widget_analytics_events"
-down_revision: Union[str, None] = "embedding_jsonb"
-branch_labels: Union[Sequence[str], None] = None
-depends_on: Union[Sequence[str], None] = None
+down_revision: str | None = "embedding_jsonb"
+branch_labels: Sequence[str] | None = None
+depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:

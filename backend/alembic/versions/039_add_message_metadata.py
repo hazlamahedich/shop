@@ -9,10 +9,10 @@ Task: Add message_metadata column for storing additional message context
 
 This column was defined in the Message model but missing from the initial migration.
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 revision = '039'
 down_revision = '038'

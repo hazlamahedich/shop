@@ -8,11 +8,10 @@ Tests the complete handoff flow with business hours:
 - Notification queuing and delivery at business hours
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import select
 
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant
@@ -86,7 +85,7 @@ class TestBusinessHoursHandoffIntegration:
         """Handoff message should include business hours when offline."""
         service = BusinessHoursHandoffService()
 
-        saturday_10am_pst_utc = datetime(2026, 2, 21, 18, 0, 0, tzinfo=timezone.utc)
+        saturday_10am_pst_utc = datetime(2026, 2, 21, 18, 0, 0, tzinfo=UTC)
         message = service.build_handoff_message(business_hours_config, saturday_10am_pst_utc)
 
         assert "offline" in message.lower()
@@ -101,7 +100,7 @@ class TestBusinessHoursHandoffIntegration:
         """Handoff message should be standard when within business hours."""
         service = BusinessHoursHandoffService()
 
-        wednesday_10am_pst_utc = datetime(2026, 2, 18, 18, 0, 0, tzinfo=timezone.utc)
+        wednesday_10am_pst_utc = datetime(2026, 2, 18, 18, 0, 0, tzinfo=UTC)
         message = service.build_handoff_message(business_hours_config, wednesday_10am_pst_utc)
 
         assert "offline" not in message.lower()
@@ -126,7 +125,7 @@ class TestBusinessHoursHandoffIntegration:
         """Notifications should be queued when outside business hours."""
         from app.services.handoff.notification_service import HandoffNotificationService
 
-        saturday_10am_utc = datetime(2026, 2, 21, 18, 0, 0, tzinfo=timezone.utc)
+        saturday_10am_utc = datetime(2026, 2, 21, 18, 0, 0, tzinfo=UTC)
 
         service = HandoffNotificationService(db=mock_db_session, redis=None)
 
@@ -200,8 +199,8 @@ class TestExpectedResponseTimeScenarios:
         """Response time < 1 hour should show 'less than 1 hour'."""
         service = BusinessHoursHandoffService()
 
-        from_time = datetime(2026, 2, 18, 16, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 18, 16, 30, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 16, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 18, 16, 30, 0, tzinfo=UTC)
 
         result = service.format_expected_response_time(from_time, next_hour)
         assert result == "less than 1 hour"
@@ -210,8 +209,8 @@ class TestExpectedResponseTimeScenarios:
         """Response time 1-6 hours should show 'about X hours'."""
         service = BusinessHoursHandoffService()
 
-        from_time = datetime(2026, 2, 18, 14, 0, 0, tzinfo=timezone.utc)
-        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 2, 18, 14, 0, 0, tzinfo=UTC)
+        next_hour = datetime(2026, 2, 18, 17, 0, 0, tzinfo=UTC)
 
         result = service.format_expected_response_time(from_time, next_hour)
         assert result == "about 3 hours"
@@ -228,9 +227,9 @@ class TestExpectedResponseTimeScenarios:
         ]
 
         for hours, expected_prefix in test_cases:
-            from_time = datetime(2026, 2, 18, 10, 0, 0, tzinfo=timezone.utc)
+            from_time = datetime(2026, 2, 18, 10, 0, 0, tzinfo=UTC)
             next_hour = datetime(
-                2026, 2, 18, 10 + int(hours), int((hours % 1) * 60), 0, tzinfo=timezone.utc
+                2026, 2, 18, 10 + int(hours), int((hours % 1) * 60), 0, tzinfo=UTC
             )
             result = service.format_expected_response_time(from_time, next_hour)
             assert expected_prefix in result, (

@@ -7,9 +7,10 @@ Create Date: 2026-02-03
 This migration creates the llm_configurations and llm_conversation_costs
 tables for storing LLM provider settings and tracking per-conversation costs.
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '004_llm_configurations'

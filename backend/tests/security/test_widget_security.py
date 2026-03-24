@@ -7,16 +7,16 @@ AC6: Security Test Coverage
 from __future__ import annotations
 
 import os
-import pytest
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 os.environ["IS_TESTING"] = "true"
 
 from app.core.errors import APIError, ErrorCode
 from app.core.rate_limiter import RateLimiter
-from app.core.validators import is_valid_session_id
 from app.core.sanitization import sanitize_message, validate_message_length
+from app.core.validators import is_valid_session_id
 
 
 class TestRateLimitingSecurity:
@@ -25,6 +25,7 @@ class TestRateLimitingSecurity:
     def test_ip_rate_limit_100_per_minute(self):
         """Per-IP rate limit of 100 requests per minute is enforced."""
         from fastapi import Request
+
         from app.core.rate_limiter import RateLimiter
 
         RateLimiter.reset_all()
@@ -79,7 +80,6 @@ class TestRateLimitingSecurity:
 
     def test_rate_limit_resets_after_window(self):
         """Rate limit counter resets after the time window expires."""
-        from unittest.mock import patch
         from fastapi import Request
 
         RateLimiter.reset_all()
@@ -161,7 +161,6 @@ class TestRateLimitingSecurity:
 
     def test_rate_limit_enforced_without_bypass(self):
         """Rate limiting logic works when tested directly (bypass only in check_* methods)."""
-        from fastapi import Request
 
         RateLimiter.reset_all()
 
@@ -202,7 +201,6 @@ class TestRateLimitingSecurity:
     def test_check_widget_rate_limit_returns_retry_after_when_limited(self):
         """[P1] check_widget_rate_limit returns retry_after seconds when rate limited (AC1)."""
         from fastapi import Request
-        from unittest.mock import patch
 
         RateLimiter.reset_all()
 
@@ -230,7 +228,6 @@ class TestRateLimitingSecurity:
     def test_rate_limit_enforced_without_test_mode_header(self):
         """[P1] Rate limiting enforced when X-Test-Mode header is absent (AC1, AC2)."""
         from fastapi import Request
-        from unittest.mock import patch
 
         RateLimiter.reset_all()
 
@@ -313,8 +310,9 @@ class TestDomainWhitelistSecurity:
 
     def test_allowed_domain_passes(self):
         """Allowed domain passes validation."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://example.com"}
@@ -323,8 +321,9 @@ class TestDomainWhitelistSecurity:
 
     def test_subdomain_of_allowed_domain_passes(self):
         """Subdomain of allowed domain passes validation."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://shop.example.com"}
@@ -333,8 +332,9 @@ class TestDomainWhitelistSecurity:
 
     def test_unauthorized_domain_blocked(self):
         """Unauthorized domain is blocked."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://evil.com"}
@@ -346,8 +346,9 @@ class TestDomainWhitelistSecurity:
 
     def test_empty_whitelist_allows_all(self):
         """Empty whitelist allows all origins."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://any-domain.com"}
@@ -356,8 +357,9 @@ class TestDomainWhitelistSecurity:
 
     def test_missing_origin_header_handled(self):
         """Missing Origin header is handled gracefully."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
@@ -366,8 +368,9 @@ class TestDomainWhitelistSecurity:
 
     def test_domain_whitelist_case_insensitive(self):
         """Domain whitelist matching is case-insensitive."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://EXAMPLE.COM"}
@@ -376,8 +379,9 @@ class TestDomainWhitelistSecurity:
 
     def test_spoofed_origin_rejected(self):
         """Spoofed Origin headers with invalid domains are rejected."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://evil.com?ref=example.com"}
@@ -473,10 +477,11 @@ class TestAuthenticationSecurity:
     @pytest.mark.asyncio
     async def test_widget_disabled_returns_403(self):
         """Widget disabled returns 403 FORBIDDEN."""
-        from app.api.widget import create_widget_session
-        from app.schemas.widget import CreateSessionRequest
         from fastapi import Request
         from sqlalchemy.ext.asyncio import AsyncSession
+
+        from app.api.widget import create_widget_session
+        from app.schemas.widget import CreateSessionRequest
 
         mock_db = MagicMock(spec=AsyncSession)
         mock_db.execute = AsyncMock()
@@ -508,10 +513,11 @@ class TestAuthenticationSecurity:
     @pytest.mark.asyncio
     async def test_merchant_not_found_returns_404(self):
         """Non-existent merchant returns 404."""
-        from app.api.widget import create_widget_session
-        from app.schemas.widget import CreateSessionRequest
         from fastapi import Request
         from sqlalchemy.ext.asyncio import AsyncSession
+
+        from app.api.widget import create_widget_session
+        from app.schemas.widget import CreateSessionRequest
 
         mock_db = MagicMock(spec=AsyncSession)
         mock_db.execute = AsyncMock()

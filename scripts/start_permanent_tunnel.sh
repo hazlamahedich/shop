@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Configuration
+export PATH="/opt/homebrew/bin:$PATH"
 LOCAL_PORT=8000
 # zrok unique names must be STRICTLY alphanumeric (no dashes) and < 32 chars.
 USER_SHORT=$(echo $(whoami) | tr -cd '[:alnum:]' | cut -c 1-10)
@@ -38,8 +39,8 @@ RESERVE_EXIT=$?
 
 if [ $RESERVE_EXIT -eq 0 ]; then
     echo -e "${GREEN}Share '${TUNNEL_NAME}' reserved successfully!${NC}"
-elif echo "$RESERVE_OUT" | grep -q -E "already exists|shareConflict"; then
-    echo -e "${BLUE}Share '${TUNNEL_NAME}' already exists and is ready to use.${NC}"
+elif echo "$RESERVE_OUT" | grep -q -E "already exists|shareConflict|shareUnauthorized"; then
+    echo -e "${BLUE}Share '${TUNNEL_NAME}' already exists (or is already yours) and is ready to use.${NC}"
 else
     echo -e "${RED}Error reserving share:${NC}"
     echo "$RESERVE_OUT"

@@ -3,10 +3,10 @@
 Tests carrier detection service with priority-based resolution.
 """
 
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.carrier_config import CarrierConfig
@@ -148,8 +148,8 @@ class TestGetCustomCarrierUrl:
             tracking_number_pattern=r"^LBC\d{12}$",
             is_active=True,
             priority=100,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         sample_order.tracking_number = "LBC123456789012"
@@ -176,8 +176,8 @@ class TestGetCustomCarrierUrl:
             tracking_number_pattern=r"^LBC\d{12}$",
             is_active=False,  # Inactive
             priority=100,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         sample_order.tracking_number = "LBC123456789012"
@@ -203,8 +203,8 @@ class TestGetCustomCarrierUrl:
             tracking_number_pattern=r"[invalid(regex",  # Invalid regex
             is_active=True,
             priority=100,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         sample_order.tracking_number = "ABC123"
@@ -230,8 +230,8 @@ class TestGetCustomCarrierUrl:
             tracking_number_pattern=r"^TEST\d+$",
             is_active=True,
             priority=50,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         carrier2 = CarrierConfig(
@@ -242,8 +242,8 @@ class TestGetCustomCarrierUrl:
             tracking_number_pattern=r"^TEST\d+$",
             is_active=True,
             priority=100,  # Higher priority
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         sample_order.tracking_number = "TEST123"
@@ -280,8 +280,8 @@ class TestDetectCarrier:
             tracking_number_pattern=r"^LBC\d{12}$",
             is_active=True,
             priority=100,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         mock_result = MagicMock()

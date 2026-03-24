@@ -9,8 +9,9 @@ Uses mocked service to avoid database dependency.
 from __future__ import annotations
 
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 os.environ["IS_TESTING"] = "true"
 

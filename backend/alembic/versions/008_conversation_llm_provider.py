@@ -10,8 +10,9 @@ This enables accurate cost tracking per conversation when providers are switched
 
 Story: 3.4 - LLM Provider Switching
 """
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '008_conversation_llm_provider'

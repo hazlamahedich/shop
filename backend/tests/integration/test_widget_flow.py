@@ -8,9 +8,10 @@ Story 5.1: Backend Widget API
 from __future__ import annotations
 
 import os
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 os.environ["IS_TESTING"] = "true"
 
@@ -265,8 +266,9 @@ class TestWidgetFlowIntegration:
     @pytest.mark.asyncio
     async def test_rate_limiting_enforcement(self, mock_redis):
         """Test that rate limiting is enforced (100 req/min per IP)."""
-        from app.api.widget import _check_rate_limit
         from fastapi import Request
+
+        from app.api.widget import _check_rate_limit
 
         # Create mock request
         mock_request = MagicMock(spec=Request)
@@ -305,9 +307,9 @@ class TestWidgetMessageIntegration:
     @pytest.mark.asyncio
     async def test_message_processing_with_mock_llm(self, mock_redis, mock_db):
         """Test message processing with mock LLM provider."""
-        from app.services.widget.widget_session_service import WidgetSessionService
-        from app.services.widget.widget_message_service import WidgetMessageService
         from app.schemas.widget import WidgetSessionData
+        from app.services.widget.widget_message_service import WidgetMessageService
+        from app.services.widget.widget_session_service import WidgetSessionService
 
         session_service = WidgetSessionService(redis_client=mock_redis)
         message_service = WidgetMessageService(
@@ -319,9 +321,9 @@ class TestWidgetMessageIntegration:
         session = WidgetSessionData(
             session_id="test-session",
             merchant_id=1,
-            created_at=datetime.now(timezone.utc),
-            last_activity_at=datetime.now(timezone.utc),
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            created_at=datetime.now(UTC),
+            last_activity_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
 
         # Create test merchant

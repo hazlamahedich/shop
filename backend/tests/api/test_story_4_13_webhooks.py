@@ -11,9 +11,8 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -263,7 +262,6 @@ class TestDisputesCreateWebhook:
     @pytest.mark.unit
     def test_dispute_create_calculates_evidence_deadline(self):
         """Verify evidence deadline is correctly parsed."""
-        from datetime import datetime
 
         payload = {
             "id": "dispute_123",

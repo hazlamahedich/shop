@@ -10,25 +10,24 @@ in isolation without database dependencies.
 """
 
 import os
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 # Set environment variables BEFORE importing the module
 os.environ["IS_TESTING"] = "false"
 os.environ["MOCK_STORE_ENABLED"] = "false"
 
+from app.services.ecommerce.mock_provider import MockStoreProvider
+from app.services.ecommerce.null_provider import NullStoreProvider
 from app.services.ecommerce.provider_factory import (
     StoreProvider,
-    get_provider,
-    get_provider_for_merchant,
-    get_null_provider,
     get_mock_provider,
-    has_store_connected,
+    get_null_provider,
+    get_provider,
     get_store_provider_type,
+    has_store_connected,
 )
-from app.services.ecommerce.null_provider import NullStoreProvider
-from app.services.ecommerce.mock_provider import MockStoreProvider
-
 
 # Mark all tests in this file as not needing database
 pytestmark = pytest.mark.skipif(
@@ -124,6 +123,7 @@ class TestGetProviderForMerchant:
 
         # Re-import to pick up new env
         import importlib
+
         import app.services.ecommerce.provider_factory as pf
         importlib.reload(pf)
 
@@ -137,6 +137,7 @@ class TestGetProviderForMerchant:
 
         # Re-import to pick up new env
         import importlib
+
         import app.services.ecommerce.provider_factory as pf
         importlib.reload(pf)
 
@@ -150,6 +151,7 @@ class TestGetProviderForMerchant:
 
         # Re-import to pick up new env
         import importlib
+
         import app.services.ecommerce.provider_factory as pf
         importlib.reload(pf)
 
@@ -163,6 +165,7 @@ class TestGetProviderForMerchant:
 
         # Re-import to pick up new env
         import importlib
+
         import app.services.ecommerce.provider_factory as pf
         importlib.reload(pf)
 

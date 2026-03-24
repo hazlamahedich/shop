@@ -10,11 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import redis
 
-from app.api.webhooks.facebook import process_webhook_message, send_messenger_response
 from app.schemas.messaging import FacebookWebhookPayload
-from app.services.messaging.message_processor import MessageProcessor
 from app.services.cart import CartService
-from app.schemas.cart import CartItem, CurrencyCode
+from app.services.messaging.message_processor import MessageProcessor
 
 
 class TestAddToCartFlow:

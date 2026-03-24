@@ -1,23 +1,17 @@
 """Pytest configuration and shared fixtures."""
 
+import asyncio
 import os
 import sys
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from unittest.mock import AsyncMock
-import pytest
-import pytest_asyncio
-import asyncio
-from datetime import timedelta
-from typing import AsyncGenerator
-
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
-from sqlalchemy import text
-from sqlalchemy.dialects.postgresql import JSONB, ENUM
 
 import httpx
+import pytest
 from httpx import ASGITransport
-from fastapi import FastAPI
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 # Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -106,16 +100,6 @@ TestingSessionLocal = async_sessionmaker(
 
 # Import all models to ensure they're registered with Base.metadata
 # This must happen before Base.metadata.create_all() is called
-import app.models.merchant
-import app.models.onboarding
-import app.models.facebook_integration
-import app.models.shopify_integration
-import app.models.llm_configuration
-import app.models.conversation
-import app.models.message
-import app.models.deployment_log
-import app.models.webhook_verification_log
-import app.models.faq  # Story 1.11: FAQ model
 
 # Re-assert environment variables after importing app modules,
 # because app.core.config loads .env with override=True which might overwrite them.
@@ -129,7 +113,6 @@ os.environ["IS_TESTING"] = "true"
 
 async def _setup_enums():
     """Internal async helper to set up ENUM types."""
-    from sqlalchemy import text
 
     async with test_engine.begin() as conn:
         enums = [
@@ -186,7 +169,6 @@ async def _reset_database():
 
     This is called by async_session before each test.
     """
-    from sqlalchemy import text
 
     async with test_engine.begin() as conn:
         # Check if deletion_audit_log table exists before truncating
@@ -210,7 +192,7 @@ async def _reset_database():
         # Reset sequences
         await conn.execute(text("SELECT setval('merchants_id_seq', 1, false);"))
         await conn.execute(text("SELECT setval('tutorials_id_seq', 1, false);"))
-        print(f"DEBUG: Database reset completed")
+        print("DEBUG: Database reset completed")
 
 
 # =============================================================================
@@ -283,8 +265,8 @@ async def async_client(async_session):
     Uses ASGITransport to call the app directly without a server.
     Reuses the async_session fixture when both are used in tests.
     """
-    from app.main import app
     from app.core.database import get_db
+    from app.main import app
 
     # Override get_db dependency to use the test's async_session
     async def override_get_db():
@@ -311,8 +293,8 @@ async def client(async_session):
     Many existing test files use 'client' instead of 'async_client'.
     This fixture provides backward compatibility.
     """
-    from app.main import app
     from app.core.database import get_db
+    from app.main import app
 
     # Override get_db dependency to use the test's async_session
     async def override_get_db():
@@ -350,8 +332,9 @@ def auth_headers(merchant_id: int) -> dict[str, str]:
     Returns:
         Dict with Authorization header containing Bearer token
     """
-    from app.core.auth import create_jwt
     import uuid
+
+    from app.core.auth import create_jwt
 
     # Create JWT token with unique session ID
     session_id = str(uuid.uuid4())

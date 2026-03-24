@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 

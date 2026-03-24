@@ -10,15 +10,13 @@ Tests that order processing respects GDPR "do not process" flag:
 - Normal customers process normally
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 
-from app.core.errors import ErrorCode
-from app.models.deletion_audit_log import DeletionAuditLog, DeletionRequestType, DeletionTrigger
-from app.models.order import Order
-from app.services.shopify.order_processor import ShopifyOrderProcessor
+import pytest
+
+from app.models.deletion_audit_log import DeletionRequestType
 from app.services.privacy.gdpr_service import GDPRDeletionService
-from tests.conftest import auth_headers
+from app.services.shopify.order_processor import ShopifyOrderProcessor
 
 
 class TestOrderGDPRCheck:
@@ -47,8 +45,8 @@ class TestOrderGDPRCheck:
         order_payload = {
             "id": "1234567890",
             "email": customer_email,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "financial_status": "paid",
             "fulfillment_status": None,
             "total_price": "100.00",
@@ -94,8 +92,8 @@ class TestOrderGDPRCheck:
         order_payload = {
             "id": "1234567891",
             "email": customer_email,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "financial_status": "paid",
             "fulfillment_status": None,
             "total_price": "100.00",
@@ -141,8 +139,8 @@ class TestOrderGDPRCheck:
         order_payload = {
             "id": "1234567892",
             "email": customer_email,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "financial_status": "paid",
             "fulfillment_status": None,
             "total_price": "100.00",
@@ -192,8 +190,8 @@ class TestOrderGDPRCheck:
         order_payload = {
             "id": "1234567893",
             "email": customer_email,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "financial_status": "paid",
             "fulfillment_status": None,
             "total_price": "100.00",
@@ -231,8 +229,8 @@ class TestOrderGDPRCheck:
         order_payload = {
             "id": "1234567894",
             "email": customer_email,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "financial_status": "paid",
             "fulfillment_status": None,
             "total_price": "100.00",

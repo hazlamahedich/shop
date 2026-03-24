@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
@@ -12,18 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.errors import ErrorCode
+from app.middleware.auth import require_auth
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.message_feedback import FeedbackRating, MessageFeedback
-from app.schemas.base import MinimalEnvelope, MetaData
+from app.schemas.base import MetaData, MinimalEnvelope
 from app.schemas.feedback import (
+    DailyFeedbackTrend,
     FeedbackAnalyticsResponse,
     FeedbackCreate,
     FeedbackResponse,
     RecentNegativeFeedback,
-    DailyFeedbackTrend,
 )
-from app.middleware.auth import require_auth
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +67,11 @@ async def submit_feedback(
                 "id": 0,
                 "messageId": feedback.message_id,
                 "rating": feedback.rating,
-                "createdAt": datetime.now(timezone.utc).isoformat(),
+                "createdAt": datetime.now(UTC).isoformat(),
             },
             meta=MetaData(
                 request_id=str(uuid.uuid4()),
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             ),
         )
 
@@ -125,7 +125,7 @@ async def submit_feedback(
             data=FeedbackResponse.model_validate(existing_feedback),
             meta=MetaData(
                 request_id=str(uuid.uuid4()),
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             ),
         )
 
@@ -154,7 +154,7 @@ async def submit_feedback(
         data=FeedbackResponse.model_validate(new_feedback),
         meta=MetaData(
             request_id=str(uuid.uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )
 
@@ -183,12 +183,12 @@ async def get_feedback_analytics(
         Aggregated feedback analytics
     """
     if not start_date:
-        start_date = (datetime.now(timezone.utc) - timedelta(days=7)).date()
+        start_date = (datetime.now(UTC) - timedelta(days=7)).date()
     if not end_date:
-        end_date = datetime.now(timezone.utc).date()
+        end_date = datetime.now(UTC).date()
 
-    start_datetime = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    end_datetime = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    start_datetime = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=UTC)
+    end_datetime = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=UTC)
 
     query = (
         select(
@@ -246,10 +246,10 @@ async def get_feedback_analytics(
     for i in range(7):
         day = end_date - timedelta(days=6 - i)
         day_start = datetime.combine(day, datetime.min.time()).replace(
-            tzinfo=timezone.utc
+            tzinfo=UTC
         )
         day_end = datetime.combine(day, datetime.max.time()).replace(
-            tzinfo=timezone.utc
+            tzinfo=UTC
         )
         day_query = (
             select(
@@ -293,6 +293,6 @@ async def get_feedback_analytics(
         ),
         meta=MetaData(
             request_id=str(uuid.uuid4()),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
     )

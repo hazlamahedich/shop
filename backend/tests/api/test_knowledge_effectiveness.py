@@ -8,9 +8,9 @@ Tests the HTTP layer of knowledge effectiveness API using FastAPI TestClient.
 from __future__ import annotations
 
 import os
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 os.environ["IS_TESTING"] = "true"
 

@@ -6,8 +6,6 @@ AC3: Session ID Validation
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.validators import is_valid_session_id
 
 

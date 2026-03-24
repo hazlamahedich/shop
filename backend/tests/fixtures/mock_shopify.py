@@ -5,7 +5,6 @@ Provides test doubles for Shopify Storefront API (GraphQL) and Admin API (REST).
 
 from __future__ import annotations
 
-
 # Mock response for Admin API shop verification
 MOCK_SHOP_SUCCESS = {
     "id": 123456789,

@@ -5,7 +5,7 @@ including validation retry, token persistence, and error handling.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -60,7 +60,7 @@ class TestCheckoutFlow:
                     image_url="https://example.com/shoes.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=2,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
                 CartItem(
                     product_id="gid://shopify/Product/2",
@@ -70,13 +70,13 @@ class TestCheckoutFlow:
                     image_url="https://example.com/socks.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=3,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
             ],
             subtotal=217.95,
             currency_code=CurrencyCode.USD,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
 
     @pytest.mark.asyncio
@@ -240,7 +240,7 @@ class TestCheckoutFlow:
         token_data = {
             "token": checkout_token,
             "url": f"https://checkout.shopify.com/{checkout_token}",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "psid": psid,
             "item_count": 2,
             "subtotal": 217.95,

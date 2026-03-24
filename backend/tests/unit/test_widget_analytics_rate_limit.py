@@ -3,12 +3,10 @@
 Tests that rate limiting is properly configured and returns 429 when exceeded.
 """
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
-from app.core.rate_limiter import RateLimiter
-from app.services.analytics.widget_analytics_service import WidgetAnalyticsService
+import pytest
 
 
 @pytest.fixture
@@ -28,7 +26,7 @@ def test_rate_limit_allows_request():
         events=[
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "test",
             }
         ],
@@ -46,12 +44,12 @@ def test_rate_limit_blocks_request():
         events=[
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "test",
             },
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "test",
             },
         ],
@@ -78,7 +76,7 @@ async def test_rate_limit_different_sessions():
         events=[
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session1",
             },
         ],
@@ -91,7 +89,7 @@ async def test_rate_limit_different_sessions():
         events=[
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session2",
             },
         ],

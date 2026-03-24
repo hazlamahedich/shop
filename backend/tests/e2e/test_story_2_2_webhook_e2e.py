@@ -15,10 +15,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import httpx
+import pytest
 from httpx import ASGITransport
 
 from app.core.config import settings
@@ -133,7 +133,7 @@ async def test_webhook_endpoint_rejects_invalid_signature():
 
     # Invalid signature (wrong secret)
     signature = hmac.new(
-        "wrong_secret".encode(),
+        b"wrong_secret",
         body.encode(),
         hashlib.sha256,
     ).hexdigest()

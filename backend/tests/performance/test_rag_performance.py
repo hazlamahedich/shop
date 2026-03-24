@@ -12,10 +12,9 @@ Performance benchmarks:
 from __future__ import annotations
 
 import asyncio
-import time
-import tempfile
 import os
-from typing import List
+import tempfile
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -34,7 +33,7 @@ class TestRAGPerformance:
         """Create mock embedding service with deterministic responses."""
         service = EmbeddingService(provider="openai", api_key="test-key")
 
-        async def mock_embed_query(query: str) -> List[float]:
+        async def mock_embed_query(query: str) -> list[float]:
             await asyncio.sleep(0.01)
             return [0.1] * 1536
 
@@ -112,7 +111,7 @@ class TestRAGPerformance:
         p95 = latencies[9]
         p99 = latencies[9]
 
-        print(f"\nRAG Retrieval Latency:")
+        print("\nRAG Retrieval Latency:")
         print(f"  P50: {p50:.2f}ms")
         print(f"  P95: {p95:.2f}ms")
         print(f"  P99: {p99:.2f}ms")
@@ -145,7 +144,6 @@ class TestRAGPerformance:
             ):
                 start = time.perf_counter()
 
-                from app.services.rag.embedding_service import EmbeddingResult
 
                 results = await embedding_service.embed_texts(chunks)
 
@@ -154,7 +152,7 @@ class TestRAGPerformance:
 
         avg_latency = sum(latencies) / len(latencies)
 
-        print(f"\nBatch Embedding Latency (10 chunks):")
+        print("\nBatch Embedding Latency (10 chunks):")
         print(f"  Average: {avg_latency:.2f}ms")
 
         assert avg_latency < 2000, f"Average latency {avg_latency}ms exceeds 2000ms threshold"
@@ -194,7 +192,7 @@ class TestRAGPerformance:
 
             avg_latency = sum(latencies) / len(latencies)
 
-            print(f"\nDocument Chunking Throughput:")
+            print("\nDocument Chunking Throughput:")
             print(f"  Content size: {len(large_content)} chars")
             print(f"  Chunks produced: {len(chunks)}")
             print(f"  Average latency: {avg_latency:.2f}ms")

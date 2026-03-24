@@ -10,14 +10,13 @@ Tests for:
 - Bot pause/resume logic
 """
 
-import pytest
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.services.cost_tracking.budget_alert_service import BudgetAlertService
-from app.models.budget_alert import BudgetAlert
-from app.models.merchant import Merchant
 
 
 class MockRedis:

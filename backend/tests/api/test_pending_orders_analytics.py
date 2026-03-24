@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import httpx
 import pytest
 from sqlalchemy import text
 
 from app.models.merchant import PersonalityType
 from tests.conftest import auth_headers
+
 
 # Test merchant data
 class TestMerchantData:
@@ -33,7 +33,7 @@ async def setup_test_merchant(async_session):
     # Clear existing data for freshness
     await async_session.execute(text("DELETE FROM orders"))
     await async_session.execute(text("DELETE FROM merchants"))
-    
+
     await async_session.execute(
         text(
             "INSERT INTO merchants "
@@ -70,9 +70,9 @@ async def setup_test_merchant(async_session):
         },
     )
     await async_session.commit()
-    
+
     yield
-    
+
     await async_session.execute(text("DELETE FROM orders"))
     await async_session.execute(text("DELETE FROM merchants"))
     await async_session.commit()
@@ -81,7 +81,7 @@ async def setup_test_merchant(async_session):
 async def create_test_orders(async_session):
     """Helper to create test orders."""
     now = datetime.utcnow()
-    
+
     orders = [
         # Pending order with estimated delivery soonest
         {
@@ -161,7 +161,7 @@ async def create_test_orders(async_session):
             "estimated_delivery": now + timedelta(days=1)
         }
     ]
-    
+
     for o in orders:
         if "now" not in o:
             o["now"] = now
@@ -191,18 +191,18 @@ async def test_get_pending_orders_success(async_client, async_session):
     data = response.json()
     assert len(data["items"]) == 3
     assert data["merchantId"] == 1
-    
+
     # Check ordering (earliest estimated delivery first)
     orders = data["items"]
     assert orders[0]["orderNumber"] == "ORD-001" # 2 days
     assert orders[1]["orderNumber"] == "ORD-002" # 5 days
     assert orders[2]["orderNumber"] == "ORD-003" # null
-    
+
     # Check that resolved orders are not included
     order_numbers = [o["orderNumber"] for o in orders]
     assert "ORD-004" not in order_numbers # Delivered
     assert "ORD-005" not in order_numbers # Cancelled
-    
+
     # Verify field population
     assert orders[0]["status"] == "processing"
     assert orders[0]["total"] == 100.0
@@ -247,5 +247,5 @@ async def test_get_pending_orders_pagination(async_client, async_session):
 async def test_get_pending_orders_requires_auth(async_client):
     """Test getting pending orders without authentication returns 401."""
     response = await async_client.get("/api/v1/analytics/pending-orders")
-    
+
     assert response.status_code == 401

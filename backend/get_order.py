@@ -1,7 +1,10 @@
 import asyncio
+
 from app.db.session import get_db
 from sqlalchemy import select
+
 from app.models.order import Order
+
 
 async def main():
     async for db in get_db():

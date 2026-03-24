@@ -18,8 +18,9 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.services.widget.connection_manager import get_connection_manager
 import structlog
+
+from app.services.widget.connection_manager import get_connection_manager
 
 logger = structlog.get_logger(__name__)
 
@@ -60,7 +61,8 @@ async def diagnose_websocket_connections():
 
             # Check if conversation exists for this session
             from sqlalchemy import select
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+            from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
             from app.models.conversation import Conversation
 
             engine = create_async_engine(
@@ -80,7 +82,7 @@ async def diagnose_websocket_connections():
                     print(f"      Handoff: {conversation.handoff_status}")
                     print(f"      Merchant ID: {conversation.merchant_id}")
                 else:
-                    print(f"      ⚠️  No conversation found in database")
+                    print("      ⚠️  No conversation found in database")
 
             await engine.dispose()
             print()

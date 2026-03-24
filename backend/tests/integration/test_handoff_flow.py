@@ -10,15 +10,11 @@ Tests cover:
 from __future__ import annotations
 
 import os
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.schemas.handoff import HandoffReason
 from app.services.handoff import HandoffDetector
-from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
-from app.services.messaging.message_processor import MessageProcessor
-from app.schemas.handoff import HandoffReason, HandoffStatus, DEFAULT_HANDOFF_MESSAGE
-from app.schemas.messaging import FacebookWebhookPayload
 
 
 class MockRedis:
@@ -237,7 +233,6 @@ async def test_different_clarification_types_reset_loop(monkeypatch):
 async def test_keyword_detection_direct():
     """Test keyword detection triggers handoff directly."""
     from app.core.config import settings
-    import os
 
     settings.cache_clear()
     os.environ["IS_TESTING"] = "false"

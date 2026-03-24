@@ -8,15 +8,14 @@ Tests complete cart management flows including:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.schemas.cart import Cart, CartItem, CurrencyCode
-from app.services.messaging.message_processor import MessageProcessor
 from app.schemas.messaging import FacebookWebhookPayload
-from app.services.intent import IntentType, ClassificationResult, ExtractedEntities
+from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
+from app.services.messaging.message_processor import MessageProcessor
 
 
 class TestStory26CartManagementE2E:

@@ -9,13 +9,14 @@ Validates the acceptance criteria from Epic 2, Story 2.1.
 from __future__ import annotations
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from app.api.webhooks.facebook import process_webhook_message
-from app.services.messaging import MessageProcessor
-from app.services.intent import IntentClassifier, IntentType
+from app.services.intent import IntentType
 from app.services.intent.classification_schema import ClassificationResult, ExtractedEntities
+from app.services.messaging import MessageProcessor
 
 
 @pytest.mark.asyncio

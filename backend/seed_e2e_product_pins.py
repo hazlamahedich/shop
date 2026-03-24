@@ -1,6 +1,5 @@
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add the directory containing the 'app' module to sys.path
@@ -8,14 +7,11 @@ from pathlib import Path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-from app.core.database import async_session
-from app.core.auth import hash_password
-from app.models.merchant import Merchant
-from app.models.product_pin import ProductPin
-from app.models.llm_configuration import LLMConfiguration
-from app.models.tutorial import Tutorial
-from app.models.faq import Faq
 from sqlalchemy import select
+
+from app.core.auth import hash_password
+from app.core.database import async_session
+from app.models.merchant import Merchant
 
 
 async def seed_merchant():

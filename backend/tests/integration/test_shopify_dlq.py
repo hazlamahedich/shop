@@ -5,12 +5,12 @@ Tests webhook retry pattern with exponential backoff and DLQ storage.
 
 from __future__ import annotations
 
-import json
-import pytest
-import redis
-from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
 import asyncio
+import json
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -109,9 +109,9 @@ async def test_shopify_webhook_replay_attack_prevention(async_client: AsyncClien
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
     from datetime import datetime, timedelta
 
     # Mock config
@@ -126,10 +126,6 @@ async def test_shopify_webhook_replay_attack_prevention(async_client: AsyncClien
     Args:
         async_client: Test HTTP client
     """
-    import hmac
-    import hashlib
-    import base64
-    from datetime import datetime, timedelta
 
     # Old webhook payload (1 hour old)
     old_timestamp = (datetime.utcnow() - timedelta(hours=1)).isoformat()
@@ -175,9 +171,9 @@ async def test_shopify_webhook_async_processing(async_client: AsyncClient, monke
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():
@@ -225,10 +221,10 @@ async def test_shopify_webhook_concurrent_processing(async_client: AsyncClient, 
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
-    import base64
     import asyncio
+    import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():

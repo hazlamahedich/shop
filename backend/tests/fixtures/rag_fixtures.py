@@ -6,15 +6,14 @@ Task 1.2: Create fixtures in backend/tests/fixtures/rag_fixtures.py
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
 
 
 def _utcnow_naive() -> datetime:
     """Return current UTC time as a naive datetime."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class RAGFixtures:
@@ -24,7 +23,7 @@ class RAGFixtures:
     def document_with_100_chunks(
         merchant_id: int,
         filename: str = "large_document.pdf",
-    ) -> tuple[KnowledgeDocument, List[DocumentChunk]]:
+    ) -> tuple[KnowledgeDocument, list[DocumentChunk]]:
         """Create a document with 100 chunks for performance testing.
 
         Args:
@@ -60,7 +59,7 @@ class RAGFixtures:
     def merchant_with_knowledge_base(
         merchant_id: int,
         doc_count: int = 5,
-    ) -> List[KnowledgeDocument]:
+    ) -> list[KnowledgeDocument]:
         """Create multiple documents for a merchant.
 
         Args:
@@ -90,7 +89,6 @@ class RAGFixtures:
         Returns:
             Mock embedding service that returns deterministic embeddings
         """
-        from unittest.mock import AsyncMock
 
         class MockEmbeddingService:
             """Mock embedding service for testing."""
@@ -99,14 +97,14 @@ class RAGFixtures:
                 self.call_count = 0
                 self.dimension = 1536
 
-            async def embed(self, text: str) -> List[float]:
+            async def embed(self, text: str) -> list[float]:
                 """Return deterministic embedding based on text hash."""
                 self.call_count += 1
                 # Simple hash-based embedding for consistent test results
                 hash_val = hash(text) % 1000
                 return [0.1 * (hash_val / 1000)] * self.dimension
 
-            async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
                 """Return embeddings for multiple texts."""
                 return [await self.embed(t) for t in texts]
 
@@ -117,7 +115,7 @@ class RAGFixtures:
         document_id: int,
         count: int = 5,
         content_prefix: str = "Sample content",
-    ) -> List[DocumentChunk]:
+    ) -> list[DocumentChunk]:
         """Create sample chunks for a document.
 
         Args:
@@ -145,7 +143,7 @@ class RAGFixtures:
         merchant_id: int,
         status: str = DocumentStatus.READY.value,
         filename: str = "test.pdf",
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> KnowledgeDocument:
         """Create a document with specific status.
 

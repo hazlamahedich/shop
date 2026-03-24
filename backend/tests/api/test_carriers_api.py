@@ -3,10 +3,11 @@
 Tests CRUD operations for custom carrier configurations.
 """
 
-import pytest
-from datetime import datetime, timezone
-from httpx import AsyncClient
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from httpx import AsyncClient
 
 from app.main import app
 from app.models.carrier_config import CarrierConfig
@@ -34,8 +35,8 @@ def mock_carrier_config():
     carrier.tracking_number_pattern = r"^LBC\d{12}$"
     carrier.is_active = True
     carrier.priority = 100
-    carrier.created_at = datetime.now(timezone.utc)
-    carrier.updated_at = datetime.now(timezone.utc)
+    carrier.created_at = datetime.now(UTC)
+    carrier.updated_at = datetime.now(UTC)
     return carrier
 
 
@@ -316,6 +317,7 @@ class TestCarrierConfigValidation:
     def test_priority_range_validation(self):
         """Test that priority must be in valid range."""
         from pydantic import ValidationError
+
         from app.schemas.carrier import CarrierConfigCreate
 
         # Priority too low
@@ -337,6 +339,7 @@ class TestCarrierConfigValidation:
     def test_carrier_name_length_validation(self):
         """Test that carrier name must be within length limits."""
         from pydantic import ValidationError
+
         from app.schemas.carrier import CarrierConfigCreate
 
         # Name too long

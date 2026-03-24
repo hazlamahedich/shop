@@ -8,15 +8,16 @@ Tests the GET /api/knowledge-base/stats endpoint which returns:
 - lastUploadDate: ISO 8601 timestamp of most recent upload
 """
 
-import pytest
 import uuid
-from datetime import datetime, timezone, timedelta
-from httpx import AsyncClient, ASGITransport
+from datetime import datetime, timedelta
+
+import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
 from app.core.database import get_db
-from app.models.knowledge_base import KnowledgeDocument, DocumentStatus
+from app.main import app
+from app.models.knowledge_base import DocumentStatus, KnowledgeDocument
 from app.models.merchant import Merchant
 
 
@@ -186,7 +187,6 @@ class TestKnowledgeBaseStats:
         test_merchant: int,
     ):
         """Test that lastUploadDate is the most recent upload."""
-        from datetime import timedelta
 
         # Create documents with different timestamps
         base_time = datetime.utcnow() - timedelta(days=1)

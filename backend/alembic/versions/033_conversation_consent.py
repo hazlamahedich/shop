@@ -11,16 +11,16 @@ Adds fields to consents table for conversation data consent:
 - consent_message_shown: Track if consent prompt was shown to user
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "033_consent_conversation"
-down_revision: Union[str, None] = "032_add_disputes_table"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "032_add_disputes_table"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

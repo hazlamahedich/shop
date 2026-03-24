@@ -37,7 +37,13 @@
 
 1. **Sourcemaps:** 1,149 KB total → Remove from production CDN
 2. **Console statements:** Remove log/debug/info (keep error/warn)
-3. **Lazy Loading:** ChatWindow → lazy load on demand
+3. **Lazy Loading:** ChatWindow
+    [x] Investigate why the widget disappears after briefly appearing
+    [x] Verify `merchantId` type mismatch between frontend (string) and backend (int)
+    [/] Fix infinite render loop in `WidgetTestPage.tsx` by memoizing props
+    [/] Investigate and fix off-screen rendering in `ChatWindow.tsx`
+    [ ] Audit `useSmartPositioning.ts` for coordinate system consistency
+    [ ] Verify `merchants` table schema in database
 4. **Tree Shaking:** Verify all imports are tree-shakeable
 
 ## Expected Post-Optimization

@@ -17,16 +17,16 @@ Adds:
 - Index on (conversation_id) for conversation-level queries
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "020_create_handoff_alerts_table"
-down_revision: Union[str, None] = "019_add_handoff_fields"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "019_add_handoff_fields"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

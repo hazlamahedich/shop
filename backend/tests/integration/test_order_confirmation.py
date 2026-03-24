@@ -4,13 +4,12 @@ Tests full order confirmation flow from webhook to confirmation message.
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.api.webhooks.shopify import process_shopify_webhook
-from app.services.order_confirmation import OrderConfirmationService
 from app.core.config import settings
+from app.services.order_confirmation import OrderConfirmationService
 
 
 @pytest.mark.asyncio
@@ -110,8 +109,8 @@ async def test_webhook_signature_verification(
     test_payload = b'{"id": "123456789"}'
 
     # Generate valid HMAC (simulated)
-    import hmac
     import hashlib
+    import hmac
 
     valid_hmac = hmac.new(
         api_secret.encode(),

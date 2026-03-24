@@ -9,14 +9,15 @@ Tests cover:
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.schemas.messaging import FacebookWebhookPayload
+from app.schemas.shopify import ProductSearchResult
 from app.services.clarification import ClarificationService, QuestionGenerator
 from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
 from app.services.messaging.message_processor import MessageProcessor
-from app.schemas.messaging import FacebookWebhookPayload
-from app.schemas.shopify import ProductSearchResult
 
 
 @pytest.mark.asyncio

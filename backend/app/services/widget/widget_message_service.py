@@ -170,8 +170,6 @@ class WidgetMessageService:
 
         This provides intent routing, product search, cart, and checkout support.
         """
-        unified_service = self.unified_service or UnifiedConversationService(db=self.db)
-
         history = await self.session_service.get_message_history(session.session_id)
 
         context = ConversationContext(
@@ -183,6 +181,14 @@ class WidgetMessageService:
             user_id=None,
             is_returning_shopper=session.is_returning_shopper,
             consent_state=ConsentState(visitor_id=session.visitor_id),
+        )
+
+        # Initialize RAG context builder for General mode merchants (Story 8-5)
+        rag_context_builder = await self._build_rag_context_builder(merchant)
+
+        unified_service = self.unified_service or UnifiedConversationService(
+            db=self.db,
+            rag_context_builder=rag_context_builder,
         )
 
         # Load session metadata for pending lookup flags (Story 6-2)
@@ -237,7 +243,7 @@ class WidgetMessageService:
         self.logger.info(
             "widget_message_processed_unified",
             session_id=session.session_id,
-            merchant_id=context.merchant_id,  # Use cached int, not expired ORM object
+            merchant_id=merchant.id,  # Use merchant.id directly
             intent=response.intent,
             confidence=response.confidence,
             message_length=len(message),
@@ -268,8 +274,20 @@ class WidgetMessageService:
             result["quick_replies"] = response.quick_replies
 
         # Story 10-1: Pass through sources if present
+        # Convert service SourceCitation objects to widget schema format (camelCase aliases)
         if response.sources:
-            result["sources"] = response.sources
+            sources_converted = []
+            for source in response.sources:
+                source_dict = {
+                    "documentId": source.document_id,
+                    "title": source.title,
+                    "documentType": source.document_type,
+                    "relevanceScore": source.relevance_score,
+                    "url": source.url,
+                    "chunkIndex": source.chunk_index,
+                }
+                sources_converted.append(source_dict)
+            result["sources"] = sources_converted
 
         # Story 10-3: Pass through suggested_replies if present
         if response.suggested_replies:
@@ -487,6 +505,97 @@ class WidgetMessageService:
                 pass
 
         return "\n".join(prompt_parts)
+
+    async def _build_rag_context_builder(self, merchant: Merchant):
+        """Build RAG context builder for General mode merchants.
+
+        Story 8-5: RAG Integration in Conversation
+        Initializes RAG components (EmbeddingService, RetrievalService, RAGContextBuilder)
+        to enable knowledge base document retrieval for LLM context enrichment.
+
+        Args:
+            merchant: Merchant configuration
+
+        Returns:
+            RAGContextBuilder instance or None (if not General mode or missing config)
+        """
+        # Only build RAG for General mode merchants
+        if merchant.onboarding_mode != "general":
+            return None
+
+        # Check if database is available
+        if not self.db:
+            return None
+
+        try:
+            from app.services.rag.context_builder import RAGContextBuilder
+            from app.services.rag.embedding_service import EmbeddingService
+            from app.services.rag.retrieval_service import RetrievalService
+
+            # Get merchant's embedding configuration
+            provider = merchant.embedding_provider
+            model = merchant.embedding_model
+            api_key = None
+            ollama_url = None
+
+            # Get LLM configuration for API key and Ollama URL
+            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                llm_config = merchant.llm_configuration
+                ollama_url = llm_config.ollama_url
+
+                # Decrypt API key if present
+                if llm_config.api_key_encrypted:
+                    from app.core.security import decrypt_access_token
+
+                    api_key = decrypt_access_token(llm_config.api_key_encrypted)
+
+            # Handle defaults and fallbacks
+            if not provider:
+                provider = "ollama"
+                model = "nomic-embed-text"
+
+            # Handle Anthropic fallback (use OpenAI for embeddings)
+            if provider == "anthropic":
+                from app.core.config import settings
+
+                provider = "openai"
+                model = "text-embedding-3-small"
+                if not api_key:
+                    api_key = settings().get("OPENAI_API_KEY")
+
+            # Create embedding service
+            embedding_service = EmbeddingService(
+                provider=provider,
+                api_key=api_key,
+                model=model,
+                ollama_url=ollama_url,
+            )
+
+            # Create retrieval service
+            retrieval_service = RetrievalService(
+                db=self.db,
+                embedding_service=embedding_service,
+            )
+
+            # Create RAG context builder
+            rag_context_builder = RAGContextBuilder(retrieval_service=retrieval_service)
+
+            self.logger.debug(
+                "rag_context_builder_initialized",
+                merchant_id=merchant.id,
+                provider=provider,
+                model=model,
+            )
+
+            return rag_context_builder
+
+        except Exception as e:
+            self.logger.warning(
+                "rag_context_builder_init_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
+            return None
 
     async def retroactively_save_conversation_history(
         self,

@@ -147,7 +147,8 @@ class DocumentProcessor:
             await self._delete_existing_chunks(document_id)
 
             # Step 6: Store chunks with embeddings
-            await self._store_chunks(document_id, chunks, embeddings)
+            embedding_dimension = embedding_result.dimension
+            await self._store_chunks(document_id, chunks, embeddings, embedding_dimension)
 
             # Step 7: Update status to 'ready'
             await self._update_status(document_id, DocumentStatus.READY.value)
@@ -208,6 +209,7 @@ class DocumentProcessor:
         document_id: int,
         chunks: list[str],
         embeddings: list[list[float]],
+        embedding_dimension: int,
     ) -> None:
         """Store chunks with embeddings in database."""
         for index, (content, embedding) in enumerate(zip(chunks, embeddings)):
@@ -219,6 +221,7 @@ class DocumentProcessor:
                 chunk_index=index,
                 content=content,
                 embedding=embedding_str,
+                embedding_dimension=embedding_dimension,
             )
             self.db.add(chunk)
 

@@ -3,7 +3,7 @@
 Story 6-6, Task 3.2: Update shipping notifications to respect GDPR privacy status.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,11 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ErrorCode
 from app.models.deletion_audit_log import DeletionRequestType
 from app.models.order import Order
+from app.services.privacy.gdpr_service import GDPRDeletionService
 from app.services.shipping_notification.service import (
     NotificationStatus,
     ShippingNotificationService,
 )
-from app.services.privacy.gdpr_service import GDPRDeletionService
 
 
 class TestShippingNotificationGDPRCheck:

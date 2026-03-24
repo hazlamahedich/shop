@@ -7,11 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from sqlalchemy import select
-from app.core.database import async_session
-from app.models.shopify_integration import ShopifyIntegration
-from app.core.security import decrypt_access_token
 import httpx
+from sqlalchemy import select
+
+from app.core.database import async_session
+from app.core.security import decrypt_access_token
+from app.models.shopify_integration import ShopifyIntegration
 
 
 async def test_shopify_admin_api():
@@ -38,7 +39,7 @@ async def test_shopify_admin_api():
         # Test direct API call
         url = f"https://{integration.shop_domain}/admin/api/2024-01/products.json?limit=10"
 
-        print(f"\n📡 Testing Admin API...")
+        print("\n📡 Testing Admin API...")
         print(f"   URL: {url}")
         print(f"   Token: {admin_token[:20]}...")
 

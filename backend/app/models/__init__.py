@@ -15,6 +15,7 @@ from app.models.deployment_log import DeploymentLog
 from app.models.dispute import Dispute
 from app.models.facebook_integration import FacebookIntegration
 from app.models.faq import Faq
+from app.models.faq_interaction_log import FaqInteractionLog
 from app.models.handoff_alert import HandoffAlert
 from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
 from app.models.llm_configuration import LLMConfiguration
@@ -26,13 +27,12 @@ from app.models.onboarding import PrerequisiteChecklist
 from app.models.order import Order, OrderStatus
 from app.models.product_pin import ProductPin
 from app.models.product_pin_analytics import ProductPinAnalytics
+from app.models.rag_query_log import RAGQueryLog
 from app.models.session import Session
 from app.models.shopify_integration import ShopifyIntegration
 from app.models.tutorial import Tutorial
-from app.models.widget_analytics_event import WidgetAnalyticsEvent
-from app.models.rag_query_log import RAGQueryLog
-from app.models.faq_interaction_log import FaqInteractionLog
 from app.models.webhook_verification_log import WebhookVerificationLog
+from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
 __all__ = [
     "Merchant",

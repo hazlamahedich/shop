@@ -6,12 +6,13 @@ Story 5-13: Enhanced order status with product images and delivery estimates.
 
 import asyncio
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select, update
+
 from app.core.database import async_session
 from app.models.order import Order
 

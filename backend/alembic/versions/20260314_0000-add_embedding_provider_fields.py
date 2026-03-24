@@ -9,16 +9,16 @@ Story 8-11: LLM Embedding Provider Integration & Re-embedding
 - Adds re_embedding_status, re_embedding_progress, embedding_version to knowledge_documents
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "add_embedding_provider"
-down_revision: Union[str, None] = "5a26926258cb"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "5a26926258cb"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

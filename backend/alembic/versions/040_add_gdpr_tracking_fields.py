@@ -15,9 +15,10 @@ Story 6-6: GDPR Deletion Processing
 - Add compliance index on (processing_deadline, completion_date)
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "040"

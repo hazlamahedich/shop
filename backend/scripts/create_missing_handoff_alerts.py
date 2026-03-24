@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
+
 from app.core.database import async_session
 from app.models.conversation import Conversation
 from app.models.handoff_alert import HandoffAlert

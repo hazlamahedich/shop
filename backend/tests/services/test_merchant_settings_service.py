@@ -4,17 +4,17 @@ Story 3-6: Budget Cap Configuration
 Tests budget validation, recommendation calculation, and error handling.
 """
 
+
 import pytest
-from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ValidationError
 from app.services.merchant_settings_service import (
-    get_budget_recommendation,
-    validate_budget_cap,
-    log_budget_change,
     BudgetRecommendation,
+    get_budget_recommendation,
+    log_budget_change,
+    validate_budget_cap,
 )
-from app.core.errors import ValidationError, APIError, ErrorCode
 
 
 class TestValidateBudgetCap:
@@ -92,7 +92,8 @@ class TestGetBudgetRecommendation:
         await async_session.commit()
 
         # First, verify there are cost records for this merchant
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
         from app.models.llm_conversation_cost import LLMConversationCost
 
         result = await async_session.execute(

@@ -12,7 +12,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import httpx
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -121,7 +120,7 @@ class TestStory25AddToCartE2E:
     async def test_e2e_natural_language_add_to_cart(self, sample_product_search_results):
         """Test E2E: User types 'add to cart' after viewing products."""
         # Mock intent classifier to return CART_ADD intent
-        from app.services.intent import IntentType, ClassificationResult, ExtractedEntities
+        from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
 
         with patch(
             "app.services.messaging.message_processor.ConversationContextManager"
@@ -288,8 +287,9 @@ class TestStory25AddToCartE2E:
     @pytest.mark.asyncio
     async def test_e2e_cart_persists_24_hours(self):
         """Test E2E: Cart persists for 24 hours in Redis."""
-        import redis
         from unittest.mock import MagicMock
+
+        import redis
 
         mock_redis = MagicMock(spec=redis.Redis)
         mock_redis.get.return_value = None

@@ -6,13 +6,11 @@ Tests the complete OAuth flow and connection status endpoints.
 from __future__ import annotations
 
 import pytest
-from httpx import ASGITransport
-from sqlalchemy import select
 
+from app.core.config import settings
+from app.core.security import encrypt_access_token
 from app.models.facebook_integration import FacebookIntegration
 from app.models.merchant import Merchant
-from app.core.security import encrypt_access_token
-from app.core.config import settings
 
 
 class TestFacebookOAuthFlow:
@@ -137,8 +135,8 @@ class TestFacebookWebhookEndpoints:
     @pytest.mark.asyncio
     async def test_webhook_post_success(self, async_client, monkeypatch):
         """Test receiving webhook POST with valid signature."""
-        import hmac
         import hashlib
+        import hmac
         import json
 
         settings.cache_clear()

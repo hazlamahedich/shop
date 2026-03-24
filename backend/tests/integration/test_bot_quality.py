@@ -8,7 +8,6 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.merchant import Merchant
 from app.models.conversation import Conversation
 from app.models.llm_conversation_cost import LLMConversationCost
 from tests.conftest import auth_headers

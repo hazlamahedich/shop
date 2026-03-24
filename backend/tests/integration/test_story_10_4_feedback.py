@@ -7,14 +7,10 @@ analytics aggregation, and session-based feedback tracking.
 from __future__ import annotations
 
 import pytest
-from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.message_feedback import FeedbackRating, MessageFeedback
-from app.models.message import Message
 from app.models.conversation import Conversation
+from app.models.message import Message
 from tests.conftest import auth_headers
 
 

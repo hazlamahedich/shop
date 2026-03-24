@@ -24,14 +24,14 @@ logger = structlog.get_logger(__name__)
 EMBEDDING_DIMENSIONS = {
     "openai": 1536,  # text-embedding-3-small
     "ollama": 768,  # nomic-embed-text
-    "gemini": 768,  # text-embedding-004
+    "gemini": 3072,  # gemini-embedding-001 and gemini-embedding-2-preview both return 3072 dims
 }
 
 # Default models by provider
 EMBEDDING_MODELS = {
     "openai": "text-embedding-3-small",
     "ollama": "nomic-embed-text",
-    "gemini": "text-embedding-004",
+    "gemini": "gemini-embedding-001",  # Stable Gemini embedding model
 }
 
 # Rate limiting configuration
@@ -387,7 +387,7 @@ class EmbeddingService:
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            
+
             requests = [
                 {
                     "model": f"models/{self.model}",
@@ -396,8 +396,13 @@ class EmbeddingService:
                 for text_content in batch
             ]
 
+            # Strip models/ prefix if present for URL construction
+            model_name = self.model or "gemini-embedding-001"
+            if model_name.startswith("models/"):
+                model_name = model_name[7:]  # Remove "models/" prefix
+
             response = await self.async_client.post(
-                f"/models/{self.model}:batchEmbedContents",
+                f"/models/{model_name}:batchEmbedContents",
                 params={"key": self.api_key},
                 json={"requests": requests},
             )

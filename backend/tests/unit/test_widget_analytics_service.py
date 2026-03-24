@@ -5,11 +5,12 @@ Story 9-10: Analytics & Performance Monitoring
 Tests for GDPR cleanup, metrics calculation, and CSV export.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock, AsyncMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
-from app.services.analytics.widget_analytics_service import WidgetAnalyticsService, EVENT_TYPES
+import pytest
+
+from app.services.analytics.widget_analytics_service import EVENT_TYPES, WidgetAnalyticsService
 
 
 @pytest.fixture
@@ -34,17 +35,17 @@ class TestIngestEvents:
         events = [
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session-1",
             },
             {
                 "type": "message_send",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session-1",
             },
             {
                 "type": "quick_reply_click",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session-1",
             },
         ]
@@ -63,12 +64,12 @@ class TestIngestEvents:
         events = [
             {
                 "type": "invalid_type",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session-1",
             },
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session-1",
             },
         ]
@@ -86,7 +87,7 @@ class TestIngestEvents:
         events = [
             {
                 "type": "widget_open",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "session_id": "session-1",
                 "metadata": {"load_time_ms": 150, "url": "https://example.com"},
             },
@@ -130,7 +131,7 @@ class TestGetMetrics:
         """Test get metrics with events."""
         from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events = [
             WidgetAnalyticsEvent(
                 merchant_id=1,
@@ -173,7 +174,7 @@ class TestCalculateMetrics:
         """Test metrics calculation with events."""
         from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events = [
             WidgetAnalyticsEvent(
                 merchant_id=1,
@@ -279,7 +280,7 @@ class TestExportCsv:
         """Test CSV export with events."""
         from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events = [
             WidgetAnalyticsEvent(
                 merchant_id=1,
@@ -307,8 +308,8 @@ class TestExportCsv:
         mock_result.scalars().all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        start_date = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-        end_date = datetime.now(timezone.utc).isoformat()
+        start_date = (datetime.now(UTC) - timedelta(days=7)).isoformat()
+        end_date = datetime.now(UTC).isoformat()
 
         csv_output = await service.export_csv(
             merchant_id=1,
@@ -333,7 +334,7 @@ class TestPerformanceMetrics:
         """Test average load time calculation."""
         from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events = [
             WidgetAnalyticsEvent(
                 merchant_id=1,
@@ -363,7 +364,7 @@ class TestPerformanceMetrics:
         """Test p95 load time calculation."""
         from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         events = [
             WidgetAnalyticsEvent(
                 merchant_id=1,

@@ -3,21 +3,16 @@
 Story 8-11: LLM Embedding Provider Integration & Re-embedding
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.rag.dimension_handler import DimensionHandler
 from app.services.rag.reembedding_worker import (
     reembed_all_documents,
     trigger_reembedding_for_merchant,
-    _get_queued_documents,
-    _reembed_document,
 )
-from app.models.knowledge_base import KnowledgeDocument, DocumentStatus
-from app.models.merchant import Merchant
 
 
 class TestDimensionHandler:

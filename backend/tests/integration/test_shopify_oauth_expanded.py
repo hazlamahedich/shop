@@ -6,12 +6,11 @@ and Storefront API verification with comprehensive error scenarios.
 
 from __future__ import annotations
 
-import json
+import base64
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
-from cryptography.fernet import Fernet
-import base64
 
 
 @pytest.mark.asyncio
@@ -243,7 +242,7 @@ async def test_shopify_token_encryption(async_client: AsyncClient, monkeypatch) 
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    from app.core.security import encrypt_access_token, decrypt_access_token
+    from app.core.security import decrypt_access_token, encrypt_access_token
 
     def mock_settings():
         return {

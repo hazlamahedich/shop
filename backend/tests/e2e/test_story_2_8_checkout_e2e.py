@@ -10,7 +10,7 @@ Tests full user flows with Messenger integration including:
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -39,7 +39,7 @@ class TestStory28CheckoutE2E:
                     image_url="https://example.com/shoes.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=2,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
                 CartItem(
                     product_id="gid://shopify/Product/2",
@@ -49,13 +49,13 @@ class TestStory28CheckoutE2E:
                     image_url="https://example.com/socks.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=3,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
             ],
             subtotal=217.95,
             currency_code=CurrencyCode.USD,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
 
     @pytest.mark.asyncio
@@ -242,7 +242,7 @@ class TestStory28CheckoutE2E:
         stored_token_data = {
             "token": checkout_token,
             "url": checkout_url,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "psid": psid,
             "item_count": 5,
             "subtotal": 217.95,
@@ -405,7 +405,7 @@ class TestStory28CheckoutE2E:
                     image_url="https://example.com/product.jpg",
                     currency_code=CurrencyCode.USD,
                     quantity=1,
-                    added_at=datetime.now(timezone.utc).isoformat(),
+                    added_at=datetime.now(UTC).isoformat(),
                 ),
             ],
             subtotal=49.99,

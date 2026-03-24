@@ -6,9 +6,7 @@ AC5: Input Sanitization
 
 from __future__ import annotations
 
-import pytest
-
-from app.core.sanitization import sanitize_message, validate_message_length, MAX_MESSAGE_LENGTH
+from app.core.sanitization import MAX_MESSAGE_LENGTH, sanitize_message, validate_message_length
 
 
 class TestSanitizeMessage:

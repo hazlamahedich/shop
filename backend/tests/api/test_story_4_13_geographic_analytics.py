@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
 
 import pytest
 
@@ -72,9 +70,9 @@ class TestGeographicAnalyticsAPI:
     @pytest.mark.api
     def test_geographic_filter_by_date_range(self):
         """Verify date range filtering for geographic analytics."""
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         start_date = now - timedelta(days=30)
         end_date = now
 
@@ -90,7 +88,6 @@ class TestGeographicAnalyticsAPI:
     @pytest.mark.api
     def test_geographic_merchant_isolation(self):
         """Verify analytics data is isolated by merchant."""
-        from app.middleware.auth import require_auth
 
         merchant_context = {"merchant_id": 1}
 

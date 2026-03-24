@@ -7,12 +7,11 @@ Story 1.2: Tests localStorage to PostgreSQL migration endpoints.
 from __future__ import annotations
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.onboarding import PrerequisiteChecklist
+
+from app.main import app
 from app.models.merchant import Merchant
-from sqlalchemy import select
 
 
 @pytest.mark.asyncio

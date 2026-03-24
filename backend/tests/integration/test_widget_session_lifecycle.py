@@ -8,9 +8,10 @@ Story 5-2: Widget Session Management
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
 os.environ["IS_TESTING"] = "true"
 
@@ -180,8 +181,9 @@ class TestWidgetSessionLifecycle:
     @pytest.mark.asyncio
     async def test_per_ip_rate_limiting_enforcement(self, mock_redis):
         """AC4: Test per-IP rate limiting enforcement (100 req/min)."""
-        from app.core.rate_limiter import RateLimiter
         from fastapi import Request
+
+        from app.core.rate_limiter import RateLimiter
 
         RateLimiter.reset_all()
 
@@ -223,7 +225,7 @@ class TestWidgetSessionLifecycle:
 
         expired_session_data = data.replace(
             session.expires_at.isoformat(),
-            (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+            (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
         )
         mock_redis.storage[key] = expired_session_data
 

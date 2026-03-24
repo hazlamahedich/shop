@@ -1,7 +1,7 @@
 """Tests for merchant ORM model."""
 
+
 import pytest
-from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

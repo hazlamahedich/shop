@@ -5,11 +5,8 @@ Tests expanded error scenarios, token validation, and permission handling.
 
 from __future__ import annotations
 
-import json
 import pytest
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
-import base64
 
 
 @pytest.mark.asyncio
@@ -90,7 +87,7 @@ async def test_facebook_token_encryption(async_client: AsyncClient) -> None:
     Args:
         async_client: Test HTTP client
     """
-    from app.core.security import encrypt_access_token, decrypt_access_token
+    from app.core.security import decrypt_access_token, encrypt_access_token
 
     original_token = "sensitive_facebook_page_token_12345"
 
@@ -116,8 +113,8 @@ async def test_facebook_page_verification(async_client: AsyncClient) -> None:
     Args:
         async_client: Test HTTP client
     """
-    from app.services.facebook import FacebookService
     from app.core.database import get_db
+    from app.services.facebook import FacebookService
 
     # Get database session (required for FacebookService)
     async for db in get_db():

@@ -9,15 +9,14 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.main import app
 from app.models.llm_configuration import LLMConfiguration
 from app.models.merchant import Merchant
-from app.core.database import get_db
 
 # Use the real test engine from conftest for integration tests
-from tests.conftest import test_engine, TestingSessionLocal
+from tests.conftest import TestingSessionLocal, test_engine
 
 
 # Apply rate limiter check that doesn't fail in tests

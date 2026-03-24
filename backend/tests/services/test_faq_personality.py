@@ -6,7 +6,7 @@ bot personality tone to FAQ answers.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -101,9 +101,8 @@ class TestRephraseFaqWithPersonality:
     @pytest.mark.asyncio
     async def test_rephrase_fallback_on_timeout(self, mock_llm_service):
         """Should return original answer on timeout."""
-        import asyncio
 
-        mock_llm_service.chat.side_effect = asyncio.TimeoutError()
+        mock_llm_service.chat.side_effect = TimeoutError()
 
         original_answer = "We're open Monday-Friday 9am-6pm."
         result = await rephrase_faq_with_personality(

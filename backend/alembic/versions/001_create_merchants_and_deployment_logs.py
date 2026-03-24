@@ -7,9 +7,10 @@ Create Date: 2026-02-03
 This migration creates the core merchant and deployment log tables
 for tracking bot deployments to cloud platforms.
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '001_create_merchants'

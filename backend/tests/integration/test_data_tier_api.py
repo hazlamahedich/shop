@@ -8,17 +8,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.conversation import Conversation
-from app.models.message import Message
-from app.models.order import Order
 from app.models.consent import Consent, ConsentType
+from app.models.conversation import Conversation
+from app.models.order import Order
 from app.services.privacy.data_tier_service import DataTier
 from tests.conftest import auth_headers
 

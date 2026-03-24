@@ -8,8 +8,9 @@ Storefront access tokens are no longer required since we use
 tokenless Storefront API and direct checkout URLs.
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "024_nullable_storefront_tkn"
 down_revision = "023_add_widget_config"

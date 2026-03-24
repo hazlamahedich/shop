@@ -15,8 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.database import async_session
+from app.services.conversation.schemas import Channel, ConversationContext
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
-from app.services.conversation.schemas import ConversationContext, Channel
 
 
 async def test_email_lookup_flow():

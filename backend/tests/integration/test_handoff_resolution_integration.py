@@ -12,17 +12,18 @@ Validates acceptance criteria from the handoff resolution feature.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from unittest.mock import AsyncMock, patch
 
-from app.models.merchant import Merchant, PersonalityType
+import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.conversation import Conversation
+from app.models.merchant import Merchant, PersonalityType
 from app.models.message import Message
-from app.services.handoff.handoff_resolution_service import HandoffResolutionService
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
+from app.services.handoff.handoff_resolution_service import HandoffResolutionService
 
 
 @pytest.fixture

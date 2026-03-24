@@ -20,18 +20,17 @@ AC 4: Security
 from __future__ import annotations
 
 import os
-from typing import Optional, Callable, Awaitable
-from fastapi import Request, Response, HTTPException, status
-from starlette.middleware.base import BaseHTTPMiddleware
+from collections.abc import Awaitable, Callable
+
+from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.auth import validate_jwt, hash_token
-from app.core.errors import ErrorCode
+from app.core.auth import hash_token, validate_jwt
 from app.core.database import async_session
+from app.core.errors import ErrorCode
 from app.models.session import Session
-
 
 SESSION_COOKIE_NAME = "session_token"
 

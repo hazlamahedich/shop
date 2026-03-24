@@ -6,15 +6,15 @@ Task 9.1: Create backend/tests/fixtures/knowledge_base_factory.py
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
 
 
 def _utcnow_naive() -> datetime:
     """Return current UTC time as a naive datetime."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class KnowledgeDocumentFactory:
@@ -27,8 +27,8 @@ class KnowledgeDocumentFactory:
         file_type: str = "pdf",
         file_size: int = 1024,
         status: str = DocumentStatus.READY.value,
-        error_message: Optional[str] = None,
-        created_at: Optional[datetime] = None,
+        error_message: str | None = None,
+        created_at: datetime | None = None,
         **kwargs: Any,
     ) -> KnowledgeDocument:
         """Create a KnowledgeDocument instance."""
@@ -52,8 +52,8 @@ class DocumentChunkFactory:
         document_id: int,
         chunk_index: int = 0,
         content: str = "Test chunk content.",
-        embedding: Optional[List[float]] = None,
-        created_at: Optional[datetime] = None,
+        embedding: list[float] | None = None,
+        created_at: datetime | None = None,
         **kwargs: Any,
     ) -> DocumentChunk:
         """Create a DocumentChunk instance."""

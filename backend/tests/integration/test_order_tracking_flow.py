@@ -3,7 +3,7 @@
 Tests the full order tracking flow with database interactions.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -14,14 +14,14 @@ from app.models.conversation import Conversation
 from app.models.merchant import Merchant
 from app.models.order import Order, OrderStatus
 from app.services.order_tracking import (
-    OrderTrackingService,
     OrderLookupType,
+    OrderTrackingService,
     create_mock_orders,
 )
 from app.services.order_tracking.order_tracking_service import (
     PENDING_STATE_KEY,
-    PENDING_STATE_TIMESTAMP_KEY,
     PENDING_STATE_TIMEOUT_SECONDS,
+    PENDING_STATE_TIMESTAMP_KEY,
 )
 
 
@@ -530,9 +530,8 @@ class TestPendingStateTimeout:
         order_tracking_service: OrderTrackingService,
     ) -> None:
         """Test that pending state expires after 5 minutes."""
-        from datetime import datetime, timedelta, timezone
 
-        expired_time = datetime.now(timezone.utc) - timedelta(
+        expired_time = datetime.now(UTC) - timedelta(
             seconds=PENDING_STATE_TIMEOUT_SECONDS + 60
         )
         data = {
@@ -548,11 +547,10 @@ class TestPendingStateTimeout:
         order_tracking_service: OrderTrackingService,
     ) -> None:
         """Test that pending state is active within 5 minutes."""
-        from datetime import datetime, timezone
 
         data = {
             PENDING_STATE_KEY: True,
-            PENDING_STATE_TIMESTAMP_KEY: datetime.now(timezone.utc).isoformat(),
+            PENDING_STATE_TIMESTAMP_KEY: datetime.now(UTC).isoformat(),
         }
 
         assert order_tracking_service.get_pending_state(data) is True
@@ -563,11 +561,10 @@ class TestPendingStateTimeout:
         order_tracking_service: OrderTrackingService,
     ) -> None:
         """Test that pending state can be explicitly cleared."""
-        from datetime import datetime, timezone
 
         data = {
             PENDING_STATE_KEY: True,
-            PENDING_STATE_TIMESTAMP_KEY: datetime.now(timezone.utc).isoformat(),
+            PENDING_STATE_TIMESTAMP_KEY: datetime.now(UTC).isoformat(),
             "other_key": "value",
         }
 

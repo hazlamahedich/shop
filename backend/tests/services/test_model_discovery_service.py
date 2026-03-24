@@ -1,13 +1,14 @@
 """Tests for LLM Model Discovery Service."""
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
+import pytest
 
 from app.services.llm.model_discovery_service import (
+    ModelDiscoveryCache,
     ModelDiscoveryService,
     ModelInfo,
-    ModelDiscoveryCache,
     get_model_discovery_service,
 )
 

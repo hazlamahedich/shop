@@ -15,9 +15,9 @@ import base64
 import hashlib
 import hmac
 import json
+
 import pytest
 from httpx import AsyncClient
-
 
 API_SECRET = "test_shopify_secret_for_testing"
 WEBHOOK_PATH = "/api/webhooks/shopify"

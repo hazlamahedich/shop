@@ -8,9 +8,10 @@ This migration creates the shopify_integrations table for storing
 Shopify store connection details including encrypted Admin API
 and Storefront API access tokens.
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '003_shopify_integrations'

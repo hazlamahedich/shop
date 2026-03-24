@@ -11,33 +11,27 @@ Tests for:
 
 from __future__ import annotations
 
-import os
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
 
 from app.services.ecommerce.base import (
     Cart,
     CartItem,
     CurrencyCode,
-    ECommerceProvider,
     Order,
-    OrderItem,
     OrderStatus,
     Product,
     ProductVariant,
     StoreNotConnectedError,
 )
-from app.services.ecommerce.null_provider import NullStoreProvider
 from app.services.ecommerce.mock_provider import MockStoreProvider
+from app.services.ecommerce.null_provider import NullStoreProvider
 from app.services.ecommerce.provider_factory import (
     StoreProvider,
-    get_null_provider,
     get_mock_provider,
+    get_null_provider,
     get_provider,
     has_store_connected,
 )
-
 
 # ==================== StoreNotConnectedError Tests ====================
 

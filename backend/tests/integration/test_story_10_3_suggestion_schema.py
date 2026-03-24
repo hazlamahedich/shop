@@ -9,8 +9,9 @@ Story 10-3: Quick Reply Chips Widget
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 
 os.environ["IS_TESTING"] = "true"
 
@@ -62,7 +63,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-123",
             content="Based on our documentation...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=sample_suggestions,
         )
 
@@ -79,7 +80,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-456",
             content="Response content",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=sample_suggestions,
         )
 
@@ -91,13 +92,13 @@ class TestSuggestionSchemaIntegration:
     @pytest.mark.asyncio
     async def test_widget_message_envelope_contains_suggestions(self, sample_suggestions):
         """[P0] Widget message envelope should include suggestions in response."""
-        from app.schemas.widget import WidgetMessageResponse, WidgetMessageEnvelope, create_meta
+        from app.schemas.widget import WidgetMessageEnvelope, WidgetMessageResponse, create_meta
 
         response = WidgetMessageResponse(
             messageId="msg-789",
             content="Here is the information...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=sample_suggestions,
         )
 
@@ -118,7 +119,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-test",
             content="Content",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=four_suggestions,
         )
 

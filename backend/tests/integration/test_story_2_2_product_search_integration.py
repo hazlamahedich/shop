@@ -8,16 +8,15 @@ Validates the acceptance criteria from Epic 2, Story 2.2.
 
 from __future__ import annotations
 
-import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.messaging import MessageProcessor
-from app.services.shopify import ProductSearchService
-from app.schemas.shopify import Product, ProductSearchResult, ProductVariant, CurrencyCode
-from app.services.intent import IntentClassifier, IntentType
-from app.services.intent.classification_schema import ClassificationResult, ExtractedEntities
+import pytest
+
 from app.schemas.messaging import FacebookWebhookPayload
+from app.schemas.shopify import CurrencyCode, Product, ProductSearchResult
+from app.services.intent import IntentType
+from app.services.intent.classification_schema import ClassificationResult, ExtractedEntities
+from app.services.messaging import MessageProcessor
 
 
 @pytest.mark.asyncio

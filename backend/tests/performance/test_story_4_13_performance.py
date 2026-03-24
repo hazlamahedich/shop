@@ -8,9 +8,9 @@ from __future__ import annotations
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -129,13 +129,13 @@ class TestGeographicAnalyticsPerformance:
     def test_analytics_index_usage_simulation(self):
         """Verify date-filtered query would use index."""
         filtered_orders = [
-            {"created_at": datetime(2026, 2, 1, tzinfo=timezone.utc), "total": Decimal("100.00")},
-            {"created_at": datetime(2026, 2, 15, tzinfo=timezone.utc), "total": Decimal("150.00")},
-            {"created_at": datetime(2026, 1, 15, tzinfo=timezone.utc), "total": Decimal("75.00")},
+            {"created_at": datetime(2026, 2, 1, tzinfo=UTC), "total": Decimal("100.00")},
+            {"created_at": datetime(2026, 2, 15, tzinfo=UTC), "total": Decimal("150.00")},
+            {"created_at": datetime(2026, 1, 15, tzinfo=UTC), "total": Decimal("75.00")},
         ]
 
-        start_date = datetime(2026, 2, 1, tzinfo=timezone.utc)
-        end_date = datetime(2026, 2, 28, tzinfo=timezone.utc)
+        start_date = datetime(2026, 2, 1, tzinfo=UTC)
+        end_date = datetime(2026, 2, 28, tzinfo=UTC)
 
         start = time.monotonic()
         filtered = [o for o in filtered_orders if start_date <= o["created_at"] <= end_date]

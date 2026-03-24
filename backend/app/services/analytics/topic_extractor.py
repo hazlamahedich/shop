@@ -8,7 +8,7 @@ Uses simple frequency ranking instead of NLP clustering.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -237,7 +237,7 @@ class TopicExtractor:
             List of topic dicts with name, queryCount, trend
         """
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             current_period_start = now.replace(
                 hour=0, minute=0, second=0, microsecond=0
             ) - __import__("datetime").timedelta(days=days)
@@ -332,7 +332,7 @@ class TopicExtractor:
             Dict mapping query strings to counts
         """
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             cutoff_date = now - __import__("datetime").timedelta(days=days)
 
             result = await self.db.execute(

@@ -5,23 +5,18 @@ Tests the full polling cycle with mock Shopify API.
 
 from __future__ import annotations
 
-import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aioresponses import aioresponses
-from sqlalchemy import select
 
 from app.models.order import Order
-from app.models.shopify_integration import ShopifyIntegration
 from app.services.shopify.order_polling_service import (
     OrderPollingService,
     PollingStatus,
 )
-from app.services.shopify.admin_client import ShopifyAdminClient
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -41,7 +36,7 @@ class TestPollingFallbackIntegration:
     @pytest.fixture
     def mock_shopify_orders(self):
         """Sample Shopify orders response with string order numbers."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return {
             "orders": [
                 {
@@ -127,7 +122,7 @@ class TestPollingFallbackIntegration:
             call_count += 1
             orders = mock_shopify_orders["orders"]
             if call_count == 2:
-                now = datetime.now(timezone.utc) + timedelta(minutes=5)
+                now = datetime.now(UTC) + timedelta(minutes=5)
                 for order in orders:
                     order["updated_at"] = now.isoformat()
             return orders
@@ -299,7 +294,7 @@ class TestPollingFallbackIntegration:
 
         polling_service = OrderPollingService(redis_client=mock_redis)
 
-        now_tz = datetime.now(timezone.utc)
+        now_tz = datetime.now(UTC)
         updated_orders = [
             {
                 "id": 9001,
@@ -356,7 +351,7 @@ class TestPollingFallbackIntegration:
         test_merchant,
     ):
         """Test that orders older than 24 hours are filtered out."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         orders_data = [
             {
@@ -408,7 +403,7 @@ class TestPollingFallbackIntegration:
         """Test that health endpoint returns correct status."""
         polling_service = OrderPollingService(redis_client=mock_redis)
 
-        polling_service._last_poll_timestamp = datetime.now(timezone.utc)
+        polling_service._last_poll_timestamp = datetime.now(UTC)
         polling_service._total_orders_synced = 10
         polling_service._errors_last_hour = 0
 

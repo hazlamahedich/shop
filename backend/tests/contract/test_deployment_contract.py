@@ -3,12 +3,12 @@
 Tests the deployment API against its OpenAPI schema specification.
 """
 
-import pytest
 import httpx
+import pytest
 from httpx import ASGITransport
 
-from app.main import app
 from app.core.database import get_db
+from app.main import app
 
 
 @pytest.fixture
@@ -170,7 +170,7 @@ class TestDeploymentSSEEdgeCases:
                     content = response.text
                     # Should contain [DONE] marker or valid SSE events
                     assert "[DONE]" in content or "data:" in content
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Timeout is acceptable - means stream is running
                     pass
 
@@ -212,7 +212,7 @@ class TestDeploymentSSEEdgeCases:
                             client.get(f"/api/deployment/progress/{deployment_id}"),
                             timeout=3.0  # Short timeout to avoid long wait
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         # Timeout is acceptable - means stream is running
                         return None
 
@@ -257,7 +257,7 @@ class TestDeploymentSSEEdgeCases:
                 client.get("/api/deployment/progress/format-validation-test"),
                 timeout=3.0  # Short timeout to avoid long wait
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Timeout means stream is running, which is valid
             return
 

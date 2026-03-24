@@ -10,17 +10,17 @@ Story 8-11: LLM Embedding Provider Integration & Re-embedding
 - Enables support for 768d (Gemini/Ollama) and 1536d (OpenAI)
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+from alembic import op
 
 revision: str = "embedding_jsonb"
-down_revision: Union[str, None] = "add_embedding_provider"
-branch_labels: Union[Sequence[str], None] = None
-depends_on: Union[Sequence[str], None] = None
+down_revision: str | None = "add_embedding_provider"
+branch_labels: Sequence[str] | None = None
+depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:

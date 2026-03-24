@@ -5,7 +5,7 @@ Uses factory pattern for generating test data with sensible defaults.
 
 from __future__ import annotations
 
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -16,7 +16,7 @@ class BaseFactory:
     Provides a simple pattern for creating test instances with defaults.
     """
 
-    model: Type[T]
+    model: type[T]
 
     def __init__(self, **kwargs):
         """Initialize factory with override values.
@@ -50,7 +50,6 @@ import random
 import string
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
 from uuid import uuid4
 
 
@@ -295,7 +294,7 @@ class OrderFactory:
             "updated_at": self.updated_at.isoformat(),
         }
 
-    def with_status(self, status: str) -> "OrderFactory":
+    def with_status(self, status: str) -> OrderFactory:
         """Create a copy with different status."""
         return OrderFactory(
             order_number=self.order_number,

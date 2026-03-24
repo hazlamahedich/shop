@@ -7,18 +7,18 @@ Create Date: 2026-02-09
 Story 1.8: Merchant Dashboard Authentication
 AC 2, AC 6: Create sessions table for JWT revocation support.
 """
-from typing import Sequence, Union
-
-from alembic import op
-import sqlalchemy as sa
+from collections.abc import Sequence
 from datetime import datetime
 
+import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '010_create_sessions_table'
-down_revision: Union[str, None] = '009_merchant_auth_fields'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = '009_merchant_auth_fields'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

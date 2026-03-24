@@ -3,11 +3,9 @@
 Story 10-5: Contact Card Widget
 """
 
-import pytest
-from unittest.mock import MagicMock
 
-from app.services.conversation.handlers.handoff_handler import HandoffHandler
 from app.models.merchant import Merchant
+from app.services.conversation.handlers.handoff_handler import HandoffHandler
 
 
 class TestHandoffHandlerContactOptions:

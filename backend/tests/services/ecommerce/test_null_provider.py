@@ -6,11 +6,11 @@ Tests the NullStoreProvider which is used when a merchant has not
 connected an e-commerce store.
 """
 
-import pytest
-import asyncio
 
-from app.services.ecommerce.null_provider import NullStoreProvider
+import pytest
+
 from app.services.ecommerce.base import StoreNotConnectedError
+from app.services.ecommerce.null_provider import NullStoreProvider
 
 
 class TestNullStoreProvider:

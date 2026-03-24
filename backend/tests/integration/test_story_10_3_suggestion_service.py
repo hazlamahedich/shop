@@ -8,9 +8,8 @@ Story 10-3: Quick Reply Chips Widget
 from __future__ import annotations
 
 import os
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
 
 os.environ["IS_TESTING"] = "true"
 

@@ -19,20 +19,21 @@ Story 4-12: Business Hours Aware Handoff
 from __future__ import annotations
 
 import asyncio
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datetime import datetime, timezone
-from sqlalchemy import select, delete
+from datetime import UTC, datetime
+
+from sqlalchemy import delete, select
 
 from app.core.database import async_session
 from app.models.conversation import Conversation
 from app.models.handoff_alert import HandoffAlert
 from app.models.merchant import Merchant
+from app.services.conversation.schemas import Channel, ConversationContext
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
-from app.services.conversation.schemas import ConversationContext, Channel
 
 
 async def get_merchant() -> Merchant | None:
@@ -143,7 +144,7 @@ async def main() -> None:
     print("=" * 70)
     print("HANDOFF FLOW TEST - Urgency & Business Hours")
     print("=" * 70)
-    print(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    print(f"Timestamp: {datetime.now(UTC).isoformat()}")
     print()
 
     merchant = await get_merchant()
@@ -184,7 +185,7 @@ async def main() -> None:
 
         if result["error"]:
             if result["datetime_error"]:
-                print(f"  [ERROR] DateTime timezone mismatch!")
+                print("  [ERROR] DateTime timezone mismatch!")
             else:
                 print(f"  [ERROR] {result['error'][:200]}...")
             continue

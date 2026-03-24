@@ -1,12 +1,11 @@
 """Tests for onboarding ORM model."""
 
+
 import pytest
-from datetime import datetime
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.onboarding import PrerequisiteChecklist
 from app.models.merchant import Merchant
+from app.models.onboarding import PrerequisiteChecklist
 
 
 class TestPrerequisiteChecklistModel:

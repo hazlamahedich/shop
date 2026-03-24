@@ -5,18 +5,16 @@ session-only storage for opted-out shoppers, and Redis TTL expiry behavior.
 """
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import redis
 
-from app.api.webhooks.facebook import process_webhook_message
-from app.schemas.messaging import FacebookWebhookPayload
-from app.services.messaging.message_processor import MessageProcessor
-from app.services.consent import ConsentService, ConsentStatus
-from app.services.session import SessionService
 from app.services.cart import CartService
+from app.services.consent import ConsentService, ConsentStatus
+from app.services.messaging.message_processor import MessageProcessor
+from app.services.session import SessionService
 
 
 @pytest.mark.asyncio
@@ -93,13 +91,13 @@ async def test_returning_shopper_welcome_message():
             "imageUrl": "https://example.com/shoes.jpg",
             "currencyCode": "USD",
             "quantity": 2,
-            "addedAt": datetime.now(timezone.utc).isoformat()
+            "addedAt": datetime.now(UTC).isoformat()
         }],
         "subtotal": 179.98,
         "currencyCode": "USD",
         "itemCount": 2,
-        "createdAt": datetime.now(timezone.utc).isoformat(),
-        "updatedAt": datetime.now(timezone.utc).isoformat()
+        "createdAt": datetime.now(UTC).isoformat(),
+        "updatedAt": datetime.now(UTC).isoformat()
     }
 
     # Track stored data to maintain mock state
@@ -150,24 +148,24 @@ async def test_forget_preferences_clears_voluntary_only():
             "imageUrl": "https://example.com/image.jpg",
             "currencyCode": "USD",
             "quantity": 1,
-            "addedAt": datetime.now(timezone.utc).isoformat()
+            "addedAt": datetime.now(UTC).isoformat()
         }],
         "subtotal": 29.99,
         "currencyCode": "USD",
         "itemCount": 1,
-        "createdAt": datetime.now(timezone.utc).isoformat(),
-        "updatedAt": datetime.now(timezone.utc).isoformat()
+        "createdAt": datetime.now(UTC).isoformat(),
+        "updatedAt": datetime.now(UTC).isoformat()
     }
 
     # Track stored data and deleted keys
     stored_data = {
-        f"cart:test_forget_user": json.dumps(existing_cart),
-        f"consent:test_forget_user": json.dumps({
+        "cart:test_forget_user": json.dumps(existing_cart),
+        "consent:test_forget_user": json.dumps({
             "status": "opted_in",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "psid": "test_forget_user"
         }),
-        f"order_ref:test_forget_user": "order_12345"  # Operational data
+        "order_ref:test_forget_user": "order_12345"  # Operational data
     }
     deleted_keys = []
 
@@ -453,7 +451,7 @@ async def test_consent_message_integration():
 @pytest.mark.asyncio
 async def test_forget_preferences_intent_routing():
     """Test FORGET_PREFERENCES intent routes to forget handler."""
-    from app.services.intent import IntentType, ClassificationResult, ExtractedEntities
+    from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
 
     with patch("app.services.messaging.message_processor.SessionService") as mock_session_class, \
          patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class:

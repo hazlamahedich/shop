@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -14,13 +13,13 @@ class FeedbackCreate(BaseModel):
     message_id: str = Field(
         alias="messageId", description="ID of the message being rated"
     )
-    conversation_id: Optional[int] = Field(
+    conversation_id: int | None = Field(
         default=None,
         alias="conversationId",
         description="ID of the conversation (optional, looked up from message)",
     )
     rating: str = Field(description="Rating value: 'positive' or 'negative'")
-    comment: Optional[str] = Field(
+    comment: str | None = Field(
         default=None,
         max_length=500,
         description="Optional comment for negative feedback",
@@ -44,7 +43,7 @@ class FeedbackResponse(BaseModel):
     id: int
     message_id: int = Field(alias="messageId")
     rating: str
-    comment: Optional[str] = None
+    comment: str | None = None
     created_at: datetime = Field(alias="createdAt")
 
     class Config:
@@ -73,7 +72,7 @@ class RecentNegativeFeedback(BaseModel):
     """Schema for recent negative feedback item."""
 
     message_id: int = Field(alias="messageId")
-    comment: Optional[str] = None
+    comment: str | None = None
     created_at: datetime = Field(alias="createdAt")
 
     class Config:

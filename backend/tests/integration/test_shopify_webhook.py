@@ -6,6 +6,7 @@ Tests webhook signature verification and payload handling.
 from __future__ import annotations
 
 import json
+
 import pytest
 from httpx import AsyncClient
 
@@ -41,9 +42,9 @@ async def test_shopify_webhook_valid_signature(async_client: AsyncClient, monkey
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():
@@ -87,9 +88,9 @@ async def test_shopify_webhook_orders_create(async_client: AsyncClient, monkeypa
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():
@@ -135,9 +136,9 @@ async def test_shopify_webhook_orders_updated(async_client: AsyncClient, monkeyp
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():
@@ -182,9 +183,9 @@ async def test_shopify_webhook_orders_fulfilled(async_client: AsyncClient, monke
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     # Mock config
     def mock_settings():

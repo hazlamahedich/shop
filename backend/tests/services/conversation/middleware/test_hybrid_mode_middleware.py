@@ -7,7 +7,7 @@ Tests hybrid mode bot response logic.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -59,7 +59,7 @@ def mock_conversation_disabled():
 def mock_conversation_enabled():
     """Create mock conversation with hybrid mode enabled."""
     conv = MagicMock(spec=Conversation)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = now + timedelta(hours=2)
     conv.conversation_data = {
         "hybrid_mode": {
@@ -75,7 +75,7 @@ def mock_conversation_enabled():
 def mock_conversation_expired():
     """Create mock conversation with expired hybrid mode."""
     conv = MagicMock(spec=Conversation)
-    expired = datetime.now(timezone.utc) - timedelta(hours=1)
+    expired = datetime.now(UTC) - timedelta(hours=1)
     conv.conversation_data = {
         "hybrid_mode": {
             "enabled": True,
@@ -261,7 +261,7 @@ class TestHybridModeExpiry:
 
     def test_not_expired_when_valid(self, middleware):
         """Should not be expired when within time limit."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(hours=1)
 
         hybrid_mode = {
@@ -273,7 +273,7 @@ class TestHybridModeExpiry:
 
     def test_expired_when_past(self, middleware):
         """Should be expired when past expiry time."""
-        expired = datetime.now(timezone.utc) - timedelta(hours=1)
+        expired = datetime.now(UTC) - timedelta(hours=1)
 
         hybrid_mode = {
             "enabled": True,

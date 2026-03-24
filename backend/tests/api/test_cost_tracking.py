@@ -8,10 +8,10 @@ Tests for:
 - Edge cases: zero spend, high spend, negative savings
 """
 
-import pytest
-from decimal import Decimal
-from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 class MockResult:

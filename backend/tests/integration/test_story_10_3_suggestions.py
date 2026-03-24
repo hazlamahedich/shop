@@ -9,9 +9,9 @@ Story 10-3: Quick Reply Chips Widget
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
 
 os.environ["IS_TESTING"] = "true"
 
@@ -243,7 +243,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-123",
             content="Based on our documentation...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=sample_suggestions,
         )
 
@@ -259,7 +259,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-456",
             content="Response content",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=sample_suggestions,
         )
 
@@ -272,8 +272,8 @@ class TestSuggestionSchemaIntegration:
     async def test_widget_message_envelope_contains_suggestions(self, sample_suggestions):
         """[P0] Widget message envelope should include suggestions in response."""
         from app.schemas.widget import (
-            WidgetMessageResponse,
             WidgetMessageEnvelope,
+            WidgetMessageResponse,
             create_meta,
         )
 
@@ -281,7 +281,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-789",
             content="Here is the information...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=sample_suggestions,
         )
 
@@ -305,7 +305,7 @@ class TestSuggestionSchemaIntegration:
             messageId="msg-test",
             content="Content",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             suggested_replies=four_suggestions,
         )
 
@@ -318,8 +318,8 @@ class TestSuggestionGeneratorEdgeCases:
     @pytest.mark.asyncio
     async def test_chunks_with_no_extractable_topics(self):
         """[P2] Chunks with no extractable topics should use fallback."""
-        from app.services.rag.suggestion_generator import SuggestionGenerator
         from app.services.rag.retrieval_service import RetrievedChunk
+        from app.services.rag.suggestion_generator import SuggestionGenerator
 
         chunks = [
             RetrievedChunk(
@@ -344,8 +344,8 @@ class TestSuggestionGeneratorEdgeCases:
     @pytest.mark.asyncio
     async def test_chunks_with_generic_document_names(self):
         """[P2] Generic document names should be filtered out."""
-        from app.services.rag.suggestion_generator import SuggestionGenerator
         from app.services.rag.retrieval_service import RetrievedChunk
+        from app.services.rag.suggestion_generator import SuggestionGenerator
 
         chunks = [
             RetrievedChunk(
@@ -392,8 +392,8 @@ class TestSuggestionGeneratorEdgeCases:
     @pytest.mark.asyncio
     async def test_document_name_cleaning_removes_extensions(self):
         """[P2] Document name cleaning should remove file extensions."""
-        from app.services.rag.suggestion_generator import SuggestionGenerator
         from app.services.rag.retrieval_service import RetrievedChunk
+        from app.services.rag.suggestion_generator import SuggestionGenerator
 
         chunks = [
             RetrievedChunk(
@@ -418,8 +418,8 @@ class TestSuggestionGeneratorEdgeCases:
     @pytest.mark.asyncio
     async def test_deduplication_of_suggestions(self):
         """[P2] Duplicate suggestions should be removed."""
-        from app.services.rag.suggestion_generator import SuggestionGenerator
         from app.services.rag.retrieval_service import RetrievedChunk
+        from app.services.rag.suggestion_generator import SuggestionGenerator
 
         chunks = [
             RetrievedChunk(

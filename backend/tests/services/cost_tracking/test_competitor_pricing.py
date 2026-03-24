@@ -9,7 +9,6 @@ Tests for:
 - Edge cases: zero messages, high volume
 """
 
-import pytest
 from decimal import Decimal
 
 

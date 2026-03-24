@@ -1,10 +1,9 @@
 
-import pytest
 import asyncio
-from httpx import AsyncClient, ASGITransport
-from fastapi import FastAPI, BackgroundTasks, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from unittest.mock import MagicMock
+
+import pytest
+from fastapi import BackgroundTasks, FastAPI
+from httpx import ASGITransport, AsyncClient
 
 # Minimal app for reproduction
 app = FastAPI()
@@ -14,7 +13,7 @@ async def test_upload(background_tasks: BackgroundTasks):
     async def bg_task():
         await asyncio.sleep(0.1)
         print("Background task running")
-    
+
     background_tasks.add_task(bg_task)
     return {"status": "ok"}
 

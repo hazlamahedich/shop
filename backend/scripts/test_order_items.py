@@ -1,8 +1,11 @@
 import asyncio
+import json
+
 from sqlalchemy import select
+
 from app.core.database import AsyncSessionLocal
 from app.models.order import Order
-import json
+
 
 async def main():
     async with AsyncSessionLocal() as db:

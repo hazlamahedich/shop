@@ -15,9 +15,9 @@ Adds:
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "018_create_budget_alerts_table"
 down_revision = "017_create_product_pins_table"

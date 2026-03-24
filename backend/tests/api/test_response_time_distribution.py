@@ -7,10 +7,9 @@ Tests endpoint behavior, response structure, and data validation.
 from __future__ import annotations
 
 import pytest
-from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient
-from tests.conftest import auth_headers
 
+from tests.conftest import auth_headers
 
 pytestmark = pytest.mark.asyncio
 

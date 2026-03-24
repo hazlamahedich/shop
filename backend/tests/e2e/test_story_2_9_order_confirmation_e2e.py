@@ -4,16 +4,14 @@ Tests complete user flow from checkout to order confirmation.
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.api.webhooks.shopify import process_shopify_webhook
 from app.services.cart import CartService
 from app.services.checkout import CheckoutService
 from app.services.order_confirmation import OrderConfirmationService
-from app.schemas.cart import Cart, CartItem, CurrencyCode
-from datetime import datetime, timezone
 
 
 @pytest.mark.asyncio
@@ -89,7 +87,7 @@ async def test_complete_user_flow_checkout_to_confirmation(
         "order_url": "https://shop.myshopify.com/admin/orders/e2e_order_123",
         "financial_status": "paid",
         "email": "customer@example.com",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "note_attributes": [
             {"name": "psid", "value": psid}
         ],
@@ -146,13 +144,13 @@ async def test_cart_cleared_after_confirmation(
                 "image_url": "https://example.com/image.jpg",
                 "currency_code": "USD",
                 "quantity": 2,
-                "added_at": datetime.now(timezone.utc).isoformat(),
+                "added_at": datetime.now(UTC).isoformat(),
             }
         ],
         "subtotal": 59.98,
         "currency_code": "USD",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }
 
     # Mock Redis to return different values for different keys
@@ -177,7 +175,7 @@ async def test_cart_cleared_after_confirmation(
         "order_url": "https://shop.myshopify.com/admin/orders/123",
         "financial_status": "paid",
         "email": "customer@example.com",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "note_attributes": [{"name": "psid", "value": psid}],
     }
 
@@ -208,7 +206,7 @@ async def test_unpaid_order_no_confirmation(
         "order_url": "https://shop.myshopify.com/admin/orders/123",
         "financial_status": "pending",  # Not paid
         "email": "customer@example.com",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "note_attributes": [{"name": "psid", "value": psid}],
     }
 
@@ -232,9 +230,6 @@ async def test_webhook_signature_verification_e2e(
     mock_redis,
 ):
     """Test webhook signature verification (Story 2.9 AC 3)."""
-    from app.api.webhooks.shopify import shopify_webhook_receive
-    from fastapi import Request, Header
-    from unittest.mock import AsyncMock as AsyncRequestMock
 
     # Create mock request with valid webhook
     test_payload = json.dumps({
@@ -248,9 +243,9 @@ async def test_webhook_signature_verification_e2e(
     config = settings()
     api_secret = config.get("SHOPIFY_API_SECRET", "test_secret")
 
-    import hmac
-    import hashlib
     import base64
+    import hashlib
+    import hmac
 
     signature = hmac.new(
         api_secret.encode(),
@@ -292,7 +287,7 @@ async def test_idempotent_confirmation_e2e(
         "order_url": "https://shop.myshopify.com/admin/orders/123",
         "financial_status": "paid",
         "email": "customer@example.com",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "note_attributes": [{"name": "psid", "value": psid}],
     }
 

@@ -9,9 +9,10 @@ Story 10-1: Source Citations Widget
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 os.environ["IS_TESTING"] = "true"
 
@@ -105,7 +106,7 @@ class TestSourceCitationsIntegration:
     @pytest.mark.asyncio
     async def test_message_response_includes_sources(self, mock_redis, sample_sources):
         """[P0] Widget message response should include sources when RAG is used."""
-        from app.schemas.widget import WidgetMessageResponse, SourceCitation
+        from app.schemas.widget import SourceCitation, WidgetMessageResponse
 
         sources = [SourceCitation(**s) for s in sample_sources]
 
@@ -113,7 +114,7 @@ class TestSourceCitationsIntegration:
             messageId="msg-123",
             content="Based on our documentation...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             sources=sources,
         )
 
@@ -210,7 +211,7 @@ class TestSourceCitationsIntegration:
             messageId="msg-456",
             content="Hello! How can I help?",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
         )
 
         assert response.sources is None
@@ -218,7 +219,7 @@ class TestSourceCitationsIntegration:
     @pytest.mark.asyncio
     async def test_source_document_types(self):
         """[P2] All document types (pdf, url, text) should be supported."""
-        from app.schemas.widget import SourceCitation, SourceDocumentType
+        from app.schemas.widget import SourceCitation
 
         pdf_source = SourceCitation(
             document_id=1,
@@ -261,9 +262,9 @@ class TestSourceCitationsIntegration:
     async def test_message_envelope_contains_sources(self, sample_sources):
         """[P0] Widget message envelope should include sources in response."""
         from app.schemas.widget import (
-            WidgetMessageResponse,
-            WidgetMessageEnvelope,
             SourceCitation,
+            WidgetMessageEnvelope,
+            WidgetMessageResponse,
             create_meta,
         )
 
@@ -273,7 +274,7 @@ class TestSourceCitationsIntegration:
             messageId="msg-789",
             content="Here is the information...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             sources=sources,
         )
 
@@ -289,7 +290,7 @@ class TestSourceCitationsIntegration:
     @pytest.mark.asyncio
     async def test_large_sources_list_handling(self):
         """[P2] System should handle many sources (10+) gracefully."""
-        from app.schemas.widget import WidgetMessageResponse, SourceCitation
+        from app.schemas.widget import SourceCitation, WidgetMessageResponse
 
         many_sources = [
             SourceCitation(
@@ -305,7 +306,7 @@ class TestSourceCitationsIntegration:
             messageId="msg-many",
             content="Comprehensive response...",
             sender="bot",
-            createdAt=datetime.now(timezone.utc),
+            createdAt=datetime.now(UTC),
             sources=many_sources,
         )
 

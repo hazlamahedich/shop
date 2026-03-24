@@ -11,9 +11,8 @@ Tests cover:
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -92,8 +91,8 @@ class TestUrgencyDetectionIntegration:
     async def test_keyword_handoff_produces_low_urgency(self, monkeypatch):
         """Test that keyword handoff reason produces LOW urgency."""
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import HandoffReason
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -114,8 +113,8 @@ class TestUrgencyDetectionIntegration:
     async def test_low_confidence_produces_medium_urgency(self, monkeypatch):
         """Test that low_confidence handoff reason produces MEDIUM urgency."""
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import HandoffReason
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -136,8 +135,8 @@ class TestUrgencyDetectionIntegration:
     async def test_checkout_context_produces_high_urgency(self, monkeypatch):
         """Test that checkout context produces HIGH urgency."""
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import HandoffReason
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -161,8 +160,8 @@ class TestNotificationContentIntegration:
     @pytest.mark.asyncio
     async def test_notification_content_includes_all_fields(self):
         """Test notification content includes all required fields."""
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import UrgencyLevel
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         mock_db = AsyncMock()
         service = HandoffNotificationService(db=mock_db, redis=None)
@@ -230,8 +229,8 @@ class TestEndToEndFlow:
     async def test_handoff_flow_produces_correct_notification_data(self, monkeypatch):
         """Test that handoff flow produces correct notification data structure."""
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import HandoffReason, UrgencyLevel
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -268,8 +267,8 @@ class TestEndToEndFlow:
     async def test_high_urgency_with_checkout_context(self, monkeypatch):
         """Test complete flow for HIGH urgency with checkout context."""
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import HandoffReason, UrgencyLevel
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         monkeypatch.setenv("IS_TESTING", "false")
@@ -314,9 +313,10 @@ class TestIS_TESTINGMode:
     async def test_is_testing_returns_low_urgency(self):
         """Test IS_TESTING mode returns LOW urgency regardless of context."""
         import os
+
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import HandoffReason
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         os.environ["IS_TESTING"] = "true"
@@ -339,9 +339,10 @@ class TestIS_TESTINGMode:
     async def test_is_testing_bypasses_notifications(self):
         """Test IS_TESTING mode bypasses notification sending."""
         import os
+
         from app.core.config import settings
-        from app.services.handoff.notification_service import HandoffNotificationService
         from app.schemas.handoff import UrgencyLevel
+        from app.services.handoff.notification_service import HandoffNotificationService
 
         settings.cache_clear()
         os.environ["IS_TESTING"] = "true"

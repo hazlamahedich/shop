@@ -19,25 +19,25 @@ Environment Variables:
     TEST_DATABASE_URL: Database URL (default: shop_test)
 """
 
-import asyncio
 import argparse
+import asyncio
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select, text
+
 from app.core.database import async_session
-from app.models.merchant import Merchant, PersonalityType
 from app.models.conversation import Conversation
+from app.models.merchant import Merchant, PersonalityType
 from app.models.message import Message
 
 
 async def seed_merchant(
-    merchant_id: Optional[int] = None,
+    merchant_id: int | None = None,
     business_name: str = "Test Shop",
     personality: PersonalityType = PersonalityType.FRIENDLY,
     platform: str = "widget",

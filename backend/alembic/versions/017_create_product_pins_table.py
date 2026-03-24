@@ -13,8 +13,9 @@ Adds:
 - Unique constraint on merchant_id + product_id (one pin per product)
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic
 revision = "017_create_product_pins_table"

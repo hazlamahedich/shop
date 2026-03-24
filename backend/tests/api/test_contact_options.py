@@ -7,7 +7,6 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.models.merchant import Merchant
 
 

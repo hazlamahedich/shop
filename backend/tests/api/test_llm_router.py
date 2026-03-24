@@ -3,22 +3,21 @@
 Tests for LLM router service with primary/backup failover logic.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import AsyncMock, patch
 
-from app.main import app
-from app.models.llm_configuration import LLMConfiguration
-from app.models.merchant import Merchant
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+
 from app.core.database import get_db
-from app.services.llm.llm_router import LLMRouter
-from app.services.llm.base_llm_service import LLMMessage, LLMResponse
 from app.core.errors import APIError, ErrorCode
+from app.main import app
+from app.models.merchant import Merchant
+from app.services.llm.base_llm_service import LLMMessage, LLMResponse
+from app.services.llm.llm_router import LLMRouter
 
 # Use the real test engine from conftest for integration tests
-from tests.conftest import test_engine, TestingSessionLocal
+from tests.conftest import TestingSessionLocal, test_engine
 
 
 # Apply rate limiter check that doesn't fail in tests

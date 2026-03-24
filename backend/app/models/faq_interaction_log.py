@@ -5,7 +5,7 @@ Story 10-10: FAQ Usage Widget
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Index
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base

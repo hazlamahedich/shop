@@ -8,19 +8,17 @@ Tests the complete flow:
 - Multiple conversations processed in batch
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.handoff.offline_followup_service import (
-    OfflineFollowUpService,
-    FOLLOWUP_12H_MESSAGE,
-    FOLLOWUP_24H_MESSAGE_WITH_EMAIL,
-    FOLLOWUP_24H_MESSAGE_NO_EMAIL,
-)
+import pytest
+
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant
 from app.models.message import Message
+from app.services.handoff.offline_followup_service import (
+    OfflineFollowUpService,
+)
 
 
 @pytest.fixture
@@ -64,7 +62,7 @@ def recent_shopper_message():
     msg = MagicMock(spec=Message)
     msg.id = 1
     msg.sender = "customer"
-    msg.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    msg.created_at = datetime.now(UTC) - timedelta(hours=1)
     return msg
 
 
@@ -87,7 +85,7 @@ class TestOfflineFollowUpFlow:
         conv.platform_sender_id = "test_psid"
         conv.status = "handoff"
         conv.handoff_status = "pending"
-        conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=25)
         conv.conversation_data = {}
 
         with patch.object(
@@ -132,7 +130,7 @@ class TestOfflineFollowUpFlow:
         conv.platform_sender_id = "test_psid_2"
         conv.status = "handoff"
         conv.handoff_status = "pending"
-        conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=13)
+        conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=13)
         conv.conversation_data = {}
 
         def mock_execute(query):
@@ -178,7 +176,7 @@ class TestOfflineFollowUpFlow:
             conv.platform_sender_id = f"test_psid_{i}"
             conv.status = "handoff"
             conv.handoff_status = "pending"
-            conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=13)
+            conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=13)
             conv.conversation_data = {}
             conversations.append(conv)
 
@@ -214,7 +212,7 @@ class TestOfflineFollowUpFlow:
         conv.platform_sender_id = "test_psid_email"
         conv.status = "handoff"
         conv.handoff_status = "pending"
-        conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=25)
         conv.conversation_data = {}
 
         def mock_execute(query):
@@ -260,7 +258,7 @@ class TestOfflineFollowUpFlow:
         conv.platform_sender_id = "test_psid_noemail"
         conv.status = "handoff"
         conv.handoff_status = "pending"
-        conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=25)
         conv.conversation_data = {}
 
         def mock_execute(query):
@@ -302,7 +300,7 @@ class TestOfflineFollowUpFlow:
         conv.platform_sender_id = "test_psid_old"
         conv.status = "handoff"
         conv.handoff_status = "pending"
-        conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=25)
         conv.conversation_data = {}
 
         with patch.object(
@@ -337,7 +335,7 @@ class TestOfflineFollowUpFlow:
         conv.platform_sender_id = "test_psid_resolved"
         conv.status = "handoff"
         conv.handoff_status = "pending"
-        conv.handoff_triggered_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        conv.handoff_triggered_at = datetime.now(UTC) - timedelta(hours=25)
         conv.conversation_data = {}
 
         call_count = 0

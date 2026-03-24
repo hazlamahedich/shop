@@ -11,17 +11,13 @@ import json
 from typing import Any
 
 import structlog
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
-from fastapi import status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.middleware.auth import require_auth
 from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
 from app.services.analytics.widget_analytics_service import WidgetAnalyticsService
 

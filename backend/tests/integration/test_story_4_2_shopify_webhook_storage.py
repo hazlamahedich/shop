@@ -14,11 +14,10 @@ import base64
 import hashlib
 import hmac
 import json
+
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 API_SECRET = "test_shopify_secret_for_testing"
 
@@ -37,7 +36,6 @@ class TestShopifyWebhookOrderStorage:
         self, async_client: AsyncClient, async_session: AsyncSession
     ) -> None:
         """[P0] Order is stored in database after orders/create webhook."""
-        from app.models.order import Order, OrderStatus
         from app.models.merchant import Merchant
 
         merchant = Merchant(
@@ -179,8 +177,9 @@ class TestShopifyWebhookEdgeCases:
         self, async_client: AsyncClient, async_session: AsyncSession
     ) -> None:
         """[P2] Concurrent webhooks are handled without race conditions."""
-        from app.models.merchant import Merchant
         import asyncio
+
+        from app.models.merchant import Merchant
 
         merchant = Merchant(
             business_name="Concurrent Test Store",

@@ -9,8 +9,9 @@ Story 6-6: GDPR Deletion Processing
 - This column was missing from migration 040
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "041"
 down_revision = "040"

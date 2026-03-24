@@ -8,9 +8,10 @@ Adds:
 - business_hours_config JSONB column to merchants table
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "029a_add_business_hours_config"

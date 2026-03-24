@@ -3,15 +3,16 @@
 Story 3.10: Business Hours Configuration
 """
 
-import pytest
-from datetime import datetime, time
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from app.services.business_hours.business_hours_service import (
-    is_within_business_hours,
+    BusinessHoursService,
     get_formatted_hours,
     get_next_business_hour,
-    BusinessHoursService,
+    is_within_business_hours,
 )
 
 

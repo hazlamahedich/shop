@@ -9,13 +9,13 @@ Story 5-2: Widget Session Management
 from __future__ import annotations
 
 import os
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 os.environ["IS_TESTING"] = "true"
 
-from fastapi.testclient import TestClient
 
 
 class TestWidgetSessionAPI:
@@ -121,7 +121,6 @@ class TestWidgetSessionAPI:
         self, mock_redis, mock_db, mock_merchant
     ):
         """[P0] POST /widget/session - Creates session with valid merchant_id."""
-        from app.core.errors import ErrorCode
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.first.return_value = mock_merchant
@@ -134,12 +133,13 @@ class TestWidgetSessionAPI:
             mock_service = AsyncMock()
             mock_session = MagicMock()
             mock_session.session_id = "test-uuid-1234"
-            mock_session.expires_at = datetime.now(timezone.utc)
+            mock_session.expires_at = datetime.now(UTC)
             mock_service.create_session.return_value = mock_session
             mock_service_class.return_value = mock_service
 
-            from app.api.widget import create_widget_session
             from fastapi import Request
+
+            from app.api.widget import create_widget_session
             from app.schemas.widget import CreateSessionRequest
 
             mock_request = MagicMock(spec=Request)
@@ -167,8 +167,9 @@ class TestWidgetSessionAPI:
         mock_result.scalars.return_value.first.return_value = None
         mock_db.execute.return_value = mock_result
 
-        from app.api.widget import create_widget_session
         from fastapi import Request
+
+        from app.api.widget import create_widget_session
         from app.schemas.widget import CreateSessionRequest
 
         mock_request = MagicMock(spec=Request)
@@ -200,7 +201,7 @@ class TestWidgetSessionAPI:
         mock_session = MagicMock()
         mock_session.session_id = valid_uuid
         mock_session.merchant_id = 1
-        mock_session.expires_at = datetime.now(timezone.utc)
+        mock_session.expires_at = datetime.now(UTC)
 
         with (
             patch("app.api.widget.WidgetSessionService") as mock_service_class,
@@ -215,12 +216,13 @@ class TestWidgetSessionAPI:
                 "message_id": "msg-123",
                 "content": "Hello! How can I help?",
                 "sender": "bot",
-                "created_at": datetime.now(timezone.utc),
+                "created_at": datetime.now(UTC),
             }
             mock_msg_service_class.return_value = mock_msg_service
 
-            from app.api.widget import send_widget_message
             from fastapi import Request
+
+            from app.api.widget import send_widget_message
             from app.schemas.widget import SendMessageRequest
 
             mock_request = MagicMock(spec=Request)
@@ -257,8 +259,9 @@ class TestWidgetSessionAPI:
             )
             mock_service_class.return_value = mock_service
 
-            from app.api.widget import send_widget_message
             from fastapi import Request
+
+            from app.api.widget import send_widget_message
             from app.schemas.widget import SendMessageRequest
 
             mock_request = MagicMock(spec=Request)
@@ -320,8 +323,9 @@ class TestWidgetSessionAPI:
             mock_service.end_session.return_value = True
             mock_service_class.return_value = mock_service
 
-            from app.api.widget import end_widget_session
             from fastapi import Request
+
+            from app.api.widget import end_widget_session
 
             mock_request = MagicMock(spec=Request)
             mock_request.headers = {}
@@ -347,8 +351,9 @@ class TestWidgetSessionAPI:
             mock_service.end_session.return_value = False
             mock_service_class.return_value = mock_service
 
-            from app.api.widget import end_widget_session
             from fastapi import Request
+
+            from app.api.widget import end_widget_session
 
             mock_request = MagicMock(spec=Request)
             mock_request.headers = {}
@@ -374,8 +379,9 @@ class TestWidgetSessionAPI:
         mock_result.scalars.return_value.first.return_value = mock_merchant_disabled
         mock_db.execute.return_value = mock_result
 
-        from app.api.widget import create_widget_session
         from fastapi import Request
+
+        from app.api.widget import create_widget_session
         from app.schemas.widget import CreateSessionRequest
 
         mock_request = MagicMock(spec=Request)
@@ -400,8 +406,9 @@ class TestWidgetDomainWhitelist:
 
     def test_p1_domain_whitelist_allows_exact_match(self):
         """[P1] Domain whitelist allows exact domain match."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://example.com"}
@@ -410,8 +417,9 @@ class TestWidgetDomainWhitelist:
 
     def test_p1_domain_whitelist_allows_subdomain(self):
         """[P1] Domain whitelist allows subdomains of allowed domains."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://shop.example.com"}
@@ -420,9 +428,10 @@ class TestWidgetDomainWhitelist:
 
     def test_p1_domain_whitelist_blocks_unauthorized_domain(self):
         """[P1] Domain whitelist blocks domains not in allowed list."""
+        from fastapi import Request
+
         from app.api.widget import _validate_domain_whitelist
         from app.core.errors import APIError, ErrorCode
-        from fastapi import Request
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://evil.com"}
@@ -434,8 +443,9 @@ class TestWidgetDomainWhitelist:
 
     def test_p1_domain_whitelist_allows_all_when_empty(self):
         """[P1] Domain whitelist allows all origins when list is empty."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Origin": "https://any-domain.com"}
@@ -444,8 +454,9 @@ class TestWidgetDomainWhitelist:
 
     def test_p1_domain_whitelist_handles_missing_origin(self):
         """[P1] Domain whitelist handles requests without Origin header."""
-        from app.api.widget import _validate_domain_whitelist
         from fastapi import Request
+
+        from app.api.widget import _validate_domain_whitelist
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
@@ -458,9 +469,10 @@ class TestWidgetRateLimiting:
 
     def test_p2_check_rate_limit_returns_none_when_allowed(self):
         """[P2] Rate limit check returns None when client is not rate limited."""
+        from fastapi import Request
+
         from app.api.widget import _check_rate_limit
         from app.core.rate_limiter import RateLimiter
-        from fastapi import Request
 
         RateLimiter.reset_all()
 

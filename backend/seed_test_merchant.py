@@ -3,16 +3,16 @@
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.core.database import async_session
-from app.core.auth import hash_password
-from app.models.merchant import Merchant
 from sqlalchemy import select
+
+from app.core.auth import hash_password
+from app.core.database import async_session
+from app.models.merchant import Merchant
 
 
 async def create_test_merchant():

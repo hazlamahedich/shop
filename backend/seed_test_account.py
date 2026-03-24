@@ -33,6 +33,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 import os
+
 from cryptography.fernet import Fernet
 
 if not os.getenv("FACEBOOK_ENCRYPTION_KEY"):
@@ -41,23 +42,24 @@ if not os.getenv("FACEBOOK_ENCRYPTION_KEY"):
     print("  Generated temporary encryption key for this session")
 
 from sqlalchemy import delete, select
-from app.core.database import async_session
+
 from app.core.auth import hash_password
-from app.core.security import encrypt_access_token
-from app.models.merchant import Merchant, PersonalityType, StoreProvider
-from app.models.llm_configuration import LLMConfiguration
-from app.models.tutorial import Tutorial
-from app.models.faq import Faq
-from app.models.product_pin import ProductPin
-from app.models.conversation import Conversation
-from app.models.message import Message
-from app.models.llm_conversation_cost import LLMConversationCost
-from app.models.budget_alert import BudgetAlert
-from app.models.handoff_alert import HandoffAlert
-from app.models.onboarding import PrerequisiteChecklist
-from app.models.shopify_integration import ShopifyIntegration
-from app.models.facebook_integration import FacebookIntegration
+from app.core.database import async_session
 from app.core.encryption import encrypt_conversation_content
+from app.core.security import encrypt_access_token
+from app.models.budget_alert import BudgetAlert
+from app.models.conversation import Conversation
+from app.models.facebook_integration import FacebookIntegration
+from app.models.faq import Faq
+from app.models.handoff_alert import HandoffAlert
+from app.models.llm_configuration import LLMConfiguration
+from app.models.llm_conversation_cost import LLMConversationCost
+from app.models.merchant import Merchant, PersonalityType, StoreProvider
+from app.models.message import Message
+from app.models.onboarding import PrerequisiteChecklist
+from app.models.product_pin import ProductPin
+from app.models.shopify_integration import ShopifyIntegration
+from app.models.tutorial import Tutorial
 
 DEMO_EMAIL = "test@test.com"
 DEMO_PASSWORD = "Test12345"

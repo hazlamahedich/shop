@@ -10,18 +10,17 @@ Tests the full cart management flow including:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import AsyncGenerator
 
 import pytest
 import redis
 
 from app.schemas.cart import Cart, CartItem, CurrencyCode
-from app.services.cart import CartService
-from app.services.messenger import CartFormatter
-from app.services.messaging.message_processor import MessageProcessor
 from app.schemas.messaging import FacebookWebhookPayload
+from app.services.cart import CartService
+from app.services.messaging.message_processor import MessageProcessor
+from app.services.messenger import CartFormatter
 
 
 class TestCartManagementIntegration:
@@ -54,7 +53,7 @@ class TestCartManagementIntegration:
                 image_url="http://example.com/image1.jpg",
                 quantity=2,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(timezone.utc).isoformat()
+                added_at=datetime.now(UTC).isoformat()
             ),
             CartItem(
                 product_id="prod_2",
@@ -64,7 +63,7 @@ class TestCartManagementIntegration:
                 image_url="http://example.com/image2.jpg",
                 quantity=1,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(timezone.utc).isoformat()
+                added_at=datetime.now(UTC).isoformat()
             )
         ]
 
@@ -72,7 +71,6 @@ class TestCartManagementIntegration:
     async def test_view_cart_after_adding_items(self, cart_service, sample_cart_items, mock_redis):
         """Test viewing cart after adding items via CartService."""
         psid = "test_user_123"
-        import json
 
         # Mock get to return None initially (empty cart)
         mock_redis.get.return_value = None
@@ -443,7 +441,11 @@ class TestCartManagementIntegration:
                     MockSendService.return_value = mock_send_instance
 
                     # Create classification for CART_VIEW intent
-                    from app.services.intent import IntentType, ClassificationResult, ExtractedEntities
+                    from app.services.intent import (
+                        ClassificationResult,
+                        ExtractedEntities,
+                        IntentType,
+                    )
                     classification = ClassificationResult(
                         intent=IntentType.CART_VIEW,
                         confidence=0.95,
@@ -503,7 +505,11 @@ class TestCartManagementIntegration:
                     MockSendService.return_value = mock_send_instance
 
                     # Create classification for CART_VIEW intent
-                    from app.services.intent import IntentType, ClassificationResult, ExtractedEntities
+                    from app.services.intent import (
+                        ClassificationResult,
+                        ExtractedEntities,
+                        IntentType,
+                    )
                     classification = ClassificationResult(
                         intent=IntentType.CART_VIEW,
                         confidence=0.95,

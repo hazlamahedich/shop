@@ -10,12 +10,13 @@ Tests:
 - Order processing respects GDPR status
 """
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone, timedelta
 
 from app.core.errors import ErrorCode
-from app.models.deletion_audit_log import DeletionAuditLog, DeletionRequestType, DeletionTrigger
 from app.models.conversation import Conversation
+from app.models.deletion_audit_log import DeletionAuditLog, DeletionRequestType, DeletionTrigger
 from app.services.privacy.data_tier_service import DataTier
 from tests.conftest import auth_headers
 
@@ -233,8 +234,8 @@ class TestComplianceStatusEndpoint:
             customer_id="overdue_customer",
             session_id="overdue_session",
             request_type=DeletionRequestType.GDPR_FORMAL.value,
-            request_timestamp=datetime.now(timezone.utc) - timedelta(days=35),
-            processing_deadline=datetime.now(timezone.utc) - timedelta(days=5),
+            request_timestamp=datetime.now(UTC) - timedelta(days=35),
+            processing_deadline=datetime.now(UTC) - timedelta(days=5),
             deletion_trigger=DeletionTrigger.MANUAL.value,
         )
         async_session.add(overdue_log)

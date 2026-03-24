@@ -10,11 +10,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+
 from app.core.database import async_session
 from app.services.order_tracking.order_tracking_service import OrderTrackingService
 from app.services.shopify.product_service import get_products_by_ids
-from sqlalchemy import select
-from app.models.order import Order
 
 
 async def test_order_status():

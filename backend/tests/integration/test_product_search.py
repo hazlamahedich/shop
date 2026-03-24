@@ -12,7 +12,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.schemas.messaging import MessengerResponse
-from app.services.intent.classification_schema import ClassificationResult, ExtractedEntities, IntentType
+from app.services.intent.classification_schema import (
+    ClassificationResult,
+    ExtractedEntities,
+    IntentType,
+)
 from app.services.messaging.message_processor import MessageProcessor
 from app.services.shopify import ProductSearchService
 
@@ -180,7 +184,7 @@ class TestProductSearchIntegration:
     ) -> None:
         """Test message processor routes product search correctly."""
         # Create webhook payload
-        from app.schemas.messaging import FacebookWebhookPayload, FacebookEntry
+        from app.schemas.messaging import FacebookEntry, FacebookWebhookPayload
 
         payload = FacebookWebhookPayload(
             object="page",

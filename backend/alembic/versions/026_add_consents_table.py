@@ -10,16 +10,16 @@ Adds consents table for tracking user consent for GDPR compliance.
 Consent is required before cart operations (add to cart, checkout).
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "026_add_consents_table"
-down_revision: Union[str, None] = "025_add_is_test_to_orders"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "025_add_is_test_to_orders"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

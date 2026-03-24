@@ -3,7 +3,6 @@
 Tests pattern detection for 290+ international carriers.
 """
 
-import pytest
 
 from app.services.carrier.carrier_patterns import (
     CarrierPattern,

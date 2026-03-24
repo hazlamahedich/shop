@@ -3,10 +3,10 @@
 Tests the widget analytics endpoints with real database operations.
 """
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient
-from sqlalchemy import select
 
 from app.models.widget_analytics_event import WidgetAnalyticsEvent
 
@@ -34,7 +34,7 @@ class TestWidgetAnalyticsIntegration:
         """Test ingesting a single analytics event."""
         event = {
             "type": "widget_open",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "session_id": "test-session-123",
             "metadata": {"url": "https://example.com"},
         }
@@ -51,7 +51,7 @@ class TestWidgetAnalyticsIntegration:
 
     async def test_ingest_batch_events(self, client: AsyncClient, db_session):
         """Test ingesting multiple events in a batch."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         events = [
             {
                 "type": "widget_open",
@@ -86,7 +86,7 @@ class TestWidgetAnalyticsIntegration:
         """Test that invalid event types are rejected."""
         event = {
             "type": "invalid_event_type",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "session_id": "test-session-invalid",
         }
 
@@ -103,7 +103,7 @@ class TestWidgetAnalyticsIntegration:
     async def test_get_metrics(self, client: AsyncClient, db_session):
         """Test retrieving widget analytics metrics."""
         # First, ingest some events
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         events = [
             {"type": "widget_open", "timestamp": now, "session_id": "metrics-session"},
             {"type": "widget_open", "timestamp": now, "session_id": "metrics-session"},
@@ -131,7 +131,7 @@ class TestWidgetAnalyticsIntegration:
     async def test_export_csv(self, client: AsyncClient, db_session):
         """Test exporting widget analytics as CSV."""
         # First, ingest some events
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         events = [
             {"type": "widget_open", "timestamp": now, "session_id": "export-session"},
             {"type": "message_send", "timestamp": now, "session_id": "export-session"},
@@ -161,7 +161,7 @@ class TestWidgetAnalyticsIntegration:
             merchant_id=1,
             session_id="old-session",
             event_type="widget_open",
-            timestamp=datetime.now(timezone.utc) - timedelta(days=31),
+            timestamp=datetime.now(UTC) - timedelta(days=31),
             event_metadata={},
         )
         db_session.add(old_event)
@@ -176,7 +176,7 @@ class TestWidgetAnalyticsIntegration:
     async def test_rate_limiting(self, client: AsyncClient):
         """Test rate limiting for analytics endpoint."""
         session_id = "rate-limit-test"
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Send 100+ requests rapidly
         for i in range(105):

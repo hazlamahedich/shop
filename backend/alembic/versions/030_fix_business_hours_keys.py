@@ -20,11 +20,13 @@ This migration:
 Run: alembic upgrade head
 """
 
-from alembic import op
+import json
+import logging
+
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-import logging
-import json
+
+from alembic import op
 
 revision = "030_fix_business_hours_keys"
 down_revision = "029a_add_business_hours_config"

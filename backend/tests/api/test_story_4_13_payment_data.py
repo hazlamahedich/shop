@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from app.services.shopify.order_processor import parse_shopify_order
 from app.schemas.order import OrderResponse, PaymentBreakdown, ProfitData
+from app.services.shopify.order_processor import parse_shopify_order
 
 
 class TestOrderResponseSchema:
@@ -255,8 +255,8 @@ class TestCustomerLookupService:
 
     def test_get_personalized_greeting_first_order(self):
         """Test personalized greeting for first order."""
-        from app.services.customer_lookup_service import CustomerLookupService
         from app.models.customer_profile import CustomerProfile
+        from app.services.customer_lookup_service import CustomerLookupService
 
         service = CustomerLookupService()
         profile = MagicMock(spec=CustomerProfile)
@@ -269,8 +269,8 @@ class TestCustomerLookupService:
 
     def test_get_personalized_greeting_repeat_customer(self):
         """Test personalized greeting for repeat customer."""
-        from app.services.customer_lookup_service import CustomerLookupService
         from app.models.customer_profile import CustomerProfile
+        from app.services.customer_lookup_service import CustomerLookupService
 
         service = CustomerLookupService()
         profile = MagicMock(spec=CustomerProfile)

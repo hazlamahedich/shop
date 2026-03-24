@@ -1,9 +1,5 @@
 import os
-import asyncio
-import json
-import httpx
-from unittest.mock import MagicMock, AsyncMock, patch
-import sys
+from unittest.mock import patch
 
 # Setup environment variables first
 os.environ["IS_TESTING"] = "true"
@@ -87,6 +83,7 @@ patcher_async.start()
 patcher_sync.start()
 
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)

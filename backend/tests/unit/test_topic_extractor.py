@@ -7,15 +7,15 @@ Tests topic extraction, trend calculation, and stop word filtering.
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from app.services.analytics.topic_extractor import (
+    STOP_WORDS,
     TopicExtractor,
     calculate_trend,
     is_valid_topic,
-    STOP_WORDS,
 )
 
 

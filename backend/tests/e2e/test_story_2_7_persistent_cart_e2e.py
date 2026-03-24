@@ -7,19 +7,18 @@ Tests complete user flows including:
 """
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from time import sleep
 
 import pytest
 import redis
 
 from app.schemas.messaging import FacebookWebhookPayload
-from app.services.messaging.message_processor import MessageProcessor
-from app.services.consent import ConsentService, ConsentStatus
-from app.services.session import SessionService
 from app.services.cart import CartService
-from app.services.intent import IntentType, ClassificationResult, ExtractedEntities
+from app.services.consent import ConsentService, ConsentStatus
+from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
+from app.services.messaging.message_processor import MessageProcessor
+from app.services.session import SessionService
 
 
 class TestStory27PersistentCartE2E:
@@ -195,20 +194,20 @@ class TestStory27PersistentCartE2E:
                 "imageUrl": "https://example.com/shoes.jpg",
                 "currencyCode": "USD",
                 "quantity": 2,
-                "addedAt": datetime.now(timezone.utc).isoformat()
+                "addedAt": datetime.now(UTC).isoformat()
             }],
             "subtotal": 179.98,
             "currencyCode": "USD",
             "itemCount": 1,
-            "createdAt": datetime.now(timezone.utc).isoformat(),
-            "updatedAt": datetime.now(timezone.utc).isoformat()
+            "createdAt": datetime.now(UTC).isoformat(),
+            "updatedAt": datetime.now(UTC).isoformat()
         }
 
         stored_data = {
             f"cart:{psid}": json.dumps(existing_cart),
             f"consent:{psid}": json.dumps({
                 "status": "opted_in",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "psid": psid
             }),
             f"order_ref:{psid}": "order_12345"  # Operational data
@@ -329,7 +328,7 @@ class TestStory27PersistentCartE2E:
             mock_consent.get_consent = AsyncMock(return_value=ConsentStatus.PENDING)
             mock_consent.record_consent = AsyncMock(return_value={
                 "status": ConsentStatus.OPTED_IN,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "psid": psid
             })
             mock_consent.can_persist_cart = AsyncMock(return_value=True)

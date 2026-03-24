@@ -1,18 +1,17 @@
 """Tests for test data factories."""
 
-import pytest
 
 from tests.fixtures.factory import (
-    UserFactory,
-    ProductFactory,
     CartFactory,
-    OrderFactory,
     ConversationFactory,
     MessageFactory,
+    OrderFactory,
+    ProductFactory,
     SequenceFactory,
-    random_string,
+    UserFactory,
     random_email,
     random_phone,
+    random_string,
 )
 
 

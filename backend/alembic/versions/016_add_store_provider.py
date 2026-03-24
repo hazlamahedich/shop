@@ -12,9 +12,9 @@ Changes:
 3. Create index for common query pattern
 4. Migrate existing Shopify merchants to 'shopify' value
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '016_add_store_provider'

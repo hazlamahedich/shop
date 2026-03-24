@@ -8,13 +8,13 @@ Uses proper integration test patterns matching the project.
 
 from __future__ import annotations
 
-import pytest
 import httpx
+import pytest
 from sqlalchemy import text
 
 from app.main import app
-from app.models.merchant import Merchant, PersonalityType
-from tests.conftest import test_engine, TestingSessionLocal
+from app.models.merchant import PersonalityType
+from tests.conftest import TestingSessionLocal, test_engine
 
 
 # Test merchant fixture data matching merchant table schema

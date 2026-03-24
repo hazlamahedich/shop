@@ -11,16 +11,15 @@ Tests cover:
 from __future__ import annotations
 
 import os
-import tempfile
-
-import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import patch
 
-from app.main import app
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
+from app.main import app
 from app.models.knowledge_base import DocumentChunk, DocumentStatus, KnowledgeDocument
 from app.models.merchant import Merchant
 from app.services.knowledge.chunker import ChunkingError, DocumentChunker
@@ -51,8 +50,9 @@ async def test_merchant(async_session: AsyncSession) -> int:
 @pytest.fixture
 async def auth_headers(test_merchant: int) -> dict[str, str]:
     """Generate authentication headers with JWT token."""
-    from app.core.auth import create_jwt
     import uuid
+
+    from app.core.auth import create_jwt
 
     session_id = str(uuid.uuid4())
     token = create_jwt(merchant_id=test_merchant, session_id=session_id)
@@ -66,8 +66,6 @@ async def client(async_session: AsyncSession, test_merchant: int):
     Note: Must depend on test_merchant to ensure merchant is created before
     the client is used.
     """
-    from app.core.database import get_db
-    from app.main import app
 
     async def override_get_db():
         yield async_session
@@ -408,8 +406,9 @@ This is a **markdown** document for testing. It has more than 50 characters to e
         auth_headers: dict,
     ) -> None:
         """8.3-API-002 [P0]: AC1 - Test document upload with DOCX file."""
-        from docx import Document
         from io import BytesIO
+
+        from docx import Document
 
         doc = Document()
         doc.add_heading("Test Document", 0)
@@ -481,8 +480,9 @@ This is a **markdown** document for testing. It has more than 50 characters to e
         auth_headers: dict,
     ) -> None:
         """8.3-API-004 [P0]: Security - Test that merchants cannot access other merchants' documents (IDOR prevention)."""
-        from app.core.auth import create_jwt
         import uuid
+
+        from app.core.auth import create_jwt
 
         merchant_a = Merchant(
             merchant_key="merchant-a-key",

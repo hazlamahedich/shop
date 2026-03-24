@@ -7,9 +7,8 @@ Create Date: 2026-02-07
 This migration adds indexes to optimize search and filter queries for conversations.
 Adds GIN index with pg_trgm for message content search and ensures other indexes exist.
 """
+
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '007_conversation_search_indexes'

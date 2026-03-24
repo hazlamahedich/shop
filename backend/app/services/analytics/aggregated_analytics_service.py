@@ -9,14 +9,12 @@ All aggregated data is stored as tier=ANONYMIZED.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
 from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
-from sqlalchemy.sql.expression import cast
 
 from app.models.conversation import Conversation
 from app.models.llm_conversation_cost import LLMConversationCost
@@ -1586,10 +1584,10 @@ class AggregatedAnalyticsService:
         """
         try:
             days = min(max(1, days), 90)
-            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
 
             current_period_start = cutoff_date
-            current_period_end = datetime.now(timezone.utc).replace(tzinfo=None)
+            current_period_end = datetime.now(UTC).replace(tzinfo=None)
 
             previous_period_start = current_period_start - timedelta(days=days)
             previous_period_end = current_period_start
@@ -1661,7 +1659,7 @@ class AggregatedAnalyticsService:
 
             return {
                 "topics": topics,
-                "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                "lastUpdated": datetime.now(UTC).isoformat(),
                 "period": period_data,
             }
 
@@ -1699,7 +1697,7 @@ class AggregatedAnalyticsService:
         """
         try:
             days = min(max(1, days), 30)
-            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
 
             result = await self.db.execute(
                 select(LLMConversationCost.processing_time_ms, LLMConversationCost.response_type)
@@ -1720,7 +1718,7 @@ class AggregatedAnalyticsService:
                         "comparison": None,
                     },
                     "warning": None,
-                    "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                    "lastUpdated": datetime.now(UTC).isoformat(),
                     "period": f"{days}d",
                     "count": 0,
                 }
@@ -1869,7 +1867,7 @@ class AggregatedAnalyticsService:
                     "comparison": comparison,
                 },
                 "warning": warning,
-                "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                "lastUpdated": datetime.now(UTC).isoformat(),
                 "period": f"{days}d",
                 "count": count,
                 "responseTypeBreakdown": response_type_breakdown,
@@ -1907,12 +1905,13 @@ class AggregatedAnalyticsService:
         Returns:
             Dict with FAQ usage data
         """
-        from app.models.faq import Faq
-        from app.models.faq_interaction_log import FaqInteractionLog
         from sqlalchemy import and_
 
+        from app.models.faq import Faq
+        from app.models.faq_interaction_log import FaqInteractionLog
+
         try:
-            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
             prev_cutoff = cutoff_date - timedelta(days=days)
             prev_end = cutoff_date
 
@@ -2033,7 +2032,7 @@ class AggregatedAnalyticsService:
                 "period": {
                     "days": days,
                     "startDate": cutoff_date.isoformat(),
-                    "endDate": datetime.now(timezone.utc).isoformat(),
+                    "endDate": datetime.now(UTC).isoformat(),
                 },
                 "faqs": faq_items,
                 "summary": {
@@ -2042,7 +2041,7 @@ class AggregatedAnalyticsService:
                     "avgConversionRate": avg_conversion_rate,
                     "unusedCount": total_unused,
                 },
-                "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                "lastUpdated": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:

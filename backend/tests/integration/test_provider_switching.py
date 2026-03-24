@@ -8,11 +8,10 @@ Tests the full flow of switching embedding providers including:
 - Re-embedding triggers
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import AsyncClient
+from unittest.mock import AsyncMock, patch
 
-from app.core.errors import ErrorCode
+import pytest
+from httpx import AsyncClient
 
 
 class TestEmbeddingProviderEndpoints:

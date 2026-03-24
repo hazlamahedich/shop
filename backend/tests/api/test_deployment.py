@@ -10,20 +10,20 @@ Tests all deployment API endpoints with various scenarios including:
 
 import asyncio
 import json
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
-from sqlalchemy import select
 
 import httpx
-from httpx import ASGITransport
+import pytest
 from fastapi import status
+from httpx import ASGITransport
+from sqlalchemy import select
 
-from app.core.errors import APIError, ErrorCode
+from app.core.errors import ErrorCode
 from app.main import app
-from app.schemas.deployment import Platform, DeploymentStatus, LogLevel, DeploymentStep
+from app.schemas.deployment import DeploymentStep, LogLevel
 
 
 class TestDeploymentAPI:
@@ -86,7 +86,7 @@ class TestDeploymentAPI:
     async def _create_mock_deployment_logs(self, db, deployment_id, merchant_id):
         """Create mock deployment logs."""
         from app.models.deployment_log import DeploymentLog as DeploymentLogModel
-        
+
         # Create initial log
         initial_log = DeploymentLogModel(
             deployment_id=deployment_id,
@@ -97,7 +97,7 @@ class TestDeploymentAPI:
             message="Deployment initiated",
         )
         db.add(initial_log)
-        
+
         # Create progress logs
         steps = [
             (DeploymentStep.CHECK_CLI, "Checking CLI tools", 10),
@@ -108,7 +108,7 @@ class TestDeploymentAPI:
             (DeploymentStep.DEPLOYMENT, "Deploying to platform", 70),
             (DeploymentStep.HEALTH_CHECK, "Performing health check", 90),
         ]
-        
+
         for step, message, progress in steps:
             log = DeploymentLogModel(
                 deployment_id=deployment_id,
@@ -119,9 +119,9 @@ class TestDeploymentAPI:
                 message=message,
             )
             db.add(log)
-        
+
         await db.commit()
-        
+
         # Return merchant logs for verification
         return [initial_log] + [log for _, _, _ in steps]
 
@@ -192,8 +192,8 @@ class TestDeploymentAPI:
             assert data["data"]["merchantKey"] == test_merchant_key
 
             # Verify prerequisites were migrated (check DB)
-            from app.models.onboarding import PrerequisiteChecklist
             from app.models.merchant import Merchant
+            from app.models.onboarding import PrerequisiteChecklist
             result = await async_session.execute(
                 select(Merchant).where(Merchant.merchant_key == test_merchant_key)
             )
@@ -215,10 +215,10 @@ class TestDeploymentAPI:
     async def test_start_deployment_empty_body(self, test_client, async_session, empty_request):
         """Test deployment start with empty request body."""
         response = await test_client.post("/api/deployment/start", json=empty_request)
-        
+
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         data = response.json()
-        
+
         assert "error_code" in data
         assert data["error_code"] == ErrorCode.VALIDATION_ERROR
         assert "Platform field is required" in data["message"]
@@ -230,10 +230,10 @@ class TestDeploymentAPI:
     async def test_start_deployment_missing_platform(self, test_client, async_session):
         """Test deployment start with missing platform field."""
         response = await test_client.post("/api/deployment/start", json={"other_field": "value"})
-        
+
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         data = response.json()
-        
+
         assert data["error_code"] == ErrorCode.VALIDATION_ERROR
         assert "Platform field is required" in data["message"]
 
@@ -241,10 +241,10 @@ class TestDeploymentAPI:
     async def test_start_deployment_invalid_platform(self, test_client, async_session, invalid_platform_request):
         """Test deployment start with invalid platform value."""
         response = await test_client.post("/api/deployment/start", json=invalid_platform_request)
-        
+
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         data = response.json()
-        
+
         assert data["error_code"] == ErrorCode.VALIDATION_ERROR
         assert "Invalid platform value" in data["message"]
 
@@ -341,12 +341,12 @@ class TestDeploymentAPI:
     async def test_get_deployment_status_not_found(self, test_client, async_session):
         """Test deployment status for non-existent deployment."""
         deployment_id = str(uuid4())
-        
+
         response = await test_client.get(f"/api/deployment/status/{deployment_id}")
-        
+
         assert response.status_code == status.HTTP_404_NOT_FOUND
         data = response.json()
-        
+
         assert data["error_code"] == ErrorCode.MERCHANT_NOT_FOUND
         assert f"Deployment not found: {deployment_id}" in data["message"]
 
@@ -463,48 +463,48 @@ class TestDeploymentAPI:
         )
         async_session.add(log)
         await async_session.commit()
-        
+
         # Make streaming request
         async with test_client.stream("GET", f"/api/deployment/progress/{deployment_id}") as response:
             assert response.status_code == status.HTTP_200_OK
-            
+
             # Check headers
             assert "text/event-stream" in response.headers["content-type"]
             assert response.headers["cache-control"] == "no-cache"
             assert response.headers["connection"] == "keep-alive"
             assert response.headers["x-accel-buffering"] == "no"
-            
+
             # Read events
             events = []
             async for line in response.aiter_lines():
                 if line.startswith("data: "):
                     event_data = json.loads(line[6:])
                     events.append(event_data)
-                    
+
                     # Check event structure
                     assert "deploymentId" in event_data
                     assert "merchantKey" in event_data
                     assert "status" in event_data
                     assert "progress" in event_data
                     assert "logs" in event_data
-                    
+
                     # Check for completion signal
                     if event_data["status"] == "success":
                         assert "error" not in event_data
-                        
+
                         # Check for DONE signal
                         break
-        
+
         assert len(events) > 0
 
     @pytest.mark.asyncio
     async def test_stream_deployment_progress_not_found(self, test_client, async_session):
         """Test streaming for non-existent deployment."""
         deployment_id = str(uuid4())
-        
+
         async with test_client.stream("GET", f"/api/deployment/progress/{deployment_id}") as response:
             assert response.status_code == status.HTTP_200_OK
-            
+
             # Read error event
             async for line in response.aiter_lines():
                 if line.startswith("data: "):
@@ -543,7 +543,7 @@ class TestDeploymentAPI:
         )
         async_session.add(log)
         await async_session.commit()
-        
+
         # Test streaming (stream will timeout after 15 minutes max)
         with patch('app.api.deployment.asyncio.sleep') as mock_sleep:
             mock_sleep.return_value = asyncio.sleep(0.01)  # Fast forward
@@ -654,10 +654,10 @@ class TestDeploymentAPI:
         deployment_id = str(uuid4())
 
         response = await test_client.post(f"/api/deployment/cancel/{deployment_id}")
-        
+
         assert response.status_code == status.HTTP_404_NOT_FOUND
         data = response.json()
-        
+
         assert data["error_code"] == ErrorCode.MERCHANT_NOT_FOUND
         assert f"Deployment not found: {deployment_id}" in data["message"]
 
@@ -733,18 +733,18 @@ class TestDeploymentAPI:
         )
         async_session.add(initial_log)
         await async_session.commit()
-        
+
         # Mock subprocess that times out
         mock_process = AsyncMock()
         mock_process.terminate.side_effect = Exception("Terminate failed")
-        
+
         with patch('app.api.deployment._active_subprocesses', {deployment_id: mock_process}):
             response = await test_client.post(f"/api/deployment/cancel/{deployment_id}")
-        
+
         # Should still succeed despite timeout error
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        
+
         assert data["data"]["message"] == "Deployment cancelled"
 
     # Test edge cases and error conditions

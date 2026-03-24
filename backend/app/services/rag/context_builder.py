@@ -31,7 +31,7 @@ class RAGContextBuilder:
     - Citation formatting
     """
 
-    RETRIEVAL_TIMEOUT_MS = 500  # 500ms timeout for retrieval
+    RETRIEVAL_TIMEOUT_MS = 10000  # 10s timeout for retrieval (cloud embeddings can be slow)
     MAX_CONTEXT_TOKENS = 2000  # Prevent prompt overflow
 
     def __init__(self, retrieval_service: RetrievalService):
@@ -47,7 +47,7 @@ class RAGContextBuilder:
         merchant_id: int,
         user_query: str,
         top_k: int = 5,
-        similarity_threshold: float = 0.7,
+        similarity_threshold: float = 0.5,
         embedding_version: str | None = None,
     ) -> str | None:
         """Retrieve relevant chunks and format as LLM context.
@@ -135,7 +135,7 @@ class RAGContextBuilder:
         merchant_id: int,
         user_query: str,
         top_k: int = 5,
-        similarity_threshold: float = 0.7,
+        similarity_threshold: float = 0.5,
         embedding_version: str | None = None,
     ) -> tuple[str | None, list[RetrievedChunk]]:
         """Retrieve relevant chunks and return both context string and raw chunks.

@@ -12,12 +12,12 @@ Tests full API flow with search and filter parameters including:
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.merchant import Merchant
+from app.models.message import Message
 
 
 async def _create_test_merchant(async_session: AsyncSession, key: str = "test") -> Merchant:
@@ -35,10 +35,11 @@ async def _create_test_merchant(async_session: AsyncSession, key: str = "test") 
 
 async def _get_authenticated_client(async_session: AsyncSession, merchant: Merchant):
     """Create an authenticated client for testing conversations endpoint."""
-    from app.main import app
-    from app.core.database import get_db
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.types import ASGIApp
+
+    from app.core.database import get_db
+    from app.main import app
 
     # Override get_db dependency
     async def override_get_db():

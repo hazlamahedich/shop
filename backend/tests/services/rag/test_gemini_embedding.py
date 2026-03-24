@@ -3,16 +3,15 @@
 Story 8-11: LLM Embedding Provider Integration & Re-embedding
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.rag.gemini_embedding_provider import (
-    GeminiEmbeddingProvider,
-    GeminiEmbeddingError,
-    GeminiRateLimitError,
-    GEMINI_DIMENSION,
-)
+import pytest
+
 from app.core.errors import APIError, ErrorCode
+from app.services.rag.gemini_embedding_provider import (
+    GEMINI_DIMENSION,
+    GeminiEmbeddingProvider,
+)
 
 
 class TestGeminiEmbeddingProvider:

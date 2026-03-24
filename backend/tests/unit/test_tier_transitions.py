@@ -6,17 +6,14 @@ Task 7.3: Test tier transition with consent status change
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.conversation import Conversation
-from app.models.consent import Consent, ConsentType
-from app.services.privacy.data_tier_service import DataTier, DataTierService
 from app.core.errors import APIError, ErrorCode
+from app.models.consent import Consent, ConsentType
+from app.models.conversation import Conversation
+from app.services.privacy.data_tier_service import DataTier, DataTierService
 
 
 class TestTierTransitions:

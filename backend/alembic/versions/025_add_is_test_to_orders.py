@@ -14,16 +14,16 @@ indicating no real customer PSID was resolved during webhook processing.
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "025_add_is_test_to_orders"
-down_revision: Union[str, None] = "024_nullable_storefront_tkn"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "024_nullable_storefront_tkn"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

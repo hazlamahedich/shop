@@ -7,10 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from sqlalchemy import select, update
+from sqlalchemy import select
+
 from app.core.database import async_session
-from app.models.shopify_integration import ShopifyIntegration
 from app.core.security import encrypt_access_token
+from app.models.shopify_integration import ShopifyIntegration
 
 
 async def update_shopify_token():

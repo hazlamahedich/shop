@@ -11,15 +11,16 @@ Tests for:
 - Compliance monitoring
 """
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone, timedelta
 from sqlalchemy import select
 
 from app.core.errors import APIError, ErrorCode
-from app.models.deletion_audit_log import DeletionAuditLog, DeletionRequestType, DeletionTrigger
 from app.models.conversation import Conversation
-from app.services.privacy.gdpr_service import GDPRDeletionService
+from app.models.deletion_audit_log import DeletionAuditLog, DeletionRequestType, DeletionTrigger
 from app.services.privacy.data_tier_service import DataTier
+from app.services.privacy.gdpr_service import GDPRDeletionService
 
 
 @pytest.fixture
@@ -183,8 +184,8 @@ async def test_mark_deletion_complete(async_session, gdpr_service, test_merchant
         customer_id="complete_customer",
         session_id="gdpr_complete_customer",
         request_type=DeletionRequestType.GDPR_FORMAL.value,
-        request_timestamp=datetime.now(timezone.utc),
-        processing_deadline=datetime.now(timezone.utc) + timedelta(days=30),
+        request_timestamp=datetime.now(UTC),
+        processing_deadline=datetime.now(UTC) + timedelta(days=30),
         deletion_trigger=DeletionTrigger.MANUAL.value,
     )
     async_session.add(audit_log)

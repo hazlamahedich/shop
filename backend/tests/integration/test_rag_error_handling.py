@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
@@ -164,10 +164,10 @@ class TestRAGErrorHandlingIntegration:
         headers = make_auth_headers(merchant_id)
 
         # Set merchant to general mode
-        from app.models.merchant import Merchant
-
-        from app.models.knowledge_base import KnowledgeDocument, DocumentStatus
         from sqlalchemy import select
+
+        from app.models.knowledge_base import DocumentStatus, KnowledgeDocument
+        from app.models.merchant import Merchant
 
         result = await async_session.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = result.scalar_one()

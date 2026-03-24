@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import sys
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -22,7 +22,6 @@ class TestErrorCodes:
     @pytest.mark.api
     def test_cogs_fetch_failed_error_code_7060(self):
         """Verify error code 7060 is returned on COGS fetch failure."""
-        from app.core.errors import ErrorCode
 
         error_code = "COGS_FETCH_FAILED"
         expected_code = 7060

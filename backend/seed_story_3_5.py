@@ -1,8 +1,9 @@
 import asyncio
-from app.core.database import engine
-from sqlalchemy import text
-from datetime import datetime, timedelta
 import random
+
+from sqlalchemy import text
+
+from app.core.database import engine
 
 
 async def seed():

@@ -5,12 +5,11 @@ Story 4-4 Task 8: Polling health endpoint tests
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
 
 from app.api.health import router
 

@@ -3,9 +3,10 @@
 Tests for webhook processing with error handling and Dead Letter Queue.
 """
 
-import pytest
 import os
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 
 
 class TestWebhookSignatureValidation:

@@ -8,10 +8,10 @@ Used to measure knowledge base effectiveness over time.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, Column, Float, Index, Integer, String, Text, TIMESTAMP
+from sqlalchemy import TIMESTAMP, Boolean, Column, Float, Index, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.core.database import Base
@@ -39,7 +39,7 @@ class RAGQueryLog(Base):
     sources = Column(JSONB, nullable=True)
     created_at = Column(
         TIMESTAMP(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
 

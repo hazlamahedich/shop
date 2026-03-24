@@ -14,16 +14,16 @@ Adds Shopify-specific fields to the orders table for storing webhook data:
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "022_add_shopify_order_fields"
-down_revision: Union[str, None] = "021_add_orders_table"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "021_add_orders_table"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

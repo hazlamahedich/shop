@@ -8,22 +8,20 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-import httpx
-from httpx import ASGITransport, AsyncClient
 from fastapi import status
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from app.main import app
-from app.api.deployment import router, _active_subprocesses, generate_merchant_key, generate_secret_key
-from app.core.database import get_db
-from app.schemas.deployment import (
-    DeploymentStatus,
-    Platform,
-    StartDeploymentRequest,
+from app.api.deployment import (
+    _active_subprocesses,
+    generate_merchant_key,
+    generate_secret_key,
 )
+from app.core.database import get_db
+from app.main import app
 
 # Use the real test engine from conftest for integration tests
-from tests.conftest import test_engine, TestingSessionLocal
+from tests.conftest import TestingSessionLocal, test_engine
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -346,10 +344,10 @@ class TestStepProgressMapping:
     @pytest.mark.asyncio
     async def test_step_progress_handles_enum_values(self, client: AsyncClient, clear_deployments: None) -> None:
         """Test that step progress handles enum values (snake_case)."""
+
         from app.models.deployment_log import DeploymentLog as DeploymentLogModel
         from app.models.merchant import Merchant
         from app.schemas.deployment import DeploymentStep
-        from sqlalchemy import text
 
         # Create a merchant and deployment logs with enum step values
         async with TestingSessionLocal() as db:
@@ -400,9 +398,9 @@ class TestStepProgressMapping:
         This addresses DEFER-1.2-1: Ensure script output like "Prerequisites",
         "Authentication", "App Setup" etc. map correctly to progress values.
         """
+
         from app.models.deployment_log import DeploymentLog as DeploymentLogModel
         from app.models.merchant import Merchant
-        from sqlalchemy import text
 
         # Create a merchant and deployment logs with script output step names
         async with TestingSessionLocal() as db:

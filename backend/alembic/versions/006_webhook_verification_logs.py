@@ -8,9 +8,10 @@ This migration creates the webhook_verification_logs table for tracking
 webhook verification tests, including status checks, test webhooks,
 and re-subscriptions for troubleshooting purposes.
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '006_webhook_verification_logs'

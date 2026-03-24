@@ -11,8 +11,9 @@ Story: Handoff Resolution Flow Enhancement
 - Supports customer satisfaction tracking
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "029_resolution_fields"
 down_revision = "028_is_offline_handoff"

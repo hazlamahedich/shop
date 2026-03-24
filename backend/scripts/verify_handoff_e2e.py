@@ -5,15 +5,14 @@ import sys
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from app.core.config import settings
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from app.core.database import async_session
-from app.services.handoff.detector import HandoffDetector
-from app.services.handoff.handoff_flow_service import HandoffFlowService
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant
 from app.models.message import Message
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from app.services.handoff.handoff_flow_service import HandoffFlowService
 
 
 async def main():

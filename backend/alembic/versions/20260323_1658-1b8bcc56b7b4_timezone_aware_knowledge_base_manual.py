@@ -5,17 +5,17 @@ Revises: 20260322_1218_faq_interaction_logs
 Create Date: 2026-03-23 16:58:00.145113
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '1b8bcc56b7b4'
-down_revision: Union[str, None] = '20260322_1218_faq_interaction_logs'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = '20260322_1218_faq_interaction_logs'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -28,7 +28,7 @@ def upgrade() -> None:
                existing_type=sa.DateTime(),
                type_=sa.DateTime(timezone=True),
                postgresql_using='updated_at AT TIME ZONE \'UTC\'')
-               
+
     # Convert document_chunks created_at to timezone-aware
     op.alter_column('document_chunks', 'created_at',
                existing_type=sa.DateTime(),
@@ -46,7 +46,7 @@ def downgrade() -> None:
                existing_type=sa.DateTime(timezone=True),
                type_=sa.DateTime(),
                postgresql_using='updated_at AT TIME ZONE \'UTC\'')
-               
+
     # Convert document_chunks back to naive timestamps
     op.alter_column('document_chunks', 'created_at',
                existing_type=sa.DateTime(timezone=True),

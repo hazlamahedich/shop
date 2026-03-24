@@ -25,8 +25,8 @@ from app.core.errors import APIError, ErrorCode
 from app.core.rate_limiter import RateLimiter
 from app.core.sanitization import sanitize_message, validate_message_length
 from app.core.validators import is_valid_session_id
-from app.models.merchant import Merchant
 from app.models.faq import Faq
+from app.models.merchant import Merchant
 from app.schemas.consent import (
     ConsentStatus,
     RecordConsentRequest,

@@ -6,10 +6,10 @@ checkout URL validation per architecture requirements.
 
 from __future__ import annotations
 
-import pytest
-import respx
-from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch
+
+import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,6 @@ async def test_storefront_checkout_url_validation(async_client: AsyncClient) -> 
         async_client: Test HTTP client
     """
     from app.services.shopify_storefront import ShopifyStorefrontClient
-    from unittest.mock import AsyncMock, patch
 
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
@@ -186,8 +185,8 @@ async def test_storefront_checkout_empty_cart(async_client: AsyncClient) -> None
     Args:
         async_client: Test HTTP client
     """
-    from app.services.shopify_storefront import ShopifyStorefrontClient
     from app.core.errors import APIError
+    from app.services.shopify_storefront import ShopifyStorefrontClient
 
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
@@ -250,7 +249,6 @@ async def test_storefront_api_error_handling(async_client: AsyncClient) -> None:
         async_client: Test HTTP client
     """
     from app.services.shopify_storefront import ShopifyStorefrontClient
-    from app.core.errors import APIError
 
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",

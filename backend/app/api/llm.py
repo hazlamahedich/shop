@@ -256,12 +256,12 @@ async def configure_llm(
     )
 
     db.add(llm_config)
-    
+
     # Sync embedding settings with the new provider
     await sync_merchant_embedding_settings(
         db, merchant_id, request_obj.provider, ollama_model
     )
-    
+
     await db.commit()
     await db.refresh(llm_config)
 
@@ -858,9 +858,9 @@ async def switch_llm_provider(
 
         # Sync embedding settings with the new provider
         await sync_merchant_embedding_settings(
-            db, 
-            merchant_id, 
-            request_obj.provider_id, 
+            db,
+            merchant_id,
+            request_obj.provider_id,
             request_obj.model
         )
 

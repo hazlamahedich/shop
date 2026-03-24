@@ -9,13 +9,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from sqlalchemy import select
+
 from app.core.database import async_session
+from app.core.security import decrypt_access_token
 from app.models.merchant import Merchant
 from app.models.shopify_integration import ShopifyIntegration
-from app.services.shopify.product_search_service import ProductSearchService
 from app.services.intent.classification_schema import ExtractedEntities
+from app.services.shopify.product_search_service import ProductSearchService
 from app.services.shopify_admin import ShopifyAdminClient
-from app.core.security import decrypt_access_token
 
 
 async def debug_product_search():

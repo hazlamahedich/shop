@@ -8,7 +8,6 @@ Create Date: 2026-02-22
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = "add_merchant_sender"
 down_revision = "026_add_consents_table"

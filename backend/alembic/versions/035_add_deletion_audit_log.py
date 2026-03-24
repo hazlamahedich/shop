@@ -10,16 +10,16 @@ Creates deletion_audit_log table for GDPR/CCPA compliance audit trail.
 Tracks all immediate "forget preferences" deletions with counts and timestamps.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "035_deletion_audit"
-down_revision: Union[str, None] = "034_visitor_id_consent"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "034_visitor_id_consent"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

@@ -12,8 +12,9 @@ Tests edge cases for threshold detection including:
 - Decimal precision: $99.999 on $100 budget -> ok
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 
 def check_budget_threshold_sync(

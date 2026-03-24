@@ -10,8 +10,9 @@ Story 4-12: Business Hours Handling Enhancement
 - Allows filtering by offline status
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "028_is_offline_handoff"
 down_revision = "add_merchant_sender"

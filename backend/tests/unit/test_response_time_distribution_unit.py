@@ -7,8 +7,6 @@ comparison logic, and and warning threshold detection.
 
 from __future__ import annotations
 
-import pytest
-
 
 def _calculate_percentiles(times: list[int]) -> dict:
     """Calculate P50, P95, P99 percentiles from a list of times."""

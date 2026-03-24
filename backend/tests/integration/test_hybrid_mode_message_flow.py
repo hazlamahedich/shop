@@ -9,9 +9,10 @@ Story 4-9: Tests the full message flow with hybrid mode:
 Priority: P0 - Tests critical AC4 behavior end-to-end
 """
 
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock, AsyncMock, patch
 
 
 @pytest.mark.asyncio
@@ -37,9 +38,9 @@ class TestHybridModeMessageFlow:
         conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
-                "activated_at": datetime.now(timezone.utc).isoformat(),
+                "activated_at": datetime.now(UTC).isoformat(),
                 "activated_by": "merchant",
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
             }
         }
         return conversation
@@ -61,7 +62,7 @@ class TestHybridModeMessageFlow:
         conversation.id = 123
         conversation.merchant_id = 1
         conversation.platform_sender_id = "test_psid_12345"
-        expired_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        expired_time = datetime.now(UTC) - timedelta(hours=1)
         conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
@@ -94,7 +95,7 @@ class TestHybridModeMessageFlow:
         conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
             }
         }
 
@@ -112,7 +113,7 @@ class TestHybridModeMessageFlow:
         conversation.conversation_data = {
             "hybrid_mode": {
                 "enabled": True,
-                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=2)).isoformat(),
             }
         }
 
@@ -125,7 +126,7 @@ class TestHybridModeMessageFlow:
         from app.services.messaging.message_processor import MessageProcessor
 
         processor = MessageProcessor(merchant_id=1)
-        expired_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        expired_time = datetime.now(UTC) - timedelta(hours=1)
         conversation = MagicMock()
         conversation.id = 123
         conversation.conversation_data = {

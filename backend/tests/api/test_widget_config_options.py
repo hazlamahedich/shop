@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.merchant import Merchant
 
 
@@ -48,14 +49,14 @@ async def test_update_widget_config_contact_options(
             }
         ]
     }
-    
+
     response = await async_client.patch(
         "/api/v1/merchants/widget-config",
         json=update_data,
         headers={"X-Merchant-Id": "1"}
     )
     assert response.status_code == 200
-    
+
     # Verify persistence
     response = await async_client.get(
         "/api/v1/merchants/widget-config",

@@ -10,16 +10,16 @@ Story 10-4: Feedback Rating Widget
 - One rating per message per session (upsert on re-click)
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "message_feedback"
-down_revision: Union[str, None] = "c724bdeb1564"
-branch_labels: Union[Sequence[str], None] = None
-depends_on: Union[Sequence[str], None] = None
+down_revision: str | None = "c724bdeb1564"
+branch_labels: Sequence[str] | None = None
+depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:

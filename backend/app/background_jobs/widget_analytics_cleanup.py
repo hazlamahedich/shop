@@ -4,9 +4,7 @@ Story 9-10: Scheduled job to cleanup old widget analytics events.
 Runs weekly on delete events older than 30 days (configurable).
 """
 
-from datetime import datetime, timezone, timedelta
-import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime, timedelta
 
 from app.core.database import async_session
 from app.services.analytics.widget_analytics_service import WidgetAnalyticsService
@@ -18,7 +16,7 @@ async def cleanup_widget_analytics():
     This job runs weekly to delete events older than 30 days.
     """
     retention_days = 30
-    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
     logger.info("Starting widget analytics cleanup job")
 

@@ -1,17 +1,17 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta, timezone
-from sqlalchemy import select, delete, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Add the backend directory to sys.path to import app modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 
-from app.core.config import settings
 from app.models.conversation import Conversation
+from app.models.deletion_audit_log import DeletionAuditLog
 from app.models.message import Message
-from app.models.deletion_audit_log import DeletionAuditLog, DeletionTrigger
 from app.services.privacy.data_tier_service import DataTier
 from app.services.privacy.retention_service import RetentionPolicy
 
@@ -26,7 +26,7 @@ async def verify_retention():
     async with async_session() as session:
         # 1. Setup Test Data
         merchant_id = 1
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired_date = datetime.utcnow() - timedelta(days=35)
         recent_date = datetime.utcnow() - timedelta(days=10)
 

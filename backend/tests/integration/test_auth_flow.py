@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.merchant import Merchant
 from app.core.auth import hash_password
+from app.models.merchant import Merchant
 
 
 @pytest.mark.asyncio

@@ -9,15 +9,14 @@ Tests verify:
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.consent import Consent
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.models.consent import Consent
 from app.services.consent.extended_consent_service import ConversationConsentService
 from app.services.privacy.data_tier_service import DataTier
 
@@ -54,7 +53,7 @@ class TestConsentTierIntegration:
                 visitor_id=visitor_id,
                 consent_type="conversation",
                 granted=True,
-                granted_at=datetime.now(timezone.utc),
+                granted_at=datetime.now(UTC),
             )
             session.add(consent)
             await session.commit()
@@ -90,7 +89,7 @@ class TestConsentTierIntegration:
                 message_id="msg123",
                 text="test message",
                 sender_type="user",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 data_tier=DataTier.VOLUNTARY,
             )
             session.add(message)
@@ -104,7 +103,7 @@ class TestConsentTierIntegration:
                 visitor_id=visitor_id,
                 consent_type="conversation",
                 granted=False,
-                revoked_at=datetime.now(timezone.utc),
+                revoked_at=datetime.now(UTC),
             )
             session.add(consent)
             await session.commit()
@@ -152,7 +151,7 @@ class TestConsentTierIntegration:
                 visitor_id=visitor_id,
                 consent_type="conversation",
                 granted=False,
-                revoked_at=datetime.now(timezone.utc),
+                revoked_at=datetime.now(UTC),
             )
             session.add(consent)
 
@@ -194,7 +193,7 @@ class TestConsentTierIntegration:
                 visitor_id=None,  # No visitor_id
                 consent_type="conversation",
                 granted=False,
-                revoked_at=datetime.now(timezone.utc),
+                revoked_at=datetime.now(UTC),
             )
             session.add(consent)
             await session.commit()
@@ -244,7 +243,7 @@ class TestConsentTierIntegration:
                 visitor_id=visitor_id,
                 consent_type="conversation",
                 granted=False,
-                revoked_at=datetime.now(timezone.utc),
+                revoked_at=datetime.now(UTC),
             )
             session.add(consent)
             await session.commit()

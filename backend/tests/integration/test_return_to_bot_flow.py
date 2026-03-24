@@ -10,9 +10,9 @@ Tests cover:
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 @pytest.fixture(autouse=True)
@@ -38,8 +38,8 @@ class TestReturnToBotFlow:
         test_handoff_conversation,
     ):
         """Test full flow: handoff -> return to bot -> status active."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,
@@ -85,7 +85,6 @@ class TestReturnToBotFlow:
     ):
         """Test that bot responds to shopper messages after return to bot."""
         from app.services.messaging.message_processor import MessageProcessor
-        from app.models.conversation import Conversation
 
         conv = test_handoff_conversation
         conv.status = "active"
@@ -107,8 +106,8 @@ class TestReturnToBotFlow:
         test_handoff_conversation,
     ):
         """Test conversation history includes all messages for bot context."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
         from app.models.message import Message
 
         fb = FacebookIntegration(
@@ -174,8 +173,8 @@ class TestReturnToBotFlow:
         test_handoff_conversation,
     ):
         """Test welcome message is sent when within 24h window."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
         from app.models.message import Message
 
         fb = FacebookIntegration(
@@ -222,8 +221,8 @@ class TestReturnToBotFlow:
         test_conversation_with_messages,
     ):
         """Test that return-to-bot is idempotent for already active conversations."""
-        from app.models.facebook_integration import FacebookIntegration
         from app.core.security import encrypt_access_token
+        from app.models.facebook_integration import FacebookIntegration
 
         fb = FacebookIntegration(
             merchant_id=test_merchant.id,

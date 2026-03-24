@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 import os
+
 from cryptography.fernet import Fernet
 
 if not os.getenv("FACEBOOK_ENCRYPTION_KEY"):
@@ -30,14 +31,14 @@ if not os.getenv("FACEBOOK_ENCRYPTION_KEY"):
     print("  Generated temporary encryption key for this session")
 
 from sqlalchemy import delete, select
-from app.core.database import async_session
+
 from app.core.auth import hash_password
+from app.core.database import async_session
 from app.core.security import encrypt_access_token
-from app.models.merchant import Merchant, PersonalityType, StoreProvider
 from app.models.llm_configuration import LLMConfiguration
+from app.models.merchant import Merchant, PersonalityType, StoreProvider
 from app.models.onboarding import PrerequisiteChecklist
 from app.models.tutorial import Tutorial
-
 
 BLANK_EMAIL = "test@test.com"
 BLANK_PASSWORD = "Test12345"

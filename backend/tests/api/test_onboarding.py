@@ -6,7 +6,8 @@ Tests prerequisite validation for merchant onboarding using httpx.AsyncClient.
 from __future__ import annotations
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
 
 
@@ -28,15 +29,15 @@ async def test_check_prerequisites_happy_path() -> None:
         # Assert response structure
         assert response.status_code == 200
         data = response.json()
-        
+
         # Validate envelope structure
         assert "data" in data
         assert "meta" in data
-        
+
         # Validate response data
         assert data["data"]["isComplete"] is True
         assert data["data"]["missing"] == []
-        
+
         # Validate metadata
         assert "requestId" in data["meta"]
         assert "timestamp" in data["meta"]
@@ -60,18 +61,18 @@ async def test_check_prerequisites_single_missing() -> None:
 
         assert response.status_code == 400
         data = response.json()
-        
+
         # Verify error structure
         assert "error_code" in data
         assert "message" in data
         assert "details" in data
-        
+
         # Verify error code
         assert data["error_code"] == 2004  # PREREQUISITES_INCOMPLETE
-        
+
         # Verify error message
         assert "Complete all prerequisites before deployment" in data["message"]
-        
+
         # Verify missing prerequisites
         assert "missing" in data["details"]
         assert len(data["details"]["missing"]) == 1
@@ -95,7 +96,7 @@ async def test_check_prerequisites_multiple_missing() -> None:
 
         assert response.status_code == 400
         data = response.json()
-        
+
         assert data["error_code"] == 2004
         assert len(data["details"]["missing"]) == 2
         expected_missing = {"cloudAccount", "shopifyAccess"}
@@ -119,12 +120,12 @@ async def test_check_prerequisites_all_missing() -> None:
 
         assert response.status_code == 400
         data = response.json()
-        
+
         assert data["error_code"] == 2004
         assert len(data["details"]["missing"]) == 4
         expected_missing = {
             "cloudAccount",
-            "facebookAccount", 
+            "facebookAccount",
             "shopifyAccess",
             "llmProviderChoice"
         }
@@ -148,15 +149,15 @@ async def test_validate_prerequisites_happy_path() -> None:
 
         assert response.status_code == 200
         data = response.json()
-        
+
         # Validate envelope structure
         assert "data" in data
         assert "meta" in data
-        
+
         # Validate response data
         assert data["data"]["isComplete"] is True
         assert data["data"]["missing"] == []
-        
+
         # Validate metadata
         assert "requestId" in data["meta"]
         assert "timestamp" in data["meta"]
@@ -179,7 +180,7 @@ async def test_validate_prerequisites_single_missing() -> None:
 
         assert response.status_code == 200
         data = response.json()
-        
+
         assert data["data"]["isComplete"] is False
         assert len(data["data"]["missing"]) == 1
         assert "facebookAccount" in data["data"]["missing"]
@@ -202,7 +203,7 @@ async def test_validate_prerequisites_multiple_missing() -> None:
 
         assert response.status_code == 200
         data = response.json()
-        
+
         assert data["data"]["isComplete"] is False
         assert len(data["data"]["missing"]) == 2
         expected_missing = {"cloudAccount", "shopifyAccess"}
@@ -226,7 +227,7 @@ async def test_validate_prerequisites_all_missing() -> None:
 
         assert response.status_code == 200
         data = response.json()
-        
+
         assert data["data"]["isComplete"] is False
         assert len(data["data"]["missing"]) == 4
         expected_missing = {
@@ -263,7 +264,7 @@ async def test_check_prerequisites_defaults_to_false() -> None:
 
         assert response.status_code == 400
         data = response.json()
-        
+
         assert data["error_code"] == 2004
         assert len(data["details"]["missing"]) == 4
         expected_missing = {
@@ -297,10 +298,10 @@ async def test_response_metadata_consistency_success_path() -> None:
         for key in ["requestId", "timestamp"]:
             assert key in data1["meta"]
             assert key in data2["meta"]
-        
+
         # Timestamps should be different
         assert data1["meta"]["timestamp"] != data2["meta"]["timestamp"]
-        
+
         # Request IDs should be different
         assert data1["meta"]["requestId"] != data2["meta"]["requestId"]
 
@@ -322,19 +323,19 @@ async def test_check_prerequisites_error_details_structure() -> None:
 
         assert response.status_code == 400
         data = response.json()
-        
+
         # Verify error details structure
         assert "error_code" in data
         assert "message" in data
         assert "details" in data
         assert "missing" in data["details"]
-        
+
         # Error code should be integer
         assert isinstance(data["error_code"], int)
-        
+
         # Message should be string
         assert isinstance(data["message"], str)
-        
+
         # Missing should be list
         assert isinstance(data["details"]["missing"], list)
 
@@ -357,7 +358,7 @@ async def test_validate_string_boolean_conversion() -> None:
 
         assert response.status_code == 200
         data = response.json()
-        
+
         # "true" -> True, "false" -> False, True -> True, "1" -> True
         # Only facebookAccount should be missing
         assert data["data"]["isComplete"] is False
@@ -372,7 +373,7 @@ async def test_check_prerequisites_individual_prerequisites() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Test each missing prerequisite one by one
         prerequisites = ["cloudAccount", "facebookAccount", "shopifyAccess", "llmProviderChoice"]
-        
+
         for prereq in prerequisites:
             # Set all to True except the current one
             params = {
@@ -382,7 +383,7 @@ async def test_check_prerequisites_individual_prerequisites() -> None:
                 "llmProviderChoice": True,
             }
             params[prereq] = False
-            
+
             response = await client.get("/api/onboarding/prerequisites/check", params=params)
             assert response.status_code == 400
             data = response.json()

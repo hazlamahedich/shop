@@ -22,15 +22,16 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.merchant import Merchant
+from app.models.message import Message
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
 from app.services.handoff.handoff_resolution_service import HandoffResolutionService
-from app.services.widget.connection_manager import WidgetConnectionManager, get_connection_manager
-import structlog
+from app.services.widget.connection_manager import get_connection_manager
 
 logger = structlog.get_logger(__name__)
 
@@ -91,8 +92,8 @@ async def test_handoff_resolution_flow():
         # Process handoff message
         from app.services.conversation.schemas import (
             Channel,
-            ConversationContext,
             ConsentState,
+            ConversationContext,
         )
 
         context = ConversationContext(
@@ -163,7 +164,7 @@ async def test_handoff_resolution_flow():
             merchant=merchant,
         )
 
-        print(f"✅ Resolution result:")
+        print("✅ Resolution result:")
         print(f"   Sent: {result['sent']}")
         print(f"   Message ID: {result['message_id']}")
         print(f"   Content: {result['content']}")
@@ -187,7 +188,7 @@ async def test_handoff_resolution_flow():
         latest_message = latest_message_result.scalars().first()
 
         if latest_message:
-            print(f"✅ Latest message:")
+            print("✅ Latest message:")
             print(f"   ID: {latest_message.id}")
             print(f"   Sender: {latest_message.sender}")
             print(f"   Content: {latest_message.content[:100]}...")
@@ -228,7 +229,7 @@ async def test_handoff_resolution_flow():
         print("📊 TEST SUMMARY")
         print("=" * 80)
         print(f"✅ Conversation ID: {conversation.id}")
-        print(f"✅ Handoff triggered: Yes")
+        print("✅ Handoff triggered: Yes")
         print(f"✅ Resolution message generated: {result['sent']}")
         print(f"✅ Message stored in database: Yes (ID: {result['message_id']})")
         print(f"✅ WebSocket broadcast attempted: {result.get('broadcast_sent', False)}")

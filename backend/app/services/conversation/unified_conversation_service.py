@@ -421,26 +421,23 @@ class UnifiedConversationService:
                 if rag_sources:
                     response.metadata["rag_sources"] = rag_sources
 
-            # Story 10-1: Map RetrievedChunk to SourceCitation
-            if rag_chunks:
-                from app.models.knowledge_base import KnowledgeDocument
-
-                source_citations = []
-                for chunk in rag_chunks:
-                    doc = await db.get(KnowledgeDocument, chunk.document_id)
-                    if doc:
-                        source_citations.append(
-                            SourceCitation(
-                                document_id=chunk.document_id,
-                                title=chunk.document_name,
-                                document_type=doc.file_type,  # type: ignore - already validated as pdf/url/text
-                                relevance_score=chunk.similarity,
-                                url=doc.source_url,
-                                chunk_index=chunk.chunk_index,
-                            )
-                        )
-                if source_citations:
-                    response.sources = source_citations
+            # Story 10-1: Map RetrievedChunk to dict for widget schema compatibility
+            source_citations = []
+            for chunk in rag_chunks:
+                doc = await db.get(KnowledgeDocument, chunk.document_id)
+                if doc:
+                    source_citations.append(
+                        {
+                            "documentId": chunk.document_id,
+                            "title": chunk.document_name,
+                            "documentType": doc.file_type,  # type: ignore
+                            "relevanceScore": chunk.similarity,
+                            "url": doc.source_url,
+                            "chunkIndex": chunk.chunk_index,
+                        }
+                    )
+            if source_citations:
+                response.sources = source_citations
 
             # Story 10-3: Generate suggested replies from RAG context
             if rag_chunks:

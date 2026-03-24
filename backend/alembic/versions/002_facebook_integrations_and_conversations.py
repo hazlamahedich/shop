@@ -7,9 +7,10 @@ Create Date: 2026-02-03
 This migration creates tables for Facebook Page integration,
 conversation tracking, and message storage.
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '002_facebook_integrations'
