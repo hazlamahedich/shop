@@ -1,8 +1,8 @@
-import { e, h, i, k, m } from "./loader-DqhEB3C6.js";
+import { h, i, k, m, n } from "./loader-0Tsm9v9U.js";
 export {
-  e as Widget,
-  h as getConfig,
-  i as initWidget,
-  k as isWidgetMounted,
-  m as unmountWidget
+  h as Widget,
+  i as getConfig,
+  k as initWidget,
+  m as isWidgetMounted,
+  n as unmountWidget
 };

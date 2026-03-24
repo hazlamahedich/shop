@@ -8,13 +8,63 @@
  * - Standard error handling
  */
 
-const API_BASE_URL = ''; // Relative path for proxy
+export const getApiBase = () => {
+  // 1. Check window.ShopBotConfig (Story 5-1 AC1)
+  const shopBotConfig = typeof window !== 'undefined' 
+    ? (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig 
+    : null;
+  
+  if (shopBotConfig?.apiBaseUrl) {
+    try {
+      const url = new URL(shopBotConfig.apiBaseUrl);
+      if (url.origin && url.origin !== 'null') {
+        return url.origin;
+      }
+    } catch {
+      // If it's a relative path, use empty string
+    }
+  }
+
+  // 2. Check document.currentScript (Most reliable if running during initial load)
+  if (typeof document !== 'undefined' && document.currentScript instanceof HTMLScriptElement && document.currentScript.src) {
+    try {
+      const scriptUrl = new URL(document.currentScript.src);
+      if (scriptUrl.origin && scriptUrl.origin !== 'null') {
+        return scriptUrl.origin;
+      }
+    } catch (e) {
+      // Ignore URL parsing errors
+    }
+  }
+
+  // 3. Check script tags as fallback (Story 5-10 Task 15)
+  if (typeof document !== 'undefined') {
+    // Look for any script that looks like the widget bundle
+    const scripts = document.querySelectorAll('script[src*="widget.umd.js"], script[src*="widget.es.js"]');
+    for (const script of scripts) {
+      if (script instanceof HTMLScriptElement && script.src) {
+        try {
+          const scriptUrl = new URL(script.src);
+          if (scriptUrl.origin && scriptUrl.origin !== 'null') {
+            return scriptUrl.origin;
+          }
+        } catch (e) {
+      // Ignore URL parsing errors
+    }
+      }
+    }
+  }
+
+  return ''; // Default to relative path for dashboard
+};
+
+const API_BASE_URL = getApiBase();
 
 const DEV_MERCHANT_ID = import.meta.env?.VITE_MERCHANT_ID || '1';
 
 interface ApiEnvelope<T> {
   data: T;
-  meta: any;
+  meta: Record<string, unknown>;
 }
 
 class ApiClient {
@@ -112,7 +162,7 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = (await response.json().catch(() => ({}))) as any;
       // Construct Error object
       const message =
         errorData.message || errorData.detail?.message || `API Error ${response.status}`;
@@ -132,7 +182,7 @@ class ApiClient {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
-  async post<T>(endpoint: string, body: any, options: RequestInit = {}) {
+  async post<T>(endpoint: string, body: unknown, options: RequestInit = {}) {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
@@ -140,7 +190,7 @@ class ApiClient {
     });
   }
 
-  async put<T>(endpoint: string, body: any, options: RequestInit = {}) {
+  async put<T>(endpoint: string, body: unknown, options: RequestInit = {}) {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
@@ -148,7 +198,7 @@ class ApiClient {
     });
   }
 
-  async patch<T>(endpoint: string, body: any, options: RequestInit = {}) {
+  async patch<T>(endpoint: string, body: unknown, options: RequestInit = {}) {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',

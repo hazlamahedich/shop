@@ -15455,7 +15455,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     onboardingMode: _enum(["general", "ecommerce"]).optional(),
     onboarding_mode: _enum(["general", "ecommerce"]).optional(),
     contactOptions: array(any()).nullable().optional(),
-    contact_options: array(any()).nullable().optional()
+    contact_options: array(any()).nullable().optional(),
+    merchantId: string().optional()
   }).passthrough().transform((data) => ({
     enabled: data.enabled,
     botName: data.botName || data.bot_name || "Assistant",
@@ -15466,7 +15467,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     personality: data.personality || void 0,
     proactiveEngagementConfig: data.proactiveEngagementConfig || data.proactive_engagement_config || void 0,
     onboardingMode: data.onboardingMode || data.onboarding_mode || "ecommerce",
-    contactOptions: data.contactOptions || data.contact_options || void 0
+    contactOptions: data.contactOptions || data.contact_options || void 0,
+    merchantId: data.merchantId
   }));
   const WidgetSessionSchema = object({
     session_id: string().optional(),
@@ -15559,6 +15561,156 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     variant_id: string().nullable().optional(),
     variantId: string().nullable().optional()
   }).passthrough();
+  const getApiBase = () => {
+    const shopBotConfig = typeof window !== "undefined" ? window.ShopBotConfig : null;
+    if (shopBotConfig == null ? void 0 : shopBotConfig.apiBaseUrl) {
+      try {
+        const url = new URL(shopBotConfig.apiBaseUrl);
+        if (url.origin && url.origin !== "null") {
+          return url.origin;
+        }
+      } catch {
+      }
+    }
+    if (typeof document !== "undefined" && document.currentScript instanceof HTMLScriptElement && document.currentScript.src) {
+      try {
+        const scriptUrl = new URL(document.currentScript.src);
+        if (scriptUrl.origin && scriptUrl.origin !== "null") {
+          return scriptUrl.origin;
+        }
+      } catch (e) {
+      }
+    }
+    if (typeof document !== "undefined") {
+      const scripts = document.querySelectorAll('script[src*="widget.umd.js"], script[src*="widget.es.js"]');
+      for (const script of scripts) {
+        if (script instanceof HTMLScriptElement && script.src) {
+          try {
+            const scriptUrl = new URL(script.src);
+            if (scriptUrl.origin && scriptUrl.origin !== "null") {
+              return scriptUrl.origin;
+            }
+          } catch (e) {
+          }
+        }
+      }
+    }
+    return "";
+  };
+  const API_BASE_URL = getApiBase();
+  class ApiClient {
+    constructor() {
+      __publicField(this, "csrfToken", null);
+      __publicField(this, "tokenFetchPromise", null);
+    }
+    async fetchCsrfToken() {
+      if (this.tokenFetchPromise) {
+        return this.tokenFetchPromise;
+      }
+      this.tokenFetchPromise = (async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/v1/csrf-token`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch CSRF token: ${response.status}`);
+          }
+          const data = await response.json();
+          this.csrfToken = data.csrf_token;
+          return data.csrf_token;
+        } catch (error) {
+          console.error("Error fetching CSRF token:", error);
+          throw error;
+        } finally {
+          this.tokenFetchPromise = null;
+        }
+      })();
+      return this.tokenFetchPromise;
+    }
+    async request(endpoint, options = {}) {
+      var _a2;
+      const url = `${API_BASE_URL}${endpoint}`;
+      const headers = new Headers(options.headers || {});
+      if (!options.cache) {
+        options.cache = "no-store";
+      }
+      if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+        headers.set("Content-Type", "application/json");
+      }
+      const method = (options.method || "GET").toUpperCase();
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        if (!this.csrfToken) {
+          try {
+            await this.fetchCsrfToken();
+          } catch (e) {
+            console.warn("Proceeding without CSRF token due to fetch error", e);
+          }
+        }
+        if (this.csrfToken) {
+          headers.set("X-CSRF-Token", this.csrfToken);
+        }
+      }
+      const config2 = {
+        credentials: "include",
+        // Ensure cookies are sent (Story 1.8)
+        ...options,
+        headers
+      };
+      let response = await fetch(url, config2);
+      if (response.status === 403) {
+        const errorBody = await response.clone().json().catch(() => ({}));
+        if (errorBody.error_code === 2e3) {
+          console.log("CSRF token invalid, refreshing...");
+          this.csrfToken = null;
+          try {
+            const newToken = await this.fetchCsrfToken();
+            headers.set("X-CSRF-Token", newToken);
+            config2.headers = headers;
+            response = await fetch(url, config2);
+          } catch (e) {
+            console.error("Failed to refresh CSRF token, throwing original error");
+          }
+        }
+      }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.message || ((_a2 = errorData.detail) == null ? void 0 : _a2.message) || `API Error ${response.status}`;
+        const error = new Error(message);
+        error.status = response.status;
+        error.code = errorData.error_code;
+        error.details = errorData.details;
+        throw error;
+      }
+      const jsonResult = await response.json();
+      return jsonResult;
+    }
+    async get(endpoint, options = {}) {
+      return this.request(endpoint, { ...options, method: "GET" });
+    }
+    async post(endpoint, body, options = {}) {
+      return this.request(endpoint, {
+        ...options,
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+    }
+    async put(endpoint, body, options = {}) {
+      return this.request(endpoint, {
+        ...options,
+        method: "PUT",
+        body: JSON.stringify(body)
+      });
+    }
+    async patch(endpoint, body, options = {}) {
+      return this.request(endpoint, {
+        ...options,
+        method: "PATCH",
+        body: JSON.stringify(body)
+      });
+    }
+    async delete(endpoint, options = {}) {
+      return this.request(endpoint, { ...options, method: "DELETE" });
+    }
+  }
+  const apiClient = new ApiClient();
   const ConsentPromptResponseSchema = object({
     status: _enum(["pending", "opted_in", "opted_out"]),
     can_store_conversation: boolean(),
@@ -15566,31 +15718,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   });
   let cachedApiBase = null;
   function getApiBaseUrl() {
-    const shopBotConfig = typeof window !== "undefined" ? window.ShopBotConfig : null;
-    if (shopBotConfig == null ? void 0 : shopBotConfig.apiBaseUrl) {
-      const configUrl = shopBotConfig.apiBaseUrl;
-      return configUrl.replace(/\/$/, "");
-    }
-    const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
-    let bestScript = null;
-    for (const script of scripts) {
-      if (script instanceof HTMLScriptElement && script.src) {
-        if (script.src.includes("trycloudflare.com")) {
-          bestScript = script;
-          break;
-        }
-        bestScript = script;
-      }
-    }
-    if (bestScript) {
-      try {
-        const scriptUrl = new URL(bestScript.src);
-        cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
-        return cachedApiBase;
-      } catch {
-      }
-    }
-    cachedApiBase = "/api/v1/widget";
+    if (cachedApiBase) return cachedApiBase;
+    const origin = getApiBase();
+    cachedApiBase = origin ? `${origin}/api/v1/widget` : "/api/v1/widget";
     return cachedApiBase;
   }
   const getWidgetApiBase = () => getApiBaseUrl();
@@ -15771,6 +15901,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         throw new WidgetApiException(0, "Invalid config response");
       }
       return {
+        merchantId: parsed.data.merchantId || merchantId,
         enabled: parsed.data.enabled,
         botName: parsed.data.botName,
         welcomeMessage: parsed.data.welcomeMessage,
@@ -17354,120 +17485,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     connectWidgetWebSocket,
     isWebSocketSupported
   }, Symbol.toStringTag, { value: "Module" }));
-  const API_BASE_URL = "";
-  class ApiClient {
-    constructor() {
-      __publicField(this, "csrfToken", null);
-      __publicField(this, "tokenFetchPromise", null);
-    }
-    async fetchCsrfToken() {
-      if (this.tokenFetchPromise) {
-        return this.tokenFetchPromise;
-      }
-      this.tokenFetchPromise = (async () => {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/csrf-token`);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch CSRF token: ${response.status}`);
-          }
-          const data = await response.json();
-          this.csrfToken = data.csrf_token;
-          return data.csrf_token;
-        } catch (error) {
-          console.error("Error fetching CSRF token:", error);
-          throw error;
-        } finally {
-          this.tokenFetchPromise = null;
-        }
-      })();
-      return this.tokenFetchPromise;
-    }
-    async request(endpoint, options = {}) {
-      var _a2;
-      const url = `${API_BASE_URL}${endpoint}`;
-      const headers = new Headers(options.headers || {});
-      if (!options.cache) {
-        options.cache = "no-store";
-      }
-      if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
-        headers.set("Content-Type", "application/json");
-      }
-      const method = (options.method || "GET").toUpperCase();
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-        if (!this.csrfToken) {
-          try {
-            await this.fetchCsrfToken();
-          } catch (e) {
-            console.warn("Proceeding without CSRF token due to fetch error", e);
-          }
-        }
-        if (this.csrfToken) {
-          headers.set("X-CSRF-Token", this.csrfToken);
-        }
-      }
-      const config2 = {
-        credentials: "include",
-        // Ensure cookies are sent (Story 1.8)
-        ...options,
-        headers
-      };
-      let response = await fetch(url, config2);
-      if (response.status === 403) {
-        const errorBody = await response.clone().json().catch(() => ({}));
-        if (errorBody.error_code === 2e3) {
-          console.log("CSRF token invalid, refreshing...");
-          this.csrfToken = null;
-          try {
-            const newToken = await this.fetchCsrfToken();
-            headers.set("X-CSRF-Token", newToken);
-            config2.headers = headers;
-            response = await fetch(url, config2);
-          } catch (e) {
-            console.error("Failed to refresh CSRF token, throwing original error");
-          }
-        }
-      }
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.message || ((_a2 = errorData.detail) == null ? void 0 : _a2.message) || `API Error ${response.status}`;
-        const error = new Error(message);
-        error.status = response.status;
-        error.code = errorData.error_code;
-        error.details = errorData.details;
-        throw error;
-      }
-      const jsonResult = await response.json();
-      return jsonResult;
-    }
-    async get(endpoint, options = {}) {
-      return this.request(endpoint, { ...options, method: "GET" });
-    }
-    async post(endpoint, body, options = {}) {
-      return this.request(endpoint, {
-        ...options,
-        method: "POST",
-        body: JSON.stringify(body)
-      });
-    }
-    async put(endpoint, body, options = {}) {
-      return this.request(endpoint, {
-        ...options,
-        method: "PUT",
-        body: JSON.stringify(body)
-      });
-    }
-    async patch(endpoint, body, options = {}) {
-      return this.request(endpoint, {
-        ...options,
-        method: "PATCH",
-        body: JSON.stringify(body)
-      });
-    }
-    async delete(endpoint, options = {}) {
-      return this.request(endpoint, { ...options, method: "DELETE" });
-    }
-  }
-  const apiClient = new ApiClient();
   async function flushWidgetAnalyticsEvents(payload) {
     const response = await apiClient.post(
       "/api/v1/analytics/widget/events",

@@ -23,6 +23,7 @@ import {
   WidgetProductDetailSchema,
 } from '../schemas/widget';
 import { z } from 'zod';
+import { getApiBase } from '../../services/api';
 
 const ConsentPromptResponseSchema = z.object({
   status: z.enum(['pending', 'opted_in', 'opted_out']),
@@ -33,39 +34,11 @@ const ConsentPromptResponseSchema = z.object({
 let cachedApiBase: string | null = null;
 
 function getApiBaseUrl(): string {
-  const shopBotConfig = typeof window !== 'undefined' 
-    ? (window as Window & { ShopBotConfig?: { apiBaseUrl?: string } }).ShopBotConfig 
-    : null;
-  if (shopBotConfig?.apiBaseUrl) {
-    const configUrl = shopBotConfig.apiBaseUrl;
-    return configUrl.replace(/\/$/, '');
-  }
+  if (cachedApiBase) return cachedApiBase;
 
-  const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
+  const origin = getApiBase();
+  cachedApiBase = origin ? `${origin}/api/v1/widget` : '/api/v1/widget';
   
-  let bestScript: HTMLScriptElement | null = null;
-
-  for (const script of scripts) {
-    if (script instanceof HTMLScriptElement && script.src) {
-      if (script.src.includes('trycloudflare.com')) {
-        bestScript = script;
-        break;
-      }
-      bestScript = script;
-    }
-  }
-
-  if (bestScript) {
-    try {
-      const scriptUrl = new URL(bestScript.src);
-      cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
-      return cachedApiBase;
-    } catch {
-      // Fall through to fallback
-    }
-  }
-
-  cachedApiBase = '/api/v1/widget';
   return cachedApiBase;
 }
 
@@ -290,6 +263,7 @@ export class WidgetApiClient {
       throw new WidgetApiException(0, 'Invalid config response');
     }
     return {
+      merchantId: parsed.data.merchantId || merchantId,
       enabled: parsed.data.enabled,
       botName: parsed.data.botName,
       welcomeMessage: parsed.data.welcomeMessage,
