@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import APIError, ErrorCode
+from app.models.knowledge_base import KnowledgeDocument
 from app.models.merchant import Merchant, PersonalityType
 from app.schemas.consent import ConsentStatus
 from app.services.consent.extended_consent_service import ConversationConsentService
@@ -53,7 +54,6 @@ from app.services.conversation.schemas import (
     Channel,
     ConversationContext,
     ConversationResponse,
-    SourceCitation,
 )
 from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
 from app.services.intent.classification_schema import (
