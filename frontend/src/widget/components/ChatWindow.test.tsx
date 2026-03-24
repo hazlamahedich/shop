@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { ChatWindow } from './ChatWindow';
+import ChatWindow from './ChatWindow';
 import type { WidgetTheme, WidgetMessage, WidgetConfig } from '../types/widget';
 
 vi.mock('focus-trap-react', () => ({
@@ -191,5 +191,30 @@ describe('ChatWindow', () => {
     await waitFor(() => {
       expect(handleSend).toHaveBeenCalledWith('Test message');
     });
+  });
+
+  it('should apply mobile styles when window width is small', () => {
+    // Mock window.innerWidth
+    vi.stubGlobal('innerWidth', 375);
+    
+    render(
+      <ChatWindow
+        isOpen={true}
+        onClose={vi.fn()}
+        theme={mockTheme}
+        config={mockConfig}
+        messages={[]}
+        isTyping={false}
+        onSendMessage={vi.fn()}
+        error={null}
+      />
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.className).toContain('draggable-chat-window');
+    
+    const style = window.getComputedStyle(dialog);
+    expect(style.bottom).toBe('0px');
+    expect(style.width).toBe('100%');
   });
 });

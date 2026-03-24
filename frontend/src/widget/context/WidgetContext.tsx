@@ -35,36 +35,6 @@ const initialConsentState: ConsentState = {
   canStoreConversation: false,
   status: 'pending',
 };
-const validatePosition = (pos: { x: number; y: number }): boolean => {
-  if (typeof window === 'undefined') return true;
-  const buffer = 50;
-  return (
-    pos.x >= -buffer && 
-    pos.x <= window.innerWidth - 380 + buffer &&
-    pos.y >= -buffer && 
-    pos.y <= window.innerHeight - 600 + buffer
-  );
-};
-
-const getDefaultPosition = (): { x: number; y: number } => {
-  if (typeof window === 'undefined') {
-    return { x: 800, y: 400 };
-  }
-  
-  // Get viewport dimensions, falling back to desktop defaults if not ready
-  const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
-  const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
-  
-  // Widget size 380x600. Target bottom-right with 20px padding and 90px bottom offset (bubble space)
-  const targetX = vWidth - 380 - 20;
-  const targetY = vHeight - 600 - 90;
-  
-  // Ensure we stay within viewport even on very small screens (min 0)
-  return {
-    x: Math.max(0, targetX),
-    y: Math.max(0, targetY),
-  };
-};
 
 const initialState: WidgetState = {
   isOpen: false,
@@ -196,6 +166,24 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
   const consentPromptShownRef = React.useRef(false);
   const lastCachedLengthRef = React.useRef<number>(0);
 
+  const validatePosition = React.useCallback((pos: { x: number; y: number }): boolean => {
+    const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
+    const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
+    
+    // Widget size 380x600.
+    const isXValid = pos.x >= -300 && pos.x <= vWidth - 80;
+    const isYValid = pos.y >= -50 && pos.y <= vHeight - 80;
+    
+    const isValid = isXValid && isYValid;
+    console.log('[WidgetContext] Position validation:', { 
+      pos, 
+      viewport: `${vWidth}x${vHeight}`, 
+      isValid 
+    });
+    return isValid;
+  }, []);
+
+
   React.useEffect(() => {
     const storedTheme = getStoredTheme(merchantId);
     if (storedTheme && storedTheme !== state.themeMode) {
@@ -269,8 +257,8 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
 
       try {
         const { widgetClient } = await import('../api/widgetClient');
-        console.log('[WidgetContext] Fetching config for merchant:', merchantId);
-        const config = await widgetClient.getConfig(merchantId);
+        console.log('[WidgetContext] Fetching config for merchant:', mId);
+        const config = await widgetClient.getConfig(mId);
         console.log('[WidgetContext] Config loaded:', !!config);
         dispatch({ type: 'SET_CONFIG', payload: config });
 
@@ -292,10 +280,15 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         dispatch({ type: 'SET_THEME_MODE', payload: storedTheme || 'auto' });
 
         // Load stored position (Story 9-2)
+        console.log('[WidgetContext] Viewport at position load:', window.innerWidth, 'x', window.innerHeight);
         const savedPosition = getStoredPosition(merchantId);
+        console.log('[WidgetContext] Stored Position found:', savedPosition);
         if (savedPosition && validatePosition(savedPosition)) {
+          console.log('[WidgetContext] Using valid stored position:', savedPosition);
           dispatch({ type: 'SET_POSITION', payload: savedPosition });
         } else {
+          console.log('[WidgetContext] No valid stored position, using default theme placement');
+          // We set to null to indicate we want the default theme-based positioning
           dispatch({ type: 'SET_POSITION', payload: null });
         }
 
@@ -419,9 +412,11 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         console.error('[WidgetContext] initWidget error:', error);
         addError(error, { action: 'Retry' });
       } finally {
-        dispatch({ type: 'SET_LOADING', payload: false })
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-    }, [merchantId, initialSessionId, createSession, getSession, addError, state.config, state.isLoading])
+    },
+    [initialSessionId, createSession, getSession, addError, validatePosition]
+  );
 
   const toggleChat = React.useCallback(() => {
     dispatch({ type: 'SET_OPEN', payload: !state.isOpen });
@@ -447,7 +442,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         addError(error, { action: 'Try Again' });
       }
     },
-    [state.session, addError]
+    [state.session?.sessionId, addError, dispatch]
   );
 
   const syncCartToShopify = React.useCallback(
@@ -473,7 +468,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
           // Ignore Shopify sync errors
         }
     },
-    [shopifyCartClient]
+    []
   );
 
   const sendMessage = React.useCallback(

@@ -1,0 +1,142 @@
+/* Source Citation Styles - Story 10-1 */
+
+.source-citation {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.source-citation__header {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.source-citation__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: default;
+  transition: background-color 150ms ease;
+}
+
+.source-card--clickable {
+  cursor: pointer;
+}
+
+.source-card--clickable:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.source-card--clickable:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.source-card--clickable:focus-visible {
+  outline: 2px solid var(--primary-color, #6366f1);
+  outline-offset: 2px;
+}
+
+.source-card__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.source-card__title {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-card__score {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.source-citation__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.source-citation__toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.source-citation__toggle:focus-visible {
+  outline: 2px solid var(--primary-color, #6366f1);
+  outline-offset: 2px;
+}
+
+/* Dark mode support */
+.source-citation--dark {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.source-citation--dark .source-card--clickable:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.source-citation--dark .source-card--clickable:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.source-citation--dark .source-citation__toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Reduced motion */
+.source-citation--reduced-motion .source-card,
+.source-citation--reduced-motion .source-citation__toggle {
+  transition: none;
+}
+
+/* High contrast mode */
+@media (forced-colors: active) {
+  .source-card--clickable {
+    border: 1px solid CanvasText;
+  }
+
+  .source-card--clickable:focus-visible {
+    outline: 2px solid Highlight;
+  }
+
+  .source-card__score {
+    border: 1px solid CanvasText;
+  }
+}

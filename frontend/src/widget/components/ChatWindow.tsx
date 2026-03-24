@@ -217,20 +217,22 @@ function ChatWindow({
 
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const isDefaultPosition = !position || isMobile;
+  
+  // A position is considered "default" if it's null OR exactly 0,0 (which usually means it hasn't been moved)
+  const isDefaultPosition = isMobile || !position || (position.x === 0 && position.y === 0);
   const windowPosition = position || { x: 0, y: 0 };
 
   const windowStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: isDefaultPosition ? 90 : 'auto',
-    right: isDefaultPosition ? 20 : 'auto',
-    top: isDefaultPosition ? 'auto' : 0,
-    left: isDefaultPosition ? 'auto' : 0,
+    bottom: isMobile ? 0 : (isDefaultPosition ? (theme.position?.startsWith('top') ? 'auto' : 90) : 'auto'),
+    right: isMobile ? 0 : (isDefaultPosition ? (theme.position?.endsWith('left') ? 'auto' : 20) : 'auto'),
+    top: isMobile ? 'auto' : (isDefaultPosition ? (theme.position?.startsWith('top') ? 20 : 'auto') : 0),
+    left: isMobile ? 'auto' : (isDefaultPosition ? (theme.position?.endsWith('left') ? 20 : 'auto') : 0),
     transform: isDefaultPosition ? 'none' : `translate(${windowPosition.x}px, ${windowPosition.y}px)`,
-    width: theme.width,
-    height: theme.height,
-    maxWidth: 'calc(100vw - 40px)',
-    maxHeight: 'calc(100vh - 120px)',
+    width: isMobile ? '100%' : theme.width,
+    height: isMobile ? '100%' : theme.height,
+    maxWidth: isMobile ? '100%' : 'calc(100vw - 40px)',
+    maxHeight: isMobile ? '100%' : 'calc(100vh - 40px)',
     backgroundColor: theme.backgroundColor,
     borderRadius: theme.borderRadius,
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
@@ -244,6 +246,24 @@ function ChatWindow({
     transition: isDragging ? 'none' : 'transform 0.2s ease-out',
     userSelect: isDragging ? 'none' : 'auto',
   };
+
+  console.log('[ChatWindow] Rendering with state:', {
+    isOpen,
+    isMobile,
+    isDefaultPosition,
+    position,
+    windowPosition,
+    themeWidth: theme.width,
+    viewportWidth: window.innerWidth
+  });
+  console.log('[ChatWindow] Calculated Style:', {
+    bottom: windowStyle.bottom,
+    right: windowStyle.right,
+    left: windowStyle.left,
+    top: windowStyle.top,
+    transform: windowStyle.transform,
+    width: windowStyle.width
+  });
 
   const handleHeaderMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -263,7 +283,7 @@ function ChatWindow({
         aria-modal="true"
         aria-label="Chat window"
         data-testid="chat-window"
-        className={`shopbot-chat-window ${isDragging ? 'dragging' : ''}`}
+        className={`shopbot-chat-window draggable-chat-window ${isDragging ? 'dragging' : ''} ${isDefaultPosition ? 'is-default-position' : ''}`}
         style={windowStyle}
       >
         <div

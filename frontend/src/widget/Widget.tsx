@@ -138,6 +138,16 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     }
   }, [state.isMinimized, toggleMinimized, toggleChat]);
 
+  console.log('[Widget] Rendering WidgetInner:', {
+    merchantId,
+    isOpen: state.isOpen,
+    isMinimized: state.isMinimized,
+    isLoading: state.isLoading,
+    position: state.position,
+    themePosition: mergedTheme.position,
+    viewport: `${window.innerWidth}x${window.innerHeight}`
+  });
+
   return (
     <>
       <style>{`
@@ -178,8 +188,8 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         .shopbot-chat-window.is-default-position {
           position: fixed !important;
           bottom: 90px !important;
-          right: 20px !important;
-          left: auto !important;
+          right: ${mergedTheme.position === 'bottom-left' ? 'auto' : '20px'} !important;
+          left: ${mergedTheme.position === 'bottom-left' ? '20px' : 'auto'} !important;
           top: auto !important;
           transform: none !important;
         }
