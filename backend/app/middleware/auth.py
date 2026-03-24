@@ -79,6 +79,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
         "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
         "/api/v1/feedback",  # Story 10-4: Feedback submission (session-based auth)
+        "/api/v1/analytics/widget/events",  # Story 9-10: Widget analytics events (public API)
     ]
 
     def __init__(self, app) -> None:

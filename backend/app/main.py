@@ -275,7 +275,7 @@ def _is_allowed_origin(origin: str) -> bool:
 cors_patterns = [
     r"https?://([a-z0-9-]+\.)?myshopify\.com(:\d+)?",
     r"https?://([a-z0-9-]+\.)?trycloudflare\.com(:\d+)?",
-    r"https?://[a-z0-9-]+\.vercel\.app(:\d+)?",
+    r"https?://([a-z0-9-]+\.)+vercel\.app(:\d+)?",
 ]
 
 # Add custom origins from settings, escaping special characters
