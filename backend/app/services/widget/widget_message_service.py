@@ -148,12 +148,15 @@ class WidgetMessageService:
         except APIError:
             raise
         except Exception as e:
+            import traceback
+
             self.logger.error(
                 "widget_message_processing_failed",
                 session_id=session.session_id,
                 merchant_id=merchant_id_cached,
                 error=str(e),
                 error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
             )
             raise APIError(
                 ErrorCode.LLM_PROVIDER_ERROR,
@@ -273,21 +276,10 @@ class WidgetMessageService:
         if response.quick_replies:
             result["quick_replies"] = response.quick_replies
 
-        # Story 10-1: Pass through sources if present
-        # Convert service SourceCitation objects to widget schema format (camelCase aliases)
+        # Story 10-1: Pass through Sources if present
+        # Sources are already converted to dict format in unified_conversation_service.py
         if response.sources:
-            sources_converted = []
-            for source in response.sources:
-                source_dict = {
-                    "documentId": source.document_id,
-                    "title": source.title,
-                    "documentType": source.document_type,
-                    "relevanceScore": source.relevance_score,
-                    "url": source.url,
-                    "chunkIndex": source.chunk_index,
-                }
-                sources_converted.append(source_dict)
-            result["sources"] = sources_converted
+            result["sources"] = response.sources
 
         # Story 10-3: Pass through suggested_replies if present
         if response.suggested_replies:
