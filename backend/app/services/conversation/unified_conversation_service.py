@@ -719,8 +719,8 @@ class UnifiedConversationService:
             return BudgetAwareLLMWrapper(
                 llm_service=llm_service,
                 db=db,
-                merchant_id=self.merchant_id,
-                conversation_id=self.conversation_id,
+                merchant_id=merchant.id,
+                conversation_id=context.session_id if context else None,
                 track_costs=self.track_costs,
                 redis_client=None,
             )
