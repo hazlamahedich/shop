@@ -58,22 +58,36 @@ function FAQQuickButtonItem({
         alignItems: 'center',
         justifyContent: 'center',
         gap: '6px',
-        minHeight: '44px',
-        minWidth: '44px',
-        padding: '10px 16px',
-        border: `1px solid ${theme.primaryColor}`,
-        borderRadius: '20px',
-        backgroundColor: 'transparent',
-        color: theme.textColor,
+        minHeight: '40px',
+        padding: '8px 14px',
+        border: `1px solid ${theme.primaryColor}33`, // 20% opacity border
+        borderRadius: '16px',
+        backgroundColor: `${theme.primaryColor}1a`, // 10% opacity background
+        color: theme.primaryColor,
         fontFamily: theme.fontFamily,
-        fontSize: '14px',
+        fontSize: '13px',
         fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
-        transition: reducedMotion ? 'none' : 'transform 100ms ease, background-color 150ms ease, opacity 150ms ease',
+        transition: reducedMotion ? 'none' : 'all 150ms ease',
         whiteSpace: 'nowrap',
         position: 'relative',
         overflow: 'hidden',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`; // 15% opacity
+          e.currentTarget.style.borderColor = `${theme.primaryColor}66`; // 40% opacity
+          e.currentTarget.style.transform = 'translateY(-1px)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
+          e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+          e.currentTarget.style.transform = 'translateY(0)';
+        }
       }}
     >
       {button.icon && (

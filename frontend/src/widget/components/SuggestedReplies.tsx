@@ -40,76 +40,71 @@ export function SuggestedReplies({
   const limitedSuggestions = suggestions.slice(0, 4);
 
   return (
-    <>
-      <style>{`
-        .suggested-reply-chip:focus {
-          outline: 2px solid ${theme.primaryColor};
-          outline-offset: 2px;
-        }
-        .suggested-reply-chip:focus-visible {
-          outline: 2px solid ${theme.primaryColor};
-          outline-offset: 2px;
-        }
-        .suggested-reply-chip:hover:not(:disabled) {
-          transform: scale(1.02);
-        }
-        .suggested-reply-chip:active:not(:disabled) {
-          transform: scale(0.95);
-        }
-      `}</style>
-      <div
-        data-testid="suggested-replies"
-        role="group"
-        aria-label="Suggested replies"
-        className="suggested-replies"
-        style={{
-          display: 'flex',
-          flexWrap: 'nowrap',
-          gap: '8px',
-          padding: '8px 12px',
-          flexShrink: 0,
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {limitedSuggestions.map((suggestion, index) => (
-          <button
-            key={suggestion}
-            data-testid={`suggested-reply-${index}`}
-            type="button"
-            role="button"
-            aria-label={suggestion}
-            disabled={disabled || selectedIndex !== null}
-            onClick={() => handleClick(suggestion, index)}
-            onKeyDown={(e) => handleKeyDown(e, suggestion, index)}
-            className={`suggested-reply-chip${reducedMotion ? ' suggested-reply-chip--reduced-motion' : ''}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '44px',
-              minWidth: '44px',
-              padding: '10px 16px',
-              border: `1px solid ${theme.primaryColor}`,
-              borderRadius: '22px',
-              backgroundColor: 'transparent',
-              color: theme.primaryColor,
-              fontFamily: theme.fontFamily,
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: disabled || selectedIndex !== null ? 'not-allowed' : 'pointer',
-              opacity: disabled || selectedIndex !== null ? 0.5 : 1,
-              transition: reducedMotion
-                ? 'none'
-                : 'transform 100ms ease, background-color 150ms ease, opacity 150ms ease',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {suggestion}
-          </button>
-        ))}
-      </div>
-    </>
+    <div
+      data-testid="suggested-replies"
+      role="group"
+      aria-label="Suggested replies"
+      className="suggested-replies"
+      style={{
+        display: 'flex',
+        flexWrap: 'nowrap',
+        gap: '8px',
+        padding: '8px 12px',
+        flexShrink: 0,
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      {limitedSuggestions.map((suggestion, index) => (
+        <button
+          key={suggestion}
+          data-testid={`suggested-reply-${index}`}
+          type="button"
+          role="button"
+          aria-label={suggestion}
+          disabled={disabled || selectedIndex !== null}
+          onClick={() => handleClick(suggestion, index)}
+          onKeyDown={(e) => handleKeyDown(e, suggestion, index)}
+          className={`suggested-reply-chip${reducedMotion ? ' suggested-reply-chip--reduced-motion' : ''}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '40px',
+            padding: '8px 16px',
+            border: `1px solid ${theme.primaryColor}33`,
+            borderRadius: '20px',
+            backgroundColor: `${theme.primaryColor}1a`,
+            color: theme.primaryColor,
+            fontFamily: theme.fontFamily,
+            fontSize: '13px',
+            fontWeight: 500,
+            cursor: disabled || selectedIndex !== null ? 'not-allowed' : 'pointer',
+            opacity: disabled || selectedIndex !== null ? 0.5 : 1,
+            transition: reducedMotion ? 'none' : 'all 150ms ease',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            position: 'relative',
+          }}
+          onMouseEnter={(e) => {
+            if (!disabled && selectedIndex === null) {
+              e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
+              e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!disabled && selectedIndex === null) {
+              e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
+              e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+              e.currentTarget.style.transform = 'translateY(0)';
+            }
+          }}
+        >
+          {suggestion}
+        </button>
+      ))}
+    </div>
   );
 }
