@@ -103,8 +103,14 @@ export function VoiceInput({
     onInterimTranscript?.(state.interimTranscript);
   }, [state.interimTranscript, onInterimTranscript]);
   
+  const transcriptProcessedRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
     if (state.finalTranscript && !state.isListening) {
+      if (transcriptProcessedRef.current === state.finalTranscript) {
+        return;
+      }
+      transcriptProcessedRef.current = state.finalTranscript;
       const durationMs = startTime ? Date.now() - startTime : 0;
       trackVoiceInput(durationMs, true);
       onTranscript?.(state.finalTranscript);
