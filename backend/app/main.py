@@ -227,20 +227,6 @@ app = FastAPI(
 
 
 def _is_allowed_origin(origin: str) -> bool:
-    """Check if origin is allowed for CORS.
-
-    Allows:
-    - Configured CORS_ORIGINS (localhost)
-    - Any .myshopify.com domain for widget
-    - trycloudflare.com domains for testing
-    - vercel.app domains for widget embedding on Vercel-hosted sites
-
-    Args:
-        origin: The request origin header
-
-    Returns:
-        True if origin is allowed
-    """
     from urllib.parse import urlparse
 
     allowed_origins = settings()["CORS_ORIGINS"]
@@ -249,20 +235,15 @@ def _is_allowed_origin(origin: str) -> bool:
 
     try:
         parsed = urlparse(origin)
-        hostname = parsed.netloc.lower()
-
-        if hostname.endswith(".myshopify.com"):
+        hostname = parsed.hostname
+        if hostname and hostname.lower().endswith(".myshopify.com"):
             return True
-
-        if hostname.endswith(".trycloudflare.com"):
+        if hostname and hostname.lower().endswith(".trycloudflare.com"):
             return True
-
-        if hostname.endswith(".vercel.app"):
+        if hostname and hostname.lower().endswith(".vercel.app"):
             return True
-
     except Exception:
         pass
-
     return False
 
 

@@ -15456,6 +15456,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     onboarding_mode: _enum(["general", "ecommerce"]).optional(),
     contactOptions: array(any()).nullable().optional(),
     contact_options: array(any()).nullable().optional(),
+    businessName: string().optional(),
+    business_name: string().optional(),
     merchantId: string().optional()
   }).passthrough().transform((data) => ({
     enabled: data.enabled,
@@ -15468,6 +15470,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     proactiveEngagementConfig: data.proactiveEngagementConfig || data.proactive_engagement_config || void 0,
     onboardingMode: data.onboardingMode || data.onboarding_mode || "ecommerce",
     contactOptions: data.contactOptions || data.contact_options || void 0,
+    businessName: data.businessName || data.business_name || void 0,
     merchantId: data.merchantId
   }));
   const WidgetSessionSchema = object({
@@ -15502,7 +15505,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     confidence: number().nullable().optional(),
     quick_replies: array(QuickReplySchema).nullable().optional(),
     contactOptions: array(any()).nullable().optional(),
-    contact_options: array(any()).nullable().optional()
+    contact_options: array(any()).nullable().optional(),
+    customerName: string().nullish(),
+    customer_name: string().nullish()
   }).passthrough();
   object({
     error_code: number(),
@@ -15829,11 +15834,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       const messages = (data.data.messages || []).map((m2) => ({
         messageId: m2.id || m2.message_id || "",
         content: m2.content,
-        sender: m2.role === "user" ? "user" : "bot",
+        sender: m2.role || m2.sender || "bot",
         createdAt: m2.timestamp || m2.created_at || "",
         products: m2.products,
         cart: m2.cart,
-        contactOptions: m2.contact_options || m2.contactOptions
+        contactOptions: m2.contact_options || m2.contactOptions,
+        customerName: m2.customer_name || m2.customerName
       }));
       return {
         messages,
@@ -15890,7 +15896,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           suggestedReplies: rawData.suggestedReplies ?? rawData.suggested_replies,
           feedbackEnabled: rawData.feedbackEnabled ?? rawData.feedback_enabled,
           userRating: rawData.userRating ?? rawData.user_rating,
-          contactOptions: rawData.contactOptions ?? rawData.contact_options ?? void 0
+          contactOptions: rawData.contactOptions ?? rawData.contact_options ?? void 0,
+          customerName: rawData.customerName ?? rawData.customer_name
         };
       } catch (error) {
         if (error instanceof WidgetApiException) throw error;
@@ -15913,7 +15920,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         shopDomain: parsed.data.shopDomain,
         proactiveEngagementConfig: parsed.data.proactiveEngagementConfig,
         onboardingMode: parsed.data.onboardingMode,
-        contactOptions: parsed.data.contactOptions
+        contactOptions: parsed.data.contactOptions,
+        businessName: parsed.data.businessName
       };
     }
     async searchProducts(sessionId, query) {
@@ -17160,6 +17168,166 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           .bubble-badge,
           .ripple-effect {
             animation: none !important;
+          }
+        }
+        
+        /* Feedback Rating Styles */
+        .feedback-rating {
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 0 12px;
+          flex-shrink: 0;
+        }
+
+        .feedback-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
+          padding: 8px;
+          border: 1px solid transparent;
+          border-radius: 22px;
+          background-color: transparent;
+          color: var(--widget-text, #1f2937);
+          cursor: pointer;
+          transition: background-color 150ms ease, transform 100ms ease, opacity 150ms ease;
+        }
+
+        .feedback-button-icon {
+          width: 20px;
+          height: 20px;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          transition: fill 150ms ease, stroke 150ms ease;
+        }
+
+        .feedback-button--selected .feedback-button-icon {
+          fill: currentColor;
+        }
+
+        .feedback-button:hover {
+          background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .feedback-button:active {
+          transform: scale(0.95);
+        }
+
+        .feedback-button:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px var(--widget-primary, #4f46e5);
+        }
+
+        .feedback-button--selected {
+          background-color: var(--widget-primary, #4f46e5);
+          color: #ffffff;
+        }
+
+        .feedback-button--selected:hover {
+          background-color: var(--widget-primary, #4f46e5);
+          opacity: 0.9;
+        }
+
+        .feedback-button:disabled {
+          cursor: wait;
+          opacity: 0.5;
+        }
+
+        .feedback-rating--dark .feedback-button {
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .feedback-rating--dark .feedback-button:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .feedback-comment-form {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 8px;
+          background-color: rgba(0, 0, 0, 0.02);
+          border-radius: 12px;
+          flex: 1;
+          max-width: 300px;
+        }
+
+        .feedback-rating--dark .feedback-comment-form {
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .feedback-comment-label {
+          font-size: 12px;
+          color: var(--widget-text, #1f2937);
+        }
+
+        .feedback-comment-textarea {
+          width: 100%;
+          padding: 8px;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+          background-color: white;
+          color: var(--widget-text, #1f2937);
+          font-family: var(--widget-font, inherit);
+          font-size: 14px;
+          resize: none;
+        }
+
+        .feedback-rating--dark .feedback-comment-textarea {
+          border-color: rgba(255, 255, 255, 0.2);
+          background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .feedback-comment-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+
+        .feedback-comment-skip {
+          padding: 6px 12px;
+          border: none;
+          border-radius: 6px;
+          background-color: transparent;
+          color: var(--widget-text, #1f2937);
+          font-size: 14px;
+          cursor: pointer;
+          opacity: 0.7;
+        }
+
+        .feedback-comment-skip:hover {
+          opacity: 1;
+        }
+
+        .feedback-comment-submit {
+          padding: 6px 12px;
+          border: none;
+          border-radius: 6px;
+          background-color: var(--widget-primary, #4f46e5);
+          color: white;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        .feedback-comment-submit:hover {
+          opacity: 0.9;
+        }
+
+        .feedback-comment-count {
+          font-size: 11px;
+          color: var(--widget-text, #1f2937);
+          opacity: 0.6;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .feedback-button {
+            transition: none;
           }
         }
       ` }),
@@ -18569,36 +18737,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     );
   }
-  const DocumentIcon = ({ type }) => {
-    if (type === "pdf") {
-      return /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "path",
-          {
-            fill: "currentColor",
-            d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h1.5a1.5 1.5 0 0 1 0 3H10v2h-1v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v1.5h1v1h-1v1.5h-1v-5z"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M10 14h.5v1H10v-1zm4 0h.5v2H14v-2z" })
-      ] });
-    }
-    if (type === "url") {
-      return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "path",
-        {
-          fill: "currentColor",
-          d: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
-        }
-      ) });
-    }
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "path",
-      {
-        fill: "currentColor",
-        d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6zm2-8h8v2H8v-2zm0 4h8v2H8v-2z"
-      }
-    ) });
-  };
   const formatScore = (score) => {
     return `${Math.round(score * 100)}%`;
   };
@@ -18617,9 +18755,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     if (!sources || sources.length === 0) {
       return null;
     }
-    const visibleSources = expanded ? sources : sources.slice(0, maxVisible);
-    const hasMore = sources.length > maxVisible;
-    const remainingCount = sources.length - maxVisible;
+    const deduplicatedSources = reactExports.useMemo(() => {
+      const sourceMap = /* @__PURE__ */ new Map();
+      for (const source of sources) {
+        const key = source.filename || source.title;
+        const existing = sourceMap.get(key);
+        if (!existing || source.relevanceScore > existing.relevanceScore) {
+          sourceMap.set(key, source);
+        }
+      }
+      return Array.from(sourceMap.values());
+    }, [sources]);
+    const visibleSources = expanded ? deduplicatedSources : deduplicatedSources.slice(0, maxVisible);
+    const hasMore = deduplicatedSources.length > maxVisible;
+    const remainingCount = deduplicatedSources.length - maxVisible;
     const handleSourceClick = (source) => {
       if (source.url) {
         window.open(source.url, "_blank", "noopener,noreferrer");
@@ -18675,7 +18824,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 },
                 "aria-label": `${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`,
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(DocumentIcon, { type: source.documentType }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "span",
                     {
@@ -18754,32 +18902,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     );
   }
-  const ThumbsUpIcon = ({ filled, color }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+  const ThumbsUpIcon = ({ className }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
     "svg",
     {
-      width: "20",
-      height: "20",
       viewBox: "0 0 24 24",
-      fill: filled ? color : "none",
-      stroke: color,
-      strokeWidth: "2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
+      className: className || "feedback-button-icon",
       "aria-hidden": "true",
       children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" })
     }
   );
-  const ThumbsDownIcon = ({ filled, color }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+  const ThumbsDownIcon = ({ className }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
     "svg",
     {
-      width: "20",
-      height: "20",
       viewBox: "0 0 24 24",
-      fill: filled ? color : "none",
-      stroke: color,
-      strokeWidth: "2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
+      className: className || "feedback-button-icon",
       "aria-hidden": "true",
       children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" })
     }
@@ -18796,7 +18932,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     const [comment, setComment] = reactExports.useState("");
     const [isSubmitting, setIsSubmitting] = reactExports.useState(false);
     const [announcement, setAnnouncement] = reactExports.useState("");
-    const reducedMotion = useReducedMotion();
     const commentInputRef = reactExports.useRef(null);
     reactExports.useEffect(() => {
       setRating(userRating || null);
@@ -18856,20 +18991,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return null;
     }
     const isDarkMode = theme.mode === "dark";
-    const buttonBaseStyle = {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: "44px",
-      minHeight: "44px",
-      padding: "8px",
-      border: "1px solid transparent",
-      borderRadius: "22px",
-      backgroundColor: "transparent",
-      cursor: isSubmitting ? "wait" : "pointer",
-      transition: reducedMotion ? "none" : "background-color 150ms ease, transform 100ms ease",
-      opacity: isSubmitting ? 0.5 : 1
-    };
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -18877,14 +18998,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         role: "group",
         "aria-label": "Rate this response",
         className: `feedback-rating${isDarkMode ? " feedback-rating--dark" : ""}`,
-        style: {
-          display: "flex",
-          gap: "8px",
-          marginTop: "8px",
-          padding: "0 12px",
-          alignItems: "flex-start",
-          flexShrink: 0
-        },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
@@ -18899,11 +19012,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               onKeyDown: (e) => handleKeyDown(e, "positive"),
               className: `feedback-button${rating === "positive" ? " feedback-button--selected" : ""}`,
               style: {
-                ...buttonBaseStyle,
-                backgroundColor: rating === "positive" ? theme.primaryColor : "transparent",
-                color: rating === "positive" ? "#fff" : theme.textColor
+                backgroundColor: rating === "positive" ? theme.primaryColor : "transparent"
               },
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, { filled: rating === "positive", color: rating === "positive" ? "#fff" : theme.textColor })
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, {})
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -18919,11 +19030,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               onKeyDown: (e) => handleKeyDown(e, "negative"),
               className: `feedback-button${rating === "negative" ? " feedback-button--selected" : ""}`,
               style: {
-                ...buttonBaseStyle,
-                backgroundColor: rating === "negative" ? theme.primaryColor : "transparent",
-                color: rating === "negative" ? "#fff" : theme.textColor
+                backgroundColor: rating === "negative" ? theme.primaryColor : "transparent"
               },
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, { filled: rating === "negative", color: rating === "negative" ? "#fff" : theme.textColor })
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, {})
             }
           ),
           showCommentForm && /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -19212,6 +19321,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   function MessageList({
     messages,
     botName,
+    businessName,
     welcomeMessage,
     theme,
     isLoading,
@@ -19324,6 +19434,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             {
               group,
               botName,
+              businessName,
               theme,
               onAddToCart,
               onProductClick,
@@ -19347,6 +19458,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   function MessageGroupComponent({
     group,
     botName,
+    businessName,
     theme,
     onAddToCart,
     onProductClick,
@@ -19360,10 +19472,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     sessionId,
     onFeedbackSubmit
   }) {
+    var _a2;
     const isUser = group.sender === "user";
     const isSystem = group.sender === "system";
     const showAvatar = !isUser && !isSystem;
-    const displayName = group.sender === "merchant" ? "Merchant" : botName;
+    let displayName = botName;
+    if (isUser) {
+      displayName = ((_a2 = group.messages[0]) == null ? void 0 : _a2.customerName) || "User";
+    } else if (group.sender === "merchant") {
+      displayName = businessName || "Merchant";
+    } else if (group.sender === "bot") {
+      displayName = botName;
+    }
     if (isSystem) {
       return /* @__PURE__ */ jsxRuntimeExports.jsx(
         "div",
@@ -21954,7 +22074,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                   cursor: isDragging ? "grabbing" : "grab"
                 },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600, pointerEvents: "none" }, children: (config2 == null ? void 0 : config2.botName) ?? "Assistant" }) }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600, pointerEvents: "none" }, children: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot" }) }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "4px" }, children: [
                     onClearHistory && messages.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative" }, ref: menuRef, children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -22159,7 +22279,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               MessageList,
               {
                 messages,
-                botName: (config2 == null ? void 0 : config2.botName) ?? "Assistant",
+                botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
+                businessName: config2 == null ? void 0 : config2.businessName,
                 welcomeMessage: config2 == null ? void 0 : config2.welcomeMessage,
                 theme,
                 isLoading: isTyping,
@@ -22212,7 +22333,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 promptShown: consentState.promptShown,
                 consentGranted: consentState.status === "opted_in" ? true : consentState.status === "opted_out" ? false : null,
                 theme,
-                botName: (config2 == null ? void 0 : config2.botName) ?? "Assistant",
+                botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
                 personality: config2 == null ? void 0 : config2.personality,
                 onConfirmConsent: onRecordConsent
               }
@@ -22221,7 +22342,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               TypingIndicator,
               {
                 isVisible: isTyping,
-                botName: (config2 == null ? void 0 : config2.botName) ?? "Assistant",
+                botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
                 theme
               }
             ) }),
