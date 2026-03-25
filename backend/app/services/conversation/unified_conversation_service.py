@@ -195,7 +195,12 @@ class UnifiedConversationService:
             rag_context = None
             rag_sources: list[str] = []
             rag_chunks: list[RetrievedChunk] = []
-            if merchant.onboarding_mode == "general" and self.rag_context_builder:
+            rag_used_in_response = False
+            if (
+                merchant.onboarding_mode == "general"
+                and self.rag_context_builder
+                and not self._is_simple_greeting(message)
+            ):
                 # Story 8-11 AC6: Construct embedding version for dimension consistency
                 embedding_version = None
                 if merchant.embedding_provider and merchant.embedding_model:
@@ -423,22 +428,34 @@ class UnifiedConversationService:
                     response.metadata["rag_sources"] = rag_sources
 
             # Story 10-1: Map RetrievedChunk to dict for widget schema compatibility
+            # Only include sources if:
+            # 1. RAG context was actually used in the response
+            # 2. The message is a question (not a greeting or statement)
             source_citations = []
-            for chunk in rag_chunks:
-                doc = await db.get(KnowledgeDocument, chunk.document_id)
-                if doc:
-                    source_citations.append(
-                        {
-                            "documentId": chunk.document_id,
-                            "title": chunk.document_name,
-                            "documentType": doc.file_type,  # type: ignore
-                            "relevanceScore": chunk.similarity,
-                            "url": doc.source_url,
-                            "chunkIndex": chunk.chunk_index,
-                        }
-                    )
+            is_question = self._is_question(message)
+            if rag_context and rag_chunks and is_question:
+                for chunk in rag_chunks:
+                    doc = await db.get(KnowledgeDocument, chunk.document_id)
+                    if doc:
+                        source_citations.append(
+                            {
+                                "documentId": chunk.document_id,
+                                "title": chunk.document_name,
+                                "filename": doc.filename,
+                                "documentType": doc.file_type,  # type: ignore
+                                "relevanceScore": chunk.similarity,
+                                "url": doc.source_url,
+                                "chunkIndex": chunk.chunk_index,
+                            }
+                        )
             if source_citations:
                 response.sources = source_citations
+                self.logger.debug(
+                    "rag_sources_attached",
+                    merchant_id=merchant.id,
+                    source_count=len(source_citations),
+                    is_question=is_question,
+                )
 
             # Story 10-3: Generate suggested replies from RAG context
             if rag_chunks:
@@ -1763,7 +1780,7 @@ class UnifiedConversationService:
                 merchant.personality if merchant.personality else PersonalityType.FRIENDLY
             )
             business_name = merchant.business_name or "our store"
-            bot_name = merchant.bot_name if merchant.bot_name else "Shopping Assistant"
+            bot_name = merchant.bot_name if merchant.bot_name else "Mantisbot"
 
             # Get LLM service for rephrasing
             llm_service = await self._get_merchant_llm(merchant, db, context)
@@ -2175,3 +2192,110 @@ class UnifiedConversationService:
         if len(cleaned) < 4 or len(cleaned) > 20:
             return False
         return bool(re.match(r"^[A-Za-z0-9\-]+$", cleaned))
+
+    def _is_simple_greeting(self, message: str) -> bool:
+        """Check if message is a simple greeting that doesn't need RAG retrieval.
+
+        Simple greetings like "hi", "hello", "hey", "thanks" don't benefit from
+        RAG context and shouldn't show source citations.
+
+        Args:
+            message: User message
+
+        Returns:
+            True if message is a simple greeting
+        """
+        import re
+
+        normalized = message.strip().lower()
+        normalized = re.sub(r"[^\w\s]", "", normalized)
+        words = normalized.split()
+
+        if len(words) > 4:
+            return False
+
+        greeting_patterns = [
+            r"^(hi|hello|hey|heya|hii+|hola|howdy|greetings)$",
+            r"^(good\s*(morning|afternoon|evening|day))$",
+            r"^(what'?s?\s*up|sup)$",
+            r"^(how\s*(are|r)\s*(you|u|ya))$",
+            r"^(thanks?|thank\s*you|thx|ty|cheers)$",
+            r"^(ok|okay|k|kk|cool|got\s*it|understood)$",
+            r"^(bye|goodbye|see\s*ya|later|ciao)$",
+            r"^(yes|no|yep|nope|yeah|nah)$",
+            r"^(hi\s*there|hello\s*there|hey\s*there)$",
+        ]
+
+        combined = " ".join(words)
+        for pattern in greeting_patterns:
+            if re.match(pattern, combined):
+                return True
+
+        return False
+
+    def _is_question(self, message: str) -> bool:
+        """Check if message is a question that warrants RAG retrieval and citations.
+
+        Only actual questions should show source citations. Statements, greetings,
+        and conversational messages should not show citations.
+
+        Args:
+            message: User message
+
+        Returns:
+            True if message is a question
+        """
+        import re
+
+        normalized = message.strip()
+
+        if not normalized:
+            return False
+
+        if self._is_simple_greeting(message):
+            return False
+
+        if normalized.endswith("?"):
+            return True
+
+        question_starters = [
+            r"^(what|whats|what's|which|where|when|why|how|who|whom)",
+            r"^(can|could|would|will|should|is|are|do|does|did|has|have|had)",
+            r"^(tell\s+me|explain|describe|help\s+me|show\s+me)",
+            r"^(i\s+want\s+to\s+know|i\s+need\s+to\s+know|i'm\s+wondering)",
+            r"^(could\s+you|would\s+you|can\s+you|will\s+you)",
+            r"^(any\s+idea|do\s+you\s+know)",
+        ]
+
+        lower = normalized.lower()
+        for pattern in question_starters:
+            if re.match(pattern, lower):
+                return True
+
+        question_words = [
+            "what",
+            "where",
+            "when",
+            "why",
+            "how",
+            "who",
+            "which",
+            "can i",
+            "could i",
+            "would i",
+            "should i",
+            "is there",
+            "are there",
+            "do you have",
+            "does it",
+            "how much",
+            "how many",
+            "how long",
+            "how do",
+        ]
+        lower_no_punct = re.sub(r"[^\w\s]", "", lower)
+        for qw in question_words:
+            if qw in lower_no_punct:
+                return True
+
+        return False
