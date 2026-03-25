@@ -87,8 +87,8 @@ export const WidgetMessageSchema = z.object({
   quick_replies: z.array(QuickReplySchema).nullable().optional(),
   contactOptions: z.array(z.any()).nullable().optional(),
   contact_options: z.array(z.any()).nullable().optional(),
-  customerName: z.string().optional(),
-  customer_name: z.string().optional(),
+  customerName: z.string().nullish(),
+  customer_name: z.string().nullish(),
 }).passthrough();
 
 export const WidgetApiErrorSchema = z.object({

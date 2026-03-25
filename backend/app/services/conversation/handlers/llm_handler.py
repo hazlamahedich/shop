@@ -67,7 +67,6 @@ class LLMHandler(BaseHandler):
         Returns:
             ConversationResponse with LLM-generated message
         """
-        # Story 8-5: Extract RAG context from metadata (set by UnifiedConversationService)
         rag_context = None
         if context.metadata:
             rag_context = context.metadata.get("rag_context")
@@ -87,7 +86,6 @@ class LLMHandler(BaseHandler):
             pending_state=pending_state,
         )
 
-        # Story 8-5: Inject RAG context if available
         if rag_context:
             logger.debug(
                 "llm_handler_rag_context_injecting",
@@ -142,7 +140,7 @@ class LLMHandler(BaseHandler):
                 db=db,
             )
 
-        quick_replies = self._generate_quick_replies(message, response_text)
+        quick_replies = self._generate_quick_replies(message, response_text, merchant)
 
         return ConversationResponse(
             message=response_text,
@@ -267,7 +265,7 @@ class LLMHandler(BaseHandler):
             return None
 
     def _generate_quick_replies(
-        self, user_message: str, response_text: str
+        self, user_message: str, response_text: str, merchant: Merchant
     ) -> list[dict[str, Any]] | None:
         """Generate contextual quick replies based on conversation.
 
@@ -282,6 +280,7 @@ class LLMHandler(BaseHandler):
         Args:
             user_message: The user's message
             response_text: The bot's response
+            merchant: The merchant object for mode detection
 
         Returns:
             List of quick reply dicts, or None if not applicable
@@ -314,7 +313,6 @@ class LLMHandler(BaseHandler):
                 {"id": "2", "text": "Continue shopping", "icon": "🛍️"},
             ]
 
-        # Default quick replies based on mode
         onboarding_mode = getattr(merchant, "onboarding_mode", "ecommerce")
 
         if onboarding_mode == "general":
@@ -328,6 +326,69 @@ class LLMHandler(BaseHandler):
                 {"id": "1", "text": "Show products", "icon": "🛍️"},
                 {"id": "2", "text": "Check my cart", "icon": "🛒"},
             ]
+
+    async def _build_system_prompt(
+        self,
+        db: AsyncSession,
+        merchant: Merchant,
+        bot_name: str,
+        business_name: str,
+        personality_type: PersonalityType,
+        pending_state: dict | None = None,
+    ) -> str:
+        """Build system prompt with personality and context.
+
+        Story 5-10: Fixed positional args bug - now passes all parameters correctly.
+        Includes business_hours, custom_greeting, business_description, and product context.
+        Added pending_state for conversation state awareness.
+
+        Args:
+            db: Database session
+            merchant: Merchant configuration
+            bot_name: Bot's name
+            business_name: Business name
+            personality_type: Personality type
+            pending_state: Optional pending state context
+
+        Returns:
+            Complete system prompt
+        """
+        custom_greeting = getattr(merchant, "custom_greeting", None)
+        business_description = getattr(merchant, "business_description", None)
+        business_hours = getattr(merchant, "business_hours", None)
+
+        product_context = ""
+        order_context = ""
+
+        if db:
+            try:
+                from app.services.product_context_service import (
+                    get_order_context_prompt_section,
+                    get_product_context_prompt_section,
+                )
+
+                product_context = await get_product_context_prompt_section(db, merchant.id)
+                order_context = await get_order_context_prompt_section(db, merchant.id)
+            except Exception as e:
+                logger.warning(
+                    "llm_handler_context_failed",
+                    merchant_id=merchant.id,
+                    error=str(e),
+                )
+
+        personality_prompt = get_personality_system_prompt(
+            personality_type,
+            custom_greeting,
+            business_name,
+            business_description,
+            business_hours,
+            bot_name,
+            product_context,
+            order_context,
+            pending_state,
+        )
+
+        return personality_prompt
 
     def _get_pending_state(self, context: ConversationContext) -> dict | None:
         """Extract pending state from conversation context.
@@ -369,20 +430,6 @@ class LLMHandler(BaseHandler):
 
 ---
 Use the information above to answer questions directly. Do NOT mention "the document", "the provided information", or "according to" - just answer naturally as if you already know the information. Only redirect to shopping if the question is completely unrelated to both shopping AND the knowledge base.
-"""
-        return f"""{base_prompt}
-
-KNOWLEDGE BASE CONTEXT:
-{rag_context}
-
-INSTRUCTIONS FOR GENERAL KNOWLEDGE QUESTIONS:
-- You have access to a KNOWLEDGE BASE with documents uploaded by the merchant
-- When the customer asks questions that can be answered from the knowledge base, USE THIS INFORMATION
-- When referencing information from the knowledge base, cite the source document
-- Example: "According to [Document Name], ..."
-- ONLY redirect to shopping if the question is clearly unrelated to BOTH shopping AND the knowledge base
-- Be helpful and accurate in your responses
-- If you question is outside the scope of the knowledge base, say "I don't have information about that in my knowledge base" and with a helpful general response
 """
 
     def build_resolution_system_prompt(
