@@ -176,6 +176,7 @@ describe('SourceCitation', () => {
     fireEvent.click(toggleButton);
     expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
   });
+
   it('should display filename instead of title when available', () => {
     const sourceWithFilename: SourceCitationType = {
       ...mockSources[0],
@@ -188,5 +189,90 @@ describe('SourceCitation', () => {
     expect(sourceCard).toHaveTextContent('actual_file_name.pdf');
     expect(sourceCard).not.toHaveTextContent('Short Summary Title');
     expect(sourceCard).toHaveAttribute('aria-label', 'actual_file_name.pdf - 95% relevance');
+  });
+
+  it('should deduplicate sources by filename, keeping highest score', () => {
+    const duplicateSources: SourceCitationType[] = [
+      {
+        documentId: 1,
+        title: 'Resume',
+        filename: 'resume.pdf',
+        documentType: 'pdf',
+        relevanceScore: 0.59,
+        chunkIndex: 1,
+      },
+      {
+        documentId: 1,
+        title: 'Resume',
+        filename: 'resume.pdf',
+        documentType: 'pdf',
+        relevanceScore: 0.56,
+        chunkIndex: 2,
+      },
+      {
+        documentId: 1,
+        title: 'Resume',
+        filename: 'resume.pdf',
+        documentType: 'pdf',
+        relevanceScore: 0.55,
+        chunkIndex: 3,
+      },
+      {
+        documentId: 2,
+        title: 'Other Doc',
+        filename: 'other.pdf',
+        documentType: 'pdf',
+        relevanceScore: 0.80,
+      },
+    ];
+
+    render(<SourceCitation sources={duplicateSources} theme={mockTheme} />);
+
+    const sourceCards = screen.getAllByTestId('source-card');
+    expect(sourceCards).toHaveLength(2);
+    expect(sourceCards[0]).toHaveTextContent('59%');
+    expect(sourceCards[1]).toHaveTextContent('80%');
+  });
+
+  it('should deduplicate sources by title when no filename', () => {
+    const duplicateSources: SourceCitationType[] = [
+      {
+        documentId: 1,
+        title: 'FAQ Page',
+        documentType: 'url',
+        relevanceScore: 0.90,
+        url: 'https://example.com/faq',
+      },
+      {
+        documentId: 1,
+        title: 'FAQ Page',
+        documentType: 'url',
+        relevanceScore: 0.85,
+        url: 'https://example.com/faq',
+      },
+    ];
+
+    render(<SourceCitation sources={duplicateSources} theme={mockTheme} />);
+
+    const sourceCards = screen.getAllByTestId('source-card');
+    expect(sourceCards).toHaveLength(1);
+    expect(sourceCards[0]).toHaveTextContent('90%');
+  });
+
+  it('should update "View more" count after deduplication', () => {
+    const duplicateSources: SourceCitationType[] = [
+      ...mockSources,
+      {
+        documentId: 1,
+        title: 'Product Manual.pdf',
+        documentType: 'pdf',
+        relevanceScore: 0.70,
+      },
+    ];
+
+    render(<SourceCitation sources={duplicateSources} theme={mockTheme} />);
+
+    expect(screen.getAllByTestId('source-card')).toHaveLength(3);
+    expect(screen.getByText('View 2 more')).toBeInTheDocument();
   });
 });

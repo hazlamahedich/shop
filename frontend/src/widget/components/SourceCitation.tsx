@@ -9,40 +9,6 @@ export interface SourceCitationProps {
   maxVisible?: number;
 }
 
-const DocumentIcon: React.FC<{ type: 'pdf' | 'url' | 'text' }> = ({ type }) => {
-  if (type === 'pdf') {
-    return (
-      <svg viewBox="0 0 24 24" className="source-card__icon" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h1.5a1.5 1.5 0 0 1 0 3H10v2h-1v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v1.5h1v1h-1v1.5h-1v-5z"
-        />
-        <path fill="currentColor" d="M10 14h.5v1H10v-1zm4 0h.5v2H14v-2z" />
-      </svg>
-    );
-  }
-
-  if (type === 'url') {
-    return (
-      <svg viewBox="0 0 24 24" className="source-card__icon" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" className="source-card__icon" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6zm2-8h8v2H8v-2zm0 4h8v2H8v-2z"
-      />
-    </svg>
-  );
-};
-
 const formatScore = (score: number): string => {
   return `${Math.round(score * 100)}%`;
 };
@@ -65,9 +31,21 @@ export function SourceCitation({
     return null;
   }
 
-  const visibleSources = expanded ? sources : sources.slice(0, maxVisible);
-  const hasMore = sources.length > maxVisible;
-  const remainingCount = sources.length - maxVisible;
+  const deduplicatedSources = React.useMemo(() => {
+    const sourceMap = new Map<string, typeof sources[0]>();
+    for (const source of sources) {
+      const key = source.filename || source.title;
+      const existing = sourceMap.get(key);
+      if (!existing || source.relevanceScore > existing.relevanceScore) {
+        sourceMap.set(key, source);
+      }
+    }
+    return Array.from(sourceMap.values());
+  }, [sources]);
+
+  const visibleSources = expanded ? deduplicatedSources : deduplicatedSources.slice(0, maxVisible);
+  const hasMore = deduplicatedSources.length > maxVisible;
+  const remainingCount = deduplicatedSources.length - maxVisible;
 
   const handleSourceClick = (source: SourceCitationType) => {
     if (source.url) {
@@ -124,7 +102,6 @@ export function SourceCitation({
               }}
               aria-label={`${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`}
             >
-              <DocumentIcon type={source.documentType} />
               <span
                 className="source-card__title"
                 style={{
