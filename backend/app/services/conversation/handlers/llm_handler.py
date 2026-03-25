@@ -107,7 +107,7 @@ class LLMHandler(BaseHandler):
             messages.append(
                 LLMMessage(
                     role="user",
-                    content=f"Here is some context that might help answer the next question:\n\n{rag_context}",
+                    content=f"Context:\n{rag_context}",
                 )
             )
         messages.append(LLMMessage(role="user", content=message))
@@ -422,7 +422,7 @@ class LLMHandler(BaseHandler):
 {rag_context}
 
 ---
-You have access to the knowledge base above. Use it to answer questions naturally in your own voice. Mention source documents casually when relevant (e.g., "I see from your resume that..." or "The document mentions..."). Only redirect to shopping if the question is completely unrelated to both shopping AND the knowledge base.
+Use the information above to answer questions directly. Do NOT mention "the document", "the provided information", or "according to" - just answer naturally as if you already know the information. Only redirect to shopping if the question is completely unrelated to both shopping AND the knowledge base.
 """
         return f"""{base_prompt}
 
