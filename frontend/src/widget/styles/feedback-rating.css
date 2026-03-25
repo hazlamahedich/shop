@@ -16,8 +16,24 @@
   border: 1px solid transparent;
   border-radius: 22px;
   background-color: transparent;
+  color: var(--widget-text, #1f2937);
   cursor: pointer;
   transition: background-color 150ms ease, transform 100ms ease, opacity 150ms ease;
+}
+
+.feedback-button-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: fill 150ms ease, stroke 150ms ease;
+}
+
+.feedback-button--selected .feedback-button-icon {
+  fill: currentColor;
 }
 
 .feedback-button:hover {
@@ -35,7 +51,7 @@
 
 .feedback-button--selected {
   background-color: var(--widget-primary, #4f46e5);
-  color: white;
+  color: #ffffff;
 }
 
 .feedback-button--selected:hover {
@@ -46,6 +62,10 @@
 .feedback-button:disabled {
   cursor: wait;
   opacity: 0.5;
+}
+
+.feedback-rating--dark .feedback-button {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .feedback-rating--dark .feedback-button:hover {

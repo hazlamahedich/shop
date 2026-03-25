@@ -1,6 +1,5 @@
 import * as React from 'react';
 import type { WidgetTheme, FeedbackRatingValue } from '../types/widget';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface FeedbackRatingProps {
   messageId: string;
@@ -10,32 +9,20 @@ export interface FeedbackRatingProps {
   onSubmit: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
-const ThumbsUpIcon: React.FC<{ filled: boolean; color: string }> = ({ filled, color }) => (
+const ThumbsUpIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
-    width="20"
-    height="20"
     viewBox="0 0 24 24"
-    fill={filled ? color : 'none'}
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    className={className || 'feedback-button-icon'}
     aria-hidden="true"
   >
     <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
   </svg>
 );
 
-const ThumbsDownIcon: React.FC<{ filled: boolean; color: string }> = ({ filled, color }) => (
+const ThumbsDownIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
-    width="20"
-    height="20"
     viewBox="0 0 24 24"
-    fill={filled ? color : 'none'}
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    className={className || 'feedback-button-icon'}
     aria-hidden="true"
   >
     <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
@@ -54,7 +41,6 @@ export function FeedbackRating({
   const [comment, setComment] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [announcement, setAnnouncement] = React.useState('');
-  const reducedMotion = useReducedMotion();
   const commentInputRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
@@ -125,20 +111,6 @@ export function FeedbackRating({
   }
 
   const isDarkMode = theme.mode === 'dark';
-  const buttonBaseStyle: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '44px',
-    minHeight: '44px',
-    padding: '8px',
-    border: '1px solid transparent',
-    borderRadius: '22px',
-    backgroundColor: 'transparent',
-    cursor: isSubmitting ? 'wait' : 'pointer',
-    transition: reducedMotion ? 'none' : 'background-color 150ms ease, transform 100ms ease',
-    opacity: isSubmitting ? 0.5 : 1,
-  };
 
   return (
     <div
@@ -146,14 +118,6 @@ export function FeedbackRating({
       role="group"
       aria-label="Rate this response"
       className={`feedback-rating${isDarkMode ? ' feedback-rating--dark' : ''}`}
-      style={{
-        display: 'flex',
-        gap: '8px',
-        marginTop: '8px',
-        padding: '0 12px',
-        alignItems: 'flex-start',
-        flexShrink: 0,
-      }}
     >
       <button
         data-testid="feedback-up"
@@ -166,12 +130,10 @@ export function FeedbackRating({
         onKeyDown={(e) => handleKeyDown(e, 'positive')}
         className={`feedback-button${rating === 'positive' ? ' feedback-button--selected' : ''}`}
         style={{
-          ...buttonBaseStyle,
           backgroundColor: rating === 'positive' ? theme.primaryColor : 'transparent',
-          color: rating === 'positive' ? '#fff' : theme.textColor,
         }}
       >
-        <ThumbsUpIcon filled={rating === 'positive'} color={rating === 'positive' ? '#fff' : theme.textColor} />
+        <ThumbsUpIcon />
       </button>
 
       <button
@@ -185,12 +147,10 @@ export function FeedbackRating({
         onKeyDown={(e) => handleKeyDown(e, 'negative')}
         className={`feedback-button${rating === 'negative' ? ' feedback-button--selected' : ''}`}
         style={{
-          ...buttonBaseStyle,
           backgroundColor: rating === 'negative' ? theme.primaryColor : 'transparent',
-          color: rating === 'negative' ? '#fff' : theme.textColor,
         }}
       >
-        <ThumbsDownIcon filled={rating === 'negative'} color={rating === 'negative' ? '#fff' : theme.textColor} />
+        <ThumbsDownIcon />
       </button>
 
       {showCommentForm && (
