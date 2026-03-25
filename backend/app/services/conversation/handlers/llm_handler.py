@@ -107,7 +107,7 @@ class LLMHandler(BaseHandler):
             messages.append(
                 LLMMessage(
                     role="user",
-                    content=f"[Reference context for your next answer]\n{rag_context}\n[End reference context]",
+                    content=f"Here is some context that might help answer the next question:\n\n{rag_context}",
                 )
             )
         messages.append(LLMMessage(role="user", content=message))
@@ -405,7 +405,7 @@ class LLMHandler(BaseHandler):
         return pending_state if pending_state else None
 
     def _inject_rag_context(self, base_prompt: str, rag_context: str) -> str:
-        """Inject RAG context into system prompt with citation instructions.
+        """Inject RAG context into system prompt naturally.
 
         Story 8-5: RAG Integration in Conversation
         Story 10-1: Enhanced for general mode - prioritize knowledge base over shopping redirect
@@ -415,25 +415,14 @@ class LLMHandler(BaseHandler):
             rag_context: RAG context string with document chunks
 
         Returns:
-            System prompt with RAG context and citation instructions
+            System prompt with RAG context
         """
         return f"""{base_prompt}
 
 {rag_context}
 
 ---
-
-IMPORTANT INSTRUCTIONS - READ CAREFULLY:
-
-The KNOWLEDGE BASE above contains information from documents the merchant uploaded. When answering questions:
-
-1. FIRST check if the answer is in the KNOWLEDGE BASE above
-2. If YES: Answer directly using that information and cite the source
-3. If NO: Then provide a helpful general response
-
-Example: If user asks "When did he graduate?" and the KNOWLEDGE BASE shows "March 2002", answer: "According to the document, he graduated in March 2002."
-
-DO NOT ignore the KNOWLEDGE BASE. USE IT to answer questions.
+You have access to the knowledge base above. Use it to answer questions naturally in your own voice. Mention source documents casually when relevant (e.g., "I see from your resume that..." or "The document mentions..."). Only redirect to shopping if the question is completely unrelated to both shopping AND the knowledge base.
 """
         return f"""{base_prompt}
 
