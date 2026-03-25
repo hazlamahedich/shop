@@ -208,6 +208,7 @@ class UnifiedConversationService:
                     merchant_id=merchant.id,
                     user_query=message,
                     embedding_version=embedding_version,
+                    conversation_history=context.conversation_history,
                 )
                 # Store in context for handlers to access
                 if context.metadata is None:

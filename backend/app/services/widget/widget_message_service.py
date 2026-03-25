@@ -569,8 +569,14 @@ class WidgetMessageService:
                 embedding_service=embedding_service,
             )
 
-            # Create RAG context builder
-            rag_context_builder = RAGContextBuilder(retrieval_service=retrieval_service)
+            # Create LLM service for query rewriting (Story 10-1)
+            llm_service = self._get_llm_service(merchant)
+
+            # Create RAG context builder with LLM service for query rewriting
+            rag_context_builder = RAGContextBuilder(
+                retrieval_service=retrieval_service,
+                llm_service=llm_service,
+            )
 
             self.logger.debug(
                 "rag_context_builder_initialized",
@@ -588,6 +594,44 @@ class WidgetMessageService:
                 error=str(e),
             )
             return None
+
+    def _get_llm_service(self, merchant: Merchant):
+        """Get LLM service for a merchant.
+
+        Args:
+            merchant: Merchant configuration
+
+        Returns:
+            LLM service instance
+        """
+        provider_name = "ollama"
+        llm_config = {}
+
+        try:
+            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
+                llm_config_obj = merchant.llm_configuration
+                provider_name = llm_config_obj.provider or "ollama"
+
+                llm_config = {
+                    "model": llm_config_obj.ollama_model or llm_config_obj.cloud_model,
+                }
+
+                if provider_name == "ollama":
+                    llm_config["ollama_url"] = llm_config_obj.ollama_url
+                else:
+                    if llm_config_obj.api_key_encrypted:
+                        from app.core.security import decrypt_access_token
+
+                        llm_config["api_key"] = decrypt_access_token(
+                            llm_config_obj.api_key_encrypted
+                        )
+        except Exception:
+            pass
+
+        return LLMProviderFactory.create_provider(
+            provider_name=provider_name,
+            config=llm_config,
+        )
 
     async def retroactively_save_conversation_history(
         self,

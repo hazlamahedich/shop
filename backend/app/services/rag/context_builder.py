@@ -4,15 +4,21 @@ Formats retrieved document chunks into context string with source citations
 for injection into LLM system prompts.
 
 Story 8-5: Backend - RAG Integration in Conversation
+Story 10-1: Query rewriting for follow-up questions
 """
 
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
 import structlog
 
+from app.services.rag.query_rewriter import QueryRewriter
 from app.services.rag.retrieval_service import RetrievalService, RetrievedChunk
+
+if TYPE_CHECKING:
+    from app.services.llm.base_llm_service import BaseLLMService
 
 logger = structlog.get_logger(__name__)
 
@@ -33,14 +39,21 @@ class RAGContextBuilder:
 
     RETRIEVAL_TIMEOUT_MS = 10000  # 10s timeout for retrieval (cloud embeddings can be slow)
     MAX_CONTEXT_TOKENS = 2000  # Prevent prompt overflow
+    REWRITE_TIMEOUT_MS = 2000  # 2s timeout for query rewriting
 
-    def __init__(self, retrieval_service: RetrievalService):
+    def __init__(
+        self,
+        retrieval_service: RetrievalService,
+        llm_service: BaseLLMService | None = None,
+    ):
         """Initialize RAG context builder.
 
         Args:
             retrieval_service: Service for retrieving relevant chunks
+            llm_service: Optional LLM service for query rewriting (Story 10-1)
         """
         self.retrieval_service = retrieval_service
+        self.query_rewriter = QueryRewriter(llm_service) if llm_service else None
 
     async def build_rag_context(
         self,
@@ -137,6 +150,7 @@ class RAGContextBuilder:
         top_k: int = 5,
         similarity_threshold: float = 0.5,
         embedding_version: str | None = None,
+        conversation_history: list[dict] | None = None,
     ) -> tuple[str | None, list[RetrievedChunk]]:
         """Retrieve relevant chunks and return both context string and raw chunks.
 
@@ -149,15 +163,48 @@ class RAGContextBuilder:
             top_k: Number of chunks to retrieve (default 5)
             similarity_threshold: Minimum similarity score (default 0.7)
             embedding_version: Filter by embedding version
+            conversation_history: Optional conversation history for query rewriting
 
         Returns:
             Tuple of (formatted context string or None, list of RetrievedChunk)
         """
+        search_query = user_query
+
+        if (
+            self.query_rewriter
+            and conversation_history
+            and self.query_rewriter.is_follow_up(user_query)
+        ):
+            try:
+                search_query = await asyncio.wait_for(
+                    self.query_rewriter.rewrite_query(user_query, conversation_history),
+                    timeout=self.REWRITE_TIMEOUT_MS / 1000.0,
+                )
+                logger.info(
+                    "rag_query_rewritten",
+                    merchant_id=merchant_id,
+                    original=user_query[:50],
+                    rewritten=search_query[:50],
+                )
+            except TimeoutError:
+                logger.warning(
+                    "rag_query_rewrite_timeout",
+                    merchant_id=merchant_id,
+                    fallback_to_original=True,
+                )
+            except Exception as e:
+                logger.warning(
+                    "rag_query_rewrite_failed",
+                    merchant_id=merchant_id,
+                    error=str(e),
+                    fallback_to_original=True,
+                )
+
         try:
             chunks = await asyncio.wait_for(
                 self.retrieval_service.retrieve_relevant_chunks(
                     merchant_id=merchant_id,
-                    query=user_query,
+                    query=search_query,
                     top_k=top_k,
                     threshold=similarity_threshold,
                     embedding_version=embedding_version,
@@ -169,7 +216,8 @@ class RAGContextBuilder:
                 logger.info(
                     "rag_no_chunks_found_with_chunks",
                     merchant_id=merchant_id,
-                    query_length=len(user_query),
+                    query_length=len(search_query),
+                    original_query=user_query[:50] if search_query != user_query else None,
                 )
                 return None, []
 

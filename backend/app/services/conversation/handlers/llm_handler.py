@@ -89,6 +89,12 @@ class LLMHandler(BaseHandler):
 
         # Story 8-5: Inject RAG context if available
         if rag_context:
+            logger.debug(
+                "llm_handler_rag_context_injecting",
+                merchant_id=merchant.id,
+                rag_context_length=len(rag_context),
+                rag_context_preview=rag_context[:500],
+            )
             system_prompt = self._inject_rag_context(system_prompt, rag_context)
 
         messages = [LLMMessage(role="system", content=system_prompt)]
@@ -97,8 +103,22 @@ class LLMHandler(BaseHandler):
             role = "user" if msg.get("role") == "user" else "assistant"
             messages.append(LLMMessage(role=role, content=msg.get("content", "")))
 
+        if rag_context:
+            messages.append(
+                LLMMessage(
+                    role="user",
+                    content=f"[Reference context for your next answer]\n{rag_context}\n[End reference context]",
+                )
+            )
         messages.append(LLMMessage(role="user", content=message))
 
+        logger.debug(
+            "llm_handler_messages",
+            merchant_id=merchant.id,
+            message_count=len(messages),
+            system_prompt_length=len(system_prompt),
+            has_rag_context=rag_context is not None,
+        )
         try:
             response = await llm_service.chat(messages=messages, temperature=0.7)
             response_text = response.content
@@ -388,6 +408,7 @@ class LLMHandler(BaseHandler):
         """Inject RAG context into system prompt with citation instructions.
 
         Story 8-5: RAG Integration in Conversation
+        Story 10-1: Enhanced for general mode - prioritize knowledge base over shopping redirect
 
         Args:
             base_prompt: Original system prompt
@@ -398,14 +419,35 @@ class LLMHandler(BaseHandler):
         """
         return f"""{base_prompt}
 
+{rag_context}
+
+---
+
+IMPORTANT INSTRUCTIONS - READ CAREFULLY:
+
+The KNOWLEDGE BASE above contains information from documents the merchant uploaded. When answering questions:
+
+1. FIRST check if the answer is in the KNOWLEDGE BASE above
+2. If YES: Answer directly using that information and cite the source
+3. If NO: Then provide a helpful general response
+
+Example: If user asks "When did he graduate?" and the KNOWLEDGE BASE shows "March 2002", answer: "According to the document, he graduated in March 2002."
+
+DO NOT ignore the KNOWLEDGE BASE. USE IT to answer questions.
+"""
+        return f"""{base_prompt}
+
 KNOWLEDGE BASE CONTEXT:
 {rag_context}
 
-INSTRUCTIONS:
-- Use the knowledge base context to answer questions accurately
+INSTRUCTIONS FOR GENERAL KNOWLEDGE QUESTIONS:
+- You have access to a KNOWLEDGE BASE with documents uploaded by the merchant
+- When the customer asks questions that can be answered from the knowledge base, USE THIS INFORMATION
 - When referencing information from the knowledge base, cite the source document
 - Example: "According to [Document Name], ..."
-- If the question is outside the knowledge base scope, provide a helpful general response
+- ONLY redirect to shopping if the question is clearly unrelated to BOTH shopping AND the knowledge base
+- Be helpful and accurate in your responses
+- If you question is outside the scope of the knowledge base, say "I don't have information about that in my knowledge base" and with a helpful general response
 """
 
     def build_resolution_system_prompt(
