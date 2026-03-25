@@ -314,7 +314,7 @@ function GlassmorphismDemo({ theme }: { theme: 'light' | 'dark' | 'auto' }) {
               fontWeight: 600,
             }}
           >
-            🤖 ShopBot Assistant
+            🤖 Mantisbot
           </div>
           
           {/* Messages */}
@@ -528,7 +528,7 @@ function CarouselDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' }) {
             fontWeight: 600,
           }}
         >
-          🤖 ShopBot Assistant
+          🤖 Mantisbot
         </div>
         
         {/* Messages */}
@@ -739,7 +739,7 @@ function QuickReplyDemo({ theme: _theme }: { theme: 'light' | 'dark' | 'auto' })
             fontWeight: 600,
           }}
         >
-          🤖 ShopBot Assistant
+          🤖 Mantisbot
         </div>
         
         {/* Messages */}

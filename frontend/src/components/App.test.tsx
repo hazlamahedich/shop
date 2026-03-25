@@ -7,7 +7,7 @@ import { App } from './App';
 describe('App', () => {
   it('renders header with title', () => {
     const { container } = render(<App />);
-    expect(container.textContent).toContain('Shopping Assistant Bot');
+    expect(container.textContent).toContain('Mantisbot');
   });
 
   it('renders main content area', () => {

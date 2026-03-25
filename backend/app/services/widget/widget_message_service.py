@@ -123,6 +123,7 @@ class WidgetMessageService:
             session.session_id,
             "user",
             sanitized_message,
+            customer_name=session.customer_name,
         )
 
         # Cache merchant_id immediately to avoid lazy-load on expired ORM object
@@ -182,6 +183,7 @@ class WidgetMessageService:
             conversation_history=history,
             platform_sender_id=None,
             user_id=None,
+            user_name=session.customer_name,  # Pass customer_name if available (Story 5-10)
             is_returning_shopper=session.is_returning_shopper,
             consent_state=ConsentState(visitor_id=session.visitor_id),
         )
@@ -240,6 +242,7 @@ class WidgetMessageService:
             session.session_id,
             "bot",
             bot_message,
+            customer_name=session.customer_name,
         )
         await self.session_service.refresh_session(session.session_id)
 
@@ -259,6 +262,7 @@ class WidgetMessageService:
             "content": bot_message,
             "sender": "bot",
             "created_at": datetime.now(UTC),
+            "customer_name": session.customer_name,
         }
 
         if response.products:
@@ -384,6 +388,7 @@ class WidgetMessageService:
             session.session_id,
             "bot",
             response_text,
+            customer_name=session.customer_name,
         )
         await self.session_service.refresh_session(session.session_id)
 
@@ -400,6 +405,7 @@ class WidgetMessageService:
             "content": response_text,
             "sender": "bot",
             "created_at": datetime.now(UTC),
+            "customer_name": session.customer_name,
         }
 
     async def _build_llm_messages(
@@ -450,35 +456,48 @@ class WidgetMessageService:
         Returns:
             System prompt string
         """
-        bot_name = merchant.bot_name or "Shopping Assistant"
+        bot_name = merchant.bot_name or "Mantisbot"
         business_name = merchant.business_name or "our store"
         business_description = merchant.business_description or ""
+        onboarding_mode = getattr(merchant, "onboarding_mode", "ecommerce")
 
-        prompt_parts = [
-            f"You are {bot_name}, a helpful shopping assistant for {business_name}.",
-            "You are chatting via an embeddable website widget.",
-            "Be helpful, friendly, and concise in your responses.",
-        ]
+        # Mode-aware base prompt
+        if onboarding_mode == "general":
+            prompt_parts = [
+                f"You are a helpful AI assistant for {business_name}.",
+                "You are chatting via an embeddable website widget.",
+                "Be helpful, friendly, and concise in your responses.",
+                "Answer questions based on the knowledge base documents and business information provided.",
+            ]
+        else:
+            prompt_parts = [
+                f"You are a helpful AI shopping assistant for {business_name}.",
+                "You are chatting via an embeddable website widget.",
+                "Be helpful, friendly, and concise in your responses.",
+            ]
 
         if business_description:
             prompt_parts.append(f"\nAbout the business: {business_description}")
 
-        # Add product context (categories, pinned products, price range)
-        if self.db:
-            try:
-                from app.services.product_context_service import get_product_context_prompt_section
+        # Only add product context for e-commerce mode
+        if onboarding_mode != "general":
+            if self.db:
+                try:
+                    from app.services.product_context_service import (
+                        get_product_context_prompt_section,
+                    )
 
-                product_context = await get_product_context_prompt_section(self.db, merchant.id)
-                if product_context:
-                    prompt_parts.append(f"\nStore Products:\n{product_context}")
-            except Exception as e:
-                self.logger.warning(
-                    "widget_product_context_failed",
-                    merchant_id=merchant.id,
-                    error=str(e),
-                )
+                    product_context = await get_product_context_prompt_section(self.db, merchant.id)
+                    if product_context:
+                        prompt_parts.append(f"\nStore Products:\n{product_context}")
+                except Exception as e:
+                    self.logger.warning(
+                        "widget_product_context_failed",
+                        merchant_id=merchant.id,
+                        error=str(e),
+                    )
 
-        # Add FAQ context if available
+        # Add FAQ context if available (for both modes)
         if self.db:
             try:
                 from sqlalchemy import select

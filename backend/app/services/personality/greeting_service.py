@@ -95,11 +95,11 @@ def substitute_greeting_variables(
     # bot_name: substitute if key in config OR config is empty
     if is_config_empty or "bot_name" in merchant_config:
         if is_config_empty:
-            substitutions["bot_name"] = "your shopping assistant"
+            substitutions["bot_name"] = "Mantisbot"
         elif "bot_name" in merchant_config:
             bot_name_value = merchant_config["bot_name"]
             if bot_name_value is None or bot_name_value.strip() == "":
-                substitutions["bot_name"] = "your shopping assistant"
+                substitutions["bot_name"] = "Mantisbot"
             else:
                 substitutions["bot_name"] = bot_name_value
 

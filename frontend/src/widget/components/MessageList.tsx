@@ -14,6 +14,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 export interface MessageListProps {
   messages: WidgetMessage[];
   botName: string;
+  businessName?: string;
   welcomeMessage?: string;
   theme: WidgetTheme;
   isLoading?: boolean;
@@ -33,6 +34,7 @@ export interface MessageListProps {
 export function MessageList({
   messages,
   botName,
+  businessName,
   welcomeMessage,
   theme,
   isLoading,
@@ -154,6 +156,7 @@ export function MessageList({
           key={group.id}
           group={group}
           botName={botName}
+          businessName={businessName}
           theme={theme}
           onAddToCart={onAddToCart}
           onProductClick={onProductClick}
@@ -176,6 +179,7 @@ export function MessageList({
 interface MessageGroupComponentProps {
   group: MessageGroup;
   botName: string;
+  businessName?: string;
   theme: WidgetTheme;
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
@@ -193,6 +197,7 @@ interface MessageGroupComponentProps {
 function MessageGroupComponent({
   group,
   botName,
+  businessName,
   theme,
   onAddToCart,
   onProductClick,
@@ -209,7 +214,15 @@ function MessageGroupComponent({
   const isUser = group.sender === 'user';
   const isSystem = group.sender === 'system';
   const showAvatar = !isUser && !isSystem;
-  const displayName = group.sender === 'merchant' ? 'Merchant' : botName;
+
+  let displayName = botName;
+  if (isUser) {
+    displayName = group.messages[0]?.customerName || 'User';
+  } else if (group.sender === 'merchant') {
+    displayName = businessName || 'Merchant';
+  } else if (group.sender === 'bot') {
+    displayName = botName;
+  }
 
   if (isSystem) {
     return (

@@ -484,7 +484,7 @@ class MessageProcessor:
                     bot_name = (
                         merchant.bot_name
                         if merchant and merchant.bot_name
-                        else "Shopping Assistant"
+                        else "Mantisbot"
                     )
                     personality_type = (
                         merchant.personality

@@ -1,4 +1,4 @@
-import { h, i, k, m, n } from "./loader-D2HiUzsv.js";
+import { h, i, k, m, n } from "./loader-BACCb8_P.js";
 export {
   h as Widget,
   i as getConfig,

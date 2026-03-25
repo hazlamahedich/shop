@@ -75,7 +75,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -103,7 +103,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -138,7 +138,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -167,7 +167,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -198,7 +198,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -231,7 +231,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -260,7 +260,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -291,7 +291,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -324,7 +324,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -352,7 +352,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -380,7 +380,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -413,7 +413,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -441,7 +441,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -478,7 +478,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -512,7 +512,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -548,7 +548,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -586,7 +586,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -615,7 +615,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
       
       let savedConfig = {
         enabled: true,
-        botName: 'Shopping Assistant',
+        botName: 'Mantisbot',
         welcomeMessage: 'Hi! How can I help you today?',
         theme: { primaryColor: '#6366f1', position: 'bottom-right' },
       };
@@ -674,7 +674,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -705,7 +705,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -760,7 +760,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -794,7 +794,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -823,7 +823,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi! How can I help you today?',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -852,7 +852,7 @@ test.describe('Story 5-6: Merchant Widget Settings UI', () => {
       
       let savedConfig = {
         enabled: true,
-        botName: 'Shopping Assistant',
+        botName: 'Mantisbot',
         welcomeMessage: 'Hi! How can I help you today?',
         theme: { primaryColor: '#6366f1', position: 'bottom-right' },
       };

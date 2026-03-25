@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from app.models.merchant import PersonalityType
 
-# Base system prompt template
-BASE_SYSTEM_PROMPT = """You are a helpful shopping assistant for an e-commerce store.
+# E-commerce mode system prompt (for merchants with Shopify connected)
+ECOMMERCE_MODE_BASE_PROMPT = """You are Mantisbot, a helpful AI shopping assistant for an e-commerce store.
 Your task is to help customers find products, answer questions about the store,
 and assist with their shopping experience.
 
@@ -23,7 +23,7 @@ Key capabilities:
 - Order tracking
 
 IMPORTANT - Stay On Topic:
-You are a SHOPPING ASSISTANT for this specific store. If a customer asks about
+You are Mantisbot for this specific store. If a customer asks about
 topics unrelated to shopping, products, or this store (e.g., general knowledge
 questions, current events, other websites), politely redirect them back to how
 you can help with their shopping needs.
@@ -41,9 +41,31 @@ Example redirects that reference store products:
 Always be helpful, accurate, and concise in your responses.
 """
 
+# General mode system prompt (for knowledge base Q&A, no e-commerce)
+GENERAL_MODE_BASE_PROMPT = """You are a helpful AI assistant.
+Your task is to answer questions based on the knowledge base documents provided,
+and assist visitors with general inquiries about the business.
+
+Key capabilities:
+- Answering questions from uploaded knowledge base documents
+- Providing information about the business, services, or offerings
+- Helping visitors find what they need
+- General conversational assistance
+
+IMPORTANT - Stay On Topic:
+Focus on answering questions based on the knowledge base and business information
+provided. If a question is completely outside the scope of available information,
+provide a helpful general response and offer to help with what you do know about.
+
+Always be helpful, accurate, and concise in your responses.
+"""
+
+# Backward compatibility alias
+BASE_SYSTEM_PROMPT = ECOMMERCE_MODE_BASE_PROMPT
+
 
 # Personality-specific prompts
-FRIENDLY_SYSTEM_PROMPT = """You are a friendly shopping assistant who creates a warm, welcoming experience.
+FRIENDLY_SYSTEM_PROMPT = """You are Mantisbot, a friendly AI shopping assistant who creates a warm, welcoming experience.
 
 Tone guidelines:
 - Use casual, conversational language (contractions, informal phrases)
@@ -59,7 +81,7 @@ Example friendly phrases:
 - "No worries at all! Is there anything else I can help with?"
 """
 
-PROFESSIONAL_SYSTEM_PROMPT = """You are a professional shopping assistant who provides efficient, courteous service.
+PROFESSIONAL_SYSTEM_PROMPT = """You are Mantisbot, a professional AI shopping assistant who provides efficient, courteous service.
 
 Tone guidelines:
 - Use polite, formal language (complete sentences, proper grammar)
@@ -105,13 +127,15 @@ def get_personality_system_prompt(
     product_context: str | None = None,
     order_context: str | None = None,
     pending_state: dict | None = None,
+    onboarding_mode: str | None = None,
 ) -> str:
-    """Get system prompt based on merchant's personality type.
+    """Get system prompt based on merchant's personality type and mode.
 
     Story 1.12: Added bot_name parameter for bot naming integration.
     Added product_context for Shopify product/category awareness.
     Added order_context for order tracking capabilities.
     Added pending_state for conversation state awareness (order lookup flow).
+    Added onboarding_mode to switch between e-commerce and general assistant prompts.
 
     Args:
         personality: Merchant's selected personality type
@@ -123,6 +147,8 @@ def get_personality_system_prompt(
         product_context: Optional product context (categories, pinned products)
         order_context: Optional order context (recent orders, tracking info)
         pending_state: Optional pending state context (e.g., waiting for email)
+        onboarding_mode: Optional mode - "general" for knowledge base Q&A,
+                        "ecommerce" for shopping assistant (default: ecommerce)
 
     Returns:
         System prompt string with personality-appropriate tone
@@ -140,7 +166,14 @@ def get_personality_system_prompt(
     else:
         personality_prompt = FRIENDLY_SYSTEM_PROMPT
 
-    full_prompt = BASE_SYSTEM_PROMPT + "\n\n"
+    # Select base prompt based on onboarding mode
+    if onboarding_mode == "general":
+        base_prompt = GENERAL_MODE_BASE_PROMPT
+    else:
+        # Default to e-commerce for backward compatibility
+        base_prompt = ECOMMERCE_MODE_BASE_PROMPT
+
+    full_prompt = base_prompt + "\n\n"
 
     if bot_name and bot_name.strip():
         full_prompt += f'Your name is {bot_name}. When introducing yourself, use phrases like "I\'m {bot_name}" or "This is {bot_name}".\n\n'
@@ -156,11 +189,13 @@ def get_personality_system_prompt(
     if business_info_parts:
         full_prompt += "BUSINESS INFORMATION:\n" + "\n".join(business_info_parts) + "\n\n"
 
-    if product_context and product_context.strip():
-        full_prompt += "STORE PRODUCTS:\n" + product_context + "\n\n"
+    # Only include product/order context for e-commerce mode
+    if onboarding_mode != "general":
+        if product_context and product_context.strip():
+            full_prompt += "STORE PRODUCTS:\n" + product_context + "\n\n"
 
-    if order_context and order_context.strip():
-        full_prompt += "ORDER TRACKING:\n" + order_context + "\n\n"
+        if order_context and order_context.strip():
+            full_prompt += "ORDER TRACKING:\n" + order_context + "\n\n"
 
     if pending_state:
         pending_context_parts = []

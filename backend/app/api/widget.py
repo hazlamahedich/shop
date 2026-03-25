@@ -371,6 +371,7 @@ async def get_widget_message_history(
             role=msg.get("role", "user"),
             content=msg.get("content", ""),
             timestamp=msg.get("timestamp", ""),
+            customer_name=msg.get("customer_name"),
         )
         for msg in messages
     ]
@@ -568,6 +569,7 @@ async def send_widget_message(
             sources=response.get("sources"),
             suggested_replies=response.get("suggested_replies"),
             contact_options=response.get("contact_options"),
+            customer_name=response.get("customer_name"),
         ),
         meta=create_meta(),
     )
@@ -683,6 +685,7 @@ async def get_widget_config(
             faq_quick_buttons=faq_quick_buttons_config,
             feedback_enabled=feedback_enabled,
             contact_options=widget_config.contact_options,
+            business_name=business_name,
         ),
         meta=create_meta(),
     )

@@ -56,19 +56,18 @@ class SourceCitation(BaseSchema):
 
     document_id: int = Field(alias="documentId", description="Document ID")
     title: str = Field(description="Document title")
+    filename: str | None = Field(default=None, description="Source file name")
     document_type: SourceDocumentType = Field(
         alias="documentType", description="Document type: pdf, url, text"
     )
     relevance_score: float = Field(
-        alias="relevanceScore",
-        ge=0.0,
-        le=1.0,
-        description="Similarity score from RAG retrieval",
+        alias="relevanceScore", ge=0.0, le=1.0, description="Relevance score"
     )
-    url: str | None = Field(default=None, description="URL for web documents")
+    url: str | None = Field(default=None, description="Source URL")
     chunk_index: int | None = Field(
-        default=None, alias="chunkIndex", description="Chunk index that was used"
+        default=None, alias="chunkIndex", description="Chunk index"
     )
+    metadata: dict[str, Any] | None = Field(default=None, description="Additional metadata")
 
 
 class VoiceInputConfig(BaseSchema):
@@ -203,7 +202,7 @@ class WidgetConfig(BaseSchema):
     """
 
     enabled: bool = Field(default=True)
-    bot_name: str = Field(default="Shopping Assistant", max_length=50)
+    bot_name: str = Field(default="Mantisbot", max_length=50)
     welcome_message: str = Field(
         default="Hi! How can I help you today?",
         max_length=500,
@@ -248,6 +247,7 @@ class WidgetSessionData(BaseSchema):
     visitor_id: str | None = None
     is_returning_shopper: bool = False
     metadata: dict[str, Any] | None = None
+    customer_name: str | None = None
 
 
 class CreateSessionRequest(BaseSchema):
@@ -374,13 +374,14 @@ class WidgetMessageResponse(BaseSchema):
     suggested_replies: list[str] | None = Field(
         default=None,
         alias="suggestedReplies",
-        description="Server-generated follow-up question suggestions (Story 10-3)",
+        description="Follow-up question suggestions (Story 10-3)",
     )
     contact_options: list[ContactOptionSchema] | None = Field(
         default=None,
         alias="contactOptions",
         description="Contact options for escalation (Story 10-5)",
     )
+    customer_name: str | None = Field(default=None, alias="customerName")
 
 
 class WidgetMessageEnvelope(MinimalEnvelope):
@@ -455,6 +456,7 @@ class WidgetConfigResponse(BaseSchema):
     feedback_enabled: bool = Field(
         default=True, description="Whether feedback rating collection is enabled (Story 10-4)"
     )
+    business_name: str | None = Field(default=None, alias="businessName")
     contact_options: list[ContactOptionSchema] | None = Field(
         default=None,
         alias="contactOptions",
@@ -537,6 +539,7 @@ class WidgetMessageHistoryItem(BaseSchema):
     content: str
     timestamp: str
     contact_options: list[ContactOptionSchema] | None = Field(default=None, alias="contactOptions")
+    customer_name: str | None = Field(default=None, alias="customerName")
 
 
 class WidgetMessageHistoryResponse(BaseSchema):

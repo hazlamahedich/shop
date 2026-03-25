@@ -20,7 +20,7 @@ async function setupWidgetMocks(page: Page): Promise<void> {
       body: JSON.stringify({
         data: {
           enabled: true,
-          botName: 'Shopping Assistant',
+          botName: 'Mantisbot',
           welcomeMessage: 'Hello! How can I help you?',
           theme: {
             primaryColor: '#6366f1',

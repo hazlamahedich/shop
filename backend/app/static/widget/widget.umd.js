@@ -7141,7 +7141,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     if (error && typeof error === "object") {
       const err = error;
       status = err.status || err.statusCode || 0;
-      errorCode = err.error_code;
+      errorCode = err.error_code || err.code || void 0;
       message = err.message || message;
       detail = err.detail;
       retryAfter = err.retry_after;
@@ -7185,25 +7185,34 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return `${minutes}m ${remainingSeconds}s`;
   }
+  let configuredShopDomain = null;
+  function setShopDomain(domain) {
+    configuredShopDomain = domain ?? null;
+  }
   function isOnShopify() {
     var _a2, _b, _c;
     const hostname = window.location.hostname;
     const shopifyWindow = window;
-    const result = hostname.includes("myshopify.com") || ((_b = (_a2 = shopifyWindow.Shopify) == null ? void 0 : _a2.routes) == null ? void 0 : _b.root) !== void 0 || ((_c = shopifyWindow.Shopify) == null ? void 0 : _c.shop) !== void 0;
-    console.log("[shopifyCartClient] isOnShopify check:", {
-      hostname,
-      hasShopify: !!shopifyWindow.Shopify,
-      result
-    });
-    if (result) {
-      console.log("[shopifyCartClient] ✅ Running on Shopify - will sync cart");
-    } else {
-      console.warn("[shopifyCartClient] ⚠️ NOT on Shopify domain, hostname:", hostname);
+    if (configuredShopDomain) {
+      const domain = configuredShopDomain.toLowerCase().replace(/^https?:\/\//, "");
+      if (hostname === domain || hostname.endsWith("." + domain)) {
+        return true;
+      }
     }
-    return result;
+    return hostname.includes("myshopify.com") || ((_b = (_a2 = shopifyWindow.Shopify) == null ? void 0 : _a2.routes) == null ? void 0 : _b.root) !== void 0 || ((_c = shopifyWindow.Shopify) == null ? void 0 : _c.shop) !== void 0;
+  }
+  function parseVariantId(variantId) {
+    if (!variantId) {
+      throw new Error("Variant ID is required");
+    }
+    const numericId = typeof variantId === "string" ? parseInt(variantId.replace(/\D/g, ""), 10) : variantId;
+    if (isNaN(numericId)) {
+      throw new Error(`Invalid variant ID format: ${variantId}`);
+    }
+    return numericId;
   }
   async function addToCart(variantId, quantity = 1) {
-    const numericVariantId = typeof variantId === "string" ? parseInt(variantId, 10) : variantId;
+    const numericVariantId = parseVariantId(variantId);
     const response = await fetch("/cart/add.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -7218,7 +7227,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     refreshCartUI();
   }
   async function removeFromCart(variantId) {
-    const numericVariantId = typeof variantId === "string" ? parseInt(variantId, 10) : variantId;
+    const numericVariantId = parseVariantId(variantId);
     const response = await fetch("/cart/update.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -7233,7 +7242,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     refreshCartUI();
   }
   async function updateQuantity(variantId, quantity) {
-    const numericVariantId = typeof variantId === "string" ? parseInt(variantId, 10) : variantId;
+    const numericVariantId = parseVariantId(variantId);
     const response = await fetch("/cart/update.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -7263,9 +7272,49 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return response.json();
   }
+  async function refreshCartSections() {
+    const cartSections = [
+      "cart-icon-bubble",
+      "cart-drawer"
+    ];
+    const sectionSelectors = {
+      "cart-icon-bubble": ["#cart-icon-bubble", ".cart-count-bubble", "[data-cart-count]"],
+      "cart-drawer": ["#cart-drawer", ".cart-drawer", "[data-cart-drawer]"]
+    };
+    const promises = cartSections.map(async (sectionId) => {
+      try {
+        const response = await fetch(`/?section_id=${sectionId}`, {
+          method: "GET",
+          credentials: "same-origin"
+        });
+        if (!response.ok) return;
+        const html = await response.text();
+        const selectors = sectionSelectors[sectionId] || [`#${sectionId}`];
+        for (const selector of selectors) {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach((element) => {
+            if (element && html) {
+              element.innerHTML = html;
+            }
+          });
+        }
+      } catch {
+      }
+    });
+    await Promise.allSettled(promises);
+  }
+  let cartChannel = null;
+  function getCartChannel() {
+    if (!cartChannel) {
+      cartChannel = new BroadcastChannel("shopify-cart-sync");
+    }
+    return cartChannel;
+  }
   function refreshCartUI() {
     var _a2;
     const shopifyWindow = window;
+    refreshCartSections().catch(() => {
+    });
     document.dispatchEvent(new CustomEvent("cart:refresh"));
     document.dispatchEvent(new CustomEvent("ajaxProduct:added"));
     document.dispatchEvent(new CustomEvent("product:added"));
@@ -7285,21 +7334,51 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       document.dispatchEvent(
         new CustomEvent("cart:updated", { detail: cart })
       );
+      try {
+        getCartChannel().postMessage({ type: "CART_UPDATED", cart });
+      } catch {
+      }
     }).catch(() => {
     });
   }
+  function subscribeToCartUpdates(callback) {
+    try {
+      const channel = getCartChannel();
+      const handler = (event) => {
+        var _a2, _b;
+        if (((_a2 = event.data) == null ? void 0 : _a2.type) === "CART_UPDATED" && ((_b = event.data) == null ? void 0 : _b.cart)) {
+          callback(event.data.cart);
+        }
+      };
+      channel.addEventListener("message", handler);
+      return () => channel.removeEventListener("message", handler);
+    } catch {
+      return () => {
+      };
+    }
+  }
+  function subscribeToCartEvents(callback) {
+    const handler = (event) => {
+      const customEvent = event;
+      if (customEvent.detail) {
+        callback(customEvent.detail);
+      }
+    };
+    document.addEventListener("cart:updated", handler);
+    return () => document.removeEventListener("cart:updated", handler);
+  }
   const shopifyCartClient = {
     isOnShopify,
+    setShopDomain,
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
     getCart,
-    refreshCartUI
+    refreshCartUI,
+    subscribeToCartUpdates,
+    subscribeToCartEvents
   };
-  if (typeof window !== "undefined") {
-    window.shopifyCartClient = shopifyCartClient;
-  }
   const safeStorage = {
     get: (key) => {
       try {
@@ -7437,6 +7516,58 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     safeLocalStorage.remove(cacheKey);
     safeLocalStorage.remove(metaKey);
   }
+  const POSITION_KEY_PREFIX = "shopbot-widget-position-";
+  function isValidPosition(position) {
+    if (!position || typeof position !== "object") return false;
+    const pos = position;
+    return typeof pos.x === "number" && typeof pos.y === "number" && !isNaN(pos.x) && !isNaN(pos.y);
+  }
+  function isPositionWithinViewport(position) {
+    if (typeof window === "undefined") return true;
+    const padding = 10;
+    const width = 380;
+    const height = 600;
+    return position.x >= 0 && position.x <= window.innerWidth - width - padding && position.y >= 0 && position.y <= window.innerHeight - height - padding;
+  }
+  function getStoredPosition(merchantId) {
+    const key = POSITION_KEY_PREFIX + merchantId;
+    const saved = safeLocalStorage.get(key);
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      if (!isValidPosition(parsed)) return null;
+      if (!isPositionWithinViewport(parsed)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+  function setStoredPosition(merchantId, position) {
+    if (!isValidPosition(position)) return false;
+    const key = POSITION_KEY_PREFIX + merchantId;
+    return safeLocalStorage.set(key, JSON.stringify(position));
+  }
+  function saveWidgetPosition(position) {
+    return safeLocalStorage.set("shopbot_widget_position", JSON.stringify(position));
+  }
+  const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function isValidSessionId(sessionId) {
+    if (!sessionId || typeof sessionId !== "string") return false;
+    return UUID_V4_PATTERN.test(sessionId.trim());
+  }
+  const THEME_KEY_PREFIX = "shopbot-widget-theme-";
+  function getStoredTheme(merchantId) {
+    const key = THEME_KEY_PREFIX + merchantId;
+    const stored = safeLocalStorage.get(key);
+    if (stored === "light" || stored === "dark" || stored === "auto") {
+      return stored;
+    }
+    return null;
+  }
+  function setStoredTheme(merchantId, mode) {
+    const key = THEME_KEY_PREFIX + merchantId;
+    return safeLocalStorage.set(key, mode);
+  }
   const initialConsentState = {
     promptShown: false,
     canStoreConversation: false,
@@ -7452,7 +7583,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     error: null,
     errors: [],
     connectionStatus: "disconnected",
-    consentState: initialConsentState
+    consentState: initialConsentState,
+    position: null,
+    isDragging: false,
+    isMinimized: false,
+    unreadCount: 0,
+    themeMode: "auto",
+    faqQuickButtons: []
   };
   function widgetReducer(state, action) {
     switch (action.type) {
@@ -7464,8 +7601,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         return { ...state, isTyping: action.payload };
       case "SET_SESSION":
         return { ...state, session: action.payload };
-      case "ADD_MESSAGE":
-        return { ...state, messages: [...state.messages, action.payload] };
+      case "ADD_MESSAGE": {
+        const newUnreadCount = state.isMinimized && action.payload.sender !== "user" ? state.unreadCount + 1 : state.unreadCount;
+        return { ...state, messages: [...state.messages, action.payload], unreadCount: newUnreadCount };
+      }
       case "SET_MESSAGES":
         return { ...state, messages: action.payload };
       case "SET_CONFIG":
@@ -7489,6 +7628,18 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         return { ...state, consentState: action.payload };
       case "SET_CONSENT_PROMPT_SHOWN":
         return { ...state, consentState: { ...state.consentState, promptShown: action.payload } };
+      case "SET_POSITION":
+        return { ...state, position: action.payload };
+      case "SET_DRAGGING":
+        return { ...state, isDragging: action.payload };
+      case "TOGGLE_MINIMIZED":
+        return { ...state, isMinimized: !state.isMinimized, unreadCount: !state.isMinimized ? 0 : state.unreadCount };
+      case "SET_UNREAD_COUNT":
+        return { ...state, unreadCount: action.payload };
+      case "SET_THEME_MODE":
+        return { ...state, themeMode: action.payload };
+      case "SET_FAQ_QUICK_BUTTONS":
+        return { ...state, faqQuickButtons: action.payload };
       case "RESET":
         return initialState;
       default:
@@ -7503,8 +7654,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     }
     return context;
   }
-  function WidgetProvider({ children, merchantId }) {
-    var _a2, _b;
+  function WidgetProvider({ children, merchantId, initialSessionId }) {
+    var _a2, _b, _c, _d, _e;
     const [state, dispatch] = reactExports.useReducer(widgetReducer, initialState);
     const [addingProductId, setAddingProductId] = reactExports.useState(null);
     const [removingItemId, setRemovingItemId] = reactExports.useState(null);
@@ -7512,6 +7663,36 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const lastActionRef = reactExports.useRef(null);
     const greetingShownRef = reactExports.useRef(false);
     const consentPromptShownRef = reactExports.useRef(false);
+    const lastCachedLengthRef = reactExports.useRef(0);
+    const validatePosition2 = reactExports.useCallback((pos) => {
+      const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
+      const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
+      const isXValid = pos.x >= -300 && pos.x <= vWidth - 80;
+      const isYValid = pos.y >= -50 && pos.y <= vHeight - 80;
+      const isValid = isXValid && isYValid;
+      console.log("[WidgetContext] Position validation:", {
+        pos,
+        viewport: `${vWidth}x${vHeight}`,
+        isValid
+      });
+      return isValid;
+    }, []);
+    reactExports.useEffect(() => {
+      const storedTheme = getStoredTheme(merchantId);
+      if (storedTheme && storedTheme !== state.themeMode) {
+        dispatch({ type: "SET_THEME_MODE", payload: storedTheme });
+      }
+    }, [merchantId, state.themeMode, dispatch]);
+    reactExports.useEffect(() => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || state.messages.length === 0) {
+        return;
+      }
+      if (state.messages.length !== lastCachedLengthRef.current) {
+        lastCachedLengthRef.current = state.messages.length;
+        cacheMessages(state.session.sessionId, state.messages);
+      }
+    }, [state.messages, (_a2 = state.session) == null ? void 0 : _a2.sessionId]);
     const addError = reactExports.useCallback(
       (error, context) => {
         const widgetError = createWidgetError(error, context);
@@ -7549,101 +7730,147 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       }),
       [merchantId]
     );
-    const initWidget2 = reactExports.useCallback(async () => {
-      lastActionRef.current = { type: "initWidget" };
-      dispatch({ type: "SET_LOADING", payload: true });
-      dispatch({ type: "CLEAR_ERROR" });
-      try {
-        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-        const config2 = await widgetClient2.getConfig(merchantId);
-        dispatch({ type: "SET_CONFIG", payload: config2 });
-        const visitorId = getOrCreateVisitorId();
-        const sessionId = safeStorage.get(SESSION_KEY);
-        if (sessionId) {
-          const session = await getSession(sessionId);
-          if (session) {
-            dispatch({ type: "SET_SESSION", payload: session });
-            const cachedMessages = getCachedMessages(sessionId);
-            if (cachedMessages && cachedMessages.length > 0) {
-              dispatch({ type: "SET_MESSAGES", payload: cachedMessages });
-            }
-            try {
-              const consentStatus = await widgetClient2.getConsentStatus(sessionId, visitorId);
-              if (consentStatus) {
-                const newConsentState = {
-                  promptShown: consentStatus.consent_message_shown || false,
-                  canStoreConversation: consentStatus.can_store_conversation,
-                  status: consentStatus.status
-                };
-                dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
-                if (consentStatus.consent_message_shown) {
-                  consentPromptShownRef.current = true;
-                }
-              }
-            } catch (error) {
-            }
-            try {
-              const history = await widgetClient2.getMessageHistory(sessionId);
-              if (history.expired) {
-                clearMessageCache(sessionId);
-                dispatch({ type: "SET_MESSAGES", payload: [] });
-                if (cachedMessages && cachedMessages.length > 0) {
-                  const expiredMessage = {
-                    messageId: "session-expired",
-                    content: "Your previous conversation has expired. Starting fresh!",
-                    sender: "system",
-                    createdAt: (/* @__PURE__ */ new Date()).toISOString()
-                  };
-                  dispatch({ type: "SET_MESSAGES", payload: [expiredMessage] });
-                }
-              } else if (history.messages.length > 0) {
-                const messages = history.messages.map((msg, index) => ({
-                  messageId: `history-${index}`,
-                  content: msg.content,
-                  sender: msg.role === "user" ? "user" : "bot",
-                  createdAt: msg.timestamp
-                }));
-                dispatch({ type: "SET_MESSAGES", payload: messages });
-                cacheMessages(sessionId, messages);
-                if (messages.length > 0) {
-                  greetingShownRef.current = true;
-                }
-              }
-            } catch (error) {
-              console.warn("[WidgetContext] Failed to load message history:", error);
-            }
-            dispatch({ type: "SET_LOADING", payload: false });
-            return;
-          }
+    const initWidget2 = reactExports.useCallback(
+      async (mId) => {
+        if (!mId) return;
+        if (state.config && state.config.merchantId === mId && !state.isLoading) {
+          return;
         }
-        const newSession = await createSession(visitorId);
-        dispatch({ type: "SET_SESSION", payload: newSession });
-        safeStorage.set(SESSION_KEY, newSession.sessionId);
-        safeStorage.set(MERCHANT_KEY, merchantId);
-      } catch (error) {
-        addError(error, { action: "Retry" });
-      } finally {
-        dispatch({ type: "SET_LOADING", payload: false });
-      }
-    }, [merchantId, createSession, getSession, addError]);
+        dispatch({ type: "SET_LOADING", payload: true });
+        dispatch({ type: "CLEAR_ERROR" });
+        try {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          console.log("[WidgetContext] Fetching config for merchant:", mId);
+          const config2 = await widgetClient2.getConfig(mId);
+          console.log("[WidgetContext] Config loaded:", !!config2);
+          dispatch({ type: "SET_CONFIG", payload: config2 });
+          if (config2.onboardingMode === "general") {
+            try {
+              const faqButtons = await widgetClient2.getFaqButtons(merchantId);
+              dispatch({ type: "SET_FAQ_QUICK_BUTTONS", payload: faqButtons });
+            } catch (error) {
+              console.warn("[WidgetContext] Failed to fetch FAQ buttons:", error);
+            }
+          }
+          shopifyCartClient.setShopDomain(config2.shopDomain);
+          const storedTheme = getStoredTheme(merchantId);
+          dispatch({ type: "SET_THEME_MODE", payload: storedTheme || "auto" });
+          console.log("[WidgetContext] Viewport at position load:", window.innerWidth, "x", window.innerHeight);
+          const savedPosition = getStoredPosition(merchantId);
+          console.log("[WidgetContext] Stored Position found:", savedPosition);
+          if (savedPosition && validatePosition2(savedPosition)) {
+            console.log("[WidgetContext] Using valid stored position:", savedPosition);
+            dispatch({ type: "SET_POSITION", payload: savedPosition });
+          } else {
+            console.log("[WidgetContext] No valid stored position, using default theme placement");
+            dispatch({ type: "SET_POSITION", payload: null });
+          }
+          let sessionId = initialSessionId;
+          if (!sessionId) {
+            console.log("[WidgetContext] Checking storage for key:", SESSION_KEY);
+            console.log("[WidgetContext] sessionStorage value:", sessionStorage.getItem(SESSION_KEY));
+            console.log("[WidgetContext] localStorage value:", localStorage.getItem(SESSION_KEY));
+            sessionId = safeStorage.get(SESSION_KEY) ?? void 0;
+            console.log("[WidgetContext] safeStorage.get result:", sessionId);
+          } else {
+            console.log("[WidgetContext] Using injected sessionId:", sessionId);
+          }
+          const visitorId = getOrCreateVisitorId();
+          console.log("[WidgetContext] sessionId from safeStorage.get:", sessionId);
+          if (sessionId && !isValidSessionId(sessionId)) {
+            console.warn("[WidgetContext] Invalid session ID format, clearing:", sessionId);
+            safeStorage.remove(SESSION_KEY);
+            sessionId = void 0;
+          }
+          if (sessionId && isValidSessionId(sessionId)) {
+            console.log("[WidgetContext] Valid session found:", sessionId);
+            const session = await getSession(sessionId);
+            console.log("[WidgetContext] Session fetched:", !!session);
+            if (session) {
+              dispatch({ type: "SET_SESSION", payload: session });
+              const cachedMessages = getCachedMessages(sessionId);
+              if (cachedMessages && cachedMessages.length > 0) {
+                dispatch({ type: "SET_MESSAGES", payload: cachedMessages });
+              }
+              try {
+                const consentStatus = await widgetClient2.getConsentStatus(sessionId, visitorId);
+                if (consentStatus) {
+                  const newConsentState = {
+                    promptShown: consentStatus.consent_message_shown || false,
+                    canStoreConversation: consentStatus.can_store_conversation,
+                    status: consentStatus.status
+                  };
+                  dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
+                  if (consentStatus.consent_message_shown) {
+                    consentPromptShownRef.current = true;
+                  }
+                }
+              } catch (error) {
+              }
+              try {
+                console.log("[WidgetContext] Fetching message history for session:", sessionId);
+                const history = await widgetClient2.getMessageHistory(sessionId);
+                console.log("[WidgetContext] Received history:", history.messages.length, "messages");
+                if (history.expired) {
+                  clearMessageCache(sessionId);
+                  dispatch({ type: "SET_MESSAGES", payload: [] });
+                  if (cachedMessages && cachedMessages.length > 0) {
+                    const expiredMessage = {
+                      messageId: "session-expired",
+                      content: "Your previous conversation has expired. Starting fresh!",
+                      sender: "system",
+                      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+                    };
+                    dispatch({ type: "SET_MESSAGES", payload: [expiredMessage] });
+                  }
+                } else if (history.messages.length > 0) {
+                  const messages = history.messages.map((msg) => ({
+                    messageId: msg.messageId || crypto.randomUUID(),
+                    content: msg.content,
+                    sender: msg.sender,
+                    createdAt: msg.createdAt,
+                    products: msg.products,
+                    cart: msg.cart,
+                    contactOptions: msg.contactOptions
+                  }));
+                  console.log("[WidgetContext] Dispatching", messages.length, "messages to state");
+                  dispatch({ type: "SET_MESSAGES", payload: messages });
+                  cacheMessages(sessionId, messages);
+                  if (messages.length > 0) {
+                    greetingShownRef.current = true;
+                  }
+                }
+              } catch (error) {
+                console.error("[WidgetContext] Failed to load history:", error);
+              }
+              dispatch({ type: "SET_LOADING", payload: false });
+              return;
+            }
+          }
+          const newSession = await createSession(visitorId);
+          dispatch({ type: "SET_SESSION", payload: newSession });
+          safeStorage.set(SESSION_KEY, newSession.sessionId);
+          safeStorage.set(MERCHANT_KEY, merchantId);
+        } catch (error) {
+          console.error("[WidgetContext] initWidget error:", error);
+          addError(error, { action: "Retry" });
+        } finally {
+          dispatch({ type: "SET_LOADING", payload: false });
+        }
+      },
+      [initialSessionId, createSession, getSession, addError, validatePosition2]
+    );
     const toggleChat = reactExports.useCallback(() => {
       dispatch({ type: "SET_OPEN", payload: !state.isOpen });
     }, [state.isOpen]);
     const recordConsent = reactExports.useCallback(
       async (consented) => {
         var _a3;
-        console.warn("[WidgetContext] recordConsent called:", consented);
-        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) {
-          console.warn("[WidgetContext] No session, aborting recordConsent");
-          return;
-        }
+        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
         try {
-          console.warn("[WidgetContext] Getting widgetClient...");
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           const visitorId = getVisitorId() || void 0;
-          console.warn("[WidgetContext] Calling recordConsent API with visitorId:", visitorId);
           await widgetClient2.recordConsent(state.session.sessionId, consented, visitorId);
-          console.warn("[WidgetContext] recordConsent API call succeeded");
           const newConsentState = {
             promptShown: true,
             canStoreConversation: consented,
@@ -7655,45 +7882,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           addError(error, { action: "Try Again" });
         }
       },
-      [state.session, addError]
-    );
-    const sendMessage = reactExports.useCallback(
-      async (content) => {
-        console.warn("[WidgetContext] sendMessage called with:", content);
-        if (!state.session || !content.trim()) return;
-        lastActionRef.current = { type: "sendMessage", payload: content };
-        const userMessage = {
-          messageId: crypto.randomUUID(),
-          content,
-          sender: "user",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        dispatch({ type: "ADD_MESSAGE", payload: userMessage });
-        dispatch({ type: "SET_TYPING", payload: true });
-        try {
-          console.warn("[WidgetContext] Calling widgetClient.sendMessage...");
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          const botMessage = await widgetClient2.sendMessage(state.session.sessionId, content);
-          console.warn("[WidgetContext] botMessage received:", botMessage);
-          console.warn("[WidgetContext] consent_prompt_required:", botMessage.consent_prompt_required);
-          dispatch({ type: "ADD_MESSAGE", payload: botMessage });
-          if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
-            console.warn("[WidgetContext] Setting consent prompt shown to true");
-            consentPromptShownRef.current = true;
-            dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
-          }
-          if (shopifyCartClient.isOnShopify() && botMessage.cart) {
-            syncCartToShopify(botMessage.cart);
-          }
-          const allMessages = [...state.messages, userMessage, botMessage];
-          cacheMessages(state.session.sessionId, allMessages);
-        } catch (error) {
-          addError(error, { action: "Try Again" });
-        } finally {
-          dispatch({ type: "SET_TYPING", payload: false });
-        }
-      },
-      [state.session, state.messages, addError]
+      [(_b = state.session) == null ? void 0 : _b.sessionId, addError, dispatch]
     );
     const syncCartToShopify = reactExports.useCallback(
       async (cart) => {
@@ -7717,6 +7906,47 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       },
       []
     );
+    const sendMessage = reactExports.useCallback(
+      async (content) => {
+        var _a3;
+        if (!content.trim()) return;
+        let currentSessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!currentSessionId || !isValidSessionId(currentSessionId)) {
+          safeStorage.remove(SESSION_KEY);
+          const visitorId = getVisitorId() || void 0;
+          const newSession = await createSession(visitorId);
+          dispatch({ type: "SET_SESSION", payload: newSession });
+          safeStorage.set(SESSION_KEY, newSession.sessionId);
+          currentSessionId = newSession.sessionId;
+        }
+        lastActionRef.current = { type: "sendMessage", payload: content };
+        const userMessage = {
+          messageId: crypto.randomUUID(),
+          content,
+          sender: "user",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        dispatch({ type: "ADD_MESSAGE", payload: userMessage });
+        dispatch({ type: "SET_TYPING", payload: true });
+        try {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          const botMessage = await widgetClient2.sendMessage(currentSessionId, content);
+          dispatch({ type: "ADD_MESSAGE", payload: botMessage });
+          if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+            consentPromptShownRef.current = true;
+            dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
+          }
+          if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+            syncCartToShopify(botMessage.cart);
+          }
+        } catch (error) {
+          addError(error, { action: "Try Again" });
+        } finally {
+          dispatch({ type: "SET_TYPING", payload: false });
+        }
+      },
+      [state.session, addError, createSession, syncCartToShopify]
+    );
     const addToCart2 = reactExports.useCallback(
       async (product) => {
         var _a3;
@@ -7725,7 +7955,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         try {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-          if (!sessionId) {
+          if (!sessionId || !isValidSessionId(sessionId)) {
+            safeStorage.remove(SESSION_KEY);
             const visitorId = getVisitorId() || void 0;
             const newSession = await createSession(visitorId);
             dispatch({ type: "SET_SESSION", payload: newSession });
@@ -7761,18 +7992,38 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
     const removeFromCart2 = reactExports.useCallback(
       async (variantId) => {
         var _a3;
+        if (!variantId) return;
         setRemovingItemId(variantId);
         try {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-          if (!sessionId) {
+          if (!sessionId || !isValidSessionId(sessionId)) {
+            safeStorage.remove(SESSION_KEY);
             const visitorId = getVisitorId() || void 0;
             const newSession = await createSession(visitorId);
             dispatch({ type: "SET_SESSION", payload: newSession });
             safeStorage.set(SESSION_KEY, newSession.sessionId);
             sessionId = newSession.sessionId;
           }
-          await widgetClient2.removeFromCart(sessionId, variantId);
+          const updatedCart = await widgetClient2.removeFromCart(sessionId, variantId);
+          const removedItem = state.messages.flatMap((m2) => {
+            var _a4;
+            return ((_a4 = m2.cart) == null ? void 0 : _a4.items) || [];
+          }).find((item) => item.variantId === variantId);
+          const itemTitle = (removedItem == null ? void 0 : removedItem.title) || "Item";
+          const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
+          const confirmationMessage = {
+            messageId: crypto.randomUUID(),
+            content: updatedCart.itemCount > 0 ? `Removed "${itemTitle}" from your cart.
+
+Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.` : `Removed "${itemTitle}" from your cart.
+
+Your cart is now empty.`,
+            sender: "bot",
+            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+            cart: updatedCart
+          };
+          dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
           if (shopifyCartClient.isOnShopify()) {
             try {
               await shopifyCartClient.removeFromCart(variantId);
@@ -7785,7 +8036,7 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
           setRemovingItemId(null);
         }
       },
-      [state.session, addError, createSession]
+      [state.session, state.messages, addError, createSession]
     );
     const checkout = reactExports.useCallback(async () => {
       var _a3, _b2;
@@ -7833,11 +8084,12 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
           messageId: crypto.randomUUID(),
           content: state.config.welcomeMessage,
           sender: "bot",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          feedbackEnabled: false
         };
         dispatch({ type: "ADD_MESSAGE", payload: greetingMessage });
       }
-    }, [state.isOpen, state.messages.length, (_a2 = state.config) == null ? void 0 : _a2.welcomeMessage]);
+    }, [state.isOpen, state.messages.length, (_c = state.config) == null ? void 0 : _c.welcomeMessage]);
     reactExports.useEffect(() => {
       var _a3;
       if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !state.isOpen) return;
@@ -7850,7 +8102,6 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         }
         cleanup = connectWidgetWebSocket2(state.session.sessionId, {
           onMessage: (event) => {
-            console.warn("[WidgetContext] WebSocket message received:", event.type, event);
             if (event.type === "merchant_message") {
               const data = event.data;
               const merchantMessage = {
@@ -7866,9 +8117,9 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
                 messageId: `resolution-${data.id}`,
                 content: data.content,
                 sender: "bot",
-                createdAt: data.createdAt
+                createdAt: data.createdAt,
+                contactOptions: data.contactOptions
               };
-              console.warn("[WidgetContext] Adding handoff resolution message:", resolutionMessage);
               dispatch({ type: "ADD_MESSAGE", payload: resolutionMessage });
             }
           },
@@ -7883,13 +8134,23 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       return () => {
         if (cleanup) cleanup();
       };
-    }, [(_b = state.session) == null ? void 0 : _b.sessionId, state.isOpen]);
+    }, [(_d = state.session) == null ? void 0 : _d.sessionId, state.isOpen, state.session]);
+    reactExports.useEffect(() => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
+      Promise.resolve().then(() => analytics).then(({ widgetAnalytics: widgetAnalytics2 }) => {
+        widgetAnalytics2.initialize({
+          merchantId: parseInt(merchantId, 10),
+          sessionId: state.session.sessionId
+        });
+      });
+    }, [(_e = state.session) == null ? void 0 : _e.sessionId, merchantId, state.session]);
     const retryLastAction = reactExports.useCallback(() => {
       if (!lastActionRef.current) return;
       const { type, payload } = lastActionRef.current;
       switch (type) {
         case "initWidget":
-          initWidget2();
+          initWidget2(merchantId);
           break;
         case "sendMessage":
           if (typeof payload === "string") sendMessage(payload);
@@ -7901,9 +8162,10 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
           checkout();
           break;
       }
-    }, [initWidget2, sendMessage, addToCart2, checkout]);
+    }, [initWidget2, sendMessage, addToCart2, checkout, merchantId]);
     const endSession = reactExports.useCallback(async () => {
-      if (state.session) {
+      var _a3;
+      if (((_a3 = state.session) == null ? void 0 : _a3.sessionId) && isValidSessionId(state.session.sessionId)) {
         try {
           await endWidgetSession(state.session.sessionId);
         } catch {
@@ -7915,7 +8177,7 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
     }, [state.session, endWidgetSession]);
     const forgetPreferences = reactExports.useCallback(async () => {
       var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
       try {
         const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
         const visitorId = getVisitorId() || void 0;
@@ -7935,7 +8197,7 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
     }, [state.session, addError]);
     const clearHistory = reactExports.useCallback(async () => {
       var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
       try {
         const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
         await widgetClient2.clearMessageHistory(state.session.sessionId);
@@ -7947,6 +8209,18 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         addError(error, { action: "Try Again" });
       }
     }, [state.session, addError]);
+    const updatePosition = reactExports.useCallback((position) => {
+      dispatch({ type: "SET_POSITION", payload: position });
+      saveWidgetPosition(position);
+      setStoredPosition(merchantId, position);
+    }, [merchantId]);
+    const toggleMinimized = reactExports.useCallback(() => {
+      dispatch({ type: "TOGGLE_MINIMIZED" });
+    }, []);
+    const setThemeMode = reactExports.useCallback((mode) => {
+      dispatch({ type: "SET_THEME_MODE", payload: mode });
+      setStoredTheme(merchantId, mode);
+    }, [merchantId, dispatch]);
     const value = reactExports.useMemo(
       () => ({
         state,
@@ -7969,7 +8243,10 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         connectionStatus: state.connectionStatus,
         recordConsent,
         forgetPreferences,
-        clearHistory
+        clearHistory,
+        updatePosition,
+        toggleMinimized,
+        setThemeMode
       }),
       [
         state,
@@ -7990,33 +8267,274 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
         retryLastAction,
         recordConsent,
         forgetPreferences,
-        clearHistory
+        clearHistory,
+        updatePosition,
+        toggleMinimized,
+        setThemeMode
       ]
     );
     return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetContext.Provider, { value, children });
   }
-  function ChatBubble({ isOpen, onClick, theme, onPrefetch }) {
+  function useReducedMotion() {
+    const [prefersReducedMotion, setPrefersReducedMotion] = reactExports.useState(false);
+    reactExports.useEffect(() => {
+      if (typeof window === "undefined") return;
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setPrefersReducedMotion(mediaQuery.matches);
+      const handleChange = (event) => {
+        setPrefersReducedMotion(event.matches);
+      };
+      mediaQuery.addEventListener("change", handleChange);
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }, []);
+    return prefersReducedMotion;
+  }
+  const STORAGE_KEY = "widget_analytics_queue";
+  const DEFAULT_BATCH_SIZE = 10;
+  const DEFAULT_FLUSH_INTERVAL = 3e4;
+  class WidgetAnalyticsImpl {
+    constructor() {
+      __publicField(this, "merchantId", null);
+      __publicField(this, "sessionId", null);
+      __publicField(this, "batchSize", DEFAULT_BATCH_SIZE);
+      __publicField(this, "flushInterval", DEFAULT_FLUSH_INTERVAL);
+      __publicField(this, "flushTimer", null);
+      __publicField(this, "_isInitialized", false);
+      __publicField(this, "reducedMotion", false);
+      this.checkReducedMotion();
+    }
+    checkReducedMotion() {
+      if (typeof window !== "undefined" && window.matchMedia) {
+        const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        this.reducedMotion = mediaQuery.matches;
+        mediaQuery.addEventListener("change", (e) => {
+          this.reducedMotion = e.matches;
+        });
+      }
+    }
+    get isInitialized() {
+      return this._isInitialized;
+    }
+    initialize(config2) {
+      if (this._isInitialized) {
+        return;
+      }
+      this.merchantId = config2.merchantId;
+      this.sessionId = config2.sessionId;
+      this.batchSize = config2.batchSize ?? DEFAULT_BATCH_SIZE;
+      this.flushInterval = config2.flushInterval ?? DEFAULT_FLUSH_INTERVAL;
+      this._isInitialized = true;
+      this.setupFlushListeners();
+      this.startFlushTimer();
+    }
+    setupFlushListeners() {
+      if (typeof document === "undefined") {
+        return;
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          this.flush();
+        }
+      });
+      window.addEventListener("pagehide", () => {
+        this.flush();
+      });
+    }
+    startFlushTimer() {
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+      }
+      this.flushTimer = setTimeout(() => {
+        this.flush();
+        this.startFlushTimer();
+      }, this.flushInterval);
+    }
+    track(type, metadata) {
+      if (!this._isInitialized || !this.sessionId) {
+        console.warn("[WidgetAnalytics] Not initialized or missing sessionId");
+        return;
+      }
+      const event = {
+        type,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        session_id: this.sessionId,
+        metadata: {
+          ...metadata,
+          reducedMotion: this.reducedMotion
+        }
+      };
+      const queue = this.getQueue();
+      queue.push(event);
+      if (queue.length >= this.batchSize) {
+        this.flush();
+      } else {
+        this.saveQueue(queue);
+      }
+    }
+    getQueuedEvents() {
+      return this.getQueue();
+    }
+    getQueue() {
+      if (typeof sessionStorage === "undefined") {
+        return [];
+      }
+      try {
+        const stored = sessionStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch {
+      }
+      return [];
+    }
+    saveQueue(queue) {
+      if (typeof sessionStorage === "undefined") {
+        return;
+      }
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+      } catch {
+      }
+    }
+    clearQueue() {
+      if (typeof sessionStorage === "undefined") {
+        return;
+      }
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {
+      }
+    }
+    async flush() {
+      const queue = this.getQueue();
+      if (queue.length === 0) {
+        return 0;
+      }
+      this.clearQueue();
+      try {
+        const { flushWidgetAnalyticsEvents: flushWidgetAnalyticsEvents2 } = await Promise.resolve().then(() => analyticsService$1);
+        const result = await flushWidgetAnalyticsEvents2({
+          merchant_id: this.merchantId,
+          events: queue
+        });
+        return result.accepted;
+      } catch (error) {
+        console.error("[WidgetAnalytics] Flush failed:", error);
+        this.saveQueue(queue);
+        return 0;
+      }
+    }
+    updateSessionId(sessionId) {
+      this.sessionId = sessionId;
+    }
+    destroy() {
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+        this.flushTimer = null;
+      }
+      this._isInitialized = false;
+      this.merchantId = null;
+      this.sessionId = null;
+      this.clearQueue();
+    }
+    isReducedMotion() {
+      return this.reducedMotion;
+    }
+  }
+  const widgetAnalytics = new WidgetAnalyticsImpl();
+  function trackWidgetOpen() {
+    widgetAnalytics.track("widget_open", {
+      url: typeof window !== "undefined" ? window.location.href : void 0
+    });
+  }
+  function trackMessageSend(messageLength) {
+    widgetAnalytics.track("message_send", {
+      messageLength
+    });
+  }
+  function trackQuickReplyClick(label) {
+    widgetAnalytics.track("quick_reply_click", {
+      label
+    });
+  }
+  function trackVoiceInput(durationMs, success) {
+    widgetAnalytics.track("voice_input", {
+      durationMs,
+      success
+    });
+  }
+  function trackProactiveTrigger(triggerType, engaged) {
+    widgetAnalytics.track("proactive_trigger", {
+      triggerType,
+      engaged
+    });
+  }
+  function trackCarouselEngagement(action, productId) {
+    widgetAnalytics.track("carousel_engagement", {
+      action,
+      productId
+    });
+  }
+  function logContactInteraction(contactType, action) {
+    widgetAnalytics.track("quick_reply_click", {
+      contactType,
+      action,
+      label: `contact_${contactType}`
+    });
+  }
+  const analytics = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    logContactInteraction,
+    trackCarouselEngagement,
+    trackMessageSend,
+    trackProactiveTrigger,
+    trackQuickReplyClick,
+    trackVoiceInput,
+    trackWidgetOpen,
+    widgetAnalytics
+  }, Symbol.toStringTag, { value: "Module" }));
+  function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0 }) {
+    const [isHovered, setIsHovered] = reactExports.useState(false);
+    const reducedMotion = useReducedMotion();
     const positionStyle = theme.position === "bottom-left" ? { left: 20 } : { right: 20 };
+    const handleClick = () => {
+      if (!isOpen) {
+        trackWidgetOpen();
+      }
+      onClick();
+    };
     const handleKeyDown = (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        onClick();
+        handleClick();
       }
     };
     const handleMouseEnter = () => {
+      setIsHovered(true);
       if (onPrefetch) {
         onPrefetch();
       }
     };
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    const handleMouseLeave = () => {
+      setIsHovered(false);
+    };
+    const showBadge = !isOpen && unreadCount > 0;
+    const shouldScale = isHovered && !reducedMotion;
+    const bubbleTransform = shouldScale ? "scale(1.05)" : "scale(1)";
+    const bubbleBoxShadow = isHovered ? "0 6px 16px rgba(0, 0, 0, 0.2)" : "0 4px 12px rgba(0, 0, 0, 0.15)";
+    const shouldPulse = showBadge && !reducedMotion;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "button",
       {
         type: "button",
-        className: "shopbot-chat-bubble",
+        className: `shopbot-chat-bubble ${showBadge ? "has-unread" : ""}`,
         "data-testid": "chat-bubble",
-        onClick,
+        onClick: handleClick,
         onKeyDown: handleKeyDown,
         onMouseEnter: handleMouseEnter,
+        onMouseLeave: handleMouseLeave,
         "aria-label": isOpen ? "Close chat" : "Open chat",
         "aria-expanded": isOpen,
         style: {
@@ -8032,42 +8550,75 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-          transition: "transform 0.2s ease, box-shadow 0.2s ease",
-          zIndex: 2147483647
+          boxShadow: bubbleBoxShadow,
+          transition: reducedMotion ? "none" : "transform 200ms ease, box-shadow 200ms ease",
+          transform: bubbleTransform,
+          zIndex: 2147483647,
+          willChange: reducedMotion ? "auto" : "transform"
         },
-        children: isOpen ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "svg",
-          {
-            width: "24",
-            height: "24",
-            viewBox: "0 0 24 24",
-            fill: "none",
-            stroke: "white",
-            strokeWidth: "2",
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            "aria-hidden": "true",
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
-            ]
-          }
-        ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "svg",
-          {
-            width: "24",
-            height: "24",
-            viewBox: "0 0 24 24",
-            fill: "none",
-            stroke: "white",
-            strokeWidth: "2",
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            "aria-hidden": "true",
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
-          }
-        )
+        children: [
+          isOpen ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "svg",
+            {
+              width: "24",
+              height: "24",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "white",
+              strokeWidth: "2",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              "aria-hidden": "true",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+              ]
+            }
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "svg",
+            {
+              width: "24",
+              height: "24",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "white",
+              strokeWidth: "2",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              "aria-hidden": "true",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
+            }
+          ),
+          showBadge && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              "data-testid": "bubble-badge",
+              className: "bubble-badge",
+              style: {
+                position: "absolute",
+                top: -5,
+                right: -5,
+                backgroundColor: "#ef4444",
+                color: "white",
+                borderRadius: "50%",
+                minWidth: 20,
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "0 4px",
+                animationName: shouldPulse ? "badge-pulse" : "none",
+                animationDuration: shouldPulse ? "1s" : "0ms",
+                animationTimingFunction: "ease-in-out",
+                animationIterationCount: "infinite",
+                willChange: reducedMotion ? "auto" : "transform"
+              },
+              children: unreadCount > 99 ? "99+" : unreadCount
+            }
+          )
+        ]
       }
     );
   }
@@ -8344,6 +8895,2193 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       }
     );
   }
+  var focusTrapReact = { exports: {} };
+  /*!
+  * tabbable 6.4.0
+  * @license MIT, https://github.com/focus-trap/tabbable/blob/master/LICENSE
+  */
+  var candidateSelectors = ["input:not([inert]):not([inert] *)", "select:not([inert]):not([inert] *)", "textarea:not([inert]):not([inert] *)", "a[href]:not([inert]):not([inert] *)", "button:not([inert]):not([inert] *)", "[tabindex]:not(slot):not([inert]):not([inert] *)", "audio[controls]:not([inert]):not([inert] *)", "video[controls]:not([inert]):not([inert] *)", '[contenteditable]:not([contenteditable="false"]):not([inert]):not([inert] *)', "details>summary:first-of-type:not([inert]):not([inert] *)", "details:not([inert]):not([inert] *)"];
+  var candidateSelector = /* @__PURE__ */ candidateSelectors.join(",");
+  var NoElement = typeof Element === "undefined";
+  var matches = NoElement ? function() {
+  } : Element.prototype.matches || Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+  var getRootNode = !NoElement && Element.prototype.getRootNode ? function(element) {
+    var _element$getRootNode;
+    return element === null || element === void 0 ? void 0 : (_element$getRootNode = element.getRootNode) === null || _element$getRootNode === void 0 ? void 0 : _element$getRootNode.call(element);
+  } : function(element) {
+    return element === null || element === void 0 ? void 0 : element.ownerDocument;
+  };
+  var _isInert = function isInert(node, lookUp) {
+    var _node$getAttribute;
+    if (lookUp === void 0) {
+      lookUp = true;
+    }
+    var inertAtt = node === null || node === void 0 ? void 0 : (_node$getAttribute = node.getAttribute) === null || _node$getAttribute === void 0 ? void 0 : _node$getAttribute.call(node, "inert");
+    var inert = inertAtt === "" || inertAtt === "true";
+    var result = inert || lookUp && node && // closest does not exist on shadow roots, so we fall back to a manual
+    // lookup upward, in case it is not defined.
+    (typeof node.closest === "function" ? node.closest("[inert]") : _isInert(node.parentNode));
+    return result;
+  };
+  var isContentEditable = function isContentEditable2(node) {
+    var _node$getAttribute2;
+    var attValue = node === null || node === void 0 ? void 0 : (_node$getAttribute2 = node.getAttribute) === null || _node$getAttribute2 === void 0 ? void 0 : _node$getAttribute2.call(node, "contenteditable");
+    return attValue === "" || attValue === "true";
+  };
+  var getCandidates = function getCandidates2(el2, includeContainer, filter) {
+    if (_isInert(el2)) {
+      return [];
+    }
+    var candidates = Array.prototype.slice.apply(el2.querySelectorAll(candidateSelector));
+    if (includeContainer && matches.call(el2, candidateSelector)) {
+      candidates.unshift(el2);
+    }
+    candidates = candidates.filter(filter);
+    return candidates;
+  };
+  var _getCandidatesIteratively = function getCandidatesIteratively(elements, includeContainer, options) {
+    var candidates = [];
+    var elementsToCheck = Array.from(elements);
+    while (elementsToCheck.length) {
+      var element = elementsToCheck.shift();
+      if (_isInert(element, false)) {
+        continue;
+      }
+      if (element.tagName === "SLOT") {
+        var assigned = element.assignedElements();
+        var content = assigned.length ? assigned : element.children;
+        var nestedCandidates = _getCandidatesIteratively(content, true, options);
+        if (options.flatten) {
+          candidates.push.apply(candidates, nestedCandidates);
+        } else {
+          candidates.push({
+            scopeParent: element,
+            candidates: nestedCandidates
+          });
+        }
+      } else {
+        var validCandidate = matches.call(element, candidateSelector);
+        if (validCandidate && options.filter(element) && (includeContainer || !elements.includes(element))) {
+          candidates.push(element);
+        }
+        var shadowRoot = element.shadowRoot || // check for an undisclosed shadow
+        typeof options.getShadowRoot === "function" && options.getShadowRoot(element);
+        var validShadowRoot = !_isInert(shadowRoot, false) && (!options.shadowRootFilter || options.shadowRootFilter(element));
+        if (shadowRoot && validShadowRoot) {
+          var _nestedCandidates = _getCandidatesIteratively(shadowRoot === true ? element.children : shadowRoot.children, true, options);
+          if (options.flatten) {
+            candidates.push.apply(candidates, _nestedCandidates);
+          } else {
+            candidates.push({
+              scopeParent: element,
+              candidates: _nestedCandidates
+            });
+          }
+        } else {
+          elementsToCheck.unshift.apply(elementsToCheck, element.children);
+        }
+      }
+    }
+    return candidates;
+  };
+  var hasTabIndex = function hasTabIndex2(node) {
+    return !isNaN(parseInt(node.getAttribute("tabindex"), 10));
+  };
+  var getTabIndex = function getTabIndex2(node) {
+    if (!node) {
+      throw new Error("No node provided");
+    }
+    if (node.tabIndex < 0) {
+      if ((/^(AUDIO|VIDEO|DETAILS)$/.test(node.tagName) || isContentEditable(node)) && !hasTabIndex(node)) {
+        return 0;
+      }
+    }
+    return node.tabIndex;
+  };
+  var getSortOrderTabIndex = function getSortOrderTabIndex2(node, isScope) {
+    var tabIndex = getTabIndex(node);
+    if (tabIndex < 0 && isScope && !hasTabIndex(node)) {
+      return 0;
+    }
+    return tabIndex;
+  };
+  var sortOrderedTabbables = function sortOrderedTabbables2(a, b) {
+    return a.tabIndex === b.tabIndex ? a.documentOrder - b.documentOrder : a.tabIndex - b.tabIndex;
+  };
+  var isInput = function isInput2(node) {
+    return node.tagName === "INPUT";
+  };
+  var isHiddenInput = function isHiddenInput2(node) {
+    return isInput(node) && node.type === "hidden";
+  };
+  var isDetailsWithSummary = function isDetailsWithSummary2(node) {
+    var r2 = node.tagName === "DETAILS" && Array.prototype.slice.apply(node.children).some(function(child) {
+      return child.tagName === "SUMMARY";
+    });
+    return r2;
+  };
+  var getCheckedRadio = function getCheckedRadio2(nodes, form) {
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].checked && nodes[i].form === form) {
+        return nodes[i];
+      }
+    }
+  };
+  var isTabbableRadio = function isTabbableRadio2(node) {
+    if (!node.name) {
+      return true;
+    }
+    var radioScope = node.form || getRootNode(node);
+    var queryRadios = function queryRadios2(name) {
+      return radioScope.querySelectorAll('input[type="radio"][name="' + name + '"]');
+    };
+    var radioSet;
+    if (typeof window !== "undefined" && typeof window.CSS !== "undefined" && typeof window.CSS.escape === "function") {
+      radioSet = queryRadios(window.CSS.escape(node.name));
+    } else {
+      try {
+        radioSet = queryRadios(node.name);
+      } catch (err) {
+        console.error("Looks like you have a radio button with a name attribute containing invalid CSS selector characters and need the CSS.escape polyfill: %s", err.message);
+        return false;
+      }
+    }
+    var checked = getCheckedRadio(radioSet, node.form);
+    return !checked || checked === node;
+  };
+  var isRadio = function isRadio2(node) {
+    return isInput(node) && node.type === "radio";
+  };
+  var isNonTabbableRadio = function isNonTabbableRadio2(node) {
+    return isRadio(node) && !isTabbableRadio(node);
+  };
+  var isNodeAttached = function isNodeAttached2(node) {
+    var _nodeRoot;
+    var nodeRoot = node && getRootNode(node);
+    var nodeRootHost = (_nodeRoot = nodeRoot) === null || _nodeRoot === void 0 ? void 0 : _nodeRoot.host;
+    var attached = false;
+    if (nodeRoot && nodeRoot !== node) {
+      var _nodeRootHost, _nodeRootHost$ownerDo, _node$ownerDocument;
+      attached = !!((_nodeRootHost = nodeRootHost) !== null && _nodeRootHost !== void 0 && (_nodeRootHost$ownerDo = _nodeRootHost.ownerDocument) !== null && _nodeRootHost$ownerDo !== void 0 && _nodeRootHost$ownerDo.contains(nodeRootHost) || node !== null && node !== void 0 && (_node$ownerDocument = node.ownerDocument) !== null && _node$ownerDocument !== void 0 && _node$ownerDocument.contains(node));
+      while (!attached && nodeRootHost) {
+        var _nodeRoot2, _nodeRootHost2, _nodeRootHost2$ownerD;
+        nodeRoot = getRootNode(nodeRootHost);
+        nodeRootHost = (_nodeRoot2 = nodeRoot) === null || _nodeRoot2 === void 0 ? void 0 : _nodeRoot2.host;
+        attached = !!((_nodeRootHost2 = nodeRootHost) !== null && _nodeRootHost2 !== void 0 && (_nodeRootHost2$ownerD = _nodeRootHost2.ownerDocument) !== null && _nodeRootHost2$ownerD !== void 0 && _nodeRootHost2$ownerD.contains(nodeRootHost));
+      }
+    }
+    return attached;
+  };
+  var isZeroArea = function isZeroArea2(node) {
+    var _node$getBoundingClie = node.getBoundingClientRect(), width = _node$getBoundingClie.width, height = _node$getBoundingClie.height;
+    return width === 0 && height === 0;
+  };
+  var isHidden = function isHidden2(node, _ref) {
+    var displayCheck = _ref.displayCheck, getShadowRoot = _ref.getShadowRoot;
+    if (displayCheck === "full-native") {
+      if ("checkVisibility" in node) {
+        var visible = node.checkVisibility({
+          // Checking opacity might be desirable for some use cases, but natively,
+          // opacity zero elements _are_ focusable and tabbable.
+          checkOpacity: false,
+          opacityProperty: false,
+          contentVisibilityAuto: true,
+          visibilityProperty: true,
+          // This is an alias for `visibilityProperty`. Contemporary browsers
+          // support both. However, this alias has wider browser support (Chrome
+          // >= 105 and Firefox >= 106, vs. Chrome >= 121 and Firefox >= 122), so
+          // we include it anyway.
+          checkVisibilityCSS: true
+        });
+        return !visible;
+      }
+    }
+    if (getComputedStyle(node).visibility === "hidden") {
+      return true;
+    }
+    var isDirectSummary = matches.call(node, "details>summary:first-of-type");
+    var nodeUnderDetails = isDirectSummary ? node.parentElement : node;
+    if (matches.call(nodeUnderDetails, "details:not([open]) *")) {
+      return true;
+    }
+    if (!displayCheck || displayCheck === "full" || // full-native can run this branch when it falls through in case
+    // Element#checkVisibility is unsupported
+    displayCheck === "full-native" || displayCheck === "legacy-full") {
+      if (typeof getShadowRoot === "function") {
+        var originalNode = node;
+        while (node) {
+          var parentElement = node.parentElement;
+          var rootNode = getRootNode(node);
+          if (parentElement && !parentElement.shadowRoot && getShadowRoot(parentElement) === true) {
+            return isZeroArea(node);
+          } else if (node.assignedSlot) {
+            node = node.assignedSlot;
+          } else if (!parentElement && rootNode !== node.ownerDocument) {
+            node = rootNode.host;
+          } else {
+            node = parentElement;
+          }
+        }
+        node = originalNode;
+      }
+      if (isNodeAttached(node)) {
+        return !node.getClientRects().length;
+      }
+      if (displayCheck !== "legacy-full") {
+        return true;
+      }
+    } else if (displayCheck === "non-zero-area") {
+      return isZeroArea(node);
+    }
+    return false;
+  };
+  var isDisabledFromFieldset = function isDisabledFromFieldset2(node) {
+    if (/^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(node.tagName)) {
+      var parentNode = node.parentElement;
+      while (parentNode) {
+        if (parentNode.tagName === "FIELDSET" && parentNode.disabled) {
+          for (var i = 0; i < parentNode.children.length; i++) {
+            var child = parentNode.children.item(i);
+            if (child.tagName === "LEGEND") {
+              return matches.call(parentNode, "fieldset[disabled] *") ? true : !child.contains(node);
+            }
+          }
+          return true;
+        }
+        parentNode = parentNode.parentElement;
+      }
+    }
+    return false;
+  };
+  var isNodeMatchingSelectorFocusable = function isNodeMatchingSelectorFocusable2(options, node) {
+    if (node.disabled || isHiddenInput(node) || isHidden(node, options) || // For a details element with a summary, the summary element gets the focus
+    isDetailsWithSummary(node) || isDisabledFromFieldset(node)) {
+      return false;
+    }
+    return true;
+  };
+  var isNodeMatchingSelectorTabbable = function isNodeMatchingSelectorTabbable2(options, node) {
+    if (isNonTabbableRadio(node) || getTabIndex(node) < 0 || !isNodeMatchingSelectorFocusable(options, node)) {
+      return false;
+    }
+    return true;
+  };
+  var isShadowRootTabbable = function isShadowRootTabbable2(shadowHostNode) {
+    var tabIndex = parseInt(shadowHostNode.getAttribute("tabindex"), 10);
+    if (isNaN(tabIndex) || tabIndex >= 0) {
+      return true;
+    }
+    return false;
+  };
+  var _sortByOrder = function sortByOrder(candidates) {
+    var regularTabbables = [];
+    var orderedTabbables = [];
+    candidates.forEach(function(item, i) {
+      var isScope = !!item.scopeParent;
+      var element = isScope ? item.scopeParent : item;
+      var candidateTabindex = getSortOrderTabIndex(element, isScope);
+      var elements = isScope ? _sortByOrder(item.candidates) : element;
+      if (candidateTabindex === 0) {
+        isScope ? regularTabbables.push.apply(regularTabbables, elements) : regularTabbables.push(element);
+      } else {
+        orderedTabbables.push({
+          documentOrder: i,
+          tabIndex: candidateTabindex,
+          item,
+          isScope,
+          content: elements
+        });
+      }
+    });
+    return orderedTabbables.sort(sortOrderedTabbables).reduce(function(acc, sortable) {
+      sortable.isScope ? acc.push.apply(acc, sortable.content) : acc.push(sortable.content);
+      return acc;
+    }, []).concat(regularTabbables);
+  };
+  var tabbable = function tabbable2(container, options) {
+    options = options || {};
+    var candidates;
+    if (options.getShadowRoot) {
+      candidates = _getCandidatesIteratively([container], options.includeContainer, {
+        filter: isNodeMatchingSelectorTabbable.bind(null, options),
+        flatten: false,
+        getShadowRoot: options.getShadowRoot,
+        shadowRootFilter: isShadowRootTabbable
+      });
+    } else {
+      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorTabbable.bind(null, options));
+    }
+    return _sortByOrder(candidates);
+  };
+  var focusable = function focusable2(container, options) {
+    options = options || {};
+    var candidates;
+    if (options.getShadowRoot) {
+      candidates = _getCandidatesIteratively([container], options.includeContainer, {
+        filter: isNodeMatchingSelectorFocusable.bind(null, options),
+        flatten: true,
+        getShadowRoot: options.getShadowRoot
+      });
+    } else {
+      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorFocusable.bind(null, options));
+    }
+    return candidates;
+  };
+  var isTabbable = function isTabbable2(node, options) {
+    options = options || {};
+    if (!node) {
+      throw new Error("No node provided");
+    }
+    if (matches.call(node, candidateSelector) === false) {
+      return false;
+    }
+    return isNodeMatchingSelectorTabbable(options, node);
+  };
+  var focusableCandidateSelector = /* @__PURE__ */ candidateSelectors.concat("iframe:not([inert]):not([inert] *)").join(",");
+  var isFocusable$1 = function isFocusable2(node, options) {
+    options = options || {};
+    if (!node) {
+      throw new Error("No node provided");
+    }
+    if (matches.call(node, focusableCandidateSelector) === false) {
+      return false;
+    }
+    return isNodeMatchingSelectorFocusable(options, node);
+  };
+  const index_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    focusable,
+    getTabIndex,
+    isFocusable: isFocusable$1,
+    isTabbable,
+    tabbable
+  }, Symbol.toStringTag, { value: "Module" }));
+  /*!
+  * focus-trap 8.0.0
+  * @license MIT, https://github.com/focus-trap/focus-trap/blob/master/LICENSE
+  */
+  function _arrayLikeToArray(r2, a) {
+    (null == a || a > r2.length) && (a = r2.length);
+    for (var e = 0, n2 = Array(a); e < a; e++) n2[e] = r2[e];
+    return n2;
+  }
+  function _arrayWithoutHoles(r2) {
+    if (Array.isArray(r2)) return _arrayLikeToArray(r2);
+  }
+  function asyncGeneratorStep(n2, t2, e, r2, o, a, c) {
+    try {
+      var i = n2[a](c), u2 = i.value;
+    } catch (n3) {
+      return void e(n3);
+    }
+    i.done ? t2(u2) : Promise.resolve(u2).then(r2, o);
+  }
+  function _asyncToGenerator(n2) {
+    return function() {
+      var t2 = this, e = arguments;
+      return new Promise(function(r2, o) {
+        var a = n2.apply(t2, e);
+        function _next(n3) {
+          asyncGeneratorStep(a, r2, o, _next, _throw, "next", n3);
+        }
+        function _throw(n3) {
+          asyncGeneratorStep(a, r2, o, _next, _throw, "throw", n3);
+        }
+        _next(void 0);
+      });
+    };
+  }
+  function _createForOfIteratorHelper(r2, e) {
+    var t2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
+    if (!t2) {
+      if (Array.isArray(r2) || (t2 = _unsupportedIterableToArray(r2)) || e) {
+        t2 && (r2 = t2);
+        var n2 = 0, F2 = function() {
+        };
+        return {
+          s: F2,
+          n: function() {
+            return n2 >= r2.length ? {
+              done: true
+            } : {
+              done: false,
+              value: r2[n2++]
+            };
+          },
+          e: function(r3) {
+            throw r3;
+          },
+          f: F2
+        };
+      }
+      throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+    }
+    var o, a = true, u2 = false;
+    return {
+      s: function() {
+        t2 = t2.call(r2);
+      },
+      n: function() {
+        var r3 = t2.next();
+        return a = r3.done, r3;
+      },
+      e: function(r3) {
+        u2 = true, o = r3;
+      },
+      f: function() {
+        try {
+          a || null == t2.return || t2.return();
+        } finally {
+          if (u2) throw o;
+        }
+      }
+    };
+  }
+  function _defineProperty$1(e, r2, t2) {
+    return (r2 = _toPropertyKey$1(r2)) in e ? Object.defineProperty(e, r2, {
+      value: t2,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    }) : e[r2] = t2, e;
+  }
+  function _iterableToArray(r2) {
+    if ("undefined" != typeof Symbol && null != r2[Symbol.iterator] || null != r2["@@iterator"]) return Array.from(r2);
+  }
+  function _nonIterableSpread() {
+    throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+  }
+  function ownKeys(e, r2) {
+    var t2 = Object.keys(e);
+    if (Object.getOwnPropertySymbols) {
+      var o = Object.getOwnPropertySymbols(e);
+      r2 && (o = o.filter(function(r3) {
+        return Object.getOwnPropertyDescriptor(e, r3).enumerable;
+      })), t2.push.apply(t2, o);
+    }
+    return t2;
+  }
+  function _objectSpread2(e) {
+    for (var r2 = 1; r2 < arguments.length; r2++) {
+      var t2 = null != arguments[r2] ? arguments[r2] : {};
+      r2 % 2 ? ownKeys(Object(t2), true).forEach(function(r3) {
+        _defineProperty$1(e, r3, t2[r3]);
+      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t2)) : ownKeys(Object(t2)).forEach(function(r3) {
+        Object.defineProperty(e, r3, Object.getOwnPropertyDescriptor(t2, r3));
+      });
+    }
+    return e;
+  }
+  function _regenerator() {
+    /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
+    var e, t2, r2 = "function" == typeof Symbol ? Symbol : {}, n2 = r2.iterator || "@@iterator", o = r2.toStringTag || "@@toStringTag";
+    function i(r3, n3, o2, i2) {
+      var c2 = n3 && n3.prototype instanceof Generator ? n3 : Generator, u3 = Object.create(c2.prototype);
+      return _regeneratorDefine(u3, "_invoke", function(r4, n4, o3) {
+        var i3, c3, u4, f3 = 0, p2 = o3 || [], y2 = false, G2 = {
+          p: 0,
+          n: 0,
+          v: e,
+          a: d,
+          f: d.bind(e, 4),
+          d: function(t3, r5) {
+            return i3 = t3, c3 = 0, u4 = e, G2.n = r5, a;
+          }
+        };
+        function d(r5, n5) {
+          for (c3 = r5, u4 = n5, t2 = 0; !y2 && f3 && !o4 && t2 < p2.length; t2++) {
+            var o4, i4 = p2[t2], d2 = G2.p, l2 = i4[2];
+            r5 > 3 ? (o4 = l2 === n5) && (u4 = i4[(c3 = i4[4]) ? 5 : (c3 = 3, 3)], i4[4] = i4[5] = e) : i4[0] <= d2 && ((o4 = r5 < 2 && d2 < i4[1]) ? (c3 = 0, G2.v = n5, G2.n = i4[1]) : d2 < l2 && (o4 = r5 < 3 || i4[0] > n5 || n5 > l2) && (i4[4] = r5, i4[5] = n5, G2.n = l2, c3 = 0));
+          }
+          if (o4 || r5 > 1) return a;
+          throw y2 = true, n5;
+        }
+        return function(o4, p3, l2) {
+          if (f3 > 1) throw TypeError("Generator is already running");
+          for (y2 && 1 === p3 && d(p3, l2), c3 = p3, u4 = l2; (t2 = c3 < 2 ? e : u4) || !y2; ) {
+            i3 || (c3 ? c3 < 3 ? (c3 > 1 && (G2.n = -1), d(c3, u4)) : G2.n = u4 : G2.v = u4);
+            try {
+              if (f3 = 2, i3) {
+                if (c3 || (o4 = "next"), t2 = i3[o4]) {
+                  if (!(t2 = t2.call(i3, u4))) throw TypeError("iterator result is not an object");
+                  if (!t2.done) return t2;
+                  u4 = t2.value, c3 < 2 && (c3 = 0);
+                } else 1 === c3 && (t2 = i3.return) && t2.call(i3), c3 < 2 && (u4 = TypeError("The iterator does not provide a '" + o4 + "' method"), c3 = 1);
+                i3 = e;
+              } else if ((t2 = (y2 = G2.n < 0) ? u4 : r4.call(n4, G2)) !== a) break;
+            } catch (t3) {
+              i3 = e, c3 = 1, u4 = t3;
+            } finally {
+              f3 = 1;
+            }
+          }
+          return {
+            value: t2,
+            done: y2
+          };
+        };
+      }(r3, o2, i2), true), u3;
+    }
+    var a = {};
+    function Generator() {
+    }
+    function GeneratorFunction() {
+    }
+    function GeneratorFunctionPrototype() {
+    }
+    t2 = Object.getPrototypeOf;
+    var c = [][n2] ? t2(t2([][n2]())) : (_regeneratorDefine(t2 = {}, n2, function() {
+      return this;
+    }), t2), u2 = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c);
+    function f2(e2) {
+      return Object.setPrototypeOf ? Object.setPrototypeOf(e2, GeneratorFunctionPrototype) : (e2.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine(e2, o, "GeneratorFunction")), e2.prototype = Object.create(u2), e2;
+    }
+    return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine(u2, "constructor", GeneratorFunctionPrototype), _regeneratorDefine(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine(u2), _regeneratorDefine(u2, o, "Generator"), _regeneratorDefine(u2, n2, function() {
+      return this;
+    }), _regeneratorDefine(u2, "toString", function() {
+      return "[object Generator]";
+    }), (_regenerator = function() {
+      return {
+        w: i,
+        m: f2
+      };
+    })();
+  }
+  function _regeneratorDefine(e, r2, n2, t2) {
+    var i = Object.defineProperty;
+    try {
+      i({}, "", {});
+    } catch (e2) {
+      i = 0;
+    }
+    _regeneratorDefine = function(e2, r3, n3, t3) {
+      function o(r4, n4) {
+        _regeneratorDefine(e2, r4, function(e3) {
+          return this._invoke(r4, n4, e3);
+        });
+      }
+      r3 ? i ? i(e2, r3, {
+        value: n3,
+        enumerable: !t3,
+        configurable: !t3,
+        writable: !t3
+      }) : e2[r3] = n3 : (o("next", 0), o("throw", 1), o("return", 2));
+    }, _regeneratorDefine(e, r2, n2, t2);
+  }
+  function _toConsumableArray(r2) {
+    return _arrayWithoutHoles(r2) || _iterableToArray(r2) || _unsupportedIterableToArray(r2) || _nonIterableSpread();
+  }
+  function _toPrimitive$1(t2, r2) {
+    if ("object" != typeof t2 || !t2) return t2;
+    var e = t2[Symbol.toPrimitive];
+    if (void 0 !== e) {
+      var i = e.call(t2, r2);
+      if ("object" != typeof i) return i;
+      throw new TypeError("@@toPrimitive must return a primitive value.");
+    }
+    return ("string" === r2 ? String : Number)(t2);
+  }
+  function _toPropertyKey$1(t2) {
+    var i = _toPrimitive$1(t2, "string");
+    return "symbol" == typeof i ? i : i + "";
+  }
+  function _unsupportedIterableToArray(r2, a) {
+    if (r2) {
+      if ("string" == typeof r2) return _arrayLikeToArray(r2, a);
+      var t2 = {}.toString.call(r2).slice(8, -1);
+      return "Object" === t2 && r2.constructor && (t2 = r2.constructor.name), "Map" === t2 || "Set" === t2 ? Array.from(r2) : "Arguments" === t2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t2) ? _arrayLikeToArray(r2, a) : void 0;
+    }
+  }
+  var activeFocusTraps = {
+    // Returns the trap from the top of the stack.
+    getActiveTrap: function getActiveTrap(trapStack) {
+      if ((trapStack === null || trapStack === void 0 ? void 0 : trapStack.length) > 0) {
+        return trapStack[trapStack.length - 1];
+      }
+      return null;
+    },
+    // Pauses the currently active trap, then adds a new trap to the stack.
+    activateTrap: function activateTrap(trapStack, trap) {
+      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
+      if (trap !== activeTrap) {
+        activeFocusTraps.pauseTrap(trapStack);
+      }
+      var trapIndex = trapStack.indexOf(trap);
+      if (trapIndex === -1) {
+        trapStack.push(trap);
+      } else {
+        trapStack.splice(trapIndex, 1);
+        trapStack.push(trap);
+      }
+    },
+    // Removes the trap from the top of the stack, then unpauses the next trap down.
+    deactivateTrap: function deactivateTrap(trapStack, trap) {
+      var trapIndex = trapStack.indexOf(trap);
+      if (trapIndex !== -1) {
+        trapStack.splice(trapIndex, 1);
+      }
+      activeFocusTraps.unpauseTrap(trapStack);
+    },
+    // Pauses the trap at the top of the stack.
+    pauseTrap: function pauseTrap(trapStack) {
+      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
+      activeTrap === null || activeTrap === void 0 || activeTrap._setPausedState(true);
+    },
+    // Unpauses the trap at the top of the stack.
+    unpauseTrap: function unpauseTrap(trapStack) {
+      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
+      if (activeTrap && !activeTrap._isManuallyPaused()) {
+        activeTrap._setPausedState(false);
+      }
+    }
+  };
+  var isSelectableInput = function isSelectableInput2(node) {
+    return node.tagName && node.tagName.toLowerCase() === "input" && typeof node.select === "function";
+  };
+  var isEscapeEvent = function isEscapeEvent2(e) {
+    return (e === null || e === void 0 ? void 0 : e.key) === "Escape" || (e === null || e === void 0 ? void 0 : e.key) === "Esc" || (e === null || e === void 0 ? void 0 : e.keyCode) === 27;
+  };
+  var isTabEvent = function isTabEvent2(e) {
+    return (e === null || e === void 0 ? void 0 : e.key) === "Tab" || (e === null || e === void 0 ? void 0 : e.keyCode) === 9;
+  };
+  var isKeyForward = function isKeyForward2(e) {
+    return isTabEvent(e) && !e.shiftKey;
+  };
+  var isKeyBackward = function isKeyBackward2(e) {
+    return isTabEvent(e) && e.shiftKey;
+  };
+  var delay = function delay2(fn) {
+    return setTimeout(fn, 0);
+  };
+  var valueOrHandler = function valueOrHandler2(value) {
+    for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+      params[_key - 1] = arguments[_key];
+    }
+    return typeof value === "function" ? value.apply(void 0, params) : value;
+  };
+  var getActualTarget = function getActualTarget2(event) {
+    return event.target.shadowRoot && typeof event.composedPath === "function" ? event.composedPath()[0] : event.target;
+  };
+  var internalTrapStack = [];
+  var createFocusTrap$1 = function createFocusTrap2(elements, userOptions) {
+    var doc = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.document) || document;
+    var trapStack = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.trapStack) || internalTrapStack;
+    var config2 = _objectSpread2({
+      returnFocusOnDeactivate: true,
+      escapeDeactivates: true,
+      delayInitialFocus: true,
+      isolateSubtrees: false,
+      isKeyForward,
+      isKeyBackward
+    }, userOptions);
+    var state = {
+      // containers given to createFocusTrap()
+      /** @type {Array<HTMLElement>} */
+      containers: [],
+      // list of objects identifying tabbable nodes in `containers` in the trap
+      // NOTE: it's possible that a group has no tabbable nodes if nodes get removed while the trap
+      //  is active, but the trap should never get to a state where there isn't at least one group
+      //  with at least one tabbable node in it (that would lead to an error condition that would
+      //  result in an error being thrown)
+      /** @type {Array<{
+       *    container: HTMLElement,
+       *    tabbableNodes: Array<HTMLElement>, // empty if none
+       *    focusableNodes: Array<HTMLElement>, // empty if none
+       *    posTabIndexesFound: boolean,
+       *    firstTabbableNode: HTMLElement|undefined,
+       *    lastTabbableNode: HTMLElement|undefined,
+       *    firstDomTabbableNode: HTMLElement|undefined,
+       *    lastDomTabbableNode: HTMLElement|undefined,
+       *    nextTabbableNode: (node: HTMLElement, forward: boolean) => HTMLElement|undefined
+       *  }>}
+       */
+      containerGroups: [],
+      // same order/length as `containers` list
+      // references to objects in `containerGroups`, but only those that actually have
+      //  tabbable nodes in them
+      // NOTE: same order as `containers` and `containerGroups`, but __not necessarily__
+      //  the same length
+      tabbableGroups: [],
+      // references to nodes that are siblings to the ancestors of this trap's containers.
+      /** @type {Set<HTMLElement>} */
+      adjacentElements: /* @__PURE__ */ new Set(),
+      // references to nodes that were inert or aria-hidden before the trap was activated.
+      /** @type {Set<HTMLElement>} */
+      alreadySilent: /* @__PURE__ */ new Set(),
+      nodeFocusedBeforeActivation: null,
+      mostRecentlyFocusedNode: null,
+      active: false,
+      paused: false,
+      manuallyPaused: false,
+      // timer ID for when delayInitialFocus is true and initial focus in this trap
+      //  has been delayed during activation
+      delayInitialFocusTimer: void 0,
+      // the most recent KeyboardEvent for the configured nav key (typically [SHIFT+]TAB), if any
+      recentNavEvent: void 0
+    };
+    var trap;
+    var getOption = function getOption2(configOverrideOptions, optionName, configOptionName) {
+      return configOverrideOptions && configOverrideOptions[optionName] !== void 0 ? configOverrideOptions[optionName] : config2[configOptionName || optionName];
+    };
+    var findContainerIndex = function findContainerIndex2(element, event) {
+      var composedPath = typeof (event === null || event === void 0 ? void 0 : event.composedPath) === "function" ? event.composedPath() : void 0;
+      return state.containerGroups.findIndex(function(_ref) {
+        var container = _ref.container, tabbableNodes = _ref.tabbableNodes;
+        return container.contains(element) || // fall back to explicit tabbable search which will take into consideration any
+        //  web components if the `tabbableOptions.getShadowRoot` option was used for
+        //  the trap, enabling shadow DOM support in tabbable (`Node.contains()` doesn't
+        //  look inside web components even if open)
+        (composedPath === null || composedPath === void 0 ? void 0 : composedPath.includes(container)) || tabbableNodes.find(function(node) {
+          return node === element;
+        });
+      });
+    };
+    var getNodeForOption = function getNodeForOption2(optionName) {
+      var _ref2 = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref2$hasFallback = _ref2.hasFallback, hasFallback = _ref2$hasFallback === void 0 ? false : _ref2$hasFallback, _ref2$params = _ref2.params, params = _ref2$params === void 0 ? [] : _ref2$params;
+      var optionValue = config2[optionName];
+      if (typeof optionValue === "function") {
+        optionValue = optionValue.apply(void 0, _toConsumableArray(params));
+      }
+      if (optionValue === true) {
+        optionValue = void 0;
+      }
+      if (!optionValue) {
+        if (optionValue === void 0 || optionValue === false) {
+          return optionValue;
+        }
+        throw new Error("`".concat(optionName, "` was specified but was not a node, or did not return a node"));
+      }
+      var node = optionValue;
+      if (typeof optionValue === "string") {
+        try {
+          node = doc.querySelector(optionValue);
+        } catch (err) {
+          throw new Error("`".concat(optionName, '` appears to be an invalid selector; error="').concat(err.message, '"'));
+        }
+        if (!node) {
+          if (!hasFallback) {
+            throw new Error("`".concat(optionName, "` as selector refers to no known node"));
+          }
+        }
+      }
+      return node;
+    };
+    var getInitialFocusNode = function getInitialFocusNode2() {
+      var node = getNodeForOption("initialFocus", {
+        hasFallback: true
+      });
+      if (node === false) {
+        return false;
+      }
+      if (node === void 0 || node && !isFocusable$1(node, config2.tabbableOptions)) {
+        if (findContainerIndex(doc.activeElement) >= 0) {
+          node = doc.activeElement;
+        } else {
+          var firstTabbableGroup = state.tabbableGroups[0];
+          var firstTabbableNode = firstTabbableGroup && firstTabbableGroup.firstTabbableNode;
+          node = firstTabbableNode || getNodeForOption("fallbackFocus");
+        }
+      } else if (node === null) {
+        node = getNodeForOption("fallbackFocus");
+      }
+      if (!node) {
+        throw new Error("Your focus-trap needs to have at least one focusable element");
+      }
+      return node;
+    };
+    var updateTabbableNodes = function updateTabbableNodes2() {
+      state.containerGroups = state.containers.map(function(container) {
+        var tabbableNodes = tabbable(container, config2.tabbableOptions);
+        var focusableNodes = focusable(container, config2.tabbableOptions);
+        var firstTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[0] : void 0;
+        var lastTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[tabbableNodes.length - 1] : void 0;
+        var firstDomTabbableNode = focusableNodes.find(function(node) {
+          return isTabbable(node);
+        });
+        var lastDomTabbableNode = focusableNodes.slice().reverse().find(function(node) {
+          return isTabbable(node);
+        });
+        var posTabIndexesFound = !!tabbableNodes.find(function(node) {
+          return getTabIndex(node) > 0;
+        });
+        return {
+          container,
+          tabbableNodes,
+          focusableNodes,
+          /** True if at least one node with positive `tabindex` was found in this container. */
+          posTabIndexesFound,
+          /** First tabbable node in container, __tabindex__ order; `undefined` if none. */
+          firstTabbableNode,
+          /** Last tabbable node in container, __tabindex__ order; `undefined` if none. */
+          lastTabbableNode,
+          // NOTE: DOM order is NOT NECESSARILY "document position" order, but figuring that out
+          //  would require more than just https://developer.mozilla.org/en-US/docs/Web/API/Node/compareDocumentPosition
+          //  because that API doesn't work with Shadow DOM as well as it should (@see
+          //  https://github.com/whatwg/dom/issues/320) and since this first/last is only needed, so far,
+          //  to address an edge case related to positive tabindex support, this seems like a much easier,
+          //  "close enough most of the time" alternative for positive tabindexes which should generally
+          //  be avoided anyway...
+          /** First tabbable node in container, __DOM__ order; `undefined` if none. */
+          firstDomTabbableNode,
+          /** Last tabbable node in container, __DOM__ order; `undefined` if none. */
+          lastDomTabbableNode,
+          /**
+           * Finds the __tabbable__ node that follows the given node in the specified direction,
+           *  in this container, if any.
+           * @param {HTMLElement} node
+           * @param {boolean} [forward] True if going in forward tab order; false if going
+           *  in reverse.
+           * @returns {HTMLElement|undefined} The next tabbable node, if any.
+           */
+          nextTabbableNode: function nextTabbableNode(node) {
+            var forward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : true;
+            var nodeIdx = tabbableNodes.indexOf(node);
+            if (nodeIdx < 0) {
+              if (forward) {
+                return focusableNodes.slice(focusableNodes.indexOf(node) + 1).find(function(el2) {
+                  return isTabbable(el2);
+                });
+              }
+              return focusableNodes.slice(0, focusableNodes.indexOf(node)).reverse().find(function(el2) {
+                return isTabbable(el2);
+              });
+            }
+            return tabbableNodes[nodeIdx + (forward ? 1 : -1)];
+          }
+        };
+      });
+      state.tabbableGroups = state.containerGroups.filter(function(group) {
+        return group.tabbableNodes.length > 0;
+      });
+      if (state.tabbableGroups.length <= 0 && !getNodeForOption("fallbackFocus")) {
+        throw new Error("Your focus-trap must have at least one container with at least one tabbable node in it at all times");
+      }
+      if (state.containerGroups.find(function(g) {
+        return g.posTabIndexesFound;
+      }) && state.containerGroups.length > 1) {
+        throw new Error("At least one node with a positive tabindex was found in one of your focus-trap's multiple containers. Positive tabindexes are only supported in single-container focus-traps.");
+      }
+    };
+    var _getActiveElement = function getActiveElement(el2) {
+      var activeElement = el2.activeElement;
+      if (!activeElement) {
+        return;
+      }
+      if (activeElement.shadowRoot && activeElement.shadowRoot.activeElement !== null) {
+        return _getActiveElement(activeElement.shadowRoot);
+      }
+      return activeElement;
+    };
+    var _tryFocus = function tryFocus(node) {
+      if (node === false) {
+        return;
+      }
+      if (node === _getActiveElement(document)) {
+        return;
+      }
+      if (!node || !node.focus) {
+        _tryFocus(getInitialFocusNode());
+        return;
+      }
+      node.focus({
+        preventScroll: !!config2.preventScroll
+      });
+      state.mostRecentlyFocusedNode = node;
+      if (isSelectableInput(node)) {
+        node.select();
+      }
+    };
+    var getReturnFocusNode = function getReturnFocusNode2(previousActiveElement) {
+      var node = getNodeForOption("setReturnFocus", {
+        params: [previousActiveElement]
+      });
+      return node ? node : node === false ? false : previousActiveElement;
+    };
+    var findNextNavNode = function findNextNavNode2(_ref3) {
+      var target = _ref3.target, event = _ref3.event, _ref3$isBackward = _ref3.isBackward, isBackward = _ref3$isBackward === void 0 ? false : _ref3$isBackward;
+      target = target || getActualTarget(event);
+      updateTabbableNodes();
+      var destinationNode = null;
+      if (state.tabbableGroups.length > 0) {
+        var containerIndex = findContainerIndex(target, event);
+        var containerGroup = containerIndex >= 0 ? state.containerGroups[containerIndex] : void 0;
+        if (containerIndex < 0) {
+          if (isBackward) {
+            destinationNode = state.tabbableGroups[state.tabbableGroups.length - 1].lastTabbableNode;
+          } else {
+            destinationNode = state.tabbableGroups[0].firstTabbableNode;
+          }
+        } else if (isBackward) {
+          var startOfGroupIndex = state.tabbableGroups.findIndex(function(_ref4) {
+            var firstTabbableNode = _ref4.firstTabbableNode;
+            return target === firstTabbableNode;
+          });
+          if (startOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target, false))) {
+            startOfGroupIndex = containerIndex;
+          }
+          if (startOfGroupIndex >= 0) {
+            var destinationGroupIndex = startOfGroupIndex === 0 ? state.tabbableGroups.length - 1 : startOfGroupIndex - 1;
+            var destinationGroup = state.tabbableGroups[destinationGroupIndex];
+            destinationNode = getTabIndex(target) >= 0 ? destinationGroup.lastTabbableNode : destinationGroup.lastDomTabbableNode;
+          } else if (!isTabEvent(event)) {
+            destinationNode = containerGroup.nextTabbableNode(target, false);
+          }
+        } else {
+          var lastOfGroupIndex = state.tabbableGroups.findIndex(function(_ref5) {
+            var lastTabbableNode = _ref5.lastTabbableNode;
+            return target === lastTabbableNode;
+          });
+          if (lastOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target))) {
+            lastOfGroupIndex = containerIndex;
+          }
+          if (lastOfGroupIndex >= 0) {
+            var _destinationGroupIndex = lastOfGroupIndex === state.tabbableGroups.length - 1 ? 0 : lastOfGroupIndex + 1;
+            var _destinationGroup = state.tabbableGroups[_destinationGroupIndex];
+            destinationNode = getTabIndex(target) >= 0 ? _destinationGroup.firstTabbableNode : _destinationGroup.firstDomTabbableNode;
+          } else if (!isTabEvent(event)) {
+            destinationNode = containerGroup.nextTabbableNode(target);
+          }
+        }
+      } else {
+        destinationNode = getNodeForOption("fallbackFocus");
+      }
+      return destinationNode;
+    };
+    var checkPointerDown = function checkPointerDown2(e) {
+      var target = getActualTarget(e);
+      if (findContainerIndex(target, e) >= 0) {
+        return;
+      }
+      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
+        trap.deactivate({
+          // NOTE: by setting `returnFocus: false`, deactivate() will do nothing,
+          //  which will result in the outside click setting focus to the node
+          //  that was clicked (and if not focusable, to "nothing"); by setting
+          //  `returnFocus: true`, we'll attempt to re-focus the node originally-focused
+          //  on activation (or the configured `setReturnFocus` node), whether the
+          //  outside click was on a focusable node or not
+          returnFocus: config2.returnFocusOnDeactivate
+        });
+        return;
+      }
+      if (valueOrHandler(config2.allowOutsideClick, e)) {
+        return;
+      }
+      e.preventDefault();
+    };
+    var checkFocusIn = function checkFocusIn2(event) {
+      var target = getActualTarget(event);
+      var targetContained = findContainerIndex(target, event) >= 0;
+      if (targetContained || target instanceof Document) {
+        if (targetContained) {
+          state.mostRecentlyFocusedNode = target;
+        }
+      } else {
+        event.stopImmediatePropagation();
+        var nextNode;
+        var navAcrossContainers = true;
+        if (state.mostRecentlyFocusedNode) {
+          if (getTabIndex(state.mostRecentlyFocusedNode) > 0) {
+            var mruContainerIdx = findContainerIndex(state.mostRecentlyFocusedNode);
+            var tabbableNodes = state.containerGroups[mruContainerIdx].tabbableNodes;
+            if (tabbableNodes.length > 0) {
+              var mruTabIdx = tabbableNodes.findIndex(function(node) {
+                return node === state.mostRecentlyFocusedNode;
+              });
+              if (mruTabIdx >= 0) {
+                if (config2.isKeyForward(state.recentNavEvent)) {
+                  if (mruTabIdx + 1 < tabbableNodes.length) {
+                    nextNode = tabbableNodes[mruTabIdx + 1];
+                    navAcrossContainers = false;
+                  }
+                } else {
+                  if (mruTabIdx - 1 >= 0) {
+                    nextNode = tabbableNodes[mruTabIdx - 1];
+                    navAcrossContainers = false;
+                  }
+                }
+              }
+            }
+          } else {
+            if (!state.containerGroups.some(function(g) {
+              return g.tabbableNodes.some(function(n2) {
+                return getTabIndex(n2) > 0;
+              });
+            })) {
+              navAcrossContainers = false;
+            }
+          }
+        } else {
+          navAcrossContainers = false;
+        }
+        if (navAcrossContainers) {
+          nextNode = findNextNavNode({
+            // move FROM the MRU node, not event-related node (which will be the node that is
+            //  outside the trap causing the focus escape we're trying to fix)
+            target: state.mostRecentlyFocusedNode,
+            isBackward: config2.isKeyBackward(state.recentNavEvent)
+          });
+        }
+        if (nextNode) {
+          _tryFocus(nextNode);
+        } else {
+          _tryFocus(state.mostRecentlyFocusedNode || getInitialFocusNode());
+        }
+      }
+      state.recentNavEvent = void 0;
+    };
+    var checkKeyNav = function checkKeyNav2(event) {
+      var isBackward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : false;
+      state.recentNavEvent = event;
+      var destinationNode = findNextNavNode({
+        event,
+        isBackward
+      });
+      if (destinationNode) {
+        if (isTabEvent(event)) {
+          event.preventDefault();
+        }
+        _tryFocus(destinationNode);
+      }
+    };
+    var checkTabKey = function checkTabKey2(event) {
+      if (config2.isKeyForward(event) || config2.isKeyBackward(event)) {
+        checkKeyNav(event, config2.isKeyBackward(event));
+      }
+    };
+    var checkEscapeKey = function checkEscapeKey2(event) {
+      if (isEscapeEvent(event) && valueOrHandler(config2.escapeDeactivates, event) !== false) {
+        event.preventDefault();
+        trap.deactivate();
+      }
+    };
+    var checkClick = function checkClick2(e) {
+      var target = getActualTarget(e);
+      if (findContainerIndex(target, e) >= 0) {
+        return;
+      }
+      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
+        return;
+      }
+      if (valueOrHandler(config2.allowOutsideClick, e)) {
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    var addListeners = function addListeners2() {
+      if (!state.active) {
+        return Promise.resolve();
+      }
+      activeFocusTraps.activateTrap(trapStack, trap);
+      var promise;
+      if (config2.delayInitialFocus) {
+        promise = new Promise(function(resolve) {
+          state.delayInitialFocusTimer = delay(function() {
+            _tryFocus(getInitialFocusNode());
+            resolve();
+          });
+        });
+      } else {
+        promise = Promise.resolve();
+        _tryFocus(getInitialFocusNode());
+      }
+      doc.addEventListener("focusin", checkFocusIn, true);
+      doc.addEventListener("mousedown", checkPointerDown, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("touchstart", checkPointerDown, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("click", checkClick, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("keydown", checkTabKey, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("keydown", checkEscapeKey);
+      return promise;
+    };
+    var collectAdjacentElements = function collectAdjacentElements2(containers) {
+      if (state.active && !state.paused) {
+        trap._setSubtreeIsolation(false);
+      }
+      state.adjacentElements.clear();
+      state.alreadySilent.clear();
+      var containerAncestors = /* @__PURE__ */ new Set();
+      var adjacentElements = /* @__PURE__ */ new Set();
+      var _iterator = _createForOfIteratorHelper(containers), _step;
+      try {
+        for (_iterator.s(); !(_step = _iterator.n()).done; ) {
+          var container = _step.value;
+          containerAncestors.add(container);
+          var insideShadowRoot = typeof ShadowRoot !== "undefined" && container.getRootNode() instanceof ShadowRoot;
+          var current = container;
+          while (current) {
+            containerAncestors.add(current);
+            var parent = current.parentElement;
+            var siblings = [];
+            if (parent) {
+              siblings = parent.children;
+            } else if (!parent && insideShadowRoot) {
+              siblings = current.getRootNode().children;
+              parent = current.getRootNode().host;
+              insideShadowRoot = typeof ShadowRoot !== "undefined" && parent.getRootNode() instanceof ShadowRoot;
+            }
+            var _iterator2 = _createForOfIteratorHelper(siblings), _step2;
+            try {
+              for (_iterator2.s(); !(_step2 = _iterator2.n()).done; ) {
+                var child = _step2.value;
+                adjacentElements.add(child);
+              }
+            } catch (err) {
+              _iterator2.e(err);
+            } finally {
+              _iterator2.f();
+            }
+            current = parent;
+          }
+        }
+      } catch (err) {
+        _iterator.e(err);
+      } finally {
+        _iterator.f();
+      }
+      containerAncestors.forEach(function(el2) {
+        adjacentElements["delete"](el2);
+      });
+      state.adjacentElements = adjacentElements;
+    };
+    var removeListeners = function removeListeners2() {
+      if (!state.active) {
+        return;
+      }
+      doc.removeEventListener("focusin", checkFocusIn, true);
+      doc.removeEventListener("mousedown", checkPointerDown, true);
+      doc.removeEventListener("touchstart", checkPointerDown, true);
+      doc.removeEventListener("click", checkClick, true);
+      doc.removeEventListener("keydown", checkTabKey, true);
+      doc.removeEventListener("keydown", checkEscapeKey);
+      return trap;
+    };
+    var checkDomRemoval = function checkDomRemoval2(mutations) {
+      var isFocusedNodeRemoved = mutations.some(function(mutation) {
+        var removedNodes = Array.from(mutation.removedNodes);
+        return removedNodes.some(function(node) {
+          return node === state.mostRecentlyFocusedNode;
+        });
+      });
+      if (isFocusedNodeRemoved) {
+        _tryFocus(getInitialFocusNode());
+      }
+    };
+    var mutationObserver = typeof window !== "undefined" && "MutationObserver" in window ? new MutationObserver(checkDomRemoval) : void 0;
+    var updateObservedNodes = function updateObservedNodes2() {
+      if (!mutationObserver) {
+        return;
+      }
+      mutationObserver.disconnect();
+      if (state.active && !state.paused) {
+        state.containers.map(function(container) {
+          mutationObserver.observe(container, {
+            subtree: true,
+            childList: true
+          });
+        });
+      }
+    };
+    trap = {
+      get active() {
+        return state.active;
+      },
+      get paused() {
+        return state.paused;
+      },
+      activate: function activate(activateOptions) {
+        if (state.active) {
+          return this;
+        }
+        var onActivate = getOption(activateOptions, "onActivate");
+        var onPostActivate = getOption(activateOptions, "onPostActivate");
+        var checkCanFocusTrap = getOption(activateOptions, "checkCanFocusTrap");
+        var preexistingTrap = activeFocusTraps.getActiveTrap(trapStack);
+        var revertState = false;
+        if (preexistingTrap && !preexistingTrap.paused) {
+          var _preexistingTrap$_set;
+          (_preexistingTrap$_set = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set === void 0 || _preexistingTrap$_set.call(preexistingTrap, false);
+          revertState = true;
+        }
+        try {
+          if (!checkCanFocusTrap) {
+            updateTabbableNodes();
+          }
+          state.active = true;
+          state.paused = false;
+          state.nodeFocusedBeforeActivation = _getActiveElement(doc);
+          onActivate === null || onActivate === void 0 || onActivate();
+          var finishActivation = /* @__PURE__ */ function() {
+            var _ref6 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee() {
+              return _regenerator().w(function(_context) {
+                while (1) switch (_context.n) {
+                  case 0:
+                    if (checkCanFocusTrap) {
+                      updateTabbableNodes();
+                    }
+                    _context.n = 1;
+                    return addListeners();
+                  case 1:
+                    trap._setSubtreeIsolation(true);
+                    updateObservedNodes();
+                    onPostActivate === null || onPostActivate === void 0 || onPostActivate();
+                  case 2:
+                    return _context.a(2);
+                }
+              }, _callee);
+            }));
+            return function finishActivation2() {
+              return _ref6.apply(this, arguments);
+            };
+          }();
+          if (checkCanFocusTrap) {
+            checkCanFocusTrap(state.containers.concat()).then(finishActivation, finishActivation);
+            return this;
+          }
+          finishActivation();
+        } catch (error) {
+          if (preexistingTrap === activeFocusTraps.getActiveTrap(trapStack) && revertState) {
+            var _preexistingTrap$_set2;
+            (_preexistingTrap$_set2 = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set2 === void 0 || _preexistingTrap$_set2.call(preexistingTrap, true);
+          }
+          throw error;
+        }
+        return this;
+      },
+      deactivate: function deactivate(deactivateOptions) {
+        if (!state.active) {
+          return this;
+        }
+        var options = _objectSpread2({
+          onDeactivate: config2.onDeactivate,
+          onPostDeactivate: config2.onPostDeactivate,
+          checkCanReturnFocus: config2.checkCanReturnFocus
+        }, deactivateOptions);
+        clearTimeout(state.delayInitialFocusTimer);
+        state.delayInitialFocusTimer = void 0;
+        if (!state.paused) {
+          trap._setSubtreeIsolation(false);
+        }
+        state.alreadySilent.clear();
+        removeListeners();
+        state.active = false;
+        state.paused = false;
+        updateObservedNodes();
+        activeFocusTraps.deactivateTrap(trapStack, trap);
+        var onDeactivate = getOption(options, "onDeactivate");
+        var onPostDeactivate = getOption(options, "onPostDeactivate");
+        var checkCanReturnFocus = getOption(options, "checkCanReturnFocus");
+        var returnFocus = getOption(options, "returnFocus", "returnFocusOnDeactivate");
+        onDeactivate === null || onDeactivate === void 0 || onDeactivate();
+        var finishDeactivation = function finishDeactivation2() {
+          delay(function() {
+            if (returnFocus) {
+              _tryFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation));
+            }
+            onPostDeactivate === null || onPostDeactivate === void 0 || onPostDeactivate();
+          });
+        };
+        if (returnFocus && checkCanReturnFocus) {
+          checkCanReturnFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation)).then(finishDeactivation, finishDeactivation);
+          return this;
+        }
+        finishDeactivation();
+        return this;
+      },
+      pause: function pause(pauseOptions) {
+        if (!state.active) {
+          return this;
+        }
+        state.manuallyPaused = true;
+        return this._setPausedState(true, pauseOptions);
+      },
+      unpause: function unpause(unpauseOptions) {
+        if (!state.active) {
+          return this;
+        }
+        state.manuallyPaused = false;
+        if (trapStack[trapStack.length - 1] !== this) {
+          return this;
+        }
+        return this._setPausedState(false, unpauseOptions);
+      },
+      updateContainerElements: function updateContainerElements(containerElements) {
+        var elementsAsArray = [].concat(containerElements).filter(Boolean);
+        state.containers = elementsAsArray.map(function(element) {
+          return typeof element === "string" ? doc.querySelector(element) : element;
+        });
+        if (config2.isolateSubtrees) {
+          collectAdjacentElements(state.containers);
+        }
+        if (state.active) {
+          updateTabbableNodes();
+          if (!state.paused) {
+            trap._setSubtreeIsolation(true);
+          }
+        }
+        updateObservedNodes();
+        return this;
+      }
+    };
+    Object.defineProperties(trap, {
+      _isManuallyPaused: {
+        value: function value() {
+          return state.manuallyPaused;
+        }
+      },
+      _setPausedState: {
+        value: function value(paused, options) {
+          if (state.paused === paused) {
+            return this;
+          }
+          state.paused = paused;
+          if (paused) {
+            var onPause = getOption(options, "onPause");
+            var onPostPause = getOption(options, "onPostPause");
+            onPause === null || onPause === void 0 || onPause();
+            removeListeners();
+            trap._setSubtreeIsolation(false);
+            updateObservedNodes();
+            onPostPause === null || onPostPause === void 0 || onPostPause();
+          } else {
+            var onUnpause = getOption(options, "onUnpause");
+            var onPostUnpause = getOption(options, "onPostUnpause");
+            onUnpause === null || onUnpause === void 0 || onUnpause();
+            var finishUnpause = /* @__PURE__ */ function() {
+              var _ref7 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee2() {
+                return _regenerator().w(function(_context2) {
+                  while (1) switch (_context2.n) {
+                    case 0:
+                      updateTabbableNodes();
+                      _context2.n = 1;
+                      return addListeners();
+                    case 1:
+                      trap._setSubtreeIsolation(true);
+                      updateObservedNodes();
+                      onPostUnpause === null || onPostUnpause === void 0 || onPostUnpause();
+                    case 2:
+                      return _context2.a(2);
+                  }
+                }, _callee2);
+              }));
+              return function finishUnpause2() {
+                return _ref7.apply(this, arguments);
+              };
+            }();
+            finishUnpause();
+          }
+          return this;
+        }
+      },
+      _setSubtreeIsolation: {
+        value: function value(isEnabled) {
+          if (config2.isolateSubtrees) {
+            state.adjacentElements.forEach(function(el2) {
+              var _el$getAttribute;
+              if (isEnabled) {
+                switch (config2.isolateSubtrees) {
+                  case "aria-hidden":
+                    if (el2.ariaHidden === "true" || ((_el$getAttribute = el2.getAttribute("aria-hidden")) === null || _el$getAttribute === void 0 ? void 0 : _el$getAttribute.toLowerCase()) === "true") {
+                      state.alreadySilent.add(el2);
+                    }
+                    el2.setAttribute("aria-hidden", "true");
+                    break;
+                  default:
+                    if (el2.inert || el2.hasAttribute("inert")) {
+                      state.alreadySilent.add(el2);
+                    }
+                    el2.setAttribute("inert", true);
+                    break;
+                }
+              } else {
+                if (state.alreadySilent.has(el2)) ;
+                else {
+                  switch (config2.isolateSubtrees) {
+                    case "aria-hidden":
+                      el2.removeAttribute("aria-hidden");
+                      break;
+                    default:
+                      el2.removeAttribute("inert");
+                      break;
+                  }
+                }
+              }
+            });
+          }
+        }
+      }
+    });
+    trap.updateContainerElements(elements);
+    return trap;
+  };
+  const focusTrap_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    createFocusTrap: createFocusTrap$1
+  }, Symbol.toStringTag, { value: "Module" }));
+  const require$$1 = /* @__PURE__ */ getAugmentedNamespace(focusTrap_esm);
+  const require$$2 = /* @__PURE__ */ getAugmentedNamespace(index_esm);
+  function _typeof(o) {
+    "@babel/helpers - typeof";
+    return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+      return typeof o2;
+    } : function(o2) {
+      return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+    }, _typeof(o);
+  }
+  var _exec$, _exec;
+  function _classCallCheck(a, n2) {
+    if (!(a instanceof n2)) throw new TypeError("Cannot call a class as a function");
+  }
+  function _defineProperties(e, r2) {
+    for (var t2 = 0; t2 < r2.length; t2++) {
+      var o = r2[t2];
+      o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey(o.key), o);
+    }
+  }
+  function _createClass(e, r2, t2) {
+    return r2 && _defineProperties(e.prototype, r2), Object.defineProperty(e, "prototype", { writable: false }), e;
+  }
+  function _callSuper(t2, o, e) {
+    return o = _getPrototypeOf(o), _possibleConstructorReturn(t2, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], _getPrototypeOf(t2).constructor) : o.apply(t2, e));
+  }
+  function _possibleConstructorReturn(t2, e) {
+    if (e && ("object" == _typeof(e) || "function" == typeof e)) return e;
+    if (void 0 !== e) throw new TypeError("Derived constructors may only return object or undefined");
+    return _assertThisInitialized(t2);
+  }
+  function _assertThisInitialized(e) {
+    if (void 0 === e) throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+    return e;
+  }
+  function _isNativeReflectConstruct() {
+    try {
+      var t2 = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function() {
+      }));
+    } catch (t3) {
+    }
+    return (_isNativeReflectConstruct = function _isNativeReflectConstruct2() {
+      return !!t2;
+    })();
+  }
+  function _getPrototypeOf(t2) {
+    return _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function(t3) {
+      return t3.__proto__ || Object.getPrototypeOf(t3);
+    }, _getPrototypeOf(t2);
+  }
+  function _inherits(t2, e) {
+    if ("function" != typeof e && null !== e) throw new TypeError("Super expression must either be null or a function");
+    t2.prototype = Object.create(e && e.prototype, { constructor: { value: t2, writable: true, configurable: true } }), Object.defineProperty(t2, "prototype", { writable: false }), e && _setPrototypeOf(t2, e);
+  }
+  function _setPrototypeOf(t2, e) {
+    return _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function(t3, e2) {
+      return t3.__proto__ = e2, t3;
+    }, _setPrototypeOf(t2, e);
+  }
+  function _defineProperty(e, r2, t2) {
+    return (r2 = _toPropertyKey(r2)) in e ? Object.defineProperty(e, r2, { value: t2, enumerable: true, configurable: true, writable: true }) : e[r2] = t2, e;
+  }
+  function _toPropertyKey(t2) {
+    var i = _toPrimitive(t2, "string");
+    return "symbol" == _typeof(i) ? i : i + "";
+  }
+  function _toPrimitive(t2, r2) {
+    if ("object" != _typeof(t2) || !t2) return t2;
+    var e = t2[Symbol.toPrimitive];
+    if (void 0 !== e) {
+      var i = e.call(t2, r2);
+      if ("object" != _typeof(i)) return i;
+      throw new TypeError("@@toPrimitive must return a primitive value.");
+    }
+    return ("string" === r2 ? String : Number)(t2);
+  }
+  var React = reactExports;
+  var _require = require$$1, createFocusTrap = _require.createFocusTrap;
+  var _require2 = require$$2, isFocusable = _require2.isFocusable;
+  var reactVerMajor = parseInt((_exec$ = (_exec = /^(\d+)\./.exec(React.version)) === null || _exec === void 0 ? void 0 : _exec[1]) !== null && _exec$ !== void 0 ? _exec$ : 0, 10);
+  var FocusTrap = /* @__PURE__ */ function(_React$Component) {
+    function FocusTrap2(props) {
+      var _this;
+      _classCallCheck(this, FocusTrap2);
+      _this = _callSuper(this, FocusTrap2, [props]);
+      _defineProperty(_this, "getNodeForOption", function(optionName2) {
+        var _this$internalOptions;
+        var optionValue = (_this$internalOptions = this.internalOptions[optionName2]) !== null && _this$internalOptions !== void 0 ? _this$internalOptions : this.originalOptions[optionName2];
+        if (typeof optionValue === "function") {
+          for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+            params[_key - 1] = arguments[_key];
+          }
+          optionValue = optionValue.apply(void 0, params);
+        }
+        if (optionValue === true) {
+          optionValue = void 0;
+        }
+        if (!optionValue) {
+          if (optionValue === void 0 || optionValue === false) {
+            return optionValue;
+          }
+          throw new Error("`".concat(optionName2, "` was specified but was not a node, or did not return a node"));
+        }
+        var node = optionValue;
+        if (typeof optionValue === "string") {
+          var _this$getDocument;
+          node = (_this$getDocument = this.getDocument()) === null || _this$getDocument === void 0 ? void 0 : _this$getDocument.querySelector(optionValue);
+          if (!node) {
+            throw new Error("`".concat(optionName2, "` as selector refers to no known node"));
+          }
+        }
+        return node;
+      });
+      _this.handleDeactivate = _this.handleDeactivate.bind(_this);
+      _this.handlePostDeactivate = _this.handlePostDeactivate.bind(_this);
+      _this.handleClickOutsideDeactivates = _this.handleClickOutsideDeactivates.bind(_this);
+      _this.internalOptions = {
+        // We need to hijack the returnFocusOnDeactivate option,
+        // because React can move focus into the element before we arrived at
+        // this lifecycle hook (e.g. with autoFocus inputs). So the component
+        // captures the previouslyFocusedElement in componentWillMount,
+        // then (optionally) returns focus to it in componentWillUnmount.
+        returnFocusOnDeactivate: false,
+        // the rest of these are also related to deactivation of the trap, and we
+        //  need to use them and control them as well
+        checkCanReturnFocus: null,
+        onDeactivate: _this.handleDeactivate,
+        onPostDeactivate: _this.handlePostDeactivate,
+        // we need to special-case this setting as well so that we can know if we should
+        //  NOT return focus if the trap gets auto-deactivated as the result of an
+        //  outside click (otherwise, we'll always think we should return focus because
+        //  of how we manage that flag internally here)
+        clickOutsideDeactivates: _this.handleClickOutsideDeactivates
+      };
+      _this.originalOptions = {
+        // because of the above `internalOptions`, we maintain our own flag for
+        //  this option, and default it to `true` because that's focus-trap's default
+        returnFocusOnDeactivate: true,
+        // because of the above `internalOptions`, we keep these separate since
+        //  they're part of the deactivation process which we configure (internally) to
+        //  be shared between focus-trap and focus-trap-react
+        onDeactivate: null,
+        onPostDeactivate: null,
+        checkCanReturnFocus: null,
+        // the user's setting, defaulted to false since focus-trap defaults this to false
+        clickOutsideDeactivates: false
+      };
+      var focusTrapOptions = props.focusTrapOptions;
+      for (var optionName in focusTrapOptions) {
+        if (!Object.prototype.hasOwnProperty.call(focusTrapOptions, optionName)) {
+          continue;
+        }
+        if (optionName === "returnFocusOnDeactivate" || optionName === "onDeactivate" || optionName === "onPostDeactivate" || optionName === "checkCanReturnFocus" || optionName === "clickOutsideDeactivates") {
+          _this.originalOptions[optionName] = focusTrapOptions[optionName];
+          continue;
+        }
+        _this.internalOptions[optionName] = focusTrapOptions[optionName];
+      }
+      _this.outsideClick = null;
+      _this.focusTrapElements = props.containerElements || [];
+      _this.updatePreviousElement();
+      return _this;
+    }
+    _inherits(FocusTrap2, _React$Component);
+    return _createClass(FocusTrap2, [{
+      key: "getDocument",
+      value: function getDocument() {
+        return this.props.focusTrapOptions.document || (typeof document !== "undefined" ? document : void 0);
+      }
+    }, {
+      key: "getReturnFocusNode",
+      value: function getReturnFocusNode() {
+        var node = this.getNodeForOption("setReturnFocus", this.previouslyFocusedElement);
+        return node ? node : node === false ? false : this.previouslyFocusedElement;
+      }
+      /** Update the previously focused element with the currently focused element. */
+    }, {
+      key: "updatePreviousElement",
+      value: function updatePreviousElement() {
+        var currentDocument = this.getDocument();
+        if (currentDocument) {
+          this.previouslyFocusedElement = currentDocument.activeElement;
+        }
+      }
+    }, {
+      key: "deactivateTrap",
+      value: function deactivateTrap() {
+        if (!this.focusTrap || !this.focusTrap.active) {
+          return;
+        }
+        this.focusTrap.deactivate({
+          // NOTE: we never let the trap return the focus since we do that ourselves
+          returnFocus: false,
+          // we'll call this in our own post deactivate handler so make sure the trap doesn't
+          //  do it prematurely
+          checkCanReturnFocus: null,
+          // let it call the user's original deactivate handler, if any, instead of
+          //  our own which calls back into this function
+          onDeactivate: this.originalOptions.onDeactivate
+          // NOTE: for post deactivate, don't specify anything so that it calls the
+          //  onPostDeactivate handler specified on `this.internalOptions`
+          //  which will always be our own `handlePostDeactivate()` handler, which
+          //  will finish things off by calling the user's provided onPostDeactivate
+          //  handler, if any, at the right time
+          // onPostDeactivate: NOTHING
+        });
+      }
+    }, {
+      key: "handleClickOutsideDeactivates",
+      value: function handleClickOutsideDeactivates(event) {
+        var allowDeactivation = typeof this.originalOptions.clickOutsideDeactivates === "function" ? this.originalOptions.clickOutsideDeactivates.call(null, event) : this.originalOptions.clickOutsideDeactivates;
+        if (allowDeactivation) {
+          this.outsideClick = {
+            target: event.target,
+            allowDeactivation
+          };
+        }
+        return allowDeactivation;
+      }
+    }, {
+      key: "handleDeactivate",
+      value: function handleDeactivate() {
+        if (this.originalOptions.onDeactivate) {
+          this.originalOptions.onDeactivate.call(null);
+        }
+        this.deactivateTrap();
+      }
+    }, {
+      key: "handlePostDeactivate",
+      value: function handlePostDeactivate() {
+        var _this2 = this;
+        var finishDeactivation = function finishDeactivation2() {
+          var returnFocusNode = _this2.getReturnFocusNode();
+          var canReturnFocus = !!// did the consumer allow it?
+          (_this2.originalOptions.returnFocusOnDeactivate && // can we actually focus the node?
+          returnFocusNode !== null && returnFocusNode !== void 0 && returnFocusNode.focus && // was there an outside click that allowed deactivation?
+          (!_this2.outsideClick || // did the consumer allow deactivation when the outside node was clicked?
+          _this2.outsideClick.allowDeactivation && // is the outside node NOT focusable (implying that it did NOT receive focus
+          //  as a result of the click-through) -- in which case do NOT restore focus
+          //  to `returnFocusNode` because focus should remain on the outside node
+          !isFocusable(_this2.outsideClick.target, _this2.internalOptions.tabbableOptions)));
+          var _this2$internalOption = _this2.internalOptions.preventScroll, preventScroll = _this2$internalOption === void 0 ? false : _this2$internalOption;
+          if (canReturnFocus) {
+            returnFocusNode.focus({
+              preventScroll
+            });
+          }
+          if (_this2.originalOptions.onPostDeactivate) {
+            _this2.originalOptions.onPostDeactivate.call(null);
+          }
+          _this2.outsideClick = null;
+        };
+        if (this.originalOptions.checkCanReturnFocus) {
+          this.originalOptions.checkCanReturnFocus.call(null, this.getReturnFocusNode()).then(finishDeactivation, finishDeactivation);
+        } else {
+          finishDeactivation();
+        }
+      }
+    }, {
+      key: "setupFocusTrap",
+      value: function setupFocusTrap() {
+        if (this.focusTrap) {
+          if (this.props.active && !this.focusTrap.active) {
+            this.focusTrap.activate();
+            if (this.props.paused) {
+              this.focusTrap.pause();
+            }
+          }
+        } else {
+          var nodesExist = this.focusTrapElements.some(Boolean);
+          if (nodesExist) {
+            this.focusTrap = this.props._createFocusTrap(this.focusTrapElements, this.internalOptions);
+            if (this.props.active) {
+              this.focusTrap.activate();
+            }
+            if (this.props.paused) {
+              this.focusTrap.pause();
+            }
+          }
+        }
+      }
+    }, {
+      key: "componentDidMount",
+      value: function componentDidMount() {
+        if (this.props.active) {
+          this.setupFocusTrap();
+        }
+      }
+    }, {
+      key: "componentDidUpdate",
+      value: function componentDidUpdate(prevProps) {
+        if (this.focusTrap) {
+          if (prevProps.containerElements !== this.props.containerElements) {
+            this.focusTrap.updateContainerElements(this.props.containerElements);
+          }
+          var hasActivated = !prevProps.active && this.props.active;
+          var hasDeactivated = prevProps.active && !this.props.active;
+          var hasPaused = !prevProps.paused && this.props.paused;
+          var hasUnpaused = prevProps.paused && !this.props.paused;
+          if (hasActivated) {
+            this.updatePreviousElement();
+            this.focusTrap.activate();
+          }
+          if (hasDeactivated) {
+            this.deactivateTrap();
+            return;
+          }
+          if (hasPaused) {
+            this.focusTrap.pause();
+          }
+          if (hasUnpaused) {
+            this.focusTrap.unpause();
+          }
+        } else {
+          if (prevProps.containerElements !== this.props.containerElements) {
+            this.focusTrapElements = this.props.containerElements;
+          }
+          if (this.props.active) {
+            this.updatePreviousElement();
+            this.setupFocusTrap();
+          }
+        }
+      }
+    }, {
+      key: "componentWillUnmount",
+      value: function componentWillUnmount() {
+        this.deactivateTrap();
+      }
+    }, {
+      key: "render",
+      value: function render() {
+        var _this3 = this;
+        var child = this.props.children ? React.Children.only(this.props.children) : void 0;
+        if (child) {
+          if (child.type && child.type === React.Fragment) {
+            throw new Error("A focus-trap cannot use a Fragment as its child container. Try replacing it with a <div> element.");
+          }
+          var callbackRef = function callbackRef2(element) {
+            var containerElements = _this3.props.containerElements;
+            if (child) {
+              if (reactVerMajor >= 19) {
+                if (typeof child.props.ref === "function") {
+                  child.props.ref(element);
+                } else if (child.props.ref) {
+                  child.props.ref.current = element;
+                }
+              } else {
+                if (typeof child.ref === "function") {
+                  child.ref(element);
+                } else if (child.ref) {
+                  child.ref.current = element;
+                }
+              }
+            }
+            _this3.focusTrapElements = containerElements ? containerElements : [element];
+          };
+          var childWithRef = React.cloneElement(child, {
+            ref: callbackRef
+          });
+          return childWithRef;
+        }
+        return null;
+      }
+    }]);
+  }(React.Component);
+  FocusTrap.defaultProps = {
+    active: true,
+    paused: false,
+    focusTrapOptions: {},
+    _createFocusTrap: createFocusTrap
+  };
+  focusTrapReact.exports = FocusTrap;
+  focusTrapReact.exports.FocusTrap = FocusTrap;
+  var focusTrapReactExports = focusTrapReact.exports;
+  const FocusTrap$1 = /* @__PURE__ */ getDefaultExportFromCjs(focusTrapReactExports);
+  function CloseIcon() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        width: "20",
+        height: "20",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", x2: "6", y1: "6", y2: "18" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", x2: "18", y1: "6", y2: "18" })
+        ]
+      }
+    );
+  }
+  function ChatIcon() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "svg",
+      {
+        width: "20",
+        height: "20",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
+      }
+    );
+  }
+  function ProactiveModal({
+    trigger,
+    isOpen,
+    onAction,
+    onDismiss,
+    theme
+  }) {
+    const modalRef = reactExports.useRef(null);
+    const previousActiveElement = reactExports.useRef(null);
+    reactExports.useEffect(() => {
+      if (isOpen) {
+        previousActiveElement.current = document.activeElement;
+      }
+    }, [isOpen]);
+    reactExports.useEffect(() => {
+      if (!isOpen && previousActiveElement.current) {
+        previousActiveElement.current.focus();
+      }
+    }, [isOpen]);
+    reactExports.useEffect(() => {
+      const handleEscape = (e) => {
+        if (e.key === "Escape" && isOpen) {
+          onDismiss();
+        }
+      };
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [isOpen, onDismiss]);
+    if (!isOpen || !trigger) {
+      return null;
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(FocusTrap$1, { active: isOpen, focusTrapOptions: { initialFocus: false }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        ref: modalRef,
+        "data-testid": "proactive-modal",
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-live": "assertive",
+        "aria-labelledby": "proactive-title",
+        "aria-describedby": "proactive-message",
+        className: "proactive-modal-overlay",
+        onClick: (e) => {
+          if (e.target === e.currentTarget) onDismiss();
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "proactive-modal-container", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": "proactive-dismiss-button",
+              type: "button",
+              className: "proactive-modal-close",
+              onClick: onDismiss,
+              "aria-label": "Close proactive message",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseIcon, {})
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "proactive-modal-icon", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChatIcon, {}) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "h2",
+            {
+              id: "proactive-title",
+              "data-testid": "proactive-title",
+              className: "proactive-modal-title",
+              children: "Need Help?"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "p",
+            {
+              id: "proactive-message",
+              "data-testid": "proactive-message",
+              className: "proactive-modal-message",
+              children: trigger.message
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "proactive-modal-actions", children: trigger.actions.map((action, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": `proactive-action-button-${index}`,
+              type: "button",
+              className: `proactive-action-button ${index === 0 ? "" : "proactive-action-secondary"}`,
+              onClick: () => {
+                trackProactiveTrigger(trigger.type, true);
+                onAction(action);
+              },
+              style: index === 0 && (theme == null ? void 0 : theme.primaryColor) ? { backgroundColor: theme.primaryColor } : void 0,
+              children: action.text
+            },
+            index
+          )) })
+        ] })
+      }
+    ) });
+  }
+  const DEFAULT_CAROUSEL_CONFIG = {
+    visibleCards: { mobile: 2, desktop: 3 },
+    cardWidth: 140,
+    cardGap: 12,
+    scrollDuration: 300
+  };
+  const DEFAULT_VOICE_CONFIG = {
+    enabled: true,
+    language: "en-US",
+    continuous: false,
+    interimResults: true
+  };
+  const DEFAULT_PROACTIVE_CONFIG = {
+    enabled: true,
+    triggers: [
+      {
+        type: "exit_intent",
+        enabled: true,
+        message: "Wait! Before you go, can we help you find something?",
+        actions: [
+          { text: "Get Help", prePopulatedMessage: "I need help finding a product." },
+          { text: "No thanks" }
+        ],
+        cooldown: 30
+      },
+      {
+        type: "time_on_page",
+        enabled: true,
+        threshold: 30,
+        message: "Finding what you need? Our assistant can help!",
+        actions: [
+          { text: "Chat Now", prePopulatedMessage: "Hi! Can you help me?" },
+          { text: "Not now" }
+        ],
+        cooldown: 60
+      },
+      {
+        type: "scroll_depth",
+        enabled: true,
+        threshold: 50,
+        message: "Looks like you're browsing! Need any recommendations?",
+        actions: [
+          { text: "Yes, please!", prePopulatedMessage: "Can you recommend some products?" },
+          { text: "No thanks" }
+        ],
+        cooldown: 30
+      },
+      {
+        type: "product_view",
+        enabled: true,
+        threshold: 3,
+        message: "I noticed you've viewed several products. Can I help you decide?",
+        actions: [
+          { text: "Compare Products", prePopulatedMessage: "Can you help me compare products?" },
+          { text: "Not now" }
+        ],
+        cooldown: 60
+      }
+    ]
+  };
+  const COOLDOWN_STORAGE_KEY = "widget-proactive-cooldown";
+  const DISMISSED_STORAGE_KEY = "widget-proactive-dismissed";
+  function getCooldowns() {
+    if (typeof window === "undefined") return {};
+    try {
+      const stored = sessionStorage.getItem(COOLDOWN_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }
+  function setCooldown(type, minutes) {
+    if (typeof window === "undefined") return;
+    try {
+      const cooldowns = getCooldowns();
+      cooldowns[type] = Date.now() + minutes * 60 * 1e3;
+      sessionStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+    } catch {
+    }
+  }
+  function isInCooldown(type) {
+    const cooldowns = getCooldowns();
+    return cooldowns[type] !== void 0 && cooldowns[type] > Date.now();
+  }
+  function getDismissedTriggers() {
+    if (typeof window === "undefined") return /* @__PURE__ */ new Set();
+    try {
+      const stored = sessionStorage.getItem(DISMISSED_STORAGE_KEY);
+      return stored ? new Set(JSON.parse(stored)) : /* @__PURE__ */ new Set();
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  }
+  function setDismissedTrigger(type) {
+    if (typeof window === "undefined") return;
+    try {
+      const dismissed = getDismissedTriggers();
+      dismissed.add(type);
+      sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissed]));
+    } catch {
+    }
+  }
+  function useProactiveTriggers(options = {}) {
+    const {
+      config: config2 = DEFAULT_PROACTIVE_CONFIG,
+      onTrigger,
+      productViewCount = 0,
+      cartHasItems = false
+    } = options;
+    const [activeTrigger, setActiveTrigger] = reactExports.useState(null);
+    const [dismissedTriggers, setDismissedTriggersState] = reactExports.useState(
+      getDismissedTriggers
+    );
+    const pageLoadTime = reactExports.useRef(Date.now());
+    const hasFiredRef = reactExports.useRef(/* @__PURE__ */ new Set());
+    const triggers = reactExports.useMemo(() => {
+      return config2.enabled ? config2.triggers.filter((t2) => t2.enabled) : [];
+    }, [config2]);
+    const fireTrigger = reactExports.useCallback(
+      (trigger) => {
+        const type = trigger.type;
+        if (hasFiredRef.current.has(type)) return;
+        if (dismissedTriggers.has(type)) return;
+        if (isInCooldown(type)) return;
+        hasFiredRef.current.add(type);
+        setCooldown(type, trigger.cooldown);
+        setActiveTrigger(trigger);
+        onTrigger == null ? void 0 : onTrigger(trigger);
+      },
+      [dismissedTriggers, onTrigger]
+    );
+    const triggerProactive = reactExports.useCallback(
+      (type) => {
+        const trigger = triggers.find((t2) => t2.type === type);
+        if (trigger) {
+          fireTrigger(trigger);
+        }
+      },
+      [triggers, fireTrigger]
+    );
+    const dismissTrigger = reactExports.useCallback(() => {
+      if (activeTrigger) {
+        setDismissedTrigger(activeTrigger.type);
+        setDismissedTriggersState((prev) => /* @__PURE__ */ new Set([...prev, activeTrigger.type]));
+      }
+      setActiveTrigger(null);
+    }, [activeTrigger]);
+    const resetTrigger = reactExports.useCallback((type) => {
+      hasFiredRef.current.delete(type);
+      try {
+        const cooldowns = getCooldowns();
+        delete cooldowns[type];
+        sessionStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+        const dismissed = getDismissedTriggers();
+        dismissed.delete(type);
+        sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissed]));
+        setDismissedTriggersState(new Set(dismissed));
+      } catch {
+      }
+    }, []);
+    reactExports.useEffect(() => {
+      const exitIntentTrigger = triggers.find((t2) => t2.type === "exit_intent");
+      if (!exitIntentTrigger) return;
+      const handleMouseLeave = (e) => {
+        if (e.clientY <= 0 && !hasFiredRef.current.has("exit_intent")) {
+          fireTrigger(exitIntentTrigger);
+        }
+      };
+      document.addEventListener("mouseleave", handleMouseLeave);
+      return () => document.removeEventListener("mouseleave", handleMouseLeave);
+    }, [triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const timeTrigger = triggers.find((t2) => t2.type === "time_on_page");
+      if (!timeTrigger || !timeTrigger.threshold) return;
+      const thresholdMs = timeTrigger.threshold * 1e3;
+      const elapsed = Date.now() - pageLoadTime.current;
+      const remaining = thresholdMs - elapsed;
+      if (remaining <= 0) {
+        fireTrigger(timeTrigger);
+        return;
+      }
+      const timerId = setTimeout(() => {
+        fireTrigger(timeTrigger);
+      }, remaining);
+      return () => clearTimeout(timerId);
+    }, [triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const scrollTrigger = triggers.find((t2) => t2.type === "scroll_depth");
+      if (!scrollTrigger || !scrollTrigger.threshold) return;
+      let ticking = false;
+      const handleScroll = () => {
+        if (ticking) return;
+        if (hasFiredRef.current.has("scroll_depth")) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          const scrollTop = window.scrollY;
+          const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+          const scrollPercent = docHeight > 0 ? scrollTop / docHeight * 100 : 0;
+          if (scrollPercent >= scrollTrigger.threshold) {
+            fireTrigger(scrollTrigger);
+          }
+          ticking = false;
+        });
+      };
+      window.addEventListener("scroll", handleScroll, { passive: true });
+      return () => window.removeEventListener("scroll", handleScroll);
+    }, [triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const productViewTrigger = triggers.find((t2) => t2.type === "product_view");
+      if (!productViewTrigger || !productViewTrigger.threshold) return;
+      if (productViewCount >= productViewTrigger.threshold && !hasFiredRef.current.has("product_view")) {
+        fireTrigger(productViewTrigger);
+      }
+    }, [productViewCount, triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const cartTrigger = triggers.find((t2) => t2.type === "cart_abandonment");
+      if (!cartTrigger) return;
+      const handleMouseLeave = (e) => {
+        if (e.clientY <= 0) {
+          if (cartHasItems && !hasFiredRef.current.has("cart_abandonment")) {
+            fireTrigger(cartTrigger);
+          }
+        }
+      };
+      const handleBeforeUnload = () => {
+        if (cartHasItems && !hasFiredRef.current.has("cart_abandonment")) {
+          setCooldown("cart_abandonment", cartTrigger.cooldown);
+          setDismissedTrigger("cart_abandonment");
+          hasFiredRef.current.add("cart_abandonment");
+        }
+      };
+      document.addEventListener("mouseleave", handleMouseLeave);
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => {
+        document.removeEventListener("mouseleave", handleMouseLeave);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
+    }, [cartHasItems, triggers, fireTrigger]);
+    return {
+      activeTrigger,
+      dismissedTriggers,
+      triggerProactive,
+      dismissTrigger,
+      resetTrigger,
+      isActive: activeTrigger !== null
+    };
+  }
   const DEFAULT_THEME = {
     primaryColor: "#6366f1",
     backgroundColor: "#ffffff",
@@ -8423,197 +11161,171 @@ Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.t
       ...sanitizedEmbed
     };
   }
-  const ChatWindow$2 = reactExports.lazy(() => Promise.resolve().then(() => ChatWindow$1));
-  function WidgetInner({ theme }) {
-    var _a2, _b;
-    const {
-      state,
-      toggleChat,
-      initWidget: initWidget2,
-      sendMessage,
-      merchantId,
-      addToCart: addToCart2,
-      removeFromCart: removeFromCart2,
-      checkout,
-      addingProductId,
-      removingItemId,
-      isCheckingOut,
-      dismissError,
-      retryLastAction,
-      recordConsent,
-      clearHistory
-    } = useWidgetContext();
-    const merchantTheme = (_a2 = state.config) == null ? void 0 : _a2.theme;
-    const mergedTheme = reactExports.useMemo(
-      () => mergeThemes(merchantTheme, theme),
-      [merchantTheme, theme]
-    );
-    const prefetchChatWindow = reactExports.useCallback(() => {
-      Promise.resolve().then(() => ChatWindow$1);
-    }, []);
-    reactExports.useEffect(() => {
-      initWidget2(merchantId);
-    }, [initWidget2, merchantId]);
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
-        .shopbot-widget-root * {
-          box-sizing: border-box;
-        }
-        .shopbot-chat-bubble:hover {
-          transform: scale(1.05);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
-        }
-        .shopbot-chat-bubble:active {
-          transform: scale(0.95);
-        }
-        .shopbot-chat-window {
-          animation: shopbot-slideUp 0.2s ease-out;
-        }
-        @keyframes shopbot-slideUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      ` }),
-      state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
-        position: "fixed",
-        bottom: 20,
-        right: mergedTheme.position === "bottom-left" ? void 0 : 20,
-        left: mergedTheme.position === "bottom-left" ? 20 : void 0,
-        width: 60,
-        height: 60,
-        borderRadius: "50%",
-        backgroundColor: mergedTheme.primaryColor,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 2147483647
-      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          ChatBubble,
-          {
-            isOpen: state.isOpen,
-            onClick: toggleChat,
-            theme: mergedTheme,
-            onPrefetch: prefetchChatWindow
-          }
-        ),
-        state.isOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "fixed", bottom: 100, right: 20, zIndex: 2147483647 }, children: "Failed to load chat." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          ChatWindow$2,
-          {
-            isOpen: state.isOpen,
-            onClose: toggleChat,
-            theme: mergedTheme,
-            config: state.config,
-            messages: state.messages,
-            isTyping: state.isTyping,
-            onSendMessage: sendMessage,
-            error: state.error,
-            errors: state.errors,
-            onDismissError: dismissError,
-            onRetryError: retryLastAction,
-            onAddToCart: addToCart2,
-            onRemoveFromCart: removeFromCart2,
-            onCheckout: checkout,
-            addingProductId,
-            removingItemId,
-            isCheckingOut,
-            sessionId: (_b = state.session) == null ? void 0 : _b.sessionId,
-            connectionStatus: state.connectionStatus,
-            consentState: state.consentState,
-            onRecordConsent: recordConsent,
-            onClearHistory: clearHistory
-          }
-        ) }) })
-      ] })
-    ] });
-  }
-  function Widget({ merchantId, theme }) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetProvider, { merchantId, children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetInner, { theme }) }) });
-  }
-  const capturedScript = document.currentScript;
-  let widgetRoot = null;
-  let widgetContainer = null;
-  const MERCHANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
-  function isValidMerchantId(id2) {
-    if (!id2 || typeof id2 !== "string") return false;
-    return MERCHANT_ID_PATTERN.test(id2);
-  }
-  function getConfig() {
-    var _a2, _b;
-    if ((_a2 = window.ShopBotConfig) == null ? void 0 : _a2.merchantId) {
-      return window.ShopBotConfig;
-    }
-    if ((_b = capturedScript == null ? void 0 : capturedScript.dataset) == null ? void 0 : _b.merchantId) {
-      let theme;
-      if (capturedScript.dataset.theme) {
-        try {
-          theme = JSON.parse(capturedScript.dataset.theme);
-        } catch {
-          console.warn("[ShopBot Widget] Invalid theme JSON in data-theme attribute");
-        }
+  function useThemeDetection() {
+    const [systemTheme, setSystemTheme] = reactExports.useState(() => {
+      if (typeof window === "undefined") {
+        return "light";
       }
-      return {
-        merchantId: capturedScript.dataset.merchantId,
-        theme
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    });
+    reactExports.useEffect(() => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = (e) => {
+        setSystemTheme(e.matches ? "dark" : "light");
       };
-    }
-    return null;
-  }
-  function initWidget() {
-    if (widgetContainer && widgetRoot) {
-      console.warn("[ShopBot Widget] Widget already initialized. Call unmountWidget() first to reinitialize.");
-      return;
-    }
-    const config2 = getConfig();
-    if (!(config2 == null ? void 0 : config2.merchantId)) {
-      console.error(
-        '[ShopBot Widget] Missing merchantId. Provide it via:\n  window.ShopBotConfig = { merchantId: "YOUR_ID" }\n  OR <script data-merchant-id="YOUR_ID" ...>'
-      );
-      return;
-    }
-    if (!isValidMerchantId(config2.merchantId)) {
-      console.error(
-        "[ShopBot Widget] Invalid merchantId format. Expected 1-64 alphanumeric characters, hyphens, or underscores."
-      );
-      return;
-    }
-    widgetContainer = document.createElement("div");
-    widgetContainer.id = "shopbot-widget-root";
-    document.body.appendChild(widgetContainer);
-    widgetRoot = createRoot(widgetContainer);
-    widgetRoot.render(
-      reactExports.createElement(Widget, {
-        merchantId: config2.merchantId,
-        theme: config2.theme
-      })
-    );
-  }
-  function unmountWidget() {
-    if (widgetRoot) {
-      widgetRoot.unmount();
-      widgetRoot = null;
-    }
-    if (widgetContainer) {
-      widgetContainer.remove();
-      widgetContainer = null;
-    }
-  }
-  function isWidgetMounted() {
-    return widgetContainer !== null && widgetRoot !== null;
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initWidget);
-  } else {
-    initWidget();
-  }
-  if (typeof window !== "undefined") {
-    window.ShopBotWidget = {
-      version: "0.2.0",
-      init: initWidget,
-      unmount: unmountWidget,
-      isMounted: isWidgetMounted
+      setSystemTheme(mediaQuery.matches ? "dark" : "light");
+      mediaQuery.addEventListener("change", handleChange);
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }, []);
+    return {
+      systemTheme,
+      isDark: systemTheme === "dark"
     };
   }
+  function GlassmorphismChatWindow({
+    themeMode,
+    systemTheme,
+    children
+  }) {
+    const activeTheme = themeMode === "auto" ? systemTheme : themeMode;
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `glassmorphism-wrapper ${activeTheme}-mode`, children });
+  }
+  const modeIcons = {
+    light: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        width: "18",
+        height: "18",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": "true",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "5" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "1", x2: "12", y2: "3" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "21", x2: "12", y2: "23" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.22", y1: "4.22", x2: "5.64", y2: "5.64" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18.36", y1: "18.36", x2: "19.78", y2: "19.78" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "1", y1: "12", x2: "3", y2: "12" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "21", y1: "12", x2: "23", y2: "12" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.22", y1: "19.78", x2: "5.64", y2: "18.36" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18.36", y1: "5.64", x2: "19.78", y2: "4.22" })
+        ]
+      }
+    ),
+    dark: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "svg",
+      {
+        width: "18",
+        height: "18",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": "true",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" })
+      }
+    ),
+    auto: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        width: "18",
+        height: "18",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": "true",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 3v5h-5" })
+        ]
+      }
+    )
+  };
+  const modeDescriptions = {
+    light: "Light theme",
+    dark: "Dark theme",
+    auto: "Auto (follows system)"
+  };
+  function ThemeToggle({ themeMode, onToggle }) {
+    const ariaLabel = `Theme: ${modeDescriptions[themeMode]}. Click to change.`;
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onToggle,
+        className: "shopbot-theme-toggle",
+        "aria-label": ariaLabel,
+        title: modeDescriptions[themeMode],
+        children: modeIcons[themeMode]
+      }
+    );
+  }
+  function getNextThemeMode(current) {
+    const cycle = ["light", "dark", "auto"];
+    const currentIndex = cycle.indexOf(current);
+    const nextIndex = (currentIndex + 1) % cycle.length;
+    return cycle[nextIndex];
+  }
+  const positioningStyles = `
+.draggable-chat-window {
+  position: absolute;
+  transition: left 200ms ease-out, top 200ms ease-out;
+  will-change: left, top;
+}
+
+.draggable-chat-window.dragging {
+  transition: none;
+  user-select: none;
+}
+
+.chat-header-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.chat-header-drag-handle:active {
+  cursor: grabbing;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .draggable-chat-window {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+@media (max-width: 767px) {
+  .draggable-chat-window {
+    position: fixed;
+    left: 5% !important;
+    top: 15% !important;
+    width: 90%;
+    height: 80%;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draggable-chat-window {
+    transition: none !important;
+  }
+}
+`;
   function $constructor(name, initializer2, params) {
     function init(inst, def) {
       if (!inst._zod) {
@@ -12737,7 +15449,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     allowedDomains: array(string()).optional().default([]),
     shopDomain: string().nullable().optional(),
     shop_domain: string().nullable().optional(),
-    personality: _enum(["friendly", "professional", "enthusiastic"]).nullable().optional()
+    personality: _enum(["friendly", "professional", "enthusiastic"]).nullable().optional(),
+    proactiveEngagementConfig: any().optional(),
+    proactive_engagement_config: any().optional(),
+    onboardingMode: _enum(["general", "ecommerce"]).optional(),
+    onboarding_mode: _enum(["general", "ecommerce"]).optional(),
+    contactOptions: array(any()).nullable().optional(),
+    contact_options: array(any()).nullable().optional(),
+    merchantId: string().optional()
   }).passthrough().transform((data) => ({
     enabled: data.enabled,
     botName: data.botName || data.bot_name || "Assistant",
@@ -12745,7 +15464,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     theme: data.theme,
     allowedDomains: data.allowedDomains || [],
     shopDomain: data.shopDomain || data.shop_domain || void 0,
-    personality: data.personality || void 0
+    personality: data.personality || void 0,
+    proactiveEngagementConfig: data.proactiveEngagementConfig || data.proactive_engagement_config || void 0,
+    onboardingMode: data.onboardingMode || data.onboarding_mode || "ecommerce",
+    contactOptions: data.contactOptions || data.contact_options || void 0,
+    merchantId: data.merchantId
   }));
   const WidgetSessionSchema = object({
     session_id: string().optional(),
@@ -12757,6 +15480,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     last_activity_at: string().optional()
   }).passthrough().refine((data) => data.session_id || data.sessionId, {
     message: "Either session_id or sessionId must be present"
+  });
+  const QuickReplySchema = object({
+    id: string(),
+    text: string(),
+    icon: string().optional(),
+    payload: string().optional()
   });
   const WidgetMessageSchema = object({
     messageId: string().optional(),
@@ -12770,8 +15499,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     checkoutUrl: string().nullable().optional(),
     checkout_url: string().nullable().optional(),
     intent: string().nullable().optional(),
-    confidence: number().nullable().optional()
-  });
+    confidence: number().nullable().optional(),
+    quick_replies: array(QuickReplySchema).nullable().optional(),
+    contactOptions: array(any()).nullable().optional(),
+    contact_options: array(any()).nullable().optional()
+  }).passthrough();
   object({
     error_code: number(),
     message: string()
@@ -12829,6 +15561,156 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     variant_id: string().nullable().optional(),
     variantId: string().nullable().optional()
   }).passthrough();
+  const getApiBase = () => {
+    const shopBotConfig = typeof window !== "undefined" ? window.ShopBotConfig : null;
+    if (shopBotConfig == null ? void 0 : shopBotConfig.apiBaseUrl) {
+      try {
+        const url = new URL(shopBotConfig.apiBaseUrl);
+        if (url.origin && url.origin !== "null") {
+          return url.origin;
+        }
+      } catch {
+      }
+    }
+    if (typeof document !== "undefined" && document.currentScript instanceof HTMLScriptElement && document.currentScript.src) {
+      try {
+        const scriptUrl = new URL(document.currentScript.src);
+        if (scriptUrl.origin && scriptUrl.origin !== "null") {
+          return scriptUrl.origin;
+        }
+      } catch (e) {
+      }
+    }
+    if (typeof document !== "undefined") {
+      const scripts = document.querySelectorAll('script[src*="widget.umd.js"], script[src*="widget.es.js"]');
+      for (const script of scripts) {
+        if (script instanceof HTMLScriptElement && script.src) {
+          try {
+            const scriptUrl = new URL(script.src);
+            if (scriptUrl.origin && scriptUrl.origin !== "null") {
+              return scriptUrl.origin;
+            }
+          } catch (e) {
+          }
+        }
+      }
+    }
+    return "";
+  };
+  const API_BASE_URL = getApiBase();
+  class ApiClient {
+    constructor() {
+      __publicField(this, "csrfToken", null);
+      __publicField(this, "tokenFetchPromise", null);
+    }
+    async fetchCsrfToken() {
+      if (this.tokenFetchPromise) {
+        return this.tokenFetchPromise;
+      }
+      this.tokenFetchPromise = (async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/v1/csrf-token`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch CSRF token: ${response.status}`);
+          }
+          const data = await response.json();
+          this.csrfToken = data.csrf_token;
+          return data.csrf_token;
+        } catch (error) {
+          console.error("Error fetching CSRF token:", error);
+          throw error;
+        } finally {
+          this.tokenFetchPromise = null;
+        }
+      })();
+      return this.tokenFetchPromise;
+    }
+    async request(endpoint, options = {}) {
+      var _a2;
+      const url = `${API_BASE_URL}${endpoint}`;
+      const headers = new Headers(options.headers || {});
+      if (!options.cache) {
+        options.cache = "no-store";
+      }
+      if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+        headers.set("Content-Type", "application/json");
+      }
+      const method = (options.method || "GET").toUpperCase();
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        if (!this.csrfToken) {
+          try {
+            await this.fetchCsrfToken();
+          } catch (e) {
+            console.warn("Proceeding without CSRF token due to fetch error", e);
+          }
+        }
+        if (this.csrfToken) {
+          headers.set("X-CSRF-Token", this.csrfToken);
+        }
+      }
+      const config2 = {
+        credentials: "include",
+        // Ensure cookies are sent (Story 1.8)
+        ...options,
+        headers
+      };
+      let response = await fetch(url, config2);
+      if (response.status === 403) {
+        const errorBody = await response.clone().json().catch(() => ({}));
+        if (errorBody.error_code === 2e3) {
+          console.log("CSRF token invalid, refreshing...");
+          this.csrfToken = null;
+          try {
+            const newToken = await this.fetchCsrfToken();
+            headers.set("X-CSRF-Token", newToken);
+            config2.headers = headers;
+            response = await fetch(url, config2);
+          } catch (e) {
+            console.error("Failed to refresh CSRF token, throwing original error");
+          }
+        }
+      }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.message || ((_a2 = errorData.detail) == null ? void 0 : _a2.message) || `API Error ${response.status}`;
+        const error = new Error(message);
+        error.status = response.status;
+        error.code = errorData.error_code;
+        error.details = errorData.details;
+        throw error;
+      }
+      const jsonResult = await response.json();
+      return jsonResult;
+    }
+    async get(endpoint, options = {}) {
+      return this.request(endpoint, { ...options, method: "GET" });
+    }
+    async post(endpoint, body, options = {}) {
+      return this.request(endpoint, {
+        ...options,
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+    }
+    async put(endpoint, body, options = {}) {
+      return this.request(endpoint, {
+        ...options,
+        method: "PUT",
+        body: JSON.stringify(body)
+      });
+    }
+    async patch(endpoint, body, options = {}) {
+      return this.request(endpoint, {
+        ...options,
+        method: "PATCH",
+        body: JSON.stringify(body)
+      });
+    }
+    async delete(endpoint, options = {}) {
+      return this.request(endpoint, { ...options, method: "DELETE" });
+    }
+  }
+  const apiClient = new ApiClient();
   const ConsentPromptResponseSchema = object({
     status: _enum(["pending", "opted_in", "opted_out"]),
     can_store_conversation: boolean(),
@@ -12836,31 +15718,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   });
   let cachedApiBase = null;
   function getApiBaseUrl() {
-    const shopBotConfig = typeof window !== "undefined" ? window.ShopBotConfig : null;
-    if (shopBotConfig == null ? void 0 : shopBotConfig.apiBaseUrl) {
-      const configUrl = shopBotConfig.apiBaseUrl;
-      return configUrl.replace(/\/$/, "");
-    }
-    const scripts = document.querySelectorAll('script[src*="widget.umd.js"]');
-    let bestScript = null;
-    for (const script of scripts) {
-      if (script instanceof HTMLScriptElement && script.src) {
-        if (script.src.includes("trycloudflare.com")) {
-          bestScript = script;
-          break;
-        }
-        bestScript = script;
-      }
-    }
-    if (bestScript) {
-      try {
-        const scriptUrl = new URL(bestScript.src);
-        cachedApiBase = `${scriptUrl.origin}/api/v1/widget`;
-        return cachedApiBase;
-      } catch {
-      }
-    }
-    cachedApiBase = "/api/v1/widget";
+    if (cachedApiBase) return cachedApiBase;
+    const origin = getApiBase();
+    cachedApiBase = origin ? `${origin}/api/v1/widget` : "/api/v1/widget";
     return cachedApiBase;
   }
   const getWidgetApiBase = () => getApiBaseUrl();
@@ -12872,8 +15732,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
   }
   function parseApiError(data) {
-    if (typeof data === "object" && data !== null && "error_code" in data && "message" in data) {
-      return data;
+    if (typeof data === "object" && data !== null) {
+      if ("error_code" in data && "message" in data) {
+        return data;
+      }
+      if ("detail" in data && typeof data.detail === "object" && data.detail !== null) {
+        const detail = data.detail;
+        if ("error_code" in detail && "message" in detail) {
+          return detail;
+        }
+      } else if ("detail" in data && typeof data.detail === "string") {
+        return { error_code: 0, message: data.detail };
+      } else if ("detail" in data && Array.isArray(data.detail)) {
+        return { error_code: 0, message: `Validation error: ${JSON.stringify(data.detail)}` };
+      }
     }
     return { error_code: 0, message: "Unknown error" };
   }
@@ -12886,7 +15758,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     async request(endpoint, options = {}, retries = 2) {
       try {
-        const response = await fetch(`${getWidgetApiBase()}${endpoint}`, {
+        const url = `${getWidgetApiBase()}${endpoint}`;
+        const response = await fetch(url, {
           ...options,
           headers: {
             "Content-Type": "application/json",
@@ -12896,7 +15769,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (!response.ok) {
           const data = await response.json().catch(() => null);
           const error = parseApiError(data);
-          throw new WidgetApiException(error.error_code, error.message);
+          throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
         }
         return response.json();
       } catch (error) {
@@ -12949,50 +15822,80 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     async endSession(sessionId) {
       await this.request(`/session/${sessionId}`, { method: "DELETE" });
     }
-    async sendMessage(sessionId, message) {
-      var _a2;
-      const data = await this.request("/message", {
-        method: "POST",
-        body: JSON.stringify({ session_id: sessionId, message })
-      });
-      const rawData = data.data;
-      console.warn("[WidgetClient] sendMessage raw response:", rawData);
-      console.warn("[WidgetClient] consentPromptRequired field:", rawData.consentPromptRequired, rawData.consent_prompt_required);
-      const parsed = WidgetMessageSchema.safeParse(data.data);
-      if (!parsed.success) {
-        throw new WidgetApiException(0, "Invalid message response");
-      }
+    async getMessageHistory(sessionId) {
+      const data = await this.request(
+        `/session/${sessionId}/messages`
+      );
+      const messages = (data.data.messages || []).map((m2) => ({
+        messageId: m2.id || m2.message_id || "",
+        content: m2.content,
+        sender: m2.role === "user" ? "user" : "bot",
+        createdAt: m2.timestamp || m2.created_at || "",
+        products: m2.products,
+        cart: m2.cart,
+        contactOptions: m2.contact_options || m2.contactOptions
+      }));
       return {
-        messageId: (parsed.data.messageId || parsed.data.message_id) ?? "",
-        content: parsed.data.content,
-        sender: parsed.data.sender,
-        createdAt: (parsed.data.createdAt || parsed.data.created_at) ?? "",
-        products: (_a2 = parsed.data.products) == null ? void 0 : _a2.map((p2) => ({
-          id: p2.id || p2.product_id,
-          variantId: p2.variantId || p2.variant_id,
-          title: p2.title,
-          description: p2.description,
-          price: p2.price,
-          imageUrl: p2.imageUrl || p2.image_url,
-          available: p2.available,
-          productType: p2.productType || p2.product_type,
-          isPinned: p2.isPinned || p2.is_pinned
-        })),
-        cart: parsed.data.cart ? {
-          items: parsed.data.cart.items.map((item) => ({
-            variantId: item.variant_id,
-            title: item.title,
-            price: item.price,
-            quantity: item.quantity
-          })),
-          itemCount: parsed.data.cart.item_count,
-          total: parsed.data.cart.total
-        } : void 0,
-        checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? void 0,
-        intent: parsed.data.intent ?? void 0,
-        confidence: parsed.data.confidence ?? void 0,
-        consent_prompt_required: rawData.consentPromptRequired ?? rawData.consent_prompt_required
+        messages,
+        expired: data.data.expired || false
       };
+    }
+    async sendMessage(sessionId, message) {
+      var _a2, _b;
+      try {
+        const data = await this.request("/message", {
+          method: "POST",
+          body: JSON.stringify({ session_id: sessionId, message })
+        });
+        const rawData = data.data;
+        const parsed = WidgetMessageSchema.safeParse(data.data);
+        if (!parsed.success) {
+          console.error("[WidgetClient] Parse error:", parsed.error);
+          throw new WidgetApiException(0, "Invalid message response");
+        }
+        return {
+          messageId: (parsed.data.messageId || parsed.data.message_id) ?? "",
+          content: parsed.data.content,
+          sender: parsed.data.sender,
+          createdAt: (parsed.data.createdAt || parsed.data.created_at) ?? "",
+          products: (_a2 = parsed.data.products) == null ? void 0 : _a2.map((p2) => ({
+            id: p2.id || p2.product_id,
+            variantId: p2.variantId || p2.variant_id,
+            title: p2.title,
+            description: p2.description,
+            price: p2.price,
+            imageUrl: p2.imageUrl || p2.image_url,
+            available: p2.available,
+            productType: p2.productType || p2.product_type,
+            isPinned: p2.isPinned || p2.is_pinned
+          })),
+          cart: parsed.data.cart ? {
+            items: parsed.data.cart.items.map((item) => ({
+              variantId: item.variant_id,
+              title: item.title,
+              price: item.price,
+              quantity: item.quantity
+            })),
+            itemCount: parsed.data.cart.item_count,
+            total: parsed.data.cart.total
+          } : void 0,
+          checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? void 0,
+          intent: parsed.data.intent ?? void 0,
+          confidence: parsed.data.confidence ?? void 0,
+          quick_replies: parsed.data.quick_replies ?? void 0,
+          sources: ((_b = rawData.sources) == null ? void 0 : _b.map((source) => ({
+            ...source,
+            filename: source.filename || void 0
+          }))) ?? void 0,
+          suggestedReplies: rawData.suggestedReplies ?? rawData.suggested_replies,
+          feedbackEnabled: rawData.feedbackEnabled ?? rawData.feedback_enabled,
+          userRating: rawData.userRating ?? rawData.user_rating,
+          contactOptions: rawData.contactOptions ?? rawData.contact_options ?? void 0
+        };
+      } catch (error) {
+        if (error instanceof WidgetApiException) throw error;
+        throw new WidgetApiException(0, `Invalid message response: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
     }
     async getConfig(merchantId) {
       const data = await this.request(`/config/${merchantId}`);
@@ -13001,12 +15904,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         throw new WidgetApiException(0, "Invalid config response");
       }
       return {
+        merchantId: parsed.data.merchantId || merchantId,
         enabled: parsed.data.enabled,
         botName: parsed.data.botName,
         welcomeMessage: parsed.data.welcomeMessage,
         theme: parsed.data.theme,
         allowedDomains: parsed.data.allowedDomains,
-        shopDomain: parsed.data.shopDomain
+        shopDomain: parsed.data.shopDomain,
+        proactiveEngagementConfig: parsed.data.proactiveEngagementConfig,
+        onboardingMode: parsed.data.onboardingMode,
+        contactOptions: parsed.data.contactOptions
       };
     }
     async searchProducts(sessionId, query) {
@@ -13068,22 +15975,32 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (!parsed.success) {
         throw new WidgetApiException(0, "Invalid cart response");
       }
-      const cartData = parsed.data;
+      return this.parseCartResponse(parsed.data);
+    }
+    parseCartResponse(cartData) {
+      const items = (cartData.items ?? []).map((item) => {
+        const variantId = item.variant_id ?? item.variantId;
+        return {
+          variantId: variantId != null ? String(variantId) : "",
+          title: String(item.title ?? ""),
+          price: Number(item.price ?? 0),
+          quantity: Number(item.quantity ?? 0)
+        };
+      });
       return {
-        items: cartData.items.map((item) => ({
-          variantId: item.variant_id || item.variantId,
-          title: item.title,
-          price: item.price,
-          quantity: item.quantity
-        })),
-        itemCount: cartData.item_count ?? cartData.itemCount ?? 0,
-        total: cartData.total ?? cartData.subtotal ?? 0,
+        items,
+        itemCount: Number(cartData.item_count ?? cartData.itemCount ?? 0),
+        total: Number(cartData.total ?? cartData.subtotal ?? 0),
         shopifyCartUrl: cartData.shopify_cart_url
       };
     }
     async removeFromCart(sessionId, variantId) {
+      if (!variantId) {
+        throw new WidgetApiException(0, "variantId is required");
+      }
+      const encodedVariantId = encodeURIComponent(variantId);
       const data = await this.request(
-        `/cart/${variantId}?session_id=${sessionId}`,
+        `/cart/${encodedVariantId}?session_id=${sessionId}`,
         {
           method: "DELETE"
         }
@@ -13092,18 +16009,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (!parsed.success) {
         throw new WidgetApiException(0, "Invalid cart response");
       }
-      const cartData = parsed.data;
-      return {
-        items: cartData.items.map((item) => ({
-          variantId: item.variant_id || item.variantId,
-          title: item.title,
-          price: item.price,
-          quantity: item.quantity
-        })),
-        itemCount: cartData.item_count ?? cartData.itemCount ?? 0,
-        total: cartData.total ?? cartData.subtotal ?? 0,
-        shopifyCartUrl: cartData.shopify_cart_url
-      };
+      return this.parseCartResponse(parsed.data);
     }
     async updateQuantity(sessionId, variantId, quantity) {
       const data = await this.request(`/cart/${variantId}`, {
@@ -13165,28 +16071,25 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       };
     }
     async recordConsent(sessionId, consented, visitorId) {
-      console.warn("[WidgetClient] recordConsent called:", { sessionId, consented, visitorId });
-      const body = JSON.stringify({
-        session_id: sessionId,
-        consent_granted: consented,
-        source: "widget",
-        visitor_id: visitorId
-      });
-      console.warn("[WidgetClient] recordConsent request body:", body);
-      const data = await this.request("/consent", {
-        method: "POST",
-        body
-      });
-      console.warn("[WidgetClient] recordConsent response:", data);
-      const parsed = ConsentPromptResponseSchema.safeParse(data.data);
-      if (!parsed.success) {
-        throw new WidgetApiException(0, "Invalid consent response");
+      try {
+        const queryParam = visitorId ? `?visitor_id=${encodeURIComponent(visitorId)}` : "";
+        const data = await this.request(`/consent/${sessionId}${queryParam}`, {
+          method: "POST",
+          body: JSON.stringify({ consent_granted: consented })
+        });
+        const parsed = ConsentPromptResponseSchema.safeParse(data.data);
+        if (!parsed.success) {
+          throw new WidgetApiException(0, "Invalid consent response");
+        }
+        return {
+          status: parsed.data.status,
+          can_store_conversation: parsed.data.can_store_conversation,
+          consent_message_shown: parsed.data.consent_message_shown
+        };
+      } catch (error) {
+        console.error("[WidgetClient] recordConsent error:", error);
+        throw error;
       }
-      return {
-        status: parsed.data.status,
-        can_store_conversation: parsed.data.can_store_conversation,
-        consent_message_shown: parsed.data.consent_message_shown
-      };
     }
     async getConsentStatus(sessionId, visitorId) {
       try {
@@ -13217,14 +16120,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         clearVisitorId: ((_b = data.data) == null ? void 0 : _b.clear_visitor_id) ?? true
       };
     }
-    async getMessageHistory(sessionId) {
-      const data = await this.request(`/session/${sessionId}/messages`);
-      const rawData = data.data;
-      return {
-        messages: rawData.messages || [],
-        expired: rawData.expired,
-        expiresAt: rawData.expires_at
-      };
+    async getContactConfig(merchantId) {
+      try {
+        const config2 = await this.getConfig(merchantId);
+        return config2.contactOptions ?? config2.contact_options ?? [];
+      } catch (error) {
+        console.error("[WidgetClient] getContactConfig error:", error);
+        return [];
+      }
     }
     async clearMessageHistory(sessionId) {
       var _a2;
@@ -13236,6 +16139,43 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         success: ((_a2 = data.data) == null ? void 0 : _a2.success) ?? true
       };
     }
+    async getFaqButtons(merchantId) {
+      var _a2;
+      try {
+        const data = await this.request(`/faq-buttons/${merchantId}`);
+        return ((_a2 = data.data) == null ? void 0 : _a2.buttons) ?? [];
+      } catch {
+        return [];
+      }
+    }
+    async submitFeedback(messageId, rating, sessionId, comment) {
+      const apiBase = getWidgetApiBase().replace("/api/v1/widget", "");
+      const url = `${apiBase}/api/v1/feedback`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messageId,
+          rating,
+          sessionId,
+          comment
+        })
+      });
+      if (!response.ok) {
+        const data2 = await response.json().catch(() => null);
+        const error = parseApiError(data2);
+        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      return {
+        id: data.data.id,
+        messageId: data.data.messageId,
+        rating: data.data.rating,
+        createdAt: data.data.createdAt
+      };
+    }
   }
   const widgetClient = new WidgetApiClient();
   const widgetClient$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -13245,6 +16185,1151 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     getWidgetApiBase,
     widgetClient
   }, Symbol.toStringTag, { value: "Module" }));
+  const ChatWindow$2 = reactExports.lazy(() => Promise.resolve().then(() => ChatWindow$1));
+  function WidgetInner({ theme }) {
+    var _a2, _b, _c, _d;
+    const {
+      state,
+      toggleChat,
+      initWidget: initWidget2,
+      sendMessage,
+      merchantId,
+      addToCart: addToCart2,
+      removeFromCart: removeFromCart2,
+      checkout,
+      addingProductId,
+      removingItemId,
+      isCheckingOut,
+      dismissError,
+      retryLastAction,
+      recordConsent,
+      clearHistory,
+      toggleMinimized,
+      setThemeMode
+    } = useWidgetContext();
+    const { systemTheme } = useThemeDetection();
+    const merchantTheme = (_a2 = state.config) == null ? void 0 : _a2.theme;
+    const mergedTheme = reactExports.useMemo(
+      () => mergeThemes(merchantTheme, theme),
+      [merchantTheme, theme]
+    );
+    const [prePopulatedMessage, setPrePopulatedMessage] = reactExports.useState(null);
+    const productViewCount = reactExports.useMemo(() => {
+      const productIds = /* @__PURE__ */ new Set();
+      state.messages.forEach((m2) => {
+        var _a3;
+        (_a3 = m2.products) == null ? void 0 : _a3.forEach((p2) => {
+          const id2 = p2.id || p2.variantId;
+          if (id2) productIds.add(id2);
+        });
+      });
+      return productIds.size;
+    }, [state.messages]);
+    const proactiveConfig = ((_b = state.config) == null ? void 0 : _b.proactiveEngagementConfig) ?? DEFAULT_PROACTIVE_CONFIG;
+    const cartHasItems = reactExports.useMemo(() => {
+      return state.messages.some((m2) => {
+        var _a3, _b2;
+        return (((_b2 = (_a3 = m2.cart) == null ? void 0 : _a3.items) == null ? void 0 : _b2.length) ?? 0) > 0;
+      });
+    }, [state.messages]);
+    const {
+      activeTrigger,
+      dismissTrigger: dismissProactive,
+      isActive: isProactiveActive
+    } = useProactiveTriggers({
+      config: proactiveConfig,
+      productViewCount,
+      cartHasItems
+    });
+    const handleProactiveAction = reactExports.useCallback(
+      (action) => {
+        if (action.prePopulatedMessage) {
+          setPrePopulatedMessage(action.prePopulatedMessage);
+        }
+        if (!state.isOpen) {
+          toggleChat();
+        }
+        dismissProactive();
+      },
+      [state.isOpen, toggleChat, dismissProactive]
+    );
+    reactExports.useEffect(() => {
+      if (prePopulatedMessage && state.isOpen) {
+        const timer = setTimeout(() => {
+          setPrePopulatedMessage(null);
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }, [prePopulatedMessage, state.isOpen]);
+    const handleThemeToggle = reactExports.useCallback(() => {
+      const nextMode = getNextThemeMode(state.themeMode);
+      setThemeMode(nextMode);
+    }, [state.themeMode, setThemeMode]);
+    const handleFeedbackSubmit = reactExports.useCallback(
+      async (messageId, rating, comment) => {
+        var _a3;
+        const sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!sessionId) {
+          console.error("[Widget] Cannot submit feedback: no session ID");
+          return;
+        }
+        try {
+          await widgetClient.submitFeedback(messageId, rating, sessionId, comment);
+        } catch (error) {
+          console.error("[Widget] Failed to submit feedback:", error);
+          throw error;
+        }
+      },
+      [(_c = state.session) == null ? void 0 : _c.sessionId]
+    );
+    const prefetchChatWindow = reactExports.useCallback(() => {
+      Promise.resolve().then(() => ChatWindow$1);
+    }, []);
+    reactExports.useEffect(() => {
+      initWidget2(merchantId);
+    }, [initWidget2, merchantId]);
+    const handleBubbleClick = reactExports.useCallback(() => {
+      if (state.isMinimized) {
+        toggleMinimized();
+      } else {
+        toggleChat();
+      }
+    }, [state.isMinimized, toggleMinimized, toggleChat]);
+    console.log("[Widget] Rendering WidgetInner:", {
+      merchantId,
+      isOpen: state.isOpen,
+      isMinimized: state.isMinimized,
+      isLoading: state.isLoading,
+      position: state.position,
+      themePosition: mergedTheme.position,
+      viewport: `${window.innerWidth}x${window.innerHeight}`
+    });
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
+        .shopbot-widget-root * {
+          box-sizing: border-box;
+        }
+        .shopbot-chat-bubble:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+        }
+        .shopbot-chat-bubble:active {
+          transform: scale(0.95);
+        }
+        .shopbot-chat-window {
+          animation: shopbot-slideUp 0.2s ease-out;
+        }
+        .shopbot-chat-window.dragging {
+          animation: none;
+        }
+        @keyframes shopbot-slideUp {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes shopbot-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .shopbot-chat-bubble.has-unread {
+          animation: shopbot-pulse 2s ease-in-out infinite;
+        }
+        .chat-header-drag-handle {
+          cursor: grab;
+        }
+        .chat-header-drag-handle:active {
+          cursor: grabbing;
+        }
+        
+        .shopbot-chat-window.is-default-position {
+          position: fixed !important;
+          bottom: 90px !important;
+          right: ${mergedTheme.position === "bottom-left" ? "auto" : "20px"} !important;
+          left: ${mergedTheme.position === "bottom-left" ? "20px" : "auto"} !important;
+          top: auto !important;
+          transform: none !important;
+        }
+
+        @media (max-width: 767px) {
+          .shopbot-chat-window.is-default-position {
+            bottom: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0 !important;
+          }
+        }
+        
+        /* Smart Positioning Styles */
+        ${positioningStyles}
+        
+        /* Glassmorphism Styles */
+        .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+          background: rgba(15, 23, 42, 0.8) !important;
+          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .chat-header {
+          background: rgba(15, 23, 42, 0.6) !important;
+          -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+        }
+        .glassmorphism-wrapper.dark-mode .message-timestamp {
+          color: #94a3b8 !important;
+        }
+        .glassmorphism-wrapper.light-mode .shopbot-chat-window {
+          background: rgba(255, 255, 255, 0.7) !important;
+          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #1e293b !important;
+        }
+        .glassmorphism-wrapper.light-mode .chat-header {
+          background: rgba(255, 255, 255, 0.5) !important;
+          -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+        }
+        .glassmorphism-wrapper.light-mode .message-timestamp {
+          color: #64748b !important;
+        }
+        .glassmorphism-wrapper .shopbot-chat-window,
+        .glassmorphism-wrapper .shopbot-chat-window * {
+          transition: background 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .glassmorphism-wrapper .shopbot-chat-window,
+          .glassmorphism-wrapper .shopbot-chat-window * {
+            transition: none !important;
+            animation: none !important;
+          }
+        }
+        @supports not (backdrop-filter: blur(1px)) {
+          .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+            background: rgba(15, 23, 42, 0.95);
+          }
+          .glassmorphism-wrapper.light-mode .shopbot-chat-window {
+            background: rgba(255, 255, 255, 0.95);
+          }
+        }
+        .shopbot-theme-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          color: white;
+          transition: background 0.15s ease;
+          padding: 0;
+        }
+        .shopbot-theme-toggle:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+        .shopbot-theme-toggle:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, 0.5);
+          outline-offset: 2px;
+        }
+        .shopbot-theme-toggle svg {
+          width: 18px;
+          height: 18px;
+        }
+        
+        /* Product Carousel Styles */
+        .product-carousel {
+          display: flex;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          gap: 12px;
+          padding: 4px 0;
+          margin: 0 -4px;
+        }
+        .product-carousel::-webkit-scrollbar {
+          display: none;
+        }
+        .carousel-card {
+          scroll-snap-align: start;
+          flex-shrink: 0;
+          width: 140px;
+          border-radius: 8px;
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+          transition: transform 200ms ease, box-shadow 200ms ease;
+          cursor: pointer;
+        }
+        .carousel-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        .carousel-card:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .carousel-card-image {
+          position: relative;
+          width: 100%;
+          padding-bottom: 100%;
+          background: #f1f5f9;
+          overflow: hidden;
+        }
+        .carousel-card-image img {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: opacity 200ms ease;
+        }
+        .carousel-card-image img.loading {
+          opacity: 0;
+        }
+        .carousel-card-skeleton {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: skeleton-shimmer 1.5s infinite;
+        }
+        @keyframes skeleton-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .carousel-card-content {
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .carousel-card-title {
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.3;
+          color: #1e293b;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin: 0;
+          min-height: 34px;
+        }
+        .carousel-card-price {
+          font-size: 14px;
+          font-weight: 600;
+          color: #6366f1;
+          margin: 0;
+        }
+        .carousel-card-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 6px 8px;
+          margin-top: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          color: white;
+          background: #6366f1;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 150ms ease, opacity 150ms ease;
+        }
+        .carousel-card-button:hover {
+          background: #4f46e5;
+        }
+        .carousel-card-button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        .carousel-card-button:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+        }
+        .carousel-arrows {
+          position: absolute;
+          top: 50%;
+          left: 0;
+          right: 0;
+          transform: translateY(-50%);
+          display: flex;
+          justify-content: space-between;
+          pointer-events: none;
+          padding: 0 4px;
+          opacity: 0;
+          transition: opacity 200ms ease;
+        }
+        .product-carousel-wrapper:hover .carousel-arrows {
+          opacity: 1;
+        }
+        .carousel-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          transition: background 150ms ease, box-shadow 150ms ease;
+          color: #1e293b;
+        }
+        .carousel-arrow:hover {
+          background: #f8fafc;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .carousel-arrow:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+        .carousel-arrow:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+        }
+        .carousel-dots {
+          display: flex;
+          justify-content: center;
+          gap: 6px;
+          padding: 8px 0 4px;
+        }
+        .carousel-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.2);
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          transition: background 150ms ease, transform 150ms ease;
+        }
+        .carousel-dot:hover {
+          background: rgba(0, 0, 0, 0.4);
+        }
+        .carousel-dot.active {
+          width: 10px;
+          height: 10px;
+          background: #6366f1;
+        }
+        .carousel-dot:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+        }
+        .product-carousel-wrapper {
+          position: relative;
+          width: 100%;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .carousel-card:hover {
+            transform: none;
+          }
+          .product-carousel {
+            scroll-behavior: auto;
+          }
+          .carousel-card-skeleton {
+            animation: none;
+          }
+          .carousel-card,
+          .carousel-arrow,
+          .carousel-dot,
+          .carousel-card-image img,
+          .carousel-arrows {
+            transition: none;
+          }
+        }
+        
+        /* Quick Reply Buttons Styles */
+        .quick-reply-buttons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 8px 16px;
+        }
+        .quick-reply-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-height: 44px;
+          min-width: 44px;
+          padding: 10px 16px;
+          border: 1px solid var(--widget-primary, #6366f1);
+          border-radius: 20px;
+          background-color: transparent;
+          color: var(--widget-primary, #6366f1);
+          font-weight: 500;
+          font-size: 14px;
+          cursor: pointer;
+          transition: transform 100ms ease, background-color 150ms ease, opacity 150ms ease, border-color 150ms ease;
+          white-space: nowrap;
+        }
+        .quick-reply-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        .quick-reply-button:active:not(:disabled) {
+          transform: scale(0.95);
+          background-color: rgba(99, 102, 241, 0.15);
+        }
+        .quick-reply-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .quick-reply-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        @media (max-width: 479px) {
+          .quick-reply-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+          .quick-reply-button {
+            width: 100%;
+          }
+        }
+        @media (min-width: 480px) {
+          .quick-reply-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .quick-reply-button {
+            transition: none;
+          }
+          .quick-reply-button:active:not(:disabled) {
+            transform: none;
+          }
+        }
+        
+        /* Voice Input Styles */
+        .voice-input-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .voice-input-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          border: none;
+          border-radius: 50%;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+          cursor: pointer;
+          transition: background-color 150ms ease, opacity 150ms ease;
+        }
+        .voice-input-button:hover:not(:disabled) {
+          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+        }
+        .voice-input-button:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .voice-input-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .voice-input-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .voice-input-button.listening {
+          background-color: #ef4444;
+          animation: voice-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes voice-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+          50% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        }
+        .voice-input-button.processing {
+          background-color: var(--widget-primary, #6366f1);
+        }
+        .voice-input-button.error {
+          background-color: #ef4444;
+        }
+        .waveform-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          height: 24px;
+        }
+        .waveform-bar {
+          width: 3px;
+          height: 24px;
+          background-color: white;
+          border-radius: 2px;
+          animation: waveform-pulse 1s ease-in-out infinite;
+        }
+        .waveform-bar:nth-child(1) { animation-delay: 0s; }
+        .waveform-bar:nth-child(2) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(5) { animation-delay: 0s; }
+        @keyframes waveform-pulse {
+          0%, 100% { transform: scaleY(0.5); }
+          50% { transform: scaleY(1); }
+        }
+        .voice-interim-transcript {
+          font-style: italic;
+          color: #6b7280;
+          font-size: 14px;
+          padding: 4px 12px;
+          min-height: 24px;
+        }
+        .voice-error-message {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          background-color: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+          color: #dc2626;
+          font-size: 13px;
+        }
+        .voice-cancel-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border: none;
+          border-radius: 50%;
+          background-color: #f3f4f6;
+          color: #6b7280;
+          cursor: pointer;
+          transition: background-color 150ms ease;
+        }
+        .voice-cancel-button:hover {
+          background-color: #e5e7eb;
+        }
+        .voice-cancel-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .voice-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: voice-spin 0.8s linear infinite;
+        }
+        @keyframes voice-spin {
+          to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .voice-input-button,
+          .voice-cancel-button,
+          .waveform-bar,
+          .voice-spinner {
+            animation: none !important;
+            transition: none !important;
+          }
+          .voice-input-button:active:not(:disabled) {
+            transform: none;
+          }
+          .voice-input-button.listening {
+            animation: none;
+          }
+          .waveform-bar {
+            transform: scaleY(0.75);
+          }
+        }
+        
+        /* Proactive Modal Styles */
+        .proactive-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2147483646;
+          animation: proactive-fade-in 0.2s ease-out;
+        }
+        .proactive-modal-container {
+          background-color: var(--widget-bg, #ffffff);
+          border-radius: var(--widget-radius, 16px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+          max-width: 400px;
+          width: 90%;
+          padding: 24px;
+          position: relative;
+          color: var(--widget-text, #1f2937);
+          animation: proactive-scale-in 0.2s ease-out;
+        }
+        .proactive-modal-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 16px;
+          border-radius: 50%;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+        }
+        @keyframes proactive-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes proactive-scale-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .proactive-modal-close {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          min-height: 32px;
+          border: none;
+          border-radius: 50%;
+          background-color: transparent;
+          color: var(--widget-text, #6b7280);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 150ms ease;
+        }
+        .proactive-modal-close:hover {
+          background-color: rgba(0, 0, 0, 0.05);
+        }
+        .proactive-modal-close:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .proactive-modal-title {
+          font-size: 18px;
+          font-weight: 600;
+          margin: 0 0 12px 0;
+          padding-right: 32px;
+          color: inherit;
+        }
+        .proactive-modal-message {
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0 0 20px 0;
+          color: inherit;
+        }
+        .proactive-modal-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .proactive-action-button {
+          flex: 1;
+          min-width: 100px;
+          min-height: 44px;
+          padding: 12px 16px;
+          border: 1px solid var(--widget-primary, #6366f1);
+          border-radius: 8px;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 150ms ease, transform 100ms ease;
+        }
+        .proactive-action-button:hover:not(:disabled) {
+          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+        }
+        .proactive-action-button:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .proactive-action-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .proactive-action-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .proactive-action-button.proactive-action-secondary {
+          background-color: transparent;
+          color: var(--widget-primary, #6366f1);
+        }
+        .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        @media (max-width: 479px) {
+          .proactive-modal-container {
+            max-width: 90%;
+            padding: 20px;
+            margin: 16px;
+          }
+          .proactive-modal-actions {
+            flex-direction: column;
+          }
+          .proactive-action-button {
+            width: 100%;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .proactive-modal-overlay,
+          .proactive-modal-container {
+            animation: none;
+          }
+          .proactive-modal-close,
+          .proactive-action-button {
+            transition: none;
+          }
+          .proactive-action-button:active:not(:disabled) {
+            transform: none;
+          }
+        }
+        
+        /* Message Grouping Styles */
+        /* NOTE: These inline styles are the primary implementation. External CSS in
+         * message-grouping.css + injectMessageGroupingStyles() are prepared for future
+         * Shadow DOM support but not currently used (widget renders to regular DOM). */
+        .message-group {
+          margin-bottom: 12px;
+        }
+        .message-group__row {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+        }
+        .message-group__row--user {
+          flex-direction: row-reverse;
+        }
+        .message-group__avatar {
+          flex-shrink: 0;
+        }
+        .message-group__content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          max-width: 75%;
+        }
+        .message-bubble {
+          padding: 10px 14px;
+          word-break: break-word;
+          animation: message-fade-in 0.2s ease-out;
+        }
+        .message-bubble--first.message-bubble--bot {
+          border-radius: 16px 16px 16px 4px;
+        }
+        .message-bubble--first.message-bubble--user {
+          border-radius: 16px 16px 4px 16px;
+        }
+        .message-bubble--middle.message-bubble--bot,
+        .message-bubble--middle.message-bubble--user {
+          border-radius: 4px;
+        }
+        .message-bubble--last.message-bubble--bot {
+          border-radius: 4px 4px 16px 16px;
+        }
+        .message-bubble--last.message-bubble--user {
+          border-radius: 16px 4px 4px 16px;
+        }
+        .message-bubble--single.message-bubble--bot,
+        .message-bubble--single.message-bubble--user {
+          border-radius: 16px;
+        }
+        .message-bubble--system {
+          background-color: transparent;
+          color: var(--widget-text);
+          opacity: 0.7;
+          font-size: 12px;
+          text-align: center;
+          padding: 4px 8px;
+        }
+        .message-bubble__sender {
+          font-size: 11px;
+          font-weight: 600;
+          margin-bottom: 4px;
+          opacity: 0.8;
+        }
+        .message-bubble__content {
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .message-bubble__timestamp {
+          font-size: 10px;
+          color: var(--widget-text);
+          opacity: 0.5;
+          margin-top: 2px;
+        }
+        .message-bubble__timestamp--user {
+          text-align: right;
+          margin-right: 4px;
+        }
+        .message-bubble__timestamp--bot {
+          text-align: left;
+          margin-left: 4px;
+        }
+        .message-bubble__rich-content {
+          max-width: 100%;
+          margin-top: 8px;
+        }
+        @keyframes message-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        /* Animation Keyframes for Microinteractions */
+        @keyframes typing-dot-bounce {
+          0%, 60%, 100% {
+            transform: translateY(0);
+          }
+          30% {
+            transform: translateY(-8px);
+          }
+        }
+        
+        @keyframes message-send {
+          0% {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        @keyframes ripple {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(4);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes checkmark-draw {
+          0% {
+            stroke-dashoffset: 24;
+          }
+          100% {
+            stroke-dashoffset: 0;
+          }
+        }
+        
+        @keyframes badge-pulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+          .message-bubble {
+            animation: none;
+          }
+          .typing-dot,
+          .bubble-badge,
+          .ripple-effect {
+            animation: none !important;
+          }
+        }
+      ` }),
+      state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+        position: "fixed",
+        bottom: 20,
+        right: mergedTheme.position === "bottom-left" ? void 0 : 20,
+        left: mergedTheme.position === "bottom-left" ? 20 : void 0,
+        width: 60,
+        height: 60,
+        borderRadius: "50%",
+        backgroundColor: mergedTheme.primaryColor,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2147483647
+      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ChatBubble,
+          {
+            isOpen: state.isOpen && !state.isMinimized,
+            onClick: handleBubbleClick,
+            theme: mergedTheme,
+            onPrefetch: prefetchChatWindow,
+            unreadCount: state.unreadCount
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ProactiveModal,
+          {
+            trigger: activeTrigger,
+            isOpen: isProactiveActive && !state.isOpen,
+            onAction: handleProactiveAction,
+            onDismiss: dismissProactive,
+            theme: {
+              primaryColor: mergedTheme.primaryColor,
+              backgroundColor: mergedTheme.backgroundColor,
+              textColor: mergedTheme.textColor
+            }
+          }
+        ),
+        state.isOpen && !state.isMinimized && /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "fixed", bottom: 100, right: 20, zIndex: 2147483647 }, children: "Failed to load chat." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          GlassmorphismChatWindow,
+          {
+            themeMode: state.themeMode,
+            systemTheme,
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              ChatWindow$2,
+              {
+                isOpen: state.isOpen && !state.isMinimized,
+                onClose: toggleChat,
+                theme: mergedTheme,
+                config: state.config,
+                messages: state.messages,
+                isTyping: state.isTyping,
+                onSendMessage: sendMessage,
+                error: state.error,
+                errors: state.errors,
+                onDismissError: dismissError,
+                onRetryError: retryLastAction,
+                onAddToCart: addToCart2,
+                onRemoveFromCart: removeFromCart2,
+                onCheckout: checkout,
+                addingProductId,
+                removingItemId,
+                isCheckingOut,
+                sessionId: (_d = state.session) == null ? void 0 : _d.sessionId,
+                connectionStatus: state.connectionStatus,
+                consentState: state.consentState,
+                onRecordConsent: recordConsent,
+                onClearHistory: clearHistory,
+                position: state.position,
+                isDragging: state.isDragging,
+                isMinimized: state.isMinimized,
+                onDragStart: () => {
+                },
+                onMinimize: toggleMinimized,
+                themeMode: state.themeMode,
+                onThemeToggle: handleThemeToggle,
+                faqQuickButtons: state.faqQuickButtons,
+                onFeedbackSubmit: handleFeedbackSubmit
+              }
+            )
+          }
+        ) }) })
+      ] })
+    ] });
+  }
+  function Widget({ merchantId, theme, initialSessionId }) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetProvider, { merchantId, initialSessionId, children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetInner, { theme }) }) });
+  }
+  let capturedScript = null;
+  let widgetRoot = null;
+  let widgetContainer = null;
+  const MERCHANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+  function isValidMerchantId(id2) {
+    if (!id2 || typeof id2 !== "string") return false;
+    return MERCHANT_ID_PATTERN.test(id2);
+  }
+  function getConfig() {
+    var _a2, _b;
+    if ((_a2 = window.ShopBotConfig) == null ? void 0 : _a2.merchantId) {
+      return window.ShopBotConfig;
+    }
+    if ((_b = capturedScript == null ? void 0 : capturedScript.dataset) == null ? void 0 : _b.merchantId) {
+      let theme;
+      if (capturedScript.dataset.theme) {
+        try {
+          theme = JSON.parse(capturedScript.dataset.theme);
+        } catch {
+        }
+      }
+      return {
+        merchantId: capturedScript.dataset.merchantId,
+        theme
+      };
+    }
+    return null;
+  }
+  function initWidget() {
+    if (widgetContainer && widgetRoot) {
+      return;
+    }
+    const config2 = getConfig();
+    if (!(config2 == null ? void 0 : config2.merchantId)) {
+      return;
+    }
+    if (!isValidMerchantId(config2.merchantId)) {
+      return;
+    }
+    widgetContainer = document.createElement("div");
+    widgetContainer.id = "shopbot-widget-root";
+    document.body.appendChild(widgetContainer);
+    widgetRoot = createRoot(widgetContainer);
+    widgetRoot.render(
+      reactExports.createElement(Widget, {
+        merchantId: config2.merchantId,
+        theme: config2.theme
+      })
+    );
+  }
+  function unmountWidget() {
+    if (widgetRoot) {
+      widgetRoot.unmount();
+      widgetRoot = null;
+    }
+    if (widgetContainer) {
+      widgetContainer.remove();
+      widgetContainer = null;
+    }
+  }
+  function isWidgetMounted() {
+    return widgetContainer !== null && widgetRoot !== null;
+  }
+  if (document.currentScript instanceof HTMLScriptElement) {
+    capturedScript = document.currentScript;
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initWidget);
+  } else {
+    initWidget();
+  }
+  if (typeof window !== "undefined") {
+    window.ShopBotWidget = {
+      version: "0.2.0",
+      init: initWidget,
+      unmount: unmountWidget,
+      isMounted: isWidgetMounted
+    };
+  }
   function getWsBaseUrl() {
     const apiBase = getWidgetApiBase();
     try {
@@ -13403,1816 +17488,170 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     connectWidgetWebSocket,
     isWebSocketSupported
   }, Symbol.toStringTag, { value: "Module" }));
-  var focusTrapReact = { exports: {} };
-  /*!
-  * tabbable 6.4.0
-  * @license MIT, https://github.com/focus-trap/tabbable/blob/master/LICENSE
-  */
-  var candidateSelectors = ["input:not([inert]):not([inert] *)", "select:not([inert]):not([inert] *)", "textarea:not([inert]):not([inert] *)", "a[href]:not([inert]):not([inert] *)", "button:not([inert]):not([inert] *)", "[tabindex]:not(slot):not([inert]):not([inert] *)", "audio[controls]:not([inert]):not([inert] *)", "video[controls]:not([inert]):not([inert] *)", '[contenteditable]:not([contenteditable="false"]):not([inert]):not([inert] *)', "details>summary:first-of-type:not([inert]):not([inert] *)", "details:not([inert]):not([inert] *)"];
-  var candidateSelector = /* @__PURE__ */ candidateSelectors.join(",");
-  var NoElement = typeof Element === "undefined";
-  var matches = NoElement ? function() {
-  } : Element.prototype.matches || Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
-  var getRootNode = !NoElement && Element.prototype.getRootNode ? function(element) {
-    var _element$getRootNode;
-    return element === null || element === void 0 ? void 0 : (_element$getRootNode = element.getRootNode) === null || _element$getRootNode === void 0 ? void 0 : _element$getRootNode.call(element);
-  } : function(element) {
-    return element === null || element === void 0 ? void 0 : element.ownerDocument;
-  };
-  var _isInert = function isInert(node, lookUp) {
-    var _node$getAttribute;
-    if (lookUp === void 0) {
-      lookUp = true;
-    }
-    var inertAtt = node === null || node === void 0 ? void 0 : (_node$getAttribute = node.getAttribute) === null || _node$getAttribute === void 0 ? void 0 : _node$getAttribute.call(node, "inert");
-    var inert = inertAtt === "" || inertAtt === "true";
-    var result = inert || lookUp && node && // closest does not exist on shadow roots, so we fall back to a manual
-    // lookup upward, in case it is not defined.
-    (typeof node.closest === "function" ? node.closest("[inert]") : _isInert(node.parentNode));
-    return result;
-  };
-  var isContentEditable = function isContentEditable2(node) {
-    var _node$getAttribute2;
-    var attValue = node === null || node === void 0 ? void 0 : (_node$getAttribute2 = node.getAttribute) === null || _node$getAttribute2 === void 0 ? void 0 : _node$getAttribute2.call(node, "contenteditable");
-    return attValue === "" || attValue === "true";
-  };
-  var getCandidates = function getCandidates2(el2, includeContainer, filter) {
-    if (_isInert(el2)) {
-      return [];
-    }
-    var candidates = Array.prototype.slice.apply(el2.querySelectorAll(candidateSelector));
-    if (includeContainer && matches.call(el2, candidateSelector)) {
-      candidates.unshift(el2);
-    }
-    candidates = candidates.filter(filter);
-    return candidates;
-  };
-  var _getCandidatesIteratively = function getCandidatesIteratively(elements, includeContainer, options) {
-    var candidates = [];
-    var elementsToCheck = Array.from(elements);
-    while (elementsToCheck.length) {
-      var element = elementsToCheck.shift();
-      if (_isInert(element, false)) {
-        continue;
-      }
-      if (element.tagName === "SLOT") {
-        var assigned = element.assignedElements();
-        var content = assigned.length ? assigned : element.children;
-        var nestedCandidates = _getCandidatesIteratively(content, true, options);
-        if (options.flatten) {
-          candidates.push.apply(candidates, nestedCandidates);
-        } else {
-          candidates.push({
-            scopeParent: element,
-            candidates: nestedCandidates
-          });
+  async function flushWidgetAnalyticsEvents(payload) {
+    const response = await apiClient.post(
+      "/api/v1/analytics/widget/events",
+      payload
+    );
+    return response;
+  }
+  const analyticsService = {
+    /**
+     * Get sales breakdown by country, city, and province.
+     * Data is populated by Shopify order webhooks.
+     */
+    async getGeographic() {
+      const response = await apiClient.get(
+        "/api/v1/analytics/geographic"
+      );
+      return response;
+    },
+    /**
+     * Get anonymized analytics summary with order stats and conversation stats.
+     * All data is tier=ANONYMIZED with no PII. 30-day window.
+     */
+    async getSummary() {
+      const response = await apiClient.get(
+        "/api/v1/analytics/summary"
+      );
+      return response;
+    },
+    /**
+     * Get top products sold in the last N days.
+     */
+    async getTopProducts(days = 30, limit = 5) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/top-products?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    /**
+     * Get pending orders including unfulfilled orders and estimated delivery dates.
+     */
+    async getPendingOrders(limit = 10, offset = 0) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/pending-orders?limit=${limit}&offset=${offset}`
+      );
+      return response;
+    },
+    async getBotQuality(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/bot-quality?days=${days}`
+      );
+      return response;
+    },
+    async getPeakHours(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/peak-hours?days=${days}`
+      );
+      return response;
+    },
+    async getConversionFunnel(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversion-funnel?days=${days}`
+      );
+      return response;
+    },
+    async getKnowledgeGaps(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    async getBenchmarks(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/benchmarks?days=${days}`
+      );
+      return response;
+    },
+    async getSentimentTrend(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/sentiment-trend?days=${days}`
+      );
+      return response;
+    },
+    // ────────────────────────────────────────────────────────────────
+    // Widget Analytics (Story 9-10)
+    // ────────────────────────────────────────────────────────────────
+    /**
+     * Send batched widget analytics events to the backend.
+     */
+    async sendWidgetEvents(payload) {
+      return flushWidgetAnalyticsEvents(payload);
+    },
+    /**
+     * Get widget analytics metrics for the dashboard.
+     */
+    async getWidgetMetrics(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/widget?days=${days}`
+      );
+      return response;
+    },
+    /**
+     * Export widget analytics as CSV.
+     */
+    async exportWidgetAnalytics(startDate, endDate, merchantId) {
+      const response = await fetch(
+        `/api/v1/analytics/widget/export?merchant_id=${merchantId}&start_date=${startDate}&end_date=${endDate}`,
+        {
+          credentials: "include"
         }
-      } else {
-        var validCandidate = matches.call(element, candidateSelector);
-        if (validCandidate && options.filter(element) && (includeContainer || !elements.includes(element))) {
-          candidates.push(element);
-        }
-        var shadowRoot = element.shadowRoot || // check for an undisclosed shadow
-        typeof options.getShadowRoot === "function" && options.getShadowRoot(element);
-        var validShadowRoot = !_isInert(shadowRoot, false) && (!options.shadowRootFilter || options.shadowRootFilter(element));
-        if (shadowRoot && validShadowRoot) {
-          var _nestedCandidates = _getCandidatesIteratively(shadowRoot === true ? element.children : shadowRoot.children, true, options);
-          if (options.flatten) {
-            candidates.push.apply(candidates, _nestedCandidates);
-          } else {
-            candidates.push({
-              scopeParent: element,
-              candidates: _nestedCandidates
-            });
-          }
-        } else {
-          elementsToCheck.unshift.apply(elementsToCheck, element.children);
-        }
+      );
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.status}`);
       }
+      return response.blob();
+    },
+    // ────────────────────────────────────────────────────────────────
+    // Feedback Analytics (Story 10-4)
+    // ────────────────────────────────────────────────────────────────
+    async getFeedbackAnalytics(startDate, endDate) {
+      const params = new URLSearchParams();
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      const queryString = params.toString();
+      const response = await apiClient.get(
+        `/api/v1/feedback/analytics${queryString ? `?${queryString}` : ""}`
+      );
+      return response;
+    },
+    async getKnowledgeEffectiveness(days = 7) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/knowledge-effectiveness?days=${days}`
+      );
+      return response.data;
+    },
+    async getKnowledgeGapsData(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    async getTopTopics(days = 7) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/top-topics?days=${days}`
+      );
+      return response.data;
+    },
+    async getResponseTimeDistribution(days = 7) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/response-time-distribution?days=${days}`
+      );
+      return response.data;
+    },
+    async getFaqUsage(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/faq-usage?days=${days}`
+      );
+      return response;
     }
-    return candidates;
   };
-  var hasTabIndex = function hasTabIndex2(node) {
-    return !isNaN(parseInt(node.getAttribute("tabindex"), 10));
-  };
-  var getTabIndex = function getTabIndex2(node) {
-    if (!node) {
-      throw new Error("No node provided");
-    }
-    if (node.tabIndex < 0) {
-      if ((/^(AUDIO|VIDEO|DETAILS)$/.test(node.tagName) || isContentEditable(node)) && !hasTabIndex(node)) {
-        return 0;
-      }
-    }
-    return node.tabIndex;
-  };
-  var getSortOrderTabIndex = function getSortOrderTabIndex2(node, isScope) {
-    var tabIndex = getTabIndex(node);
-    if (tabIndex < 0 && isScope && !hasTabIndex(node)) {
-      return 0;
-    }
-    return tabIndex;
-  };
-  var sortOrderedTabbables = function sortOrderedTabbables2(a, b) {
-    return a.tabIndex === b.tabIndex ? a.documentOrder - b.documentOrder : a.tabIndex - b.tabIndex;
-  };
-  var isInput = function isInput2(node) {
-    return node.tagName === "INPUT";
-  };
-  var isHiddenInput = function isHiddenInput2(node) {
-    return isInput(node) && node.type === "hidden";
-  };
-  var isDetailsWithSummary = function isDetailsWithSummary2(node) {
-    var r2 = node.tagName === "DETAILS" && Array.prototype.slice.apply(node.children).some(function(child) {
-      return child.tagName === "SUMMARY";
-    });
-    return r2;
-  };
-  var getCheckedRadio = function getCheckedRadio2(nodes, form) {
-    for (var i = 0; i < nodes.length; i++) {
-      if (nodes[i].checked && nodes[i].form === form) {
-        return nodes[i];
-      }
-    }
-  };
-  var isTabbableRadio = function isTabbableRadio2(node) {
-    if (!node.name) {
-      return true;
-    }
-    var radioScope = node.form || getRootNode(node);
-    var queryRadios = function queryRadios2(name) {
-      return radioScope.querySelectorAll('input[type="radio"][name="' + name + '"]');
-    };
-    var radioSet;
-    if (typeof window !== "undefined" && typeof window.CSS !== "undefined" && typeof window.CSS.escape === "function") {
-      radioSet = queryRadios(window.CSS.escape(node.name));
-    } else {
-      try {
-        radioSet = queryRadios(node.name);
-      } catch (err) {
-        console.error("Looks like you have a radio button with a name attribute containing invalid CSS selector characters and need the CSS.escape polyfill: %s", err.message);
-        return false;
-      }
-    }
-    var checked = getCheckedRadio(radioSet, node.form);
-    return !checked || checked === node;
-  };
-  var isRadio = function isRadio2(node) {
-    return isInput(node) && node.type === "radio";
-  };
-  var isNonTabbableRadio = function isNonTabbableRadio2(node) {
-    return isRadio(node) && !isTabbableRadio(node);
-  };
-  var isNodeAttached = function isNodeAttached2(node) {
-    var _nodeRoot;
-    var nodeRoot = node && getRootNode(node);
-    var nodeRootHost = (_nodeRoot = nodeRoot) === null || _nodeRoot === void 0 ? void 0 : _nodeRoot.host;
-    var attached = false;
-    if (nodeRoot && nodeRoot !== node) {
-      var _nodeRootHost, _nodeRootHost$ownerDo, _node$ownerDocument;
-      attached = !!((_nodeRootHost = nodeRootHost) !== null && _nodeRootHost !== void 0 && (_nodeRootHost$ownerDo = _nodeRootHost.ownerDocument) !== null && _nodeRootHost$ownerDo !== void 0 && _nodeRootHost$ownerDo.contains(nodeRootHost) || node !== null && node !== void 0 && (_node$ownerDocument = node.ownerDocument) !== null && _node$ownerDocument !== void 0 && _node$ownerDocument.contains(node));
-      while (!attached && nodeRootHost) {
-        var _nodeRoot2, _nodeRootHost2, _nodeRootHost2$ownerD;
-        nodeRoot = getRootNode(nodeRootHost);
-        nodeRootHost = (_nodeRoot2 = nodeRoot) === null || _nodeRoot2 === void 0 ? void 0 : _nodeRoot2.host;
-        attached = !!((_nodeRootHost2 = nodeRootHost) !== null && _nodeRootHost2 !== void 0 && (_nodeRootHost2$ownerD = _nodeRootHost2.ownerDocument) !== null && _nodeRootHost2$ownerD !== void 0 && _nodeRootHost2$ownerD.contains(nodeRootHost));
-      }
-    }
-    return attached;
-  };
-  var isZeroArea = function isZeroArea2(node) {
-    var _node$getBoundingClie = node.getBoundingClientRect(), width = _node$getBoundingClie.width, height = _node$getBoundingClie.height;
-    return width === 0 && height === 0;
-  };
-  var isHidden = function isHidden2(node, _ref) {
-    var displayCheck = _ref.displayCheck, getShadowRoot = _ref.getShadowRoot;
-    if (displayCheck === "full-native") {
-      if ("checkVisibility" in node) {
-        var visible = node.checkVisibility({
-          // Checking opacity might be desirable for some use cases, but natively,
-          // opacity zero elements _are_ focusable and tabbable.
-          checkOpacity: false,
-          opacityProperty: false,
-          contentVisibilityAuto: true,
-          visibilityProperty: true,
-          // This is an alias for `visibilityProperty`. Contemporary browsers
-          // support both. However, this alias has wider browser support (Chrome
-          // >= 105 and Firefox >= 106, vs. Chrome >= 121 and Firefox >= 122), so
-          // we include it anyway.
-          checkVisibilityCSS: true
-        });
-        return !visible;
-      }
-    }
-    if (getComputedStyle(node).visibility === "hidden") {
-      return true;
-    }
-    var isDirectSummary = matches.call(node, "details>summary:first-of-type");
-    var nodeUnderDetails = isDirectSummary ? node.parentElement : node;
-    if (matches.call(nodeUnderDetails, "details:not([open]) *")) {
-      return true;
-    }
-    if (!displayCheck || displayCheck === "full" || // full-native can run this branch when it falls through in case
-    // Element#checkVisibility is unsupported
-    displayCheck === "full-native" || displayCheck === "legacy-full") {
-      if (typeof getShadowRoot === "function") {
-        var originalNode = node;
-        while (node) {
-          var parentElement = node.parentElement;
-          var rootNode = getRootNode(node);
-          if (parentElement && !parentElement.shadowRoot && getShadowRoot(parentElement) === true) {
-            return isZeroArea(node);
-          } else if (node.assignedSlot) {
-            node = node.assignedSlot;
-          } else if (!parentElement && rootNode !== node.ownerDocument) {
-            node = rootNode.host;
-          } else {
-            node = parentElement;
-          }
-        }
-        node = originalNode;
-      }
-      if (isNodeAttached(node)) {
-        return !node.getClientRects().length;
-      }
-      if (displayCheck !== "legacy-full") {
-        return true;
-      }
-    } else if (displayCheck === "non-zero-area") {
-      return isZeroArea(node);
-    }
-    return false;
-  };
-  var isDisabledFromFieldset = function isDisabledFromFieldset2(node) {
-    if (/^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(node.tagName)) {
-      var parentNode = node.parentElement;
-      while (parentNode) {
-        if (parentNode.tagName === "FIELDSET" && parentNode.disabled) {
-          for (var i = 0; i < parentNode.children.length; i++) {
-            var child = parentNode.children.item(i);
-            if (child.tagName === "LEGEND") {
-              return matches.call(parentNode, "fieldset[disabled] *") ? true : !child.contains(node);
-            }
-          }
-          return true;
-        }
-        parentNode = parentNode.parentElement;
-      }
-    }
-    return false;
-  };
-  var isNodeMatchingSelectorFocusable = function isNodeMatchingSelectorFocusable2(options, node) {
-    if (node.disabled || isHiddenInput(node) || isHidden(node, options) || // For a details element with a summary, the summary element gets the focus
-    isDetailsWithSummary(node) || isDisabledFromFieldset(node)) {
-      return false;
-    }
-    return true;
-  };
-  var isNodeMatchingSelectorTabbable = function isNodeMatchingSelectorTabbable2(options, node) {
-    if (isNonTabbableRadio(node) || getTabIndex(node) < 0 || !isNodeMatchingSelectorFocusable(options, node)) {
-      return false;
-    }
-    return true;
-  };
-  var isShadowRootTabbable = function isShadowRootTabbable2(shadowHostNode) {
-    var tabIndex = parseInt(shadowHostNode.getAttribute("tabindex"), 10);
-    if (isNaN(tabIndex) || tabIndex >= 0) {
-      return true;
-    }
-    return false;
-  };
-  var _sortByOrder = function sortByOrder(candidates) {
-    var regularTabbables = [];
-    var orderedTabbables = [];
-    candidates.forEach(function(item, i) {
-      var isScope = !!item.scopeParent;
-      var element = isScope ? item.scopeParent : item;
-      var candidateTabindex = getSortOrderTabIndex(element, isScope);
-      var elements = isScope ? _sortByOrder(item.candidates) : element;
-      if (candidateTabindex === 0) {
-        isScope ? regularTabbables.push.apply(regularTabbables, elements) : regularTabbables.push(element);
-      } else {
-        orderedTabbables.push({
-          documentOrder: i,
-          tabIndex: candidateTabindex,
-          item,
-          isScope,
-          content: elements
-        });
-      }
-    });
-    return orderedTabbables.sort(sortOrderedTabbables).reduce(function(acc, sortable) {
-      sortable.isScope ? acc.push.apply(acc, sortable.content) : acc.push(sortable.content);
-      return acc;
-    }, []).concat(regularTabbables);
-  };
-  var tabbable = function tabbable2(container, options) {
-    options = options || {};
-    var candidates;
-    if (options.getShadowRoot) {
-      candidates = _getCandidatesIteratively([container], options.includeContainer, {
-        filter: isNodeMatchingSelectorTabbable.bind(null, options),
-        flatten: false,
-        getShadowRoot: options.getShadowRoot,
-        shadowRootFilter: isShadowRootTabbable
-      });
-    } else {
-      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorTabbable.bind(null, options));
-    }
-    return _sortByOrder(candidates);
-  };
-  var focusable = function focusable2(container, options) {
-    options = options || {};
-    var candidates;
-    if (options.getShadowRoot) {
-      candidates = _getCandidatesIteratively([container], options.includeContainer, {
-        filter: isNodeMatchingSelectorFocusable.bind(null, options),
-        flatten: true,
-        getShadowRoot: options.getShadowRoot
-      });
-    } else {
-      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorFocusable.bind(null, options));
-    }
-    return candidates;
-  };
-  var isTabbable = function isTabbable2(node, options) {
-    options = options || {};
-    if (!node) {
-      throw new Error("No node provided");
-    }
-    if (matches.call(node, candidateSelector) === false) {
-      return false;
-    }
-    return isNodeMatchingSelectorTabbable(options, node);
-  };
-  var focusableCandidateSelector = /* @__PURE__ */ candidateSelectors.concat("iframe:not([inert]):not([inert] *)").join(",");
-  var isFocusable$1 = function isFocusable2(node, options) {
-    options = options || {};
-    if (!node) {
-      throw new Error("No node provided");
-    }
-    if (matches.call(node, focusableCandidateSelector) === false) {
-      return false;
-    }
-    return isNodeMatchingSelectorFocusable(options, node);
-  };
-  const index_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  const analyticsService$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
-    focusable,
-    getTabIndex,
-    isFocusable: isFocusable$1,
-    isTabbable,
-    tabbable
+    analyticsService,
+    flushWidgetAnalyticsEvents
   }, Symbol.toStringTag, { value: "Module" }));
-  /*!
-  * focus-trap 8.0.0
-  * @license MIT, https://github.com/focus-trap/focus-trap/blob/master/LICENSE
-  */
-  function _arrayLikeToArray(r2, a) {
-    (null == a || a > r2.length) && (a = r2.length);
-    for (var e = 0, n2 = Array(a); e < a; e++) n2[e] = r2[e];
-    return n2;
-  }
-  function _arrayWithoutHoles(r2) {
-    if (Array.isArray(r2)) return _arrayLikeToArray(r2);
-  }
-  function asyncGeneratorStep(n2, t2, e, r2, o, a, c) {
-    try {
-      var i = n2[a](c), u2 = i.value;
-    } catch (n3) {
-      return void e(n3);
-    }
-    i.done ? t2(u2) : Promise.resolve(u2).then(r2, o);
-  }
-  function _asyncToGenerator(n2) {
-    return function() {
-      var t2 = this, e = arguments;
-      return new Promise(function(r2, o) {
-        var a = n2.apply(t2, e);
-        function _next(n3) {
-          asyncGeneratorStep(a, r2, o, _next, _throw, "next", n3);
-        }
-        function _throw(n3) {
-          asyncGeneratorStep(a, r2, o, _next, _throw, "throw", n3);
-        }
-        _next(void 0);
-      });
-    };
-  }
-  function _createForOfIteratorHelper(r2, e) {
-    var t2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
-    if (!t2) {
-      if (Array.isArray(r2) || (t2 = _unsupportedIterableToArray(r2)) || e) {
-        t2 && (r2 = t2);
-        var n2 = 0, F2 = function() {
-        };
-        return {
-          s: F2,
-          n: function() {
-            return n2 >= r2.length ? {
-              done: true
-            } : {
-              done: false,
-              value: r2[n2++]
-            };
-          },
-          e: function(r3) {
-            throw r3;
-          },
-          f: F2
-        };
-      }
-      throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-    }
-    var o, a = true, u2 = false;
-    return {
-      s: function() {
-        t2 = t2.call(r2);
-      },
-      n: function() {
-        var r3 = t2.next();
-        return a = r3.done, r3;
-      },
-      e: function(r3) {
-        u2 = true, o = r3;
-      },
-      f: function() {
-        try {
-          a || null == t2.return || t2.return();
-        } finally {
-          if (u2) throw o;
-        }
-      }
-    };
-  }
-  function _defineProperty$1(e, r2, t2) {
-    return (r2 = _toPropertyKey$1(r2)) in e ? Object.defineProperty(e, r2, {
-      value: t2,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    }) : e[r2] = t2, e;
-  }
-  function _iterableToArray(r2) {
-    if ("undefined" != typeof Symbol && null != r2[Symbol.iterator] || null != r2["@@iterator"]) return Array.from(r2);
-  }
-  function _nonIterableSpread() {
-    throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-  }
-  function ownKeys(e, r2) {
-    var t2 = Object.keys(e);
-    if (Object.getOwnPropertySymbols) {
-      var o = Object.getOwnPropertySymbols(e);
-      r2 && (o = o.filter(function(r3) {
-        return Object.getOwnPropertyDescriptor(e, r3).enumerable;
-      })), t2.push.apply(t2, o);
-    }
-    return t2;
-  }
-  function _objectSpread2(e) {
-    for (var r2 = 1; r2 < arguments.length; r2++) {
-      var t2 = null != arguments[r2] ? arguments[r2] : {};
-      r2 % 2 ? ownKeys(Object(t2), true).forEach(function(r3) {
-        _defineProperty$1(e, r3, t2[r3]);
-      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t2)) : ownKeys(Object(t2)).forEach(function(r3) {
-        Object.defineProperty(e, r3, Object.getOwnPropertyDescriptor(t2, r3));
-      });
-    }
-    return e;
-  }
-  function _regenerator() {
-    /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
-    var e, t2, r2 = "function" == typeof Symbol ? Symbol : {}, n2 = r2.iterator || "@@iterator", o = r2.toStringTag || "@@toStringTag";
-    function i(r3, n3, o2, i2) {
-      var c2 = n3 && n3.prototype instanceof Generator ? n3 : Generator, u3 = Object.create(c2.prototype);
-      return _regeneratorDefine(u3, "_invoke", function(r4, n4, o3) {
-        var i3, c3, u4, f3 = 0, p2 = o3 || [], y2 = false, G2 = {
-          p: 0,
-          n: 0,
-          v: e,
-          a: d,
-          f: d.bind(e, 4),
-          d: function(t3, r5) {
-            return i3 = t3, c3 = 0, u4 = e, G2.n = r5, a;
-          }
-        };
-        function d(r5, n5) {
-          for (c3 = r5, u4 = n5, t2 = 0; !y2 && f3 && !o4 && t2 < p2.length; t2++) {
-            var o4, i4 = p2[t2], d2 = G2.p, l2 = i4[2];
-            r5 > 3 ? (o4 = l2 === n5) && (u4 = i4[(c3 = i4[4]) ? 5 : (c3 = 3, 3)], i4[4] = i4[5] = e) : i4[0] <= d2 && ((o4 = r5 < 2 && d2 < i4[1]) ? (c3 = 0, G2.v = n5, G2.n = i4[1]) : d2 < l2 && (o4 = r5 < 3 || i4[0] > n5 || n5 > l2) && (i4[4] = r5, i4[5] = n5, G2.n = l2, c3 = 0));
-          }
-          if (o4 || r5 > 1) return a;
-          throw y2 = true, n5;
-        }
-        return function(o4, p3, l2) {
-          if (f3 > 1) throw TypeError("Generator is already running");
-          for (y2 && 1 === p3 && d(p3, l2), c3 = p3, u4 = l2; (t2 = c3 < 2 ? e : u4) || !y2; ) {
-            i3 || (c3 ? c3 < 3 ? (c3 > 1 && (G2.n = -1), d(c3, u4)) : G2.n = u4 : G2.v = u4);
-            try {
-              if (f3 = 2, i3) {
-                if (c3 || (o4 = "next"), t2 = i3[o4]) {
-                  if (!(t2 = t2.call(i3, u4))) throw TypeError("iterator result is not an object");
-                  if (!t2.done) return t2;
-                  u4 = t2.value, c3 < 2 && (c3 = 0);
-                } else 1 === c3 && (t2 = i3.return) && t2.call(i3), c3 < 2 && (u4 = TypeError("The iterator does not provide a '" + o4 + "' method"), c3 = 1);
-                i3 = e;
-              } else if ((t2 = (y2 = G2.n < 0) ? u4 : r4.call(n4, G2)) !== a) break;
-            } catch (t3) {
-              i3 = e, c3 = 1, u4 = t3;
-            } finally {
-              f3 = 1;
-            }
-          }
-          return {
-            value: t2,
-            done: y2
-          };
-        };
-      }(r3, o2, i2), true), u3;
-    }
-    var a = {};
-    function Generator() {
-    }
-    function GeneratorFunction() {
-    }
-    function GeneratorFunctionPrototype() {
-    }
-    t2 = Object.getPrototypeOf;
-    var c = [][n2] ? t2(t2([][n2]())) : (_regeneratorDefine(t2 = {}, n2, function() {
-      return this;
-    }), t2), u2 = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c);
-    function f2(e2) {
-      return Object.setPrototypeOf ? Object.setPrototypeOf(e2, GeneratorFunctionPrototype) : (e2.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine(e2, o, "GeneratorFunction")), e2.prototype = Object.create(u2), e2;
-    }
-    return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine(u2, "constructor", GeneratorFunctionPrototype), _regeneratorDefine(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine(u2), _regeneratorDefine(u2, o, "Generator"), _regeneratorDefine(u2, n2, function() {
-      return this;
-    }), _regeneratorDefine(u2, "toString", function() {
-      return "[object Generator]";
-    }), (_regenerator = function() {
-      return {
-        w: i,
-        m: f2
-      };
-    })();
-  }
-  function _regeneratorDefine(e, r2, n2, t2) {
-    var i = Object.defineProperty;
-    try {
-      i({}, "", {});
-    } catch (e2) {
-      i = 0;
-    }
-    _regeneratorDefine = function(e2, r3, n3, t3) {
-      function o(r4, n4) {
-        _regeneratorDefine(e2, r4, function(e3) {
-          return this._invoke(r4, n4, e3);
-        });
-      }
-      r3 ? i ? i(e2, r3, {
-        value: n3,
-        enumerable: !t3,
-        configurable: !t3,
-        writable: !t3
-      }) : e2[r3] = n3 : (o("next", 0), o("throw", 1), o("return", 2));
-    }, _regeneratorDefine(e, r2, n2, t2);
-  }
-  function _toConsumableArray(r2) {
-    return _arrayWithoutHoles(r2) || _iterableToArray(r2) || _unsupportedIterableToArray(r2) || _nonIterableSpread();
-  }
-  function _toPrimitive$1(t2, r2) {
-    if ("object" != typeof t2 || !t2) return t2;
-    var e = t2[Symbol.toPrimitive];
-    if (void 0 !== e) {
-      var i = e.call(t2, r2);
-      if ("object" != typeof i) return i;
-      throw new TypeError("@@toPrimitive must return a primitive value.");
-    }
-    return ("string" === r2 ? String : Number)(t2);
-  }
-  function _toPropertyKey$1(t2) {
-    var i = _toPrimitive$1(t2, "string");
-    return "symbol" == typeof i ? i : i + "";
-  }
-  function _unsupportedIterableToArray(r2, a) {
-    if (r2) {
-      if ("string" == typeof r2) return _arrayLikeToArray(r2, a);
-      var t2 = {}.toString.call(r2).slice(8, -1);
-      return "Object" === t2 && r2.constructor && (t2 = r2.constructor.name), "Map" === t2 || "Set" === t2 ? Array.from(r2) : "Arguments" === t2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t2) ? _arrayLikeToArray(r2, a) : void 0;
-    }
-  }
-  var activeFocusTraps = {
-    // Returns the trap from the top of the stack.
-    getActiveTrap: function getActiveTrap(trapStack) {
-      if ((trapStack === null || trapStack === void 0 ? void 0 : trapStack.length) > 0) {
-        return trapStack[trapStack.length - 1];
-      }
-      return null;
-    },
-    // Pauses the currently active trap, then adds a new trap to the stack.
-    activateTrap: function activateTrap(trapStack, trap) {
-      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
-      if (trap !== activeTrap) {
-        activeFocusTraps.pauseTrap(trapStack);
-      }
-      var trapIndex = trapStack.indexOf(trap);
-      if (trapIndex === -1) {
-        trapStack.push(trap);
-      } else {
-        trapStack.splice(trapIndex, 1);
-        trapStack.push(trap);
-      }
-    },
-    // Removes the trap from the top of the stack, then unpauses the next trap down.
-    deactivateTrap: function deactivateTrap(trapStack, trap) {
-      var trapIndex = trapStack.indexOf(trap);
-      if (trapIndex !== -1) {
-        trapStack.splice(trapIndex, 1);
-      }
-      activeFocusTraps.unpauseTrap(trapStack);
-    },
-    // Pauses the trap at the top of the stack.
-    pauseTrap: function pauseTrap(trapStack) {
-      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
-      activeTrap === null || activeTrap === void 0 || activeTrap._setPausedState(true);
-    },
-    // Unpauses the trap at the top of the stack.
-    unpauseTrap: function unpauseTrap(trapStack) {
-      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
-      if (activeTrap && !activeTrap._isManuallyPaused()) {
-        activeTrap._setPausedState(false);
-      }
-    }
-  };
-  var isSelectableInput = function isSelectableInput2(node) {
-    return node.tagName && node.tagName.toLowerCase() === "input" && typeof node.select === "function";
-  };
-  var isEscapeEvent = function isEscapeEvent2(e) {
-    return (e === null || e === void 0 ? void 0 : e.key) === "Escape" || (e === null || e === void 0 ? void 0 : e.key) === "Esc" || (e === null || e === void 0 ? void 0 : e.keyCode) === 27;
-  };
-  var isTabEvent = function isTabEvent2(e) {
-    return (e === null || e === void 0 ? void 0 : e.key) === "Tab" || (e === null || e === void 0 ? void 0 : e.keyCode) === 9;
-  };
-  var isKeyForward = function isKeyForward2(e) {
-    return isTabEvent(e) && !e.shiftKey;
-  };
-  var isKeyBackward = function isKeyBackward2(e) {
-    return isTabEvent(e) && e.shiftKey;
-  };
-  var delay = function delay2(fn) {
-    return setTimeout(fn, 0);
-  };
-  var valueOrHandler = function valueOrHandler2(value) {
-    for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-      params[_key - 1] = arguments[_key];
-    }
-    return typeof value === "function" ? value.apply(void 0, params) : value;
-  };
-  var getActualTarget = function getActualTarget2(event) {
-    return event.target.shadowRoot && typeof event.composedPath === "function" ? event.composedPath()[0] : event.target;
-  };
-  var internalTrapStack = [];
-  var createFocusTrap$1 = function createFocusTrap2(elements, userOptions) {
-    var doc = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.document) || document;
-    var trapStack = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.trapStack) || internalTrapStack;
-    var config2 = _objectSpread2({
-      returnFocusOnDeactivate: true,
-      escapeDeactivates: true,
-      delayInitialFocus: true,
-      isolateSubtrees: false,
-      isKeyForward,
-      isKeyBackward
-    }, userOptions);
-    var state = {
-      // containers given to createFocusTrap()
-      /** @type {Array<HTMLElement>} */
-      containers: [],
-      // list of objects identifying tabbable nodes in `containers` in the trap
-      // NOTE: it's possible that a group has no tabbable nodes if nodes get removed while the trap
-      //  is active, but the trap should never get to a state where there isn't at least one group
-      //  with at least one tabbable node in it (that would lead to an error condition that would
-      //  result in an error being thrown)
-      /** @type {Array<{
-       *    container: HTMLElement,
-       *    tabbableNodes: Array<HTMLElement>, // empty if none
-       *    focusableNodes: Array<HTMLElement>, // empty if none
-       *    posTabIndexesFound: boolean,
-       *    firstTabbableNode: HTMLElement|undefined,
-       *    lastTabbableNode: HTMLElement|undefined,
-       *    firstDomTabbableNode: HTMLElement|undefined,
-       *    lastDomTabbableNode: HTMLElement|undefined,
-       *    nextTabbableNode: (node: HTMLElement, forward: boolean) => HTMLElement|undefined
-       *  }>}
-       */
-      containerGroups: [],
-      // same order/length as `containers` list
-      // references to objects in `containerGroups`, but only those that actually have
-      //  tabbable nodes in them
-      // NOTE: same order as `containers` and `containerGroups`, but __not necessarily__
-      //  the same length
-      tabbableGroups: [],
-      // references to nodes that are siblings to the ancestors of this trap's containers.
-      /** @type {Set<HTMLElement>} */
-      adjacentElements: /* @__PURE__ */ new Set(),
-      // references to nodes that were inert or aria-hidden before the trap was activated.
-      /** @type {Set<HTMLElement>} */
-      alreadySilent: /* @__PURE__ */ new Set(),
-      nodeFocusedBeforeActivation: null,
-      mostRecentlyFocusedNode: null,
-      active: false,
-      paused: false,
-      manuallyPaused: false,
-      // timer ID for when delayInitialFocus is true and initial focus in this trap
-      //  has been delayed during activation
-      delayInitialFocusTimer: void 0,
-      // the most recent KeyboardEvent for the configured nav key (typically [SHIFT+]TAB), if any
-      recentNavEvent: void 0
-    };
-    var trap;
-    var getOption = function getOption2(configOverrideOptions, optionName, configOptionName) {
-      return configOverrideOptions && configOverrideOptions[optionName] !== void 0 ? configOverrideOptions[optionName] : config2[configOptionName || optionName];
-    };
-    var findContainerIndex = function findContainerIndex2(element, event) {
-      var composedPath = typeof (event === null || event === void 0 ? void 0 : event.composedPath) === "function" ? event.composedPath() : void 0;
-      return state.containerGroups.findIndex(function(_ref) {
-        var container = _ref.container, tabbableNodes = _ref.tabbableNodes;
-        return container.contains(element) || // fall back to explicit tabbable search which will take into consideration any
-        //  web components if the `tabbableOptions.getShadowRoot` option was used for
-        //  the trap, enabling shadow DOM support in tabbable (`Node.contains()` doesn't
-        //  look inside web components even if open)
-        (composedPath === null || composedPath === void 0 ? void 0 : composedPath.includes(container)) || tabbableNodes.find(function(node) {
-          return node === element;
-        });
-      });
-    };
-    var getNodeForOption = function getNodeForOption2(optionName) {
-      var _ref2 = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref2$hasFallback = _ref2.hasFallback, hasFallback = _ref2$hasFallback === void 0 ? false : _ref2$hasFallback, _ref2$params = _ref2.params, params = _ref2$params === void 0 ? [] : _ref2$params;
-      var optionValue = config2[optionName];
-      if (typeof optionValue === "function") {
-        optionValue = optionValue.apply(void 0, _toConsumableArray(params));
-      }
-      if (optionValue === true) {
-        optionValue = void 0;
-      }
-      if (!optionValue) {
-        if (optionValue === void 0 || optionValue === false) {
-          return optionValue;
-        }
-        throw new Error("`".concat(optionName, "` was specified but was not a node, or did not return a node"));
-      }
-      var node = optionValue;
-      if (typeof optionValue === "string") {
-        try {
-          node = doc.querySelector(optionValue);
-        } catch (err) {
-          throw new Error("`".concat(optionName, '` appears to be an invalid selector; error="').concat(err.message, '"'));
-        }
-        if (!node) {
-          if (!hasFallback) {
-            throw new Error("`".concat(optionName, "` as selector refers to no known node"));
-          }
-        }
-      }
-      return node;
-    };
-    var getInitialFocusNode = function getInitialFocusNode2() {
-      var node = getNodeForOption("initialFocus", {
-        hasFallback: true
-      });
-      if (node === false) {
-        return false;
-      }
-      if (node === void 0 || node && !isFocusable$1(node, config2.tabbableOptions)) {
-        if (findContainerIndex(doc.activeElement) >= 0) {
-          node = doc.activeElement;
-        } else {
-          var firstTabbableGroup = state.tabbableGroups[0];
-          var firstTabbableNode = firstTabbableGroup && firstTabbableGroup.firstTabbableNode;
-          node = firstTabbableNode || getNodeForOption("fallbackFocus");
-        }
-      } else if (node === null) {
-        node = getNodeForOption("fallbackFocus");
-      }
-      if (!node) {
-        throw new Error("Your focus-trap needs to have at least one focusable element");
-      }
-      return node;
-    };
-    var updateTabbableNodes = function updateTabbableNodes2() {
-      state.containerGroups = state.containers.map(function(container) {
-        var tabbableNodes = tabbable(container, config2.tabbableOptions);
-        var focusableNodes = focusable(container, config2.tabbableOptions);
-        var firstTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[0] : void 0;
-        var lastTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[tabbableNodes.length - 1] : void 0;
-        var firstDomTabbableNode = focusableNodes.find(function(node) {
-          return isTabbable(node);
-        });
-        var lastDomTabbableNode = focusableNodes.slice().reverse().find(function(node) {
-          return isTabbable(node);
-        });
-        var posTabIndexesFound = !!tabbableNodes.find(function(node) {
-          return getTabIndex(node) > 0;
-        });
-        return {
-          container,
-          tabbableNodes,
-          focusableNodes,
-          /** True if at least one node with positive `tabindex` was found in this container. */
-          posTabIndexesFound,
-          /** First tabbable node in container, __tabindex__ order; `undefined` if none. */
-          firstTabbableNode,
-          /** Last tabbable node in container, __tabindex__ order; `undefined` if none. */
-          lastTabbableNode,
-          // NOTE: DOM order is NOT NECESSARILY "document position" order, but figuring that out
-          //  would require more than just https://developer.mozilla.org/en-US/docs/Web/API/Node/compareDocumentPosition
-          //  because that API doesn't work with Shadow DOM as well as it should (@see
-          //  https://github.com/whatwg/dom/issues/320) and since this first/last is only needed, so far,
-          //  to address an edge case related to positive tabindex support, this seems like a much easier,
-          //  "close enough most of the time" alternative for positive tabindexes which should generally
-          //  be avoided anyway...
-          /** First tabbable node in container, __DOM__ order; `undefined` if none. */
-          firstDomTabbableNode,
-          /** Last tabbable node in container, __DOM__ order; `undefined` if none. */
-          lastDomTabbableNode,
-          /**
-           * Finds the __tabbable__ node that follows the given node in the specified direction,
-           *  in this container, if any.
-           * @param {HTMLElement} node
-           * @param {boolean} [forward] True if going in forward tab order; false if going
-           *  in reverse.
-           * @returns {HTMLElement|undefined} The next tabbable node, if any.
-           */
-          nextTabbableNode: function nextTabbableNode(node) {
-            var forward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : true;
-            var nodeIdx = tabbableNodes.indexOf(node);
-            if (nodeIdx < 0) {
-              if (forward) {
-                return focusableNodes.slice(focusableNodes.indexOf(node) + 1).find(function(el2) {
-                  return isTabbable(el2);
-                });
-              }
-              return focusableNodes.slice(0, focusableNodes.indexOf(node)).reverse().find(function(el2) {
-                return isTabbable(el2);
-              });
-            }
-            return tabbableNodes[nodeIdx + (forward ? 1 : -1)];
-          }
-        };
-      });
-      state.tabbableGroups = state.containerGroups.filter(function(group) {
-        return group.tabbableNodes.length > 0;
-      });
-      if (state.tabbableGroups.length <= 0 && !getNodeForOption("fallbackFocus")) {
-        throw new Error("Your focus-trap must have at least one container with at least one tabbable node in it at all times");
-      }
-      if (state.containerGroups.find(function(g) {
-        return g.posTabIndexesFound;
-      }) && state.containerGroups.length > 1) {
-        throw new Error("At least one node with a positive tabindex was found in one of your focus-trap's multiple containers. Positive tabindexes are only supported in single-container focus-traps.");
-      }
-    };
-    var _getActiveElement = function getActiveElement(el2) {
-      var activeElement = el2.activeElement;
-      if (!activeElement) {
-        return;
-      }
-      if (activeElement.shadowRoot && activeElement.shadowRoot.activeElement !== null) {
-        return _getActiveElement(activeElement.shadowRoot);
-      }
-      return activeElement;
-    };
-    var _tryFocus = function tryFocus(node) {
-      if (node === false) {
-        return;
-      }
-      if (node === _getActiveElement(document)) {
-        return;
-      }
-      if (!node || !node.focus) {
-        _tryFocus(getInitialFocusNode());
-        return;
-      }
-      node.focus({
-        preventScroll: !!config2.preventScroll
-      });
-      state.mostRecentlyFocusedNode = node;
-      if (isSelectableInput(node)) {
-        node.select();
-      }
-    };
-    var getReturnFocusNode = function getReturnFocusNode2(previousActiveElement) {
-      var node = getNodeForOption("setReturnFocus", {
-        params: [previousActiveElement]
-      });
-      return node ? node : node === false ? false : previousActiveElement;
-    };
-    var findNextNavNode = function findNextNavNode2(_ref3) {
-      var target = _ref3.target, event = _ref3.event, _ref3$isBackward = _ref3.isBackward, isBackward = _ref3$isBackward === void 0 ? false : _ref3$isBackward;
-      target = target || getActualTarget(event);
-      updateTabbableNodes();
-      var destinationNode = null;
-      if (state.tabbableGroups.length > 0) {
-        var containerIndex = findContainerIndex(target, event);
-        var containerGroup = containerIndex >= 0 ? state.containerGroups[containerIndex] : void 0;
-        if (containerIndex < 0) {
-          if (isBackward) {
-            destinationNode = state.tabbableGroups[state.tabbableGroups.length - 1].lastTabbableNode;
-          } else {
-            destinationNode = state.tabbableGroups[0].firstTabbableNode;
-          }
-        } else if (isBackward) {
-          var startOfGroupIndex = state.tabbableGroups.findIndex(function(_ref4) {
-            var firstTabbableNode = _ref4.firstTabbableNode;
-            return target === firstTabbableNode;
-          });
-          if (startOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target, false))) {
-            startOfGroupIndex = containerIndex;
-          }
-          if (startOfGroupIndex >= 0) {
-            var destinationGroupIndex = startOfGroupIndex === 0 ? state.tabbableGroups.length - 1 : startOfGroupIndex - 1;
-            var destinationGroup = state.tabbableGroups[destinationGroupIndex];
-            destinationNode = getTabIndex(target) >= 0 ? destinationGroup.lastTabbableNode : destinationGroup.lastDomTabbableNode;
-          } else if (!isTabEvent(event)) {
-            destinationNode = containerGroup.nextTabbableNode(target, false);
-          }
-        } else {
-          var lastOfGroupIndex = state.tabbableGroups.findIndex(function(_ref5) {
-            var lastTabbableNode = _ref5.lastTabbableNode;
-            return target === lastTabbableNode;
-          });
-          if (lastOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target))) {
-            lastOfGroupIndex = containerIndex;
-          }
-          if (lastOfGroupIndex >= 0) {
-            var _destinationGroupIndex = lastOfGroupIndex === state.tabbableGroups.length - 1 ? 0 : lastOfGroupIndex + 1;
-            var _destinationGroup = state.tabbableGroups[_destinationGroupIndex];
-            destinationNode = getTabIndex(target) >= 0 ? _destinationGroup.firstTabbableNode : _destinationGroup.firstDomTabbableNode;
-          } else if (!isTabEvent(event)) {
-            destinationNode = containerGroup.nextTabbableNode(target);
-          }
-        }
-      } else {
-        destinationNode = getNodeForOption("fallbackFocus");
-      }
-      return destinationNode;
-    };
-    var checkPointerDown = function checkPointerDown2(e) {
-      var target = getActualTarget(e);
-      if (findContainerIndex(target, e) >= 0) {
-        return;
-      }
-      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
-        trap.deactivate({
-          // NOTE: by setting `returnFocus: false`, deactivate() will do nothing,
-          //  which will result in the outside click setting focus to the node
-          //  that was clicked (and if not focusable, to "nothing"); by setting
-          //  `returnFocus: true`, we'll attempt to re-focus the node originally-focused
-          //  on activation (or the configured `setReturnFocus` node), whether the
-          //  outside click was on a focusable node or not
-          returnFocus: config2.returnFocusOnDeactivate
-        });
-        return;
-      }
-      if (valueOrHandler(config2.allowOutsideClick, e)) {
-        return;
-      }
-      e.preventDefault();
-    };
-    var checkFocusIn = function checkFocusIn2(event) {
-      var target = getActualTarget(event);
-      var targetContained = findContainerIndex(target, event) >= 0;
-      if (targetContained || target instanceof Document) {
-        if (targetContained) {
-          state.mostRecentlyFocusedNode = target;
-        }
-      } else {
-        event.stopImmediatePropagation();
-        var nextNode;
-        var navAcrossContainers = true;
-        if (state.mostRecentlyFocusedNode) {
-          if (getTabIndex(state.mostRecentlyFocusedNode) > 0) {
-            var mruContainerIdx = findContainerIndex(state.mostRecentlyFocusedNode);
-            var tabbableNodes = state.containerGroups[mruContainerIdx].tabbableNodes;
-            if (tabbableNodes.length > 0) {
-              var mruTabIdx = tabbableNodes.findIndex(function(node) {
-                return node === state.mostRecentlyFocusedNode;
-              });
-              if (mruTabIdx >= 0) {
-                if (config2.isKeyForward(state.recentNavEvent)) {
-                  if (mruTabIdx + 1 < tabbableNodes.length) {
-                    nextNode = tabbableNodes[mruTabIdx + 1];
-                    navAcrossContainers = false;
-                  }
-                } else {
-                  if (mruTabIdx - 1 >= 0) {
-                    nextNode = tabbableNodes[mruTabIdx - 1];
-                    navAcrossContainers = false;
-                  }
-                }
-              }
-            }
-          } else {
-            if (!state.containerGroups.some(function(g) {
-              return g.tabbableNodes.some(function(n2) {
-                return getTabIndex(n2) > 0;
-              });
-            })) {
-              navAcrossContainers = false;
-            }
-          }
-        } else {
-          navAcrossContainers = false;
-        }
-        if (navAcrossContainers) {
-          nextNode = findNextNavNode({
-            // move FROM the MRU node, not event-related node (which will be the node that is
-            //  outside the trap causing the focus escape we're trying to fix)
-            target: state.mostRecentlyFocusedNode,
-            isBackward: config2.isKeyBackward(state.recentNavEvent)
-          });
-        }
-        if (nextNode) {
-          _tryFocus(nextNode);
-        } else {
-          _tryFocus(state.mostRecentlyFocusedNode || getInitialFocusNode());
-        }
-      }
-      state.recentNavEvent = void 0;
-    };
-    var checkKeyNav = function checkKeyNav2(event) {
-      var isBackward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : false;
-      state.recentNavEvent = event;
-      var destinationNode = findNextNavNode({
-        event,
-        isBackward
-      });
-      if (destinationNode) {
-        if (isTabEvent(event)) {
-          event.preventDefault();
-        }
-        _tryFocus(destinationNode);
-      }
-    };
-    var checkTabKey = function checkTabKey2(event) {
-      if (config2.isKeyForward(event) || config2.isKeyBackward(event)) {
-        checkKeyNav(event, config2.isKeyBackward(event));
-      }
-    };
-    var checkEscapeKey = function checkEscapeKey2(event) {
-      if (isEscapeEvent(event) && valueOrHandler(config2.escapeDeactivates, event) !== false) {
-        event.preventDefault();
-        trap.deactivate();
-      }
-    };
-    var checkClick = function checkClick2(e) {
-      var target = getActualTarget(e);
-      if (findContainerIndex(target, e) >= 0) {
-        return;
-      }
-      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
-        return;
-      }
-      if (valueOrHandler(config2.allowOutsideClick, e)) {
-        return;
-      }
-      e.preventDefault();
-      e.stopImmediatePropagation();
-    };
-    var addListeners = function addListeners2() {
-      if (!state.active) {
-        return Promise.resolve();
-      }
-      activeFocusTraps.activateTrap(trapStack, trap);
-      var promise;
-      if (config2.delayInitialFocus) {
-        promise = new Promise(function(resolve) {
-          state.delayInitialFocusTimer = delay(function() {
-            _tryFocus(getInitialFocusNode());
-            resolve();
-          });
-        });
-      } else {
-        promise = Promise.resolve();
-        _tryFocus(getInitialFocusNode());
-      }
-      doc.addEventListener("focusin", checkFocusIn, true);
-      doc.addEventListener("mousedown", checkPointerDown, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("touchstart", checkPointerDown, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("click", checkClick, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("keydown", checkTabKey, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("keydown", checkEscapeKey);
-      return promise;
-    };
-    var collectAdjacentElements = function collectAdjacentElements2(containers) {
-      if (state.active && !state.paused) {
-        trap._setSubtreeIsolation(false);
-      }
-      state.adjacentElements.clear();
-      state.alreadySilent.clear();
-      var containerAncestors = /* @__PURE__ */ new Set();
-      var adjacentElements = /* @__PURE__ */ new Set();
-      var _iterator = _createForOfIteratorHelper(containers), _step;
-      try {
-        for (_iterator.s(); !(_step = _iterator.n()).done; ) {
-          var container = _step.value;
-          containerAncestors.add(container);
-          var insideShadowRoot = typeof ShadowRoot !== "undefined" && container.getRootNode() instanceof ShadowRoot;
-          var current = container;
-          while (current) {
-            containerAncestors.add(current);
-            var parent = current.parentElement;
-            var siblings = [];
-            if (parent) {
-              siblings = parent.children;
-            } else if (!parent && insideShadowRoot) {
-              siblings = current.getRootNode().children;
-              parent = current.getRootNode().host;
-              insideShadowRoot = typeof ShadowRoot !== "undefined" && parent.getRootNode() instanceof ShadowRoot;
-            }
-            var _iterator2 = _createForOfIteratorHelper(siblings), _step2;
-            try {
-              for (_iterator2.s(); !(_step2 = _iterator2.n()).done; ) {
-                var child = _step2.value;
-                adjacentElements.add(child);
-              }
-            } catch (err) {
-              _iterator2.e(err);
-            } finally {
-              _iterator2.f();
-            }
-            current = parent;
-          }
-        }
-      } catch (err) {
-        _iterator.e(err);
-      } finally {
-        _iterator.f();
-      }
-      containerAncestors.forEach(function(el2) {
-        adjacentElements["delete"](el2);
-      });
-      state.adjacentElements = adjacentElements;
-    };
-    var removeListeners = function removeListeners2() {
-      if (!state.active) {
-        return;
-      }
-      doc.removeEventListener("focusin", checkFocusIn, true);
-      doc.removeEventListener("mousedown", checkPointerDown, true);
-      doc.removeEventListener("touchstart", checkPointerDown, true);
-      doc.removeEventListener("click", checkClick, true);
-      doc.removeEventListener("keydown", checkTabKey, true);
-      doc.removeEventListener("keydown", checkEscapeKey);
-      return trap;
-    };
-    var checkDomRemoval = function checkDomRemoval2(mutations) {
-      var isFocusedNodeRemoved = mutations.some(function(mutation) {
-        var removedNodes = Array.from(mutation.removedNodes);
-        return removedNodes.some(function(node) {
-          return node === state.mostRecentlyFocusedNode;
-        });
-      });
-      if (isFocusedNodeRemoved) {
-        _tryFocus(getInitialFocusNode());
-      }
-    };
-    var mutationObserver = typeof window !== "undefined" && "MutationObserver" in window ? new MutationObserver(checkDomRemoval) : void 0;
-    var updateObservedNodes = function updateObservedNodes2() {
-      if (!mutationObserver) {
-        return;
-      }
-      mutationObserver.disconnect();
-      if (state.active && !state.paused) {
-        state.containers.map(function(container) {
-          mutationObserver.observe(container, {
-            subtree: true,
-            childList: true
-          });
-        });
-      }
-    };
-    trap = {
-      get active() {
-        return state.active;
-      },
-      get paused() {
-        return state.paused;
-      },
-      activate: function activate(activateOptions) {
-        if (state.active) {
-          return this;
-        }
-        var onActivate = getOption(activateOptions, "onActivate");
-        var onPostActivate = getOption(activateOptions, "onPostActivate");
-        var checkCanFocusTrap = getOption(activateOptions, "checkCanFocusTrap");
-        var preexistingTrap = activeFocusTraps.getActiveTrap(trapStack);
-        var revertState = false;
-        if (preexistingTrap && !preexistingTrap.paused) {
-          var _preexistingTrap$_set;
-          (_preexistingTrap$_set = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set === void 0 || _preexistingTrap$_set.call(preexistingTrap, false);
-          revertState = true;
-        }
-        try {
-          if (!checkCanFocusTrap) {
-            updateTabbableNodes();
-          }
-          state.active = true;
-          state.paused = false;
-          state.nodeFocusedBeforeActivation = _getActiveElement(doc);
-          onActivate === null || onActivate === void 0 || onActivate();
-          var finishActivation = /* @__PURE__ */ function() {
-            var _ref6 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee() {
-              return _regenerator().w(function(_context) {
-                while (1) switch (_context.n) {
-                  case 0:
-                    if (checkCanFocusTrap) {
-                      updateTabbableNodes();
-                    }
-                    _context.n = 1;
-                    return addListeners();
-                  case 1:
-                    trap._setSubtreeIsolation(true);
-                    updateObservedNodes();
-                    onPostActivate === null || onPostActivate === void 0 || onPostActivate();
-                  case 2:
-                    return _context.a(2);
-                }
-              }, _callee);
-            }));
-            return function finishActivation2() {
-              return _ref6.apply(this, arguments);
-            };
-          }();
-          if (checkCanFocusTrap) {
-            checkCanFocusTrap(state.containers.concat()).then(finishActivation, finishActivation);
-            return this;
-          }
-          finishActivation();
-        } catch (error) {
-          if (preexistingTrap === activeFocusTraps.getActiveTrap(trapStack) && revertState) {
-            var _preexistingTrap$_set2;
-            (_preexistingTrap$_set2 = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set2 === void 0 || _preexistingTrap$_set2.call(preexistingTrap, true);
-          }
-          throw error;
-        }
-        return this;
-      },
-      deactivate: function deactivate(deactivateOptions) {
-        if (!state.active) {
-          return this;
-        }
-        var options = _objectSpread2({
-          onDeactivate: config2.onDeactivate,
-          onPostDeactivate: config2.onPostDeactivate,
-          checkCanReturnFocus: config2.checkCanReturnFocus
-        }, deactivateOptions);
-        clearTimeout(state.delayInitialFocusTimer);
-        state.delayInitialFocusTimer = void 0;
-        if (!state.paused) {
-          trap._setSubtreeIsolation(false);
-        }
-        state.alreadySilent.clear();
-        removeListeners();
-        state.active = false;
-        state.paused = false;
-        updateObservedNodes();
-        activeFocusTraps.deactivateTrap(trapStack, trap);
-        var onDeactivate = getOption(options, "onDeactivate");
-        var onPostDeactivate = getOption(options, "onPostDeactivate");
-        var checkCanReturnFocus = getOption(options, "checkCanReturnFocus");
-        var returnFocus = getOption(options, "returnFocus", "returnFocusOnDeactivate");
-        onDeactivate === null || onDeactivate === void 0 || onDeactivate();
-        var finishDeactivation = function finishDeactivation2() {
-          delay(function() {
-            if (returnFocus) {
-              _tryFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation));
-            }
-            onPostDeactivate === null || onPostDeactivate === void 0 || onPostDeactivate();
-          });
-        };
-        if (returnFocus && checkCanReturnFocus) {
-          checkCanReturnFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation)).then(finishDeactivation, finishDeactivation);
-          return this;
-        }
-        finishDeactivation();
-        return this;
-      },
-      pause: function pause(pauseOptions) {
-        if (!state.active) {
-          return this;
-        }
-        state.manuallyPaused = true;
-        return this._setPausedState(true, pauseOptions);
-      },
-      unpause: function unpause(unpauseOptions) {
-        if (!state.active) {
-          return this;
-        }
-        state.manuallyPaused = false;
-        if (trapStack[trapStack.length - 1] !== this) {
-          return this;
-        }
-        return this._setPausedState(false, unpauseOptions);
-      },
-      updateContainerElements: function updateContainerElements(containerElements) {
-        var elementsAsArray = [].concat(containerElements).filter(Boolean);
-        state.containers = elementsAsArray.map(function(element) {
-          return typeof element === "string" ? doc.querySelector(element) : element;
-        });
-        if (config2.isolateSubtrees) {
-          collectAdjacentElements(state.containers);
-        }
-        if (state.active) {
-          updateTabbableNodes();
-          if (!state.paused) {
-            trap._setSubtreeIsolation(true);
-          }
-        }
-        updateObservedNodes();
-        return this;
-      }
-    };
-    Object.defineProperties(trap, {
-      _isManuallyPaused: {
-        value: function value() {
-          return state.manuallyPaused;
-        }
-      },
-      _setPausedState: {
-        value: function value(paused, options) {
-          if (state.paused === paused) {
-            return this;
-          }
-          state.paused = paused;
-          if (paused) {
-            var onPause = getOption(options, "onPause");
-            var onPostPause = getOption(options, "onPostPause");
-            onPause === null || onPause === void 0 || onPause();
-            removeListeners();
-            trap._setSubtreeIsolation(false);
-            updateObservedNodes();
-            onPostPause === null || onPostPause === void 0 || onPostPause();
-          } else {
-            var onUnpause = getOption(options, "onUnpause");
-            var onPostUnpause = getOption(options, "onPostUnpause");
-            onUnpause === null || onUnpause === void 0 || onUnpause();
-            var finishUnpause = /* @__PURE__ */ function() {
-              var _ref7 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee2() {
-                return _regenerator().w(function(_context2) {
-                  while (1) switch (_context2.n) {
-                    case 0:
-                      updateTabbableNodes();
-                      _context2.n = 1;
-                      return addListeners();
-                    case 1:
-                      trap._setSubtreeIsolation(true);
-                      updateObservedNodes();
-                      onPostUnpause === null || onPostUnpause === void 0 || onPostUnpause();
-                    case 2:
-                      return _context2.a(2);
-                  }
-                }, _callee2);
-              }));
-              return function finishUnpause2() {
-                return _ref7.apply(this, arguments);
-              };
-            }();
-            finishUnpause();
-          }
-          return this;
-        }
-      },
-      _setSubtreeIsolation: {
-        value: function value(isEnabled) {
-          if (config2.isolateSubtrees) {
-            state.adjacentElements.forEach(function(el2) {
-              var _el$getAttribute;
-              if (isEnabled) {
-                switch (config2.isolateSubtrees) {
-                  case "aria-hidden":
-                    if (el2.ariaHidden === "true" || ((_el$getAttribute = el2.getAttribute("aria-hidden")) === null || _el$getAttribute === void 0 ? void 0 : _el$getAttribute.toLowerCase()) === "true") {
-                      state.alreadySilent.add(el2);
-                    }
-                    el2.setAttribute("aria-hidden", "true");
-                    break;
-                  default:
-                    if (el2.inert || el2.hasAttribute("inert")) {
-                      state.alreadySilent.add(el2);
-                    }
-                    el2.setAttribute("inert", true);
-                    break;
-                }
-              } else {
-                if (state.alreadySilent.has(el2)) ;
-                else {
-                  switch (config2.isolateSubtrees) {
-                    case "aria-hidden":
-                      el2.removeAttribute("aria-hidden");
-                      break;
-                    default:
-                      el2.removeAttribute("inert");
-                      break;
-                  }
-                }
-              }
-            });
-          }
-        }
-      }
-    });
-    trap.updateContainerElements(elements);
-    return trap;
-  };
-  const focusTrap_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    createFocusTrap: createFocusTrap$1
-  }, Symbol.toStringTag, { value: "Module" }));
-  const require$$1 = /* @__PURE__ */ getAugmentedNamespace(focusTrap_esm);
-  const require$$2 = /* @__PURE__ */ getAugmentedNamespace(index_esm);
-  function _typeof(o) {
-    "@babel/helpers - typeof";
-    return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
-      return typeof o2;
-    } : function(o2) {
-      return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
-    }, _typeof(o);
-  }
-  var _exec$, _exec;
-  function _classCallCheck(a, n2) {
-    if (!(a instanceof n2)) throw new TypeError("Cannot call a class as a function");
-  }
-  function _defineProperties(e, r2) {
-    for (var t2 = 0; t2 < r2.length; t2++) {
-      var o = r2[t2];
-      o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey(o.key), o);
-    }
-  }
-  function _createClass(e, r2, t2) {
-    return r2 && _defineProperties(e.prototype, r2), Object.defineProperty(e, "prototype", { writable: false }), e;
-  }
-  function _callSuper(t2, o, e) {
-    return o = _getPrototypeOf(o), _possibleConstructorReturn(t2, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], _getPrototypeOf(t2).constructor) : o.apply(t2, e));
-  }
-  function _possibleConstructorReturn(t2, e) {
-    if (e && ("object" == _typeof(e) || "function" == typeof e)) return e;
-    if (void 0 !== e) throw new TypeError("Derived constructors may only return object or undefined");
-    return _assertThisInitialized(t2);
-  }
-  function _assertThisInitialized(e) {
-    if (void 0 === e) throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
-    return e;
-  }
-  function _isNativeReflectConstruct() {
-    try {
-      var t2 = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function() {
-      }));
-    } catch (t3) {
-    }
-    return (_isNativeReflectConstruct = function _isNativeReflectConstruct2() {
-      return !!t2;
-    })();
-  }
-  function _getPrototypeOf(t2) {
-    return _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function(t3) {
-      return t3.__proto__ || Object.getPrototypeOf(t3);
-    }, _getPrototypeOf(t2);
-  }
-  function _inherits(t2, e) {
-    if ("function" != typeof e && null !== e) throw new TypeError("Super expression must either be null or a function");
-    t2.prototype = Object.create(e && e.prototype, { constructor: { value: t2, writable: true, configurable: true } }), Object.defineProperty(t2, "prototype", { writable: false }), e && _setPrototypeOf(t2, e);
-  }
-  function _setPrototypeOf(t2, e) {
-    return _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function(t3, e2) {
-      return t3.__proto__ = e2, t3;
-    }, _setPrototypeOf(t2, e);
-  }
-  function _defineProperty(e, r2, t2) {
-    return (r2 = _toPropertyKey(r2)) in e ? Object.defineProperty(e, r2, { value: t2, enumerable: true, configurable: true, writable: true }) : e[r2] = t2, e;
-  }
-  function _toPropertyKey(t2) {
-    var i = _toPrimitive(t2, "string");
-    return "symbol" == _typeof(i) ? i : i + "";
-  }
-  function _toPrimitive(t2, r2) {
-    if ("object" != _typeof(t2) || !t2) return t2;
-    var e = t2[Symbol.toPrimitive];
-    if (void 0 !== e) {
-      var i = e.call(t2, r2);
-      if ("object" != _typeof(i)) return i;
-      throw new TypeError("@@toPrimitive must return a primitive value.");
-    }
-    return ("string" === r2 ? String : Number)(t2);
-  }
-  var React = reactExports;
-  var _require = require$$1, createFocusTrap = _require.createFocusTrap;
-  var _require2 = require$$2, isFocusable = _require2.isFocusable;
-  var reactVerMajor = parseInt((_exec$ = (_exec = /^(\d+)\./.exec(React.version)) === null || _exec === void 0 ? void 0 : _exec[1]) !== null && _exec$ !== void 0 ? _exec$ : 0, 10);
-  var FocusTrap = /* @__PURE__ */ function(_React$Component) {
-    function FocusTrap2(props) {
-      var _this;
-      _classCallCheck(this, FocusTrap2);
-      _this = _callSuper(this, FocusTrap2, [props]);
-      _defineProperty(_this, "getNodeForOption", function(optionName2) {
-        var _this$internalOptions;
-        var optionValue = (_this$internalOptions = this.internalOptions[optionName2]) !== null && _this$internalOptions !== void 0 ? _this$internalOptions : this.originalOptions[optionName2];
-        if (typeof optionValue === "function") {
-          for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-            params[_key - 1] = arguments[_key];
-          }
-          optionValue = optionValue.apply(void 0, params);
-        }
-        if (optionValue === true) {
-          optionValue = void 0;
-        }
-        if (!optionValue) {
-          if (optionValue === void 0 || optionValue === false) {
-            return optionValue;
-          }
-          throw new Error("`".concat(optionName2, "` was specified but was not a node, or did not return a node"));
-        }
-        var node = optionValue;
-        if (typeof optionValue === "string") {
-          var _this$getDocument;
-          node = (_this$getDocument = this.getDocument()) === null || _this$getDocument === void 0 ? void 0 : _this$getDocument.querySelector(optionValue);
-          if (!node) {
-            throw new Error("`".concat(optionName2, "` as selector refers to no known node"));
-          }
-        }
-        return node;
-      });
-      _this.handleDeactivate = _this.handleDeactivate.bind(_this);
-      _this.handlePostDeactivate = _this.handlePostDeactivate.bind(_this);
-      _this.handleClickOutsideDeactivates = _this.handleClickOutsideDeactivates.bind(_this);
-      _this.internalOptions = {
-        // We need to hijack the returnFocusOnDeactivate option,
-        // because React can move focus into the element before we arrived at
-        // this lifecycle hook (e.g. with autoFocus inputs). So the component
-        // captures the previouslyFocusedElement in componentWillMount,
-        // then (optionally) returns focus to it in componentWillUnmount.
-        returnFocusOnDeactivate: false,
-        // the rest of these are also related to deactivation of the trap, and we
-        //  need to use them and control them as well
-        checkCanReturnFocus: null,
-        onDeactivate: _this.handleDeactivate,
-        onPostDeactivate: _this.handlePostDeactivate,
-        // we need to special-case this setting as well so that we can know if we should
-        //  NOT return focus if the trap gets auto-deactivated as the result of an
-        //  outside click (otherwise, we'll always think we should return focus because
-        //  of how we manage that flag internally here)
-        clickOutsideDeactivates: _this.handleClickOutsideDeactivates
-      };
-      _this.originalOptions = {
-        // because of the above `internalOptions`, we maintain our own flag for
-        //  this option, and default it to `true` because that's focus-trap's default
-        returnFocusOnDeactivate: true,
-        // because of the above `internalOptions`, we keep these separate since
-        //  they're part of the deactivation process which we configure (internally) to
-        //  be shared between focus-trap and focus-trap-react
-        onDeactivate: null,
-        onPostDeactivate: null,
-        checkCanReturnFocus: null,
-        // the user's setting, defaulted to false since focus-trap defaults this to false
-        clickOutsideDeactivates: false
-      };
-      var focusTrapOptions = props.focusTrapOptions;
-      for (var optionName in focusTrapOptions) {
-        if (!Object.prototype.hasOwnProperty.call(focusTrapOptions, optionName)) {
-          continue;
-        }
-        if (optionName === "returnFocusOnDeactivate" || optionName === "onDeactivate" || optionName === "onPostDeactivate" || optionName === "checkCanReturnFocus" || optionName === "clickOutsideDeactivates") {
-          _this.originalOptions[optionName] = focusTrapOptions[optionName];
-          continue;
-        }
-        _this.internalOptions[optionName] = focusTrapOptions[optionName];
-      }
-      _this.outsideClick = null;
-      _this.focusTrapElements = props.containerElements || [];
-      _this.updatePreviousElement();
-      return _this;
-    }
-    _inherits(FocusTrap2, _React$Component);
-    return _createClass(FocusTrap2, [{
-      key: "getDocument",
-      value: function getDocument() {
-        return this.props.focusTrapOptions.document || (typeof document !== "undefined" ? document : void 0);
-      }
-    }, {
-      key: "getReturnFocusNode",
-      value: function getReturnFocusNode() {
-        var node = this.getNodeForOption("setReturnFocus", this.previouslyFocusedElement);
-        return node ? node : node === false ? false : this.previouslyFocusedElement;
-      }
-      /** Update the previously focused element with the currently focused element. */
-    }, {
-      key: "updatePreviousElement",
-      value: function updatePreviousElement() {
-        var currentDocument = this.getDocument();
-        if (currentDocument) {
-          this.previouslyFocusedElement = currentDocument.activeElement;
-        }
-      }
-    }, {
-      key: "deactivateTrap",
-      value: function deactivateTrap() {
-        if (!this.focusTrap || !this.focusTrap.active) {
-          return;
-        }
-        this.focusTrap.deactivate({
-          // NOTE: we never let the trap return the focus since we do that ourselves
-          returnFocus: false,
-          // we'll call this in our own post deactivate handler so make sure the trap doesn't
-          //  do it prematurely
-          checkCanReturnFocus: null,
-          // let it call the user's original deactivate handler, if any, instead of
-          //  our own which calls back into this function
-          onDeactivate: this.originalOptions.onDeactivate
-          // NOTE: for post deactivate, don't specify anything so that it calls the
-          //  onPostDeactivate handler specified on `this.internalOptions`
-          //  which will always be our own `handlePostDeactivate()` handler, which
-          //  will finish things off by calling the user's provided onPostDeactivate
-          //  handler, if any, at the right time
-          // onPostDeactivate: NOTHING
-        });
-      }
-    }, {
-      key: "handleClickOutsideDeactivates",
-      value: function handleClickOutsideDeactivates(event) {
-        var allowDeactivation = typeof this.originalOptions.clickOutsideDeactivates === "function" ? this.originalOptions.clickOutsideDeactivates.call(null, event) : this.originalOptions.clickOutsideDeactivates;
-        if (allowDeactivation) {
-          this.outsideClick = {
-            target: event.target,
-            allowDeactivation
-          };
-        }
-        return allowDeactivation;
-      }
-    }, {
-      key: "handleDeactivate",
-      value: function handleDeactivate() {
-        if (this.originalOptions.onDeactivate) {
-          this.originalOptions.onDeactivate.call(null);
-        }
-        this.deactivateTrap();
-      }
-    }, {
-      key: "handlePostDeactivate",
-      value: function handlePostDeactivate() {
-        var _this2 = this;
-        var finishDeactivation = function finishDeactivation2() {
-          var returnFocusNode = _this2.getReturnFocusNode();
-          var canReturnFocus = !!// did the consumer allow it?
-          (_this2.originalOptions.returnFocusOnDeactivate && // can we actually focus the node?
-          returnFocusNode !== null && returnFocusNode !== void 0 && returnFocusNode.focus && // was there an outside click that allowed deactivation?
-          (!_this2.outsideClick || // did the consumer allow deactivation when the outside node was clicked?
-          _this2.outsideClick.allowDeactivation && // is the outside node NOT focusable (implying that it did NOT receive focus
-          //  as a result of the click-through) -- in which case do NOT restore focus
-          //  to `returnFocusNode` because focus should remain on the outside node
-          !isFocusable(_this2.outsideClick.target, _this2.internalOptions.tabbableOptions)));
-          var _this2$internalOption = _this2.internalOptions.preventScroll, preventScroll = _this2$internalOption === void 0 ? false : _this2$internalOption;
-          if (canReturnFocus) {
-            returnFocusNode.focus({
-              preventScroll
-            });
-          }
-          if (_this2.originalOptions.onPostDeactivate) {
-            _this2.originalOptions.onPostDeactivate.call(null);
-          }
-          _this2.outsideClick = null;
-        };
-        if (this.originalOptions.checkCanReturnFocus) {
-          this.originalOptions.checkCanReturnFocus.call(null, this.getReturnFocusNode()).then(finishDeactivation, finishDeactivation);
-        } else {
-          finishDeactivation();
-        }
-      }
-    }, {
-      key: "setupFocusTrap",
-      value: function setupFocusTrap() {
-        if (this.focusTrap) {
-          if (this.props.active && !this.focusTrap.active) {
-            this.focusTrap.activate();
-            if (this.props.paused) {
-              this.focusTrap.pause();
-            }
-          }
-        } else {
-          var nodesExist = this.focusTrapElements.some(Boolean);
-          if (nodesExist) {
-            this.focusTrap = this.props._createFocusTrap(this.focusTrapElements, this.internalOptions);
-            if (this.props.active) {
-              this.focusTrap.activate();
-            }
-            if (this.props.paused) {
-              this.focusTrap.pause();
-            }
-          }
-        }
-      }
-    }, {
-      key: "componentDidMount",
-      value: function componentDidMount() {
-        if (this.props.active) {
-          this.setupFocusTrap();
-        }
-      }
-    }, {
-      key: "componentDidUpdate",
-      value: function componentDidUpdate(prevProps) {
-        if (this.focusTrap) {
-          if (prevProps.containerElements !== this.props.containerElements) {
-            this.focusTrap.updateContainerElements(this.props.containerElements);
-          }
-          var hasActivated = !prevProps.active && this.props.active;
-          var hasDeactivated = prevProps.active && !this.props.active;
-          var hasPaused = !prevProps.paused && this.props.paused;
-          var hasUnpaused = prevProps.paused && !this.props.paused;
-          if (hasActivated) {
-            this.updatePreviousElement();
-            this.focusTrap.activate();
-          }
-          if (hasDeactivated) {
-            this.deactivateTrap();
-            return;
-          }
-          if (hasPaused) {
-            this.focusTrap.pause();
-          }
-          if (hasUnpaused) {
-            this.focusTrap.unpause();
-          }
-        } else {
-          if (prevProps.containerElements !== this.props.containerElements) {
-            this.focusTrapElements = this.props.containerElements;
-          }
-          if (this.props.active) {
-            this.updatePreviousElement();
-            this.setupFocusTrap();
-          }
-        }
-      }
-    }, {
-      key: "componentWillUnmount",
-      value: function componentWillUnmount() {
-        this.deactivateTrap();
-      }
-    }, {
-      key: "render",
-      value: function render() {
-        var _this3 = this;
-        var child = this.props.children ? React.Children.only(this.props.children) : void 0;
-        if (child) {
-          if (child.type && child.type === React.Fragment) {
-            throw new Error("A focus-trap cannot use a Fragment as its child container. Try replacing it with a <div> element.");
-          }
-          var callbackRef = function callbackRef2(element) {
-            var containerElements = _this3.props.containerElements;
-            if (child) {
-              if (reactVerMajor >= 19) {
-                if (typeof child.props.ref === "function") {
-                  child.props.ref(element);
-                } else if (child.props.ref) {
-                  child.props.ref.current = element;
-                }
-              } else {
-                if (typeof child.ref === "function") {
-                  child.ref(element);
-                } else if (child.ref) {
-                  child.ref.current = element;
-                }
-              }
-            }
-            _this3.focusTrapElements = containerElements ? containerElements : [element];
-          };
-          var childWithRef = React.cloneElement(child, {
-            ref: callbackRef
-          });
-          return childWithRef;
-        }
-        return null;
-      }
-    }]);
-  }(React.Component);
-  FocusTrap.defaultProps = {
-    active: true,
-    paused: false,
-    focusTrapOptions: {},
-    _createFocusTrap: createFocusTrap
-  };
-  focusTrapReact.exports = FocusTrap;
-  focusTrapReact.exports.FocusTrap = FocusTrap;
-  var focusTrapReactExports = focusTrapReact.exports;
-  const FocusTrap$1 = /* @__PURE__ */ getDefaultExportFromCjs(focusTrapReactExports);
   function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
     const handleCardClick = () => {
       if (onClick && product.available) {
@@ -15373,6 +17812,481 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       },
       product.id
     )) });
+  }
+  function useRipple() {
+    const [ripples, setRipples] = reactExports.useState([]);
+    const createRipple = (event) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x2 = event.clientX - rect.left;
+      const y2 = event.clientY - rect.top;
+      const id2 = Date.now();
+      setRipples((prev) => [...prev, { x: x2, y: y2, id: id2 }]);
+      setTimeout(() => {
+        setRipples((prev) => prev.filter((r2) => r2.id !== id2));
+      }, 600);
+    };
+    return { ripples, createRipple };
+  }
+  function ProductCardCompact({
+    product,
+    theme,
+    onAddToCart,
+    onClick,
+    isAdding,
+    cardWidth
+  }) {
+    const [imageLoaded, setImageLoaded] = reactExports.useState(false);
+    const [imageError, setImageError] = reactExports.useState(false);
+    const { ripples, createRipple } = useRipple();
+    const reducedMotion = useReducedMotion();
+    const handleCardClick = () => {
+      if (onClick && product.available) {
+        onClick(product);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if ((e.key === "Enter" || e.key === " ") && onClick && product.available) {
+        e.preventDefault();
+        onClick(product);
+      }
+    };
+    const handleAddToCart = (e) => {
+      e.stopPropagation();
+      if (onAddToCart && product.available) {
+        createRipple(e);
+        onAddToCart(product);
+      }
+    };
+    const handleImageLoad = () => {
+      setImageLoaded(true);
+    };
+    const handleImageError = () => {
+      setImageError(true);
+      setImageLoaded(true);
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "carousel-card",
+        "data-testid": `carousel-card-${product.id}`,
+        onClick: handleCardClick,
+        onKeyDown: handleKeyDown,
+        tabIndex: onClick ? 0 : void 0,
+        role: "group",
+        "aria-label": `${product.title}, $${(product.price ?? 0).toFixed(2)}`,
+        style: {
+          width: cardWidth
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "carousel-card-image", "data-testid": `carousel-card-image-${product.id}`, children: [
+            !imageLoaded && !imageError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "carousel-card-skeleton", "data-testid": "carousel-card-skeleton", "aria-hidden": "true" }),
+            product.imageUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "img",
+              {
+                src: product.imageUrl,
+                alt: product.title,
+                className: imageLoaded ? "" : "loading",
+                onLoad: handleImageLoad,
+                onError: handleImageError,
+                loading: "lazy"
+              }
+            ),
+            imageError && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                style: {
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "var(--widget-skeleton-bg, #f1f5f9)",
+                  color: "var(--widget-text-muted, #94a3b8)",
+                  fontSize: 24
+                },
+                "aria-hidden": "true",
+                children: "📦"
+              }
+            ),
+            product.isPinned && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                style: {
+                  position: "absolute",
+                  top: 4,
+                  left: 4,
+                  background: theme.primaryColor,
+                  color: "white",
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  zIndex: 1
+                },
+                "aria-label": "Featured product",
+                children: "⭐"
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "carousel-card-content", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "carousel-card-title", children: product.title }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "carousel-card-price", children: [
+              "$",
+              (product.price ?? 0).toFixed(2)
+            ] }),
+            onAddToCart && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                type: "button",
+                className: "carousel-card-button",
+                "data-testid": `carousel-card-button-${product.id}`,
+                onClick: handleAddToCart,
+                disabled: !product.available || isAdding,
+                "aria-label": isAdding ? "Adding to cart" : product.available ? `Add ${product.title} to cart` : "Sold out",
+                style: {
+                  position: "relative",
+                  overflow: "hidden"
+                },
+                children: [
+                  isAdding ? "Adding..." : product.available ? "Add to Cart" : "Sold Out",
+                  ripples.map((ripple) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      "data-testid": "ripple-effect",
+                      style: {
+                        position: "absolute",
+                        left: ripple.x,
+                        top: ripple.y,
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(255, 255, 255, 0.3)",
+                        transform: "translate(-50%, -50%)",
+                        pointerEvents: "none",
+                        animationName: reducedMotion ? "none" : "ripple",
+                        animationDuration: reducedMotion ? "0ms" : "600ms",
+                        animationTimingFunction: "ease-out",
+                        animationFillMode: "forwards"
+                      }
+                    },
+                    ripple.id
+                  ))
+                ]
+              }
+            )
+          ] })
+        ]
+      }
+    );
+  }
+  function CarouselArrows({ onPrev, onNext, canScrollLeft, canScrollRight, theme: _theme }) {
+    const handlePrevClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (canScrollLeft) {
+        onPrev();
+      }
+    };
+    const handleNextClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (canScrollRight) {
+        onNext();
+      }
+    };
+    const handlePrevKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (canScrollLeft) {
+          onPrev();
+        }
+      }
+    };
+    const handleNextKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (canScrollRight) {
+          onNext();
+        }
+      }
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "carousel-arrows", "data-testid": "carousel-arrows", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: "carousel-arrow carousel-arrow-left",
+          "data-testid": "carousel-arrow-left",
+          onClick: handlePrevClick,
+          onKeyDown: handlePrevKeyDown,
+          disabled: !canScrollLeft,
+          "aria-label": "Scroll left to previous products",
+          title: "Previous",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "15 18 9 12 15 6" }) })
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: "carousel-arrow carousel-arrow-right",
+          "data-testid": "carousel-arrow-right",
+          onClick: handleNextClick,
+          onKeyDown: handleNextKeyDown,
+          disabled: !canScrollRight,
+          "aria-label": "Scroll right to next products",
+          title: "Next",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9 18 15 12 9 6" }) })
+        }
+      )
+    ] });
+  }
+  function CarouselDots({ totalDots, activeIndex, onDotClick, theme: _theme }) {
+    if (totalDots <= 1) {
+      return null;
+    }
+    const handleDotClick = (index) => (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onDotClick(index);
+    };
+    const handleDotKeyDown = (index) => (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onDotClick(index);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "carousel-dots", "data-testid": "carousel-dots", role: "tablist", "aria-label": "Carousel pages", children: Array.from({ length: totalDots }, (_, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        className: `carousel-dot ${index === activeIndex ? "active" : ""}`,
+        "data-testid": `carousel-dot-${index}`,
+        "data-active": index === activeIndex,
+        onClick: handleDotClick(index),
+        onKeyDown: handleDotKeyDown(index),
+        role: "tab",
+        "aria-selected": index === activeIndex,
+        "aria-label": `Page ${index + 1} of ${totalDots}`,
+        tabIndex: index === activeIndex ? 0 : -1
+      },
+      index
+    )) });
+  }
+  function useCarousel({ itemCount, config: config2, isMobile = false }) {
+    const carouselRef = reactExports.useRef(null);
+    const mergedConfig = { ...DEFAULT_CAROUSEL_CONFIG, ...config2 };
+    const visibleCards = isMobile ? mergedConfig.visibleCards.mobile : mergedConfig.visibleCards.desktop;
+    const [state, setState] = reactExports.useState({
+      activeIndex: 0,
+      canScrollLeft: false,
+      canScrollRight: itemCount > visibleCards,
+      totalDots: Math.ceil(itemCount / visibleCards)
+    });
+    const calculateCardWidth = reactExports.useCallback(() => {
+      if (!carouselRef.current) return mergedConfig.cardWidth;
+      const containerWidth = carouselRef.current.clientWidth;
+      const totalGaps = (visibleCards - 1) * mergedConfig.cardGap;
+      return (containerWidth - totalGaps) / visibleCards;
+    }, [visibleCards, mergedConfig.cardGap, mergedConfig.cardWidth]);
+    const scrollToIndex = reactExports.useCallback(
+      (index) => {
+        if (!carouselRef.current) return;
+        const cardWidth = calculateCardWidth();
+        const scrollPosition = index * (cardWidth + mergedConfig.cardGap);
+        const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        carouselRef.current.scrollTo({
+          left: scrollPosition,
+          behavior: prefersReducedMotion ? "auto" : "smooth"
+        });
+      },
+      [calculateCardWidth, mergedConfig.cardGap]
+    );
+    const scrollPrev = reactExports.useCallback(() => {
+      const newIndex = Math.max(0, state.activeIndex - 1);
+      scrollToIndex(newIndex);
+    }, [state.activeIndex, scrollToIndex]);
+    const scrollNext = reactExports.useCallback(() => {
+      const newIndex = Math.min(itemCount - 1, state.activeIndex + 1);
+      scrollToIndex(newIndex);
+    }, [itemCount, state.activeIndex, scrollToIndex]);
+    const updateScrollState = reactExports.useCallback(() => {
+      if (!carouselRef.current) return;
+      const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+      const cardWidth = calculateCardWidth();
+      const cardWithGap = cardWidth + mergedConfig.cardGap;
+      const activeIndex = Math.round(scrollLeft / cardWithGap);
+      const maxScroll = scrollWidth - clientWidth;
+      setState((prev) => ({
+        ...prev,
+        activeIndex: Math.max(0, Math.min(activeIndex, itemCount - 1)),
+        canScrollLeft: scrollLeft > 5,
+        canScrollRight: scrollLeft < maxScroll - 5,
+        totalDots: Math.ceil(itemCount / visibleCards)
+      }));
+    }, [calculateCardWidth, mergedConfig.cardGap, itemCount, visibleCards]);
+    reactExports.useEffect(() => {
+      const carousel = carouselRef.current;
+      if (!carousel) return;
+      let timeoutId;
+      const handleScroll = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(updateScrollState, 100);
+      };
+      carousel.addEventListener("scroll", handleScroll, { passive: true });
+      updateScrollState();
+      return () => {
+        clearTimeout(timeoutId);
+        carousel.removeEventListener("scroll", handleScroll);
+      };
+    }, [updateScrollState]);
+    reactExports.useEffect(() => {
+      updateScrollState();
+    }, [itemCount, visibleCards, updateScrollState]);
+    return {
+      carouselRef,
+      activeIndex: state.activeIndex,
+      canScrollLeft: state.canScrollLeft,
+      canScrollRight: state.canScrollRight,
+      totalDots: state.totalDots,
+      scrollToIndex,
+      scrollPrev,
+      scrollNext
+    };
+  }
+  function ProductCarousel({
+    products,
+    theme,
+    onAddToCart,
+    onProductClick,
+    addingProductId,
+    config: config2
+  }) {
+    const [isMobile, setIsMobile] = reactExports.useState(false);
+    const mergedConfig = { ...DEFAULT_CAROUSEL_CONFIG, ...config2 };
+    reactExports.useEffect(() => {
+      const checkMobile = () => {
+        setIsMobile(window.innerWidth < 768);
+      };
+      checkMobile();
+      window.addEventListener("resize", checkMobile);
+      return () => window.removeEventListener("resize", checkMobile);
+    }, []);
+    const { carouselRef, activeIndex, canScrollLeft, canScrollRight, totalDots, scrollToIndex, scrollPrev, scrollNext } = useCarousel({
+      itemCount: products.length,
+      config: mergedConfig,
+      isMobile
+    });
+    const visibleCards = isMobile ? mergedConfig.visibleCards.mobile : mergedConfig.visibleCards.desktop;
+    const calculateCardWidth = reactExports.useCallback(() => {
+      if (!carouselRef.current) return mergedConfig.cardWidth;
+      const containerWidth = carouselRef.current.clientWidth;
+      const totalGaps = (visibleCards - 1) * mergedConfig.cardGap;
+      return Math.floor((containerWidth - totalGaps) / visibleCards);
+    }, [visibleCards, mergedConfig.cardGap, mergedConfig.cardWidth]);
+    const [cardWidth, setCardWidth] = reactExports.useState(mergedConfig.cardWidth);
+    reactExports.useEffect(() => {
+      const updateCardWidth = () => {
+        setCardWidth(calculateCardWidth());
+      };
+      updateCardWidth();
+      window.addEventListener("resize", updateCardWidth);
+      return () => window.removeEventListener("resize", updateCardWidth);
+    }, [calculateCardWidth]);
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        trackCarouselEngagement("swipe");
+        scrollPrev();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        trackCarouselEngagement("swipe");
+        scrollNext();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        scrollToIndex(0);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        scrollToIndex(products.length - 1);
+      }
+    };
+    const handleProductClick = (product) => {
+      trackCarouselEngagement("click", product.id);
+      onProductClick == null ? void 0 : onProductClick(product);
+    };
+    const handleAddToCart = (product) => {
+      trackCarouselEngagement("add_to_cart", product.id);
+      onAddToCart == null ? void 0 : onAddToCart(product);
+    };
+    if (products.length === 0) {
+      return null;
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        className: "product-carousel-wrapper",
+        "data-testid": "product-carousel-wrapper",
+        role: "region",
+        "aria-label": `Product carousel with ${products.length} products`,
+        "aria-roledescription": "carousel",
+        onKeyDown: handleKeyDown,
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              ref: carouselRef,
+              className: "product-carousel",
+              "data-testid": "product-carousel",
+              role: "group",
+              "aria-label": `${products.length} products`,
+              tabIndex: 0,
+              children: products.map((product, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  role: "group",
+                  "aria-label": `${index + 1} of ${products.length}: ${product.title}`,
+                  "aria-roledescription": "slide",
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    ProductCardCompact,
+                    {
+                      product,
+                      theme,
+                      onAddToCart: handleAddToCart,
+                      onClick: handleProductClick,
+                      isAdding: addingProductId === product.id,
+                      cardWidth
+                    }
+                  )
+                },
+                product.id
+              ))
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            CarouselArrows,
+            {
+              onPrev: scrollPrev,
+              onNext: scrollNext,
+              canScrollLeft,
+              canScrollRight,
+              theme
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            CarouselDots,
+            {
+              totalDots,
+              activeIndex: Math.floor(activeIndex / visibleCards),
+              onDotClick: (index) => scrollToIndex(index * visibleCards),
+              theme
+            }
+          )
+        ]
+      }
+    );
   }
   function CartView({
     cart,
@@ -15543,6 +18457,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     );
   }
   function CartItemView({ item, onRemove, isRemoving }) {
+    const handleRemove = () => {
+      if (onRemove && item.variantId) {
+        onRemove(item.variantId);
+      }
+    };
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -15585,7 +18504,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               "button",
               {
                 type: "button",
-                onClick: () => onRemove(item.variantId),
+                onClick: handleRemove,
                 disabled: isRemoving,
                 style: {
                   padding: 4,
@@ -15619,6 +18538,677 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     );
   }
+  function MessageAvatar({
+    sender,
+    botName,
+    theme,
+    size = 32
+  }) {
+    const displayName = sender === "merchant" ? "Merchant" : botName;
+    const initials = displayName.slice(0, 2).toUpperCase();
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        "data-testid": "message-avatar",
+        "aria-label": `${displayName} avatar`,
+        role: "img",
+        style: {
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          backgroundColor: theme.primaryColor,
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: size * 0.4,
+          fontWeight: 600,
+          flexShrink: 0
+        },
+        children: initials
+      }
+    );
+  }
+  const DocumentIcon = ({ type }) => {
+    if (type === "pdf") {
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "path",
+          {
+            fill: "currentColor",
+            d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h1.5a1.5 1.5 0 0 1 0 3H10v2h-1v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v1.5h1v1h-1v1.5h-1v-5z"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M10 14h.5v1H10v-1zm4 0h.5v2H14v-2z" })
+      ] });
+    }
+    if (type === "url") {
+      return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "path",
+        {
+          fill: "currentColor",
+          d: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
+        }
+      ) });
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "path",
+      {
+        fill: "currentColor",
+        d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6zm2-8h8v2H8v-2zm0 4h8v2H8v-2z"
+      }
+    ) });
+  };
+  const formatScore = (score) => {
+    return `${Math.round(score * 100)}%`;
+  };
+  const getScoreColor = (score) => {
+    if (score >= 0.9) return "#22c55e";
+    if (score >= 0.7) return "#3b82f6";
+    return "#6b7280";
+  };
+  function SourceCitation({
+    sources,
+    theme,
+    maxVisible = 3
+  }) {
+    const [expanded, setExpanded] = reactExports.useState(false);
+    const reducedMotion = useReducedMotion();
+    if (!sources || sources.length === 0) {
+      return null;
+    }
+    const visibleSources = expanded ? sources : sources.slice(0, maxVisible);
+    const hasMore = sources.length > maxVisible;
+    const remainingCount = sources.length - maxVisible;
+    const handleSourceClick = (source) => {
+      if (source.url) {
+        window.open(source.url, "_blank", "noopener,noreferrer");
+      }
+    };
+    const handleToggle = () => {
+      setExpanded(!expanded);
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        "data-testid": "source-citation",
+        className: `source-citation ${reducedMotion ? "source-citation--reduced-motion" : ""}`,
+        style: { marginTop: 8 },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "source-citation__header",
+              style: {
+                fontSize: 11,
+                fontWeight: 600,
+                color: theme.textColor,
+                opacity: 0.7,
+                marginBottom: 6,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px"
+              },
+              children: "Sources"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "source-citation__list", style: { display: "flex", flexDirection: "column", gap: 4 }, children: visibleSources.map((source, index) => {
+            const isClickable = !!source.url;
+            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                "data-testid": "source-card",
+                className: `source-card ${isClickable ? "source-card--clickable" : ""}`,
+                onClick: () => handleSourceClick(source),
+                disabled: !isClickable,
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  cursor: isClickable ? "pointer" : "default",
+                  transition: reducedMotion ? "none" : "background-color 150ms ease",
+                  border: "none",
+                  background: "transparent",
+                  width: "100%",
+                  textAlign: "left"
+                },
+                "aria-label": `${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`,
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(DocumentIcon, { type: source.documentType }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "source-card__title",
+                      style: {
+                        flex: 1,
+                        fontSize: 12,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: theme.textColor
+                      },
+                      title: source.filename || source.title,
+                      children: source.filename || source.title
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      className: "source-card__score",
+                      style: {
+                        fontSize: 10,
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        background: getScoreColor(source.relevanceScore),
+                        color: "white",
+                        flexShrink: 0
+                      },
+                      children: formatScore(source.relevanceScore)
+                    }
+                  )
+                ]
+              },
+              `${source.documentId}-${index}`
+            );
+          }) }),
+          hasMore && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": "source-toggle",
+              className: "source-citation__toggle",
+              onClick: handleToggle,
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                width: "100%",
+                padding: "6px 8px",
+                marginTop: 6,
+                border: "none",
+                borderRadius: 6,
+                background: "transparent",
+                color: theme.primaryColor,
+                fontSize: 11,
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: reducedMotion ? "none" : "background-color 150ms ease"
+              },
+              "aria-expanded": expanded,
+              "aria-label": expanded ? "Show fewer sources" : `Show ${remainingCount} more sources`,
+              children: expanded ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Show less" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "12", height: "12", viewBox: "0 0 24 24", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" }) })
+              ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                  "View ",
+                  remainingCount,
+                  " more"
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "12", height: "12", viewBox: "0 0 24 24", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" }) })
+              ] })
+            }
+          )
+        ]
+      }
+    );
+  }
+  const ThumbsUpIcon = ({ filled, color }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "svg",
+    {
+      width: "20",
+      height: "20",
+      viewBox: "0 0 24 24",
+      fill: filled ? color : "none",
+      stroke: color,
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" })
+    }
+  );
+  const ThumbsDownIcon = ({ filled, color }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "svg",
+    {
+      width: "20",
+      height: "20",
+      viewBox: "0 0 24 24",
+      fill: filled ? color : "none",
+      stroke: color,
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" })
+    }
+  );
+  function FeedbackRating({
+    messageId,
+    feedbackEnabled = true,
+    userRating,
+    theme,
+    onSubmit
+  }) {
+    const [rating, setRating] = reactExports.useState(userRating || null);
+    const [showCommentForm, setShowCommentForm] = reactExports.useState(false);
+    const [comment, setComment] = reactExports.useState("");
+    const [isSubmitting, setIsSubmitting] = reactExports.useState(false);
+    const [announcement, setAnnouncement] = reactExports.useState("");
+    const reducedMotion = useReducedMotion();
+    const commentInputRef = reactExports.useRef(null);
+    reactExports.useEffect(() => {
+      setRating(userRating || null);
+    }, [userRating]);
+    reactExports.useEffect(() => {
+      if (showCommentForm && commentInputRef.current) {
+        commentInputRef.current.focus();
+      }
+    }, [showCommentForm]);
+    const handleRatingClick = async (newRating) => {
+      if (isSubmitting) return;
+      if (newRating === "negative" && rating !== "negative") {
+        setRating(newRating);
+        setShowCommentForm(true);
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        await onSubmit(messageId, newRating);
+        setRating(newRating);
+        setShowCommentForm(false);
+        setComment("");
+        setAnnouncement(`Feedback submitted: ${newRating === "positive" ? "Helpful" : "Not helpful"}`);
+      } catch (error) {
+        console.error("Failed to submit feedback:", error);
+        setAnnouncement("Failed to submit feedback. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+    const handleCommentSubmit = async () => {
+      if (isSubmitting || !rating) return;
+      setIsSubmitting(true);
+      try {
+        await onSubmit(messageId, rating, comment || void 0);
+        setShowCommentForm(false);
+        setComment("");
+        setAnnouncement("Feedback submitted with comment");
+      } catch (error) {
+        console.error("Failed to submit feedback:", error);
+        setAnnouncement("Failed to submit feedback. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+    const handleDismissComment = () => {
+      setShowCommentForm(false);
+      setComment("");
+    };
+    const handleKeyDown = (e, ratingValue) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleRatingClick(ratingValue);
+      }
+    };
+    if (!feedbackEnabled) {
+      return null;
+    }
+    const isDarkMode = theme.mode === "dark";
+    const buttonBaseStyle = {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: "44px",
+      minHeight: "44px",
+      padding: "8px",
+      border: "1px solid transparent",
+      borderRadius: "22px",
+      backgroundColor: "transparent",
+      cursor: isSubmitting ? "wait" : "pointer",
+      transition: reducedMotion ? "none" : "background-color 150ms ease, transform 100ms ease",
+      opacity: isSubmitting ? 0.5 : 1
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        "data-testid": "feedback-rating",
+        role: "group",
+        "aria-label": "Rate this response",
+        className: `feedback-rating${isDarkMode ? " feedback-rating--dark" : ""}`,
+        style: {
+          display: "flex",
+          gap: "8px",
+          marginTop: "8px",
+          padding: "0 12px",
+          alignItems: "flex-start",
+          flexShrink: 0
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": "feedback-up",
+              type: "button",
+              role: "button",
+              "aria-label": "Rate as helpful",
+              "aria-pressed": rating === "positive",
+              disabled: isSubmitting,
+              onClick: () => handleRatingClick("positive"),
+              onKeyDown: (e) => handleKeyDown(e, "positive"),
+              className: `feedback-button${rating === "positive" ? " feedback-button--selected" : ""}`,
+              style: {
+                ...buttonBaseStyle,
+                backgroundColor: rating === "positive" ? theme.primaryColor : "transparent",
+                color: rating === "positive" ? "#fff" : theme.textColor
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, { filled: rating === "positive", color: rating === "positive" ? "#fff" : theme.textColor })
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": "feedback-down",
+              type: "button",
+              role: "button",
+              "aria-label": "Rate as not helpful",
+              "aria-pressed": rating === "negative",
+              disabled: isSubmitting,
+              onClick: () => handleRatingClick("negative"),
+              onKeyDown: (e) => handleKeyDown(e, "negative"),
+              className: `feedback-button${rating === "negative" ? " feedback-button--selected" : ""}`,
+              style: {
+                ...buttonBaseStyle,
+                backgroundColor: rating === "negative" ? theme.primaryColor : "transparent",
+                color: rating === "negative" ? "#fff" : theme.textColor
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, { filled: rating === "negative", color: rating === "negative" ? "#fff" : theme.textColor })
+            }
+          ),
+          showCommentForm && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              "data-testid": "feedback-comment-form",
+              style: {
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                padding: "8px",
+                backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.02)",
+                borderRadius: "12px",
+                flex: 1,
+                maxWidth: "300px"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: theme.textColor }, children: "Tell us how we can improve (optional):" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "textarea",
+                  {
+                    ref: commentInputRef,
+                    id: `feedback-comment-${messageId}`,
+                    "data-testid": "feedback-comment",
+                    value: comment,
+                    onChange: (e) => setComment(e.target.value.slice(0, 500)),
+                    placeholder: "What would have been more helpful?",
+                    maxLength: 500,
+                    rows: 2,
+                    style: {
+                      width: "100%",
+                      padding: "8px",
+                      border: `1px solid ${isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"}`,
+                      borderRadius: "8px",
+                      backgroundColor: isDarkMode ? "rgba(0, 0, 0, 0.2)" : "#fff",
+                      color: theme.textColor,
+                      fontFamily: theme.fontFamily,
+                      fontSize: "14px",
+                      resize: "none"
+                    }
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "8px", justifyContent: "flex-end" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: handleDismissComment,
+                      disabled: isSubmitting,
+                      style: {
+                        padding: "6px 12px",
+                        border: "none",
+                        borderRadius: "6px",
+                        backgroundColor: "transparent",
+                        color: theme.textColor,
+                        fontSize: "14px",
+                        cursor: "pointer",
+                        opacity: 0.7
+                      },
+                      children: "Skip"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: handleCommentSubmit,
+                      disabled: isSubmitting,
+                      style: {
+                        padding: "6px 12px",
+                        border: "none",
+                        borderRadius: "6px",
+                        backgroundColor: theme.primaryColor,
+                        color: "#fff",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        cursor: "pointer"
+                      },
+                      children: "Submit"
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: theme.textColor, opacity: 0.6 }, children: [
+                  comment.length,
+                  "/500 characters"
+                ] })
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { "aria-live": "polite", "aria-atomic": "true", style: { position: "absolute", left: "-9999px" }, children: announcement })
+        ]
+      }
+    );
+  }
+  function getBusinessHoursMessage(businessHours) {
+    if (!(businessHours == null ? void 0 : businessHours.hours)) return "Contact us";
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const now = /* @__PURE__ */ new Date();
+    const today = days[now.getDay()];
+    const todayHours = businessHours.hours[today];
+    if (!todayHours) return "Contact us";
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [openH, openM] = todayHours.open.split(":").map(Number);
+    const [closeH, closeM] = todayHours.close.split(":").map(Number);
+    if (currentTime >= openH * 60 + openM && currentTime < closeH * 60 + closeM) {
+      return "Available now";
+    }
+    for (let i = 1; i <= 7; i++) {
+      const nextDay = days[(now.getDay() + i) % 7];
+      const nextHours = businessHours.hours[nextDay];
+      if (nextHours) {
+        return `Available ${nextDay} at ${nextHours.open}`;
+      }
+    }
+    return "Contact us";
+  }
+  function ContactCard({
+    contactOptions,
+    theme,
+    conversationId,
+    businessHours,
+    onContactClick,
+    onShowToast
+  }) {
+    const isDarkMode = theme.mode === "dark";
+    const reducedMotion = useReducedMotion();
+    const isMobile = reactExports.useCallback(() => {
+      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }, []);
+    const handlePhoneClick = async (option) => {
+      try {
+        if (isMobile()) {
+          window.location.href = `tel:${option.value}`;
+          logContactInteraction("phone", "call");
+        } else {
+          await navigator.clipboard.writeText(option.value);
+          logContactInteraction("phone", "copy");
+          onShowToast == null ? void 0 : onShowToast("Phone number copied to clipboard");
+        }
+        onContactClick == null ? void 0 : onContactClick(option);
+      } catch (error) {
+        console.error("[ContactCard] Phone click failed:", error);
+      }
+    };
+    const handleEmailClick = (option) => {
+      try {
+        const subject = conversationId ? encodeURIComponent(`Support Request - Conversation ${conversationId}`) : encodeURIComponent("Support Request");
+        window.location.href = `mailto:${option.value}?subject=${subject}`;
+        logContactInteraction("email");
+        onContactClick == null ? void 0 : onContactClick(option);
+      } catch (error) {
+        console.error("[ContactCard] Email click failed:", error);
+      }
+    };
+    const handleCustomClick = (option) => {
+      try {
+        window.open(option.value, "_blank", "noopener,noreferrer");
+        logContactInteraction("custom", option.label);
+        onContactClick == null ? void 0 : onContactClick(option);
+      } catch (error) {
+        console.error("[ContactCard] Custom click failed:", error);
+      }
+    };
+    if (!contactOptions || contactOptions.length === 0) {
+      return null;
+    }
+    const businessHoursMessage = getBusinessHoursMessage(businessHours || null);
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { "data-testid": "contact-card", style: { marginTop: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          style: {
+            fontSize: 12,
+            color: theme.textColor,
+            opacity: 0.7,
+            marginBottom: 8,
+            fontWeight: 500
+          },
+          children: businessHoursMessage
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8
+          },
+          children: contactOptions.map((option) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              "data-testid": `contact-${option.type}`,
+              role: "button",
+              "aria-label": option.label,
+              onClick: () => {
+                if (option.type === "phone") {
+                  handlePhoneClick(option);
+                } else if (option.type === "email") {
+                  handleEmailClick(option);
+                } else {
+                  handleCustomClick(option);
+                }
+              },
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                minHeight: "44px",
+                padding: "8px 16px",
+                border: `1px solid ${isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"}`,
+                borderRadius: "20px",
+                backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.02)",
+                cursor: "pointer",
+                transition: reducedMotion ? "none" : "all 150ms ease",
+                color: theme.textColor,
+                fontSize: 13,
+                fontWeight: 500
+              },
+              children: [
+                option.icon && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: option.icon }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: option.label })
+              ]
+            },
+            `${option.type}-${option.value}`
+          ))
+        }
+      )
+    ] });
+  }
+  function groupMessages(messages) {
+    if (messages.length === 0) return [];
+    const groups = [];
+    for (const message of messages) {
+      if (message.sender === "system") {
+        groups.push({ id: message.messageId, sender: "system", messages: [message] });
+        continue;
+      }
+      const lastGroup = groups[groups.length - 1];
+      if (!lastGroup || lastGroup.sender === "system" || lastGroup.sender !== message.sender) {
+        groups.push({ id: message.messageId, sender: message.sender, messages: [message] });
+      } else {
+        lastGroup.messages.push(message);
+      }
+    }
+    return groups;
+  }
+  function isFirstInGroup(_group, index) {
+    return index === 0;
+  }
+  function isLastInGroup(group, index) {
+    return index === group.messages.length - 1;
+  }
+  function isSingleMessage(group) {
+    return group.messages.length === 1;
+  }
+  function getGroupPosition(group, index) {
+    if (isSingleMessage(group)) return "single";
+    if (isFirstInGroup(group, index)) return "first";
+    if (isLastInGroup(group, index)) return "last";
+    return "middle";
+  }
+  function formatRelativeTime(dateString) {
+    const date2 = new Date(dateString);
+    const now = /* @__PURE__ */ new Date();
+    const diffMs = now.getTime() - date2.getTime();
+    const diffSec = Math.floor(diffMs / 1e3);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffWeek = Math.floor(diffDay / 7);
+    if (isNaN(date2.getTime())) return "Invalid date";
+    if (diffMs < 0) return "Just now";
+    if (diffSec < 60) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+    if (diffWeek < 52) return date2.toLocaleDateString(void 0, { month: "short", day: "numeric" });
+    return date2.toLocaleDateString();
+  }
+  function formatAbsoluteTime(dateString) {
+    const date2 = new Date(dateString);
+    if (isNaN(date2.getTime())) return "Invalid time";
+    return date2.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
   function MessageList({
     messages,
     botName,
@@ -15631,13 +19221,48 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     onCheckout,
     addingProductId,
     removingItemId,
-    isCheckingOut
+    isCheckingOut,
+    onQuickRepliesAvailable,
+    onSuggestedRepliesAvailable,
+    sessionId,
+    onFeedbackSubmit
   }) {
     const messagesEndRef = reactExports.useRef(null);
+    const prevMessageIdsRef = reactExports.useRef(/* @__PURE__ */ new Set());
+    const reducedMotion = useReducedMotion();
+    const groups = reactExports.useMemo(() => groupMessages(messages), [messages]);
+    const getNewMessageIds = reactExports.useCallback(() => {
+      const currentIds = new Set(messages.map((m2) => m2.messageId));
+      const newIds = /* @__PURE__ */ new Set();
+      currentIds.forEach((id2) => {
+        if (!prevMessageIdsRef.current.has(id2)) {
+          newIds.add(id2);
+        }
+      });
+      prevMessageIdsRef.current = currentIds;
+      return newIds;
+    }, [messages]);
+    const newMessageIds = getNewMessageIds();
     reactExports.useEffect(() => {
       var _a2;
       (_a2 = messagesEndRef.current) == null ? void 0 : _a2.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+    reactExports.useEffect(() => {
+      const lastMessage = messages[messages.length - 1];
+      if ((lastMessage == null ? void 0 : lastMessage.sender) === "bot" && lastMessage.quick_replies) {
+        onQuickRepliesAvailable == null ? void 0 : onQuickRepliesAvailable(lastMessage.quick_replies);
+      } else if ((lastMessage == null ? void 0 : lastMessage.sender) === "user") {
+        onQuickRepliesAvailable == null ? void 0 : onQuickRepliesAvailable([]);
+      }
+    }, [messages, onQuickRepliesAvailable]);
+    reactExports.useEffect(() => {
+      const lastMessage = messages[messages.length - 1];
+      if ((lastMessage == null ? void 0 : lastMessage.sender) === "bot" && lastMessage.suggestedReplies) {
+        onSuggestedRepliesAvailable == null ? void 0 : onSuggestedRepliesAvailable(lastMessage.suggestedReplies);
+      } else if ((lastMessage == null ? void 0 : lastMessage.sender) === "user") {
+        onSuggestedRepliesAvailable == null ? void 0 : onSuggestedRepliesAvailable([]);
+      }
+    }, [messages, onSuggestedRepliesAvailable]);
     if (messages.length === 0) {
       return /* @__PURE__ */ jsxRuntimeExports.jsx(
         "div",
@@ -15647,6 +19272,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           "aria-live": "polite",
           style: {
             flex: 1,
+            minHeight: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -15680,6 +19306,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
+        "data-testid": "message-list",
         className: "message-list",
         role: "log",
         "aria-live": "polite",
@@ -15687,14 +19314,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         "aria-busy": isLoading ? "true" : "false",
         style: {
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           padding: 16
         },
         children: [
-          messages.map((message) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            MessageBubble,
+          groups.map((group) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            MessageGroupComponent,
             {
-              message,
+              group,
               botName,
               theme,
               onAddToCart,
@@ -15703,17 +19331,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               onCheckout,
               addingProductId,
               removingItemId,
-              isCheckingOut
+              isCheckingOut,
+              newMessageIds,
+              reducedMotion,
+              sessionId,
+              onFeedbackSubmit
             },
-            message.messageId
+            group.id
           )),
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: messagesEndRef })
         ]
       }
     );
   }
-  function MessageBubble({
-    message,
+  function MessageGroupComponent({
+    group,
     botName,
     theme,
     onAddToCart,
@@ -15722,59 +19354,220 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     onCheckout,
     addingProductId,
     removingItemId,
-    isCheckingOut
+    isCheckingOut,
+    newMessageIds,
+    reducedMotion,
+    sessionId,
+    onFeedbackSubmit
   }) {
-    const isUser = message.sender === "user";
-    const isMerchant = message.sender === "merchant";
-    const displayName = isMerchant ? "Merchant" : botName;
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: `message-bubble message-bubble--${message.sender}`,
-        role: "listitem",
-        style: {
-          marginBottom: 12
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
+    const isUser = group.sender === "user";
+    const isSystem = group.sender === "system";
+    const showAvatar = !isUser && !isSystem;
+    const displayName = group.sender === "merchant" ? "Merchant" : botName;
+    if (isSystem) {
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          "data-testid": "message-group",
+          className: "message-group",
+          role: "listitem",
+          style: { marginBottom: 12 },
+          children: group.messages.map((message) => /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
             {
+              "data-testid": "message-bubble",
+              className: "message-bubble message-bubble--system",
               style: {
-                display: "flex",
-                justifyContent: isUser ? "flex-end" : "flex-start"
+                textAlign: "center",
+                color: theme.textColor,
+                opacity: 0.7,
+                fontSize: 12,
+                padding: "4px 8px"
               },
-              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { whiteSpace: "pre-wrap", wordBreak: "break-word" }, children: renderMessageContent(message.content) })
+            },
+            message.messageId
+          ))
+        }
+      );
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        "data-testid": "message-group",
+        className: "message-group",
+        role: "listitem",
+        style: { marginBottom: 12 },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: `message-group__row ${isUser ? "message-group__row--user" : ""}`,
+            style: {
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 8,
+              flexDirection: isUser ? "row-reverse" : "row"
+            },
+            children: [
+              showAvatar && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-group__avatar", style: { flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                MessageAvatar,
+                {
+                  sender: group.sender,
+                  botName,
+                  theme,
+                  size: 32
+                }
+              ) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "div",
                 {
+                  className: "message-group__content",
                   style: {
-                    maxWidth: "75%",
-                    padding: "10px 14px",
-                    borderRadius: 16,
-                    backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
-                    color: isUser ? "white" : theme.textColor,
-                    borderBottomRightRadius: isUser ? 4 : 16,
-                    borderBottomLeftRadius: isUser ? 16 : 4
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    maxWidth: "75%"
                   },
-                  children: [
-                    !isUser && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "div",
-                      {
-                        style: {
-                          fontSize: 11,
-                          fontWeight: 600,
-                          marginBottom: 4,
-                          opacity: 0.8
-                        },
-                        children: displayName
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { whiteSpace: "pre-wrap", wordBreak: "break-word" }, children: message.content })
-                  ]
+                  children: group.messages.map((message, index) => {
+                    const position = getGroupPosition(group, index);
+                    const isFirst = position === "first" || position === "single";
+                    const isLast = position === "last" || position === "single";
+                    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        MessageBubbleInGroup,
+                        {
+                          message,
+                          sender: group.sender,
+                          position,
+                          displayName: isFirst ? displayName : void 0,
+                          theme,
+                          showRichContent: isLast,
+                          onAddToCart,
+                          onProductClick,
+                          onRemoveFromCart,
+                          onCheckout,
+                          addingProductId,
+                          removingItemId,
+                          isCheckingOut,
+                          isNew: newMessageIds.has(message.messageId),
+                          reducedMotion,
+                          sessionId,
+                          onFeedbackSubmit
+                        }
+                      ),
+                      isLast && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          "data-testid": "message-timestamp",
+                          className: `message-bubble__timestamp message-bubble__timestamp--${isUser ? "user" : "bot"}`,
+                          title: formatAbsoluteTime(message.createdAt),
+                          style: {
+                            fontSize: 10,
+                            color: theme.textColor,
+                            opacity: 0.5,
+                            marginTop: 2,
+                            textAlign: isUser ? "right" : "left",
+                            marginRight: isUser ? 4 : 0,
+                            marginLeft: isUser ? 0 : 4
+                          },
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "data-testid": "relative-time", children: formatRelativeTime(message.createdAt) })
+                        }
+                      )
+                    ] }, message.messageId);
+                  })
                 }
               )
+            ]
+          }
+        )
+      }
+    );
+  }
+  function MessageBubbleInGroup({
+    message,
+    sender,
+    position,
+    displayName,
+    theme,
+    showRichContent,
+    onAddToCart,
+    onProductClick,
+    onRemoveFromCart,
+    onCheckout,
+    addingProductId,
+    removingItemId,
+    isCheckingOut,
+    isNew = false,
+    reducedMotion = false,
+    sessionId,
+    onFeedbackSubmit
+  }) {
+    const isUser = sender === "user";
+    const getBorderRadius = () => {
+      if (position === "single") return "16px";
+      if (position === "first") return isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px";
+      if (position === "middle") return "4px";
+      if (position === "last") return isUser ? "16px 4px 4px 16px" : "4px 4px 16px 16px";
+      return "16px";
+    };
+    const shouldAnimate = isNew && isUser && !reducedMotion;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 4 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          "data-testid": "message-bubble",
+          className: `message-bubble message-bubble--${position} message-bubble--${isUser ? "user" : "bot"}`,
+          style: {
+            padding: "10px 14px",
+            borderRadius: getBorderRadius(),
+            backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
+            color: isUser ? "white" : theme.textColor,
+            wordBreak: "break-word",
+            animationName: shouldAnimate ? "message-send" : "none",
+            animationDuration: shouldAnimate ? "200ms" : "0ms",
+            animationTimingFunction: "ease-out",
+            animationFillMode: "forwards"
+          },
+          children: [
+            displayName && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "message-bubble__sender",
+                style: {
+                  fontSize: 11,
+                  fontWeight: 600,
+                  marginBottom: 4,
+                  opacity: 0.8
+                },
+                children: displayName
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                className: "message-bubble__content",
+                style: { whiteSpace: "pre-wrap", wordBreak: "break-word" },
+                children: renderMessageContent(message.content)
+              }
+            )
+          ]
+        }
+      ),
+      showRichContent && !isUser && message.products && message.products.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "message-bubble__rich-content",
+          style: { maxWidth: "100%", marginTop: 8 },
+          children: message.products.length >= 3 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            ProductCarousel,
+            {
+              products: message.products,
+              theme,
+              onAddToCart,
+              onProductClick,
+              addingProductId
             }
-          ),
-          !isUser && message.products && message.products.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { maxWidth: "100%", marginTop: 8 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
             ProductList,
             {
               products: message.products,
@@ -15783,8 +19576,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               onProductClick,
               addingProductId
             }
-          ) }),
-          !isUser && message.cart && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { maxWidth: "100%", marginTop: 8 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          )
+        }
+      ),
+      showRichContent && !isUser && message.cart && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "message-bubble__rich-content",
+          style: { maxWidth: "100%", marginTop: 8 },
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             CartView,
             {
               cart: message.cart,
@@ -15794,29 +19594,494 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               isCheckingOut,
               removingItemId
             }
-          ) }),
-          !isUser && message.checkoutUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 8 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "a",
-            {
-              href: message.checkoutUrl,
-              target: "_blank",
-              rel: "noopener noreferrer",
-              style: {
-                display: "inline-block",
-                padding: "8px 16px",
-                backgroundColor: theme.primaryColor,
-                color: "white",
-                textDecoration: "none",
-                borderRadius: 8,
-                fontWeight: 500,
-                fontSize: 13
-              },
-              children: "Complete Checkout →"
+          )
+        }
+      ),
+      showRichContent && !isUser && message.checkoutUrl && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 8 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "a",
+        {
+          href: message.checkoutUrl,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          style: {
+            display: "inline-block",
+            padding: "8px 16px",
+            backgroundColor: theme.primaryColor,
+            color: "white",
+            textDecoration: "none",
+            borderRadius: 8,
+            fontWeight: 500,
+            fontSize: 13
+          },
+          children: "Complete Checkout →"
+        }
+      ) }),
+      showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme }) }),
+      showRichContent && !isUser && sender === "bot" && onFeedbackSubmit && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        FeedbackRating,
+        {
+          messageId: message.messageId,
+          feedbackEnabled: message.feedbackEnabled,
+          userRating: message.userRating,
+          theme,
+          onSubmit: onFeedbackSubmit
+        }
+      ),
+      showRichContent && !isUser && message.contactOptions && message.contactOptions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ContactCard,
+        {
+          contactOptions: message.contactOptions,
+          theme,
+          conversationId: sessionId,
+          onContactClick: () => {
+          }
+        }
+      )
+    ] });
+  }
+  function renderMessageContent(content) {
+    const imageRegex = /(📷\s*Image:\s*)?(https?:\/\/[^\s]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s]*)?)/gi;
+    const result = [];
+    let lastIndex = 0;
+    let match;
+    while ((match = imageRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        result.push(content.slice(lastIndex, match.index));
+      }
+      const fullMatch = match[0];
+      const imageUrl = match[2];
+      result.push(
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 8, marginBottom: 8 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: imageUrl,
+            alt: "Product",
+            style: {
+              maxWidth: "100%",
+              borderRadius: 8,
+              display: "block"
+            },
+            loading: "lazy"
+          }
+        ) }, match.index)
+      );
+      lastIndex = match.index + fullMatch.length;
+    }
+    if (lastIndex < content.length) {
+      result.push(content.slice(lastIndex));
+    }
+    return result.length > 0 ? result : content;
+  }
+  const VOICE_LANGUAGE_STORAGE_KEY = "widget-voice-language";
+  function getStoredLanguage() {
+    if (typeof window === "undefined") return null;
+    try {
+      return localStorage.getItem(VOICE_LANGUAGE_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+  function setStoredLanguage(language) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(VOICE_LANGUAGE_STORAGE_KEY, language);
+    } catch {
+    }
+  }
+  function useVoiceInput(config2 = {}) {
+    const storedLanguage = reactExports.useMemo(() => getStoredLanguage(), []);
+    const mergedConfig = reactExports.useMemo(() => {
+      const base = { ...DEFAULT_VOICE_CONFIG, ...config2 };
+      if (!config2.language && storedLanguage) {
+        base.language = storedLanguage;
+      }
+      return base;
+    }, [config2, storedLanguage]);
+    const [state, setState] = reactExports.useState({
+      isListening: false,
+      isProcessing: false,
+      error: null,
+      interimTranscript: "",
+      finalTranscript: ""
+    });
+    const recognitionRef = reactExports.useRef(null);
+    const isSupported = reactExports.useMemo(() => {
+      if (typeof window === "undefined") return false;
+      return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    }, []);
+    const getSpeechRecognition = reactExports.useCallback(() => {
+      if (typeof window === "undefined") return null;
+      return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    }, []);
+    const startListening = reactExports.useCallback(async () => {
+      if (!isSupported) {
+        setState((prev) => ({
+          ...prev,
+          error: "Voice input is not supported in this browser. Please use Chrome, Edge, or Safari."
+        }));
+        return;
+      }
+      const SpeechRecognitionConstructor = getSpeechRecognition();
+      if (!SpeechRecognitionConstructor) {
+        setState((prev) => ({
+          ...prev,
+          error: "Speech recognition is not available."
+        }));
+        return;
+      }
+      try {
+        const recognition = new SpeechRecognitionConstructor();
+        recognition.continuous = mergedConfig.continuous;
+        recognition.interimResults = mergedConfig.interimResults;
+        recognition.lang = mergedConfig.language;
+        recognition.onstart = () => {
+          setState((prev) => ({
+            ...prev,
+            isListening: true,
+            isProcessing: false,
+            error: null,
+            interimTranscript: "",
+            finalTranscript: ""
+          }));
+        };
+        recognition.onresult = (event) => {
+          let interimTranscript = "";
+          let finalTranscript = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
             }
-          ) })
+          }
+          setState((prev) => ({
+            ...prev,
+            interimTranscript,
+            finalTranscript: prev.finalTranscript + finalTranscript
+          }));
+        };
+        recognition.onerror = (event) => {
+          let errorMessage = "An error occurred during speech recognition.";
+          switch (event.error) {
+            case "not-allowed":
+            case "permission-denied":
+              errorMessage = "Microphone permission denied. Please allow microphone access in your browser settings.";
+              break;
+            case "no-speech":
+              errorMessage = "No speech detected. Please try again.";
+              break;
+            case "network":
+              errorMessage = "Network error occurred. Please check your internet connection.";
+              break;
+            case "audio-capture":
+              errorMessage = "No microphone found. Please connect a microphone and try again.";
+              break;
+            case "aborted":
+              errorMessage = "Speech recognition was aborted.";
+              break;
+            case "service-not-allowed":
+              errorMessage = "Speech recognition service is not allowed.";
+              break;
+            case "language-not-supported":
+              errorMessage = `Language "${mergedConfig.language}" is not supported.`;
+              break;
+          }
+          setState((prev) => ({
+            ...prev,
+            isListening: false,
+            isProcessing: false,
+            error: errorMessage
+          }));
+        };
+        recognition.onend = () => {
+          setState((prev) => ({
+            ...prev,
+            isListening: false,
+            isProcessing: false
+          }));
+        };
+        recognitionRef.current = recognition;
+        recognition.start();
+      } catch (error) {
+        setState((prev) => ({
+          ...prev,
+          isListening: false,
+          isProcessing: false,
+          error: "Failed to start speech recognition. Please try again."
+        }));
+      }
+    }, [isSupported, getSpeechRecognition, mergedConfig]);
+    const setLanguage = reactExports.useCallback((language) => {
+      setStoredLanguage(language);
+      if (recognitionRef.current) {
+        recognitionRef.current.lang = language;
+      }
+    }, []);
+    const stopListening = reactExports.useCallback(() => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    }, []);
+    const cancelListening = reactExports.useCallback(() => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      }
+      setState((prev) => ({
+        ...prev,
+        isListening: false,
+        isProcessing: false,
+        interimTranscript: ""
+      }));
+    }, []);
+    reactExports.useEffect(() => {
+      return () => {
+        if (recognitionRef.current) {
+          recognitionRef.current.abort();
+          recognitionRef.current = null;
+        }
+      };
+    }, []);
+    return {
+      state,
+      isSupported,
+      startListening,
+      stopListening,
+      cancelListening,
+      setLanguage
+    };
+  }
+  function MicrophoneIcon({ className }) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        className,
+        width: "24",
+        height: "24",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19 10v2a7 7 0 0 1-14 0v-2" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", x2: "12", y1: "19", y2: "22" })
         ]
       }
     );
+  }
+  function WaveformAnimation() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "waveform-container", children: [1, 2, 3, 4, 5].map((i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "waveform-bar" }, i)) });
+  }
+  function Spinner() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "voice-spinner" });
+  }
+  function ErrorIcon({ className }) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        className,
+        width: "24",
+        height: "24",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", x2: "12", y1: "8", y2: "12" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", x2: "12.01", y1: "16", y2: "16" })
+        ]
+      }
+    );
+  }
+  function VoiceInput({
+    config: config2,
+    onTranscript,
+    onInterimTranscript,
+    onError,
+    disabled = false,
+    theme: _theme,
+    onLanguageChange
+  }) {
+    const { state, isSupported, startListening, stopListening, cancelListening, setLanguage } = useVoiceInput(config2);
+    const [showError, setShowError] = reactExports.useState(false);
+    const [startTime, setStartTime] = reactExports.useState(null);
+    reactExports.useEffect(() => {
+      if (onLanguageChange) {
+        window.__voiceInputSetLanguage = setLanguage;
+      }
+    }, [onLanguageChange, setLanguage]);
+    reactExports.useEffect(() => {
+      if (state.error) {
+        setShowError(true);
+        onError == null ? void 0 : onError(state.error);
+      }
+    }, [state.error, onError]);
+    reactExports.useEffect(() => {
+      onInterimTranscript == null ? void 0 : onInterimTranscript(state.interimTranscript);
+    }, [state.interimTranscript, onInterimTranscript]);
+    reactExports.useEffect(() => {
+      if (state.finalTranscript && !state.isListening) {
+        const durationMs = startTime ? Date.now() - startTime : 0;
+        trackVoiceInput(durationMs, true);
+        onTranscript == null ? void 0 : onTranscript(state.finalTranscript);
+        setStartTime(null);
+      }
+    }, [state.finalTranscript, state.isListening, startTime, onTranscript]);
+    const handleToggle = async () => {
+      if (state.isListening) {
+        stopListening();
+      } else {
+        setShowError(false);
+        setStartTime(Date.now());
+        await startListening();
+      }
+    };
+    const handleCancel = () => {
+      cancelListening();
+    };
+    const handleDismissError = () => {
+      setShowError(false);
+    };
+    const getButtonState = () => {
+      if (!isSupported) return "unsupported";
+      if (state.error) return "error";
+      if (state.isProcessing) return "processing";
+      if (state.isListening) return "listening";
+      return "idle";
+    };
+    const buttonState = getButtonState();
+    const isDisabled = disabled || !isSupported;
+    const getAriaLabel = () => {
+      if (!isSupported) return "Voice input not supported in this browser";
+      if (state.isListening) return "Stop voice input";
+      return "Start voice input";
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && state.isListening) {
+        e.preventDefault();
+        cancelListening();
+      }
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "voice-input-container", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          "data-testid": "voice-input-button",
+          type: "button",
+          role: "button",
+          "aria-label": getAriaLabel(),
+          "aria-pressed": state.isListening,
+          disabled: isDisabled,
+          onClick: handleToggle,
+          onKeyDown: handleKeyDown,
+          className: `voice-input-button ${buttonState}`,
+          title: !isSupported ? "Voice input not supported in this browser" : void 0,
+          children: [
+            buttonState === "listening" && /* @__PURE__ */ jsxRuntimeExports.jsx(WaveformAnimation, {}),
+            buttonState === "processing" && /* @__PURE__ */ jsxRuntimeExports.jsx(Spinner, {}),
+            buttonState === "error" && /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorIcon, {}),
+            buttonState === "unsupported" && /* @__PURE__ */ jsxRuntimeExports.jsx(MicrophoneIcon, {}),
+            buttonState === "idle" && /* @__PURE__ */ jsxRuntimeExports.jsx(MicrophoneIcon, {})
+          ]
+        }
+      ),
+      state.isListening && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          "data-testid": "voice-input-cancel",
+          type: "button",
+          "aria-label": "Cancel voice input",
+          onClick: handleCancel,
+          className: "voice-cancel-button",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "svg",
+            {
+              width: "16",
+              height: "16",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "currentColor",
+              strokeWidth: "2",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", x2: "6", y1: "6", y2: "18" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", x2: "18", y1: "6", y2: "18" })
+              ]
+            }
+          )
+        }
+      ),
+      state.interimTranscript && state.isListening && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          "data-testid": "voice-interim-transcript",
+          "aria-live": "polite",
+          "aria-label": "Interim transcript",
+          className: "voice-interim-transcript",
+          children: state.interimTranscript
+        }
+      ),
+      showError && state.error && !state.isListening && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          "data-testid": "voice-error-message",
+          role: "alert",
+          className: "voice-error-message",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorIcon, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: state.error }),
+            state.error.toLowerCase().includes("permission") && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                "data-testid": "voice-permission-instructions",
+                className: "voice-permission-instructions",
+                style: { fontSize: "0.75rem", marginTop: "4px" },
+                children: "To enable microphone access, please check your browser settings and allow microphone permissions for this site."
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: handleDismissError,
+                "aria-label": "Dismiss error",
+                style: {
+                  marginLeft: "auto",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px"
+                },
+                children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "svg",
+                  {
+                    width: "16",
+                    height: "16",
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: "2",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", x2: "6", y1: "6", y2: "18" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", x2: "18", y1: "6", y2: "18" })
+                    ]
+                  }
+                )
+              }
+            )
+          ]
+        }
+      )
+    ] });
   }
   function MessageInput({
     value,
@@ -15826,19 +20091,37 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     placeholder,
     inputRef,
     theme,
-    maxLength = 2e3
+    themeMode,
+    maxLength = 2e3,
+    voiceInputConfig,
+    showVoiceInput = true
   }) {
+    const [interimTranscript, setInterimTranscript] = reactExports.useState("");
+    const handleSubmit = (event) => {
+      event.preventDefault();
+      if (value.trim()) {
+        trackMessageSend(value.trim().length);
+      }
+      onSend();
+    };
     const handleKeyDown = (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
-        console.warn("[MessageInput] Enter key pressed, calling onSend");
         event.preventDefault();
+        if (value.trim()) {
+          trackMessageSend(value.trim().length);
+        }
         onSend();
       }
     };
-    const handleSubmit = (event) => {
-      console.warn("[MessageInput] Form submitted, calling onSend");
-      event.preventDefault();
-      onSend();
+    const handleVoiceTranscript = (transcript) => {
+      onChange(transcript);
+      setInterimTranscript("");
+      if (inputRef && typeof inputRef !== "function" && inputRef.current) {
+        inputRef.current.focus();
+      }
+    };
+    const handleInterimTranscript = (transcript) => {
+      setInterimTranscript(transcript);
     };
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "form",
@@ -15847,61 +20130,104 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         onSubmit: handleSubmit,
         style: {
           display: "flex",
+          flexDirection: "column",
           padding: 12,
           borderTop: "1px solid #e5e7eb",
           backgroundColor: theme.backgroundColor,
-          borderRadius: `0 0 ${theme.borderRadius}px ${theme.borderRadius}px`
+          borderRadius: `0 0 ${theme.borderRadius}px ${theme.borderRadius}px`,
+          flexShrink: 0
         },
         children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "input",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
+        .shopbot-message-input::placeholder {
+          color: ${theme.textColor};
+          opacity: 0.5;
+        }
+      ` }),
+          interimTranscript && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
             {
-              ref: inputRef,
-              type: "text",
-              value,
-              onChange: (e) => onChange(e.target.value),
-              onKeyDown: handleKeyDown,
-              disabled,
-              placeholder,
-              "aria-label": "Type a message",
-              maxLength,
+              "data-testid": "voice-interim-transcript",
+              "aria-live": "polite",
               style: {
-                flex: 1,
-                padding: "10px 14px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 20,
-                fontSize: theme.fontSize,
-                fontFamily: theme.fontFamily,
-                outline: "none",
-                backgroundColor: disabled ? "#f9fafb" : "white"
-              }
+                fontStyle: "italic",
+                color: "#6b7280",
+                fontSize: 13,
+                padding: "4px 0",
+                marginBottom: 8
+              },
+              children: interimTranscript
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "submit",
-              disabled: disabled || !value.trim(),
-              "aria-label": "Send message",
-              style: {
-                marginLeft: 8,
-                padding: "10px 16px",
-                backgroundColor: disabled || !value.trim() ? "#e5e7eb" : theme.primaryColor,
-                color: disabled || !value.trim() ? "#9ca3af" : "white",
-                border: "none",
-                borderRadius: 20,
-                cursor: disabled || !value.trim() ? "not-allowed" : "pointer",
-                fontSize: theme.fontSize,
-                fontWeight: 500
-              },
-              children: "Send"
-            }
-          )
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+            showVoiceInput && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              VoiceInput,
+              {
+                config: voiceInputConfig,
+                onTranscript: handleVoiceTranscript,
+                onInterimTranscript: handleInterimTranscript,
+                disabled,
+                theme: {
+                  primaryColor: theme.primaryColor,
+                  backgroundColor: theme.backgroundColor,
+                  textColor: theme.textColor
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                ref: inputRef,
+                type: "text",
+                className: "shopbot-message-input",
+                "data-testid": "message-input",
+                value,
+                onChange: (e) => onChange(e.target.value),
+                onKeyDown: handleKeyDown,
+                disabled,
+                placeholder,
+                "aria-label": "Type a message",
+                maxLength,
+                style: {
+                  flex: 1,
+                  padding: "10px 14px",
+                  border: themeMode === "dark" ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
+                  borderRadius: 20,
+                  fontSize: theme.fontSize,
+                  fontFamily: theme.fontFamily,
+                  outline: "none",
+                  color: theme.textColor,
+                  backgroundColor: disabled ? themeMode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" : "transparent"
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "submit",
+                "data-testid": "send-message-button",
+                disabled: disabled || !value.trim(),
+                "aria-label": "Send message",
+                style: {
+                  padding: "10px 16px",
+                  backgroundColor: disabled || !value.trim() ? "#e5e7eb" : theme.primaryColor,
+                  color: disabled || !value.trim() ? "#9ca3af" : "white",
+                  border: "none",
+                  borderRadius: 20,
+                  cursor: disabled || !value.trim() ? "not-allowed" : "pointer",
+                  fontSize: theme.fontSize,
+                  fontWeight: 500
+                },
+                children: "Send"
+              }
+            )
+          ] })
         ]
       }
     );
   }
   function TypingIndicator({ isVisible, botName, theme }) {
+    const reducedMotion = useReducedMotion();
     if (!isVisible) return null;
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
@@ -15919,26 +20245,61 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           "div",
           {
             style: {
-              padding: "8px 12px",
+              padding: "10px 14px",
               borderRadius: 16,
               backgroundColor: theme.botBubbleColor,
               display: "flex",
-              alignItems: "center",
-              gap: 4
+              flexDirection: "column",
+              gap: 8
             },
             children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: theme.textColor, marginRight: 8, opacity: 0.8 }, children: botName }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(TypingDot, {}),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(TypingDot, {}),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(TypingDot, {})
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  style: {
+                    fontSize: 11,
+                    color: theme.textColor,
+                    marginBottom: 2,
+                    opacity: 0.8
+                  },
+                  children: botName
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  "data-testid": "typing-dots",
+                  style: {
+                    display: "flex",
+                    gap: 4,
+                    alignItems: "center",
+                    padding: "4px 0"
+                  },
+                  children: [0, 1, 2].map((i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "div",
+                    {
+                      "data-testid": "typing-dot",
+                      style: {
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        backgroundColor: theme.primaryColor,
+                        animationName: reducedMotion ? "none" : "typing-dot-bounce",
+                        animationDuration: reducedMotion ? "0ms" : "1.4s",
+                        animationTimingFunction: "ease-in-out",
+                        animationIterationCount: "infinite",
+                        animationDelay: reducedMotion ? "0ms" : `${i * 150}ms`
+                      }
+                    },
+                    i
+                  ))
+                }
+              )
             ]
           }
         )
       }
     );
-  }
-  function TypingDot() {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "typing-dot" });
   }
   const severityStyles = {
     [ErrorSeverity.INFO]: {
@@ -16982,6 +21343,390 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     );
   }
+  function QuickReplyButton({
+    reply,
+    index,
+    onClick,
+    onKeyDown,
+    theme,
+    disabled,
+    isSelected,
+    reducedMotion
+  }) {
+    const { ripples, createRipple } = useRipple();
+    const handleClick = (e) => {
+      if (disabled) return;
+      createRipple(e);
+      onClick(reply, index);
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        "data-testid": `quick-reply-button-${reply.id}`,
+        type: "button",
+        role: "button",
+        "aria-label": reply.text,
+        disabled: disabled || isSelected,
+        onClick: handleClick,
+        onKeyDown: (e) => onKeyDown(e, reply, index),
+        className: `quick-reply-button${reducedMotion ? " quick-reply-button--reduced-motion" : ""}`,
+        style: {
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
+          minHeight: "40px",
+          padding: "8px 14px",
+          border: `1px solid ${theme.primaryColor}33`,
+          // 20% opacity border
+          borderRadius: "16px",
+          backgroundColor: `${theme.primaryColor}1a`,
+          // 10% opacity background
+          color: theme.primaryColor,
+          fontFamily: theme.fontFamily,
+          fontSize: "13px",
+          fontWeight: 500,
+          cursor: disabled || isSelected ? "not-allowed" : "pointer",
+          opacity: disabled || isSelected ? 0.5 : 1,
+          transition: reducedMotion ? "none" : "all 150ms ease",
+          whiteSpace: "nowrap",
+          position: "relative",
+          overflow: "hidden",
+          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+        },
+        onMouseEnter: (e) => {
+          if (!disabled && !isSelected) {
+            e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
+            e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }
+        },
+        onMouseLeave: (e) => {
+          if (!disabled && !isSelected) {
+            e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
+            e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+            e.currentTarget.style.transform = "translateY(0)";
+          }
+        },
+        children: [
+          reply.icon && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "16px" }, "aria-hidden": "true", children: reply.icon }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: reply.text }),
+          ripples.map((ripple) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              "data-testid": "ripple-effect",
+              style: {
+                position: "absolute",
+                left: ripple.x,
+                top: ripple.y,
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                backgroundColor: "rgba(255, 255, 255, 0.3)",
+                transform: "translate(-50%, -50%)",
+                pointerEvents: "none",
+                animationName: reducedMotion ? "none" : "ripple",
+                animationDuration: reducedMotion ? "0ms" : "600ms",
+                animationTimingFunction: "ease-out",
+                animationFillMode: "forwards"
+              }
+            },
+            ripple.id
+          ))
+        ]
+      },
+      reply.id
+    );
+  }
+  function QuickReplyButtons({
+    quickReplies,
+    onReply,
+    theme,
+    dismissOnSelect = true,
+    disabled = false
+  }) {
+    const [selectedIndex, setSelectedIndex] = reactExports.useState(null);
+    const reducedMotion = useReducedMotion();
+    const handleClick = (reply, index) => {
+      if (disabled) return;
+      setSelectedIndex(index);
+      trackQuickReplyClick(reply.text);
+      onReply(reply);
+    };
+    const handleKeyDown = (e, reply, index) => {
+      if (disabled) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleClick(reply, index);
+      }
+    };
+    if (!quickReplies || quickReplies.length === 0) {
+      return null;
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        "data-testid": "quick-reply-buttons",
+        role: "group",
+        "aria-label": "Quick reply options",
+        className: "quick-reply-buttons",
+        style: {
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+          padding: "8px 16px",
+          flexShrink: 0
+        },
+        children: quickReplies.map((reply, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          QuickReplyButton,
+          {
+            reply,
+            index,
+            onClick: handleClick,
+            onKeyDown: handleKeyDown,
+            theme,
+            disabled,
+            isSelected: dismissOnSelect && selectedIndex !== null,
+            reducedMotion
+          },
+          reply.id
+        ))
+      }
+    );
+  }
+  function FAQQuickButtonItem({
+    button,
+    index,
+    onClick,
+    theme,
+    disabled,
+    reducedMotion
+  }) {
+    const { ripples, createRipple } = useRipple();
+    const handleClick = (e) => {
+      if (disabled) return;
+      createRipple(e);
+      onClick(button, index);
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onClick(button, index);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        "data-testid": `faq-quick-button-${button.id}`,
+        type: "button",
+        role: "button",
+        "aria-label": button.question,
+        tabIndex: 0,
+        disabled,
+        onClick: handleClick,
+        onKeyDown: handleKeyDown,
+        className: "faq-quick-button",
+        style: {
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
+          minHeight: "40px",
+          padding: "8px 14px",
+          border: `1px solid ${theme.primaryColor}33`,
+          // 20% opacity border
+          borderRadius: "16px",
+          backgroundColor: `${theme.primaryColor}1a`,
+          // 10% opacity background
+          color: theme.primaryColor,
+          fontFamily: theme.fontFamily,
+          fontSize: "13px",
+          fontWeight: 500,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
+          transition: reducedMotion ? "none" : "all 150ms ease",
+          whiteSpace: "nowrap",
+          position: "relative",
+          overflow: "hidden",
+          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+        },
+        onMouseEnter: (e) => {
+          if (!disabled) {
+            e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
+            e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }
+        },
+        onMouseLeave: (e) => {
+          if (!disabled) {
+            e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
+            e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+            e.currentTarget.style.transform = "translateY(0)";
+          }
+        },
+        children: [
+          button.icon && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "faq-quick-button-icon", style: { fontSize: "16px" }, "aria-hidden": "true", children: button.icon }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "faq-quick-button-text", children: button.question }),
+          ripples.map((ripple) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              "data-testid": "ripple-effect",
+              style: {
+                position: "absolute",
+                left: ripple.x,
+                top: ripple.y,
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                backgroundColor: "rgba(255, 255, 255, 0.3)",
+                transform: "translate(-50%, -50%)",
+                pointerEvents: "none",
+                animationName: reducedMotion ? "none" : "ripple",
+                animationDuration: reducedMotion ? "0ms" : "600ms",
+                animationTimingFunction: "ease-out",
+                animationFillMode: "forwards"
+              }
+            },
+            ripple.id
+          ))
+        ]
+      }
+    );
+  }
+  const FAQQuickButtons = ({
+    buttons,
+    onButtonClick,
+    theme,
+    disabled = false
+  }) => {
+    const reducedMotion = useReducedMotion();
+    const handleClick = (button, _index) => {
+      onButtonClick(button);
+    };
+    if (!buttons || buttons.length === 0) {
+      return null;
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        "data-testid": "faq-quick-buttons",
+        role: "group",
+        "aria-label": "FAQ quick buttons",
+        className: "faq-quick-buttons",
+        style: {
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+          padding: "8px 0"
+        },
+        children: buttons.map((button, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          FAQQuickButtonItem,
+          {
+            button,
+            index,
+            onClick: handleClick,
+            theme,
+            disabled,
+            reducedMotion
+          },
+          button.id
+        ))
+      }
+    );
+  };
+  function SuggestedReplies({
+    suggestions,
+    onSelect,
+    theme,
+    disabled = false
+  }) {
+    const [selectedIndex, setSelectedIndex] = reactExports.useState(null);
+    const reducedMotion = useReducedMotion();
+    const handleClick = (suggestion, index) => {
+      if (disabled) return;
+      setSelectedIndex(index);
+      onSelect(suggestion);
+    };
+    const handleKeyDown = (e, suggestion, index) => {
+      if (disabled) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleClick(suggestion, index);
+      }
+    };
+    if (!suggestions || suggestions.length === 0) {
+      return null;
+    }
+    const limitedSuggestions = suggestions.slice(0, 4);
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        "data-testid": "suggested-replies",
+        role: "group",
+        "aria-label": "Suggested replies",
+        className: "suggested-replies",
+        style: {
+          display: "flex",
+          flexWrap: "nowrap",
+          gap: "8px",
+          padding: "8px 12px",
+          flexShrink: 0,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch"
+        },
+        children: limitedSuggestions.map((suggestion, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            "data-testid": `suggested-reply-${index}`,
+            type: "button",
+            role: "button",
+            "aria-label": suggestion,
+            disabled: disabled || selectedIndex !== null,
+            onClick: () => handleClick(suggestion, index),
+            onKeyDown: (e) => handleKeyDown(e, suggestion, index),
+            className: `suggested-reply-chip${reducedMotion ? " suggested-reply-chip--reduced-motion" : ""}`,
+            style: {
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "40px",
+              padding: "8px 16px",
+              border: `1px solid ${theme.primaryColor}33`,
+              borderRadius: "20px",
+              backgroundColor: `${theme.primaryColor}1a`,
+              color: theme.primaryColor,
+              fontFamily: theme.fontFamily,
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: disabled || selectedIndex !== null ? "not-allowed" : "pointer",
+              opacity: disabled || selectedIndex !== null ? 0.5 : 1,
+              transition: reducedMotion ? "none" : "all 150ms ease",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+              position: "relative"
+            },
+            onMouseEnter: (e) => {
+              if (!disabled && selectedIndex === null) {
+                e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
+                e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }
+            },
+            onMouseLeave: (e) => {
+              if (!disabled && selectedIndex === null) {
+                e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
+                e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+                e.currentTarget.style.transform = "translateY(0)";
+              }
+            },
+            children: suggestion
+          },
+          suggestion
+        ))
+      }
+    );
+  }
   function ChatWindow({
     isOpen,
     onClose,
@@ -17004,14 +21749,34 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     connectionStatus = "disconnected",
     consentState,
     onRecordConsent,
-    onClearHistory
+    onClearHistory,
+    position = { x: 0, y: 0 },
+    isDragging = false,
+    isMinimized: _isMinimized = false,
+    onDragStart,
+    onMinimize,
+    themeMode = "auto",
+    onThemeToggle,
+    faqQuickButtons,
+    onFaqButtonClick,
+    onFeedbackSubmit
   }) {
+    var _a2, _b, _c, _d;
     const [inputValue, setInputValue] = reactExports.useState("");
     const [selectedProductId, setSelectedProductId] = reactExports.useState(null);
     const [isProductModalOpen, setIsProductModalOpen] = reactExports.useState(false);
     const [showMenu, setShowMenu] = reactExports.useState(false);
+    const [activeQuickReplies, setActiveQuickReplies] = reactExports.useState(null);
+    const [showFaqButtons, setShowFaqButtons] = reactExports.useState(true);
+    const [activeSuggestions, setActiveSuggestions] = reactExports.useState(null);
     const inputRef = reactExports.useRef(null);
     const menuRef = reactExports.useRef(null);
+    const handleInputChange = (value) => {
+      setInputValue(value);
+      if (value.length > 0 && activeSuggestions) {
+        setActiveSuggestions(null);
+      }
+    };
     const handleProductClick = (product) => {
       setSelectedProductId(product.id);
       setIsProductModalOpen(true);
@@ -17021,10 +21786,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       setSelectedProductId(null);
     };
     const handleProductAddToCart = (product, _quantity) => {
-      if (onAddToCart) {
+      if (onAddToCart && product.variantId) {
         onAddToCart({
           id: product.id,
-          variantId: product.variantId || product.id,
+          variantId: product.variantId,
           title: product.title,
           description: product.description ?? void 0,
           price: product.price,
@@ -17034,7 +21799,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         });
       }
     };
-    const positionStyle = theme.position === "bottom-left" ? { left: 20 } : { right: 20 };
     reactExports.useEffect(() => {
       if (isOpen && inputRef.current) {
         inputRef.current.focus();
@@ -17067,15 +21831,101 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     };
     const handleSend = async () => {
-      console.warn("[ChatWindow] handleSend called, inputValue:", inputValue);
       if (!inputValue.trim()) return;
       const message = inputValue.trim();
       setInputValue("");
-      console.warn("[ChatWindow] calling onSendMessage with:", message);
+      setActiveSuggestions(null);
       await onSendMessage(message);
-      console.warn("[ChatWindow] onSendMessage completed");
     };
+    const handleQuickReply = async (reply) => {
+      setActiveQuickReplies(null);
+      await onSendMessage(reply.payload ?? reply.text);
+    };
+    const handleQuickRepliesAvailable = (replies) => {
+      if (replies && replies.length > 0) {
+        setActiveQuickReplies(replies);
+      } else {
+        setActiveQuickReplies(null);
+      }
+    };
+    const handleSuggestedRepliesAvailable = (suggestions) => {
+      if (suggestions && suggestions.length > 0) {
+        setActiveSuggestions(suggestions);
+      } else {
+        setActiveSuggestions(null);
+      }
+    };
+    const handleFaqButtonClick = async (button) => {
+      if (onFaqButtonClick) {
+        onFaqButtonClick(button);
+      } else {
+        setShowFaqButtons(false);
+        await onSendMessage(button.question);
+      }
+    };
+    const handleSuggestionSelect = async (suggestion) => {
+      setActiveSuggestions(null);
+      await onSendMessage(suggestion);
+    };
+    reactExports.useEffect(() => {
+      const userMessages = messages.filter((m2) => m2.sender === "user");
+      if (userMessages.length > 0) {
+        setShowFaqButtons(false);
+      }
+    }, [messages]);
     if (!isOpen) return null;
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const isDefaultPosition = isMobile || !position || position.x === 0 && position.y === 0;
+    const windowPosition = position || { x: 0, y: 0 };
+    const windowStyle = {
+      position: "fixed",
+      bottom: isMobile ? 0 : isDefaultPosition ? ((_a2 = theme.position) == null ? void 0 : _a2.startsWith("top")) ? "auto" : 90 : "auto",
+      right: isMobile ? 0 : isDefaultPosition ? ((_b = theme.position) == null ? void 0 : _b.endsWith("left")) ? "auto" : 20 : "auto",
+      top: isMobile ? "auto" : isDefaultPosition ? ((_c = theme.position) == null ? void 0 : _c.startsWith("top")) ? 20 : "auto" : 0,
+      left: isMobile ? "auto" : isDefaultPosition ? ((_d = theme.position) == null ? void 0 : _d.endsWith("left")) ? 20 : "auto" : 0,
+      transform: isDefaultPosition ? "none" : `translate(${windowPosition.x}px, ${windowPosition.y}px)`,
+      width: isMobile ? "100%" : theme.width,
+      height: isMobile ? "100%" : theme.height,
+      maxWidth: isMobile ? "100%" : "calc(100vw - 40px)",
+      maxHeight: isMobile ? "100%" : "calc(100vh - 40px)",
+      backgroundColor: theme.backgroundColor,
+      borderRadius: theme.borderRadius,
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      zIndex: 2147483646,
+      fontFamily: theme.fontFamily,
+      fontSize: theme.fontSize,
+      color: theme.textColor,
+      transition: isDragging ? "none" : "transform 0.2s ease-out",
+      userSelect: isDragging ? "none" : "auto"
+    };
+    console.log("[ChatWindow] Rendering with state:", {
+      isOpen,
+      isMobile,
+      isDefaultPosition,
+      position,
+      windowPosition,
+      themeWidth: theme.width,
+      viewportWidth: window.innerWidth
+    });
+    console.log("[ChatWindow] Calculated Style:", {
+      bottom: windowStyle.bottom,
+      right: windowStyle.right,
+      left: windowStyle.left,
+      top: windowStyle.top,
+      transform: windowStyle.transform,
+      width: windowStyle.width
+    });
+    const handleHeaderMouseDown = (e) => {
+      if (e.target.closest("button")) return;
+      onDragStart == null ? void 0 : onDragStart(e);
+    };
+    const handleHeaderTouchStart = (e) => {
+      if (e.target.closest("button")) return;
+      onDragStart == null ? void 0 : onDragStart(e);
+    };
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(FocusTrap$1, { active: isOpen && !isProductModalOpen, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "div",
@@ -17083,43 +21933,29 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           role: "dialog",
           "aria-modal": "true",
           "aria-label": "Chat window",
-          className: "shopbot-chat-window",
-          style: {
-            position: "fixed",
-            bottom: 90,
-            ...positionStyle,
-            width: theme.width,
-            height: theme.height,
-            maxWidth: "calc(100vw - 40px)",
-            maxHeight: "calc(100vh - 120px)",
-            backgroundColor: theme.backgroundColor,
-            borderRadius: theme.borderRadius,
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            zIndex: 2147483646,
-            fontFamily: theme.fontFamily,
-            fontSize: theme.fontSize,
-            color: theme.textColor
-          },
+          "data-testid": "chat-window",
+          className: `shopbot-chat-window draggable-chat-window ${isDragging ? "dragging" : ""} ${isDefaultPosition ? "is-default-position" : ""}`,
+          style: windowStyle,
           children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
-                className: "chat-header",
+                className: "chat-header chat-header-drag-handle",
+                onMouseDown: handleHeaderMouseDown,
+                onTouchStart: handleHeaderTouchStart,
                 style: {
-                  padding: "16px",
+                  padding: "12px 16px",
                   backgroundColor: theme.primaryColor,
                   color: "white",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  borderRadius: `${theme.borderRadius}px ${theme.borderRadius}px 0 0`
+                  borderRadius: `${theme.borderRadius}px ${theme.borderRadius}px 0 0`,
+                  cursor: isDragging ? "grabbing" : "grab"
                 },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600 }, children: (config2 == null ? void 0 : config2.botName) ?? "Assistant" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", gap: "8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "chat-header-title", style: { fontWeight: 600, pointerEvents: "none" }, children: (config2 == null ? void 0 : config2.botName) ?? "Assistant" }) }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "4px" }, children: [
                     onClearHistory && messages.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative" }, ref: menuRef, children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
                         "button",
@@ -17130,17 +21966,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                           "aria-haspopup": "true",
                           "aria-expanded": showMenu,
                           style: {
-                            background: "none",
+                            background: "rgba(255, 255, 255, 0.2)",
                             border: "none",
                             cursor: "pointer",
-                            padding: 4,
-                            color: "white"
+                            padding: "8px",
+                            color: "white",
+                            borderRadius: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
                           },
                           children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
                             "svg",
                             {
-                              width: "20",
-                              height: "20",
+                              width: "18",
+                              height: "18",
                               viewBox: "0 0 24 24",
                               fill: "none",
                               stroke: "currentColor",
@@ -17224,28 +22064,81 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                         }
                       )
                     ] }),
+                    onThemeToggle && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      ThemeToggle,
+                      {
+                        themeMode,
+                        onToggle: onThemeToggle
+                      }
+                    ),
+                    onMinimize && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: onMinimize,
+                        "aria-label": "Minimize chat window",
+                        title: "Minimize",
+                        style: {
+                          background: "rgba(255, 255, 255, 0.2)",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: "8px",
+                          color: "white",
+                          borderRadius: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "background 0.15s ease"
+                        },
+                        onMouseEnter: (e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)",
+                        onMouseLeave: (e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)",
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "svg",
+                          {
+                            width: "18",
+                            height: "18",
+                            viewBox: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            strokeWidth: "2.5",
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            "aria-hidden": "true",
+                            children: /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "5", y1: "12", x2: "19", y2: "12" })
+                          }
+                        )
+                      }
+                    ),
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
                         type: "button",
                         onClick: onClose,
                         "aria-label": "Close chat window",
+                        title: "Close",
                         style: {
-                          background: "none",
+                          background: "rgba(255, 255, 255, 0.2)",
                           border: "none",
                           cursor: "pointer",
-                          padding: 4,
-                          color: "white"
+                          padding: "8px",
+                          color: "white",
+                          borderRadius: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "background 0.15s ease"
                         },
+                        onMouseEnter: (e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)",
+                        onMouseLeave: (e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)",
                         children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
                           "svg",
                           {
-                            width: "20",
-                            height: "20",
+                            width: "18",
+                            height: "18",
                             viewBox: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
-                            strokeWidth: "2",
+                            strokeWidth: "2.5",
                             strokeLinecap: "round",
                             strokeLinejoin: "round",
                             "aria-hidden": "true",
@@ -17261,7 +22154,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 ]
               }
             ),
-            connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus }) }),
+            connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               MessageList,
               {
@@ -17276,10 +22169,41 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 onCheckout,
                 addingProductId,
                 removingItemId,
-                isCheckingOut
+                isCheckingOut,
+                onQuickRepliesAvailable: handleQuickRepliesAvailable,
+                onSuggestedRepliesAvailable: handleSuggestedRepliesAvailable,
+                sessionId,
+                onFeedbackSubmit
               }
             ),
-            consentState && onRecordConsent && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            activeSuggestions && activeSuggestions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              SuggestedReplies,
+              {
+                suggestions: activeSuggestions,
+                onSelect: handleSuggestionSelect,
+                theme,
+                disabled: isTyping
+              }
+            ) }),
+            activeQuickReplies && activeQuickReplies.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              QuickReplyButtons,
+              {
+                quickReplies: activeQuickReplies,
+                onReply: handleQuickReply,
+                theme,
+                dismissOnSelect: true
+              }
+            ) }),
+            showFaqButtons && faqQuickButtons && faqQuickButtons.length > 0 && (config2 == null ? void 0 : config2.onboardingMode) === "general" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              FAQQuickButtons,
+              {
+                buttons: faqQuickButtons,
+                onButtonClick: handleFaqButtonClick,
+                theme,
+                disabled: isTyping
+              }
+            ) }),
+            consentState && onRecordConsent && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
               ConsentPrompt,
               {
                 isOpen,
@@ -17293,14 +22217,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 onConfirmConsent: onRecordConsent
               }
             ) }),
-            isTyping && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            isTyping && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
               TypingIndicator,
               {
                 isVisible: isTyping,
                 botName: (config2 == null ? void 0 : config2.botName) ?? "Assistant",
                 theme
               }
-            ),
+            ) }),
             (errors.length > 0 || error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
@@ -17308,7 +22232,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 style: {
                   padding: "8px",
                   maxHeight: "150px",
-                  overflowY: "auto"
+                  overflowY: "auto",
+                  flexShrink: 0
                 },
                 children: [
                   errors.filter((e) => !e.dismissed).map((widgetError) => /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -17353,12 +22278,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               MessageInput,
               {
                 value: inputValue,
-                onChange: setInputValue,
+                onChange: handleInputChange,
                 onSend: handleSend,
                 disabled: isTyping,
                 placeholder: "Type a message...",
                 inputRef,
-                theme
+                theme,
+                themeMode
               }
             )
           ]

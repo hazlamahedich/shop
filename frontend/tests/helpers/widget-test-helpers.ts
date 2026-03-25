@@ -11,7 +11,7 @@ import { Page, APIRequestContext } from '@playwright/test';
 
 export const WIDGET_CONFIG_DEFAULTS = {
   enabled: true,
-  botName: 'Shopping Assistant',
+  botName: 'Mantisbot',
   welcomeMessage: 'Hello! What can I help you find?',
   theme: {
     primaryColor: '#6366f1',

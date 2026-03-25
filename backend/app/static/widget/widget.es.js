@@ -1,8 +1,8 @@
-import { W, g, i, a, u } from "./loader-BUEr9SNy.js";
+import { h, i, k, m, n } from "./loader-BACCb8_P.js";
 export {
-  W as Widget,
-  g as getConfig,
-  i as initWidget,
-  a as isWidgetMounted,
-  u as unmountWidget
+  h as Widget,
+  i as getConfig,
+  k as initWidget,
+  m as isWidgetMounted,
+  n as unmountWidget
 };

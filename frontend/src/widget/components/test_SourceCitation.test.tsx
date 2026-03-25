@@ -176,4 +176,17 @@ describe('SourceCitation', () => {
     fireEvent.click(toggleButton);
     expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
   });
+  it('should display filename instead of title when available', () => {
+    const sourceWithFilename: SourceCitationType = {
+      ...mockSources[0],
+      filename: 'actual_file_name.pdf',
+      title: 'Short Summary Title'
+    };
+    render(<SourceCitation sources={[sourceWithFilename]} theme={mockTheme} />);
+
+    const sourceCard = screen.getByTestId('source-card');
+    expect(sourceCard).toHaveTextContent('actual_file_name.pdf');
+    expect(sourceCard).not.toHaveTextContent('Short Summary Title');
+    expect(sourceCard).toHaveAttribute('aria-label', 'actual_file_name.pdf - 95% relevance');
+  });
 });

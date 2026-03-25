@@ -60,7 +60,7 @@ class TestGetWidgetConfig:
         widget_config = data["data"]
 
         assert widget_config["enabled"] is True
-        assert widget_config["botName"] == "Shopping Assistant"
+        assert widget_config["botName"] == "Mantisbot"
         assert "Hi" in widget_config["welcomeMessage"]
 
     @pytest.mark.asyncio

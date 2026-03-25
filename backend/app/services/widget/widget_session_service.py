@@ -325,6 +325,7 @@ class WidgetSessionService:
         session_id: str,
         role: str,
         content: str,
+        customer_name: str | None = None,
     ) -> None:
         """Add a message to session history.
 
@@ -332,6 +333,7 @@ class WidgetSessionService:
             session_id: Widget session identifier
             role: Message role ('user' or 'bot')
             content: Message content
+            customer_name: Optional customer name for user messages
         """
         messages_key = self._get_messages_key(session_id)
 
@@ -340,6 +342,7 @@ class WidgetSessionService:
                 "role": role,
                 "content": content,
                 "timestamp": datetime.now(UTC).isoformat(),
+                "customer_name": customer_name,
             }
         )
 
@@ -493,3 +496,38 @@ class WidgetSessionService:
             return None
 
         return session.metadata or {}
+
+    async def update_session_customer_name(self, session_id: str, customer_name: str) -> bool:
+        """Update session customer name.
+
+        Args:
+            session_id: Widget session identifier
+            customer_name: Customer name to set
+
+        Returns:
+            True if updated successfully, False if session not found
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            return False
+
+        session.customer_name = customer_name
+
+        key = self._get_session_key(session_id)
+        ttl = await self.redis.ttl(key)
+        if ttl > 0:
+            await self.redis.setex(
+                key,
+                ttl,
+                session.model_dump_json(),
+            )
+            return True
+        else:
+            await self.redis.setex(
+                key,
+                self.SESSION_TTL_SECONDS,
+                session.model_dump_json(),
+            )
+            return True
+
+        return False

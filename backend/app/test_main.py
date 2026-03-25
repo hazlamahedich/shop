@@ -10,7 +10,7 @@ class TestMainApp:
     def test_app_exists(self):
         """Test that FastAPI app is created."""
         assert app is not None
-        assert app.title == "Shopping Assistant Bot"
+        assert app.title == "Mantisbot"
 
     def test_app_has_routes(self):
         """Test that basic routes are registered."""

@@ -15,8 +15,9 @@ const DocumentIcon: React.FC<{ type: 'pdf' | 'url' | 'text' }> = ({ type }) => {
       <svg viewBox="0 0 24 24" className="source-card__icon" aria-hidden="true">
         <path
           fill="currentColor"
-          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h2v1h-1v1h1v1h-1v2H9v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v.5h1v1h-1v.5h1v1h-2v-4zm-6 1v1h.5v-1H12zm4 0v1h.5v-1H16z"
+          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h1.5a1.5 1.5 0 0 1 0 3H10v2h-1v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v1.5h1v1h-1v1.5h-1v-5z"
         />
+        <path fill="currentColor" d="M10 14h.5v1H10v-1zm4 0h.5v2H14v-2z" />
       </svg>
     );
   }
@@ -121,7 +122,7 @@ export function SourceCitation({
                 width: '100%',
                 textAlign: 'left',
               }}
-              aria-label={`${source.title} - ${formatScore(source.relevanceScore)} relevance`}
+              aria-label={`${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`}
             >
               <DocumentIcon type={source.documentType} />
               <span
@@ -134,9 +135,9 @@ export function SourceCitation({
                   whiteSpace: 'nowrap',
                   color: theme.textColor,
                 }}
-                title={source.title}
+                title={source.filename || source.title}
               >
-                {source.title}
+                {source.filename || source.title}
               </span>
               <span
                 className="source-card__score"

@@ -1,6 +1,6 @@
-# Shopping Assistant Bot
+# Mantisbot
 
-AI-powered shopping assistant for Facebook Messenger with optional e-commerce integration.
+AI-powered shopping assistant for Facebook Messenger with optional e-commerce integration. Mantisbot helps you...
 
 ## Project Overview
 

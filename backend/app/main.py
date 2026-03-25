@@ -1,6 +1,6 @@
 """FastAPI application main entry point.
 
-Shopping Assistant Bot - AI-powered conversational commerce for Facebook Messenger.
+Mantisbot - AI-powered conversational commerce for Facebook Messenger.
 """
 
 from __future__ import annotations
@@ -216,7 +216,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 # Create FastAPI application
 app = FastAPI(
-    title="Shopping Assistant Bot",
+    title="Mantisbot",
     description="AI-powered conversational commerce for Facebook Messenger",
     version="0.1.0",
     docs_url="/docs",
@@ -320,7 +320,7 @@ app.add_middleware(AuthenticationMiddleware)
 async def root() -> dict[str, str]:
     """Root endpoint with API information."""
     return {
-        "message": "Shopping Assistant Bot API",
+        "message": "Mantisbot API",
         "version": "0.1.0",
         "docs": "/docs",
     }

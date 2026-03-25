@@ -32,6 +32,7 @@ class SourceCitation(BaseModel):
 
     document_id: int = Field(description="Document ID")
     title: str = Field(description="Document title")
+    filename: str | None = Field(default=None, description="Source file name")
     document_type: SourceDocumentType = Field(description="Document type: pdf, url, text")
     relevance_score: float = Field(
         ge=0.0, le=1.0, description="Similarity score from RAG retrieval"

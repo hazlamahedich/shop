@@ -46,7 +46,7 @@ export const BotNameInput = React.forwardRef<HTMLInputElement, BotNameInputProps
 
     // Generate preview message based on personality and bot name
     const getPreviewMessage = () => {
-      const name = botName?.trim() || 'your shopping assistant';
+      const name = botName?.trim() || 'Mantisbot';
       const business = 'the store';
 
       switch (personality) {
@@ -99,7 +99,7 @@ export const BotNameInput = React.forwardRef<HTMLInputElement, BotNameInputProps
           </div>
           <div className="flex justify-between items-start pt-1 px-1">
             <p id="bot-name-description" className="text-xs text-white/40 leading-relaxed max-w-[70%]">
-              Assign a unique designation for customer-facing interfaces. Defaults to &quot;Neural Assistant&quot; if null.
+              Assign a unique designation for customer-facing interfaces. Defaults to &quot;Mantisbot&quot; if null.
             </p>
             <p
               id="bot-name-count"

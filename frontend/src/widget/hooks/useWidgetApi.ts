@@ -72,8 +72,9 @@ export function useWidgetApi() {
 
 function getDefaultConfig(): WidgetConfig {
   return {
+    merchantId: 'demo',
     enabled: true,
-    botName: 'Assistant',
+    botName: 'Mantisbot',
     welcomeMessage: 'Hello! How can I help you today?',
     theme: {
       primaryColor: '#6366f1',

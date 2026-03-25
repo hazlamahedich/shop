@@ -31,6 +31,8 @@ export const WidgetConfigSchema = z.object({
   onboarding_mode: z.enum(['general', 'ecommerce']).optional(),
   contactOptions: z.array(z.any()).nullable().optional(),
   contact_options: z.array(z.any()).nullable().optional(),
+  businessName: z.string().optional(),
+  business_name: z.string().optional(),
   merchantId: z.string().optional(),
 }).passthrough().transform((data) => ({
   enabled: data.enabled,
@@ -43,6 +45,7 @@ export const WidgetConfigSchema = z.object({
   proactiveEngagementConfig: data.proactiveEngagementConfig || data.proactive_engagement_config || undefined,
   onboardingMode: data.onboardingMode || data.onboarding_mode || 'ecommerce',
   contactOptions: data.contactOptions || data.contact_options || undefined,
+  businessName: data.businessName || data.business_name || undefined,
   merchantId: data.merchantId,
 }));
 
@@ -84,6 +87,8 @@ export const WidgetMessageSchema = z.object({
   quick_replies: z.array(QuickReplySchema).nullable().optional(),
   contactOptions: z.array(z.any()).nullable().optional(),
   contact_options: z.array(z.any()).nullable().optional(),
+  customerName: z.string().optional(),
+  customer_name: z.string().optional(),
 }).passthrough();
 
 export const WidgetApiErrorSchema = z.object({

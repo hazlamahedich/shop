@@ -169,11 +169,12 @@ export class WidgetApiClient {
     const messages = (data.data.messages || []).map((m: any) => ({
       messageId: m.id || m.message_id || '',
       content: m.content,
-      sender: m.role === 'user' ? 'user' : 'bot',
+      sender: m.role || m.sender || 'bot',
       createdAt: m.timestamp || m.created_at || '',
       products: m.products,
       cart: m.cart,
       contactOptions: m.contact_options || m.contactOptions,
+      customerName: m.customer_name || m.customerName,
     })) as WidgetMessage[];
 
     return {
@@ -234,11 +235,15 @@ export class WidgetApiClient {
         sources: (rawData.sources as Array<{
           documentId: number;
           title: string;
+          filename?: string;
           documentType: import('../types/widget').SourceDocumentType;
           relevanceScore: number;
           url?: string;
           chunkIndex?: number;
-        }>) ?? undefined,
+        }>)?.map(source => ({
+          ...source,
+          filename: source.filename || undefined
+        })) ?? undefined,
         suggestedReplies: (rawData.suggestedReplies ?? rawData.suggested_replies) as string[],
         feedbackEnabled: (rawData.feedbackEnabled ?? rawData.feedback_enabled) as boolean | undefined,
         userRating: (rawData.userRating ?? rawData.user_rating) as 'positive' | 'negative' | null | undefined,
@@ -248,6 +253,7 @@ export class WidgetApiClient {
           value: string;
           icon?: string;
         }> ?? undefined,
+        customerName: (rawData.customerName ?? rawData.customer_name) as string | undefined,
       } as WidgetMessage;
     } catch (error) {
       if (error instanceof WidgetApiException) throw error;
@@ -273,6 +279,7 @@ export class WidgetApiClient {
       proactiveEngagementConfig: parsed.data.proactiveEngagementConfig,
       onboardingMode: parsed.data.onboardingMode,
       contactOptions: parsed.data.contactOptions,
+      businessName: parsed.data.businessName,
     };
   }
 

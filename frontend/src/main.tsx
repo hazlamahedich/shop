@@ -1,4 +1,4 @@
-/** Main entry point for Shopping Assistant Bot frontend. */
+/** Main entry point for Mantisbot frontend. */
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';

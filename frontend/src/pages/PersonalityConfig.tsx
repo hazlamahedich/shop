@@ -169,7 +169,7 @@ const PersonalityConfig: React.FC = () => {
     const template = PersonalityDefaultGreetings[selectedPersonality];
 
     return template
-      .replace(/{bot_name}/g, botName || 'your shopping assistant')
+      .replace(/{bot_name}/g, botName || 'Mantisbot')
       .replace(/{business_name}/g, businessName || 'our store')
       .replace(/{business_hours}/g, businessHours || '');
   }, [selectedPersonality, botName, businessName, businessHours, transformedGreeting]);

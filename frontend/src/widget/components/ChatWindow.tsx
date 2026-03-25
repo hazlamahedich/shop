@@ -303,7 +303,7 @@ function ChatWindow({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="chat-header-title" style={{ fontWeight: 600, pointerEvents: 'none' }}>
-              {config?.botName ?? 'Assistant'}
+              {config?.botName ?? 'Mantisbot'}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -492,7 +492,8 @@ function ChatWindow({
 
         <MessageList
           messages={messages}
-          botName={config?.botName ?? 'Assistant'}
+          botName={config?.botName ?? 'Mantisbot'}
+          businessName={config?.businessName}
           welcomeMessage={config?.welcomeMessage}
           theme={theme}
           isLoading={isTyping}
@@ -560,7 +561,7 @@ function ChatWindow({
                     : null
               }
               theme={theme}
-              botName={config?.botName ?? 'Assistant'}
+              botName={config?.botName ?? 'Mantisbot'}
               personality={config?.personality}
               onConfirmConsent={onRecordConsent}
             />
@@ -571,7 +572,7 @@ function ChatWindow({
           <div style={{ flexShrink: 0 }}>
             <TypingIndicator
               isVisible={isTyping}
-              botName={config?.botName ?? 'Assistant'}
+              botName={config?.botName ?? 'Mantisbot'}
               theme={theme}
             />
           </div>

@@ -86,7 +86,7 @@ test.describe('Story 5-6: Concurrent Operations', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi!',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -145,7 +145,7 @@ test.describe('Story 5-6: Concurrent Operations', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi!',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },
@@ -196,7 +196,7 @@ test.describe('Story 5-6: Concurrent Operations', () => {
             body: JSON.stringify({
               data: {
                 enabled: true,
-                botName: 'Shopping Assistant',
+                botName: 'Mantisbot',
                 welcomeMessage: 'Hi!',
                 theme: { primaryColor: '#6366f1', position: 'bottom-right' },
               },

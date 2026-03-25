@@ -974,7 +974,7 @@ async def transform_greeting(
             f"Merchant with ID {merchant_id} not found",
         )
 
-    bot_name = transform_request.bot_name or merchant.bot_name or "Shopping Assistant"
+    bot_name = transform_request.bot_name or merchant.bot_name or "Mantisbot"
     business_name = transform_request.business_name or merchant.business_name or "our store"
     target_personality = transform_request.target_personality
     original_greeting = transform_request.custom_greeting

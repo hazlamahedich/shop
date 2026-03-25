@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget UI/UX Demo - Interactive Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      color: white;
+    }
+    
+    .header h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header p {
+      font-size: 20px;
+      opacity: 0.9;
+    }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+    
+    .feature-card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    }
+    
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .feature-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    
+    .feature-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #1f2937;
+    }
+    
+    .feature-description {
+      font-size: 16px;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    
+    .feature-tag {
+      display: inline-block;
+      padding: 6px 12px;
+      background: #f3f4f6;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6366f1;
+    }
+    
+    .demo-notice {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .demo-notice h2 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+    
+    .demo-notice p {
+      font-size: 16px;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    
+    .demo-buttons {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .demo-button {
+      padding: 14px 28px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .demo-button-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .demo-button-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    
+    .demo-button-secondary {
+      background: white;
+      color: #6366f1;
+      border: 2px solid #6366f1;
+    }
+    
+    .demo-button-secondary:hover {
+      background: #f3f4f6;
+    }
+    
+    .instructions {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .instructions h3 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+    
+    .instructions ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .instructions li {
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      color: #4b5563;
+      font-size: 15px;
+    }
+    
+    .instructions li:last-child {
+      border-bottom: none;
+    }
+    
+    .instructions li::before {
+      content: '✓';
+      color: #10b981;
+      font-weight: bold;
+      margin-right: 12px;
+    }
+    
+    .tech-stack {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 32px;
+      margin-top: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .tech-stack h3 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+    
+    .tech-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    
+    .tech-badge {
+      padding: 8px 16px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+    }
+    
+    /* Proactive Engagement Documentation Styles */
+    .proactive-docs {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .proactive-docs h2 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+    
+    .proactive-docs h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 24px 0 16px;
+      color: #374151;
+    }
+    
+    .docs-intro {
+      font-size: 16px;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    
+    .trigger-types {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .trigger-item {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .trigger-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .trigger-icon {
+      font-size: 24px;
+    }
+    
+    .trigger-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    
+    .trigger-desc {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    
+    .trigger-config {
+      font-size: 13px;
+      color: #4b5563;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .config-label {
+      font-weight: 500;
+      color: #374151;
+    }
+    
+    .config-example {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+    
+    .config-example pre {
+      margin: 0;
+    }
+    
+    .config-example code {
+      font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e5e7eb;
+    }
+    
+    .docs-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .docs-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      color: #4b5563;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    
+    .docs-list li:last-child {
+      border-bottom: none;
+    }
+    
+    .docs-list li::before {
+      content: '→';
+      color: #6366f1;
+      font-weight: bold;
+      margin-right: 12px;
+    }
+    
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 32px;
+      }
+      
+      .header p {
+        font-size: 16px;
+      }
+      
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .demo-buttons {
+        flex-direction: column;
+      }
+      
+      .demo-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🎨 Widget UI/UX Demo</h1>
+      <p>Interactive showcase of innovative features for your embeddable chat widget</p>
+    </div>
+    
+    <!-- Demo Notice -->
+    <div class="demo-notice">
+      <h2>🚀 Ready to Explore?</h2>
+      <p>
+        This demo showcases 8 innovative UI/UX concepts for your e-commerce chat widget. 
+        Each feature is fully interactive and ready to test. Click the button below to launch 
+        the interactive demo or explore individual features.
+      </p>
+      <div class="demo-buttons">
+        <a href="http://localhost:5173/widget-demo" class="demo-button demo-button-primary" target="_blank">
+          🎮 Launch Interactive Demo
+        </a>
+        <a href="/docs/widget-ui-ux-prototypes.md" class="demo-button demo-button-secondary">
+          📄 View Documentation
+        </a>
+      </div>
+    </div>
+    
+    <!-- Features Grid -->
+    <div class="features-grid">
+      <!-- Feature 1 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">🌙</div>
+        <h3 class="feature-title">Dark Mode with Glassmorphism</h3>
+        <p class="feature-description">
+          Modern frosted glass effect with backdrop blur. Automatic light/dark mode detection 
+          and glowing message bubbles for a premium look.
+        </p>
+        <span class="feature-tag">Visual Design</span>
+      </div>
+      
+      <!-- Feature 2 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">🎯</div>
+        <h3 class="feature-title">Smart Positioning</h3>
+        <p class="feature-description">
+          Automatically detects and avoids important page elements. Draggable window with 
+          snap-to-edge behavior and responsive sizing.
+        </p>
+        <span class="feature-tag">UX Enhancement</span>
+      </div>
+      
+      <!-- Feature 3 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">🛍️</div>
+        <h3 class="feature-title">Product Carousel</h3>
+        <p class="feature-description">
+          Horizontal scrolling product cards with touch/swipe support. Shows images, prices, 
+          and quick add-to-cart buttons.
+        </p>
+        <span class="feature-tag">E-commerce</span>
+      </div>
+      
+      <!-- Feature 4 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">⚡</div>
+        <h3 class="feature-title">Quick Reply Buttons</h3>
+        <p class="feature-description">
+          Pre-defined response buttons for faster interaction. Reduces typing and guides 
+          conversation flow with tap-friendly design.
+        </p>
+        <span class="feature-tag">Interaction</span>
+      </div>
+      
+      <!-- Feature 5 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">🎤</div>
+        <h3 class="feature-title">Voice Input</h3>
+        <p class="feature-description">
+          Speech recognition for hands-free interaction. Real-time waveform visualization 
+          and transcript display.
+        </p>
+        <span class="feature-tag">Accessibility</span>
+      </div>
+      
+      <!-- Feature 6 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">🎪</div>
+        <h3 class="feature-title">Proactive Engagement</h3>
+        <p class="feature-description">
+          Smart triggers based on user behavior: exit intent detection, time on page, 
+          scroll depth, cart abandonment, and product views. Configurable cooldowns 
+          and custom messages per trigger type.
+        </p>
+        <span class="feature-tag">Marketing</span>
+        <span class="feature-tag">Conversion</span>
+      </div>
+      
+      <!-- Feature 7 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">💬</div>
+        <h3 class="feature-title">Message Grouping</h3>
+        <p class="feature-description">
+          Groups consecutive messages from same sender. Shows avatars and relative 
+          timestamps for cleaner conversation flow.
+        </p>
+        <span class="feature-tag">UX Enhancement</span>
+      </div>
+      
+      <!-- Feature 8 -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">✨</div>
+        <h3 class="feature-title">Microinteractions</h3>
+        <p class="feature-description">
+          Delightful animations: typing indicator, ripple effects, hover animations, 
+          pulse badges, and smooth transitions.
+        </p>
+        <span class="feature-tag">Animation</span>
+      </div>
+      
+      <!-- Feature 9: Voice Input -->
+      <div class="feature-card" onclick="window.open('http://localhost:5173/widget-demo', '_blank')">
+        <div class="feature-icon">🎤</div>
+        <h3 class="feature-title">Voice Input</h3>
+        <p class="feature-description">
+          Hands-free messaging with Web Speech API. Real-time transcription, 
+          interim results display, and multi-language support (7 languages).
+        </p>
+        <span class="feature-tag">Accessibility</span>
+      </div>
+    </div>
+    
+    <!-- Proactive Engagement Documentation -->
+    <div class="proactive-docs">
+      <h2>🎪 Proactive Engagement Triggers</h2>
+      <p class="docs-intro">
+        Automatically engage visitors at key moments to increase conversions. 
+        Configure triggers based on user behavior with custom messages and cooldowns.
+      </p>
+      
+      <h3>Available Trigger Types</h3>
+      <div class="trigger-types">
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">🚪</span>
+            <span class="trigger-name">Exit Intent</span>
+          </div>
+          <p class="trigger-desc">Detects when visitor moves mouse to leave the page (clientY ≤ 0)</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Cooldown:</span> 30 minutes
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">⏱️</span>
+            <span class="trigger-name">Time on Page</span>
+          </div>
+          <p class="trigger-desc">Triggers after visitor spends specified time on page</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Threshold:</span> 30 seconds |
+            <span class="config-label">Range:</span> 1-100 seconds
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">📜</span>
+            <span class="trigger-name">Scroll Depth</span>
+          </div>
+          <p class="trigger-desc">Triggers when visitor scrolls to specified page percentage</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Threshold:</span> 50% |
+            <span class="config-label">Range:</span> 1-100%
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">🛒</span>
+            <span class="trigger-name">Cart Abandonment</span>
+          </div>
+          <p class="trigger-desc">Triggers when visitor attempts to leave with items in cart</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Cooldown:</span> 30 minutes |
+            <span class="config-label">Requires:</span> Cart items in conversation
+          </div>
+        </div>
+        
+        <div class="trigger-item">
+          <div class="trigger-header">
+            <span class="trigger-icon">👁️</span>
+            <span class="trigger-name">Product View</span>
+          </div>
+          <p class="trigger-desc">Triggers after viewing specified number of unique products</p>
+          <div class="trigger-config">
+            <span class="config-label">Default Threshold:</span> 3 products |
+            <span class="config-label">Range:</span> 1-100
+          </div>
+        </div>
+      </div>
+      
+      <h3>Example Configuration</h3>
+      <div class="config-example">
+        <pre><code>{
+  "proactiveEngagementConfig": {
+    "enabled": true,
+    "triggers": [
+      {
+        "type": "exit_intent",
+        "enabled": true,
+        "message": "Wait! Before you go, can we help you find something?",
+        "actions": [
+          { "text": "Get Help", "prePopulatedMessage": "I need help finding a product." },
+          { "text": "No thanks" }
+        ],
+        "cooldown": 30
+      },
+      {
+        "type": "time_on_page",
+        "enabled": true,
+        "threshold": 30,
+        "message": "Finding what you need? Our assistant can help!",
+        "actions": [
+          { "text": "Chat Now", "prePopulatedMessage": "Hi! Can you help me?" },
+          { "text": "Not now" }
+        ],
+        "cooldown": 60
+      },
+      {
+        "type": "scroll_depth",
+        "enabled": true,
+        "threshold": 50,
+        "message": "Looks like you're browsing! Need any recommendations?",
+        "actions": [
+          { "text": "Yes, please!", "prePopulatedMessage": "Can you recommend some products?" },
+          { "text": "No thanks" }
+        ],
+        "cooldown": 30
+      },
+      {
+        "type": "product_view",
+        "enabled": true,
+        "threshold": 3,
+        "message": "I noticed you've viewed several products. Can I help you decide?",
+        "actions": [
+          { "text": "Compare Products", "prePopulatedMessage": "Can you help me compare products?" },
+          { "text": "Not now" }
+        ],
+        "cooldown": 60
+      }
+    ]
+  }
+}</code></pre>
+      </div>
+      
+      <h3>How It Works</h3>
+      <ul class="docs-list">
+        <li><strong>Cooldown System:</strong> Once a trigger fires, it won't fire again for the specified cooldown period (stored in sessionStorage)</li>
+        <li><strong>Dismiss Persistence:</strong> Dismissed triggers are remembered for the session to avoid annoying visitors</li>
+        <li><strong>Pre-populated Messages:</strong> Action buttons can pre-fill the chat input with custom messages</li>
+        <li><strong>Accessibility:</strong> Modal includes focus trap, Escape key support, and ARIA attributes</li>
+        <li><strong>Mobile Friendly:</strong> Responsive design with touch-friendly buttons</li>
+      </ul>
+    </div>
+    
+    <!-- Instructions -->
+    <div class="instructions">
+      <h3>💡 How to Test the Demo</h3>
+      <ul>
+        <li>Start your development server: <code>cd frontend && npm run dev</code></li>
+        <li>Click "Launch Interactive Demo" or navigate to <code>http://localhost:5173/widget-demo</code></li>
+        <li>Use the control panel to switch between different features</li>
+        <li>Toggle between light and dark themes to see glassmorphism effect</li>
+        <li>Try voice input (requires microphone permission)</li>
+        <li>Click quick reply buttons to see responses</li>
+        <li>Drag the chat window to test smart positioning</li>
+        <li><strong>Proactive Engagement:</strong> Move mouse to top of page and exit to trigger modal</li>
+        <li>Watch for proactive engagement triggers after 30 seconds (time on page)</li>
+        <li>Hover over product cards for animation effects</li>
+        <li>Click the chat bubble to show/hide the widget</li>
+      </ul>
+    </div>
+    
+    <!-- Tech Stack -->
+    <div class="tech-stack">
+      <h3>🛠️ Built With</h3>
+      <div class="tech-badges">
+        <span class="tech-badge">React 18</span>
+        <span class="tech-badge">TypeScript</span>
+        <span class="tech-badge">CSS3</span>
+        <span class="tech-badge">Web Speech API</span>
+        <span class="tech-badge">CSS Animations</span>
+        <span class="tech-badge">Backdrop Filter</span>
+        <span class="tech-badge">Touch Events</span>
+        <span class="tech-badge">Drag & Drop</span>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Add smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelector(this.getAttribute('href')).scrollIntoView({
+          behavior: 'smooth'
+        });
+      });
+    });
+    
+    // Add ripple effect to feature cards
+    document.querySelectorAll('.feature-card').forEach(card => {
+      card.addEventListener('click', function(e) {
+        const ripple = document.createElement('span');
+        const rect = this.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = e.clientX - rect.left - size / 2;
+        const y = e.clientY - rect.top - size / 2;
+        
+        ripple.style.cssText = `
+          position: absolute;
+          width: ${size}px;
+          height: ${size}px;
+          left: ${x}px;
+          top: ${y}px;
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          transform: scale(0);
+          animation: ripple 0.6s ease-out;
+          pointer-events: none;
+        `;
+        
+        this.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+      });
+    });
+    
+    // Add animation keyframes
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes ripple {
+        to {
+          transform: scale(2);
+          opacity: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>

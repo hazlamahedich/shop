@@ -55,6 +55,7 @@ export interface WidgetConfig {
   onboardingMode?: 'general' | 'ecommerce';
   feedbackEnabled?: boolean;
   contactOptions?: ContactOption[];
+  businessName?: string;
 }
 
 export interface WidgetSession {
@@ -99,6 +100,7 @@ export type SourceDocumentType = 'pdf' | 'url' | 'text';
 export interface SourceCitation {
   documentId: number;
   title: string;
+  filename?: string;
   documentType: SourceDocumentType;
   relevanceScore: number;
   url?: string;
@@ -137,6 +139,7 @@ export interface WidgetMessage {
   feedbackEnabled?: boolean;
   userRating?: FeedbackRatingValue;
   contactOptions?: ContactOption[];
+  customerName?: string;
 }
 
 export interface MessageGroup {

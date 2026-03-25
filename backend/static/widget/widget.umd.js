@@ -15841,7 +15841,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       };
     }
     async sendMessage(sessionId, message) {
-      var _a2;
+      var _a2, _b;
       try {
         const data = await this.request("/message", {
           method: "POST",
@@ -15883,7 +15883,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           intent: parsed.data.intent ?? void 0,
           confidence: parsed.data.confidence ?? void 0,
           quick_replies: parsed.data.quick_replies ?? void 0,
-          sources: rawData.sources ?? void 0,
+          sources: ((_b = rawData.sources) == null ? void 0 : _b.map((source) => ({
+            ...source,
+            filename: source.filename || void 0
+          }))) ?? void 0,
           suggestedReplies: rawData.suggestedReplies ?? rawData.suggested_replies,
           feedbackEnabled: rawData.feedbackEnabled ?? rawData.feedback_enabled,
           userRating: rawData.userRating ?? rawData.user_rating,
@@ -18568,13 +18571,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }
   const DocumentIcon = ({ type }) => {
     if (type === "pdf") {
-      return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "path",
-        {
-          fill: "currentColor",
-          d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h2v1h-1v1h1v1h-1v2H9v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v.5h1v1h-1v.5h1v1h-2v-4zm-6 1v1h.5v-1H12zm4 0v1h.5v-1H16z"
-        }
-      ) });
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "path",
+          {
+            fill: "currentColor",
+            d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9h1.5a1.5 1.5 0 0 1 0 3H10v2h-1v-5zm4 0h1.5c.27 0 .5.22.5.5v2c0 .28-.23.5-.5.5H14v2h-1v-5h1zm3 0h2v1h-1v1.5h1v1h-1v1.5h-1v-5z"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M10 14h.5v1H10v-1zm4 0h.5v2H14v-2z" })
+      ] });
     }
     if (type === "url") {
       return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", className: "source-card__icon", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -18667,7 +18673,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                   width: "100%",
                   textAlign: "left"
                 },
-                "aria-label": `${source.title} - ${formatScore(source.relevanceScore)} relevance`,
+                "aria-label": `${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`,
                 children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(DocumentIcon, { type: source.documentType }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -18682,8 +18688,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                         whiteSpace: "nowrap",
                         color: theme.textColor
                       },
-                      title: source.title,
-                      children: source.title
+                      title: source.filename || source.title,
+                      children: source.filename || source.title
                     }
                   ),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(

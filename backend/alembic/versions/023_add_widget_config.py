@@ -30,7 +30,7 @@ def upgrade() -> None:
             server_default=sa.text("""
                 '{
                     "enabled": true,
-                    "bot_name": "Shopping Assistant",
+                    "bot_name": "Mantisbot",
                     "welcome_message": "Hi! How can I help you today?",
                     "theme": {
                         "primary_color": "#6366f1",

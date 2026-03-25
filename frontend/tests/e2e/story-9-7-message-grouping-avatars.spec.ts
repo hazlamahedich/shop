@@ -25,7 +25,7 @@ async function setupWidgetMocks(page: Page, options: WidgetMockConfig = {}): Pro
       body: JSON.stringify({
         data: {
           enabled: true,
-          botName: 'Shopping Assistant',
+          botName: 'Mantisbot',
           welcomeMessage: 'Hello! How can I help you?',
           shopDomain: 'test-shop.myshopify.com',
           theme: {

@@ -166,7 +166,7 @@ class FAQPreprocessor:
                     merchant.personality if merchant.personality else PersonalityType.FRIENDLY
                 )
                 business_name = merchant.business_name or "our store"
-                bot_name = merchant.bot_name if merchant.bot_name else "Shopping Assistant"
+                bot_name = merchant.bot_name if merchant.bot_name else "Mantisbot"
 
                 answer = await rephrase_faq_with_personality(
                     llm_service=llm_service,

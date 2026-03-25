@@ -296,7 +296,7 @@ async def rephrase_faq_with_personality(
     faq_answer: str,
     personality_type,
     business_name: str,
-    bot_name: str = "Shopping Assistant",
+    bot_name: str = "Mantisbot",
     timeout_seconds: float = 3.0,
 ) -> str:
     """Rephrase FAQ answer with personality tone.
@@ -309,7 +309,7 @@ async def rephrase_faq_with_personality(
         faq_answer: Original FAQ answer to rephrase
         personality_type: PersonalityType enum value
         business_name: Name of the business
-        bot_name: Name of the bot (default: "Shopping Assistant")
+        bot_name: Name of the bot (default: "Mantisbot")
         timeout_seconds: Timeout for LLM call (default: 3.0)
 
     Returns:

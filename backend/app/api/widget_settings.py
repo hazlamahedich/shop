@@ -116,7 +116,7 @@ def _parse_widget_config(config: dict[str, Any] | None) -> WidgetConfig:
 
     return WidgetConfig(
         enabled=widget_data.get("enabled", True),
-        bot_name=widget_data.get("bot_name", "Shopping Assistant"),
+        bot_name=widget_data.get("bot_name", "Mantisbot"),
         welcome_message=widget_data.get(
             "welcome_message", "Hi! How can I help you today?"
         ),

@@ -71,7 +71,7 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
 
       const config: WidgetConfig = {
         enabled: data.enabled ?? true,
-        botName: data.botName ?? 'Shopping Assistant',
+        botName: data.botName ?? 'Mantisbot',
         welcomeMessage: data.welcomeMessage ?? 'Hi! How can I help you today?',
         theme: {
           ...DEFAULT_THEME,
@@ -100,7 +100,7 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>((set, get) => 
 
       const config: WidgetConfig = {
         enabled: data.enabled ?? true,
-        botName: data.botName ?? 'Shopping Assistant',
+        botName: data.botName ?? 'Mantisbot',
         welcomeMessage: data.welcomeMessage ?? 'Hi! How can I help you today?',
         theme: {
           ...DEFAULT_THEME,

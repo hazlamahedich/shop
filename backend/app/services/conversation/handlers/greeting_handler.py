@@ -59,7 +59,7 @@ class GreetingHandler(BaseHandler):
         Returns:
             ConversationResponse with greeting message and optional featured products
         """
-        bot_name = merchant.bot_name or "Shopping Assistant"
+        bot_name = merchant.bot_name or "Mantisbot"
         business_name = merchant.business_name or "our store"
         is_returning = context.is_returning_shopper
 
@@ -88,7 +88,7 @@ class GreetingHandler(BaseHandler):
                 }
             else:
                 greeting_prompts = {
-                    PersonalityType.FRIENDLY: f"Hi there! I'm {bot_name}, your shopping assistant at {business_name}. How can I help you find something great today?",
+                    PersonalityType.FRIENDLY: f"Hi there! I'm {bot_name}, your assistant at {business_name}. How can I help you find something great today?",
                     PersonalityType.PROFESSIONAL: f"Hello, I'm {bot_name} at {business_name}. I'm here to assist you with your shopping needs. How may I help you?",
                     PersonalityType.ENTHUSIASTIC: f"Hey! Welcome to {business_name}! I'm {bot_name}, and I'm SO excited to help you shop! What are you looking for today?",
                 }
