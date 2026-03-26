@@ -59,12 +59,10 @@ async def seed_merchant(
                 print(f"✓ Merchant ID {merchant_id} already exists: {existing.business_name}")
                 return existing
 
-        # Create merchant
         merchant = Merchant(
             merchant_key=f"test_{datetime.now().timestamp()}",
             business_name=business_name,
             personality=personality,
-            platform=platform,
             status="active",
             widget_config={
                 "enabled": True,
@@ -120,7 +118,7 @@ async def seed_conversations(
 
             conversation = Conversation(
                 merchant_id=merchant_id,
-                platform=merchant.platform,
+                platform="widget",
                 platform_sender_id=f"test_customer_{i}_{datetime.now().timestamp()}",
                 status=status,
                 handoff_status=handoff_status,

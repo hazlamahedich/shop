@@ -1,6 +1,5 @@
 """Tests for merchant ORM model."""
 
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +15,6 @@ class TestMerchantModel:
         """Test creating a merchant record."""
         merchant = Merchant(
             merchant_key="shop-test123",
-            platform="flyio",
             status="pending",
             config={"app_name": "shop-bot-shop-test123"},
         )
@@ -26,8 +24,8 @@ class TestMerchantModel:
 
         assert merchant.id is not None
         assert merchant.merchant_key == "shop-test123"
-        assert merchant.platform == "flyio"
         assert merchant.status == "pending"
+        assert merchant.config is not None
         assert merchant.config["app_name"] == "shop-bot-shop-test123"
 
     @pytest.mark.asyncio
@@ -35,7 +33,6 @@ class TestMerchantModel:
         """Test merchant model default values."""
         merchant = Merchant(
             merchant_key="shop-defaults",
-            platform="railway",
         )
         async_session.add(merchant)
         await async_session.commit()
@@ -52,17 +49,15 @@ class TestMerchantModel:
         """Test that merchant_key must be unique."""
         merchant1 = Merchant(
             merchant_key="shop-unique",
-            platform="flyio",
         )
         merchant2 = Merchant(
-            merchant_key="shop-unique",  # Same key
-            platform="railway",
+            merchant_key="shop-unique",
         )
         async_session.add(merchant1)
         await async_session.commit()
 
         async_session.add(merchant2)
-        with pytest.raises(Exception):  # IntegrityError expected
+        with pytest.raises(Exception):
             await async_session.commit()
 
     @pytest.mark.asyncio
@@ -70,13 +65,11 @@ class TestMerchantModel:
         """Test that updated_at auto-updates on save."""
         merchant = Merchant(
             merchant_key="shop-updated",
-            platform="render",
         )
         async_session.add(merchant)
         await async_session.commit()
         original_updated_at = merchant.updated_at
 
-        # Make a change
         merchant.status = "active"
         await async_session.commit()
         await async_session.refresh(merchant)
@@ -88,7 +81,6 @@ class TestMerchantModel:
         """Test querying merchant by merchant_key."""
         merchant = Merchant(
             merchant_key="shop-findme",
-            platform="flyio",
         )
         async_session.add(merchant)
         await async_session.commit()

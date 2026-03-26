@@ -32,7 +32,6 @@ async def test_merchant(db_session: AsyncSession):
         merchant_key=f"test_integration_{datetime.now().timestamp()}",
         business_name="Integration Test Shop",
         personality=PersonalityType.FRIENDLY,
-        platform="widget",
         use_custom_greeting=False,
     )
     db_session.add(merchant)
@@ -248,7 +247,6 @@ async def test_different_personality_tones(
             merchant_key=f"test_{personality.value}_{datetime.now().timestamp()}",
             business_name="Integration Test Shop",
             personality=personality,
-            platform="widget",
             use_custom_greeting=False,
         )
         db_session.add(test_merchant)

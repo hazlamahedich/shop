@@ -183,9 +183,7 @@ async def _run_deployment_script(
         # Deployment timeout: 15 minutes (900 seconds) per AC requirement
         DEPLOYMENT_TIMEOUT_SECONDS = 900
 
-        async def log_message(
-            level: LogLevel, step: DeploymentStep | None, message: str
-        ) -> None:
+        async def log_message(level: LogLevel, step: DeploymentStep | None, message: str) -> None:
             """Add a log entry to database."""
             log_entry = DeploymentLogModel(
                 deployment_id=deployment_id,
@@ -384,7 +382,6 @@ async def start_deployment(
     merchant = await DeploymentService.create_merchant(
         db=db,
         merchant_key=merchant_key,
-        platform=start_request.platform.value,
         secret_key_hash=secret_key_hash,
     )
 
@@ -412,7 +409,6 @@ async def start_deployment(
     asyncio.create_task(
         _run_deployment_script(
             deployment_id=deployment_id,
-            platform=start_request.platform,
             merchant_key=merchant_key,
             secret_key=secret_key,
             merchant_id=merchant.id,
@@ -533,7 +529,6 @@ async def get_deployment_status(
         deployment_id=deployment_id,
         merchant_key=merchant.merchant_key,
         status=deployment_status,
-        platform=Platform(merchant.platform),
         current_step=current_step,
         progress=progress,
         logs=deployment_logs,
@@ -652,7 +647,6 @@ async def stream_deployment_progress(
                 deployment_id=deployment_id,
                 merchant_key=merchant.merchant_key,
                 status=deployment_status,
-                platform=Platform(merchant.platform),
                 current_step=current_step,
                 progress=progress,
                 logs=deployment_logs,

@@ -31,18 +31,19 @@ class DeploymentService:
         """
         max_attempts = 10
         for _ in range(max_attempts):
-            suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+            suffix = "".join(
+                secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8)
+            )
             merchant_key = f"shop-{suffix}"
 
             # Check if key already exists
-            result = await db.execute(
-                select(Merchant).where(Merchant.merchant_key == merchant_key)
-            )
+            result = await db.execute(select(Merchant).where(Merchant.merchant_key == merchant_key))
             if result.scalars().first() is None:
                 return merchant_key
 
         # Fallback: use timestamp to ensure uniqueness
         import time
+
         return f"shop-{secrets.token_hex(4)}-{int(time.time())}"
 
     @staticmethod
@@ -58,7 +59,6 @@ class DeploymentService:
     async def create_merchant(
         db: AsyncSession,
         merchant_key: str,
-        platform: str,
         secret_key_hash: str | None = None,
     ) -> Merchant:
         """Create a new merchant record.
@@ -66,7 +66,6 @@ class DeploymentService:
         Args:
             db: Database session
             merchant_key: Unique merchant key
-            platform: Deployment platform (flyio, railway, render)
             secret_key_hash: Hashed SECRET_KEY (optional)
 
         Returns:
@@ -74,7 +73,6 @@ class DeploymentService:
         """
         merchant = Merchant(
             merchant_key=merchant_key,
-            platform=platform,
             status="pending",
             secret_key_hash=secret_key_hash,
             config={"app_name": f"shop-bot-{merchant_key}"},
@@ -114,7 +112,9 @@ class DeploymentService:
         # Validate all values are booleans
         for key, value in prerequisites.items():
             if not isinstance(value, bool):
-                raise ValueError(f"Prerequisite '{key}' must be boolean, got {type(value).__name__}")
+                raise ValueError(
+                    f"Prerequisite '{key}' must be boolean, got {type(value).__name__}"
+                )
 
         checklist = PrerequisiteChecklist(
             merchant_id=merchant_id,
@@ -140,9 +140,7 @@ class DeploymentService:
         Returns:
             Merchant instance or None if not found
         """
-        result = await db.execute(
-            select(Merchant).where(Merchant.merchant_key == merchant_key)
-        )
+        result = await db.execute(select(Merchant).where(Merchant.merchant_key == merchant_key))
         return result.scalars().first()
 
     @staticmethod
