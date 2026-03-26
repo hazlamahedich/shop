@@ -123,10 +123,22 @@ def mock_rag_builder():
     return AsyncMock(spec=RAGContextBuilder)
 
 
-def _setup_service_mocks(stack: ExitStack, merchant: MagicMock, intent_value: str = "general"):
+def _setup_service_mocks(
+    stack: ExitStack,
+    merchant: MagicMock,
+    intent_value: str = "general",
+    skip_classification: bool = False,
+):
     """Set up common service mocks using ExitStack.
 
-    Returns the service instance and mock_classify for customization.
+    Args:
+        stack: ExitStack for context management
+        merchant: Mock merchant object
+        intent_value: Intent value for classification mock (only used if skip_classification=False)
+        skip_classification: If True, don't mock _classify_intent (for general mode)
+
+    Returns:
+        mock_classify or None
     """
     stack.enter_context(
         patch.object(UnifiedConversationService, "_load_merchant", return_value=merchant)
@@ -144,14 +156,16 @@ def _setup_service_mocks(stack: ExitStack, merchant: MagicMock, intent_value: st
     )
     stack.enter_context(patch.object(UnifiedConversationService, "_get_merchant_llm"))
 
-    mock_classify = stack.enter_context(
-        patch.object(UnifiedConversationService, "_classify_intent")
-    )
-    mock_classify.return_value = MagicMock(
-        intent=MagicMock(value=intent_value),
-        confidence=0.9,
-        entities=None,
-    )
+    mock_classify = None
+    if not skip_classification:
+        mock_classify = stack.enter_context(
+            patch.object(UnifiedConversationService, "_classify_intent")
+        )
+        mock_classify.return_value = MagicMock(
+            intent=MagicMock(value=intent_value),
+            confidence=0.9,
+            entities=None,
+        )
 
     return mock_classify
 
@@ -175,8 +189,20 @@ class TestRAGIntegration:
         Priority: P0 (Critical - AC1 validation)
         AC Coverage: AC1 (RAG context retrieved and included)
         """
-        mock_rag_builder.build_rag_context.return_value = (
-            'From "Product Manual.pdf":\n- Product X has a battery life of 10 hours.'
+        mock_rag_builder.build_rag_context_with_chunks.return_value = (
+            'From "Product Manual.pdf":\n- Product X has a battery life of 10 hours.',
+            [],
+            [RetrievedChunk(
+                chunk_id=1,
+                content="Product X has a battery life of 10 hours.",
+                chunk_index=0,
+                document_name="Product Manual.pdf",
+                document_id=1,
+                similarity=0.95
+            ]
+        ]
+        )
+            ],
         )
 
         with ExitStack() as stack:
@@ -229,9 +255,27 @@ class TestRAGIntegration:
         conversation_context.merchant_id = ecommerce_mode_merchant.id
 
         with ExitStack() as stack:
-            _setup_service_mocks(stack, ecommerce_mode_merchant)
+            # General mode should skip classification
+            _setup_service_mocks(stack, general_mode_merchant, skip_classification=True)
             service = UnifiedConversationService(rag_context_builder=mock_rag_builder)
-
+            stack.enter_context(
+                patch.object(
+                    service._handlers["llm"],
+                    "handle",
+                    return_value=ConversationResponse(
+                        message="Test response", intent="general", confidence=1.0
+                    ),
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    service._handlers["llm"],
+                    "handle",
+                    return_value=ConversationResponse(
+                        message="Test response", intent="general", confidence=1.0
+                    ),
+                )
+            )
             stack.enter_context(
                 patch.object(
                     service._handlers["llm"],

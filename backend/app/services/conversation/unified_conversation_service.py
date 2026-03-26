@@ -300,55 +300,77 @@ class UnifiedConversationService:
             if response is None:
                 llm_service = await self._get_merchant_llm(merchant, db, context)
 
-                classification = await self._classify_intent(
-                    llm_service=llm_service,
-                    message=message,
-                    context=context,
-                )
+                # Skip intent classification in general mode - go straight to LLM handler
+                # General mode doesn't need e-commerce intent routing
+                if merchant.onboarding_mode == "general":
+                    self.logger.info(
+                        "general_mode_skipping_classification",
+                        merchant_id=merchant.id,
+                        channel=context.channel,
+                    )
+                    handler = self._handlers["llm"]
+                    response = await handler.handle(
+                        db=db,
+                        merchant=merchant,
+                        llm_service=llm_service,
+                        message=message,
+                        context=context,
+                        entities=None,
+                    )
+                    intent_name = "general"
+                    confidence = 1.0
+                else:
+                    classification = await self._classify_intent(
+                        llm_service=llm_service,
+                        message=message,
+                        context=context,
+                    )
 
-                intent_name = classification.intent.value if classification.intent else "unknown"
-                confidence = classification.confidence
+                    intent_name = (
+                        classification.intent.value if classification.intent else "unknown"
+                    )
+                    confidence = classification.confidence
 
-                self.logger.info(
-                    "unified_conversation_classified",
-                    merchant_id=merchant.id,
-                    channel=context.channel,
-                    intent=intent_name,
-                    confidence=confidence,
-                )
+                    self.logger.info(
+                        "unified_conversation_classified",
+                        merchant_id=merchant.id,
+                        channel=context.channel,
+                        intent=intent_name,
+                        confidence=confidence,
+                    )
 
-                # GAP-1: Check for handoff triggers (low confidence + clarification loop)
-                handoff_response = await self._check_handoff(
-                    db=db,
-                    context=context,
-                    merchant=merchant,
-                    message=message,
-                    confidence=confidence,
-                    intent_name=intent_name,
-                )
-                if handoff_response:
-                    response = handoff_response
-                    intent_name = response.intent or "human_handoff"
-                    confidence = response.confidence or 1.0
+                    # GAP-1: Check for handoff triggers (low confidence + clarification loop)
+                    handoff_response = await self._check_handoff(
+                        db=db,
+                        context=context,
+                        merchant=merchant,
+                        message=message,
+                        confidence=confidence,
+                        intent_name=intent_name,
+                    )
+                    if handoff_response:
+                        response = handoff_response
+                        intent_name = response.intent or "human_handoff"
+                        confidence = response.confidence or 1.0
 
-                if response is None:
-                    if confidence < self.INTENT_CONFIDENCE_THRESHOLD:
-                        self.logger.debug(
-                            "unified_conversation_low_confidence_fallback",
-                            merchant_id=merchant.id,
-                            confidence=confidence,
-                            threshold=self.INTENT_CONFIDENCE_THRESHOLD,
-                        )
-                        handler = self._handlers["llm"]
-                        entities = None
-                        response = await handler.handle(
-                            db=db,
-                            merchant=merchant,
-                            llm_service=llm_service,
-                            message=message,
-                            context=context,
-                            entities=entities,
-                        )
+                    if response is None:
+                        if confidence < self.INTENT_CONFIDENCE_THRESHOLD:
+                            self.logger.debug(
+                                "unified_conversation_low_confidence_fallback",
+                                merchant_id=merchant.id,
+                                confidence=confidence,
+                                threshold=self.INTENT_CONFIDENCE_THRESHOLD,
+                            )
+                            handler = self._handlers["llm"]
+                            entities = None
+                            response = await handler.handle(
+                                db=db,
+                                merchant=merchant,
+                                llm_service=llm_service,
+                                message=message,
+                                context=context,
+                                entities=entities,
+                            )
                     else:
                         # Story 8-5: Check for e-commerce intent in General mode
                         if (
