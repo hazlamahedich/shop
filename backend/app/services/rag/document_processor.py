@@ -150,8 +150,11 @@ class DocumentProcessor:
             embedding_dimension = embedding_result.dimension
             await self._store_chunks(document_id, chunks, embeddings, embedding_dimension)
 
-            # Step 7: Update status to 'ready'
-            await self._update_status(document_id, DocumentStatus.READY.value)
+            # Step 7: Update status to 'ready' and set embedding version
+            embedding_version = f"{embedding_result.provider}-{embedding_result.model}"
+            await self._update_status(
+                document_id, DocumentStatus.READY.value, embedding_version=embedding_version
+            )
 
             # Calculate processing time
             duration_ms = int((time.time() - start_time) * 1000)
@@ -190,12 +193,16 @@ class DocumentProcessor:
         )
         return result.scalar_one_or_none()
 
-    async def _update_status(self, document_id: int, status: str) -> None:
-        """Update document status."""
+    async def _update_status(
+        self, document_id: int, status: str, embedding_version: str | None = None
+    ) -> None:
+        """Update document status and optionally embedding_version."""
+        values = {"status": status}
+        if embedding_version:
+            values["embedding_version"] = embedding_version
+
         await self.db.execute(
-            update(KnowledgeDocument)
-            .where(KnowledgeDocument.id == document_id)
-            .values(status=status)
+            update(KnowledgeDocument).where(KnowledgeDocument.id == document_id).values(**values)
         )
         await self.db.commit()
 
