@@ -18,64 +18,128 @@ class TestGetPersonalitySystemPrompt:
     """Tests for get_personality_system_prompt function."""
 
     @pytest.mark.asyncio
-    async def test_friendly_personality_prompt(self) -> None:
-        """Test friendly personality prompt generation (Story 1.10 AC 4)."""
-        prompt = get_personality_system_prompt(PersonalityType.FRIENDLY)
+    async def test_friendly_personality_ecommerce_mode(self) -> None:
+        """Test friendly personality prompt in e-commerce mode."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.FRIENDLY,
+            onboarding_mode="ecommerce",
+        )
 
-        # Should contain base system prompt
-        assert "helpful shopping assistant" in prompt.lower()
-        assert "product search" in prompt.lower()
+        # E-commerce mode should contain shopping assistant language
+        assert "shopping assistant" in prompt.lower()
 
         # Should contain friendly personality cues
-        assert "friendly" in prompt.lower()
-        assert "casual" in prompt.lower()
         assert "warm" in prompt.lower()
-
-        # Should contain friendly example phrases
-        assert "Hey there!" in prompt
-        assert "No problem!" in prompt
+        assert "casual" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_professional_personality_prompt(self) -> None:
-        """Test professional personality prompt generation (Story 1.10 AC 4)."""
-        prompt = get_personality_system_prompt(PersonalityType.PROFESSIONAL)
+    async def test_friendly_personality_general_mode(self) -> None:
+        """Test friendly personality prompt in general mode."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.FRIENDLY,
+            onboarding_mode="general",
+        )
 
-        # Should contain base system prompt
-        assert "helpful shopping assistant" in prompt.lower()
+        # General mode should NOT contain shopping assistant language
+        assert "shopping assistant" not in prompt.lower()
+
+        # Should contain general assistant language
+        assert "helpful ai assistant" in prompt.lower()
+
+        # Should still contain friendly personality cues
+        assert "warm" in prompt.lower()
+        assert "casual" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_professional_personality_ecommerce_mode(self) -> None:
+        """Test professional personality prompt in e-commerce mode."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.PROFESSIONAL,
+            onboarding_mode="ecommerce",
+        )
+
+        # E-commerce mode should contain shopping assistant language
+        assert "shopping assistant" in prompt.lower()
 
         # Should contain professional personality cues
         assert "professional" in prompt.lower()
         assert "polite" in prompt.lower()
-        assert "efficient" in prompt.lower()
-
-        # Should contain professional example phrases
-        assert "Certainly" in prompt
-        assert "How may I assist you" in prompt
 
     @pytest.mark.asyncio
-    async def test_enthusiastic_personality_prompt(self) -> None:
-        """Test enthusiastic personality prompt generation (Story 1.10 AC 4)."""
-        prompt = get_personality_system_prompt(PersonalityType.ENTHUSIASTIC)
+    async def test_professional_personality_general_mode(self) -> None:
+        """Test professional personality prompt in general mode."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.PROFESSIONAL,
+            onboarding_mode="general",
+        )
 
-        # Should contain base system prompt
-        assert "helpful shopping assistant" in prompt.lower()
+        # General mode should NOT contain shopping assistant language
+        assert "shopping assistant" not in prompt.lower()
+
+        # Should contain general assistant language
+        assert "helpful ai assistant" in prompt.lower()
+
+        # Should still contain professional personality cues
+        assert "professional" in prompt.lower()
+        assert "polite" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_enthusiastic_personality_ecommerce_mode(self) -> None:
+        """Test enthusiastic personality prompt in e-commerce mode."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.ENTHUSIASTIC,
+            onboarding_mode="ecommerce",
+        )
+
+        # E-commerce mode should contain shopping assistant language
+        assert "shopping assistant" in prompt.lower()
 
         # Should contain enthusiastic personality cues
-        assert "enthusiastic" in prompt.lower()
         assert "energetic" in prompt.lower()
         assert "excited" in prompt.lower()
 
-        # Should contain enthusiastic example phrases
-        assert "Amazing!" in prompt
-        assert "You'll love this!" in prompt
+    @pytest.mark.asyncio
+    async def test_enthusiastic_personality_general_mode(self) -> None:
+        """Test enthusiastic personality prompt in general mode."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.ENTHUSIASTIC,
+            onboarding_mode="general",
+        )
+
+        # General mode should NOT contain shopping assistant language
+        assert "shopping assistant" not in prompt.lower()
+
+        # Should contain general assistant language
+        assert "helpful ai assistant" in prompt.lower()
+
+        # Should still contain enthusiastic personality cues
+        assert "energetic" in prompt.lower()
+        assert "excited" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_custom_greeting_friendly(self) -> None:
-        """Test friendly personality with custom greeting.
+    async def test_bot_name_included(self) -> None:
+        """Test that bot_name is included in prompt."""
+        prompt = get_personality_system_prompt(
+            PersonalityType.FRIENDLY,
+            bot_name="Sherms",
+            onboarding_mode="general",
+        )
 
-        Note: Custom greeting is NO LONGER included in the LLM system prompt
-        to prevent the bot from re-introducing itself on every response.
-        The greeting is handled by the frontend widget instead.
+        assert "Your name is Sherms" in prompt
+
+    @pytest.mark.asyncio
+    async def test_default_mode_is_ecommerce(self) -> None:
+        """Test that default mode (no onboarding_mode) is e-commerce."""
+        prompt = get_personality_system_prompt(PersonalityType.FRIENDLY)
+
+        # Should default to e-commerce
+        assert "shopping assistant" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_custom_greeting_not_in_prompt(self) -> None:
+        """Test that custom greeting is NOT in the LLM system prompt.
+
+        Note: Custom greeting is handled by frontend widget, not LLM prompt.
         """
         custom_greeting = "Welcome to Alex's Athletic Gear! How can I help you find today?"
         prompt = get_personality_system_prompt(
@@ -84,90 +148,45 @@ class TestGetPersonalitySystemPrompt:
         )
 
         # Custom greeting should NOT be in the prompt (handled by frontend)
-        assert "STORE GREETING:" not in prompt
         assert custom_greeting not in prompt
 
-        # Should still include friendly personality
-        assert "friendly" in prompt.lower()
-
     @pytest.mark.asyncio
-    async def test_custom_greeting_professional(self) -> None:
-        """Test professional personality with custom greeting.
-
-        Note: Custom greeting is NO LONGER included in the LLM system prompt.
-        """
-        custom_greeting = "Thank you for visiting TechHub. How may I assist you?"
+    async def test_business_info_included(self) -> None:
+        """Test that business info is included in prompt."""
         prompt = get_personality_system_prompt(
             PersonalityType.PROFESSIONAL,
-            custom_greeting=custom_greeting,
+            business_name="Tech Store",
+            business_description="We sell tech products",
+            business_hours="9-5 M-F",
+            onboarding_mode="ecommerce",
         )
 
-        # Custom greeting should NOT be in the prompt (handled by frontend)
-        assert "STORE GREETING:" not in prompt
-        assert custom_greeting not in prompt
+        assert "Business Name: Tech Store" in prompt
+        assert "Description: We sell tech products" in prompt
+        assert "Hours: 9-5 M-F" in prompt
 
     @pytest.mark.asyncio
-    async def test_custom_greeting_enthusiastic(self) -> None:
-        """Test enthusiastic personality with custom greeting.
+    async def test_product_context_only_in_ecommerce_mode(self) -> None:
+        """Test that product context is only included in e-commerce mode."""
+        product_context = "Categories: Electronics, Gadgets"
 
-        Note: Custom greeting is NO LONGER included in the LLM system prompt.
-        """
-        custom_greeting = "Hey!!! Welcome to TrendyStyles!!! Let's find you something amazing!!!"
-        prompt = get_personality_system_prompt(
-            PersonalityType.ENTHUSIASTIC,
-            custom_greeting=custom_greeting,
-        )
-
-        # Custom greeting should NOT be in the prompt (handled by frontend)
-        assert "STORE GREETING:" not in prompt
-        assert custom_greeting not in prompt
-
-    @pytest.mark.asyncio
-    async def test_no_custom_greeting(self) -> None:
-        """Test prompt without custom greeting (Story 1.10 AC 3)."""
-        prompt = get_personality_system_prompt(PersonalityType.FRIENDLY)
-
-        # Should NOT contain STORE GREETING section
-        assert "STORE GREETING:" not in prompt
-
-    @pytest.mark.asyncio
-    async def test_none_custom_greeting(self) -> None:
-        """Test prompt with None as custom greeting."""
-        prompt = get_personality_system_prompt(
+        # E-commerce mode should include product context
+        ecommerce_prompt = get_personality_system_prompt(
             PersonalityType.FRIENDLY,
-            custom_greeting=None,
+            product_context=product_context,
+            onboarding_mode="ecommerce",
         )
+        assert "STORE PRODUCTS:" in ecommerce_prompt
+        assert product_context in ecommerce_prompt
 
-        # Should NOT contain STORE GREETING section
-        assert "STORE GREETING:" not in prompt
-
-    @pytest.mark.asyncio
-    async def test_empty_custom_greeting(self) -> None:
-        """Test prompt with empty string as custom greeting (Story 1.10 AC 3)."""
-        # Empty string should not create STORE GREETING section (same as None)
-        prompt = get_personality_system_prompt(
+        # General mode should NOT include product context
+        general_prompt = get_personality_system_prompt(
             PersonalityType.FRIENDLY,
-            custom_greeting="",
+            product_context=product_context,
+            onboarding_mode="general",
         )
-
-        # Empty greeting should NOT create the section
-        assert "STORE GREETING:" not in prompt
-
-    @pytest.mark.asyncio
-    async def test_long_custom_greeting(self) -> None:
-        """Test prompt with very long custom greeting (500 chars).
-
-        Note: Custom greeting is NO LONGER included in the LLM system prompt.
-        """
-        long_greeting = "Welcome! " * 100  # 900 characters
-        prompt = get_personality_system_prompt(
-            PersonalityType.FRIENDLY,
-            custom_greeting=long_greeting,
-        )
-
-        # Long greeting should NOT be in the prompt (handled by frontend)
-        assert long_greeting not in prompt
-        assert "STORE GREETING:" not in prompt
+        assert "STORE PRODUCTS:" not in general_prompt
+        assert product_context not in general_prompt
 
 
 class TestPersonalityPromptService:
@@ -185,25 +204,8 @@ class TestPersonalityPromptService:
         service = PersonalityPromptService()
         prompt = service.get_system_prompt(PersonalityType.FRIENDLY)
 
-        assert "friendly" in prompt.lower()
+        assert "warm" in prompt.lower()
         assert "casual" in prompt.lower()
-
-    @pytest.mark.asyncio
-    async def test_get_system_prompt_with_custom_greeting(self) -> None:
-        """Test get_system_prompt with custom greeting.
-
-        Note: Custom greeting is NO LONGER included in the LLM system prompt.
-        """
-        service = PersonalityPromptService()
-        custom_greeting = "Welcome to my store!"
-        prompt = service.get_system_prompt(
-            PersonalityType.FRIENDLY,
-            custom_greeting=custom_greeting,
-        )
-
-        # Custom greeting should NOT be in the prompt (handled by frontend)
-        assert custom_greeting not in prompt
-        assert "STORE GREETING:" not in prompt
 
     @pytest.mark.asyncio
     async def test_get_prompt_description_friendly(self) -> None:

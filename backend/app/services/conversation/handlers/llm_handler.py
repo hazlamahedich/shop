@@ -386,6 +386,7 @@ class LLMHandler(BaseHandler):
             product_context,
             order_context,
             pending_state,
+            merchant.onboarding_mode,
         )
 
         return personality_prompt
