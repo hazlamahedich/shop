@@ -400,7 +400,6 @@ async def register(
 
     merchant = Merchant(
         merchant_key=merchant_key,
-        platform="shopify",
         status="active",
         email=credentials.email,
         password_hash=password_hash,

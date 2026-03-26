@@ -61,9 +61,10 @@ async def reembed_all_documents(merchant_id: int) -> None:
             # Determine embedding provider from LLM config (Story 8-11)
             # Default to LLM provider if embedding provider not explicitly configured
             llm_config = merchant.llm_configuration
-            llm_provider = llm_config.provider if llm_config else "openai"
-
-            # Decrypt API key if present
+            if llm_config:
+                llm_provider = llm_config.provider if llm_config else "openai"
+            else:
+                llm_provider = "ollama"  # Decrypt API key if present
             api_key = None
             if llm_config and llm_config.api_key_encrypted:
                 from app.core.security import decrypt_access_token

@@ -88,19 +88,6 @@ class DeploymentState(BaseSchema):
     logs: list[DeploymentLogEntry] = Field(default_factory=list, description="Deployment logs")
     error_message: str | None = Field(None, description="Error message if deployment failed")
     troubleshooting_url: str | None = Field(
-        None, description="Troubleshooting URL if deployment failed")
-    )
-    created_at: datetime = Field(description="Deployment creation timestamp")
-    updated_at: datetime = Field(description="Last update timestamp")
-
-    deployment_id: str = Field(description="Unique deployment identifier")
-    merchant_key: str = Field(description="Unique merchant key")
-    status: DeploymentStatus = Field(description="Current deployment status")
-    current_step: DeploymentStep | None = Field(None, description="Current deployment step")
-    progress: int = Field(default=0, ge=0, le=100, description="Progress percentage (0-100)")
-    logs: list[DeploymentLogEntry] = Field(default_factory=list, description="Deployment logs")
-    error_message: str | None = Field(None, description="Error message if deployment failed")
-    troubleshooting_url: str | None = Field(
         None, description="Troubleshooting URL if deployment failed"
     )
     created_at: datetime = Field(description="Deployment creation timestamp")

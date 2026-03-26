@@ -739,37 +739,38 @@ class UnifiedConversationService:
 
         llm_config = merchant.llm_configuration
 
-        provider_name = llm_config.provider or "ollama"
-        model = llm_config.ollama_model or llm_config.cloud_model
+        if llm_config:
+            provider_name = llm_config.provider or "ollama"
+            model = llm_config.ollama_model or llm_config.cloud_model
 
-        config = {"model": model}
-        if provider_name == "ollama":
-            config["ollama_url"] = llm_config.ollama_url
-        else:
-            if llm_config.api_key_encrypted:
-                from app.core.security import decrypt_access_token
+            config = {"model": model}
+            if provider_name == "ollama":
+                config["ollama_url"] = llm_config.ollama_url
+            else:
+                if llm_config.api_key_encrypted:
+                    from app.core.security import decrypt_access_token
 
-                config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
+                    config["api_key"] = decrypt_access_token(llm_config.api_key_encrypted)
 
-        try:
-            llm_service = LLMProviderFactory.create_provider(
-                provider_name=provider_name,
-                config=config,
-            )
-            return BudgetAwareLLMWrapper(
-                llm_service=llm_service,
-                db=db,
-                merchant_id=merchant.id,
-                conversation_id=context.session_id if context else None,
-                track_costs=self.track_costs,
-                redis_client=None,
-            )
-        except Exception as e:
-            self.logger.warning(
-                "merchant_llm_config_failed",
-                merchant_id=merchant.id,
-                error=str(e),
-            )
+            try:
+                llm_service = LLMProviderFactory.create_provider(
+                    provider_name=provider_name,
+                    config=config,
+                )
+                return BudgetAwareLLMWrapper(
+                    llm_service=llm_service,
+                    db=db,
+                    merchant_id=merchant.id,
+                    conversation_id=context.session_id if context else None,
+                    track_costs=self.track_costs,
+                    redis_client=None,
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "merchant_llm_config_failed",
+                    merchant_id=merchant.id,
+                    error=str(e),
+                )
 
         if base_llm is None:
             base_llm = LLMProviderFactory.create_provider(

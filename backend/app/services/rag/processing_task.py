@@ -120,19 +120,12 @@ async def process_document_background(document_id: int, merchant_id: int) -> Pro
     async with async_session() as db:
         try:
             # Get merchant and their LLM config
-            result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
-            merchant = result.scalar_one_or_none()
-            if not merchant:
-                raise APIError(ErrorCode.MERCHANT_NOT_FOUND, f"Merchant {merchant_id} not found")
-
             merchant_config = await get_merchant_llm_config(db, merchant_id)
 
             # Initialize embedding service using merchant's embedding settings (Story 8-11)
             # Default embedding provider to LLM provider if not explicitly configured
-            llm_provider = merchant_config.llm_provider
-
-            # Initialize api_key from merchant config (will be overridden for specific cases)
-            api_key = merchant_config.llm_api_key
+            llm_provider = merchant_config.llm_provider if merchant_config else "ollama"
+            api_key = merchant_config.llm_api_key if merchant_config else None
 
             # Use LLM provider for embeddings (same API key works for both)
             if llm_provider == "gemini":
