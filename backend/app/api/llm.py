@@ -113,7 +113,6 @@ def _get_merchant_id_from_request(request: Request) -> int:
     )
 
 
-
 async def sync_merchant_embedding_settings(
     db: AsyncSession, merchant_id: int, provider: str, ollama_model: str | None = None
 ) -> None:
@@ -132,7 +131,7 @@ async def sync_merchant_embedding_settings(
     if provider == "gemini":
         merchant.embedding_provider = "gemini"
         merchant.embedding_model = "gemini-embedding-001"
-        merchant.embedding_dimension = 768
+        merchant.embedding_dimension = 3072
     elif provider == "openai":
         merchant.embedding_provider = "openai"
         merchant.embedding_model = "text-embedding-3-small"
@@ -258,9 +257,7 @@ async def configure_llm(
     db.add(llm_config)
 
     # Sync embedding settings with the new provider
-    await sync_merchant_embedding_settings(
-        db, merchant_id, request_obj.provider, ollama_model
-    )
+    await sync_merchant_embedding_settings(db, merchant_id, request_obj.provider, ollama_model)
 
     await db.commit()
     await db.refresh(llm_config)
@@ -858,10 +855,7 @@ async def switch_llm_provider(
 
         # Sync embedding settings with the new provider
         await sync_merchant_embedding_settings(
-            db,
-            merchant_id,
-            request_obj.provider_id,
-            request_obj.model
+            db, merchant_id, request_obj.provider_id, request_obj.model
         )
 
         return {

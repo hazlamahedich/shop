@@ -24,7 +24,8 @@ async def test_sync_merchant_embedding_settings_gemini():
     # Verify updates
     assert merchant.embedding_provider == "gemini"
     assert merchant.embedding_model == "gemini-embedding-001"
-    assert merchant.embedding_dimension == 768
+    assert merchant.embedding_dimension == 3072
+
 
 @pytest.mark.asyncio
 async def test_sync_merchant_embedding_settings_openai():
@@ -44,6 +45,7 @@ async def test_sync_merchant_embedding_settings_openai():
     assert merchant.embedding_provider == "openai"
     assert merchant.embedding_model == "text-embedding-3-small"
     assert merchant.embedding_dimension == 1536
+
 
 @pytest.mark.asyncio
 async def test_sync_merchant_embedding_settings_ollama():
