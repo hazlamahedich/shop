@@ -95,7 +95,7 @@ class TestWidgetConfig:
         config = WidgetConfig()
 
         assert config.enabled is True
-        assert config.bot_name == "Shopping Assistant"
+        assert config.bot_name == "Mantisbot"
         assert config.welcome_message == "Hi! How can I help you today?"
         assert config.theme.primary_color == "#6366f1"
         assert config.allowed_domains == []

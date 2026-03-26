@@ -15,7 +15,14 @@ const ThumbsUpIcon: React.FC<{ className?: string }> = ({ className }) => (
     className={className || 'feedback-button-icon'}
     aria-hidden="true"
   >
-    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    <path
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
+    />
   </svg>
 );
 
@@ -25,7 +32,14 @@ const ThumbsDownIcon: React.FC<{ className?: string }> = ({ className }) => (
     className={className || 'feedback-button-icon'}
     aria-hidden="true"
   >
-    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+    <path
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"
+    />
   </svg>
 );
 
@@ -110,48 +124,44 @@ export function FeedbackRating({
     return null;
   }
 
-  const isDarkMode = theme.mode === 'dark';
+   const isDarkMode = theme.mode === 'dark';
 
-  return (
-    <div
-      data-testid="feedback-rating"
-      role="group"
-      aria-label="Rate this response"
-      className={`feedback-rating${isDarkMode ? ' feedback-rating--dark' : ''}`}
-    >
-      <button
-        data-testid="feedback-up"
-        type="button"
-        role="button"
-        aria-label="Rate as helpful"
-        aria-pressed={rating === 'positive'}
-        disabled={isSubmitting}
-        onClick={() => handleRatingClick('positive')}
-        onKeyDown={(e) => handleKeyDown(e, 'positive')}
-        className={`feedback-button${rating === 'positive' ? ' feedback-button--selected' : ''}`}
-        style={{
-          backgroundColor: rating === 'positive' ? theme.primaryColor : 'transparent',
-        }}
-      >
-        <ThumbsUpIcon />
-      </button>
+   return (
+     <div
+       data-testid="feedback-rating"
+       role="group"
+       aria-label="Rate this response"
+       className={`feedback-rating${isDarkMode ? ' feedback-rating--dark' : ''}`}
+     >
+       <button
+         data-testid="feedback-up"
+         type="button"
+         role="button"
+         aria-label="Rate as helpful"
+         aria-pressed={rating === 'positive'}
+         disabled={isSubmitting}
+         onClick={() => handleRatingClick('positive')}
+         onKeyDown={(e) => handleKeyDown(e, 'positive')}
+         className={`feedback-button${rating === 'positive' ? ' feedback-button--selected' : ''}`}
+         style={rating === 'positive' ? { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor } : {}}
+       >
+         <ThumbsUpIcon className="feedback-button-icon" />
+       </button>
 
-      <button
-        data-testid="feedback-down"
-        type="button"
-        role="button"
-        aria-label="Rate as not helpful"
-        aria-pressed={rating === 'negative'}
-        disabled={isSubmitting}
-        onClick={() => handleRatingClick('negative')}
-        onKeyDown={(e) => handleKeyDown(e, 'negative')}
-        className={`feedback-button${rating === 'negative' ? ' feedback-button--selected' : ''}`}
-        style={{
-          backgroundColor: rating === 'negative' ? theme.primaryColor : 'transparent',
-        }}
-      >
-        <ThumbsDownIcon />
-      </button>
+       <button
+         data-testid="feedback-down"
+         type="button"
+         role="button"
+         aria-label="Rate as not helpful"
+         aria-pressed={rating === 'negative'}
+         disabled={isSubmitting}
+         onClick={() => handleRatingClick('negative')}
+         onKeyDown={(e) => handleKeyDown(e, 'negative')}
+         className={`feedback-button${rating === 'negative' ? ' feedback-button--selected' : ''}`}
+         style={rating === 'negative' ? { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor } : {}}
+       >
+         <ThumbsDownIcon className="feedback-button-icon" />
+       </button>
 
       {showCommentForm && (
         <div

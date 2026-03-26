@@ -195,7 +195,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Log but don't fail startup if polling scheduler fails
         import structlog
 
-        structlog.get_logger().warning("polling_scheduler_startup_failed", error=str(e))
+        logger = structlog.get_logger()
+        logger.warning("polling_scheduler_startup_failed", error=str(e))
 
     yield
     # Shutdown
@@ -207,8 +208,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         import structlog
 
-        structlog.get_logger().warning("polling_scheduler_shutdown_failed", error=str(e))
-
+        logger = structlog.get_logger()
+        logger.warning("polling_scheduler_shutdown_failed", error=str(e))
     await shutdown_widget_cleanup_scheduler()  # Story 5-2: Shutdown widget cleanup scheduler
     shutdown_scheduler()  # Story 2-7: Shutdown scheduler gracefully
     await close_db()

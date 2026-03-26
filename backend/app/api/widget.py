@@ -556,6 +556,8 @@ async def send_widget_message(
         message_length=len(sanitized_message),
     )
 
+    feedback_enabled = widget_config.get("feedback_enabled", True)
+
     return WidgetMessageEnvelope(
         data=WidgetMessageResponse(
             message_id=response["message_id"],
@@ -568,6 +570,8 @@ async def send_widget_message(
             quick_replies=response.get("quick_replies"),
             sources=response.get("sources"),
             suggested_replies=response.get("suggested_replies"),
+            feedback_enabled=feedback_enabled,
+            user_rating=response.get("user_rating"),
             contact_options=response.get("contact_options"),
             customer_name=response.get("customer_name"),
         ),

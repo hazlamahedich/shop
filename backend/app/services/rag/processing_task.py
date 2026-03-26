@@ -20,7 +20,7 @@ from app.models.llm_configuration import LLMConfiguration
 from app.models.merchant import Merchant
 from app.services.knowledge.chunker import DocumentChunker
 from app.services.rag.document_processor import DocumentProcessor, ProcessingResult
-from app.services.rag.embedding_service import EmbeddingService
+from app.services.rag.embedding_service import EMBEDDING_MODELS, EmbeddingService
 
 logger = structlog.get_logger(__name__)
 
@@ -128,19 +128,40 @@ async def process_document_background(document_id: int, merchant_id: int) -> Pro
             merchant_config = await get_merchant_llm_config(db, merchant_id)
 
             # Initialize embedding service using merchant's embedding settings (Story 8-11)
-            provider = merchant.embedding_provider
-            model = merchant.embedding_model
+            # Default embedding provider to LLM provider if not explicitly configured
+            llm_provider = merchant_config.llm_provider
 
-            # Use merchant's decrypted API key for cloud providers
+            # Initialize api_key from merchant config (will be overridden for specific cases)
             api_key = merchant_config.llm_api_key
 
-            # Fallback for OpenAI if using Anthropic for chat but no specific embedding provider
-            # (Though current schema handles this via Merchant fields)
-            if provider == "anthropic":
+            # Use LLM provider for embeddings (same API key works for both)
+            if llm_provider == "gemini":
+                provider = "gemini"
+                model = EMBEDDING_MODELS["gemini"]
+            elif llm_provider == "openai":
+                provider = "openai"
+                model = EMBEDDING_MODELS["openai"]
+            elif llm_provider == "ollama":
+                provider = "ollama"
+                model = EMBEDDING_MODELS["ollama"]
+                api_key = None  # Ollama doesn't need API key
+            elif llm_provider == "anthropic":
+                # Anthropic doesn't support embeddings - fallback to OpenAI with env key
                 from app.core.config import settings
+
                 provider = "openai"
                 api_key = settings().get("OPENAI_API_KEY")
-                model = "text-embedding-3-small"
+                model = EMBEDDING_MODELS["openai"]
+                logger.info(
+                    "embedding_provider_anthropic_fallback",
+                    merchant_id=merchant_id,
+                    fallback_provider="openai",
+                )
+            else:
+                # Unknown provider - use database values as-is
+                provider = merchant.embedding_provider
+                model = merchant.embedding_model
+                api_key = merchant_config.llm_api_key
 
             embedding_service = EmbeddingService(
                 provider=provider,

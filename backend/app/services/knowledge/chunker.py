@@ -77,19 +77,6 @@ class DocumentChunker:
         else:
             raise ChunkingError(f"Unsupported file type: {file_type}")
 
-    def _extract_from_pdf(self, file_path: str) -> str:
-        """Extract text from PDF file."""
-        try:
-            reader = PdfReader(file_path)
-            text_parts = []
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    text_parts.append(text)
-            return "\n".join(text_parts)
-        except Exception as e:
-            raise ChunkingError(f"Failed to extract text from PDF: {str(e)}") from e
-
     def _extract_from_text(self, file_path: str) -> str:
         """Extract text from plain text file (txt, md)."""
         try:
@@ -109,6 +96,19 @@ class DocumentChunker:
             return "\n".join(paragraphs)
         except Exception as e:
             raise ChunkingError(f"Failed to extract text from DOCX: {str(e)}") from e
+
+    def _extract_from_pdf(self, file_path: str) -> str:
+        """Extract text from PDF file."""
+        try:
+            reader = PdfReader(file_path)
+            text_parts = []
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+            return "\n".join(text_parts)
+        except Exception as e:
+            raise ChunkingError(f"Failed to extract text from PDF: {str(e)}") from e
 
     def _split_into_chunks(self, text: str) -> list[str]:
         """Split text into overlapping chunks."""

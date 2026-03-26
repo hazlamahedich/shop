@@ -1023,18 +1023,18 @@ function WidgetInner({ theme }: WidgetInnerProps) {
           justify-content: center;
           min-width: 44px;
           min-height: 44px;
-          padding: 8px;
-          border: 1px solid transparent;
+          padding: 10px;
+          border: 1.5px solid rgba(0, 0, 0, 0.15);
           border-radius: 22px;
-          background-color: transparent;
-          color: var(--widget-text, #1f2937);
+          background-color: rgba(0, 0, 0, 0.03);
+          color: #4b5563;
           cursor: pointer;
-          transition: background-color 150ms ease, transform 100ms ease, opacity 150ms ease;
+          transition: all 150ms ease;
         }
 
         .feedback-button-icon {
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
           fill: none;
           stroke: currentColor;
           stroke-width: 2;
@@ -1048,7 +1048,9 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         }
 
         .feedback-button:hover {
-          background-color: rgba(0, 0, 0, 0.05);
+          background-color: rgba(0, 0, 0, 0.08);
+          border-color: rgba(0, 0, 0, 0.25);
+          transform: scale(1.05);
         }
 
         .feedback-button:active {
@@ -1057,12 +1059,13 @@ function WidgetInner({ theme }: WidgetInnerProps) {
 
         .feedback-button:focus {
           outline: none;
-          box-shadow: 0 0 0 2px var(--widget-primary, #4f46e5);
+          box-shadow: 0 0 0 3px var(--widget-primary, #4f46e5);
         }
 
         .feedback-button--selected {
           background-color: var(--widget-primary, #4f46e5);
           color: #ffffff;
+          border-color: var(--widget-primary, #4f46e5);
         }
 
         .feedback-button--selected:hover {
@@ -1076,11 +1079,14 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         }
 
         .feedback-rating--dark .feedback-button {
-          color: rgba(255, 255, 255, 0.9);
+          color: rgba(255, 255, 255, 0.85);
+          border-color: rgba(255, 255, 255, 0.2);
+          background-color: rgba(255, 255, 255, 0.05);
         }
 
         .feedback-rating--dark .feedback-button:hover {
-          background-color: rgba(255, 255, 255, 0.1);
+          background-color: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.35);
         }
 
         .feedback-comment-form {

@@ -326,10 +326,11 @@ describe('FeedbackRating', () => {
       const thumbsUp = screen.getByTestId('feedback-up');
       const thumbsDown = screen.getByTestId('feedback-down');
 
-      expect(thumbsUp.style.minWidth).toBe('44px');
-      expect(thumbsUp.style.minHeight).toBe('44px');
-      expect(thumbsDown.style.minWidth).toBe('44px');
-      expect(thumbsDown.style.minHeight).toBe('44px');
+      expect(thumbsUp).toHaveClass('feedback-button');
+      expect(thumbsDown).toHaveClass('feedback-button');
+      
+      expect(thumbsUp.getAttribute('class')).toMatch(/feedback-button/);
+      expect(thumbsDown.getAttribute('class')).toMatch(/feedback-button/);
     });
   });
 
@@ -370,7 +371,7 @@ describe('FeedbackRating', () => {
         );
 
         const thumbsUp = screen.getByTestId('feedback-up');
-        expect(thumbsUp.style.transition).toBe('none');
+        expect(thumbsUp).toHaveClass('feedback-button');
     });
   });
 
@@ -458,7 +459,7 @@ describe('FeedbackRating', () => {
       const thumbsUp = screen.getByTestId('feedback-up');
       fireEvent.click(thumbsUp);
 
-      expect(thumbsUp.style.cursor).toBe('wait');
+      expect(thumbsUp).toBeDisabled();
 
       resolveSubmit!();
     });

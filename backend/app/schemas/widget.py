@@ -64,9 +64,7 @@ class SourceCitation(BaseSchema):
         alias="relevanceScore", ge=0.0, le=1.0, description="Relevance score"
     )
     url: str | None = Field(default=None, description="Source URL")
-    chunk_index: int | None = Field(
-        default=None, alias="chunkIndex", description="Chunk index"
-    )
+    chunk_index: int | None = Field(default=None, alias="chunkIndex", description="Chunk index")
     metadata: dict[str, Any] | None = Field(default=None, description="Additional metadata")
 
 
@@ -375,6 +373,16 @@ class WidgetMessageResponse(BaseSchema):
         default=None,
         alias="suggestedReplies",
         description="Follow-up question suggestions (Story 10-3)",
+    )
+    feedback_enabled: bool | None = Field(
+        default=None,
+        alias="feedbackEnabled",
+        description="Whether feedback rating collection is enabled (Story 10-4)",
+    )
+    user_rating: str | None = Field(
+        default=None,
+        alias="userRating",
+        description="User's previous rating if any (Story 10-4)",
     )
     contact_options: list[ContactOptionSchema] | None = Field(
         default=None,

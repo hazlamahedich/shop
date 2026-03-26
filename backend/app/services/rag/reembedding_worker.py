@@ -17,8 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import async_session
 from app.models.knowledge_base import DocumentChunk, KnowledgeDocument
 from app.models.merchant import Merchant
+from app.core.config import settings
 from app.services.rag.dimension_handler import DimensionHandler
-from app.services.rag.embedding_service import EmbeddingService
+from app.services.rag.embedding_service import EMBEDDING_MODELS, EmbeddingService
 from app.services.rag.gemini_embedding_provider import GeminiEmbeddingProvider
 
 logger = structlog.get_logger(__name__)
@@ -57,9 +58,43 @@ async def reembed_all_documents(merchant_id: int) -> None:
                 )
                 return
 
-            provider = merchant.embedding_provider or "openai"
-            model = merchant.embedding_model or "text-embedding-3-small"
-            api_key = merchant.llm_configuration.api_key if merchant.llm_configuration else None
+            # Determine embedding provider from LLM config (Story 8-11)
+            # Default to LLM provider if embedding provider not explicitly configured
+            llm_config = merchant.llm_configuration
+            llm_provider = llm_config.provider if llm_config else "openai"
+
+            # Decrypt API key if present
+            api_key = None
+            if llm_config and llm_config.api_key_encrypted:
+                from app.core.security import decrypt_access_token
+
+                api_key = decrypt_access_token(llm_config.api_key_encrypted)
+
+            # Map LLM provider to embedding provider (same logic as processing_task.py)
+            if llm_provider == "gemini":
+                provider = "gemini"
+                model = EMBEDDING_MODELS["gemini"]
+            elif llm_provider == "openai":
+                provider = "openai"
+                model = EMBEDDING_MODELS["openai"]
+            elif llm_provider == "ollama":
+                provider = "ollama"
+                model = EMBEDDING_MODELS["ollama"]
+                api_key = None  # Ollama doesn't need API key
+            elif llm_provider == "anthropic":
+                # Anthropic doesn't support embeddings - fallback to OpenAI with env key
+                provider = "openai"
+                model = EMBEDDING_MODELS["openai"]
+                api_key = settings().get("OPENAI_API_KEY")
+                logger.info(
+                    "reembedding_anthropic_fallback",
+                    merchant_id=merchant_id,
+                    fallback_provider="openai",
+                )
+            else:
+                # Unknown provider - use database values as-is
+                provider = merchant.embedding_provider or "openai"
+                model = merchant.embedding_model or EMBEDDING_MODELS["openai"]
 
             documents = await _get_queued_documents(db, merchant_id)
             if not documents:
