@@ -16,8 +16,8 @@ export function KnowledgeEffectivenessWidget() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'knowledge-effectiveness'],
     queryFn: () => analyticsService.getKnowledgeEffectiveness(),
-    staleTime: 60_000,
-    refetchInterval: 120_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const effectivenessData = data as KnowledgeEffectivenessData | undefined;

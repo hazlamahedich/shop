@@ -222,16 +222,16 @@ def main():
     if args.dry_run:
         print("DRY RUN - no data will be inserted")
 
-    asyncio.run(
-        backfill_logs(
+    async def run_backfill():
+        await backfill_logs(
             match_rate=args.match_rate,
             merchant_id=args.merchant_id,
             dry_run=args.dry_run,
         )
-    )
+        if not args.dry_run:
+            await show_stats()
 
-    if not args.dry_run:
-        asyncio.run(show_stats())
+    asyncio.run(run_backfill())
 
 
 if __name__ == "__main__":
