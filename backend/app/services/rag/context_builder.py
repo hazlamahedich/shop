@@ -10,12 +10,13 @@ Story 10-1: Query rewriting for follow-up questions
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from app.services.rag.query_rewriter import QueryRewriter
-from app.services.rag.retrieval_service import RetrievalService, RetrievedChunk
+from app.services.rag.retrieval_service import RetrievalService, RetrievedChunk, SessionFactory
 
 if TYPE_CHECKING:
     from app.services.llm.base_llm_service import BaseLLMService
@@ -43,16 +44,21 @@ class RAGContextBuilder:
 
     def __init__(
         self,
-        retrieval_service: RetrievalService,
+        session_factory: SessionFactory,
+        embedding_service,
         llm_service: BaseLLMService | None = None,
     ):
         """Initialize RAG context builder.
 
         Args:
-            retrieval_service: Service for retrieving relevant chunks
+            session_factory: Factory function that creates fresh database sessions
+            embedding_service: Service for generating query embeddings
             llm_service: Optional LLM service for query rewriting (Story 10-1)
         """
-        self.retrieval_service = retrieval_service
+        self.retrieval_service = RetrievalService(
+            session_factory=session_factory,
+            embedding_service=embedding_service,
+        )
         self.query_rewriter = QueryRewriter(llm_service) if llm_service else None
 
     async def build_rag_context(
@@ -60,7 +66,7 @@ class RAGContextBuilder:
         merchant_id: int,
         user_query: str,
         top_k: int = 5,
-        similarity_threshold: float = 0.5,
+        similarity_threshold: float = 0.2,
         embedding_version: str | None = None,
     ) -> str | None:
         """Retrieve relevant chunks and format as LLM context.
@@ -148,7 +154,7 @@ class RAGContextBuilder:
         merchant_id: int,
         user_query: str,
         top_k: int = 5,
-        similarity_threshold: float = 0.5,
+        similarity_threshold: float = 0.2,
         embedding_version: str | None = None,
         conversation_history: list[dict] | None = None,
     ) -> tuple[str | None, list[RetrievedChunk]]:

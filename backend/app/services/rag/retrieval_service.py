@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import structlog
@@ -25,6 +27,9 @@ logger = structlog.get_logger(__name__)
 
 EMBEDDING_TIMEOUT = 5.0
 SEARCH_TIMEOUT = 0.5
+
+# Session factory type for creating fresh database sessions
+SessionFactory = Callable[[], Any]  # Returns AsyncSession or context manager
 
 
 @dataclass
@@ -58,7 +63,7 @@ class RetrievalService:
 
     def __init__(
         self,
-        db: AsyncSession,
+        session_factory: SessionFactory,
         embedding_service: EmbeddingService,
         similarity_threshold: float = SIMILARITY_THRESHOLD,
         top_k: int = TOP_K_DEFAULT,
@@ -66,12 +71,12 @@ class RetrievalService:
         """Initialize retrieval service.
 
         Args:
-            db: Database session
+            session_factory: Factory function that creates fresh database sessions
             embedding_service: Service for generating query embeddings
             similarity_threshold: Minimum similarity score (0.0-1.0)
             top_k: Number of chunks to retrieve
         """
-        self.db = db
+        self.session_factory = session_factory
         self.embedding_service = embedding_service
         self.similarity_threshold = similarity_threshold
         self.top_k = top_k
@@ -126,45 +131,35 @@ class RetrievalService:
             # Format embedding for pgvector
             embedding_str = self._format_embedding(query_embedding)
 
-            # Perform vector similarity search with timeout
-            try:
-                results = await asyncio.wait_for(
-                    self._execute_similarity_search(
+            # Create fresh database session for this retrieval
+            # This prevents greenlet errors from session reuse
+            session_result = self.session_factory()
+
+            # Handle both AsyncSession and context manager
+            if hasattr(session_result, '__aenter__'):
+                # It's a context manager
+                async with session_result as db:
+                    return await self._execute_search_and_log(
+                        db=db,
                         merchant_id=merchant_id,
                         embedding_str=embedding_str,
                         threshold=threshold,
                         top_k=top_k,
                         embedding_version=embedding_version,
-                    ),
-                    timeout=2.0,  # 2s for search (Python-based similarity computation)
-                )
-            except TimeoutError:
-                logger.warning(
-                    "retrieval_search_timeout",
+                        query=query,
+                    )
+            else:
+                # It's a raw AsyncSession
+                db = session_result
+                return await self._execute_search_and_log(
+                    db=db,
                     merchant_id=merchant_id,
+                    embedding_str=embedding_str,
                     threshold=threshold,
                     top_k=top_k,
+                    embedding_version=embedding_version,
+                    query=query,
                 )
-                raise APIError(
-                    ErrorCode.RETRIEVAL_TIMEOUT,
-                    "Retrieval search timed out",
-                )
-
-            logger.info(
-                "retrieval_complete",
-                merchant_id=merchant_id,
-                results_count=len(results),
-                threshold=threshold,
-                top_k=top_k,
-            )
-
-            await self._log_query(
-                merchant_id=merchant_id,
-                query=query,
-                results=results,
-            )
-
-            return results
 
         except APIError:
             raise
@@ -176,8 +171,62 @@ class RetrievalService:
             )
             return []  # Graceful degradation on errors
 
+    async def _execute_search_and_log(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+        embedding_str: str,
+        threshold: float,
+        top_k: int,
+        embedding_version: str | None,
+        query: str,
+    ) -> list[RetrievedChunk]:
+        """Execute similarity search and log results."""
+        # Perform vector similarity search with timeout
+        try:
+            results = await asyncio.wait_for(
+                self._execute_similarity_search(
+                    db=db,
+                    merchant_id=merchant_id,
+                    embedding_str=embedding_str,
+                    threshold=threshold,
+                    top_k=top_k,
+                    embedding_version=embedding_version,
+                ),
+                timeout=2.0,  # 2s for search (Python-based similarity computation)
+            )
+        except TimeoutError:
+            logger.warning(
+                "retrieval_search_timeout",
+                merchant_id=merchant_id,
+                threshold=threshold,
+                top_k=top_k,
+            )
+            raise APIError(
+                ErrorCode.RETRIEVAL_TIMEOUT,
+                "Retrieval search timed out",
+            )
+
+        logger.info(
+            "retrieval_complete",
+            merchant_id=merchant_id,
+            results_count=len(results),
+            threshold=threshold,
+            top_k=top_k,
+        )
+
+        await self._log_query(
+            db=db,
+            merchant_id=merchant_id,
+            query=query,
+            results=results,
+        )
+
+        return results
+
     async def _execute_similarity_search(
         self,
+        db: AsyncSession,
         merchant_id: int,
         embedding_str: str,
         threshold: float,
@@ -227,12 +276,10 @@ class RetrievalService:
         logger.debug(
             "retrieval_executing_query", merchant_id=merchant_id, query=base_query, params=params
         )
-        result = await self.db.execute(text(base_query), params)
+        result = await db.execute(text(base_query), params)
         rows = result.fetchall()
 
         logger.debug("retrieval_query_executed", merchant_id=merchant_id, row_count=len(rows))
-        result = await self.db.execute(text(base_query), params)
-        rows = result.fetchall()
 
         logger.debug("retrieval_query_executed", merchant_id=merchant_id, row_count=len(rows))
 
@@ -332,16 +379,48 @@ class RetrievalService:
         self,
         merchant_id: int,
         document_id: int,
+        db: AsyncSession | None = None,
     ) -> bool:
         """Check if merchant has access to a document.
 
         Args:
             merchant_id: Merchant ID
             document_id: Document ID to check
+            db: Optional database session (creates one if not provided)
 
         Returns:
             True if merchant owns the document
         """
+        if db is None:
+            session_result = self.session_factory()
+            if hasattr(session_result, '__aenter__'):
+                async with session_result as db:
+                    return await self._check_document_access_impl(
+                        db=db,
+                        merchant_id=merchant_id,
+                        document_id=document_id,
+                    )
+            else:
+                db = session_result
+                return await self._check_document_access_impl(
+                    db=db,
+                    merchant_id=merchant_id,
+                    document_id=document_id,
+                )
+        else:
+            return await self._check_document_access_impl(
+                db=db,
+                merchant_id=merchant_id,
+                document_id=document_id,
+            )
+
+    async def _check_document_access_impl(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+        document_id: int,
+    ) -> bool:
+        """Implementation of document access check."""
         query = text(
             """
             SELECT 1 FROM knowledge_documents
@@ -349,7 +428,7 @@ class RetrievalService:
             """
         )
 
-        result = await self.db.execute(
+        result = await db.execute(
             query,
             {"document_id": document_id, "merchant_id": merchant_id},
         )
@@ -358,6 +437,7 @@ class RetrievalService:
 
     async def _log_query(
         self,
+        db: AsyncSession,
         merchant_id: int,
         query: str,
         results: list[RetrievedChunk],
@@ -393,8 +473,8 @@ class RetrievalService:
                 confidence=confidence,
                 sources=sources,
             )
-            self.db.add(log_entry)
-            await self.db.commit()
+            db.add(log_entry)
+            await db.commit()
 
             logger.debug(
                 "rag_query_logged",
@@ -408,4 +488,4 @@ class RetrievalService:
                 merchant_id=merchant_id,
                 error=str(e),
             )
-            await self.db.rollback()
+            await db.rollback()

@@ -582,9 +582,9 @@ class WidgetMessageService:
             return None
 
         try:
+            from app.core.database import async_session
             from app.services.rag.context_builder import RAGContextBuilder
             from app.services.rag.embedding_service import EmbeddingService
-            from app.services.rag.retrieval_service import RetrievalService
 
             provider = merchant_embedding_provider
             model = merchant_embedding_model
@@ -617,20 +617,17 @@ class WidgetMessageService:
                 ollama_url=ollama_url,
             )
 
-            retrieval_service = RetrievalService(
-                db=self.db,
-                embedding_service=embedding_service,
-            )
+            # Create session factory for request-scoped database sessions
+            # This prevents greenlet errors from session reuse
+            def session_factory():
+                return async_session()
 
-            llm_service = self._get_llm_service_from_config(
-                merchant_id=merchant_id,
-                merchant_llm_config=merchant_llm_config,
-                merchant_bot_name=merchant_bot_name,
-            )
-
+            # Pass None for llm_service to avoid greenlet issues
+            # llm_service is only used for query rewriting (optional feature)
             rag_context_builder = RAGContextBuilder(
-                retrieval_service=retrieval_service,
-                llm_service=llm_service,
+                session_factory=session_factory,
+                embedding_service=embedding_service,
+                llm_service=None,
             )
 
             self.logger.debug(
@@ -650,10 +647,18 @@ class WidgetMessageService:
             )
             return None
 
+    def _get_llm_service_from_config(
+        self,
+        merchant_id: int,
+        merchant_llm_config,
+        merchant_bot_name: str | None,
+    ):
         """Get LLM service for a merchant.
 
         Args:
-            merchant: Merchant configuration
+            merchant_id: Merchant ID
+            merchant_llm_config: LLM configuration object
+            merchant_bot_name: Bot name (can be None)
 
         Returns:
             LLM service instance
@@ -662,7 +667,7 @@ class WidgetMessageService:
         llm_config = {}
 
         try:
-            if hasattr(merchant, "llm_configuration") and merchant_llm_config:
+            if merchant_llm_config:
                 llm_config_obj = merchant_llm_config
                 provider_name = llm_config_obj.provider or "ollama"
 
