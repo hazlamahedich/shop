@@ -21,7 +21,9 @@ from app.models.llm_conversation_cost import LLMConversationCost
 from app.models.message import Message
 from app.models.order import Order
 from app.models.rag_query_log import RAGQueryLog
+from app.models.message_feedback import FeedbackRating, MessageFeedback
 from app.services.privacy.data_tier_service import DataTier
+from app.services.analytics.sentiment_analyzer import analyze_sentiment
 
 logger = structlog.get_logger(__name__)
 
@@ -1246,7 +1248,11 @@ class AggregatedAnalyticsService:
 
         Story 7 P2: CustomerSentimentWidget.
 
-        Analyzes customer messages for sentiment over time.
+        Combines two sentiment sources:
+        1. Text-based sentiment analysis (message content)
+        2. Explicit feedback (thumbs up/down)
+
+        Feedback has higher weight (2x) since it's explicit user sentiment.
 
         Args:
             merchant_id: Merchant ID
@@ -1255,73 +1261,11 @@ class AggregatedAnalyticsService:
         Returns:
             Dict with sentiment trends and alerts
         """
-        POSITIVE_WORDS = {
-            "great",
-            "awesome",
-            "excellent",
-            "amazing",
-            "wonderful",
-            "fantastic",
-            "perfect",
-            "love",
-            "happy",
-            "satisfied",
-            "helpful",
-            "thank",
-            "thanks",
-            "appreciate",
-            "good",
-            "best",
-            "recommend",
-            "easy",
-            "fast",
-            "quick",
-            "resolved",
-            "fixed",
-            "worked",
-            "brilliant",
-            "superb",
-            "outstanding",
-        }
-
-        NEGATIVE_WORDS = {
-            "bad",
-            "terrible",
-            "awful",
-            "horrible",
-            "worst",
-            "hate",
-            "angry",
-            "frustrated",
-            "disappointed",
-            "slow",
-            "broken",
-            "error",
-            "wrong",
-            "problem",
-            "issue",
-            "complaint",
-            "never",
-            "waste",
-            "useless",
-            "confused",
-            "stuck",
-            "cant",
-            "cannot",
-            "unable",
-            "failed",
-            "fail",
-            "disgusting",
-            "pathetic",
-            "ridiculous",
-            "unacceptable",
-            "sorry",
-        }
-
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
-            prev_cutoff = datetime.utcnow() - timedelta(days=days * 2)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
+            prev_cutoff = datetime.now(UTC) - timedelta(days=days * 2)
 
+            # Query customer messages for text-based sentiment
             result = await self.db.execute(
                 select(Message)
                 .join(Conversation, Message.conversation_id == Conversation.id)
@@ -1332,24 +1276,23 @@ class AggregatedAnalyticsService:
             )
             messages = result.scalars().all()
 
-            def analyze_sentiment(content: str) -> str:
-                content_lower = content.lower()
-                words = set(content_lower.split())
-                positive_count = len(words & POSITIVE_WORDS)
-                negative_count = len(words & NEGATIVE_WORDS)
-
-                if positive_count > negative_count:
-                    return "positive"
-                elif negative_count > positive_count:
-                    return "negative"
-                else:
-                    return "neutral"
+            # Query explicit feedback (thumbs up/down)
+            feedback_result = await self.db.execute(
+                select(MessageFeedback)
+                .join(Conversation, MessageFeedback.conversation_id == Conversation.id)
+                .where(Conversation.merchant_id == merchant_id)
+                .where(MessageFeedback.created_at >= cutoff_date)
+            )
+            feedbacks = feedback_result.scalars().all()
 
             daily_sentiment: dict[str, dict[str, int]] = {}
             total_positive = 0
             total_negative = 0
             total_neutral = 0
+            feedback_positive = 0
+            feedback_negative = 0
 
+            # Process text-based sentiment
             for msg in messages:
                 content = msg.decrypted_content if msg.sender == "customer" else msg.content
                 sentiment = analyze_sentiment(content)
@@ -1367,9 +1310,32 @@ class AggregatedAnalyticsService:
                 else:
                     total_neutral += 1
 
-            total_messages = total_positive + total_negative + total_neutral
-            current_positive_rate = total_positive / total_messages if total_messages > 0 else 0.5
+            # Process explicit feedback (weighted 2x)
+            for fb in feedbacks:
+                date_key = fb.created_at.strftime("%Y-%m-%d")
+                if date_key not in daily_sentiment:
+                    daily_sentiment[date_key] = {"positive": 0, "negative": 0, "neutral": 0}
 
+                if fb.rating == FeedbackRating.POSITIVE:
+                    feedback_positive += 1
+                    daily_sentiment[date_key]["positive"] += 2  # 2x weight
+                elif fb.rating == FeedbackRating.NEGATIVE:
+                    feedback_negative += 1
+                    daily_sentiment[date_key]["negative"] += 2  # 2x weight
+
+            total_messages = total_positive + total_negative + total_neutral
+            total_feedback = feedback_positive + feedback_negative
+
+            # Combined score: text sentiment + weighted feedback
+            combined_positive = total_positive + (feedback_positive * 2)
+            combined_negative = total_negative + (feedback_negative * 2)
+            combined_total = combined_positive + combined_negative + total_neutral
+
+            current_positive_rate = (
+                combined_positive / combined_total if combined_total > 0 else 0.5
+            )
+
+            # Previous period for trend comparison
             prev_result = await self.db.execute(
                 select(Message)
                 .join(Conversation, Message.conversation_id == Conversation.id)
@@ -1380,9 +1346,20 @@ class AggregatedAnalyticsService:
             )
             prev_messages = prev_result.scalars().all()
 
+            prev_feedback_result = await self.db.execute(
+                select(MessageFeedback)
+                .join(Conversation, MessageFeedback.conversation_id == Conversation.id)
+                .where(Conversation.merchant_id == merchant_id)
+                .where(MessageFeedback.created_at >= prev_cutoff)
+                .where(MessageFeedback.created_at < cutoff_date)
+            )
+            prev_feedbacks = prev_feedback_result.scalars().all()
+
             prev_positive = 0
             prev_negative = 0
             prev_neutral = 0
+            prev_feedback_positive = 0
+            prev_feedback_negative = 0
 
             for msg in prev_messages:
                 content = msg.decrypted_content if msg.sender == "customer" else msg.content
@@ -1394,8 +1371,19 @@ class AggregatedAnalyticsService:
                 else:
                     prev_neutral += 1
 
-            prev_total = prev_positive + prev_negative + prev_neutral
-            prev_positive_rate = prev_positive / prev_total if prev_total > 0 else None
+            for fb in prev_feedbacks:
+                if fb.rating == FeedbackRating.POSITIVE:
+                    prev_feedback_positive += 1
+                elif fb.rating == FeedbackRating.NEGATIVE:
+                    prev_feedback_negative += 1
+
+            prev_combined_positive = prev_positive + (prev_feedback_positive * 2)
+            prev_combined_negative = prev_negative + (prev_feedback_negative * 2)
+            prev_combined_total = prev_combined_positive + prev_combined_negative + prev_neutral
+
+            prev_positive_rate = (
+                prev_combined_positive / prev_combined_total if prev_combined_total > 0 else None
+            )
 
             if prev_positive_rate is not None:
                 change = current_positive_rate - prev_positive_rate
@@ -1411,10 +1399,8 @@ class AggregatedAnalyticsService:
                 trend_change = None
 
             alert = None
-            if trend == "declining" and total_negative > 3:
-                alert = (
-                    f"Negative sentiment increased. {total_negative} negative messages this period."
-                )
+            if trend == "declining" and combined_negative > 3:
+                alert = f"Negative sentiment increased. {combined_negative} negative signals this period."
 
             daily_breakdown = []
             for date_key in sorted(daily_sentiment.keys()):
@@ -1440,21 +1426,27 @@ class AggregatedAnalyticsService:
                 },
                 "current": {
                     "positiveRate": round(current_positive_rate, 2),
-                    "positiveCount": total_positive,
-                    "negativeCount": total_negative,
+                    "positiveCount": combined_positive,
+                    "negativeCount": combined_negative,
                     "neutralCount": total_neutral,
                     "totalMessages": total_messages,
+                    "feedbackPositive": feedback_positive,
+                    "feedbackNegative": feedback_negative,
+                    "totalFeedback": total_feedback,
                 },
                 "previous": {
                     "positiveRate": round(prev_positive_rate, 2)
                     if prev_positive_rate is not None
                     else None,
-                    "positiveCount": prev_positive,
-                    "negativeCount": prev_negative,
+                    "positiveCount": prev_combined_positive,
+                    "negativeCount": prev_combined_negative,
                     "neutralCount": prev_neutral,
-                    "totalMessages": prev_total,
+                    "totalMessages": prev_positive + prev_negative + prev_neutral,
+                    "feedbackPositive": prev_feedback_positive,
+                    "feedbackNegative": prev_feedback_negative,
+                    "totalFeedback": prev_feedback_positive + prev_feedback_negative,
                 }
-                if prev_total > 0
+                if (prev_positive + prev_negative + prev_neutral) > 0
                 else None,
                 "trend": trend,
                 "trendChange": trend_change,
