@@ -1005,11 +1005,30 @@ class AggregatedAnalyticsService:
             Dict with knowledge gaps and suggested actions
         """
         try:
+            from app.models.knowledge_gap import KnowledgeGap
+
             cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-            # TODO: Implement knowledge gap detection when intent/confidence
-            # tracking is added to messages or a separate analytics table
-            # Currently returning empty gaps as Message model lacks intent/confidence_score columns
+            result = await self.db.execute(
+                select(KnowledgeGap)
+                .where(
+                    KnowledgeGap.merchant_id == merchant_id,
+                    KnowledgeGap.resolved == False,
+                    KnowledgeGap.last_occurred_at >= cutoff_date,
+                )
+                .order_by(KnowledgeGap.occurrence_count.desc())
+                .limit(limit)
+            )
+            gaps = list(result.scalars().all())
+
+            total_result = await self.db.execute(
+                select(func.count(KnowledgeGap.id)).where(
+                    KnowledgeGap.merchant_id == merchant_id,
+                    KnowledgeGap.resolved == False,
+                    KnowledgeGap.last_occurred_at >= cutoff_date,
+                )
+            )
+            total_gaps = total_result.scalar() or 0
 
             return {
                 "period": {
@@ -1017,8 +1036,8 @@ class AggregatedAnalyticsService:
                     "startDate": cutoff_date.isoformat(),
                     "endDate": datetime.utcnow().isoformat(),
                 },
-                "gaps": [],
-                "totalGaps": 0,
+                "gaps": [gap.to_dict() for gap in gaps],
+                "totalGaps": total_gaps,
             }
 
         except Exception as e:
@@ -2160,4 +2179,3 @@ class AggregatedAnalyticsService:
                 error=str(e),
             )
             raise
-

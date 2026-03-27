@@ -68,7 +68,7 @@ export function KnowledgeGapWidget() {
             <div
               key={gap.id}
               className="group/gap flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/20 hover:bg-[#00f5d4]/5 transition-all cursor-pointer"
-              onClick={() => navigate('/knowledge')}
+              onClick={() => navigate('/knowledge-base')}
             >
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-black text-white/80 group-hover/gap:text-white truncate uppercase tracking-tight">
@@ -90,7 +90,7 @@ export function KnowledgeGapWidget() {
 
         {gaps.length > 5 && (
           <button
-            onClick={() => navigate('/knowledge')}
+            onClick={() => navigate('/knowledge-base')}
             className="w-full mt-2 py-2 text-[9px] font-black text-white/30 hover:text-white transition-all uppercase tracking-[0.2em]"
           >
             +{gaps.length - 5} ADDITIONAL_GAPS
@@ -98,7 +98,7 @@ export function KnowledgeGapWidget() {
         )}
 
         <button
-          onClick={() => navigate('/knowledge?add=true')}
+          onClick={() => navigate('/knowledge-base?add=true')}
           className="w-full mt-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black text-[#00f5d4] hover:bg-[#00f5d4]/10 transition-all uppercase tracking-widest rounded-xl border border-[#00f5d4]/10"
         >
           <Plus size={12} strokeWidth={3} />

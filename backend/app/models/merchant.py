@@ -264,6 +264,12 @@ class Merchant(Base):
         back_populates="merchant",
         cascade="all, delete-orphan",
     )
+    knowledge_gaps: Mapped[list["KnowledgeGap"]] = relationship(
+        "KnowledgeGap",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+        order_by="desc(KnowledgeGap.last_occurred_at)",
+    )
 
     secret_key_hash: Mapped[str | None] = mapped_column(
         String(100),

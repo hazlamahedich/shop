@@ -38,6 +38,7 @@ HANDOFF_KEYWORDS = [
     "real person",
     "talk to someone",
     "speak to someone",
+    "someone",
     "representative",
     "manager",
     "support",

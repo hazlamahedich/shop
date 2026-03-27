@@ -32,6 +32,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import APIError, ErrorCode
 from app.models.knowledge_base import KnowledgeDocument
+from app.models.knowledge_gap import GapType, KnowledgeGap
 from app.models.merchant import Merchant, PersonalityType
 from app.schemas.consent import ConsentStatus
 from app.services.consent.extended_consent_service import ConversationConsentService
@@ -287,12 +288,14 @@ class UnifiedConversationService:
                         confidence = 1.0
 
             # Check for FAQ match before intent classification
+            faq_matched = False
             if response is None:
                 faq_response = await self._check_faq_match(db, context, merchant, message)
                 if faq_response:
                     response = faq_response
                     intent_name = response.intent or "faq"
                     confidence = response.confidence or 1.0
+                    faq_matched = True
 
             # Normal flow: intent classification and handler routing
             if response is None:
@@ -521,6 +524,18 @@ class UnifiedConversationService:
             if res:
                 _, bot_msg_id = res
                 response.message_id = bot_msg_id
+
+            # Detect and record knowledge gaps
+            await self._detect_and_record_knowledge_gap(
+                db=db,
+                merchant=merchant,
+                conversation_id=res[0] if res else None,
+                user_message=message,
+                bot_response=response.message if response else "",
+                confidence=confidence if confidence else 0.0,
+                rag_chunks=rag_chunks,
+                faq_matched=faq_matched,
+            )
 
             self.logger.info(
                 "unified_conversation_complete",
@@ -2333,6 +2348,106 @@ class UnifiedConversationService:
                 return True
 
         return False
+
+    async def _detect_and_record_knowledge_gap(
+        self,
+        db: AsyncSession,
+        merchant: Merchant,
+        conversation_id: int | None,
+        user_message: str,
+        bot_response: str,
+        confidence: float,
+        rag_chunks: list[RetrievedChunk],
+        faq_matched: bool,
+    ) -> None:
+        """Detect and record knowledge gaps.
+
+        A knowledge gap occurs when:
+        1. User asks a question AND
+        2. (FAQ doesn't match AND RAG returns no chunks) OR
+           LLM indicates it couldn't find information OR
+           Confidence is low (< 0.5)
+
+        Args:
+            db: Database session
+            merchant: Merchant model
+            conversation_id: Conversation ID (may be None)
+            user_message: User's message
+            bot_response: Bot's response
+            confidence: Classification confidence
+            rag_chunks: RAG chunks retrieved (empty if no match)
+            faq_matched: Whether an FAQ matched
+        """
+        try:
+            if not self._is_question(user_message):
+                return
+
+            gap_types: list[str] = []
+
+            has_rag_match = len(rag_chunks) > 0
+            if not faq_matched:
+                gap_types.append(GapType.NO_FAQ_MATCH.value)
+            if not has_rag_match:
+                gap_types.append(GapType.NO_RAG_MATCH.value)
+            if confidence < 0.5:
+                gap_types.append(GapType.LOW_CONFIDENCE.value)
+            if self._indicates_no_information_found(bot_response):
+                gap_types.append(GapType.LLM_NO_INFO.value)
+
+            if not gap_types:
+                return
+
+            import hashlib
+
+            normalized_question = " ".join(user_message.lower().split())
+            question_hash = hashlib.sha256(normalized_question.encode()).hexdigest()[:32]
+
+            existing_gap = await db.execute(
+                select(KnowledgeGap).where(
+                    KnowledgeGap.merchant_id == merchant.id,
+                    KnowledgeGap.question_hash == question_hash,
+                    KnowledgeGap.resolved == False,
+                )
+            )
+            existing = existing_gap.scalars().first()
+
+            if existing:
+                existing.occurrence_count += 1
+                existing.last_occurred_at = datetime.now(UTC)
+                existing.gap_types = list(set(existing.gap_types + gap_types))
+                existing.sample_response = bot_response
+                self.logger.debug(
+                    "knowledge_gap_updated",
+                    merchant_id=merchant.id,
+                    question_hash=question_hash,
+                    occurrence_count=existing.occurrence_count,
+                )
+            else:
+                new_gap = KnowledgeGap(
+                    merchant_id=merchant.id,
+                    conversation_id=conversation_id,
+                    question=user_message,
+                    question_hash=question_hash,
+                    gap_types=gap_types,
+                    occurrence_count=1,
+                    sample_response=bot_response,
+                )
+                db.add(new_gap)
+                self.logger.info(
+                    "knowledge_gap_detected",
+                    merchant_id=merchant.id,
+                    question_preview=user_message[:50],
+                    gap_types=gap_types,
+                )
+
+            await db.commit()
+
+        except Exception as e:
+            self.logger.warning(
+                "knowledge_gap_detection_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+            )
 
     def _indicates_no_information_found(self, message: str) -> bool:
         """Check if the LLM response indicates it couldn't find relevant information.
