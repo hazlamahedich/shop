@@ -4,15 +4,12 @@ import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 
 interface KnowledgeEffectivenessData {
-  period: {
-    days: number;
-    startDate: string;
-    endDate: string;
-  };
-  totalConversations: number;
-  totalResolvedByRag: number;
-  effectivenessRate: number;
-  dailyStats: any[];
+  totalQueries: number;
+  successfulMatches: number;
+  noMatchRate: number;
+  avgConfidence: number | null;
+  trend: number[];
+  lastUpdated: string;
 }
 
 export function KnowledgeEffectivenessWidget() {
@@ -24,12 +21,9 @@ export function KnowledgeEffectivenessWidget() {
   });
 
   const effectivenessData = data as KnowledgeEffectivenessData | undefined;
-  const rate = effectivenessData?.effectivenessRate !== undefined 
-    ? Math.round(effectivenessData.effectivenessRate * 100) 
-    : 0;
-  
-  const resolved = effectivenessData?.totalResolvedByRag || 0;
-  const total = effectivenessData?.totalConversations || 0;
+  const total = effectivenessData?.totalQueries || 0;
+  const resolved = effectivenessData?.successfulMatches || 0;
+  const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
   return (
     <StatCard

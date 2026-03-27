@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
+from app.models.rag_query_log import RAGQueryLog
 from app.services.rag.embedding_service import EmbeddingService
 
 logger = structlog.get_logger(__name__)
@@ -155,6 +156,12 @@ class RetrievalService:
                 results_count=len(results),
                 threshold=threshold,
                 top_k=top_k,
+            )
+
+            await self._log_query(
+                merchant_id=merchant_id,
+                query=query,
+                results=results,
             )
 
             return results
@@ -348,3 +355,57 @@ class RetrievalService:
         )
 
         return result.first() is not None
+
+    async def _log_query(
+        self,
+        merchant_id: int,
+        query: str,
+        results: list[RetrievedChunk],
+    ) -> None:
+        """Log RAG query for analytics.
+
+        Args:
+            merchant_id: Merchant ID
+            query: User's query text
+            results: Retrieved chunks (empty if no match)
+        """
+        try:
+            matched = len(results) > 0
+            confidence = results[0].similarity if matched else None
+            sources = (
+                [
+                    {
+                        "document_id": r.document_id,
+                        "document_name": r.document_name,
+                        "chunk_id": r.chunk_id,
+                        "similarity": r.similarity,
+                    }
+                    for r in results[:3]
+                ]
+                if matched
+                else None
+            )
+
+            log_entry = RAGQueryLog(
+                merchant_id=merchant_id,
+                query=query[:1000],
+                matched=matched,
+                confidence=confidence,
+                sources=sources,
+            )
+            self.db.add(log_entry)
+            await self.db.commit()
+
+            logger.debug(
+                "rag_query_logged",
+                merchant_id=merchant_id,
+                matched=matched,
+                confidence=confidence,
+            )
+        except Exception as e:
+            logger.warning(
+                "rag_query_log_failed",
+                merchant_id=merchant_id,
+                error=str(e),
+            )
+            await self.db.rollback()
