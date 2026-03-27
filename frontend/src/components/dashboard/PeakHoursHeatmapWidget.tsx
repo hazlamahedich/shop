@@ -14,6 +14,7 @@ export function PeakHoursHeatmapWidget() {
     queryKey: ['analytics', 'peak-hours'],
     queryFn: () => analyticsService.getPeakHours(30) as Promise<HeatmapData>,
     staleTime: 60_000,
+    refetchInterval: 300_000,
   });
 
   const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];

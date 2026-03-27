@@ -8,6 +8,7 @@ export function GeographicSnapshotWidget() {
     queryKey: ['analytics', 'geographic'],
     queryFn: () => analyticsService.getGeographic() as Promise<GeographicAnalyticsResponse>,
     staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const regions = data?.byCountry.slice(0, 5) ?? [];

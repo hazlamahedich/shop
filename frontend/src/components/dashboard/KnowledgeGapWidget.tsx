@@ -29,6 +29,7 @@ export function KnowledgeGapWidget() {
     queryKey: ['analytics', 'knowledge-gaps'],
     queryFn: () => analyticsService.getKnowledgeGapsData(),
     staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const gapsData = data as KnowledgeGapsData | undefined;

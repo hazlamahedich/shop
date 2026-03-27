@@ -31,6 +31,7 @@ export function TopTopicsWidget() {
     queryKey: ['analytics', 'top-topics', days],
     queryFn: () => analyticsService.getTopTopics(days),
     staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const topics = data?.topics ?? [];

@@ -22,6 +22,7 @@ export function FinancialOverviewWidget() {
     queryKey: ['analytics', 'summary'],
     queryFn: () => analyticsService.getSummary(),
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const now = new Date();
@@ -31,6 +32,7 @@ export function FinancialOverviewWidget() {
     queryKey: ['costs', 'summary', 'monthly'],
     queryFn: () => costTrackingService.getCostSummary({ dateFrom: monthStart }),
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const isLoading = revLoading || costLoading;
