@@ -1262,8 +1262,8 @@ class AggregatedAnalyticsService:
             Dict with sentiment trends and alerts
         """
         try:
-            cutoff_date = datetime.now(UTC) - timedelta(days=days)
-            prev_cutoff = datetime.now(UTC) - timedelta(days=days * 2)
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            prev_cutoff = datetime.utcnow() - timedelta(days=days * 2)
 
             # Query customer messages for text-based sentiment
             result = await self.db.execute(
