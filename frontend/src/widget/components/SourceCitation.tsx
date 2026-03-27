@@ -22,40 +22,26 @@ const getScoreColor = (score: number): string => {
 export function SourceCitation({
   sources,
   theme,
-  maxVisible = 3,
 }: SourceCitationProps) {
-  const [expanded, setExpanded] = React.useState(false);
   const reducedMotion = useReducedMotion();
 
   if (!sources || sources.length === 0) {
     return null;
   }
 
-  const deduplicatedSources = React.useMemo(() => {
-    const sourceMap = new Map<string, typeof sources[0]>();
-    for (const source of sources) {
-      const key = source.filename || source.title;
-      const existing = sourceMap.get(key);
-      if (!existing || source.relevanceScore > existing.relevanceScore) {
-        sourceMap.set(key, source);
-      }
-    }
-    return Array.from(sourceMap.values());
+  const topSource = React.useMemo(() => {
+    return sources.reduce((best, current) => 
+      current.relevanceScore > best.relevanceScore ? current : best
+    , sources[0]);
   }, [sources]);
 
-  const visibleSources = expanded ? deduplicatedSources : deduplicatedSources.slice(0, maxVisible);
-  const hasMore = deduplicatedSources.length > maxVisible;
-  const remainingCount = deduplicatedSources.length - maxVisible;
-
-  const handleSourceClick = (source: SourceCitationType) => {
-    if (source.url) {
-      window.open(source.url, '_blank', 'noopener,noreferrer');
+  const handleSourceClick = () => {
+    if (topSource.url) {
+      window.open(topSource.url, '_blank', 'noopener,noreferrer');
     }
   };
 
-  const handleToggle = () => {
-    setExpanded(!expanded);
-  };
+  const isClickable = !!topSource.url;
 
   return (
     <div
@@ -69,112 +55,63 @@ export function SourceCitation({
           fontSize: 11,
           fontWeight: 600,
           color: theme.textColor,
-          opacity: 0.7,
+          opacity: 0.85,
           marginBottom: 6,
           textTransform: 'uppercase',
           letterSpacing: '0.5px',
         }}
       >
-        Sources
+        Source
       </div>
-      <div className="source-citation__list" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {visibleSources.map((source, index) => {
-          const isClickable = !!source.url;
-          return (
-            <button
-              key={`${source.documentId}-${index}`}
-              data-testid="source-card"
-              className={`source-card ${isClickable ? 'source-card--clickable' : ''}`}
-              onClick={() => handleSourceClick(source)}
-              disabled={!isClickable}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '6px 8px',
-                borderRadius: 6,
-                cursor: isClickable ? 'pointer' : 'default',
-                transition: reducedMotion ? 'none' : 'background-color 150ms ease',
-                border: 'none',
-                background: 'transparent',
-                width: '100%',
-                textAlign: 'left',
-              }}
-              aria-label={`${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`}
-            >
-              <span
-                className="source-card__title"
-                style={{
-                  flex: 1,
-                  fontSize: 12,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  color: theme.textColor,
-                }}
-                title={source.filename || source.title}
-              >
-                {source.filename || source.title}
-              </span>
-              <span
-                className="source-card__score"
-                style={{
-                  fontSize: 10,
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  background: getScoreColor(source.relevanceScore),
-                  color: 'white',
-                  flexShrink: 0,
-                }}
-              >
-                {formatScore(source.relevanceScore)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {hasMore && (
-        <button
-          data-testid="source-toggle"
-          className="source-citation__toggle"
-          onClick={handleToggle}
+      <button
+        data-testid="source-card"
+        className={`source-card ${isClickable ? 'source-card--clickable' : ''}`}
+        onClick={handleSourceClick}
+        disabled={!isClickable}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 8px',
+          borderRadius: 6,
+          cursor: isClickable ? 'pointer' : 'default',
+          transition: reducedMotion ? 'none' : 'background-color 150ms ease',
+          border: 'none',
+          background: 'transparent',
+          width: '100%',
+          textAlign: 'left',
+        }}
+        aria-label={`${topSource.filename || topSource.title} - ${formatScore(topSource.relevanceScore)} relevance`}
+      >
+        <span
+          className="source-card__title"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 4,
-            width: '100%',
-            padding: '6px 8px',
-            marginTop: 6,
-            border: 'none',
-            borderRadius: 6,
-            background: 'transparent',
-            color: theme.primaryColor,
-            fontSize: 11,
+            flex: 1,
+            fontSize: 12,
             fontWeight: 500,
-            cursor: 'pointer',
-            transition: reducedMotion ? 'none' : 'background-color 150ms ease',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: theme.textColor,
           }}
-          aria-expanded={expanded}
-          aria-label={expanded ? 'Show fewer sources' : `Show ${remainingCount} more sources`}
+          title={topSource.filename || topSource.title}
         >
-          {expanded ? (
-            <>
-              <span>Show less</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
-              </svg>
-            </>
-          ) : (
-            <>
-              <span>View {remainingCount} more</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-              </svg>
-            </>
-          )}
-        </button>
-      )}
+          {topSource.filename || topSource.title}
+        </span>
+        <span
+          className="source-card__score"
+          style={{
+            fontSize: 10,
+            padding: '2px 6px',
+            borderRadius: 4,
+            background: getScoreColor(topSource.relevanceScore),
+            color: 'white',
+            flexShrink: 0,
+          }}
+        >
+          {formatScore(topSource.relevanceScore)}
+        </span>
+      </button>
     </div>
   );
 }
