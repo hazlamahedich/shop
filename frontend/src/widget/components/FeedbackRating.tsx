@@ -9,11 +9,12 @@ export interface FeedbackRatingProps {
   onSubmit: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
-const ThumbsUpIcon: React.FC<{ className?: string }> = ({ className }) => (
+const ThumbsUpIcon: React.FC<{ className?: string; color?: string }> = ({ className, color }) => (
   <svg
     viewBox="0 0 24 24"
     className={className || 'feedback-button-icon'}
     aria-hidden="true"
+    style={{ color: color || 'currentColor' }}
   >
     <path
       fill="none"
@@ -26,11 +27,12 @@ const ThumbsUpIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const ThumbsDownIcon: React.FC<{ className?: string }> = ({ className }) => (
+const ThumbsDownIcon: React.FC<{ className?: string; color?: string }> = ({ className, color }) => (
   <svg
     viewBox="0 0 24 24"
     className={className || 'feedback-button-icon'}
     aria-hidden="true"
+    style={{ color: color || 'currentColor' }}
   >
     <path
       fill="none"
@@ -124,7 +126,26 @@ export function FeedbackRating({
     return null;
   }
 
-   const isDarkMode = theme.mode === 'dark';
+  const isDarkMode = theme.mode === 'dark';
+
+  // WCAG AA compliant colors (minimum 4.5:1 contrast ratio)
+  const getButtonStyle = (isSelected: boolean) => {
+    if (isSelected) {
+      return {
+        backgroundColor: theme.primaryColor,
+        borderColor: theme.primaryColor,
+      };
+    }
+    return {
+      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+    };
+  };
+
+  const getIconColor = (isSelected: boolean) => {
+    if (isSelected) return '#ffffff';
+    return isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
+  };
 
    return (
      <div
@@ -143,9 +164,9 @@ export function FeedbackRating({
          onClick={() => handleRatingClick('positive')}
          onKeyDown={(e) => handleKeyDown(e, 'positive')}
          className={`feedback-button${rating === 'positive' ? ' feedback-button--selected' : ''}`}
-         style={rating === 'positive' ? { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor } : {}}
+         style={getButtonStyle(rating === 'positive')}
        >
-         <ThumbsUpIcon className="feedback-button-icon" />
+         <ThumbsUpIcon className="feedback-button-icon" color={getIconColor(rating === 'positive')} />
        </button>
 
        <button
@@ -158,9 +179,9 @@ export function FeedbackRating({
          onClick={() => handleRatingClick('negative')}
          onKeyDown={(e) => handleKeyDown(e, 'negative')}
          className={`feedback-button${rating === 'negative' ? ' feedback-button--selected' : ''}`}
-         style={rating === 'negative' ? { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor } : {}}
+         style={getButtonStyle(rating === 'negative')}
        >
-         <ThumbsDownIcon className="feedback-button-icon" />
+         <ThumbsDownIcon className="feedback-button-icon" color={getIconColor(rating === 'negative')} />
        </button>
 
       {showCommentForm && (

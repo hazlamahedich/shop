@@ -42,6 +42,7 @@ export function SourceCitation({
   };
 
   const isClickable = !!topSource.url;
+  const isDarkMode = theme.mode === 'dark';
 
   return (
     <div
@@ -54,8 +55,7 @@ export function SourceCitation({
         style={{
           fontSize: 11,
           fontWeight: 600,
-          color: theme.textColor,
-          opacity: 0.85,
+          color: isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)',
           marginBottom: 6,
           textTransform: 'uppercase',
           letterSpacing: '0.5px',
@@ -76,8 +76,8 @@ export function SourceCitation({
           borderRadius: 6,
           cursor: isClickable ? 'pointer' : 'default',
           transition: reducedMotion ? 'none' : 'background-color 150ms ease',
-          border: 'none',
-          background: 'transparent',
+          border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'}`,
+          background: isDarkMode ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.02)',
           width: '100%',
           textAlign: 'left',
         }}
@@ -92,7 +92,7 @@ export function SourceCitation({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            color: theme.textColor,
+            color: isDarkMode ? 'rgba(255, 255, 255, 0.85)' : 'rgba(0, 0, 0, 0.8)',
           }}
           title={topSource.filename || topSource.title}
         >
