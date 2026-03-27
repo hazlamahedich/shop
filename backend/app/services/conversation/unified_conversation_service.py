@@ -68,7 +68,6 @@ from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.privacy.data_tier_service import DataTier
 from app.services.rag.context_builder import RAGContextBuilder
 from app.services.rag.retrieval_service import RetrievedChunk
-from app.services.rag.suggestion_generator import SuggestionGenerator
 
 logger = structlog.get_logger(__name__)
 
@@ -131,7 +130,6 @@ class UnifiedConversationService:
         self.db = db
         self.track_costs = track_costs
         self.rag_context_builder = rag_context_builder
-        self.suggestion_generator = SuggestionGenerator()
         self.logger = structlog.get_logger(__name__)
 
         self.general_mode_fallback_handler = GeneralModeFallbackHandler()
@@ -490,7 +488,11 @@ class UnifiedConversationService:
 
             # Story 10-3: Generate suggested replies from RAG context
             if rag_chunks:
-                suggestions = await self.suggestion_generator.generate_suggestions(
+                llm_service = await self._get_merchant_llm(merchant, db, context)
+                from app.services.rag.suggestion_generator import SuggestionGenerator
+
+                suggestion_generator = SuggestionGenerator(llm_service=llm_service)
+                suggestions = await suggestion_generator.generate_suggestions(
                     query=message,
                     chunks=rag_chunks,
                 )

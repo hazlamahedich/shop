@@ -3,12 +3,14 @@
 Story 10-3: Quick Reply Chips Widget
 
 Generates relevant follow-up question suggestions based on:
-1. RAG chunk content (topic extraction)
-2. Fallback to keyword-based category detection
+1. LLM-powered generation (when LLM service available)
+2. RAG chunk content (topic extraction)
+3. Fallback to keyword-based category detection
 """
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -25,6 +27,8 @@ class SuggestionConfig:
 
     max_suggestions: int = 4
     min_chunk_content_length: int = 20
+    llm_temperature: float = 0.5
+    llm_max_tokens: int = 200
 
 
 FALLBACK_SUGGESTIONS: dict[str, list[str]] = {
@@ -85,19 +89,26 @@ class SuggestionGenerator:
     Story 10-3: Quick Reply Chips Widget
 
     Features:
-    - Topic extraction from RAG chunk content
+    - LLM-powered suggestion generation (primary)
+    - Topic extraction from RAG chunk content (fallback)
     - Document name-based suggestions
     - Keyword-based category detection for fallback
     - Max 4 suggestions per response
     """
 
-    def __init__(self, config: SuggestionConfig | None = None):
+    def __init__(
+        self,
+        config: SuggestionConfig | None = None,
+        llm_service=None,
+    ):
         """Initialize suggestion generator.
 
         Args:
             config: Optional configuration for suggestion generation
+            llm_service: Optional LLM service for better suggestions
         """
         self.config = config or SuggestionConfig()
+        self.llm_service = llm_service
 
     async def generate_suggestions(
         self,
@@ -105,6 +116,11 @@ class SuggestionGenerator:
         chunks: list[RetrievedChunk] | None,
     ) -> list[str]:
         """Generate follow-up questions based on RAG context.
+
+        Priority:
+        1. LLM-based generation (if LLM service available and chunks exist)
+        2. Topic extraction from chunks
+        3. Keyword-based fallback
 
         Args:
             query: User's original query
@@ -114,9 +130,103 @@ class SuggestionGenerator:
             List of follow-up question suggestions (max 4)
         """
         if chunks and len(chunks) > 0:
+            if self.llm_service:
+                llm_suggestions = await self._generate_with_llm(query, chunks)
+                if llm_suggestions:
+                    return llm_suggestions
             return self._extract_from_chunks(chunks)
 
         return self._fallback_suggestions(query)
+
+    async def _generate_with_llm(
+        self,
+        query: str,
+        chunks: list[RetrievedChunk],
+    ) -> list[str] | None:
+        """Use LLM to generate contextual follow-up questions.
+
+        Args:
+            query: User's original query
+            chunks: Retrieved RAG chunks for context
+
+        Returns:
+            List of suggestions from LLM, or None if generation failed
+        """
+        if not self.llm_service:
+            return None
+
+        context_text = self._build_context_from_chunks(chunks)
+
+        prompt = f"""Based on the user's question and the relevant context, generate {self.config.max_suggestions} follow-up questions the user might want to ask next.
+
+User's question: {query}
+
+Context from knowledge base:
+{context_text}
+
+Requirements:
+1. Questions must be DIRECTLY related to the context provided
+2. Questions should help the user explore the topic deeper
+3. Each question should be specific and actionable
+4. Questions should be natural, conversational (not robotic)
+5. DO NOT repeat the original question
+6. DO NOT ask generic questions like "Can you tell me more?"
+
+Return ONLY a JSON array of {self.config.max_suggestions} question strings.
+Example: ["What are your business hours?", "How can I contact support?", "Do you offer discounts?", "Where are you located?"]"""
+
+        try:
+            from app.services.llm.base_llm_service import LLMMessage
+
+            messages = [LLMMessage(role="user", content=prompt)]
+            response = await self.llm_service.chat(
+                messages=messages,
+                temperature=self.config.llm_temperature,
+                max_tokens=self.config.llm_max_tokens,
+            )
+
+            content = response.content.strip()
+
+            if content.startswith("```"):
+                content = re.sub(r"^```(?:json)?\s*", "", content)
+                content = re.sub(r"\s*```$", "", content)
+
+            suggestions = json.loads(content)
+
+            if isinstance(suggestions, list):
+                valid_suggestions = [
+                    s for s in suggestions if isinstance(s, str) and len(s.strip()) > 5
+                ]
+                return valid_suggestions[: self.config.max_suggestions]
+
+        except json.JSONDecodeError as e:
+            logger.debug("suggestion_llm_json_parse_failed", error=str(e))
+        except Exception as e:
+            logger.warning("suggestion_llm_generation_failed", error=str(e))
+
+        return None
+
+    def _build_context_from_chunks(self, chunks: list[RetrievedChunk]) -> str:
+        """Build context string from RAG chunks for LLM prompt.
+
+        Args:
+            chunks: Retrieved RAG chunks
+
+        Returns:
+            Combined context string (limited to prevent token overflow)
+        """
+        max_context_chars = 1500
+        context_parts = []
+        total_chars = 0
+
+        for chunk in chunks[:3]:
+            content = chunk.content[:500]
+            if total_chars + len(content) > max_context_chars:
+                break
+            context_parts.append(f"- {content}")
+            total_chars += len(content)
+
+        return "\n".join(context_parts)
 
     def _extract_from_chunks(self, chunks: list[RetrievedChunk]) -> list[str]:
         """Extract suggestions from RAG chunk content.
