@@ -207,11 +207,11 @@ function ChatWindow({
   // Hide FAQ buttons after first USER message (Story 10-2 AC4)
   // Note: Welcome message from bot doesn't count as first message
   React.useEffect(() => {
-    const userMessages = messages.filter(m => m.sender === 'user');
-    if (userMessages.length > 0) {
+    const userMessages = messages.filter((m) => m.sender === 'user');
+    if (userMessages.length > 0 && showFaqButtons) {
       setShowFaqButtons(false);
     }
-  }, [messages]);
+  }, [messages, showFaqButtons]);
 
   if (!isOpen) return null;
 

@@ -126,11 +126,15 @@ class WidgetMessageService:
                 "Message cannot be empty",
             )
 
+        # Generate message_id for user message (for feedback tracking)
+        user_message_id = str(uuid4())
+
         # Add user message to history
         await self.session_service.add_message_to_history(
             session.session_id,
             "user",
             sanitized_message,
+            message_id=user_message_id,
             customer_name=session.customer_name,
         )
 
@@ -262,10 +266,13 @@ class WidgetMessageService:
         )
 
         bot_message = response.message
+        bot_msg_id = str(response.message_id) if response.message_id else str(uuid4())
+
         await self.session_service.add_message_to_history(
             session.session_id,
             "bot",
             bot_message,
+            message_id=bot_msg_id,
             customer_name=session.customer_name,
         )
         await self.session_service.refresh_session(session.session_id)
@@ -280,7 +287,6 @@ class WidgetMessageService:
             response_length=len(bot_message),
         )
 
-        bot_msg_id = str(response.message_id) if response.message_id else str(uuid4())
         result = {
             "message_id": bot_msg_id,
             "content": bot_message,
@@ -414,10 +420,14 @@ class WidgetMessageService:
                 f"LLM response timed out after {RESPONSE_TIMEOUT_SECONDS} seconds",
             )
 
+        # Generate message_id for bot response (for feedback tracking)
+        bot_msg_id = str(uuid4())
+
         await self.session_service.add_message_to_history(
             session.session_id,
             "bot",
             response_text,
+            message_id=bot_msg_id,
             customer_name=session.customer_name,
         )
         await self.session_service.refresh_session(session.session_id)
@@ -431,7 +441,7 @@ class WidgetMessageService:
         )
 
         return {
-            "message_id": str(uuid4()),
+            "message_id": bot_msg_id,
             "content": response_text,
             "sender": "bot",
             "created_at": datetime.now(UTC),

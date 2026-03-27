@@ -41,17 +41,18 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DOCKER=true
       - DATABASE_URL=postgresql+asyncpg://developer:developer@postgres:5432/shop_dev
       - REDIS_URL=redis://redis:6379/0
       - DEBUG=true
-      - SECRET_KEY=dev-secret-key-DO-NOT-USE-IN-PRODUCTION
+      - SECRET_KEY=mcCf5Df-u63DdqHOPY5RpwOiKp2wm-itAK93mCZjF_U
       - FACEBOOK_PAGE_ACCESS_TOKEN=${FACEBOOK_PAGE_ACCESS_TOKEN}
       - FACEBOOK_PAGE_ID=${FACEBOOK_PAGE_ID}
       - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
       - FACEBOOK_WEBHOOK_VERIFY_TOKEN=${FACEBOOK_WEBHOOK_VERIFY_TOKEN}
       - LLM_PROVIDER=ollama
       - OLLAMA_DEFAULT_URL=http://host.docker.internal:11434
-      - IS_TESTING=false
+      - IS_TESTING=true
     depends_on:
       postgres:
         condition: service_healthy

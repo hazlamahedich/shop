@@ -144,7 +144,7 @@ export function FeedbackRating({
 
   const getIconColor = (isSelected: boolean) => {
     if (isSelected) return '#ffffff';
-    return isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
+    return isDarkMode ? 'rgba(255, 255, 255, 0.85)' : 'rgba(0, 0, 0, 0.6)';
   };
 
    return (

@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class FeedbackCreate(BaseModel):
     """Schema for creating feedback."""
 
-    message_id: str = Field(
-        alias="messageId", description="ID of the message being rated"
-    )
+    message_id: str = Field(alias="messageId", description="ID of the message being rated")
     conversation_id: int | None = Field(
         default=None,
         alias="conversationId",
@@ -25,6 +23,11 @@ class FeedbackCreate(BaseModel):
         description="Optional comment for negative feedback",
     )
     session_id: str = Field(alias="sessionId", description="Widget session ID")
+    merchant_id: int | None = Field(
+        default=None,
+        alias="merchantId",
+        description="Merchant ID (optional, for widget feedback)",
+    )
 
     @field_validator("rating")
     @classmethod
@@ -41,7 +44,8 @@ class FeedbackResponse(BaseModel):
     """Schema for feedback response."""
 
     id: int
-    message_id: int = Field(alias="messageId")
+    message_id: int | str = Field(alias="messageId")
+    widget_message_id: str | None = Field(default=None, alias="widgetMessageId")
     rating: str
     comment: str | None = None
     created_at: datetime = Field(alias="createdAt")
@@ -71,7 +75,8 @@ class FeedbackAnalyticsResponse(BaseModel):
 class RecentNegativeFeedback(BaseModel):
     """Schema for recent negative feedback item."""
 
-    message_id: int = Field(alias="messageId")
+    message_id: int | str = Field(alias="messageId")
+    widget_message_id: str | None = Field(default=None, alias="widgetMessageId")
     comment: str | None = None
     created_at: datetime = Field(alias="createdAt")
 

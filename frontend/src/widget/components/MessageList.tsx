@@ -322,7 +322,7 @@ function MessageGroupComponent({
                     title={formatAbsoluteTime(message.createdAt)}
                     style={{
                       fontSize: 10,
-                      color: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(0, 0, 0, 0.5)',
+                      color: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(0, 0, 0, 0.5)',
                       marginTop: 2,
                       textAlign: isUser ? 'right' : 'left',
                       marginRight: isUser ? 4 : 0,

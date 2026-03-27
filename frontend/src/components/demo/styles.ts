@@ -562,43 +562,4 @@ export const styles: Record<string, React.CSSProperties> = {
     zIndex: 1000,
     animation: 'slideUp 0.3s ease',
   },
-  
-  // Description Box
-  descriptionBox: {
-    padding: '16px',
-    backgroundColor: '#f9fafb',
-    borderRadius: '8px',
-    border: '1px solid #e5e7eb',
-  },
-  
-  // Demo Area
-  demoArea: {
-    flex: 1,
-    padding: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '600px',
-  },
-  
-  // Instructions
-  instructions: {
-    padding: '16px 24px',
-    backgroundColor: 'white',
-    margin: '0 24px',
-    borderRadius: '12px',
-    border: '1px solid #e5e7eb',
-  },
-  instructionsTitle: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#374151',
-    marginBottom: '12px',
-  },
-  instructionsList: {
-    margin: 0,
-    padding: '0 0 0 20px',
-    fontSize: '13px',
-    color: '#6b7280',
-    lineHeight: 1.8,
-  },
 };

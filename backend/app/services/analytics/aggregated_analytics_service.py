@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
-from sqlalchemy import Integer, func, select
+from sqlalchemy import Integer, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
@@ -1277,13 +1277,28 @@ class AggregatedAnalyticsService:
             messages = result.scalars().all()
 
             # Query explicit feedback (thumbs up/down)
+            # Include both widget feedback (by merchant_id) and conversation feedback
             feedback_result = await self.db.execute(
                 select(MessageFeedback)
-                .join(Conversation, MessageFeedback.conversation_id == Conversation.id)
-                .where(Conversation.merchant_id == merchant_id)
+                .where(
+                    or_(
+                        MessageFeedback.merchant_id == merchant_id,
+                        MessageFeedback.conversation_id.in_(
+                            select(Conversation.id).where(Conversation.merchant_id == merchant_id)
+                        )
+                    )
+                )
                 .where(MessageFeedback.created_at >= cutoff_date)
             )
             feedbacks = feedback_result.scalars().all()
+
+            logger.info(
+                "sentiment_trend_feedback_queried",
+                merchant_id=merchant_id,
+                cutoff_date=cutoff_date.isoformat(),
+                feedback_count=len(feedbacks),
+                feedback_ids=[f.id for f in feedbacks],
+            )
 
             daily_sentiment: dict[str, dict[str, int]] = {}
             total_positive = 0

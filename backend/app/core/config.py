@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import Any
 
 # Load .env file before reading any environment variables
+# Skip loading .env in Docker to allow docker-compose env vars to take precedence
 _env_file = Path(__file__).parent.parent.parent / ".env"
-if _env_file.exists():
+if _env_file.exists() and not os.getenv("DOCKER"):
     from dotenv import load_dotenv
 
     load_dotenv(_env_file, override=True)

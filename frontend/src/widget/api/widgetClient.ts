@@ -175,6 +175,7 @@ export class WidgetApiClient {
       cart: m.cart,
       contactOptions: m.contact_options || m.contactOptions,
       customerName: m.customer_name || m.customerName,
+      userRating: m.user_rating || m.userRating,
     })) as WidgetMessage[];
 
     return {
@@ -231,7 +232,7 @@ export class WidgetApiClient {
         checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? undefined,
         intent: parsed.data.intent ?? undefined,
         confidence: parsed.data.confidence ?? undefined,
-        quick_replies: parsed.data.quick_replies ?? undefined,
+        quick_replies: parsed.data.quickReplies ?? parsed.data.quick_replies ?? undefined,
         sources: (rawData.sources as Array<{
           documentId: number;
           title: string;
@@ -544,12 +545,12 @@ export class WidgetApiClient {
     messageId: string,
     rating: FeedbackRatingValue,
     sessionId: string,
+    merchantId: string,
     comment?: string
   ): Promise<{ id: number; messageId: string; rating: string; createdAt: string }> {
     const apiBase = getWidgetApiBase().replace('/api/v1/widget', '');
     const url = `${apiBase}/api/v1/feedback`;
 
-    // Validate API base URL before making request
     if (!apiBase || apiBase === '/api/v1') {
       console.error('[Widget] API base URL not configured. Please set ShopBotConfig.apiBaseUrl to your backend URL.');
       throw new WidgetApiException(0, 'Widget not configured: apiBaseUrl is required. Please contact the site administrator.');
@@ -565,6 +566,7 @@ export class WidgetApiClient {
           messageId,
           rating,
           sessionId,
+          merchantId,
           comment,
         }),
       });

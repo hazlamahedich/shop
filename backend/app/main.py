@@ -173,7 +173,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         None
     """
     # Startup
-    await init_db()
+    try:
+        await init_db()
+    except Exception as e:
+        import structlog
+        structlog.get_logger().warning("db_init_failed_during_startup", error=str(e))
+        # Database will be initialized lazily on first use
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
     await start_widget_cleanup_scheduler()  # Story 5-2: Start widget session cleanup scheduler
 

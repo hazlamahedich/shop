@@ -325,6 +325,7 @@ class WidgetSessionService:
         session_id: str,
         role: str,
         content: str,
+        message_id: str | None = None,
         customer_name: str | None = None,
     ) -> None:
         """Add a message to session history.
@@ -333,12 +334,14 @@ class WidgetSessionService:
             session_id: Widget session identifier
             role: Message role ('user' or 'bot')
             content: Message content
+            message_id: Message ID for feedback matching
             customer_name: Optional customer name for user messages
         """
         messages_key = self._get_messages_key(session_id)
 
         message = json.dumps(
             {
+                "message_id": message_id,
                 "role": role,
                 "content": content,
                 "timestamp": datetime.now(UTC).isoformat(),

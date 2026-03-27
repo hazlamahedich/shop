@@ -217,6 +217,7 @@ export type WidgetAction =
   | { type: 'SET_UNREAD_COUNT'; payload: number }
   | { type: 'SET_THEME_MODE'; payload: ThemeMode }
   | { type: 'SET_FAQ_QUICK_BUTTONS'; payload: FAQQuickButton[] }
+  | { type: 'UPDATE_MESSAGE_FEEDBACK'; payload: { messageId: string; rating: FeedbackRatingValue } }
   | { type: 'RESET' };
 
 export interface WidgetProduct {

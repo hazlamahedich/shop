@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
 import { Progress } from '../ui/Progress';
-import { Input } from '../ui/input';
+import { Input } from '../ui/Input';
 import { Alert } from '../ui/Alert';
 import { Badge } from '../ui/Badge';
 import { ScrollArea } from '../ui/ScrollArea';

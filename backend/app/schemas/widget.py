@@ -540,6 +540,7 @@ class WidgetMessageHistoryItem(BaseSchema):
         role: Message role ('user' or 'bot')
         content: Message content
         timestamp: Message timestamp
+        user_rating: User's feedback rating (if any)
     """
 
     message_id: str | None = Field(default=None, alias="messageId")
@@ -548,6 +549,7 @@ class WidgetMessageHistoryItem(BaseSchema):
     timestamp: str
     contact_options: list[ContactOptionSchema] | None = Field(default=None, alias="contactOptions")
     customer_name: str | None = Field(default=None, alias="customerName")
+    user_rating: str | None = Field(default=None, alias="userRating")
 
 
 class WidgetMessageHistoryResponse(BaseSchema):

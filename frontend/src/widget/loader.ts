@@ -83,6 +83,7 @@ function initWidget(): void {
     React.createElement(Widget, {
       merchantId: config.merchantId,
       theme: config.theme,
+      initialSessionId: config.sessionId,
     })
   );
 }

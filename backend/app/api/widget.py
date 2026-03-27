@@ -27,6 +27,7 @@ from app.core.sanitization import sanitize_message, validate_message_length
 from app.core.validators import is_valid_session_id
 from app.models.faq import Faq
 from app.models.merchant import Merchant
+from app.models.message_feedback import MessageFeedback
 from app.schemas.consent import (
     ConsentStatus,
     RecordConsentRequest,
@@ -343,6 +344,7 @@ async def get_widget_session(
 async def get_widget_message_history(
     request: Request,
     session_id: str,
+    db: AsyncSession = Depends(get_db),
 ) -> WidgetMessageHistoryEnvelope:
     """Get message history for a widget session.
 
@@ -381,12 +383,31 @@ async def get_widget_message_history(
 
     messages = await session_service.get_message_history(session_id)
 
+    # Fetch feedback ratings for all bot messages
+    message_ids = [msg.get("message_id") for msg in messages if msg.get("role") == "bot"]
+    feedback_map: dict[str, str] = {}
+
+    if message_ids:
+        feedback_query = select(MessageFeedback).where(
+            MessageFeedback.widget_message_id.in_(message_ids),
+            MessageFeedback.session_id == session_id,
+        )
+        feedback_result = await db.execute(feedback_query)
+        feedback_records = feedback_result.scalars().all()
+
+        feedback_map = {
+            record.widget_message_id: record.rating.value
+            for record in feedback_records
+            if record.widget_message_id
+        }
+
     history_items = [
         WidgetMessageHistoryItem(
             role=msg.get("role", "user"),
             content=msg.get("content", ""),
             timestamp=msg.get("timestamp", ""),
             customer_name=msg.get("customer_name"),
+            user_rating=feedback_map.get(msg.get("message_id")) if msg.get("role") == "bot" else None,
         )
         for msg in messages
     ]

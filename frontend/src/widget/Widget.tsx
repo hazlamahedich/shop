@@ -113,13 +113,15 @@ function WidgetInner({ theme }: WidgetInnerProps) {
         return;
       }
       try {
-        await widgetClient.submitFeedback(messageId, rating, sessionId, comment);
+        await widgetClient.submitFeedback(messageId, rating, sessionId, merchantId, comment);
+        // Update local state to reflect the feedback
+        dispatch({ type: 'UPDATE_MESSAGE_FEEDBACK', payload: { messageId, rating } });
       } catch (error) {
         console.error('[Widget] Failed to submit feedback:', error);
         throw error;
       }
     },
-    [state.session?.sessionId]
+    [state.session?.sessionId, merchantId, dispatch]
   );
 
   const prefetchChatWindow = React.useCallback(() => {
@@ -127,6 +129,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
   }, []);
 
   React.useEffect(() => {
+    console.log('[Widget.tsx] useEffect triggered, calling initWidget for merchantId:', merchantId);
     initWidget(merchantId);
   }, [initWidget, merchantId]);
 

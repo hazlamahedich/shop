@@ -34,16 +34,27 @@ class MessageFeedback(Base):
     __tablename__ = "message_feedback"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    message_id: Mapped[int] = mapped_column(
+    message_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("messages.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
-    conversation_id: Mapped[int] = mapped_column(
+    widget_message_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    merchant_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("merchants.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    conversation_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("conversations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     rating: Mapped[FeedbackRating] = mapped_column(
@@ -80,9 +91,18 @@ class MessageFeedback(Base):
         "Conversation",
         backref="feedback",
     )
+    merchant: Mapped[object] = relationship(
+        "Merchant",
+        backref="feedback",
+    )
 
     __table_args__ = (
-        UniqueConstraint("message_id", "session_id", name="uq_message_feedback_message_session"),
+        UniqueConstraint(
+            "session_id",
+            "message_id",
+            "widget_message_id",
+            name="uq_message_feedback_message_session",
+        ),
         Index("ix_message_feedback_created", "created_at"),
     )
 
