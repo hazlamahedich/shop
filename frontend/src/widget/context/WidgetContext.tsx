@@ -505,9 +505,15 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       try {
         const { widgetClient } = await import('../api/widgetClient');
         const botMessage = await widgetClient.sendMessage(currentSessionId!, content);
+        console.log('[WidgetContext] Bot message received:', {
+          hasConsentPrompt: botMessage.consent_prompt_required,
+          consentPromptValue: botMessage.consent_prompt_required,
+          messageKeys: Object.keys(botMessage)
+        });
         dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
         if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+          console.log('[WidgetContext] Setting consent prompt shown');
           consentPromptShownRef.current = true;
           dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
         }

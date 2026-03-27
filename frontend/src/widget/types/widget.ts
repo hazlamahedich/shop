@@ -140,6 +140,7 @@ export interface WidgetMessage {
   userRating?: FeedbackRatingValue;
   contactOptions?: ContactOption[];
   customerName?: string;
+  consent_prompt_required?: boolean;
 }
 
 export interface MessageGroup {

@@ -254,7 +254,8 @@ export class WidgetApiClient {
           icon?: string;
         }> ?? undefined,
         customerName: (rawData.customerName ?? rawData.customer_name) as string | undefined,
-      } as WidgetMessage;
+        consent_prompt_required: (rawData.consent_prompt_required ?? rawData.consentPromptRequired) as boolean | undefined,
+      } as WidgetMessage & { consent_prompt_required?: boolean };
     } catch (error) {
       if (error instanceof WidgetApiException) throw error;
       throw new WidgetApiException(0, `Invalid message response: ${error instanceof Error ? error.message : 'Unknown error'}`);
