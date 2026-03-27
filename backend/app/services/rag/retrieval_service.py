@@ -57,7 +57,7 @@ class RetrievalService:
     Performance Target: <500ms end-to-end (embed + search)
     """
 
-    SIMILARITY_THRESHOLD = 0.5  # Minimum similarity score (lowered for better recall)
+    SIMILARITY_THRESHOLD = 0.3  # Minimum similarity score (lowered for better recall, fixes location queries)
     TOP_K_DEFAULT = 5  # Default number of chunks to retrieve
     RETRIEVAL_TIMEOUT_MS = 500  # Timeout for retrieval
 
