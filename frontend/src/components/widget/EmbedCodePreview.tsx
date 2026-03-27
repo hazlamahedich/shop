@@ -23,7 +23,7 @@ type Platform = 'html' | 'shopify' | 'react' | 'wordpress';
 function generateEmbedCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
   const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
-  const scriptUrl = baseUrl.replace('/api/v1/widget', '/widget/widget.umd.js?v=20260308-17-40');
+  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
   return `<script>
   window.ShopBotConfig = {
     merchantId: '${id}',
@@ -31,36 +31,42 @@ function generateEmbedCode(merchantId: number | null, primaryColor: string, apiB
     apiBaseUrl: '${baseUrl}'
   };
 </script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="${scriptUrl}"></script>`;
 }
 
 function generateReactCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
   const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
-  const scriptUrl = baseUrl.replace('/api/v1/widget', '/widget/widget.umd.js?v=20260308-17-40');
-  return `// In your root layout or _app.tsx file:
+  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
+  return `// In your Next.js page or _app.tsx:
+import Script from 'next/script';
 
-useEffect(() => {
-  window.ShopBotConfig = {
-    merchantId: '${id}',
-    theme: { primaryColor: '${primaryColor}' },
-    apiBaseUrl: '${baseUrl}'
-  };
-
-  const script = document.createElement('script');
-  script.src = '${scriptUrl}';
-  document.body.appendChild(script);
-
-  return () => {
-    document.body.removeChild(script);
-  };
-}, []);`;
+// In your component:
+<>
+  <Script id="shopbot-config" strategy="beforeInteractive">
+    {\`
+      window.ShopBotConfig = {
+        merchantId: '${id}',
+        theme: {
+          primaryColor: '${primaryColor}',
+          position: 'bottom-right',
+        },
+        apiBaseUrl: '${baseUrl}'
+      };
+    \`}
+  </Script>
+  <Script src="https://unpkg.com/react@18/umd/react.production.min.js" strategy="beforeInteractive" />
+  <Script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" strategy="beforeInteractive" />
+  <Script src="${scriptUrl}" strategy="afterInteractive" />
+</>`;
 }
 
 function generateWordPressCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
   const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
-  const scriptUrl = baseUrl.replace('/api/v1/widget', '/widget/widget.umd.js?v=20260308-17-40');
+  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
   return `// Add this to your theme's functions.php file:
 
 function shop_bot_widget() {
@@ -72,6 +78,8 @@ function shop_bot_widget() {
       apiBaseUrl: '${baseUrl}'
     };
   </script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="${scriptUrl}"></script>
   <?php
 }
@@ -134,6 +142,7 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
         'Copy the code below',
         'Paste it into your website\'s HTML, just before the closing </body> tag',
         'Save and publish your changes',
+        'Note: React and ReactDOM are loaded from CDN automatically',
       ],
     },
     shopify: {
@@ -145,16 +154,17 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
         'Find and open theme.liquid in the Layout folder',
         'Scroll to the bottom and paste the code just before </body>',
         'Click Save',
-        'Note: The apiBaseUrl is required for real-time merchant replies to work',
+        'Note: React and ReactDOM are loaded from CDN automatically',
       ],
     },
     react: {
       title: 'React / Next.js',
       steps: [
         'Replace YOUR_API_DOMAIN with your actual API server URL',
-        'Copy the code below',
-        'Add it to your root layout file (e.g., _app.tsx, layout.tsx, or App.tsx)',
-        'The widget will load automatically on all pages',
+        'Install Next.js Script component if not already available',
+        'Copy the code below to your page component or root layout',
+        'The widget will load after React dependencies are ready',
+        'Note: Uses Next.js Script component for optimal loading',
       ],
     },
     wordpress: {
@@ -165,6 +175,7 @@ export const EmbedCodePreview: React.FC<EmbedCodePreviewProps> = ({
         'Copy the code below to your theme\'s functions.php file',
         'Option 2: Use a plugin like "Insert Headers and Footers"',
         'Paste the HTML version in the Footer section',
+        'Note: React and ReactDOM are loaded from CDN automatically',
       ],
     },
   };

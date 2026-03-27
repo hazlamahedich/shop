@@ -27,7 +27,8 @@ Paste this code before the closing `</body>` tag on every page where you want th
 ```html
 <script>
   window.ShopBotConfig = {
-    merchantId: 'PASTE_YOUR_MERCHANT_ID_HERE'
+    merchantId: 'PASTE_YOUR_MERCHANT_ID_HERE',
+    apiBaseUrl: 'https://your-backend-url.com'  // Required: Your backend API URL
   };
 </script>
 <script src="https://cdn.yourbot.com/widget/v/1.0.0/widget.umd.js" async></script>
@@ -44,11 +45,12 @@ Paste this code before the closing `</body>` tag on every page where you want th
 </head>
 <body>
   <!-- Your website content here -->
-  
+
   <!-- Add ShopBot Widget here -->
   <script>
     window.ShopBotConfig = {
-      merchantId: 'YOUR_MERCHANT_ID'
+      merchantId: 'YOUR_MERCHANT_ID',
+      apiBaseUrl: 'https://your-backend-url.com'  // Required: Your backend API URL
     };
   </script>
   <script src="https://cdn.yourbot.com/widget/v/1.0.0/widget.umd.js" async></script>
@@ -78,6 +80,7 @@ Match the widget to your brand colors:
 <script>
   window.ShopBotConfig = {
     merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com',  // Required: Your backend API URL
     theme: {
       primaryColor: '#6366f1',      // Your brand color
       position: 'bottom-right'       // or 'bottom-left'
@@ -153,7 +156,12 @@ Your AI shopping assistant is now live on your website. It will:
 ### Minimal (Default styling)
 
 ```html
-<script>window.ShopBotConfig={merchantId:'YOUR_ID'};</script>
+<script>
+window.ShopBotConfig={
+  merchantId:'YOUR_ID',
+  apiBaseUrl:'https://your-backend-url.com'
+};
+</script>
 <script src="https://cdn.yourbot.com/widget/v/1.0.0/widget.umd.js" async></script>
 ```
 
@@ -163,6 +171,7 @@ Your AI shopping assistant is now live on your website. It will:
 <script>
 window.ShopBotConfig={
   merchantId:'YOUR_ID',
+  apiBaseUrl:'https://your-backend-url.com',
   theme:{primaryColor:'#6366f1',position:'bottom-right'}
 };
 </script>
@@ -175,6 +184,7 @@ window.ShopBotConfig={
 <script>
 window.ShopBotConfig={
   merchantId:'YOUR_ID',
+  apiBaseUrl:'https://your-backend-url.com',
   theme:{position:'bottom-left'}
 };
 </script>

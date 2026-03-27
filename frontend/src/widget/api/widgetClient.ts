@@ -265,10 +265,13 @@ export class WidgetApiClient {
 
   async getConfig(merchantId: string): Promise<WidgetConfig> {
     const data = await this.request<{ data: unknown }>(`/config/${merchantId}`);
+    console.log('[widgetClient] Raw config data:', data.data);
     const parsed = WidgetConfigSchema.safeParse(data.data);
+    console.log('[widgetClient] Parsed config:', parsed);
     if (!parsed.success) {
       throw new WidgetApiException(0, 'Invalid config response');
     }
+    console.log('[widgetClient] onboardingMode from parsed.data:', parsed.data.onboardingMode);
     return {
       merchantId: parsed.data.merchantId || merchantId,
       enabled: parsed.data.enabled,
@@ -545,32 +548,52 @@ export class WidgetApiClient {
   ): Promise<{ id: number; messageId: string; rating: string; createdAt: string }> {
     const apiBase = getWidgetApiBase().replace('/api/v1/widget', '');
     const url = `${apiBase}/api/v1/feedback`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messageId,
-        rating,
-        sessionId,
-        comment,
-      }),
-    });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      const error = parseApiError(data);
-      throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+    // Validate API base URL before making request
+    if (!apiBase || apiBase === '/api/v1') {
+      console.error('[Widget] API base URL not configured. Please set ShopBotConfig.apiBaseUrl to your backend URL.');
+      throw new WidgetApiException(0, 'Widget not configured: apiBaseUrl is required. Please contact the site administrator.');
     }
 
-    const data = await response.json();
-    return {
-      id: data.data.id,
-      messageId: data.data.messageId,
-      rating: data.data.rating,
-      createdAt: data.data.createdAt,
-    };
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          rating,
+          sessionId,
+          comment,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const error = parseApiError(data);
+        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        id: data.data.id,
+        messageId: data.data.messageId,
+        rating: data.data.rating,
+        createdAt: data.data.createdAt,
+      };
+    } catch (error) {
+      if (error instanceof WidgetApiException) {
+        throw error;
+      }
+      // Log network errors with context
+      console.error('[Widget] Feedback submission failed:', {
+        url,
+        messageId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new WidgetApiException(0, `Network error: ${error instanceof Error ? error.message : 'Failed to connect to server'}`);
+    }
   }
 }
 

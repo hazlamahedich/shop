@@ -26,7 +26,8 @@ Add this code before the closing `</body>` tag on your website:
 ```html
 <script>
   window.ShopBotConfig = {
-    merchantId: 'YOUR_MERCHANT_ID'
+    merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com'  // Required: Your backend API URL
   };
 </script>
 <script src="https://cdn.yourbot.com/widget/v/1.0.0/widget.umd.js" async></script>
@@ -46,6 +47,7 @@ Add this code before the closing `</body>` tag on your website:
 ```typescript
 interface ShopBotConfig {
   merchantId: string;           // Required - Your merchant ID
+  apiBaseUrl: string;           // Required - Your backend API URL (e.g., 'https://api.yourbot.com')
   theme?: {
     primaryColor?: string;      // Hex color (default: #6366f1)
     backgroundColor?: string;   // Hex color (default: #ffffff)
@@ -74,6 +76,7 @@ Match the widget to your brand:
 <script>
   window.ShopBotConfig = {
     merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com',  // Required: Your backend API URL
     theme: {
       primaryColor: '#6366f1',
       backgroundColor: '#ffffff',
@@ -96,6 +99,7 @@ The widget can be positioned in either corner:
 <script>
   window.ShopBotConfig = {
     merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com',
     theme: { position: 'bottom-right' }
   };
 </script>
@@ -104,6 +108,7 @@ The widget can be positioned in either corner:
 <script>
   window.ShopBotConfig = {
     merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com',
     theme: { position: 'bottom-left' }
   };
 </script>
@@ -117,6 +122,7 @@ Track user interactions:
 <script>
   window.ShopBotConfig = {
     merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com',  // Required: Your backend API URL
     callbacks: {
       onOpen: () => {
         console.log('Widget opened');
@@ -144,6 +150,7 @@ Enable debug logging for development:
 <script>
   window.ShopBotConfig = {
     merchantId: 'YOUR_MERCHANT_ID',
+    apiBaseUrl: 'https://your-backend-url.com',  // Required: Your backend API URL
     debug: true  // Logs to browser console
   };
 </script>
@@ -163,10 +170,13 @@ Simplest integration with minimal configuration:
 </head>
 <body>
   <!-- Your website content -->
-  
+
   <!-- ShopBot Widget -->
   <script>
-    window.ShopBotConfig = { merchantId: 'abc123xyz' };
+    window.ShopBotConfig = {
+      merchantId: 'abc123xyz',
+      apiBaseUrl: 'https://your-backend-url.com'  // Required: Your backend API URL
+    };
   </script>
   <script src="https://cdn.yourbot.com/widget/v/1.0.0/widget.umd.js" async></script>
 </body>
@@ -179,6 +189,7 @@ Simplest integration with minimal configuration:
 <script>
   window.ShopBotConfig = {
     merchantId: 'abc123xyz',
+    apiBaseUrl: 'https://your-backend-url.com',  // Required: Your backend API URL
     theme: {
       primaryColor: '#10b981',     // Green accent
       backgroundColor: '#f9fafb',  // Light gray background
@@ -195,6 +206,7 @@ Simplest integration with minimal configuration:
 <script>
   window.ShopBotConfig = {
     merchantId: 'abc123xyz',
+    apiBaseUrl: 'https://your-backend-url.com',  // Required: Your backend API URL
     callbacks: {
       onOpen: () => {
         gtag('event', 'widget_opened');
@@ -218,6 +230,7 @@ import { useEffect, useCallback } from 'react';
 
 interface Props {
   merchantId: string;
+  apiBaseUrl: string;  // Required: Your backend API URL
   theme?: {
     primaryColor?: string;
     position?: 'bottom-right' | 'bottom-left';
@@ -225,11 +238,12 @@ interface Props {
   onMessage?: (message: string) => void;
 }
 
-export function ShopBotWidget({ merchantId, theme, onMessage }: Props) {
+export function ShopBotWidget({ merchantId, apiBaseUrl, theme, onMessage }: Props) {
   useEffect(() => {
     // Configure widget
-    window.ShopBotConfig = { 
-      merchantId, 
+    window.ShopBotConfig = {
+      merchantId,
+      apiBaseUrl,
       theme,
       callbacks: {
         onMessage
@@ -250,14 +264,15 @@ export function ShopBotWidget({ merchantId, theme, onMessage }: Props) {
       }
       delete (window as any).ShopBotConfig;
     };
-  }, [merchantId, theme, onMessage]);
+  }, [merchantId, apiBaseUrl, theme, onMessage]);
 
   return null;
 }
 
 // Usage
-<ShopBotWidget 
+<ShopBotWidget
   merchantId="abc123xyz"
+  apiBaseUrl="https://your-backend-url.com"
   theme={{ primaryColor: '#6366f1' }}
   onMessage={(msg) => console.log('User message:', msg)}
 />
