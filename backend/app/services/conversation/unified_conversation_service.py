@@ -1749,21 +1749,52 @@ class UnifiedConversationService:
                     status=status,
                     can_store=context.consent_state.can_store_conversation,
                 )
+                # If consent exists and prompt was already shown, don't show again
                 return None
 
+            # No consent record exists - this is a new conversation
+            # Show consent prompt by returning a response
             context.consent_state.status = ConsentStatus.PENDING
             context.consent_state.can_store_conversation = False
             context.consent_state.prompt_shown = False
             context.consent_status = "pending"
 
             self.logger.info(
-                "consent_status_pending_no_record",
+                "consent_status_pending_no_record_showing_prompt",
                 session_id=context.session_id,
                 merchant_id=merchant.id,
                 visitor_id=context.consent_state.visitor_id,
             )
 
-            return None
+            # Import prompt service to generate consent prompt message
+            from app.services.consent.consent_prompt_service import ConsentPromptService
+
+            prompt_service = ConsentPromptService()
+
+            consent_prompt_message = prompt_service.get_consent_prompt_message(
+                personality=merchant.personality,
+            )
+
+            # Get quick replies for the consent prompt
+            quick_replies = prompt_service.get_consent_quick_replies()
+
+            # Return consent prompt response
+            return ConversationResponse(
+                message=consent_prompt_message,
+                intent="consent_prompt",
+                confidence=1.0,
+                checkout_url=None,
+                fallback=False,
+                fallback_url=None,
+                products=None,
+                cart=None,
+                order=None,
+                metadata={
+                    "consent_prompt_required": True,
+                    "consent_status": ConsentStatus.PENDING.value,
+                    "quick_replies": quick_replies,
+                },
+            )
 
         except Exception as e:
             self.logger.warning(
