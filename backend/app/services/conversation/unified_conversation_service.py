@@ -471,13 +471,22 @@ class UnifiedConversationService:
                             }
                         )
             if source_citations:
-                response.sources = source_citations
-                self.logger.debug(
-                    "rag_sources_attached",
-                    merchant_id=merchant.id,
-                    source_count=len(source_citations),
-                    is_question=is_question,
-                )
+                # Hide sources if LLM explicitly says it couldn't find information
+                # This prevents showing misleading citations when the sources weren't actually used
+                if self._indicates_no_information_found(response.message):
+                    self.logger.debug(
+                        "rag_sources_hidden_no_info",
+                        merchant_id=merchant.id,
+                        source_count=len(source_citations),
+                    )
+                else:
+                    response.sources = source_citations
+                    self.logger.debug(
+                        "rag_sources_attached",
+                        merchant_id=merchant.id,
+                        source_count=len(source_citations),
+                        is_question=is_question,
+                    )
 
             # Story 10-3: Generate suggested replies from RAG context
             if rag_chunks:
@@ -2319,6 +2328,43 @@ class UnifiedConversationService:
         lower_no_punct = re.sub(r"[^\w\s]", "", lower)
         for qw in question_words:
             if qw in lower_no_punct:
+                return True
+
+        return False
+
+    def _indicates_no_information_found(self, message: str) -> bool:
+        """Check if the LLM response indicates it couldn't find relevant information.
+
+        When the LLM explicitly says it couldn't find information, we should hide
+        source citations to avoid misleading users with sources that weren't actually used.
+
+        Args:
+            message: LLM response message
+
+        Returns:
+            True if response indicates no information was found
+        """
+        import re
+
+        lower = message.lower()
+
+        no_info_patterns = [
+            r"couldn'?t\s+find\s+(any\s+)?information",
+            r"could\s+not\s+find\s+(any\s+)?information",
+            r"no\s+information\s+(about|regarding|on|in)",
+            r"don'?t\s+have\s+(any\s+)?information",
+            r"do\s+not\s+have\s+(any\s+)?information",
+            r"not\s+able\s+to\s+(find|answer|locate)",
+            r"unable\s+to\s+(find|answer|locate)",
+            r"doesn'?t\s+(mention|say|contain|include)",
+            r"does\s+not\s+(mention|say|contain|include)",
+            r"no\s+(mention|reference|details|information)",
+            r"nothing\s+(about|in)\s+(the\s+)?(documents?|files?|context)",
+            r"documents?\s+(i\s+have\s+)?(don'?t|doesn'?t|do\s+not|does\s+not)",
+        ]
+
+        for pattern in no_info_patterns:
+            if re.search(pattern, lower):
                 return True
 
         return False

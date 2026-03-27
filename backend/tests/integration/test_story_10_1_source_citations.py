@@ -327,3 +327,37 @@ class TestSourceCitationsIntegration:
         )
 
         assert source_with_chunk.chunk_index == 42
+
+    def test_sources_hidden_when_no_information_found(self):
+        """[P1] Sources should be hidden when LLM says it couldn't find information."""
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = UnifiedConversationService.__new__(UnifiedConversationService)
+
+        no_info_responses = [
+            "I'm sorry, but I couldn't find any information about whether Sherwin likes to bike in the documents I have.",
+            "The documents I have don't mention that topic.",
+            "I was not able to find that information in the available documents.",
+            "There is no mention of that in the documents.",
+            "I don't have any information about that.",
+            "The documents do not contain details about this.",
+        ]
+
+        for response in no_info_responses:
+            assert service._indicates_no_information_found(response) is True, (
+                f"Should detect no-info in: {response}"
+            )
+
+        info_found_responses = [
+            "I found the answer in the documents. Here's what I know...",
+            "According to the resume, Sherwin has experience with Python.",
+            "The document mentions that the project was completed in 2023.",
+            "Here's the information you requested about the project.",
+        ]
+
+        for response in info_found_responses:
+            assert service._indicates_no_information_found(response) is False, (
+                f"Should NOT detect no-info in: {response}"
+            )
