@@ -13,9 +13,9 @@ import type {
   ConversationCost, 
   CostSummary, 
   CostSummaryParams,
-  BudgetAlert,
   BudgetAlertListResponse,
-  BotStatus
+  BotStatus,
+  AIRecommendationsResponse
 } from '../types/cost';
 
 export interface ResumeBotResponse {
@@ -143,5 +143,14 @@ export const costTrackingService = {
    */
   async getBudgetRecommendation(): Promise<ApiEnvelope<BudgetRecommendation>> {
     return apiClient.get<BudgetRecommendation>('/api/merchant/budget-recommendation');
+  },
+
+  /**
+   * Get AI-generated cost optimization recommendations
+   *
+   * @returns Promise with AI recommendations
+   */
+  async getAIRecommendations(): Promise<ApiEnvelope<AIRecommendationsResponse>> {
+    return apiClient.get<AIRecommendationsResponse>('/api/costs/recommendations');
   },
 };

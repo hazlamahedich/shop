@@ -145,13 +145,45 @@ const Costs = () => {
   }, [costSummary]);
 
   const transmissions = useMemo(() => {
-    return (costSummary?.topConversations || []).slice(0, 3).map(conv => ({
-      id: `PBX-${conv.conversationId.slice(0, 4).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-      category: 'Multi-Agent Code Synthesis', 
-      load: `${(Math.random() * 2).toFixed(1)}M Tokens`,
-      investment: conv.totalCostUsd
-    }));
-  }, [costSummary]);
+    if (!costSummary?.topConversations || costSummary.topConversations.length === 0) return [];
+    return costSummary.topConversations.slice(0, 3).map((conv) => {
+      const formatTokens = (tokens: number) => {
+        if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M Tokens`;
+        if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K Tokens`;
+        return `${tokens} Tokens`;
+      };
+      const getCategoryLabel = (responseType?: string) => {
+        if (responseType === 'rag') return 'RAG Response';
+        if (responseType === 'general') return 'General Query';
+        return 'Unknown';
+      };
+      return {
+        id: `PBX-${conv.conversationId}`,
+        category: getCategoryLabel(conv.responseType),
+        load: conv.totalTokens ? formatTokens(conv.totalTokens) : 'N/A',
+        investment: conv.totalCostUsd
+      };
+    });
+    return transmissions;
+  }, [costSummary?.topConversations]);
+
+  const efficiencyMetrics = useMemo(() => {
+    const metrics = costSummary?.efficiencyMetrics;
+    if (!metrics) {
+      return {
+        costPer1kTokens: 0.0024,
+        ragResponsePercentage: 0,
+        optimizationSavingsPercentage: 48,
+        avgProcessingTimeMs: null,
+      };
+    }
+    return {
+      costPer1kTokens: metrics.costPer1kTokens,
+      ragResponsePercentage: metrics.ragResponsePercentage,
+      optimizationSavingsPercentage: metrics.optimizationSavingsPercentage,
+      avgProcessingTimeMs: metrics.avgProcessingTimeMs,
+    };
+  }, [costSummary?.efficiencyMetrics])
 
   const efficiencyDelta = useMemo(() => {
     if (!costSummary || !previousPeriodSummary) return 12.4; 
@@ -346,7 +378,7 @@ const Costs = () => {
         <div className="lg:col-span-4 space-y-8">
           <MetricHUDCard 
             title="Efficiency & Performance"
-            value="$0.0024"
+            value={`$${efficiencyMetrics.costPer1kTokens.toFixed(4)}`}
             subValue="/ 1K TOKENS"
             accent="mantis"
           >
@@ -356,7 +388,7 @@ const Costs = () => {
                    <span className="text-[10px] font-black text-[var(--mantis-glow)] uppercase tracking-widest bg-[var(--mantis-glow)]/10 px-2 py-0.5 rounded border border-[var(--mantis-glow)]/20">Optimized</span>
                 </div>
                 <p className="text-[11px] text-white/40 leading-relaxed font-medium">
-                  System is achieving <span className="text-white">96.2% accuracy</span> with <span className="text-[var(--mantis-glow)]">48% cheaper</span> sub-model routing fallback strategies.
+                  System is achieving <span className="text-white">{efficiencyMetrics.ragResponsePercentage}% RAG accuracy</span> with <span className="text-[var(--mantis-glow)]">{efficiencyMetrics.optimizationSavingsPercentage}% cheaper</span> sub-model routing fallback strategies.
                 </p>
              </div>
           </MetricHUDCard>

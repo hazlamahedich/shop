@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Costs from './Costs';
 import { useCostTrackingStore } from '../stores/costTrackingStore';
@@ -24,6 +24,25 @@ vi.mock('../context/ToastContext', () => ({
   }),
 }));
 
+// Mock the cost tracking service
+vi.mock('../services/costTracking', () => ({
+  costTrackingService: {
+    getAIRecommendations: vi.fn().mockResolvedValue({
+      data: {
+        recommendations: [
+          {
+            id: 'MB-9831',
+            priority: 'HIGH',
+            text: 'Shift #MB-9831 processing to Claude-3-Haiku during off-peak hours to save 22% daily spend.',
+            potentialSavingsUsd: 15.50,
+            category: 'model_optimization',
+          },
+        ],
+      },
+    }),
+  },
+}));
+
 const mockUseCostTrackingStore = vi.mocked(useCostTrackingStore);
 
 // Mock cost summary data
@@ -33,9 +52,9 @@ const mockCostSummary: CostSummary = {
   requestCount: 500,
   avgCostPerRequest: 0.02468,
   topConversations: [
-    { conversationId: 'conv-001', totalCostUsd: 2.50, requestCount: 50 },
-    { conversationId: 'conv-002', totalCostUsd: 1.80, requestCount: 35 },
-    { conversationId: 'conv-003', totalCostUsd: 1.20, requestCount: 28 },
+    { conversationId: 'conv-001', totalCostUsd: 2.50, requestCount: 50, totalTokens: 15000, responseType: 'rag' },
+    { conversationId: 'conv-002', totalCostUsd: 1.80, requestCount: 35, totalTokens: 12000, responseType: 'general' },
+    { conversationId: 'conv-003', totalCostUsd: 1.20, requestCount: 28, totalTokens: 8500, responseType: 'rag' },
   ],
   costsByProvider: {
     openai: { costUsd: 8.50, requests: 300 },
@@ -46,6 +65,12 @@ const mockCostSummary: CostSummary = {
     { date: '2026-02-02', totalCostUsd: 4.10, requestCount: 150 },
     { date: '2026-02-03', totalCostUsd: 5.04, requestCount: 230 },
   ],
+  efficiencyMetrics: {
+    costPer1kTokens: 0.0494,
+    ragResponsePercentage: 67.0,
+    optimizationSavingsPercentage: 42.5,
+    avgProcessingTimeMs: 1250.5,
+  },
 };
 
 const defaultStoreState = {
@@ -173,15 +198,44 @@ describe('Costs Page - Tactical HUD', () => {
     });
 
     it('renders Efficiency & Performance card', () => {
+      mockUseCostTrackingStore.mockReturnValue({
+        ...defaultStoreState,
+        costSummary: mockCostSummary,
+      });
       render(<Costs />);
       expect(screen.getByText('Efficiency & Performance')).toBeInTheDocument();
-      expect(screen.getByText('$0.0024')).toBeInTheDocument();
+      expect(screen.getByText('$0.0494')).toBeInTheDocument();
+      expect(screen.getByText('67% RAG accuracy')).toBeInTheDocument();
     });
 
-    it('renders AI Recommendations', () => {
+    it('renders AI Recommendations', async () => {
+      vi.useRealTimers();
       render(<Costs />);
       expect(screen.getByText('AI Recommendations')).toBeInTheDocument();
-      expect(screen.getByText(/Shift #MB-9831/)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/Shift #MB-9831/)).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('renders Heavy Transmissions table', () => {
+      mockUseCostTrackingStore.mockReturnValue({
+        ...defaultStoreState,
+        costSummary: mockCostSummary
+      });
+      render(<Costs />);
+      expect(screen.getByText('Heavy Transmissions')).toBeInTheDocument();
+      expect(screen.getAllByText('RAG Response').length).toBeGreaterThan(0);
+      expect(screen.getByText('General Query')).toBeInTheDocument();
+      expect(screen.getByText('15K Tokens')).toBeInTheDocument();
+    });
+
+    it('renders AI Recommendations', async () => {
+      vi.useRealTimers();
+      render(<Costs />);
+      expect(screen.getByText('AI Recommendations')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/Shift #MB-9831/)).toBeInTheDocument();
+      }, { timeout: 3000 });
     });
 
     it('renders Heavy Transmissions table', () => {

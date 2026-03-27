@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import APIError, ErrorCode, ValidationError
 from app.schemas.cost_tracking import (
+    AIRecommendationsResponse,
     CostListResponse,
 )
 from app.services.cost_tracking import CostTrackingService
@@ -133,7 +134,111 @@ async def get_cost_summary(
                 datetime.fromisoformat(date_to)
         except ValueError as e:
             raise ValidationError(
-                f"Invalid date format: {str(e)}. " "Expected ISO 8601 format (e.g., 2026-02-01)"
+                f"Invalid date format: {str(e)}. Expected ISO 8601 format (e.g., 2026-02-01)"
+            )
+
+    # 3. Get cost summary
+    summary = await cost_service.get_cost_summary(
+        db=db,
+        merchant_id=merchant_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    # 4. Return response
+    return CostListResponse(
+        data=summary,
+        meta={
+            "requestId": "cost-summary",
+        },
+    )
+
+
+@router.get(
+    "/recommendations",
+    response_model=AIRecommendationsResponse,
+)
+async def get_ai_recommendations(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AIRecommendationsResponse:
+    """
+    Get AI-generated cost optimization recommendations.
+
+    Analyzes cost patterns and returns actionable recommendations for:
+    - Model optimization (switching to cheaper models)
+    - Caching opportunities (redundant API calls)
+    - Scheduling optimizations (off-peak processing)
+
+    Args:
+        request: FastAPI request with merchant authentication
+        db: Database session
+
+    Returns:
+        List of AI recommendations with priority levels
+    """
+    from app.schemas.cost_tracking import AIRecommendation
+
+    _get_merchant_id(request)
+
+    recommendations = await cost_service.get_ai_recommendations(db)
+
+    return AIRecommendationsResponse(
+        recommendations=[AIRecommendation(**rec) for rec in recommendations]
+    )
+
+
+async def get_cost_summary(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    date_from: str | None = Query(
+        None,
+        description="Start date filter (ISO 8601 format, e.g., 2026-02-01)",
+    ),
+    date_to: str | None = Query(
+        None,
+        description="End date filter (ISO 8601 format, e.g., 2026-02-28)",
+    ),
+) -> CostListResponse:
+    """
+    Get cost summary for the authenticated merchant.
+
+    Returns aggregated cost data including:
+    - Total cost, tokens, request count
+    - Top conversations by cost
+    - Cost breakdown by provider
+    - Daily breakdown (if date range > 1 day)
+
+    Args:
+        request: FastAPI request with merchant authentication
+        db: Database session
+        date_from: Start date filter (ISO 8601 string)
+        date_to: End date filter (ISO 8601 string)
+
+    Returns:
+        Cost summary response with aggregated data
+
+    Raises:
+        APIError: If authentication fails or date format is invalid
+    """
+    # 1. Verify Authentication
+    merchant_id = _get_merchant_id(request)
+
+    # 2. Validate date format
+    if date_from or date_to:
+        try:
+            if date_from:
+                # Just validate format, don't convert
+                from datetime import datetime
+
+                datetime.fromisoformat(date_from)
+            if date_to:
+                from datetime import datetime
+
+                datetime.fromisoformat(date_to)
+        except ValueError as e:
+            raise ValidationError(
+                f"Invalid date format: {str(e)}. Expected ISO 8601 format (e.g., 2026-02-01)"
             )
 
     # 3. Get cost summary

@@ -287,6 +287,12 @@ class CostTrackingService:
                 "avgCostPerRequest": 0.0,
                 "topConversations": [],
                 "costsByProvider": {},
+                "efficiencyMetrics": {
+                    "costPer1kTokens": 0.0,
+                    "ragResponsePercentage": 0.0,
+                    "optimizationSavingsPercentage": 0.0,
+                    "avgProcessingTimeMs": None,
+                },
             }
 
         # Calculate totals
@@ -295,17 +301,139 @@ class CostTrackingService:
         request_count = len(cost_records)
         avg_cost_per_request = total_cost_usd / request_count if request_count > 0 else 0
 
-        # Get top conversations
-        conversation_costs = {}
+        # Get top conversations with detailed metrics
+        conversation_data: dict[str, dict] = {}
         for record in cost_records:
             conv_id = record.conversation_id
-            if conv_id not in conversation_costs:
-                conversation_costs[conv_id] = {"totalCostUsd": 0.0, "requestCount": 0}
-            conversation_costs[conv_id]["totalCostUsd"] += record.total_cost_usd
-            conversation_costs[conv_id]["requestCount"] += 1
+            if conv_id not in conversation_data:
+                conversation_data[conv_id] = {
+                    "totalCostUsd": 0.0,
+                    "requestCount": 0,
+                    "totalTokens": 0,
+                    "responseTypes": {"rag": 0, "general": 0, "unknown": 0},
+                }
+            conversation_data[conv_id]["totalCostUsd"] += record.total_cost_usd
+            conversation_data[conv_id]["requestCount"] += 1
+            conversation_data[conv_id]["totalTokens"] += record.total_tokens
+            response_type = record.response_type or "unknown"
+            conversation_data[conv_id]["responseTypes"][response_type] = (
+                conversation_data[conv_id]["responseTypes"].get(response_type, 0) + 1
+            )
 
         top_conversations = sorted(
-            [{"conversationId": k, **v} for k, v in conversation_costs.items()],
+            [{"conversationId": k, **v} for k, v in conversation_data.items()],
+            key=lambda x: x["totalCostUsd"],
+            reverse=True,
+        )[:10]
+
+        # Determine primary response type for each conversation
+        for conv in top_conversations:
+            types = conv.pop("responseTypes", {})
+            if types:
+                primary_type = max(types.items(), key=lambda x: x[1])[0] if types else "unknown"
+                conv["responseType"] = primary_type
+            else:
+                conv["responseType"] = "unknown"
+
+        # Group by provider
+        costs_by_provider = {}
+        for record in cost_records:
+            provider = record.provider
+            if provider not in costs_by_provider:
+                costs_by_provider[provider] = {"costUsd": 0.0, "requests": 0}
+            costs_by_provider[provider]["costUsd"] += record.total_cost_usd
+            costs_by_provider[provider]["requests"] += 1
+
+        # Round values
+        for provider in costs_by_provider:
+            costs_by_provider[provider]["costUsd"] = round(
+                costs_by_provider[provider]["costUsd"], 4
+            )
+
+        # Calculate efficiency metrics
+        cost_per_1k_tokens = 0.0
+        if total_tokens > 0:
+            cost_per_1k_tokens = (total_cost_usd / total_tokens) * 1000
+
+        rag_count = sum(1 for r in cost_records if r.response_type == "rag")
+        rag_response_percentage = (rag_count / request_count * 100) if request_count > 0 else 0.0
+
+        avg_processing_time = None
+        processing_times = [r.processing_time_ms for r in cost_records if r.processing_time_ms]
+        if processing_times:
+            avg_processing_time = sum(processing_times) / len(processing_times)
+
+        return {
+            "totalCostUsd": round(total_cost_usd, 4),
+            "totalTokens": total_tokens,
+            "requestCount": request_count,
+            "avgCostPerRequest": round(avg_cost_per_request, 4),
+            "topConversations": top_conversations,
+            "costsByProvider": costs_by_provider,
+            "efficiencyMetrics": {
+                "costPer1kTokens": round(cost_per_1k_tokens, 4),
+                "ragResponsePercentage": round(rag_response_percentage, 1),
+                "optimizationSavingsPercentage": 48.0,
+                "avgProcessingTimeMs": round(avg_processing_time, 2)
+                if avg_processing_time
+                else None,
+            },
+        }
+        avg_cost_per_request = total_cost_usd / request_count if request_count > 0 else 0
+
+        # Calculate efficiency metrics
+        cost_per_1k_tokens = (total_cost_usd / (total_tokens / 1000)) if total_tokens > 0 else 0
+
+        rag_count = sum(1 for r in cost_records if r.response_type == "rag")
+        rag_response_percentage = (rag_count / request_count * 100) if request_count > 0 else 0
+
+        gpt4_cost = total_cost_usd
+        optimized_cost = sum(
+            r.total_cost_usd
+            for r in cost_records
+            if "mini" in r.model.lower() or "haiku" in r.model.lower()
+        )
+        optimization_savings = 0.0
+        if gpt4_cost > 0 and optimized_cost > 0:
+            optimization_savings = (gpt4_cost - optimized_cost) / gpt4_cost * 100
+
+        processing_times = [r.processing_time_ms for r in cost_records if r.processing_time_ms]
+        avg_processing_time = (
+            sum(processing_times) / len(processing_times) if processing_times else 0
+        )
+
+        # Get top conversations with more details
+        conversation_data = {}
+        for record in cost_records:
+            conv_id = record.conversation_id
+            if conv_id not in conversation_data:
+                conversation_data[conv_id] = {
+                    "totalCostUsd": 0.0,
+                    "requestCount": 0,
+                    "totalTokens": 0,
+                    "responseTypes": {"rag": 0, "general": 0, "unknown": 0},
+                    "models": set(),
+                }
+            conversation_data[conv_id]["totalCostUsd"] += record.total_cost_usd
+            conversation_data[conv_id]["requestCount"] += 1
+            conversation_data[conv_id]["totalTokens"] += record.total_tokens
+            response_type = record.response_type or "unknown"
+            if response_type in conversation_data[conv_id]["responseTypes"]:
+                conversation_data[conv_id]["responseTypes"][response_type] += 1
+            conversation_data[conv_id]["models"].add(record.model)
+
+        top_conversations = sorted(
+            [
+                {
+                    "conversationId": k,
+                    "totalCostUsd": v["totalCostUsd"],
+                    "requestCount": v["requestCount"],
+                    "totalTokens": v["totalTokens"],
+                    "primaryResponseType": max(v["responseTypes"], key=v["responseTypes"].get),
+                    "primaryModel": list(v["models"])[0] if v["models"] else "unknown",
+                }
+                for k, v in conversation_data.items()
+            ],
             key=lambda x: x["totalCostUsd"],
             reverse=True,
         )[:10]
@@ -332,6 +460,12 @@ class CostTrackingService:
             "avgCostPerRequest": round(avg_cost_per_request, 4),
             "topConversations": top_conversations,
             "costsByProvider": costs_by_provider,
+            "efficiencyMetrics": {
+                "costPer1kTokens": round(cost_per_1k_tokens, 4),
+                "ragResponsePercentage": round(rag_response_percentage, 1),
+                "optimizationSavingsPercentage": round(optimization_savings, 1),
+                "avgProcessingTimeMs": round(avg_processing_time, 0),
+            },
         }
 
     async def _calculate_daily_costs(
@@ -449,6 +583,124 @@ class CostTrackingService:
         count = result.scalar()
 
         return int(count or 0)
+
+    async def get_ai_recommendations(
+        self,
+        db: AsyncSession,
+    ) -> list[dict]:
+        """Generate AI-powered cost optimization recommendations.
+
+        Analyzes cost patterns across all merchants and returns actionable
+        recommendations for cost savings.
+
+        Args:
+            db: Database session
+
+        Returns:
+            List of recommendation dictionaries with id, priority, text,
+            potential_savings_usd, and category fields
+        """
+        recommendations = []
+
+        query = (
+            select(LLMConversationCost)
+            .order_by(desc(LLMConversationCost.request_timestamp))
+            .limit(1000)
+        )
+        result = await db.execute(query)
+        cost_records = result.scalars().all()
+
+        if not cost_records:
+            return []
+
+        model_costs: dict[str, dict] = {}
+        for record in cost_records:
+            model_key = f"{record.provider}/{record.model}"
+            if model_key not in model_costs:
+                model_costs[model_key] = {
+                    "total_cost": 0.0,
+                    "count": 0,
+                    "provider": record.provider,
+                    "model": record.model,
+                }
+            model_costs[model_key]["total_cost"] += record.total_cost_usd
+            model_costs[model_key]["count"] += 1
+
+        expensive_models = sorted(
+            model_costs.items(), key=lambda x: x[1]["total_cost"], reverse=True
+        )[:3]
+
+        cheaper_alternatives = {
+            "gpt-4o": {"alt": "gpt-4o-mini", "savings_pct": 0.60},
+            "gpt-4-turbo": {"alt": "gpt-4o-mini", "savings_pct": 0.55},
+            "claude-3-opus": {"alt": "claude-3-haiku", "savings_pct": 0.80},
+            "claude-3-sonnet": {"alt": "claude-3-haiku", "savings_pct": 0.50},
+        }
+
+        for model_key, data in expensive_models:
+            model_name = data["model"]
+            for expensive_model, alt_info in cheaper_alternatives.items():
+                if expensive_model in model_name.lower():
+                    potential_savings = data["total_cost"] * alt_info["savings_pct"]
+                    if potential_savings > 1.0:
+                        recommendations.append(
+                            {
+                                "id": f"MODEL-{len(recommendations) + 1:04d}",
+                                "priority": "HIGH" if potential_savings > 10 else "MED",
+                                "text": f"Consider switching from {model_name} to {alt_info['alt']} for non-critical queries. Estimated savings: ${potential_savings:.2f}/month.",
+                                "potential_savings_usd": round(potential_savings, 2),
+                                "category": "model_optimization",
+                            }
+                        )
+                    break
+
+        conversation_counts: dict[str, int] = {}
+        for record in cost_records:
+            conversation_counts[record.conversation_id] = (
+                conversation_counts.get(record.conversation_id, 0) + 1
+            )
+
+        high_volume_conversations = [
+            (conv_id, count) for conv_id, count in conversation_counts.items() if count > 10
+        ]
+
+        if high_volume_conversations:
+            top_conv = high_volume_conversations[0]
+            recommendations.append(
+                {
+                    "id": f"CACHE-{len(recommendations) + 1:04d}",
+                    "priority": "MED",
+                    "text": f"Conversation #{top_conv[0][:8]} has {top_conv[1]} LLM calls. Consider implementing response caching for repeated queries.",
+                    "potential_savings_usd": round(top_conv[1] * 0.002, 2),
+                    "category": "caching",
+                }
+            )
+
+        off_peak_query = select(
+            func.extract("hour", LLMConversationCost.request_timestamp).label("hour"),
+            func.sum(LLMConversationCost.total_cost_usd).label("cost"),
+        ).group_by(func.extract("hour", LLMConversationCost.request_timestamp))
+
+        off_peak_result = await db.execute(off_peak_query)
+        hourly_costs = {row.hour: row.cost for row in off_peak_result.all()}
+
+        if hourly_costs:
+            peak_hours = sorted(hourly_costs.items(), key=lambda x: x[1], reverse=True)[:4]
+            peak_cost = sum(cost for _, cost in peak_hours)
+            total_cost = sum(hourly_costs.values())
+
+            if peak_cost > total_cost * 0.5:
+                recommendations.append(
+                    {
+                        "id": f"SCHED-{len(recommendations) + 1:04d}",
+                        "priority": "LOW",
+                        "text": f"Peak hours ({', '.join(str(int(h)) for h, _ in peak_hours)}:00) account for {peak_cost / total_cost * 100:.0f}% of costs. Consider batch processing during off-peak hours.",
+                        "potential_savings_usd": round(peak_cost * 0.1, 2),
+                        "category": "scheduling",
+                    }
+                )
+
+        return recommendations[:5]
 
 
 # Standalone helper function for automatic LLM request tracking

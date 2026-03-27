@@ -119,3 +119,29 @@ class CostListResponse(BaseModel):
 
     data: list[dict] | dict
     meta: dict
+
+
+class AIRecommendation(BaseModel):
+    """AI-generated cost optimization recommendation."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: str = Field(..., description="Unique recommendation identifier")
+    priority: str = Field(..., description="Priority level: HIGH, MED, or LOW")
+    text: str = Field(..., description="Recommendation description")
+    potential_savings_usd: float | None = Field(
+        default=None, description="Estimated monthly savings in USD"
+    )
+    category: str | None = Field(
+        default=None, description="Category: model_optimization, caching, scheduling"
+    )
+
+
+class AIRecommendationsResponse(BaseModel):
+    """Response containing AI recommendations."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    recommendations: list[AIRecommendation] = Field(
+        default_factory=list, description="List of AI recommendations"
+    )

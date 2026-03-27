@@ -43,6 +43,8 @@ export interface TopConversation {
   conversationId: string;
   totalCostUsd: number;
   requestCount: number;
+  totalTokens?: number;
+  responseType?: string;
 }
 
 /**
@@ -70,6 +72,13 @@ export interface CostComparison {
   methodology: string;
 }
 
+export interface EfficiencyMetrics {
+  costPer1kTokens: number;
+  ragResponsePercentage: number;
+  optimizationSavingsPercentage: number;
+  avgProcessingTimeMs: number | null;
+}
+
 export interface CostSummary {
   totalCostUsd: number;
   totalTokens: number;
@@ -80,6 +89,7 @@ export interface CostSummary {
   dailyBreakdown: DailyCostBreakdown[];
   previousPeriodSummary?: CostSummary;
   costComparison?: CostComparison;
+  efficiencyMetrics?: EfficiencyMetrics;
 }
 
 /**
@@ -119,6 +129,18 @@ export interface BotStatus {
   budgetPercentage: number | null;
   budgetCap: number | null;
   monthlySpend: number | null;
+}
+
+export interface AIRecommendation {
+  id: string;
+  priority: 'HIGH' | 'MED' | 'LOW';
+  text: string;
+  potentialSavingsUsd?: number;
+  category?: string;
+}
+
+export interface AIRecommendationsResponse {
+  recommendations: AIRecommendation[];
 }
 
 /**
