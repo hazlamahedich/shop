@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import re
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -21,7 +22,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import APIError, ErrorCode
 from app.models.merchant import Merchant
 from app.schemas.widget import WidgetSessionData
-from app.services.conversation.schemas import Channel, ConsentState, ConversationContext
+from app.services.conversation.schemas import (
+    Channel,
+    ClarificationState,
+    ConsentState,
+    ConversationContext,
+    HandoffState,
+    SessionShoppingState,
+)
 from app.services.conversation.unified_conversation_service import UnifiedConversationService
 from app.services.llm.base_llm_service import LLMMessage
 from app.services.llm.llm_factory import LLMProviderFactory
@@ -174,22 +182,38 @@ class WidgetMessageService:
 
         This provides intent routing, product search, cart, and checkout support.
         """
+        # Cache merchant attributes before async operations to avoid greenlet errors
+        merchant_id = merchant.id
+        merchant_onboarding_mode = merchant.onboarding_mode
+        merchant_embedding_provider = merchant.embedding_provider
+        merchant_embedding_model = merchant.embedding_model
+        merchant_llm_config = (
+            merchant.llm_configuration if hasattr(merchant, "llm_configuration") else None
+        )
+        merchant_bot_name = merchant.bot_name
+
         history = await self.session_service.get_message_history(session.session_id)
 
         context = ConversationContext(
             session_id=session.session_id,
-            merchant_id=merchant.id,
+            merchant_id=merchant_id,
             channel=Channel.WIDGET,
             conversation_history=history,
             platform_sender_id=None,
             user_id=None,
-            user_name=session.customer_name,  # Pass customer_name if available (Story 5-10)
             is_returning_shopper=session.is_returning_shopper,
             consent_state=ConsentState(visitor_id=session.visitor_id),
         )
 
-        # Initialize RAG context builder for General mode merchants (Story 8-5)
-        rag_context_builder = await self._build_rag_context_builder(merchant)
+        # Build RAG context builder for General mode
+        rag_context_builder = await self._build_rag_context_builder(
+            merchant_id=merchant_id,
+            merchant_onboarding_mode=merchant_onboarding_mode,
+            merchant_embedding_provider=merchant_embedding_provider,
+            merchant_embedding_model=merchant_embedding_model,
+            merchant_llm_config=merchant_llm_config,
+            merchant_bot_name=merchant_bot_name,
+        )
 
         unified_service = self.unified_service or UnifiedConversationService(
             db=self.db,
@@ -211,7 +235,7 @@ class WidgetMessageService:
                 result = await self.db.execute(
                     select(Conversation)
                     .where(
-                        Conversation.merchant_id == merchant.id,
+                        Conversation.merchant_id == merchant_id,
                         Conversation.platform_sender_id == session.session_id,
                     )
                     .order_by(Conversation.updated_at.desc())
@@ -249,7 +273,7 @@ class WidgetMessageService:
         self.logger.info(
             "widget_message_processed_unified",
             session_id=session.session_id,
-            merchant_id=merchant.id,  # Use merchant.id directly
+            merchant_id=merchant_id,
             intent=response.intent,
             confidence=response.confidence,
             message_length=len(message),
@@ -329,6 +353,12 @@ class WidgetMessageService:
 
         Used when no database session is available.
         """
+        # Cache merchant attributes before async operations
+        merchant_id = merchant.id
+        merchant_llm_config = (
+            merchant.llm_configuration if hasattr(merchant, "llm_configuration") else None
+        )
+
         history = await self.session_service.get_message_history(session.session_id)
 
         llm_messages = await self._build_llm_messages(
@@ -341,8 +371,8 @@ class WidgetMessageService:
         llm_config = {}
 
         try:
-            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                llm_config_obj = merchant.llm_configuration
+            if merchant_llm_config:
+                llm_config_obj = merchant_llm_config
                 provider_name = llm_config_obj.provider or "ollama"
 
                 llm_config = {
@@ -376,7 +406,7 @@ class WidgetMessageService:
             self.logger.warning(
                 "widget_llm_timeout",
                 session_id=session.session_id,
-                merchant_id=merchant.id,
+                merchant_id=merchant_id,
                 timeout_seconds=RESPONSE_TIMEOUT_SECONDS,
             )
             raise APIError(
@@ -395,7 +425,7 @@ class WidgetMessageService:
         self.logger.info(
             "widget_message_processed",
             session_id=session.session_id,
-            merchant_id=merchant.id,
+            merchant_id=merchant_id,
             message_length=len(message),
             response_length=len(response_text),
         )
@@ -487,13 +517,13 @@ class WidgetMessageService:
                         get_product_context_prompt_section,
                     )
 
-                    product_context = await get_product_context_prompt_section(self.db, merchant.id)
+                    product_context = await get_product_context_prompt_section(self.db, merchant_id)
                     if product_context:
                         prompt_parts.append(f"\nStore Products:\n{product_context}")
                 except Exception as e:
                     self.logger.warning(
                         "widget_product_context_failed",
-                        merchant_id=merchant.id,
+                        merchant_id=merchant_id,
                         error=str(e),
                     )
 
@@ -505,7 +535,7 @@ class WidgetMessageService:
                 from app.models.faq import Faq
 
                 result = await self.db.execute(
-                    select(Faq).where(Faq.merchant_id == merchant.id).limit(5)
+                    select(Faq).where(Faq.merchant_id == merchant_id).limit(5)
                 )
                 faqs = list(result.scalars().all())
 
@@ -517,7 +547,15 @@ class WidgetMessageService:
 
         return "\n".join(prompt_parts)
 
-    async def _build_rag_context_builder(self, merchant: Merchant):
+    async def _build_rag_context_builder(
+        self,
+        merchant_id: int,
+        merchant_onboarding_mode: str,
+        merchant_embedding_provider: str,
+        merchant_embedding_model: str,
+        merchant_llm_config: Any | None,
+        merchant_bot_name: str | None,
+    ):
         """Build RAG context builder for General mode merchants.
 
         Story 8-5: RAG Integration in Conversation
@@ -525,13 +563,18 @@ class WidgetMessageService:
         to enable knowledge base document retrieval for LLM context enrichment.
 
         Args:
-            merchant: Merchant configuration
+            merchant_id: Merchant ID
+            merchant_onboarding_mode: Merchant's onboarding mode
+            merchant_embedding_provider: Embedding provider
+            merchant_embedding_model: Embedding model
+            merchant_llm_config: LLM configuration (can be None)
+            merchant_bot_name: Bot name (can be None)
 
         Returns:
             RAGContextBuilder instance or None (if not General mode or missing config)
         """
         # Only build RAG for General mode merchants
-        if merchant.onboarding_mode != "general":
+        if merchant_onboarding_mode != "general":
             return None
 
         # Check if database is available
@@ -543,29 +586,22 @@ class WidgetMessageService:
             from app.services.rag.embedding_service import EmbeddingService
             from app.services.rag.retrieval_service import RetrievalService
 
-            # Get merchant's embedding configuration
-            provider = merchant.embedding_provider
-            model = merchant.embedding_model
+            provider = merchant_embedding_provider
+            model = merchant_embedding_model
             api_key = None
             ollama_url = None
 
-            # Get LLM configuration for API key and Ollama URL
-            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                llm_config = merchant.llm_configuration
-                ollama_url = llm_config.ollama_url
-
-                # Decrypt API key if present
-                if llm_config.api_key_encrypted:
+            if merchant_llm_config:
+                ollama_url = merchant_llm_config.ollama_url
+                if merchant_llm_config.api_key_encrypted:
                     from app.core.security import decrypt_access_token
 
-                    api_key = decrypt_access_token(llm_config.api_key_encrypted)
+                    api_key = decrypt_access_token(merchant_llm_config.api_key_encrypted)
 
-            # Handle defaults and fallbacks
             if not provider:
                 provider = "ollama"
                 model = "nomic-embed-text"
 
-            # Handle Anthropic fallback (use OpenAI for embeddings)
             if provider == "anthropic":
                 from app.core.config import settings
 
@@ -574,7 +610,6 @@ class WidgetMessageService:
                 if not api_key:
                     api_key = settings().get("OPENAI_API_KEY")
 
-            # Create embedding service
             embedding_service = EmbeddingService(
                 provider=provider,
                 api_key=api_key,
@@ -582,16 +617,17 @@ class WidgetMessageService:
                 ollama_url=ollama_url,
             )
 
-            # Create retrieval service
             retrieval_service = RetrievalService(
                 db=self.db,
                 embedding_service=embedding_service,
             )
 
-            # Create LLM service for query rewriting (Story 10-1)
-            llm_service = self._get_llm_service(merchant)
+            llm_service = self._get_llm_service_from_config(
+                merchant_id=merchant_id,
+                merchant_llm_config=merchant_llm_config,
+                merchant_bot_name=merchant_bot_name,
+            )
 
-            # Create RAG context builder with LLM service for query rewriting
             rag_context_builder = RAGContextBuilder(
                 retrieval_service=retrieval_service,
                 llm_service=llm_service,
@@ -599,7 +635,7 @@ class WidgetMessageService:
 
             self.logger.debug(
                 "rag_context_builder_initialized",
-                merchant_id=merchant.id,
+                merchant_id=merchant_id,
                 provider=provider,
                 model=model,
             )
@@ -609,12 +645,11 @@ class WidgetMessageService:
         except Exception as e:
             self.logger.warning(
                 "rag_context_builder_init_failed",
-                merchant_id=merchant.id,
+                merchant_id=merchant_id,
                 error=str(e),
             )
             return None
 
-    def _get_llm_service(self, merchant: Merchant):
         """Get LLM service for a merchant.
 
         Args:
@@ -627,8 +662,8 @@ class WidgetMessageService:
         llm_config = {}
 
         try:
-            if hasattr(merchant, "llm_configuration") and merchant.llm_configuration:
-                llm_config_obj = merchant.llm_configuration
+            if hasattr(merchant, "llm_configuration") and merchant_llm_config:
+                llm_config_obj = merchant_llm_config
                 provider_name = llm_config_obj.provider or "ollama"
 
                 llm_config = {

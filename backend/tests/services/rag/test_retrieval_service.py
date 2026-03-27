@@ -60,12 +60,13 @@ class TestRetrieveRelevantChunks:
     async def test_retrieve_returns_top_k_chunks(self):
         """AC2: Test retrieval returns top 5 chunks with similarity scores."""
         mock_db = MagicMock(spec=AsyncSession)
+        mock_db.commit = AsyncMock()
+        mock_db.rollback = AsyncMock()
+        mock_db.add = MagicMock()
         mock_embedding = MagicMock(spec=EmbeddingService)
 
-        # Mock embedding generation
         mock_embedding.embed_query = AsyncMock(return_value=[0.1] * 1536)
 
-        # Mock database query results
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             MagicMock(
@@ -113,6 +114,9 @@ class TestRetrieveRelevantChunks:
     async def test_retrieve_filters_by_threshold(self):
         """AC3: Test retrieval filters chunks below threshold (0.7)."""
         mock_db = MagicMock(spec=AsyncSession)
+        mock_db.commit = AsyncMock()
+        mock_db.rollback = AsyncMock()
+        mock_db.add = MagicMock()
         mock_embedding = MagicMock(spec=EmbeddingService)
 
         mock_embedding.embed_query = AsyncMock(return_value=[0.1] * 1536)
@@ -135,6 +139,9 @@ class TestRetrieveRelevantChunks:
     async def test_retrieve_custom_threshold(self):
         """Test retrieval with custom threshold parameter."""
         mock_db = MagicMock(spec=AsyncSession)
+        mock_db.commit = AsyncMock()
+        mock_db.rollback = AsyncMock()
+        mock_db.add = MagicMock()
         mock_embedding = MagicMock(spec=EmbeddingService)
 
         mock_embedding.embed_query = AsyncMock(return_value=[0.1] * 1536)
@@ -201,9 +208,7 @@ class TestRetrieveRelevantChunks:
         mock_embedding = MagicMock(spec=EmbeddingService)
 
         # Mock embedding timeout
-        mock_embedding.embed_query = AsyncMock(
-            side_effect=TimeoutError("Embedding timeout")
-        )
+        mock_embedding.embed_query = AsyncMock(side_effect=TimeoutError("Embedding timeout"))
 
         service = RetrievalService(mock_db, mock_embedding)
 
