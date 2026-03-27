@@ -81,6 +81,21 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
+@router.options("/widget/{path:path}")
+async def widget_options_handler(request: Request) -> None:
+    """Handle OPTIONS preflight requests for widget endpoints.
+
+    This ensures CORS preflight requests are properly handled even when
+    behind proxies like zrok that might strip headers.
+
+    Args:
+        request: FastAPI request
+    """
+    # The actual CORS headers are set by the CORSHeaderMiddleware
+    # This handler just ensures OPTIONS requests are accepted
+    return None
+
+
 def _validate_domain_whitelist(request: Request, allowed_domains: list[str]) -> None:
     """Validate request origin against domain whitelist.
 

@@ -62,6 +62,7 @@ from app.core.config import settings
 from app.core.database import close_db, engine, init_db
 from app.core.errors import APIError, ErrorCode
 from app.middleware.auth import AuthenticationMiddleware
+from app.middleware.cors import CORSHeaderMiddleware
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.security import setup_security_middleware
 from app.schemas.deployment import (  # noqa: F401 (export for type generation)
@@ -283,6 +284,10 @@ app.add_middleware(
         "Accept",
     ],
 )
+
+# Setup CORS header middleware to ensure headers are always present
+# This fixes issues with proxies like zrok stripping CORS headers
+app.add_middleware(CORSHeaderMiddleware)
 
 # Setup security middleware (HTTPS enforcement, HSTS, CSP, etc.)
 # NFR-S1: HTTPS Enforcement with HSTS
