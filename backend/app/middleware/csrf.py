@@ -16,11 +16,12 @@ NFR-S8: CSRF tokens for state-changing operations
 
 from __future__ import annotations
 
+import json
 import os
-from collections.abc import Awaitable, Callable
 
-from fastapi import HTTPException, Request, Response, status
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import HTTPException, Request, status
+from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import settings
 from app.core.csrf import (
@@ -28,8 +29,8 @@ from app.core.csrf import (
 )
 
 
-class CSRFMiddleware(BaseHTTPMiddleware):
-    """CSRF protection middleware for FastAPI.
+class CSRFMiddleware:
+    """CSRF protection middleware for FastAPI (pure ASGI).
 
     This middleware validates CSRF tokens for all state-changing operations
     (POST, PUT, DELETE, PATCH) except for webhook endpoints which use
@@ -45,111 +46,85 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         app.add_middleware(CSRFMiddleware, secret_key=settings()["SECRET_KEY"])
     """
 
-    # Paths that bypass CSRF validation
     BYPASS_PATHS = [
-        "/api/v1/webhooks/",  # Webhook endpoints (v1 API)
+        "/api/v1/webhooks/",
         "/api/webhooks/",
-        "/webhooks/",  # Webhook endpoints (use signature-based verification)
+        "/webhooks/",
         "/api/oauth/",
         "/api/auth/",
-        "/api/v1/auth/",  # Story 1.8: Authentication endpoints
-        "/api/v1/merchant/product-pins",  # Story 1.15: Product pins - temporary bypass for testing
-        "/api/integrations/shopify/credentials",  # Shopify credentials save
-        "/api/integrations/facebook/credentials",  # Facebook credentials save
-        "/api/tutorial/",  # Story 1.16: Tutorial endpoints (authenticated via JWT, no CSRF needed)
-        "/api/deletion/",  # Data deletion for GDPR/CCPA compliance
-        "/api/v1/data/export",  # Story 6-3: Data export (X-Merchant-ID header auth)
-        "/api/conversations/export",  # CSV export is a read-only operation
-        "/api/conversations/",  # Story 4-12: Handoff notification endpoints (Bearer token auth)
-        "/api/v1/consent/",  # Story 6-4: Consent opt-out (Bearer token auth)
-        "/api/v1/widget/",  # Story 5-1: Public widget API (no CSRF for anonymous sessions)
-        "/api/v1/analytics/widget/events",  # Story 9-10: Widget analytics events (public endpoint)
-        "/widget/",  # Widget API endpoints (no CSRF for anonymous sessions)
-        "/api/knowledge-base/upload",  # Story 8-4: Upload uses CSRF token from client
-        "/api/knowledge-base/reprocess",  # Story 8-4: Reprocess endpoint (CSRF protected via session)
-        "/api/knowledge-base/re-embed",  # Story 8-11: Manual re-embed trigger
-        "/api/settings/embedding-provider",  # Story 8-11: Embedding provider settings
-        "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
-        "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
-        "/api/v1/feedback",  # Story 10-4: Feedback submission (session-based auth from widget) (X-Merchant-Id header auth in DEBUG mode)
+        "/api/v1/auth/",
+        "/api/v1/merchant/product-pins",
+        "/api/integrations/shopify/credentials",
+        "/api/integrations/facebook/credentials",
+        "/api/tutorial/",
+        "/api/deletion/",
+        "/api/v1/data/export",
+        "/api/conversations/export",
+        "/api/conversations/",
+        "/api/v1/consent/",
+        "/api/v1/widget/",
+        "/api/v1/analytics/widget/events",
+        "/widget/",
+        "/api/knowledge-base/upload",
+        "/api/knowledge-base/reprocess",
+        "/api/knowledge-base/re-embed",
+        "/api/settings/embedding-provider",
+        "/api/llm/",
+        "/api/onboarding/",
+        "/api/v1/feedback",
         "/docs",
         "/redoc",
         "/openapi.json",
         "/health",
     ]
 
-    def __init__(self, app, secret_key: str) -> None:
-        """Initialize CSRF middleware.
-
-        Args:
-            app: The FastAPI application
-            secret_key: Secret key for CSRF token generation
-        """
-        super().__init__(app)
+    def __init__(self, app: ASGIApp, secret_key: str) -> None:
+        self.app = app
         self.csrf = CSRFProtection(secret_key)
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        """Process request and validate CSRF token if needed.
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
 
-        Args:
-            request: The incoming HTTP request
-            call_next: The next middleware or route handler
+        request = Request(scope, receive)
 
-        Returns:
-            Response from downstream handler
-
-        Raises:
-            HTTPException: If CSRF token validation fails
-        """
-        # Bypass CSRF in test mode (for API testing)
         if (
             os.getenv("IS_TESTING", "false").lower() == "true"
             or request.headers.get("X-Test-Mode") == "true"
         ):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Skip CSRF for safe methods (GET, HEAD, OPTIONS)
         if request.method in ("GET", "HEAD", "OPTIONS"):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Skip CSRF for bypass paths
         if self._should_bypass_csrf(request):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Extract token from headers
         token = self.csrf.extract_token_from_headers(request.headers)
 
-        # Validate CSRF token
         if not self.csrf.validate_token(request, token):
-            raise HTTPException(
+            response = JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error_code": 2000,
-                    "message": "Invalid CSRF token",
-                    "details": "CSRF token is required for state-changing operations",
+                content={
+                    "detail": {
+                        "error_code": 2000,
+                        "message": "Invalid CSRF token",
+                        "details": "CSRF token is required for state-changing operations",
+                    }
                 },
             )
+            await response(scope, receive, send)
+            return
 
-        # Token is valid, proceed with request
-        response = await call_next(request)
-        return response
+        await self.app(scope, receive, send)
 
     def _should_bypass_csrf(self, request: Request) -> bool:
-        """Check if request should bypass CSRF validation.
-
-        Args:
-            request: The incoming HTTP request
-
-        Returns:
-            True if CSRF should be bypassed
-        """
         path = request.url.path
 
-        # Check bypass paths
         for bypass_path in self.BYPASS_PATHS:
             if path.startswith(bypass_path):
                 return True
@@ -158,22 +133,13 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
 
 def setup_csrf_middleware(app) -> None:
-    """Setup CSRF middleware for FastAPI application.
-
-    This function configures CSRF protection middleware with proper
-    secret key from settings.
-
-    Args:
-        app: The FastAPI application instance
-    """
+    """Setup CSRF middleware for FastAPI application."""
     secret_key = settings()["SECRET_KEY"]
 
-    # Validate secret key is not dev key in production
     if not settings()["DEBUG"] and secret_key == "dev-secret-key-DO-NOT-USE-IN-PRODUCTION":
         raise ValueError(
             "CSRF protection requires a secure SECRET_KEY in production. "
             "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
         )
 
-    # Add CSRF middleware (after CORS, before routes)
     app.add_middleware(CSRFMiddleware, secret_key=secret_key)

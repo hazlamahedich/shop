@@ -18,24 +18,21 @@ NFR-S7: Content Security Policy Headers
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import settings
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all HTTP responses.
+class SecurityHeadersMiddleware:
+    """Add security headers to all HTTP responses (pure ASGI).
 
     This middleware adds comprehensive security headers to prevent
     common web vulnerabilities including XSS, clickjacking, and
     other injection attacks.
 
     Security Headers Added:
-    - X-Frame-Options: DENY - Prevents clickjacking
+    - X-Frame-Options: SAMEORIGIN - Prevents clickjacking (allows Shopify embedding)
     - X-Content-Type-Options: nosniff - Prevents MIME sniffing
     - X-XSS-Protection: 1; mode=block - Enables XSS filtering
     - Referrer-Policy: strict-origin-when-cross-origin - Controls referrer info
@@ -44,86 +41,69 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Strict-Transport-Security: HSTS for HTTPS enforcement (production only)
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
-        """Process request and add security headers to response.
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        Args:
-            request: The incoming HTTP request
-            call_next: The next middleware or route handler
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
 
-        Returns:
-            Response with security headers added
-        """
-        response = await call_next(request)
+        sent = False
 
-        # Prevent clickjacking attacks
-        # Prevent clickjacking attacks but allow framing by Shopify
-        # Note: frame-ancestors in CSP takes precedence over X-Frame-Options in modern browsers
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        async def send_with_security_headers(message: dict) -> None:
+            nonlocal sent
+            if message["type"] == "http.response.start" and not sent:
+                headers = dict(
+                    (
+                        h[0].decode() if isinstance(h[0], bytes) else h[0],
+                        h[1].decode() if isinstance(h[1], bytes) else h[1],
+                    )
+                    for h in message.get("headers", [])
+                )
 
-        # Prevent MIME type sniffing
-        response.headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "SAMEORIGIN"
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-XSS-Protection"] = "1; mode=block"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers["Permissions-Policy"] = (
+                    "geolocation=(), "
+                    "microphone=(), "
+                    "camera=(), "
+                    "payment=(), "
+                    "usb=(), "
+                    "magnetometer=(), "
+                    "gyroscope=(), "
+                    "accelerometer=()"
+                )
 
-        # Enable XSS protection (legacy but still useful)
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+                app_url = settings()["APP_URL"]
+                headers["Content-Security-Policy"] = (
+                    f"default-src 'self'; "
+                    f"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                    f"style-src 'self' 'unsafe-inline'; "
+                    f"img-src 'self' data: https:; "
+                    f"connect-src 'self' {app_url} wss://*.zrok.io; "
+                    f"frame-ancestors 'self' https://*.myshopify.com https://admin.shopify.com; "
+                    f"base-uri 'self'; "
+                    f"form-action 'self';"
+                )
 
-        # Control referrer information leakage
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                if not settings()["DEBUG"]:
+                    headers["Strict-Transport-Security"] = (
+                        "max-age=31536000; includeSubDomains; preload"
+                    )
 
-        # Disable browser features that could be exploited
-        response.headers["Permissions-Policy"] = (
-            "geolocation=(), "
-            "microphone=(), "
-            "camera=(), "
-            "payment=(), "
-            "usb=(), "
-            "magnetometer=(), "
-            "gyroscope=(), "
-            "accelerometer=()"
-        )
+                message["headers"] = [(k.encode(), v.encode()) for k, v in headers.items()]
+                sent = True
+            await send(message)
 
-        # Content Security Policy to prevent XSS and data injection
-        # Note: 'unsafe-inline' and 'unsafe-eval' are needed for FastAPI docs and some widget logic
-        # frame-ancestors: Allows being embedded in Shopify Admin and Storefront
-        # connect-src: Allows API calls and WebSockets to self and zrok
-        app_url = settings()["APP_URL"]
-        response.headers["Content-Security-Policy"] = (
-            f"default-src 'self'; "
-            f"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            f"style-src 'self' 'unsafe-inline'; "
-            f"img-src 'self' data: https:; "
-            f"connect-src 'self' {app_url} wss://*.zrok.io; "
-            f"frame-ancestors 'self' https://*.myshopify.com https://admin.shopify.com; "
-            f"base-uri 'self'; "
-            f"form-action 'self';"
-        )
-
-        # HSTS header only in production (DEBUG=false)
-        # This tells browsers to always use HTTPS for this domain
-        if not settings()["DEBUG"]:
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains; preload"
-            )
-
-        return response
+        await self.app(scope, receive, send_with_security_headers)
 
 
 def setup_security_middleware(app) -> None:
-    """Setup security middleware for FastAPI application.
-
-    This function configures all security-related middleware including:
-    - SecurityHeadersMiddleware: Adds security headers
-    - HTTPSRedirectMiddleware: Redirects HTTP to HTTPS (production only)
-
-    Args:
-        app: The FastAPI application instance
-    """
-    # Add security headers middleware (always enabled)
+    """Setup security middleware for FastAPI application."""
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # Add HTTPS redirect middleware only in production
-    # This prevents issues with local development (http://localhost)
     if not settings()["DEBUG"]:
         app.add_middleware(HTTPSRedirectMiddleware)

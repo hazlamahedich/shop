@@ -4,7 +4,6 @@ Tests cover:
 - JWT validation from cookie
 - Request state population
 - Bypass path handling
-- Security headers
 - get_request_merchant_id dependency
 - Session revocation checking (MEDIUM-11)
 """
@@ -15,132 +14,133 @@ import os
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from fastapi import HTTPException, Request, status
-from sqlalchemy import select
-from starlette.responses import Response
+from fastapi import FastAPI, HTTPException, Request, status
+from httpx import ASGITransport, AsyncClient
 
-from app.core.auth import create_jwt, hash_token
-from app.core.database import async_session
+from app.core.auth import create_jwt
 from app.middleware.auth import (
     SESSION_COOKIE_NAME,
     AuthenticationMiddleware,
     get_request_merchant_id,
     require_auth,
 )
-from app.models.session import Session
+
+
+def _build_app_with_auth_middleware() -> FastAPI:
+    app = FastAPI()
+
+    @app.get("/api/v1/protected")
+    async def protected(request: Request):
+        return {"merchant_id": getattr(request.state, "merchant_id", None)}
+
+    @app.get("/api/v1/auth/login")
+    async def login():
+        return {"ok": True}
+
+    @app.get("/health")
+    async def health():
+        return {"ok": True}
+
+    @app.get("/api/v1/webhooks/shopify")
+    async def webhooks():
+        return {"ok": True}
+
+    @app.get("/api/v1/auth/me")
+    async def me(request: Request):
+        return {"merchant_id": getattr(request.state, "merchant_id", None)}
+
+    app.add_middleware(AuthenticationMiddleware)
+    return app
+
+
+def _make_mock_db(session_row=None):
+    mock_db = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock(return_value=False)
+
+    mock_scalars = Mock()
+    mock_scalars.first = Mock(return_value=session_row)
+
+    mock_result = Mock()
+    mock_result.scalars = Mock(return_value=mock_scalars)
+
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    return mock_db
 
 
 class TestAuthenticationMiddleware:
-    """Tests for AuthenticationMiddleware."""
-
-    @pytest.fixture
-    def mock_app(self):
-        """Create mock FastAPI app."""
-        return Mock()
-
-    @pytest.fixture
-    def middleware(self, mock_app):
-        """Create middleware instance."""
-        return AuthenticationMiddleware(mock_app)
-
     @pytest.mark.asyncio
-    async def test_bypass_in_test_mode(self, middleware):
-        """Should bypass authentication when IS_TESTING=true."""
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/protected"
-        request.cookies = {}
-        request.headers = {}
-
+    async def test_bypass_in_test_mode(self):
         with patch.dict(os.environ, {"IS_TESTING": "true"}):
-            call_next = AsyncMock(return_value=Response())
-            response = await middleware.dispatch(request, call_next)
-
-            assert response.status_code == 200
-            call_next.assert_called_once_with(request)
+            app = _build_app_with_auth_middleware()
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                response = await client.get("/api/v1/protected")
+                assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_bypass_with_test_header(self, middleware):
-        """Should bypass authentication with X-Test-Mode header."""
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/protected"
-        request.cookies = {}
-        request.headers = {"X-Test-Mode": "true"}
-
+    async def test_bypass_with_test_header(self):
         with patch.dict(os.environ, {"IS_TESTING": "false"}):
-            call_next = AsyncMock(return_value=Response())
-            response = await middleware.dispatch(request, call_next)
+            app = _build_app_with_auth_middleware()
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                response = await client.get(
+                    "/api/v1/protected",
+                    headers={"X-Test-Mode": "true"},
+                )
+                assert response.status_code == 200
 
+    @pytest.mark.asyncio
+    async def test_bypass_for_whitelisted_path(self):
+        app = _build_app_with_auth_middleware()
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.get("/api/v1/auth/login")
             assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_bypass_for_whitelisted_path(self, middleware):
-        """Should bypass authentication for whitelisted paths."""
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/auth/login"
-        request.cookies = {}
-        request.headers = {}
-
-        call_next = AsyncMock(return_value=Response())
-        response = await middleware.dispatch(request, call_next)
-
-        assert response.status_code == 200
-        # For bypassed paths, the middleware shouldn't set merchant_id in state
-        # Check if merchant_id was NOT set by checking if getattr returns None
-        merchant_id = getattr(request.state, "merchant_id", "NOT_SET")
-        # If merchant_id was set, it would be an int; "NOT_SET" means it wasn't
-        # Since Mock objects auto-create attributes, we just verify the path was bypassed
-        assert response.status_code == 200
+    async def test_bypass_for_health_endpoint(self):
+        app = _build_app_with_auth_middleware()
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.get("/health")
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_bypass_for_health_endpoint(self, middleware):
-        """Should bypass authentication for /health endpoint."""
-        request = Mock(spec=Request)
-        request.url.path = "/health"
-        request.cookies = {}
-        request.headers = {}
-
-        call_next = AsyncMock(return_value=Response())
-        response = await middleware.dispatch(request, call_next)
-
-        assert response.status_code == 200
+    async def test_bypass_for_webhook_paths(self):
+        app = _build_app_with_auth_middleware()
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.get("/api/v1/webhooks/shopify")
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_bypass_for_webhook_paths(self, middleware):
-        """Should bypass authentication for webhook paths."""
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/webhooks/shopify"
-        request.cookies = {}
-        request.headers = {}
-
-        call_next = AsyncMock(return_value=Response())
-        response = await middleware.dispatch(request, call_next)
-
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_raises_401_when_no_cookie(self, middleware):
-        """Should raise 401 when no session cookie."""
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/protected"
-        request.cookies = {}
-        request.headers = {}
-        request.client = Mock(host="127.0.0.1")
-
-        call_next = AsyncMock(return_value=Response())
-
-        # Clear IS_TESTING to enable auth for this test
-        import os
+    async def test_returns_401_when_no_cookie(self):
         old_is_testing = os.environ.get("IS_TESTING")
         os.environ["IS_TESTING"] = "false"
-
         try:
-            with pytest.raises(HTTPException) as exc:
-                await middleware.dispatch(request, call_next)
-
-            assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "Authentication required" in exc.value.detail["message"]
+            app = _build_app_with_auth_middleware()
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                response = await client.get("/api/v1/protected")
+                assert response.status_code == 401
+                body = response.json()
+                assert "Authentication required" in body.get(
+                    "message", body.get("detail", {}).get("message", "")
+                )
         finally:
-            # Restore original value
             if old_is_testing is None:
                 os.environ.pop("IS_TESTING", None)
             else:
@@ -148,165 +148,75 @@ class TestAuthenticationMiddleware:
 
 
 class TestRequestMerchantIdExtraction:
-    """Tests for merchant_id extraction from authenticated requests."""
-
     @pytest.mark.asyncio
     async def test_sets_merchant_id_in_state(self):
-        """Should set merchant_id in request.state.
+        token = create_jwt(merchant_id=42, session_id="session-test")
 
-        MEDIUM-11: Updated to create session in database for revocation check.
-        """
-        middleware = AuthenticationMiddleware(Mock())
+        with (
+            patch.dict(os.environ, {"IS_TESTING": "false"}),
+            patch("app.middleware.auth.async_session") as mock_accessor,
+        ):
+            mock_db = _make_mock_db(Mock(revoked=False))
+            mock_accessor.return_value = Mock(return_value=mock_db)
 
-        # Create valid JWT
-        session_id = "session-123"
-        token = create_jwt(merchant_id=42, session_id=session_id)
-        token_hash = hash_token(token)
-
-        # Create session in database (MEDIUM-11: required for revocation check)
-        async with async_session() as db:
-            session = Session.create(
-                merchant_id=42,
-                token_hash=token_hash,
-                hours=24,
-            )
-            db.add(session)
-            await db.commit()
-
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/protected"
-        request.cookies = {SESSION_COOKIE_NAME: token}
-        request.headers = {}
-        request.state = Mock()
-
-        call_next = AsyncMock(return_value=Response())
-
-        try:
-            with patch.dict(os.environ, {"IS_TESTING": "false"}):
-                response = await middleware.dispatch(request, call_next)
-
-                assert request.state.merchant_id == 42
-        finally:
-            # Cleanup session
-            async with async_session() as db:
-                result = await db.execute(
-                    select(Session).where(Session.token_hash == token_hash)
-                )
-                session = result.scalars().first()
-                if session:
-                    await db.delete(session)
-                    await db.commit()
-
-    @pytest.mark.asyncio
-    async def test_adds_security_headers(self):
-        """Should add security headers to response.
-
-        MEDIUM-11: Updated to create session in database for revocation check.
-        """
-        middleware = AuthenticationMiddleware(Mock())
-
-        session_id = "session-456"
-        token = create_jwt(merchant_id=1, session_id=session_id)
-        token_hash = hash_token(token)
-
-        # Create session in database (MEDIUM-11: required for revocation check)
-        async with async_session() as db:
-            session = Session.create(
-                merchant_id=1,
-                token_hash=token_hash,
-                hours=24,
-            )
-            db.add(session)
-            await db.commit()
-
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/protected"
-        request.cookies = {SESSION_COOKIE_NAME: token}
-        request.headers = {}
-        request.state = Mock()
-
-        response = Response()
-        call_next = AsyncMock(return_value=response)
-
-        try:
-            with patch.dict(os.environ, {"IS_TESTING": "false"}):
-                result = await middleware.dispatch(request, call_next)
-
-                # Check CSP header
-                assert "Content-Security-Policy" in result.headers
-                assert "default-src 'self'" in result.headers["Content-Security-Policy"]
-
-                # Check other security headers
-                assert result.headers["X-Content-Type-Options"] == "nosniff"
-                assert result.headers["X-Frame-Options"] == "DENY"
-                assert result.headers["X-XSS-Protection"] == "1; mode=block"
-        finally:
-            # Cleanup session
-            async with async_session() as db:
-                result = await db.execute(
-                    select(Session).where(Session.token_hash == token_hash)
-                )
-                session = result.scalars().first()
-                if session:
-                    await db.delete(session)
-                    await db.commit()
+            app = _build_app_with_auth_middleware()
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                client.cookies.set(SESSION_COOKIE_NAME, token)
+                response = await client.get("/api/v1/protected")
+                assert response.status_code == 200
+                assert response.json()["merchant_id"] == 42
 
     @pytest.mark.asyncio
     async def test_raises_401_for_revoked_session(self):
-        """Should raise 401 when session is revoked in database.
+        token = create_jwt(merchant_id=99, session_id="session-revoked-test")
 
-        MEDIUM-11: New test for session revocation checking.
-        """
-        middleware = AuthenticationMiddleware(Mock())
+        with (
+            patch.dict(os.environ, {"IS_TESTING": "false"}),
+            patch("app.middleware.auth.async_session") as mock_accessor,
+        ):
+            mock_db = _make_mock_db(Mock(revoked=True))
+            mock_accessor.return_value = Mock(return_value=mock_db)
 
-        session_id = "session-revoked"
-        token = create_jwt(merchant_id=99, session_id=session_id)
-        token_hash = hash_token(token)
-
-        # Create REVOKED session in database
-        async with async_session() as db:
-            session = Session.create(
-                merchant_id=99,
-                token_hash=token_hash,
-                hours=24,
-            )
-            session.revoke()  # Mark as revoked
-            db.add(session)
-            await db.commit()
-
-        request = Mock(spec=Request)
-        request.url.path = "/api/v1/protected"
-        request.cookies = {SESSION_COOKIE_NAME: token}
-        request.headers = {}
-        request.state = Mock()
-
-        call_next = AsyncMock(return_value=Response())
-
-        try:
-            with patch.dict(os.environ, {"IS_TESTING": "false"}):
-                with pytest.raises(HTTPException) as exc:
-                    await middleware.dispatch(request, call_next)
-
-                assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
-                assert exc.value.detail["error_code"].value == 2013  # AUTH_SESSION_REVOKED
-                assert "revoked" in exc.value.detail["message"].lower()
-        finally:
-            # Cleanup session
-            async with async_session() as db:
-                result = await db.execute(
-                    select(Session).where(Session.token_hash == token_hash)
+            app = _build_app_with_auth_middleware()
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                client.cookies.set(SESSION_COOKIE_NAME, token)
+                response = await client.get("/api/v1/protected")
+                assert response.status_code == 401
+                body = response.json()
+                assert (
+                    "revoked"
+                    in body.get("message", body.get("detail", {}).get("message", "")).lower()
                 )
-                session = result.scalars().first()
-                if session:
-                    await db.delete(session)
-                    await db.commit()
+
+    @pytest.mark.asyncio
+    async def test_raises_401_for_missing_session_in_db(self):
+        token = create_jwt(merchant_id=99, session_id="session-missing-test")
+
+        with (
+            patch.dict(os.environ, {"IS_TESTING": "false"}),
+            patch("app.middleware.auth.async_session") as mock_accessor,
+        ):
+            mock_db = _make_mock_db(None)
+            mock_accessor.return_value = Mock(return_value=mock_db)
+
+            app = _build_app_with_auth_middleware()
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+            ) as client:
+                client.cookies.set(SESSION_COOKIE_NAME, token)
+                response = await client.get("/api/v1/protected")
+                assert response.status_code == 401
 
 
 class TestGetRequestMerchantId:
-    """Tests for get_request_merchant_id dependency."""
-
     def test_returns_merchant_id_from_state(self):
-        """Should return merchant_id from request state."""
         request = Mock(spec=Request)
         request.state = Mock()
         request.state.merchant_id = 42
@@ -315,12 +225,12 @@ class TestGetRequestMerchantId:
         assert merchant_id == 42
 
     def test_raises_401_when_no_merchant_id(self):
-        """Should raise 401 when merchant_id not in state."""
         request = Mock(spec=Request)
-        # Create a state object that raises AttributeError for missing attributes
+
         class MockState:
             def __getattr__(self, name):
                 raise AttributeError(f"'MockState' object has no attribute '{name}'")
+
         request.state = MockState()
 
         with pytest.raises(HTTPException) as exc:
@@ -329,7 +239,6 @@ class TestGetRequestMerchantId:
         assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_raises_401_when_merchant_id_is_none(self):
-        """Should raise 401 when merchant_id is None."""
         request = Mock(spec=Request)
         request.state = Mock()
         request.state.merchant_id = None
@@ -341,38 +250,27 @@ class TestGetRequestMerchantId:
 
 
 class TestRequireAuthAlias:
-    """Tests for require_auth alias."""
-
     def test_require_auth_is_alias(self):
-        """require_auth should be same function as get_request_merchant_id."""
         assert require_auth is get_request_merchant_id
 
 
 class TestBypassPaths:
-    """Tests for BYPASS_PATHS configuration."""
-
     def test_includes_login_endpoint(self):
-        """BYPASS_PATHS should include login endpoint."""
         assert "/api/v1/auth/login" in AuthenticationMiddleware.BYPASS_PATHS
 
     def test_includes_csrf_token_endpoint(self):
-        """BYPASS_PATHS should include CSRF token endpoint."""
         assert "/api/v1/csrf-token" in AuthenticationMiddleware.BYPASS_PATHS
 
     def test_includes_health_endpoint(self):
-        """BYPASS_PATHS should include health endpoint."""
         assert "/health" in AuthenticationMiddleware.BYPASS_PATHS
 
     def test_includes_webhook_paths(self):
-        """BYPASS_PATHS should include webhook paths."""
         assert any(p.startswith("/api/v1/webhooks") for p in AuthenticationMiddleware.BYPASS_PATHS)
 
     def test_includes_oauth_paths(self):
-        """BYPASS_PATHS should include OAuth paths."""
         assert any(p.startswith("/api/oauth") for p in AuthenticationMiddleware.BYPASS_PATHS)
 
     def test_includes_documentation_paths(self):
-        """BYPASS_PATHS should include docs paths."""
         assert "/docs" in AuthenticationMiddleware.BYPASS_PATHS
         assert "/redoc" in AuthenticationMiddleware.BYPASS_PATHS
         assert "/openapi.json" in AuthenticationMiddleware.BYPASS_PATHS

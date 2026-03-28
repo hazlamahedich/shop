@@ -19,8 +19,6 @@ from fastapi import HTTPException, Request, status
 
 from app.core.rate_limiter import (
     RateLimiter,
-    check_auth_rate_limit,
-    check_llm_rate_limit,
 )
 
 
@@ -39,11 +37,14 @@ class TestAuthRateLimiting:
         """Should have 15 minute period configuration."""
         assert RateLimiter.AUTH_PERIOD_SECONDS == 15 * 60
 
-    @pytest.mark.parametrize("email,ip_address", [
-        ("test@example.com", "127.0.0.1"),
-        ("test@example.com", None),
-        (None, "127.0.0.1"),
-    ])
+    @pytest.mark.parametrize(
+        "email,ip_address",
+        [
+            ("test@example.com", "127.0.0.1"),
+            ("test@example.com", None),
+            (None, "127.0.0.1"),
+        ],
+    )
     def test_is_auth_rate_limited_returns_false_initially(self, email, ip_address):
         """Should not be rate limited initially."""
         result = RateLimiter.is_auth_rate_limited(email=email, ip_address=ip_address)
@@ -81,7 +82,10 @@ class TestAuthRateLimiting:
         RateLimiter.is_auth_rate_limited(email="user3@example.com", ip_address="192.168.1.1")
 
         # IP is not rate limited yet (3 < 5)
-        assert RateLimiter.is_auth_rate_limited(email="user4@example.com", ip_address="192.168.1.1") is False
+        assert (
+            RateLimiter.is_auth_rate_limited(email="user4@example.com", ip_address="192.168.1.1")
+            is False
+        )
 
         # Make 2 more attempts with same email from different IPs
         # user1@example.com now has 1 + 2 = 3 attempts
@@ -89,14 +93,26 @@ class TestAuthRateLimiting:
         RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.3")
 
         # user1@example.com now has 3 attempts total, need 2 more to hit limit
-        assert RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.4") is False
-        assert RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.5") is False
+        assert (
+            RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.4")
+            is False
+        )
+        assert (
+            RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.5")
+            is False
+        )
 
         # Now user1@example.com has 5 attempts, should be rate limited
-        assert RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.6") is True
+        assert (
+            RateLimiter.is_auth_rate_limited(email="user1@example.com", ip_address="192.168.1.6")
+            is True
+        )
 
         # But a different email from the same IP should still work (192.168.1.1 has 4 attempts)
-        assert RateLimiter.is_auth_rate_limited(email="user5@example.com", ip_address="192.168.1.1") is False
+        assert (
+            RateLimiter.is_auth_rate_limited(email="user5@example.com", ip_address="192.168.1.1")
+            is False
+        )
 
     def test_is_auth_rate_limited_different_ips_separate(self):
         """Different IPs should have separate rate limits."""
@@ -140,7 +156,7 @@ class TestAuthRateLimiting:
         RateLimiter._auth_attempts["ip:192.168.1.1"] = [
             now - 100,  # Within 15 minutes
             now - 200,  # Within 15 minutes
-            now - 1000, # Outside 15 minutes (older than 900 seconds)
+            now - 1000,  # Outside 15 minutes (older than 900 seconds)
         ]
 
         count = RateLimiter._get_auth_attempt_count("ip:192.168.1.1")
@@ -208,8 +224,10 @@ class TestAuthRateLimitDependency:
         # Make 5 attempts (at the limit)
         # When is_auth_rate_limited returns False, it tracks the attempt
         for _ in range(5):
-            result = RateLimiter.is_auth_rate_limited(email="test@example.com", ip_address="192.168.1.1")
-            assert result is False, f"Attempt {_+1} should not be rate limited yet"
+            result = RateLimiter.is_auth_rate_limited(
+                email="test@example.com", ip_address="192.168.1.1"
+            )
+            assert result is False, f"Attempt {_ + 1} should not be rate limited yet"
 
         # Next check should raise because we're at the limit
         with pytest.raises(HTTPException) as exc:
@@ -330,14 +348,12 @@ class TestRateLimitConstants:
 class TestRateLimitDependencyExports:
     """Tests for exported dependency functions."""
 
-    def test_check_llm_rate_limit_exported(self):
-        """check_llm_rate_limit should be exported and callable."""
-        assert callable(check_llm_rate_limit)
-        # Verify it's the same method by checking it works the same way
-        assert check_llm_rate_limit.__name__ == "check_rate_limit"
+    def test_check_llm_rate_limit_is_classmethod(self):
+        """check_llm_rate_limit should be a callable classmethod on RateLimiter."""
+        assert callable(RateLimiter.check_rate_limit)
+        assert RateLimiter.check_rate_limit.__name__ == "check_rate_limit"
 
-    def test_check_auth_rate_limit_exported(self):
-        """check_auth_rate_limit should be exported and callable."""
-        assert callable(check_auth_rate_limit)
-        # Verify it's the same method by checking it works the same way
-        assert check_auth_rate_limit.__name__ == "check_auth_rate_limit"
+    def test_check_auth_rate_limit_is_classmethod(self):
+        """check_auth_rate_limit should be a callable classmethod on RateLimiter."""
+        assert callable(RateLimiter.check_auth_rate_limit)
+        assert RateLimiter.check_auth_rate_limit.__name__ == "check_auth_rate_limit"

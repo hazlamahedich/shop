@@ -179,6 +179,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_db()
     except Exception as e:
         import structlog
+
         structlog.get_logger().warning("db_init_failed_during_startup", error=str(e))
         # Database will be initialized lazily on first use
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
@@ -296,17 +297,19 @@ app.add_middleware(
 # This fixes issues with proxies like zrok stripping CORS headers
 app.add_middleware(CORSHeaderMiddleware)
 
-# Setup security middleware (HTTPS enforcement, HSTS, CSP, etc.)
-# NFR-S1: HTTPS Enforcement with HSTS
-# NFR-S7: Content Security Policy and other security headers
-setup_security_middleware(app)
-
 # Setup CSRF middleware for state-changing operations
 # NFR-S8: CSRF tokens for POST/PUT/DELETE operations
 setup_csrf_middleware(app)
 
 # Authentication middleware (MEDIUM-11: added for cookie validation)
 app.add_middleware(AuthenticationMiddleware)
+
+# Setup security middleware (HTTPS enforcement, HSTS, CSP, etc.)
+# NFR-S1: HTTPS Enforcement with HSTS
+# NFR-S7: Content Security Policy and other security headers
+# MUST be added last so it's outermost — ensures security headers
+# are present on ALL responses including auth error responses.
+setup_security_middleware(app)
 
 
 # Root endpoints
