@@ -92,7 +92,7 @@ async def widget_options_handler(request: Request) -> None:
     Args:
         request: FastAPI request
     """
-    # The actual CORS headers are set by the CORSHeaderMiddleware
+    # CORS headers are set by Starlette CORSMiddleware
     # This handler just ensures OPTIONS requests are accepted
     return None
 
@@ -407,7 +407,9 @@ async def get_widget_message_history(
             content=msg.get("content", ""),
             timestamp=msg.get("timestamp", ""),
             customer_name=msg.get("customer_name"),
-            user_rating=feedback_map.get(msg.get("message_id")) if msg.get("role") == "bot" else None,
+            user_rating=feedback_map.get(msg.get("message_id"))
+            if msg.get("role") == "bot"
+            else None,
         )
         for msg in messages
     ]

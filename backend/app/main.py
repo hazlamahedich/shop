@@ -64,7 +64,7 @@ from app.core.config import settings
 from app.core.database import close_db, engine, init_db
 from app.core.errors import APIError, ErrorCode
 from app.middleware.auth import AuthenticationMiddleware
-from app.middleware.cors import CORSHeaderMiddleware
+
 from app.middleware.csrf import setup_csrf_middleware
 from app.middleware.security import setup_security_middleware
 from app.schemas.deployment import (  # noqa: F401 (export for type generation)
@@ -293,9 +293,6 @@ app.add_middleware(
     ],
 )
 
-# Setup CORS header middleware to ensure headers are always present
-# This fixes issues with proxies like zrok stripping CORS headers
-app.add_middleware(CORSHeaderMiddleware)
 
 # Setup CSRF middleware for state-changing operations
 # NFR-S8: CSRF tokens for POST/PUT/DELETE operations
