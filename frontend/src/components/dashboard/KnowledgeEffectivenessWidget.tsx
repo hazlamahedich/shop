@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import { GitCompare, Target, Zap } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { GitCompare, Target, Zap, Wifi, WifiOff } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
+import { getDashboardWebSocketService, closeDashboardWebSocket } from '../../services/dashboardWebSocketService';
 import { StatCard } from './StatCard';
 
 interface KnowledgeEffectivenessData {
@@ -13,12 +15,48 @@ interface KnowledgeEffectivenessData {
 }
 
 export function KnowledgeEffectivenessWidget() {
+  const queryClient = useQueryClient();
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'knowledge-effectiveness'],
     queryFn: () => analyticsService.getKnowledgeEffectiveness(),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 10_000, // 10 seconds - reduced from 30s
+    refetchInterval: false, // Disabled - using WebSocket instead
+    refetchOnWindowFocus: true, // Enable refresh on window focus
   });
+
+  // Also query connection status
+  useQuery({
+    queryKey: ['dashboard', 'websocket', 'status'],
+    queryFn: () => Promise.resolve({ connected: false, timestamp: null }),
+    staleTime: 0,
+    refetchInterval: false,
+  });
+
+  useEffect(() => {
+    // Get merchant ID from environment or use default
+    const merchantId = parseInt(import.meta.env?.VITE_MERCHANT_ID || '1', 10);
+    const wsService = getDashboardWebSocketService(merchantId);
+
+    // Connect to WebSocket
+    wsService.connect(queryClient);
+
+    // Check initial connection status
+    const status = wsService.getConnectionStatus();
+    setIsWebSocketConnected(status.connected);
+
+    // Poll connection status
+    const statusInterval = setInterval(() => {
+      const currentStatus = wsService.getConnectionStatus();
+      setIsWebSocketConnected(currentStatus.connected);
+    }, 5000);
+
+    return () => {
+      clearInterval(statusInterval);
+      // Don't disconnect on unmount - keep connection alive for other widgets
+    };
+  }, [queryClient]);
 
   const effectivenessData = data as KnowledgeEffectivenessData | undefined;
   const total = effectivenessData?.totalQueries || 0;
@@ -35,6 +73,21 @@ export function KnowledgeEffectivenessWidget() {
       data-testid="knowledge-effectiveness-widget"
       isLoading={isLoading}
     >
+      {/* Connection Status Indicator */}
+      <div className="flex items-center justify-end mb-2">
+        {isWebSocketConnected ? (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#00f5d4]/5 border border-[#00f5d4]/10 rounded">
+            <Wifi size={10} className="text-[#00f5d4]" />
+            <span className="text-[9px] font-black text-[#00f5d4] uppercase tracking-wider">Live</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/5 rounded">
+            <WifiOff size={10} className="text-white/30" />
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">Offline</span>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-4 mt-4">
         {isError ? (
            <div className="flex items-center justify-center py-8">
@@ -48,7 +101,7 @@ export function KnowledgeEffectivenessWidget() {
                   <span className="text-[10px] font-black text-[#00f5d4]">{rate}%</span>
                </div>
                <div className="h-6 w-full bg-white/5 rounded-xl border border-white/5 overflow-hidden p-1 relative">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-[#00f5d4]/40 to-[#00f5d4] rounded-lg transition-all duration-1000 shadow-[0_0_15px_rgba(0,245,212,0.3)]"
                     style={{ width: `${rate}%` }}
                   />
@@ -77,6 +130,15 @@ export function KnowledgeEffectivenessWidget() {
                    HIGH_CONF_AUTO_PASS
                 </div>
             </div>
+
+            {/* Last Updated Timestamp */}
+            {effectivenessData?.lastUpdated && (
+              <div className="pt-2 border-t border-white/5">
+                <p className="text-[8px] font-black text-white/20 uppercase tracking-wider">
+                  Last updated: {new Date(effectivenessData.lastUpdated).toLocaleTimeString()}
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

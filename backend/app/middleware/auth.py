@@ -19,13 +19,14 @@ AC 4: Security
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Awaitable, Callable
 
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.auth import hash_token, validate_jwt
 from app.core.database import async_session
@@ -35,8 +36,8 @@ from app.models.session import Session
 SESSION_COOKIE_NAME = "session_token"
 
 
-class AuthenticationMiddleware(BaseHTTPMiddleware):
-    """Authentication middleware for FastAPI.
+class AuthenticationMiddleware:
+    """Authentication middleware for FastAPI (pure ASGI).
 
     Validates JWT from httpOnly cookie and populates request.state.merchant_id.
     Skips authentication for whitelisted paths.
@@ -47,66 +48,57 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         app.add_middleware(AuthenticationMiddleware)
     """
 
-    # Paths that bypass authentication
     BYPASS_PATHS = [
         "/api/v1/auth/login",
         "/api/v1/auth/register",
-        "/api/v1/auth/logout",  # Idempotent - handles revoked sessions
+        "/api/v1/auth/logout",
         "/api/v1/csrf-token",
-        "/api/health/",  # Story 4-4: Health check endpoints (protected by internal-only check)
+        "/api/health/",
         "/health",
-        "/api/webhooks/",  # Webhook endpoints (signature-based auth)
+        "/api/webhooks/",
         "/api/v1/webhooks/",
         "/webhooks/",
         "/docs",
         "/redoc",
         "/openapi.json",
         "/api/oauth/",
-        "/api/integrations/shopify/callback",  # Shopify OAuth callback
-        "/api/integrations/shopify/authorize",  # Shopify OAuth initiation
-        "/api/v1/data/export",  # Story 6-3: Data export (X-Merchant-ID header auth)
-        "/api/v1/consent/",  # Story 6-4: Consent opt-out (authenticated via Bearer token)
-        "/api/v1/widget/",  # Story 5-1: Public widget API
-        "/ws/widget/",  # WebSocket endpoint for widget real-time communication
-        "/widget/",  # Static widget files for local development
-        "/static/",  # Static files (widget JS, CSS, etc.)
-        "/api/deletion/",  # Story 6-2: Data deletion endpoints (authenticated via Bearer token)
-        "/api/gdpr-request",  # Story 6-6: GDPR request endpoint
-        "/api/compliance/",  # Story 6-6: Compliance status endpoint
-        "/api/customers/",  # Story 6-6: Customer GDPR revoke endpoint
-        "/api/carriers/",  # Story 6.3: Carrier configuration API (CSRF protected via session)
-        "/api/merchant/mode",  # Story 8.1: Mode update uses CSRF token from client
-        "/api/llm/",  # LLM configuration (X-Merchant-Id header auth in DEBUG mode)
-        "/api/onboarding/",  # Onboarding endpoints (X-Merchant-Id header auth in DEBUG mode)
-        "/api/v1/feedback",  # Story 10-4: Feedback submission (session-based auth)
-        "/api/v1/analytics/widget/events",  # Story 9-10: Widget analytics events (public API)
+        "/api/integrations/shopify/callback",
+        "/api/integrations/shopify/authorize",
+        "/api/v1/data/export",
+        "/api/v1/consent/",
+        "/api/v1/widget/",
+        "/ws/widget/",
+        "/ws/dashboard/",
+        "/widget/",
+        "/static/",
+        "/api/deletion/",
+        "/api/gdpr-request",
+        "/api/compliance/",
+        "/api/customers/",
+        "/api/carriers/",
+        "/api/merchant/mode",
+        "/api/llm/",
+        "/api/onboarding/",
+        "/api/v1/feedback",
+        "/api/v1/analytics/widget/events",
     ]
 
-    def __init__(self, app) -> None:
-        """Initialize authentication middleware.
+    AUTH_PROTECTED_PATHS = [
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/me",
+    ]
 
-        Args:
-            app: The FastAPI application
-        """
-        super().__init__(app)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        """Process request and validate JWT if needed.
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
 
-        Args:
-            request: The incoming HTTP request
-            call_next: The next middleware or route handler
+        request = Request(scope, receive)
 
-        Returns:
-            Response from downstream handler or error response
-        """
-        # Extract merchant_id from token even in test mode (for endpoints that need it)
         if self._should_bypass_auth(request):
-            # Try to extract merchant_id from Bearer token for test convenience
             token = request.cookies.get(SESSION_COOKIE_NAME)
             if not token:
                 auth_header = request.headers.get("Authorization", "")
@@ -120,23 +112,21 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 except Exception:
                     pass
 
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Skip authentication for whitelisted paths
         if self._should_bypass_path(request):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Always bypass OPTIONS requests for CORS preflight
         if request.method == "OPTIONS":
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Extract and validate JWT from cookie
-        # Catch HTTPException and convert to JSONResponse for middleware context
         try:
             merchant_id = await self._authenticate_request(request)
         except HTTPException as e:
-            # Convert HTTPException to JSONResponse for proper API error format
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=e.status_code,
                 content=(
                     e.detail
@@ -148,60 +138,27 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                     }
                 ),
             )
+            await response(scope, receive, send)
+            return
 
-        # Populate request state
         request.state.merchant_id = merchant_id
-
-        # Continue with request
-        response = await call_next(request)
-
-        # Add security headers
-        self._add_security_headers(request, response)
-
-        return response
-
-    # Auth endpoints that require authentication even in test mode
-    # (login and logout are always bypassed via BYPASS_PATHS)
-    AUTH_PROTECTED_PATHS = [
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/me",
-    ]
+        await self.app(scope, receive, send)
 
     def _should_bypass_auth(self, request: Request) -> bool:
-        """Check if authentication should be bypassed.
-
-        Args:
-            request: The incoming HTTP request
-
-        Returns:
-            True if authentication should be bypassed
-        """
-        # Never bypass auth for protected auth endpoints (even in test mode)
-        # This allows tests to verify auth behavior for refresh, logout, me
         path = request.url.path
         for protected_path in self.AUTH_PROTECTED_PATHS:
             if path.startswith(protected_path):
                 return False
 
-        # Bypass in test mode for other endpoints
         if os.getenv("IS_TESTING", "false").lower() == "true":
             return True
 
-        # Check for test mode header (but not for protected auth endpoints)
         if request.headers.get("X-Test-Mode", "").lower() == "true":
             return True
 
         return False
 
     def _should_bypass_path(self, request: Request) -> bool:
-        """Check if request path is whitelisted.
-
-        Args:
-            request: The incoming HTTP request
-
-        Returns:
-            True if path is whitelisted
-        """
         path = request.url.path
 
         for bypass_path in self.BYPASS_PATHS:
@@ -211,20 +168,6 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         return False
 
     async def _authenticate_request(self, request: Request) -> int:
-        """Authenticate request and extract merchant_id.
-
-        MEDIUM-11: Now checks session.revoked flag in database for logout enforcement.
-        Story 4-12: Also supports Bearer token via Authorization header for API tests.
-
-        Args:
-            request: The incoming HTTP request
-
-        Returns:
-            Merchant ID from JWT payload
-
-        Raises:
-            HTTPException: If authentication fails
-        """
         token = request.cookies.get(SESSION_COOKIE_NAME)
 
         if not token:
@@ -242,14 +185,11 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        # Validate JWT
         try:
             payload = validate_jwt(token)
 
-            # MEDIUM-11: Check if session is revoked in database (AC 3 compliance)
-            # Skip check in test mode for convenience
             if os.getenv("IS_TESTING", "false").lower() != "true":
-                async with async_session() as db:
+                async with async_session()() as db:
                     token_hash = hash_token(token)
                     result = await db.execute(
                         select(Session).where(Session.token_hash == token_hash)
@@ -269,7 +209,6 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             return payload.merchant_id
 
         except HTTPException:
-            # Re-raise HTTP exceptions from validate_jwt or revocation check
             raise
 
         except Exception as e:
@@ -281,10 +220,6 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                     "details": str(e),
                 },
             )
-
-    def _add_security_headers(self, request: Request, response: Response) -> None:
-        """Deprecated: Security headers are now handled by SecurityHeadersMiddleware."""
-        pass
 
 
 def get_request_merchant_id(request: Request) -> int:
@@ -305,12 +240,10 @@ def get_request_merchant_id(request: Request) -> int:
     merchant_id = getattr(request.state, "merchant_id", None)
 
     if merchant_id is None and os.getenv("IS_TESTING", "false").lower() == "true":
-        # In test mode, first try X-Merchant-Id header (for integration tests)
         merchant_id_header = request.headers.get("X-Merchant-Id")
         if merchant_id_header:
             return int(merchant_id_header)
 
-        # Then try to extract from Bearer token
         token = request.cookies.get(SESSION_COOKIE_NAME)
         if not token:
             auth_header = request.headers.get("Authorization", "")
@@ -337,5 +270,4 @@ def get_request_merchant_id(request: Request) -> int:
     return merchant_id
 
 
-# FastAPI dependency for use in endpoints
 require_auth = get_request_merchant_id

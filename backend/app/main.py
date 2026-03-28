@@ -54,6 +54,7 @@ from app.api.widget import router as widget_router
 from app.api.widget_events import router as widget_events_router
 from app.api.widget_settings import router as widget_settings_router
 from app.api.widget_ws import router as widget_ws_router
+from app.api.dashboard_ws import router as dashboard_ws_router
 from app.background_jobs.data_retention import shutdown_scheduler, start_scheduler
 from app.background_jobs.widget_cleanup import (
     shutdown_widget_cleanup_scheduler,
@@ -467,6 +468,8 @@ app.include_router(widget_router, prefix="/api/v1", tags=["widget"])
 app.include_router(widget_events_router, prefix="/api/v1", tags=["widget-events"])
 # Widget WebSocket (preferred for real-time communication)
 app.include_router(widget_ws_router, tags=["widget-websocket"])
+# Dashboard WebSocket (real-time analytics updates)
+app.include_router(dashboard_ws_router, tags=["dashboard-websocket"])
 # Story 5-6: Widget Settings API
 app.include_router(widget_settings_router, prefix="/api/v1/merchants", tags=["widget-settings"])
 # Story 4-13: Geographic Analytics API
