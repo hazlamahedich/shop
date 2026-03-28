@@ -255,6 +255,8 @@ class WidgetSessionService:
     async def end_session(self, session_id: str) -> bool:
         """Terminate a session and clear its data.
 
+        Also closes the associated conversation by setting status to 'closed'.
+
         Args:
             session_id: Widget session identifier
 
@@ -268,6 +270,47 @@ class WidgetSessionService:
         deleted = await self.redis.delete(key, messages_key)
 
         if deleted > 0:
+            # Close the associated conversation
+            try:
+                from app.core.database import get_db
+                from sqlalchemy import select
+                from app.models.conversation import Conversation
+
+                async for db in get_db():
+                    result = await db.execute(
+                        select(Conversation).where(
+                            Conversation.platform_sender_id == session_id,
+                            Conversation.platform == "widget",
+                            Conversation.status == "active"
+                        )
+                    )
+                    conversation = result.scalars().first()
+
+                    if conversation:
+                        conversation.status = "closed"
+                        conversation.handoff_status = "resolved"
+                        await db.commit()
+
+                        self.logger.info(
+                            "conversation_closed_on_session_end",
+                            session_id=session_id,
+                            conversation_id=conversation.id,
+                        )
+                    else:
+                        self.logger.debug(
+                            "no_active_conversation_found",
+                            session_id=session_id,
+                        )
+                    break
+
+            except Exception as e:
+                # Don't fail session end if conversation close fails
+                self.logger.warning(
+                    "conversation_close_failed",
+                    session_id=session_id,
+                    error=str(e),
+                )
+
             self.logger.info(
                 "widget_session_ended",
                 session_id=session_id,
