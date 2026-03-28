@@ -94,6 +94,13 @@ class LLMHandler(BaseHandler):
                 rag_context_preview=rag_context[:500],
             )
             system_prompt = self._inject_rag_context(system_prompt, rag_context)
+        else:
+            logger.debug(
+                "llm_handler_rag_context_unavailable",
+                merchant_id=merchant.id,
+                message="No relevant knowledge base information found",
+            )
+            system_prompt = self._add_no_rag_note(system_prompt, business_name, merchant.onboarding_mode)
 
         messages = [LLMMessage(role="system", content=system_prompt)]
 
@@ -120,6 +127,14 @@ class LLMHandler(BaseHandler):
         try:
             response = await llm_service.chat(messages=messages, temperature=0.7)
             response_text = response.content
+
+            if response_text and response_text.strip().startswith('{"intent"'):
+                logger.warning(
+                    "llm_handler_classification_leak",
+                    merchant_id=merchant.id,
+                    raw_response=response_text[:200],
+                )
+                response_text = f"I'd be happy to help you with that! Could you tell me a bit more?"
         except Exception as e:
             logger.warning(
                 "llm_handler_fallback",
@@ -417,6 +432,7 @@ class LLMHandler(BaseHandler):
 
         Story 8-5: RAG Integration in Conversation
         Story 10-1: Enhanced for general mode - prioritize knowledge base over shopping redirect
+        Enhanced with clear instructions and examples to improve response quality.
 
         Args:
             base_prompt: Original system prompt
@@ -427,11 +443,59 @@ class LLMHandler(BaseHandler):
         """
         return f"""{base_prompt}
 
+**Relevant Information from Knowledge Base:**
 {rag_context}
 
----
-Use the information above to answer questions directly. Do NOT mention "the document", "the provided information", or "according to" - just answer naturally as if you already know the information. Only redirect to shopping if the question is completely unrelated to both shopping AND the knowledge base.
+**Instructions for Using This Information:**
+1. Use the information above to answer questions directly and accurately
+2. Do NOT mention "the document", "the provided information", "according to", or similar phrases
+3. Answer naturally as if you already know this information
+4. If the information doesn't fully answer the question, provide what you can and acknowledge limitations
+5. Only redirect to shopping/product topics if the question is completely unrelated to BOTH shopping AND the knowledge base
+
+**Response Examples:**
+❌ BAD: "According to the document, the Subaru WRX has a 2.0L engine."
+✅ GOOD: "The Subaru WRX features a 2.0L turbocharged Boxer engine that delivers impressive power."
+
+❌ BAD: "The provided information mentions safety features."
+✅ GOOD: "The WRX has earned the maximum five-star ANCAP occupant safety rating, thanks to advanced safety systems."
+
+Remember: You're not "looking up information" - you're answering based on what you know.
 """
+
+    def _add_no_rag_note(
+        self, base_prompt: str, business_name: str, onboarding_mode: str
+    ) -> str:
+        """Add note when no RAG context is available.
+
+        Story 8-5: Graceful degradation when RAG finds no results.
+
+        Args:
+            base_prompt: Original system prompt
+            business_name: Name of the business
+            onboarding_mode: Merchant's onboarding mode (general/ecommerce)
+
+        Returns:
+            System prompt with no-RAG note
+        """
+        if onboarding_mode == "general":
+            note = f"""
+**Note:** I don't have specific information about that in my knowledge base.
+I can still try to help based on what I know about {business_name}, or you can ask about:
+- Business information and services
+- Policies and procedures
+- General questions I might be able to answer
+"""
+        else:  # ecommerce mode
+            note = f"""
+**Note:** I don't have specific information about that in my knowledge base,
+but I can help you with:
+- Product searches and availability
+- Shopping cart and checkout
+- Order tracking and management
+- {business_name} products and services
+"""
+        return f"{base_prompt}\n{note}"
 
     def build_resolution_system_prompt(
         self,

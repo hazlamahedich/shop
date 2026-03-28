@@ -647,3 +647,140 @@ async def get_reembedding_status(
             "timestamp": datetime.now(UTC).isoformat(),
         },
     }
+
+
+@router.post("/test-rag")
+async def test_rag_query(
+    request: Request,
+    query: str,
+    top_k: int = 7,
+    similarity_threshold: float = 0.2,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Test RAG query and return results for debugging.
+
+    Enhanced RAG Testing Endpoint:
+    - Tests RAG retrieval with specified parameters
+    - Returns chunks with similarity scores
+    - Shows which documents were matched
+    - Useful for debugging RAG performance and quality
+
+    Args:
+        query: Search query to test
+        top_k: Number of chunks to retrieve (default: 7)
+        similarity_threshold: Minimum similarity score (default: 0.2)
+
+    Returns:
+        Retrieved chunks with similarity scores and document info
+    """
+    merchant_id = get_request_merchant_id(request)
+
+    from app.core.security import decrypt_access_token
+    from app.services.rag.context_builder import RAGContextBuilder
+    from app.services.rag.embedding_service import EmbeddingService
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    # Get merchant LLM configuration for API key
+    from app.models.llm_configuration import LLMConfiguration
+    from app.models.merchant import Merchant
+
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+    merchant = merchant_result.scalar_one_or_none()
+
+    if not merchant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Merchant {merchant_id} not found",
+        )
+
+    # Get LLM configuration
+    llm_config_result = await db.execute(
+        select(LLMConfiguration).where(LLMConfiguration.merchant_id == merchant_id)
+    )
+    llm_config = llm_config_result.scalar_one_or_none()
+
+    # Determine embedding provider
+    provider = merchant.embedding_provider or "openai"
+    model = merchant.embedding_model or "text-embedding-3-small"
+    api_key = None
+    ollama_url = None
+
+    if llm_config and llm_config.api_key_encrypted:
+        api_key = decrypt_access_token(llm_config.api_key_encrypted)
+    if llm_config and llm_config.ollama_url:
+        ollama_url = llm_config.ollama_url
+
+    # Special case: Anthropic doesn't support embeddings, use OpenAI
+    if provider == "anthropic":
+        from app.core.config import settings
+
+        provider = "openai"
+        model = "text-embedding-3-small"
+        if not api_key:
+            api_key = settings().get("OPENAI_API_KEY")
+
+    # Create embedding service
+    embedding_service = EmbeddingService(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        ollama_url=ollama_url,
+    )
+
+    # Create RAG context builder
+    async_session = async_sessionmaker(db.__class__, db.bind, expire_on_commit=False)
+
+    def session_factory():
+        return async_session()
+
+    rag_context_builder = RAGContextBuilder(
+        session_factory=session_factory,
+        embedding_service=embedding_service,
+    )
+
+    # Build embedding version for consistency
+    embedding_version = None
+    if merchant.embedding_provider and merchant.embedding_model:
+        embedding_version = f"{merchant.embedding_provider}-{merchant.embedding_model}"
+
+    # Retrieve chunks
+    context, chunks = await rag_context_builder.build_rag_context_with_chunks(
+        merchant_id=merchant_id,
+        user_query=query,
+        top_k=top_k,
+        similarity_threshold=similarity_threshold,
+        embedding_version=embedding_version,
+    )
+
+    # Format results
+    return {
+        "data": {
+            "query": query,
+            "parameters": {
+                "top_k": top_k,
+                "similarity_threshold": similarity_threshold,
+                "embedding_version": embedding_version,
+            },
+            "results": {
+                "context": context,
+                "chunks": [
+                    {
+                        "content": chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content,
+                        "similarity": round(chunk.similarity, 3),
+                        "document": {
+                            "id": chunk.document_id,
+                            "name": chunk.document_name,
+                            "chunk_index": chunk.chunk_index,
+                        },
+                    }
+                    for chunk in chunks
+                ],
+                "total_chunks": len(chunks),
+                "has_context": context is not None,
+            },
+        },
+        "meta": {
+            "requestId": "test-rag",
+            "timestamp": datetime.now(UTC).isoformat(),
+        },
+    }

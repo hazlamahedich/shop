@@ -58,7 +58,7 @@ class RetrievalService:
     """
 
     SIMILARITY_THRESHOLD = 0.3  # Minimum similarity score (lowered for better recall, fixes location queries)
-    TOP_K_DEFAULT = 5  # Default number of chunks to retrieve
+    TOP_K_DEFAULT = 7  # Default number of chunks to retrieve (increased from 5 for better context)
     RETRIEVAL_TIMEOUT_MS = 500  # Timeout for retrieval
 
     def __init__(

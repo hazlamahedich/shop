@@ -41,6 +41,8 @@ class RAGContextBuilder:
     RETRIEVAL_TIMEOUT_MS = 10000  # 10s timeout for retrieval (cloud embeddings can be slow)
     MAX_CONTEXT_TOKENS = 2000  # Prevent prompt overflow
     REWRITE_TIMEOUT_MS = 2000  # 2s timeout for query rewriting
+    TOP_K_DEFAULT = 7  # Default chunks to retrieve (increased from 5)
+    SIMILARITY_THRESHOLD_DEFAULT = 0.2  # Lowered from 0.3 for better recall
 
     def __init__(
         self,
@@ -65,8 +67,8 @@ class RAGContextBuilder:
         self,
         merchant_id: int,
         user_query: str,
-        top_k: int = 5,
-        similarity_threshold: float = 0.2,
+        top_k: int = 7,  # Increased from 5 for better context coverage
+        similarity_threshold: float = 0.2,  # Lowered for better recall
         embedding_version: str | None = None,
     ) -> str | None:
         """Retrieve relevant chunks and format as LLM context.
@@ -153,8 +155,8 @@ class RAGContextBuilder:
         self,
         merchant_id: int,
         user_query: str,
-        top_k: int = 5,
-        similarity_threshold: float = 0.2,
+        top_k: int = 7,  # Increased from 5 for better context coverage
+        similarity_threshold: float = 0.2,  # Lowered for better recall
         embedding_version: str | None = None,
         conversation_history: list[dict] | None = None,
     ) -> tuple[str | None, list[RetrievedChunk]]:
@@ -207,6 +209,15 @@ class RAGContextBuilder:
                 )
 
         try:
+            logger.info(
+                "rag_retrieval_starting",
+                merchant_id=merchant_id,
+                query=search_query[:50],
+                query_length=len(search_query),
+                top_k=top_k,
+                threshold=similarity_threshold,
+                embedding_version=embedding_version,
+            )
             chunks = await asyncio.wait_for(
                 self.retrieval_service.retrieve_relevant_chunks(
                     merchant_id=merchant_id,
@@ -216,6 +227,12 @@ class RAGContextBuilder:
                     embedding_version=embedding_version,
                 ),
                 timeout=self.RETRIEVAL_TIMEOUT_MS / 1000.0,
+            )
+
+            logger.info(
+                "rag_retrieval_completed",
+                merchant_id=merchant_id,
+                chunks_found=len(chunks) if chunks else 0,
             )
 
             if not chunks:

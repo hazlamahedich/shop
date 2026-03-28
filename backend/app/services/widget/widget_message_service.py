@@ -583,9 +583,10 @@ class WidgetMessageService:
         Returns:
             RAGContextBuilder instance or None (if not General mode or missing config)
         """
-        # Only build RAG for General mode merchants
-        if merchant_onboarding_mode != "general":
-            return None
+        # Build RAG for BOTH General and E-commerce modes
+        # Comment: No longer blocking based on mode - RAG works for both
+        # if merchant_onboarding_mode != "general":
+        #     return None
 
         # Check if database is available
         if not self.db:
@@ -630,15 +631,16 @@ class WidgetMessageService:
             # Create session factory for request-scoped database sessions
             # This prevents greenlet errors from session reuse
             def session_factory():
-                return async_session  # Returns async_sessionmaker
-
-            # Pass None for llm_service to avoid greenlet issues
-            # llm_service is only used for query rewriting (optional feature)
-            rag_context_builder = RAGContextBuilder(
-                session_factory=session_factory,
-                embedding_service=embedding_service,
-                llm_service=None,
-            )
+                # async_session returns a sessionmaker, so we need to call it again to get a session
+                session_factory_maker = async_session()
+                session = session_factory_maker()
+                self.logger.debug(
+                    "session_factory_created",
+                    merchant_id=merchant_id,
+                    session_type=type(session).__name__,
+                    session_class=str(type(session)),
+                )
+                return session  # ✅ Returns session instance
 
             # Pass None for llm_service to avoid greenlet issues
             # llm_service is only used for query rewriting (optional feature)

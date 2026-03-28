@@ -19,11 +19,17 @@ class ChunkingError(Exception):
 
 
 class DocumentChunker:
-    """Service for chunking documents into text segments."""
+    """Service for chunking documents into text segments.
+
+    Enhanced for better RAG performance:
+    - Larger chunks (1500 chars) for more complete information
+    - More overlap (300 chars) for better continuity
+    - This improves context quality and reduces information loss at boundaries
+    """
 
     CHUNK_SIZE_MIN = 500
-    CHUNK_SIZE_MAX = 1000
-    OVERLAP_SIZE = 100
+    CHUNK_SIZE_MAX = 1500  # Increased from 1000 for more context per chunk
+    OVERLAP_SIZE = 300  # Increased from 100 for better continuity between chunks
     MIN_CHUNK_CHARS = 50
 
     def chunk_document(self, file_path: str, file_type: str) -> list[str]:

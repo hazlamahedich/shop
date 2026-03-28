@@ -190,14 +190,16 @@ class UnifiedConversationService:
                     f"Merchant {context.merchant_id} not found",
                 )
 
-            # Story 8-5: Build RAG context for General mode merchants
+            # Story 8-5: Build RAG context for both General and E-commerce modes
+            # Enhanced: RAG now works for e-commerce mode as supplemental information
+            # - General mode: RAG is primary knowledge source
+            # - E-commerce mode: RAG supplements product catalog (policies, manuals, guides)
             rag_context = None
             rag_sources: list[str] = []
             rag_chunks: list[RetrievedChunk] = []
             rag_used_in_response = False
             if (
-                merchant.onboarding_mode == "general"
-                and self.rag_context_builder
+                self.rag_context_builder
                 and not self._is_simple_greeting(message)
             ):
                 # Story 8-11 AC6: Construct embedding version for dimension consistency

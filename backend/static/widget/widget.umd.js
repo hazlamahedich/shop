@@ -7632,6 +7632,8 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     const greetingShownRef = reactExports.useRef(false);
     const consentPromptShownRef = reactExports.useRef(false);
     const lastCachedLengthRef = reactExports.useRef(0);
+    const isInitializingRef = reactExports.useRef(false);
+    const initRequestIdRef = reactExports.useRef(null);
     const validatePosition2 = reactExports.useCallback((pos) => {
       const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
       const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
@@ -7705,28 +7707,40 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           console.log("[WidgetContext] No merchantId provided, returning");
           return;
         }
-        if (state.config && state.config.merchantId === mId) {
+        const requestId = `init-${Date.now()}-${Math.random()}`;
+        console.log("[WidgetContext] Request ID:", requestId);
+        if (initRequestIdRef.current && initRequestIdRef.current !== requestId) {
+          console.log("[WidgetContext] Superseded by request:", initRequestIdRef.current, ", aborting");
+          return;
+        }
+        initRequestIdRef.current = requestId;
+        console.log("[WidgetContext] Set as active request:", requestId);
+        if (state.config && state.config.merchantId === mId && !isInitializingRef.current) {
           console.log("[WidgetContext] Skipping initWidget - already initialized");
           return;
         }
+        isInitializingRef.current = true;
         dispatch({ type: "SET_LOADING", payload: true });
         dispatch({ type: "CLEAR_ERROR" });
         try {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           console.log("[WidgetContext] Fetching config for merchant:", mId);
           const config2 = await widgetClient2.getConfig(mId);
+          if (initRequestIdRef.current !== requestId) {
+            console.log("[WidgetContext] Config fetch superseded by request:", initRequestIdRef.current);
+            return;
+          }
           console.log("[WidgetContext] Config loaded:", config2);
           console.log("[WidgetContext] Config onboardingMode:", config2.onboardingMode);
           dispatch({ type: "SET_CONFIG", payload: config2 });
           if (config2.onboardingMode === "general") {
             console.log("[WidgetContext] onboardingMode is general, fetching FAQ buttons");
-            try {
-              const faqButtons = await widgetClient2.getFaqButtons(mId);
+            widgetClient2.getFaqButtons(mId).then((faqButtons) => {
               console.log("[WidgetContext] FAQ buttons loaded:", faqButtons);
               dispatch({ type: "SET_FAQ_QUICK_BUTTONS", payload: faqButtons });
-            } catch (error) {
+            }).catch((error) => {
               console.warn("[WidgetContext] Failed to fetch FAQ buttons:", error);
-            }
+            });
           } else {
             console.log("[WidgetContext] onboardingMode is NOT general:", config2.onboardingMode);
           }
@@ -7747,6 +7761,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           if (!sessionId) {
             console.log("[WidgetContext] Creating new session...");
             const session2 = await widgetClient2.createSession(mId);
+            if (initRequestIdRef.current !== requestId) {
+              console.log("[WidgetContext] Session creation superseded by request:", initRequestIdRef.current);
+              return;
+            }
             console.log("[WidgetContext] Session created:", session2);
             dispatch({ type: "SET_SESSION", payload: session2 });
             safeStorage.set(SESSION_KEY, session2.sessionId);
@@ -7760,13 +7778,19 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
               greetingShownRef.current = true;
             }
           }
+          console.log("[WidgetContext] ✅ Initialization complete, clearing loading state");
+          dispatch({ type: "SET_LOADING", payload: false });
+          isInitializingRef.current = false;
+          initRequestIdRef.current = null;
         } catch (error) {
           console.error("[WidgetContext] initWidget error:", error);
           addError(error, { actions: "Retry" });
           dispatch({ type: "SET_LOADING", payload: false });
+          isInitializingRef.current = false;
+          initRequestIdRef.current = null;
         }
       },
-      [merchantId]
+      [merchantId, state.config]
     );
     const toggleChat = reactExports.useCallback(() => {
       dispatch({ type: "SET_OPEN", payload: !state.isOpen });
@@ -8041,6 +8065,9 @@ Your cart is now empty.`,
             dispatch({ type: "SET_CONNECTION_STATUS", payload: status });
           },
           onError: () => {
+          },
+          onFallbackToPolling: () => {
+            console.log("[WidgetContext] WebSocket failed, widget will use polling for updates");
           }
         });
       };
@@ -15678,13 +15705,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     async request(endpoint, options = {}, retries = 2) {
       try {
         const url = `${getWidgetApiBase()}${endpoint}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1e4);
         const response = await fetch(url, {
           ...options,
           headers: {
             "Content-Type": "application/json",
             ...options.headers
-          }
+          },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (!response.ok) {
           const data = await response.json().catch(() => null);
           const error = parseApiError(data);
@@ -15692,6 +15723,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
         return response.json();
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new WidgetApiException(0, "Request timeout - server did not respond in 10 seconds");
+        }
         if (retries > 0 && this.isRetryableError(error)) {
           await this.delay(1e3 * (3 - retries));
           return this.request(endpoint, options, retries - 1);
@@ -16145,9 +16179,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
         }
         const data = await response.json();
+        const responseData = data.data || data;
         return {
-          success: data.data.success,
-          clickId: data.data.clickId
+          success: responseData.success,
+          clickId: responseData.click_id || responseData.clickId
         };
       } catch (error) {
         if (error instanceof WidgetApiException) {
@@ -16296,7 +16331,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     reactExports.useEffect(() => {
       console.log("[Widget.tsx] useEffect triggered, calling initWidget for merchantId:", merchantId);
       initWidget2(merchantId);
-    }, [initWidget2, merchantId]);
+    }, [merchantId]);
     const handleBubbleClick = reactExports.useCallback(() => {
       if (state.isMinimized) {
         toggleMinimized();
@@ -17522,13 +17557,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       onStatusChange,
       onError,
       reconnectInterval = 3e3,
-      maxReconnectAttempts = 10
+      maxReconnectAttempts = 3,
+      // Reduced from 10 to fail faster
+      onFallbackToPolling
     } = options;
     let ws = null;
     let reconnectAttempts = 0;
     let isClosed = false;
     let heartbeatTimer = null;
     let reconnectTimer = null;
+    let hasFallenBack = false;
     const updateStatus = (status) => {
       console.warn("[WS] Status:", status);
       onStatusChange == null ? void 0 : onStatusChange(status);
@@ -17633,7 +17671,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       };
     };
     const scheduleReconnect = () => {
-      if (isClosed) return;
+      if (isClosed || hasFallenBack) return;
       if (reconnectAttempts < maxReconnectAttempts) {
         reconnectAttempts++;
         console.warn(`[WS] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
@@ -17641,8 +17679,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           connect();
         }, reconnectInterval);
       } else {
-        console.warn("[WS] Max reconnect attempts reached");
+        console.warn("[WS] Max reconnect attempts reached, falling back to polling");
+        hasFallenBack = true;
         updateStatus("error");
+        if (onFallbackToPolling) {
+          console.log("[WS] Calling onFallbackToPolling callback");
+          onFallbackToPolling();
+        }
+        clearTimers();
+        if (ws) {
+          ws.close(1e3, "Falling back to polling");
+          ws = null;
+        }
       }
     };
     connect();
