@@ -239,6 +239,10 @@ app = FastAPI(
 def _is_allowed_origin(origin: str) -> bool:
     from urllib.parse import urlparse
 
+    # Allow null origin for local file:// access (Story 5-1: local development)
+    if origin == "null" or origin == "file://":
+        return True
+
     allowed_origins = settings()["CORS_ORIGINS"]
     if origin in allowed_origins:
         return True
@@ -274,6 +278,9 @@ for origin in settings()["CORS_ORIGINS"]:
     if origin:
         pattern = origin.replace(".", r"\.").replace(":", r":")
         cors_patterns.append(pattern)
+
+# Allow null origin for local file:// access (Story 5-1: local development)
+cors_patterns.append("null")
 
 allow_origin_regex = "^(" + "|".join(cors_patterns) + ")$"
 

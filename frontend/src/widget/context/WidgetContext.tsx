@@ -174,6 +174,8 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
   const greetingShownRef = React.useRef(false);
   const consentPromptShownRef = React.useRef(false);
   const lastCachedLengthRef = React.useRef<number>(0);
+  const isInitializingRef = React.useRef(false);
+  const initRequestIdRef = React.useRef<string | null>(null);
 
   const validatePosition = React.useCallback((pos: { x: number; y: number }): boolean => {
     const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
@@ -259,13 +261,28 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         console.log('[WidgetContext] No merchantId provided, returning');
         return;
       }
-      
+
+      // Generate unique request ID for this initialization attempt
+      const requestId = `init-${Date.now()}-${Math.random()}`;
+      console.log('[WidgetContext] Request ID:', requestId);
+
+      // Check if this is still the latest request before proceeding
+      if (initRequestIdRef.current && initRequestIdRef.current !== requestId) {
+        console.log('[WidgetContext] Superseded by request:', initRequestIdRef.current, ', aborting');
+        return;
+      }
+
+      // Set this as the latest request
+      initRequestIdRef.current = requestId;
+      console.log('[WidgetContext] Set as active request:', requestId);
+
       // Avoid redundant initialization if already loaded for this merchant
-      if (state.config && state.config.merchantId === mId) {
+      if (state.config && state.config.merchantId === mId && !isInitializingRef.current) {
         console.log('[WidgetContext] Skipping initWidget - already initialized');
         return;
       }
-      
+
+      isInitializingRef.current = true;
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
 
@@ -273,6 +290,13 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         const { widgetClient } = await import('../api/widgetClient');
         console.log('[WidgetContext] Fetching config for merchant:', mId);
         const config = await widgetClient.getConfig(mId);
+
+        // Check if this request is still valid
+        if (initRequestIdRef.current !== requestId) {
+          console.log('[WidgetContext] Config fetch superseded by request:', initRequestIdRef.current);
+          return;
+        }
+
         console.log('[WidgetContext] Config loaded:', config);
         console.log('[WidgetContext] Config onboardingMode:', config.onboardingMode);
         dispatch({ type: 'SET_CONFIG', payload: config });
@@ -280,13 +304,15 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         // Fetch FAQ quick buttons if in General Mode (Story 10-2)
         if (config.onboardingMode === 'general') {
           console.log('[WidgetContext] onboardingMode is general, fetching FAQ buttons');
-          try {
-            const faqButtons = await widgetClient.getFaqButtons(mId);
-            console.log('[WidgetContext] FAQ buttons loaded:', faqButtons);
-            dispatch({ type: 'SET_FAQ_QUICK_BUTTONS', payload: faqButtons });
-          } catch (error) {
-            console.warn('[WidgetContext] Failed to fetch FAQ buttons:', error);
-          }
+          // Fetch FAQ buttons in background - don't block initialization
+          widgetClient.getFaqButtons(mId)
+            .then((faqButtons) => {
+              console.log('[WidgetContext] FAQ buttons loaded:', faqButtons);
+              dispatch({ type: 'SET_FAQ_QUICK_BUTTONS', payload: faqButtons });
+            })
+            .catch((error) => {
+              console.warn('[WidgetContext] Failed to fetch FAQ buttons:', error);
+            });
         } else {
           console.log('[WidgetContext] onboardingMode is NOT general:', config.onboardingMode);
         }
@@ -320,30 +346,45 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
           // Create new session
           console.log('[WidgetContext] Creating new session...')
           const session = await widgetClient.createSession(mId);
+
+          // Check if this request is still valid
+          if (initRequestIdRef.current !== requestId) {
+            console.log('[WidgetContext] Session creation superseded by request:', initRequestIdRef.current);
+            return;
+          }
+
           console.log('[WidgetContext] Session created:', session);
           dispatch({ type: 'SET_SESSION', payload: session });
-          safeStorage.set(SESSION_KEY, session.sessionId)
-          safeStorage.set(MERCHANT_KEY, merchantId)
+          safeStorage.set(SESSION_KEY, session.sessionId);
+          safeStorage.set(MERCHANT_KEY, merchantId);
         } else {
           // Load existing conversation history
           console.log('[WidgetContext] Loading existing conversation history for session:', sessionId);
           const messages = await widgetClient.getHistory(session.sessionId);
           console.log('[WidgetContext] History loaded:', messages?.length || 0, 'messages');
-          
+
           dispatch({ type: 'SET_MESSAGES', payload: messages });
-          
+
           // Mark greeting as shown if we have history
           if (messages.length > 0) {
             greetingShownRef.current = true;
           }
         }
+
+        // Successfully initialized - clear loading state
+        console.log('[WidgetContext] ✅ Initialization complete, clearing loading state');
+        dispatch({ type: 'SET_LOADING', payload: false });
+        isInitializingRef.current = false;
+        initRequestIdRef.current = null;
       } catch (error) {
         console.error('[WidgetContext] initWidget error:', error);
         addError(error, { actions: 'Retry' });
         dispatch({ type: 'SET_LOADING', payload: false });
+        isInitializingRef.current = false;
+        initRequestIdRef.current = null;
       }
     },
-    [merchantId]
+    [merchantId, state.config]
   );
 
   const toggleChat = React.useCallback(() => {
@@ -670,6 +711,11 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         },
         onError: () => {
           // WebSocket error - connection status already updated
+        },
+        onFallbackToPolling: () => {
+          console.log('[WidgetContext] WebSocket failed, widget will use polling for updates');
+          // Widget continues to work, just without real-time WebSocket updates
+          // The user can still send/receive messages, they'll just poll instead of push
         },
       });
     };

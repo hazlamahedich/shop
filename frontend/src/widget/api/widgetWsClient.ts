@@ -36,6 +36,7 @@ export interface WSConnectionOptions {
   onError?: WSErrorHandler;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
+  onFallbackToPolling?: () => void; // Callback when WebSocket fails and we fall back to polling
 }
 
 /**
@@ -71,7 +72,8 @@ export function connectWidgetWebSocket(
     onStatusChange,
     onError,
     reconnectInterval = 3000,
-    maxReconnectAttempts = 10,
+    maxReconnectAttempts = 3, // Reduced from 10 to fail faster
+    onFallbackToPolling,
   } = options;
 
   let ws: WebSocket | null = null;
@@ -79,6 +81,7 @@ export function connectWidgetWebSocket(
   let isClosed = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let hasFallenBack = false; // Track if we've already fallen back to polling
 
   const updateStatus = (status: ConnectionStatus) => {
     console.warn('[WS] Status:', status);
@@ -208,18 +211,33 @@ export function connectWidgetWebSocket(
   };
 
   const scheduleReconnect = () => {
-    if (isClosed) return;
+    if (isClosed || hasFallenBack) return;
 
     if (reconnectAttempts < maxReconnectAttempts) {
       reconnectAttempts++;
       console.warn(`[WS] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
-      
+
       reconnectTimer = setTimeout(() => {
         connect();
       }, reconnectInterval);
     } else {
-      console.warn('[WS] Max reconnect attempts reached');
+      // Max reconnect attempts reached - fall back to polling
+      console.warn('[WS] Max reconnect attempts reached, falling back to polling');
+      hasFallenBack = true;
       updateStatus('error');
+
+      // Notify that we're falling back to polling
+      if (onFallbackToPolling) {
+        console.log('[WS] Calling onFallbackToPolling callback');
+        onFallbackToPolling();
+      }
+
+      // Clean up and stop trying
+      clearTimers();
+      if (ws) {
+        ws.close(1000, 'Falling back to polling');
+        ws = null;
+      }
     }
   };
 

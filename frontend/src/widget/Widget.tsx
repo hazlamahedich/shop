@@ -159,7 +159,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
   React.useEffect(() => {
     console.log('[Widget.tsx] useEffect triggered, calling initWidget for merchantId:', merchantId);
     initWidget(merchantId);
-  }, [initWidget, merchantId]);
+  }, [merchantId]);
 
   const handleBubbleClick = React.useCallback(() => {
     if (state.isMinimized) {

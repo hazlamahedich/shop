@@ -85,13 +85,21 @@ export class WidgetApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}, retries = 2): Promise<T> {
     try {
       const url = `${getWidgetApiBase()}${endpoint}`;
+
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(url, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
@@ -101,6 +109,10 @@ export class WidgetApiClient {
 
       return response.json();
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new WidgetApiException(0, 'Request timeout - server did not respond in 10 seconds');
+      }
+
       if (retries > 0 && this.isRetryableError(error)) {
         await this.delay(1000 * (3 - retries));
         return this.request<T>(endpoint, options, retries - 1);
@@ -631,9 +643,11 @@ export class WidgetApiClient {
       }
 
       const data = await response.json();
+      // Handle both response formats: with or without data wrapper
+      const responseData = data.data || data;
       return {
-        success: data.data.success,
-        clickId: data.data.clickId,
+        success: responseData.success,
+        clickId: responseData.click_id || responseData.clickId,
       };
     } catch (error) {
       if (error instanceof WidgetApiException) {
