@@ -7433,26 +7433,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
   const MERCHANT_KEY = "widget_merchant_id";
   const VISITOR_KEY = "widget_visitor_id";
   const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
-  function getOrCreateVisitorId() {
-    const stored = safeLocalStorage.get(VISITOR_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const createdAt = new Date(parsed.createdAt).getTime();
-        const now = Date.now();
-        if (now - createdAt < VISITOR_MAX_AGE_MS) {
-          return parsed.visitorId;
-        }
-      } catch {
-      }
-    }
-    const visitorId = crypto.randomUUID();
-    safeLocalStorage.set(VISITOR_KEY, JSON.stringify({
-      visitorId,
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
-    }));
-    return visitorId;
-  }
   function getVisitorId() {
     const stored = safeLocalStorage.get(VISITOR_KEY);
     if (!stored) return null;
@@ -7489,25 +7469,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
       return true;
     } catch {
       return false;
-    }
-  }
-  function getCachedMessages(sessionId) {
-    try {
-      const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
-      const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
-      const metaJson = safeLocalStorage.get(metaKey);
-      if (!metaJson) return null;
-      const meta = JSON.parse(metaJson);
-      const expiresAt = new Date(meta.expiresAt).getTime();
-      if (Date.now() > expiresAt) {
-        clearMessageCache(sessionId);
-        return null;
-      }
-      const messagesJson = safeLocalStorage.get(cacheKey);
-      if (!messagesJson) return null;
-      return JSON.parse(messagesJson);
-    } catch {
-      return null;
     }
   }
   function clearMessageCache(sessionId) {
@@ -7640,6 +7601,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         return { ...state, themeMode: action.payload };
       case "SET_FAQ_QUICK_BUTTONS":
         return { ...state, faqQuickButtons: action.payload };
+      case "UPDATE_MESSAGE_FEEDBACK":
+        return {
+          ...state,
+          messages: state.messages.map(
+            (msg) => msg.messageId === action.payload.messageId ? { ...msg, userRating: action.payload.rating } : msg
+          )
+        };
       case "RESET":
         return initialState;
       default:
@@ -7732,8 +7700,13 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     );
     const initWidget2 = reactExports.useCallback(
       async (mId) => {
-        if (!mId) return;
-        if (state.config && state.config.merchantId === mId && !state.isLoading) {
+        console.log("[WidgetContext] initWidget called with merchantId:", mId);
+        if (!mId) {
+          console.log("[WidgetContext] No merchantId provided, returning");
+          return;
+        }
+        if (state.config && state.config.merchantId === mId) {
+          console.log("[WidgetContext] Skipping initWidget - already initialized");
           return;
         }
         dispatch({ type: "SET_LOADING", payload: true });
@@ -7742,15 +7715,20 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           console.log("[WidgetContext] Fetching config for merchant:", mId);
           const config2 = await widgetClient2.getConfig(mId);
-          console.log("[WidgetContext] Config loaded:", !!config2);
+          console.log("[WidgetContext] Config loaded:", config2);
+          console.log("[WidgetContext] Config onboardingMode:", config2.onboardingMode);
           dispatch({ type: "SET_CONFIG", payload: config2 });
           if (config2.onboardingMode === "general") {
+            console.log("[WidgetContext] onboardingMode is general, fetching FAQ buttons");
             try {
-              const faqButtons = await widgetClient2.getFaqButtons(merchantId);
+              const faqButtons = await widgetClient2.getFaqButtons(mId);
+              console.log("[WidgetContext] FAQ buttons loaded:", faqButtons);
               dispatch({ type: "SET_FAQ_QUICK_BUTTONS", payload: faqButtons });
             } catch (error) {
               console.warn("[WidgetContext] Failed to fetch FAQ buttons:", error);
             }
+          } else {
+            console.log("[WidgetContext] onboardingMode is NOT general:", config2.onboardingMode);
           }
           shopifyCartClient.setShopDomain(config2.shopDomain);
           const storedTheme = getStoredTheme(merchantId);
@@ -7767,98 +7745,28 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
           }
           let sessionId = initialSessionId;
           if (!sessionId) {
-            console.log("[WidgetContext] Checking storage for key:", SESSION_KEY);
-            console.log("[WidgetContext] sessionStorage value:", sessionStorage.getItem(SESSION_KEY));
-            console.log("[WidgetContext] localStorage value:", localStorage.getItem(SESSION_KEY));
-            sessionId = safeStorage.get(SESSION_KEY) ?? void 0;
-            console.log("[WidgetContext] safeStorage.get result:", sessionId);
+            console.log("[WidgetContext] Creating new session...");
+            const session2 = await widgetClient2.createSession(mId);
+            console.log("[WidgetContext] Session created:", session2);
+            dispatch({ type: "SET_SESSION", payload: session2 });
+            safeStorage.set(SESSION_KEY, session2.sessionId);
+            safeStorage.set(MERCHANT_KEY, merchantId);
           } else {
-            console.log("[WidgetContext] Using injected sessionId:", sessionId);
-          }
-          const visitorId = getOrCreateVisitorId();
-          console.log("[WidgetContext] sessionId from safeStorage.get:", sessionId);
-          if (sessionId && !isValidSessionId(sessionId)) {
-            console.warn("[WidgetContext] Invalid session ID format, clearing:", sessionId);
-            safeStorage.remove(SESSION_KEY);
-            sessionId = void 0;
-          }
-          if (sessionId && isValidSessionId(sessionId)) {
-            console.log("[WidgetContext] Valid session found:", sessionId);
-            const session = await getSession(sessionId);
-            console.log("[WidgetContext] Session fetched:", !!session);
-            if (session) {
-              dispatch({ type: "SET_SESSION", payload: session });
-              const cachedMessages = getCachedMessages(sessionId);
-              if (cachedMessages && cachedMessages.length > 0) {
-                dispatch({ type: "SET_MESSAGES", payload: cachedMessages });
-              }
-              try {
-                const consentStatus = await widgetClient2.getConsentStatus(sessionId, visitorId);
-                if (consentStatus) {
-                  const newConsentState = {
-                    promptShown: consentStatus.consent_message_shown || false,
-                    canStoreConversation: consentStatus.can_store_conversation,
-                    status: consentStatus.status
-                  };
-                  dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
-                  if (consentStatus.consent_message_shown) {
-                    consentPromptShownRef.current = true;
-                  }
-                }
-              } catch (error) {
-              }
-              try {
-                console.log("[WidgetContext] Fetching message history for session:", sessionId);
-                const history = await widgetClient2.getMessageHistory(sessionId);
-                console.log("[WidgetContext] Received history:", history.messages.length, "messages");
-                if (history.expired) {
-                  clearMessageCache(sessionId);
-                  dispatch({ type: "SET_MESSAGES", payload: [] });
-                  if (cachedMessages && cachedMessages.length > 0) {
-                    const expiredMessage = {
-                      messageId: "session-expired",
-                      content: "Your previous conversation has expired. Starting fresh!",
-                      sender: "system",
-                      createdAt: (/* @__PURE__ */ new Date()).toISOString()
-                    };
-                    dispatch({ type: "SET_MESSAGES", payload: [expiredMessage] });
-                  }
-                } else if (history.messages.length > 0) {
-                  const messages = history.messages.map((msg) => ({
-                    messageId: msg.messageId || crypto.randomUUID(),
-                    content: msg.content,
-                    sender: msg.sender,
-                    createdAt: msg.createdAt,
-                    products: msg.products,
-                    cart: msg.cart,
-                    contactOptions: msg.contactOptions
-                  }));
-                  console.log("[WidgetContext] Dispatching", messages.length, "messages to state");
-                  dispatch({ type: "SET_MESSAGES", payload: messages });
-                  cacheMessages(sessionId, messages);
-                  if (messages.length > 0) {
-                    greetingShownRef.current = true;
-                  }
-                }
-              } catch (error) {
-                console.error("[WidgetContext] Failed to load history:", error);
-              }
-              dispatch({ type: "SET_LOADING", payload: false });
-              return;
+            console.log("[WidgetContext] Loading existing conversation history for session:", sessionId);
+            const messages = await widgetClient2.getHistory(session.sessionId);
+            console.log("[WidgetContext] History loaded:", (messages == null ? void 0 : messages.length) || 0, "messages");
+            dispatch({ type: "SET_MESSAGES", payload: messages });
+            if (messages.length > 0) {
+              greetingShownRef.current = true;
             }
           }
-          const newSession = await createSession(visitorId);
-          dispatch({ type: "SET_SESSION", payload: newSession });
-          safeStorage.set(SESSION_KEY, newSession.sessionId);
-          safeStorage.set(MERCHANT_KEY, merchantId);
         } catch (error) {
           console.error("[WidgetContext] initWidget error:", error);
-          addError(error, { action: "Retry" });
-        } finally {
+          addError(error, { actions: "Retry" });
           dispatch({ type: "SET_LOADING", payload: false });
         }
       },
-      [initialSessionId, createSession, getSession, addError, validatePosition2]
+      [merchantId]
     );
     const toggleChat = reactExports.useCallback(() => {
       dispatch({ type: "SET_OPEN", payload: !state.isOpen });
@@ -7931,8 +7839,14 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
         try {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           const botMessage = await widgetClient2.sendMessage(currentSessionId, content);
+          console.log("[WidgetContext] Bot message received:", {
+            hasConsentPrompt: botMessage.consent_prompt_required,
+            consentPromptValue: botMessage.consent_prompt_required,
+            messageKeys: Object.keys(botMessage)
+          });
           dispatch({ type: "ADD_MESSAGE", payload: botMessage });
           if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+            console.log("[WidgetContext] Setting consent prompt shown");
             consentPromptShownRef.current = true;
             dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
           }
@@ -15839,7 +15753,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         products: m2.products,
         cart: m2.cart,
         contactOptions: m2.contact_options || m2.contactOptions,
-        customerName: m2.customer_name || m2.customerName
+        customerName: m2.customer_name || m2.customerName,
+        userRating: m2.user_rating || m2.userRating
       }));
       return {
         messages,
@@ -15888,7 +15803,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           checkoutUrl: (parsed.data.checkoutUrl || parsed.data.checkout_url) ?? void 0,
           intent: parsed.data.intent ?? void 0,
           confidence: parsed.data.confidence ?? void 0,
-          quick_replies: parsed.data.quick_replies ?? void 0,
+          quick_replies: parsed.data.quickReplies ?? parsed.data.quick_replies ?? void 0,
           sources: ((_b = rawData.sources) == null ? void 0 : _b.map((source) => ({
             ...source,
             filename: source.filename || void 0
@@ -15897,7 +15812,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           feedbackEnabled: rawData.feedbackEnabled ?? rawData.feedback_enabled,
           userRating: rawData.userRating ?? rawData.user_rating,
           contactOptions: rawData.contactOptions ?? rawData.contact_options ?? void 0,
-          customerName: rawData.customerName ?? rawData.customer_name
+          customerName: rawData.customerName ?? rawData.customer_name,
+          consent_prompt_required: rawData.consent_prompt_required ?? rawData.consentPromptRequired
         };
       } catch (error) {
         if (error instanceof WidgetApiException) throw error;
@@ -15906,10 +15822,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     async getConfig(merchantId) {
       const data = await this.request(`/config/${merchantId}`);
+      console.log("[widgetClient] Raw config data:", data.data);
       const parsed = WidgetConfigSchema.safeParse(data.data);
+      console.log("[widgetClient] Parsed config:", parsed);
       if (!parsed.success) {
         throw new WidgetApiException(0, "Invalid config response");
       }
+      console.log("[widgetClient] onboardingMode from parsed.data:", parsed.data.onboardingMode);
       return {
         merchantId: parsed.data.merchantId || merchantId,
         enabled: parsed.data.enabled,
@@ -16156,33 +16075,92 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         return [];
       }
     }
-    async submitFeedback(messageId, rating, sessionId, comment) {
+    async submitFeedback(messageId, rating, sessionId, merchantId, comment) {
       const apiBase = getWidgetApiBase().replace("/api/v1/widget", "");
       const url = `${apiBase}/api/v1/feedback`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          messageId,
-          rating,
-          sessionId,
-          comment
-        })
-      });
-      if (!response.ok) {
-        const data2 = await response.json().catch(() => null);
-        const error = parseApiError(data2);
-        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+      if (!apiBase || apiBase === "/api/v1") {
+        console.error("[Widget] API base URL not configured. Please set ShopBotConfig.apiBaseUrl to your backend URL.");
+        throw new WidgetApiException(0, "Widget not configured: apiBaseUrl is required. Please contact the site administrator.");
       }
-      const data = await response.json();
-      return {
-        id: data.data.id,
-        messageId: data.data.messageId,
-        rating: data.data.rating,
-        createdAt: data.data.createdAt
-      };
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            messageId,
+            rating,
+            sessionId,
+            merchantId,
+            comment
+          })
+        });
+        if (!response.ok) {
+          const data2 = await response.json().catch(() => null);
+          const error = parseApiError(data2);
+          throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        return {
+          id: data.data.id,
+          messageId: data.data.messageId,
+          rating: data.data.rating,
+          createdAt: data.data.createdAt
+        };
+      } catch (error) {
+        if (error instanceof WidgetApiException) {
+          throw error;
+        }
+        console.error("[Widget] Feedback submission failed:", {
+          url,
+          messageId,
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+        throw new WidgetApiException(0, `Network error: ${error instanceof Error ? error.message : "Failed to connect to server"}`);
+      }
+    }
+    async trackFaqClick(faqId, sessionId, merchantId) {
+      const apiBase = getWidgetApiBase().replace("/api/v1/widget", "");
+      const url = `${apiBase}/api/v1/widget/faq-click`;
+      if (!apiBase || apiBase === "/api/v1") {
+        console.error("[Widget] API base URL not configured. Please set ShopBotConfig.apiBaseUrl to your backend URL.");
+        throw new WidgetApiException(0, "Widget not configured: apiBaseUrl is required. Please contact the site administrator.");
+      }
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            faq_id: faqId,
+            session_id: sessionId,
+            merchant_id: parseInt(merchantId, 10)
+          })
+        });
+        if (!response.ok) {
+          const data2 = await response.json().catch(() => null);
+          const error = parseApiError(data2);
+          throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        return {
+          success: data.data.success,
+          clickId: data.data.clickId
+        };
+      } catch (error) {
+        if (error instanceof WidgetApiException) {
+          throw error;
+        }
+        console.error("[Widget] FAQ click tracking failed:", {
+          url,
+          faqId,
+          sessionId,
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+        throw new WidgetApiException(0, `Network error: ${error instanceof Error ? error.message : "Failed to connect to server"}`);
+      }
     }
   }
   const widgetClient = new WidgetApiClient();
@@ -16195,9 +16173,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }, Symbol.toStringTag, { value: "Module" }));
   const ChatWindow$2 = reactExports.lazy(() => Promise.resolve().then(() => ChatWindow$1));
   function WidgetInner({ theme }) {
-    var _a2, _b, _c, _d;
+    var _a2, _b, _c, _d, _e;
     const {
       state,
+      dispatch,
       toggleChat,
       initWidget: initWidget2,
       sendMessage,
@@ -16282,18 +16261,40 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           return;
         }
         try {
-          await widgetClient.submitFeedback(messageId, rating, sessionId, comment);
+          await widgetClient.submitFeedback(messageId, rating, sessionId, merchantId, comment);
+          dispatch({ type: "UPDATE_MESSAGE_FEEDBACK", payload: { messageId, rating } });
         } catch (error) {
           console.error("[Widget] Failed to submit feedback:", error);
           throw error;
         }
       },
-      [(_c = state.session) == null ? void 0 : _c.sessionId]
+      [(_c = state.session) == null ? void 0 : _c.sessionId, merchantId, dispatch]
+    );
+    const handleFaqButtonClick = reactExports.useCallback(
+      async (button) => {
+        var _a3;
+        const sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!sessionId) {
+          console.error("[Widget] Cannot track FAQ click: no session ID");
+          await sendMessage(button.question);
+          return;
+        }
+        try {
+          widgetClient.trackFaqClick(button.id, sessionId, merchantId).catch((error) => {
+            console.error("[Widget] Failed to track FAQ click:", error);
+          });
+        } catch (error) {
+          console.error("[Widget] FAQ click tracking error:", error);
+        }
+        await sendMessage(button.question);
+      },
+      [(_d = state.session) == null ? void 0 : _d.sessionId, merchantId, sendMessage]
     );
     const prefetchChatWindow = reactExports.useCallback(() => {
       Promise.resolve().then(() => ChatWindow$1);
     }, []);
     reactExports.useEffect(() => {
+      console.log("[Widget.tsx] useEffect triggered, calling initWidget for merchantId:", merchantId);
       initWidget2(merchantId);
     }, [initWidget2, merchantId]);
     const handleBubbleClick = reactExports.useCallback(() => {
@@ -17186,18 +17187,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           justify-content: center;
           min-width: 44px;
           min-height: 44px;
-          padding: 8px;
-          border: 1px solid transparent;
+          padding: 10px;
+          border: 1.5px solid rgba(0, 0, 0, 0.15);
           border-radius: 22px;
-          background-color: transparent;
-          color: var(--widget-text, #1f2937);
+          background-color: rgba(0, 0, 0, 0.03);
+          color: #4b5563;
           cursor: pointer;
-          transition: background-color 150ms ease, transform 100ms ease, opacity 150ms ease;
+          transition: all 150ms ease;
         }
 
         .feedback-button-icon {
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
           fill: none;
           stroke: currentColor;
           stroke-width: 2;
@@ -17211,7 +17212,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
 
         .feedback-button:hover {
-          background-color: rgba(0, 0, 0, 0.05);
+          background-color: rgba(0, 0, 0, 0.08);
+          border-color: rgba(0, 0, 0, 0.25);
+          transform: scale(1.05);
         }
 
         .feedback-button:active {
@@ -17220,12 +17223,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 
         .feedback-button:focus {
           outline: none;
-          box-shadow: 0 0 0 2px var(--widget-primary, #4f46e5);
+          box-shadow: 0 0 0 3px var(--widget-primary, #4f46e5);
         }
 
         .feedback-button--selected {
           background-color: var(--widget-primary, #4f46e5);
           color: #ffffff;
+          border-color: var(--widget-primary, #4f46e5);
         }
 
         .feedback-button--selected:hover {
@@ -17239,11 +17243,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
 
         .feedback-rating--dark .feedback-button {
-          color: rgba(255, 255, 255, 0.9);
+          color: rgba(255, 255, 255, 0.85);
+          border-color: rgba(255, 255, 255, 0.2);
+          background-color: rgba(255, 255, 255, 0.05);
         }
 
         .feedback-rating--dark .feedback-button:hover {
-          background-color: rgba(255, 255, 255, 0.1);
+          background-color: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.35);
         }
 
         .feedback-comment-form {
@@ -17394,7 +17401,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 addingProductId,
                 removingItemId,
                 isCheckingOut,
-                sessionId: (_d = state.session) == null ? void 0 : _d.sessionId,
+                sessionId: (_e = state.session) == null ? void 0 : _e.sessionId,
                 connectionStatus: state.connectionStatus,
                 consentState: state.consentState,
                 onRecordConsent: recordConsent,
@@ -17408,6 +17415,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 themeMode: state.themeMode,
                 onThemeToggle: handleThemeToggle,
                 faqQuickButtons: state.faqQuickButtons,
+                onFaqButtonClick: handleFaqButtonClick,
                 onFeedbackSubmit: handleFeedbackSubmit
               }
             )
@@ -17465,7 +17473,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     widgetRoot.render(
       reactExports.createElement(Widget, {
         merchantId: config2.merchantId,
-        theme: config2.theme
+        theme: config2.theme,
+        initialSessionId: config2.sessionId
       })
     );
   }
@@ -18747,36 +18756,25 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   };
   function SourceCitation({
     sources,
-    theme,
-    maxVisible = 3
+    theme
   }) {
-    const [expanded, setExpanded] = reactExports.useState(false);
     const reducedMotion = useReducedMotion();
     if (!sources || sources.length === 0) {
       return null;
     }
-    const deduplicatedSources = reactExports.useMemo(() => {
-      const sourceMap = /* @__PURE__ */ new Map();
-      for (const source of sources) {
-        const key = source.filename || source.title;
-        const existing = sourceMap.get(key);
-        if (!existing || source.relevanceScore > existing.relevanceScore) {
-          sourceMap.set(key, source);
-        }
-      }
-      return Array.from(sourceMap.values());
+    const topSource = reactExports.useMemo(() => {
+      return sources.reduce(
+        (best, current) => current.relevanceScore > best.relevanceScore ? current : best,
+        sources[0]
+      );
     }, [sources]);
-    const visibleSources = expanded ? deduplicatedSources : deduplicatedSources.slice(0, maxVisible);
-    const hasMore = deduplicatedSources.length > maxVisible;
-    const remainingCount = deduplicatedSources.length - maxVisible;
-    const handleSourceClick = (source) => {
-      if (source.url) {
-        window.open(source.url, "_blank", "noopener,noreferrer");
+    const handleSourceClick = () => {
+      if (topSource.url) {
+        window.open(topSource.url, "_blank", "noopener,noreferrer");
       }
     };
-    const handleToggle = () => {
-      setExpanded(!expanded);
-    };
+    const isClickable = !!topSource.url;
+    const isDarkMode = theme.mode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -18791,133 +18789,113 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               style: {
                 fontSize: 11,
                 fontWeight: 600,
-                color: theme.textColor,
-                opacity: 0.7,
+                color: isDarkMode ? "rgba(255, 255, 255, 0.9)" : "rgba(0, 0, 0, 0.65)",
                 marginBottom: 6,
                 textTransform: "uppercase",
                 letterSpacing: "0.5px"
               },
-              children: "Sources"
+              children: "Source"
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "source-citation__list", style: { display: "flex", flexDirection: "column", gap: 4 }, children: visibleSources.map((source, index) => {
-            const isClickable = !!source.url;
-            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "button",
-              {
-                "data-testid": "source-card",
-                className: `source-card ${isClickable ? "source-card--clickable" : ""}`,
-                onClick: () => handleSourceClick(source),
-                disabled: !isClickable,
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  cursor: isClickable ? "pointer" : "default",
-                  transition: reducedMotion ? "none" : "background-color 150ms ease",
-                  border: "none",
-                  background: "transparent",
-                  width: "100%",
-                  textAlign: "left"
-                },
-                "aria-label": `${source.filename || source.title} - ${formatScore(source.relevanceScore)} relevance`,
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "span",
-                    {
-                      className: "source-card__title",
-                      style: {
-                        flex: 1,
-                        fontSize: 12,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        color: theme.textColor
-                      },
-                      title: source.filename || source.title,
-                      children: source.filename || source.title
-                    }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    "span",
-                    {
-                      className: "source-card__score",
-                      style: {
-                        fontSize: 10,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        background: getScoreColor(source.relevanceScore),
-                        color: "white",
-                        flexShrink: 0
-                      },
-                      children: formatScore(source.relevanceScore)
-                    }
-                  )
-                ]
-              },
-              `${source.documentId}-${index}`
-            );
-          }) }),
-          hasMore && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
-              "data-testid": "source-toggle",
-              className: "source-citation__toggle",
-              onClick: handleToggle,
+              "data-testid": "source-card",
+              className: `source-card ${isClickable ? "source-card--clickable" : ""}`,
+              onClick: handleSourceClick,
+              disabled: !isClickable,
               style: {
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: 4,
-                width: "100%",
+                gap: 8,
                 padding: "6px 8px",
-                marginTop: 6,
-                border: "none",
                 borderRadius: 6,
-                background: "transparent",
-                color: theme.primaryColor,
-                fontSize: 11,
-                fontWeight: 500,
-                cursor: "pointer",
-                transition: reducedMotion ? "none" : "background-color 150ms ease"
+                cursor: isClickable ? "pointer" : "default",
+                transition: reducedMotion ? "none" : "background-color 150ms ease",
+                border: `1px solid ${isDarkMode ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.08)"}`,
+                background: isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.02)",
+                width: "100%",
+                textAlign: "left"
               },
-              "aria-expanded": expanded,
-              "aria-label": expanded ? "Show fewer sources" : `Show ${remainingCount} more sources`,
-              children: expanded ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Show less" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "12", height: "12", viewBox: "0 0 24 24", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" }) })
-              ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                  "View ",
-                  remainingCount,
-                  " more"
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "12", height: "12", viewBox: "0 0 24 24", "aria-hidden": "true", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { fill: "currentColor", d: "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" }) })
-              ] })
+              "aria-label": `${topSource.filename || topSource.title} - ${formatScore(topSource.relevanceScore)} relevance`,
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "span",
+                  {
+                    className: "source-card__title",
+                    style: {
+                      flex: 1,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: isDarkMode ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.8)"
+                    },
+                    title: topSource.filename || topSource.title,
+                    children: topSource.filename || topSource.title
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "span",
+                  {
+                    className: "source-card__score",
+                    style: {
+                      fontSize: 10,
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: getScoreColor(topSource.relevanceScore),
+                      color: "white",
+                      flexShrink: 0
+                    },
+                    children: formatScore(topSource.relevanceScore)
+                  }
+                )
+              ]
             }
           )
         ]
       }
     );
   }
-  const ThumbsUpIcon = ({ className }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+  const ThumbsUpIcon = ({ className, color }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
     "svg",
     {
       viewBox: "0 0 24 24",
       className: className || "feedback-button-icon",
       "aria-hidden": "true",
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" })
+      style: { color: color || "currentColor" },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "path",
+        {
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: "2",
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          d: "M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
+        }
+      )
     }
   );
-  const ThumbsDownIcon = ({ className }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+  const ThumbsDownIcon = ({ className, color }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
     "svg",
     {
       viewBox: "0 0 24 24",
       className: className || "feedback-button-icon",
       "aria-hidden": "true",
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" })
+      style: { color: color || "currentColor" },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "path",
+        {
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: "2",
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          d: "M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"
+        }
+      )
     }
   );
   function FeedbackRating({
@@ -18991,6 +18969,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return null;
     }
     const isDarkMode = theme.mode === "dark";
+    const getButtonStyle = (isSelected) => {
+      if (isSelected) {
+        return {
+          backgroundColor: theme.primaryColor,
+          borderColor: theme.primaryColor
+        };
+      }
+      return {
+        backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)",
+        borderColor: isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"
+      };
+    };
+    const getIconColor = (isSelected) => {
+      if (isSelected) return "#ffffff";
+      return isDarkMode ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.6)";
+    };
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -19011,10 +19005,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               onClick: () => handleRatingClick("positive"),
               onKeyDown: (e) => handleKeyDown(e, "positive"),
               className: `feedback-button${rating === "positive" ? " feedback-button--selected" : ""}`,
-              style: {
-                backgroundColor: rating === "positive" ? theme.primaryColor : "transparent"
-              },
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, {})
+              style: getButtonStyle(rating === "positive"),
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, { className: "feedback-button-icon", color: getIconColor(rating === "positive") })
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -19029,10 +19021,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               onClick: () => handleRatingClick("negative"),
               onKeyDown: (e) => handleKeyDown(e, "negative"),
               className: `feedback-button${rating === "negative" ? " feedback-button--selected" : ""}`,
-              style: {
-                backgroundColor: rating === "negative" ? theme.primaryColor : "transparent"
-              },
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, {})
+              style: getButtonStyle(rating === "negative"),
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, { className: "feedback-button-icon", color: getIconColor(rating === "negative") })
             }
           ),
           showCommentForm && /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -19583,8 +19573,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                           title: formatAbsoluteTime(message.createdAt),
                           style: {
                             fontSize: 10,
-                            color: theme.textColor,
-                            opacity: 0.5,
+                            color: theme.mode === "dark" ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.5)",
                             marginTop: 2,
                             textAlign: isUser ? "right" : "left",
                             marginRight: isUser ? 4 : 0,
@@ -20047,8 +20036,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     reactExports.useEffect(() => {
       onInterimTranscript == null ? void 0 : onInterimTranscript(state.interimTranscript);
     }, [state.interimTranscript, onInterimTranscript]);
+    const transcriptProcessedRef = reactExports.useRef(null);
     reactExports.useEffect(() => {
       if (state.finalTranscript && !state.isListening) {
+        if (transcriptProcessedRef.current === state.finalTranscript) {
+          return;
+        }
+        transcriptProcessedRef.current = state.finalTranscript;
         const durationMs = startTime ? Date.now() - startTime : 0;
         trackVoiceInput(durationMs, true);
         onTranscript == null ? void 0 : onTranscript(state.finalTranscript);
@@ -21989,10 +21983,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     };
     reactExports.useEffect(() => {
       const userMessages = messages.filter((m2) => m2.sender === "user");
-      if (userMessages.length > 0) {
+      if (userMessages.length > 0 && showFaqButtons) {
         setShowFaqButtons(false);
       }
-    }, [messages]);
+    }, [messages, showFaqButtons]);
     if (!isOpen) return null;
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     const isDefaultPosition = isMobile || !position || position.x === 0 && position.y === 0;

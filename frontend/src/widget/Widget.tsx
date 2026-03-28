@@ -23,6 +23,7 @@ interface WidgetInnerProps {
 function WidgetInner({ theme }: WidgetInnerProps) {
   const {
     state,
+    dispatch,
     toggleChat,
     initWidget,
     sendMessage,
