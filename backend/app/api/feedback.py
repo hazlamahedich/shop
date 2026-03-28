@@ -126,6 +126,21 @@ async def submit_feedback(
     if existing_feedback:
         existing_feedback.rating = FeedbackRating(feedback.rating)
         existing_feedback.comment = feedback.comment
+
+        # Update conversation's customer_satisfied field
+        if conversation_id:
+            conversation = await db.get(Conversation, conversation_id)
+            if conversation:
+                conversation.customer_satisfied = (feedback.rating == "positive")
+                logger.info(
+                    "Conversation satisfaction updated from feedback",
+                    extra={
+                        "conversation_id": conversation_id,
+                        "customer_satisfied": conversation.customer_satisfied,
+                        "rating": feedback.rating,
+                    },
+                )
+
         await db.commit()
         await db.refresh(existing_feedback)
         logger.info(
@@ -164,6 +179,21 @@ async def submit_feedback(
         session_id=feedback.session_id,
     )
     db.add(new_feedback)
+
+    # Update conversation's customer_satisfied field
+    if conversation_id:
+        conversation = await db.get(Conversation, conversation_id)
+        if conversation:
+            conversation.customer_satisfied = (feedback.rating == "positive")
+            logger.info(
+                "Conversation satisfaction updated from feedback",
+                extra={
+                    "conversation_id": conversation_id,
+                    "customer_satisfied": conversation.customer_satisfied,
+                    "rating": feedback.rating,
+                },
+            )
+
     await db.commit()
     await db.refresh(new_feedback)
 

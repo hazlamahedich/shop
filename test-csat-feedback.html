@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSAT Feedback Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-bottom: 10px; }
+    h2 { color: #666; font-size: 18px; margin-bottom: 15px; }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+    .status.success { background: #d4edda; color: #155724; }
+    .status.info { background: #d1ecf1; color: #0c5460; }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-right: 10px;
+      transition: all 0.2s;
+    }
+    button.primary { background: #00f5d4; color: #000; font-weight: 600; }
+    button.secondary { background: #e9ecef; color: #333; }
+    button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .metric {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .metric-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 24px; font-weight: 700; color: #333; margin-top: 5px; }
+    .feedback-buttons {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .feedback-btn {
+      flex: 1;
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .feedback-btn:hover { border-color: #00f5d4; background: #f0fffa; }
+    .feedback-btn.selected { border-color: #00f5d4; background: #00f5d4; color: white; }
+    .feedback-btn svg { width: 32px; height: 32px; }
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    .instructions {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 CSAT Feedback Test</h1>
+
+  <div class="card">
+    <span class="status info">Test Page</span>
+    <h2>Test Conversation Feedback → CSAT Flow</h2>
+
+    <div class="instructions">
+      <strong>Instructions:</strong>
+      <ol>
+        <li>Open the browser DevTools Console (F12)</li>
+        <li>Click "Submit Positive Feedback" or "Submit Negative Feedback"</li>
+        <li>Watch the console for the response</li>
+        <li>Click "Check Bot Quality Metrics" to see the updated CSAT score</li>
+        <li>Verify the Neural Performance widget in the dashboard updates</li>
+      </ol>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: 600;">Merchant ID:</label>
+      <input type="number" id="merchantId" value="1" style="padding: 8px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: 600;">Session ID (auto-generated):</label>
+      <input type="text" id="sessionId" readonly style="padding: 8px; width: 300px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
+    </div>
+
+    <h3>1. Submit Feedback</h3>
+    <div class="feedback-buttons">
+      <button class="feedback-btn" onclick="submitFeedback('positive')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+        </svg>
+        <div style="margin-top: 8px; font-weight: 600;">👍 Positive</div>
+      </button>
+      <button class="feedback-btn" onclick="submitFeedback('negative')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+        </svg>
+        <div style="margin-top: 8px; font-weight: 600;">👎 Negative</div>
+      </button>
+    </div>
+
+    <h3>2. Check Metrics</h3>
+    <button class="primary" onclick="checkBotQuality()">Check Bot Quality Metrics</button>
+    <button class="secondary" onclick="clearConsole()">Clear Console</button>
+
+    <div id="metrics" class="metrics" style="display: none;">
+      <div class="metric">
+        <div class="metric-label">Total Conversations</div>
+        <div class="metric-value" id="totalConversations">-</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Satisfied</div>
+        <div class="metric-value" id="satisfiedCount">-</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Unsatisfied</div>
+        <div class="metric-value" id="unsatisfiedCount">-</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">CSAT Score</div>
+        <div class="metric-value" id="csatScore">-</div>
+      </div>
+    </div>
+
+    <div id="response" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    // Generate a random session ID
+    document.getElementById('sessionId').value = 'test-session-' + Math.random().toString(36).substr(2, 9);
+
+    function log(message, data = null) {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`[${timestamp}]`, message, data || '');
+    }
+
+    function clearConsole() {
+      console.clear();
+      log('Console cleared');
+    }
+
+    async function submitFeedback(rating) {
+      const merchantId = document.getElementById('merchantId').value;
+      const sessionId = document.getElementById('sessionId').value;
+      const messageId = 'test-message-' + Math.random().toString(36).substr(2, 9);
+
+      log(`Submitting ${rating} feedback...`, { merchantId, sessionId, messageId });
+
+      try {
+        const response = await fetch('/api/v1/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messageId,
+            rating,
+            sessionId,
+            merchantId: parseInt(merchantId),
+            comment: rating === 'negative' ? 'Test feedback from test page' : undefined
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        log('✅ Feedback submitted successfully!', data);
+
+        document.getElementById('response').innerHTML = `
+          <h3 style="color: #28a745;">✅ Feedback Submitted</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+
+        // Auto-check metrics after a short delay
+        setTimeout(() => checkBotQuality(), 500);
+
+      } catch (error) {
+        log('❌ Feedback submission failed', error);
+        document.getElementById('response').innerHTML = `
+          <h3 style="color: #dc3545;">❌ Error</h3>
+          <p>${error.message}</p>
+        `;
+      }
+    }
+
+    async function checkBotQuality() {
+      const merchantId = document.getElementById('merchantId').value;
+
+      log('Fetching bot quality metrics...');
+
+      try {
+        const response = await fetch(`/api/v1/analytics/bot-quality?days=30`, {
+          headers: { 'X-Merchant-Id': merchantId }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        log('Bot quality metrics:', data);
+
+        const metrics = data.data || data;
+
+        document.getElementById('metrics').style.display = 'grid';
+        document.getElementById('totalConversations').textContent = metrics.totalConversations || 0;
+        document.getElementById('satisfiedCount').textContent = metrics.metrics?.satisfiedCount || 0;
+        document.getElementById('unsatisfiedCount').textContent = metrics.metrics?.unsatisfiedCount || 0;
+
+        const csatScore = metrics.csatScore;
+        const csatDisplay = csatScore ? `⭐ ${csatScore}/5.0` : 'N/A';
+        document.getElementById('csatScore').textContent = csatDisplay;
+
+        const healthStatus = metrics.healthStatus || 'unknown';
+        const healthColors = {
+          healthy: '#28a745',
+          warning: '#ffc107',
+          critical: '#dc3545'
+        };
+
+        document.getElementById('response').innerHTML = `
+          <h3>📊 Bot Quality Metrics</h3>
+          <pre>${JSON.stringify(metrics, null, 2)}</pre>
+          <p style="margin-top: 15px;">
+            <strong>Health Status:</strong>
+            <span style="color: ${healthColors[healthStatus]}; font-weight: 600; text-transform: uppercase;">
+              ${healthStatus}
+            </span>
+          </p>
+        `;
+
+      } catch (error) {
+        log('❌ Failed to fetch metrics', error);
+        document.getElementById('response').innerHTML = `
+          <h3 style="color: #dc3545;">❌ Error</h3>
+          <p>${error.message}</p>
+        `;
+      }
+    }
+
+    // Initial log
+    log('CSAT Feedback Test Page Loaded');
+    log('Ready to test feedback submission → conversation.customer_satisfied → bot quality metrics');
+  </script>
+</body>
+</html>
