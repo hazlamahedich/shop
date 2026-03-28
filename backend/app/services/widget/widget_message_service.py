@@ -630,7 +630,15 @@ class WidgetMessageService:
             # Create session factory for request-scoped database sessions
             # This prevents greenlet errors from session reuse
             def session_factory():
-                return async_session()
+                return async_session  # Returns async_sessionmaker
+
+            # Pass None for llm_service to avoid greenlet issues
+            # llm_service is only used for query rewriting (optional feature)
+            rag_context_builder = RAGContextBuilder(
+                session_factory=session_factory,
+                embedding_service=embedding_service,
+                llm_service=None,
+            )
 
             # Pass None for llm_service to avoid greenlet issues
             # llm_service is only used for query rewriting (optional feature)
