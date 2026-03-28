@@ -124,6 +124,33 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     [state.session?.sessionId, merchantId, dispatch]
   );
 
+  const handleFaqButtonClick = React.useCallback(
+    async (button: FAQQuickButton) => {
+      const sessionId = state.session?.sessionId;
+      if (!sessionId) {
+        console.error('[Widget] Cannot track FAQ click: no session ID');
+        // Still send the message even if tracking fails
+        await sendMessage(button.question);
+        return;
+      }
+
+      try {
+        // Track the FAQ click in the background
+        widgetClient.trackFaqClick(button.id, sessionId, merchantId).catch((error) => {
+          console.error('[Widget] Failed to track FAQ click:', error);
+          // Don't throw - we still want to send the message even if tracking fails
+        });
+      } catch (error) {
+        console.error('[Widget] FAQ click tracking error:', error);
+        // Continue anyway - the user experience is more important
+      }
+
+      // Send the FAQ question as a message
+      await sendMessage(button.question);
+    },
+    [state.session?.sessionId, merchantId, sendMessage]
+  );
+
   const prefetchChatWindow = React.useCallback(() => {
     import('./components/ChatWindow');
   }, []);
@@ -1252,6 +1279,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                     themeMode={state.themeMode}
                     onThemeToggle={handleThemeToggle}
                     faqQuickButtons={state.faqQuickButtons}
+                    onFaqButtonClick={handleFaqButtonClick}
                     onFeedbackSubmit={handleFeedbackSubmit}
                   />
                 </GlassmorphismChatWindow>

@@ -34,6 +34,7 @@ from app.api.deployment import router as deployment_router
 from app.api.export import router as export_router
 from app.api.faqs import router as faqs_router
 from app.api.feedback import router as feedback_router
+from app.api.faq_click import router as faq_click_router
 from app.api.handoff_alerts import router as handoff_alerts_router
 from app.api.health import router as health_router
 from app.api.integrations import router as integrations_router
@@ -476,6 +477,8 @@ app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(search_router, prefix="/api/v1", tags=["search"])
 # Story 10-4: Feedback Rating Widget
 app.include_router(feedback_router, tags=["feedback"])
+# Story 10-10: FAQ Usage Widget - FAQ Click Tracking
+app.include_router(faq_click_router, prefix="/api/v1/widget", tags=["faq-click"])
 # Epic 6: Carrier Configuration API
 app.include_router(carriers_router, tags=["carriers"])
 # Epic 8: Knowledge Base API

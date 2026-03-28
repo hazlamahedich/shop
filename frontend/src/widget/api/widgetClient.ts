@@ -597,6 +597,58 @@ export class WidgetApiClient {
       throw new WidgetApiException(0, `Network error: ${error instanceof Error ? error.message : 'Failed to connect to server'}`);
     }
   }
+
+  async trackFaqClick(
+    faqId: number,
+    sessionId: string,
+    merchantId: string
+  ): Promise<{ success: boolean; clickId: number | null }> {
+    const apiBase = getWidgetApiBase().replace('/api/v1/widget', '');
+    const url = `${apiBase}/api/v1/widget/faq-click`;
+
+    if (!apiBase || apiBase === '/api/v1') {
+      console.error('[Widget] API base URL not configured. Please set ShopBotConfig.apiBaseUrl to your backend URL.');
+      throw new WidgetApiException(0, 'Widget not configured: apiBaseUrl is required. Please contact the site administrator.');
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          faq_id: faqId,
+          session_id: sessionId,
+          merchant_id: parseInt(merchantId, 10),
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const error = parseApiError(data);
+        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        success: data.data.success,
+        clickId: data.data.clickId,
+      };
+    } catch (error) {
+      if (error instanceof WidgetApiException) {
+        throw error;
+      }
+      // Log network errors with context
+      console.error('[Widget] FAQ click tracking failed:', {
+        url,
+        faqId,
+        sessionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new WidgetApiException(0, `Network error: ${error instanceof Error ? error.message : 'Failed to connect to server'}`);
+    }
+  }
 }
 
 export const widgetClient = new WidgetApiClient();

@@ -27,6 +27,7 @@ EVENT_TYPES = {
     "voice_input",
     "proactive_trigger",
     "carousel_engagement",
+    "faq_click",
 }
 
 
