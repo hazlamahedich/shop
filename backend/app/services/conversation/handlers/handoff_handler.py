@@ -144,6 +144,15 @@ class HandoffHandler(BaseHandler):
         # Story 9-1: Unified contact options column
         contact_options = getattr(merchant, "contact_options", []) or []
 
+        # Check config["widget_config"]["contact_options"] (widget settings API saves here)
+        if not contact_options and merchant.config:
+            widget_config = merchant.config.get("widget_config", {})
+            contact_options = widget_config.get("contact_options", [])
+
+        # Fallback to config["contact_options"] for backward compatibility
+        if not contact_options and merchant.config:
+            contact_options = merchant.config.get("contact_options", [])
+
         # Fallback to widget_config for backward compatibility during migration
         if not contact_options and merchant.widget_config:
             contact_options = merchant.widget_config.get("contactOptions", [])

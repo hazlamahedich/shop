@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us Button Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .test-section ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-section li {
+            margin: 5px 0;
+            color: #555;
+        }
+        .contact-info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        .contact-info h3 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        .contact-option {
+            background: white;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .contact-option .icon {
+            font-size: 20px;
+        }
+        .contact-option .details {
+            flex: 1;
+        }
+        .contact-option .label {
+            font-weight: bold;
+            color: #333;
+        }
+        .contact-option .value {
+            color: #666;
+            font-size: 14px;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+            color: #856404;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Contact Us Button Test <span class="status ready">READY</span></h1>
+        <p class="subtitle">Test page for Contact Us button functionality</p>
+
+        <div class="contact-info">
+            <h3>📋 Configured Contact Options</h3>
+            <div class="contact-option">
+                <span class="icon">📞</span>
+                <div class="details">
+                    <div class="label">Call Us</div>
+                    <div class="value">+1234567890</div>
+                </div>
+            </div>
+            <div class="contact-option">
+                <span class="icon">📧</span>
+                <div class="details">
+                    <div class="label">Email Support</div>
+                    <div class="value">support@example.com</div>
+                </div>
+            </div>
+            <div class="contact-option">
+                <span class="icon">🔗</span>
+                <div class="details">
+                    <div class="label">WhatsApp</div>
+                    <div class="value">https://wa.me/1234567890</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>✅ What's Configured</h3>
+            <ul>
+                <li>✨ Contact options saved in database</li>
+                <li>🔧 Handoff handler updated to read from config</li>
+                <li>💬 Widget will show Contact Us buttons on handoff</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <h3>🧪 How to Test</h3>
+            <ol>
+                <li><strong>Open the widget</strong> - Click the chat button in bottom right corner</li>
+                <li><strong>Send a message</strong> - Type "hello" or any message</li>
+                <li><strong>Trigger handoff</strong> - Ask something that requires human assistance like "I need to speak to a human" or "transfer me to an agent"</li>
+                <li><strong>Check for Contact Us buttons</strong> - They should appear in the bot's response</li>
+                <li><strong>Test the buttons</strong>:
+                    <ul>
+                        <li>📞 <strong>Phone</strong>: On mobile, will call; on desktop, will copy to clipboard</li>
+                        <li>📧 <strong>Email</strong>: Opens email client with subject line</li>
+                        <li>🔗 <strong>WhatsApp</strong>: Opens WhatsApp in new tab</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Debugging Tips</h3>
+            <ul>
+                <li>Open browser DevTools (F12) → Console to see any errors</li>
+                <li>Check Network tab for API requests to <code>/api/v1/widget/message</code></li>
+                <li>Look for <code>contact_options</code> in the API response</li>
+                <li>If buttons don't appear, the bot may not have triggered a handoff</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Set widget config BEFORE loading the widget
+        window.ShopBotConfig = {
+            merchantId: '1',
+            apiBaseUrl: 'http://localhost:8000'
+        };
+
+        // Load widget AFTER config is set
+        (function(d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) return;
+            js = d.createElement(s); js.id = id;
+            js.src = 'http://localhost:5173/src/widget/loader.ts';
+            js.defer = true;
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'shopbot-widget'));
+    </script>
+</body>
+</html>
