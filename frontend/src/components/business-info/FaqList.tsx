@@ -25,6 +25,12 @@ import { useToast } from '../../context/ToastContext';
 export interface FaqListProps {
   /** Optional CSS class name */
   className?: string;
+  /** External control for modal open state */
+  externalIsOpen?: boolean;
+  /** Initial question to pre-populate the form with */
+  initialQuestion?: string;
+  /** Callback when modal is closed externally */
+  onModalClose?: () => void;
 }
 
 /**
@@ -35,8 +41,14 @@ export interface FaqListProps {
  * - Drag-and-drop reordering
  * - Empty state and loading states
  * - Error handling
+ * - External modal control via props
  */
-export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
+export const FaqList: React.FC<FaqListProps> = ({
+  className = '',
+  externalIsOpen = false,
+  initialQuestion = '',
+  onModalClose
+}) => {
   const {
     faqs,
     faqsLoadingState,
@@ -57,6 +69,20 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
   const [isSaving, setIsSaving] = React.useState(false);
   const [draggedItem, setDraggedItem] = React.useState<FaqItem | null>(null);
   const [dragOverItem, setDragOverItem] = React.useState<FaqItem | null>(null);
+  const [initialQuestionState, setInitialQuestionState] = React.useState('');
+
+  // Handle external modal control
+  React.useEffect(() => {
+    if (externalIsOpen) {
+      setIsFormOpen(true);
+      setEditingFaq(null);
+      setInitialQuestionState(initialQuestion);
+      clearError();
+    } else if (isFormOpen && onModalClose) {
+      // Only close if it was opened externally
+      setIsFormOpen(false);
+    }
+  }, [externalIsOpen, initialQuestion]);
 
   // Fetch FAQs on mount
   React.useEffect(() => {
@@ -113,6 +139,8 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
       }
       setIsFormOpen(false);
       setEditingFaq(null);
+      setInitialQuestionState('');
+      onModalClose?.();
     } catch (error) {
       console.error('Failed to save FAQ:', error);
       toast('Failed to save FAQ item', 'error');
@@ -125,6 +153,8 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
   const handleFormCancel = () => {
     setIsFormOpen(false);
     setEditingFaq(null);
+    setInitialQuestionState('');
+    onModalClose?.();
   };
 
   // Drag and drop handlers
@@ -278,6 +308,7 @@ export const FaqList: React.FC<FaqListProps> = ({ className = '' }) => {
         onSave={handleFormSave}
         onCancel={handleFormCancel}
         disabled={isSaving}
+        initialQuestion={initialQuestionState}
       />
     </div>
   );

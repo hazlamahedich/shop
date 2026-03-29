@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronRight, Plus, EyeOff } from 'lucide-react';
+import { BookOpen, ChevronRight, Plus, EyeOff, MessageSquare, FileText, X } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
+import { useState } from 'react';
 
 interface KnowledgeGap {
   id: string;
@@ -24,6 +25,7 @@ interface KnowledgeGapsData {
 
 export function KnowledgeGapWidget() {
   const navigate = useNavigate();
+  const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'knowledge-gaps'],
@@ -65,25 +67,65 @@ export function KnowledgeGapWidget() {
 
         <div className="space-y-2">
           {displayGaps.map((gap) => (
-            <div
-              key={gap.id}
-              className="group/gap flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/20 hover:bg-[#00f5d4]/5 transition-all cursor-pointer"
-              onClick={() => navigate('/knowledge-base')}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-black text-white/80 group-hover/gap:text-white truncate uppercase tracking-tight">
-                  {gap.intent}
-                </p>
-                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
-                  {gap.count} DETECTIONS
-                </p>
+            <div key={gap.id}>
+              <div
+                className="group/gap flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/20 hover:bg-[#00f5d4]/5 transition-all cursor-pointer"
+                onClick={() => setSelectedGap(gap)}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black text-white/80 group-hover/gap:text-white truncate uppercase tracking-tight">
+                    {gap.intent}
+                  </p>
+                  <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
+                    {gap.count} DETECTIONS
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black text-[#00f5d4] bg-[#00f5d4]/10 px-2 py-1 rounded border border-[#00f5d4]/20 uppercase tracking-tighter">
+                    {gap.suggestedAction}
+                  </span>
+                  <ChevronRight size={12} className="text-white/20 group-hover/gap:translate-x-1 group-hover/gap:text-white/60 transition-all" />
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-black text-[#00f5d4] bg-[#00f5d4]/10 px-2 py-1 rounded border border-[#00f5d4]/20 uppercase tracking-tighter">
-                  {gap.suggestedAction}
-                </span>
-                <ChevronRight size={12} className="text-white/20 group-hover/gap:translate-x-1 group-hover/gap:text-white/60 transition-all" />
-              </div>
+
+              {/* Action Menu */}
+              {selectedGap?.id === gap.id && (
+                <div className="mt-2 p-3 bg-[#0d0d12] border border-[#00f5d4]/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-black text-[#00f5d4] uppercase tracking-widest">
+                      Bridge Knowledge Gap
+                    </p>
+                    <button
+                      onClick={() => setSelectedGap(null)}
+                      className="p-1 text-white/30 hover:text-white/60 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        navigate(`/business-info-faq?addFaq=true&question=${encodeURIComponent(gap.intent)}`);
+                        setSelectedGap(null);
+                      }}
+                      className="flex flex-col items-center gap-2 p-3 bg-[#00f5d4]/5 border border-[#00f5d4]/20 rounded-lg hover:bg-[#00f5d4]/10 transition-all group"
+                    >
+                      <MessageSquare size={18} className="text-[#00f5d4] group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add as FAQ</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate('/knowledge-base?add=true');
+                        setSelectedGap(null);
+                      }}
+                      className="flex flex-col items-center gap-2 p-3 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg hover:bg-[#00bbf9]/10 transition-all group"
+                    >
+                      <FileText size={18} className="text-[#00bbf9] group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add Document</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -3,8 +3,9 @@
  */
 
 import * as React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useSearchParams } from 'react-router-dom';
 import { useBusinessInfoStore } from '../stores/businessInfoStore';
 import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import { useOnboardingPhaseStore } from '../stores/onboardingPhaseStore';
@@ -13,6 +14,10 @@ import { FaqList } from '../components/business-info/FaqList';
 import { BusinessHoursConfig } from '../components/settings/BusinessHoursConfig';
 
 export const BusinessInfoFaqConfig: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const [externalFaqModalOpen, setExternalFaqModalOpen] = useState(false);
+  const [initialQuestion, setInitialQuestion] = useState('');
+
   const {
     businessName,
     businessDescription,
@@ -45,6 +50,19 @@ export const BusinessInfoFaqConfig: React.FC = () => {
     };
     loadData();
   }, [fetchBusinessInfo, fetchConfig, toast]);
+
+  // Handle URL params for FAQ modal
+  useEffect(() => {
+    const addFaq = searchParams.get('addFaq');
+    const question = searchParams.get('question');
+
+    if (addFaq === 'true' && question) {
+      setInitialQuestion(decodeURIComponent(question));
+      setExternalFaqModalOpen(true);
+      // Clear URL params without triggering navigation
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [searchParams]);
 
   const handleSaveBusinessInfo = async () => {
     clearError();
@@ -142,7 +160,11 @@ export const BusinessInfoFaqConfig: React.FC = () => {
 
           <div className="lg:col-span-7 xl:col-span-8 flex flex-col">
             <section className="flex-1 bg-[#1f1f25]/40 backdrop-blur-[12px] p-8 rounded-2xl border border-[#3a4a46]/15 shadow-xl hover:border-white/10 transition-all duration-500 flex flex-col min-h-[500px]">
-              <FaqList />
+              <FaqList
+                externalIsOpen={externalFaqModalOpen}
+                initialQuestion={initialQuestion}
+                onModalClose={() => setExternalFaqModalOpen(false)}
+              />
             </section>
           </div>
         </div>

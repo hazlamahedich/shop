@@ -28,6 +28,8 @@ export interface FaqFormProps {
   onCancel: () => void;
   /** Whether the form is disabled (during save operations) */
   disabled?: boolean;
+  /** Initial question to pre-populate (for create mode) */
+  initialQuestion?: string;
 }
 
 /**
@@ -55,10 +57,12 @@ export const FaqForm: React.FC<FaqFormProps> = ({
   onSave,
   onCancel,
   disabled = false,
+  initialQuestion = '',
 }) => {
   // Form state
   const [formData, setFormData] = React.useState(emptyForm);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const prevInitialQuestion = React.useRef(initialQuestion);
 
   // Initialize form data when FAQ changes or modal opens
   React.useEffect(() => {
@@ -70,11 +74,21 @@ export const FaqForm: React.FC<FaqFormProps> = ({
           keywords: faq.keywords || '',
         });
       } else {
-        setFormData(emptyForm);
+        // Use initialQuestion if provided (and changed from previous)
+        const question = initialQuestion && initialQuestion !== prevInitialQuestion.current
+          ? initialQuestion
+          : emptyForm.question;
+        setFormData({
+          ...emptyForm,
+          question,
+        });
+        if (initialQuestion && initialQuestion !== prevInitialQuestion.current) {
+          prevInitialQuestion.current = initialQuestion;
+        }
       }
       setErrors({});
     }
-  }, [faq, isOpen]);
+  }, [faq, isOpen, initialQuestion]);
 
   // Handle input changes
   const handleChange = (field: keyof typeof formData, value: string, maxLength?: number) => {
