@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Zrok Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        .status.testing {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #28a745;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #dc3545;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #17a2b8;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            padding-left: 10px;
+        }
+        .log-entry.ws {
+            border-left-color: #28a745;
+        }
+        .log-entry.error {
+            border-left-color: #dc3545;
+        }
+        .log-entry.warn {
+            border-left-color: #ffc107;
+        }
+        .config {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        .config code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        .test-controls {
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket Connection Test - Zrok Tunnel</h1>
+
+        <div class="config">
+            <strong>Configuration:</strong><br>
+            Zrok URL: <code>https://shopdevsherwingor.share.zrok.io</code><br>
+            WebSocket URL: <code>wss://shopdevsherwingor.share.zrok.io/ws/widget/SESSION_ID</code><br>
+            API Base: <code>https://shopdevsherwingor.share.zrok.io/api/v1/widget</code>
+        </div>
+
+        <div id="status" class="status testing">
+            ⏳ Ready to test WebSocket connection through Zrok tunnel
+        </div>
+
+        <div class="test-controls">
+            <button id="testBtn" onclick="startTest()">Start WebSocket Test</button>
+            <button id="stopBtn" onclick="stopTest()" disabled>Stop Test</button>
+        </div>
+
+        <div class="metrics">
+            <div class="metric-card">
+                <div class="metric-value" id="connectionTime">--</div>
+                <div class="metric-label">Connection Time</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="messagesReceived">0</div>
+                <div class="metric-label">Messages Received</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="uptime">--</div>
+                <div class="metric-label">Connection Uptime</div>
+            </div>
+        </div>
+
+        <div class="log" id="log">
+            <div class="log-entry info">📋 Test log will appear below...</div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let testRunning = false;
+        let startTime = null;
+        let messageCount = 0;
+        let uptimeInterval = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function updateMetrics() {
+            if (startTime) {
+                const uptime = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(uptime / 60);
+                const seconds = uptime % 60;
+                document.getElementById('uptime').textContent =
+                    minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+            }
+        }
+
+        async function startTest() {
+            if (testRunning) return;
+
+            testRunning = true;
+            messageCount = 0;
+            document.getElementById('testBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+
+            // Clear previous logs
+            document.getElementById('log').innerHTML = '';
+            log('🧪 Starting WebSocket test through Zrok tunnel...', 'info');
+
+            try {
+                // First, create a session to get a session ID
+                log('📝 Creating widget session...', 'info');
+                const sessionResponse = await fetch('https://shopdevsherwingor.share.zrok.io/api/v1/widget/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant_id: '1' })
+                });
+
+                if (!sessionResponse.ok) {
+                    throw new Error(`Failed to create session: ${sessionResponse.status}`);
+                }
+
+                const sessionData = await sessionResponse.json();
+                // Handle both snake_case and camelCase formats
+                const sessionId = sessionData.session_id ||
+                                sessionData.sessionId ||
+                                sessionData.session?.session_id ||
+                                sessionData.session?.sessionId ||
+                                sessionData.data?.session_id ||
+                                sessionData.data?.sessionId;
+
+                if (!sessionId) {
+                    console.error('Session response:', sessionData);
+                    throw new Error('No session ID in response');
+                }
+
+                log(`✅ Session created: ${sessionId}`, 'success');
+
+                // Now test WebSocket connection
+                const wsUrl = `wss://shopdevsherwingor.share.zrok.io/ws/widget/${sessionId}`;
+                log(`🔌 Connecting to WebSocket: ${wsUrl}`, 'info');
+
+                startTime = Date.now();
+                const connectionStart = performance.now();
+
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    const connectionTime = Math.round(performance.now() - connectionStart);
+                    document.getElementById('connectionTime').textContent = `${connectionTime}ms`;
+                    log(`✅ WebSocket connected successfully in ${connectionTime}ms!`, 'success');
+                    log(`🎯 Zrok tunnel IS supporting WebSocket connections!`, 'success');
+                    updateStatus('✅ WebSocket Connected Successfully!', 'success');
+
+                    // Start heartbeat
+                    uptimeInterval = setInterval(updateMetrics, 1000);
+
+                    // Send a ping
+                    try {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                        log('📤 Sent ping message', 'ws');
+                    } catch (e) {
+                        log(`⚠️ Failed to send ping: ${e.message}`, 'warn');
+                    }
+                };
+
+                ws.onmessage = (event) => {
+                    messageCount++;
+                    document.getElementById('messagesReceived').textContent = messageCount;
+
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📥 Message received: ${data.type}`, 'ws');
+                        if (data.type !== 'pong' && data.type !== 'ping') {
+                            log(`   Data: ${JSON.stringify(data).substring(0, 100)}...`, 'ws');
+                        }
+                    } catch (e) {
+                        log(`📥 Raw message: ${event.data}`, 'ws');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`, 'error');
+                    updateStatus('❌ WebSocket Error - Check browser console for details', 'error');
+                };
+
+                ws.onclose = (event) => {
+                    log(`🔌 WebSocket closed: code=${event.code}, reason="${event.reason}"`, 'warn');
+                    updateStatus(`⚠️ WebSocket Disconnected - Code: ${event.code}`, 'info');
+                    clearInterval(uptimeInterval);
+
+                    if (testRunning && event.code !== 1000) {
+                        log('⚠️ Connection closed unexpectedly - Zrok may not fully support WebSocket', 'warn');
+                    }
+                };
+
+                // Monitor for 30 seconds
+                setTimeout(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        log('✅ Test completed - Connection stable for 30 seconds', 'success');
+                        log(`📊 Final stats: ${messageCount} messages received`, 'success');
+                        stopTest();
+                    }
+                }, 30000);
+
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+                updateStatus(`❌ Test Failed: ${error.message}`, 'error');
+                stopTest();
+            }
+        }
+
+        function stopTest() {
+            testRunning = false;
+            document.getElementById('testBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+
+            if (ws) {
+                ws.close(1000, 'Test complete');
+                ws = null;
+            }
+
+            if (uptimeInterval) {
+                clearInterval(uptimeInterval);
+                uptimeInterval = null;
+            }
+
+            log('🛑 Test stopped', 'info');
+        }
+
+        // Intercept console.log to show WebSocket messages
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        console.log = function(...args) {
+            if (args[0] && args[0].includes('[WS]')) {
+                log(`📟 Console: ${args.join(' ')}`, 'ws');
+            }
+            originalLog.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            if (args[0] && args[0].includes('[WS]')) {
+                log(`📟 Console: ${args.join(' ')}`, 'warn');
+            }
+            originalWarn.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            if (args[0] && args[0].includes('[WS]')) {
+                log(`📟 Console: ${args.join(' ')}`, 'error');
+            }
+            originalError.apply(console, args);
+        };
+    </script>
+</body>
+</html>

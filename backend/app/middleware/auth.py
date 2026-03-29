@@ -92,7 +92,13 @@ class AuthenticationMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # Skip non-HTTP/WebSocket connections
         if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        # WebSocket connections bypass auth (Request objects only work for HTTP)
+        if scope["type"] == "websocket":
             await self.app(scope, receive, send)
             return
 
