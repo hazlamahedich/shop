@@ -6,6 +6,7 @@ import { analyticsService, TopTopic } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 import { BarChart } from '../charts/BarChart';
 import { sanitizeEncryptedText, isEncrypted } from '../../utils/encryption';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/Collapsible';
 
 function getTrendIcon(trend: string) {
   switch (trend) {
@@ -57,6 +58,7 @@ export function TopTopicsWidget() {
   const navigate = useNavigate();
   const [days] = useState(7);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['analytics', 'top-topics', days],
@@ -66,6 +68,8 @@ export function TopTopicsWidget() {
   });
 
   const topics = data?.topics ?? [];
+  const displayTopics = topics.slice(0, 3);
+  const remainingTopics = topics.slice(3);
 
   // Prepare data for bar chart
   const chartData = topics.slice(0, 8).map(topic => ({
@@ -139,38 +143,91 @@ export function TopTopicsWidget() {
             <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">No Patterns Detected</span>
           </div>
         ) : (
-          topics.map((topic: TopTopic) => (
-            <div
-              key={topic.name}
-              className={`group/item flex items-center justify-between p-3 rounded-2xl border hover:border-[#a78bfa]/50 hover:bg-[#a78bfa]/10 transition-all cursor-pointer ${
-                isEncrypted(topic.name)
-                  ? 'bg-amber-500/10 border-amber-500/30'
-                  : 'bg-white/10 border-white/20'
-              }`}
-              onClick={() => navigate(`/conversations?search=${encodeURIComponent(topic.name)}`)}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-1.5 rounded-lg border transition-colors ${getTrendColor(topic.trend)}`}>
-                   {getTrendIcon(topic.trend)}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div>
-                    <p className="text-[11px] font-black text-white group-hover/item:text-purple-300 uppercase tracking-tight">
-                      {formatTopicName(topic.name)}
-                    </p>
-                    <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest mt-0.5">{topic.queryCount} RECITALS</p>
+          <>
+            {displayTopics.map((topic: TopTopic) => (
+              <div
+                key={topic.name}
+                className={`group/item flex items-center justify-between p-3 rounded-2xl border hover:border-[#a78bfa]/50 hover:bg-[#a78bfa]/10 transition-all cursor-pointer ${
+                  isEncrypted(topic.name)
+                    ? 'bg-amber-500/10 border-amber-500/30'
+                    : 'bg-white/10 border-white/20'
+                }`}
+                onClick={() => navigate(`/conversations?search=${encodeURIComponent(topic.name)}`)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg border transition-colors ${getTrendColor(topic.trend)}`}>
+                     {getTrendIcon(topic.trend)}
                   </div>
-                  {isEncrypted(topic.name) && (
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 border border-amber-500/40" title="Topic name is encrypted">
-                      <Lock size={10} className="text-amber-400" />
-                      <span className="text-[8px] font-black text-amber-300 uppercase tracking-wider">Encrypted</span>
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <p className="text-[11px] font-black text-white group-hover/item:text-purple-300 uppercase tracking-tight">
+                        {formatTopicName(topic.name)}
+                      </p>
+                      <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest mt-0.5">{topic.queryCount} RECITALS</p>
                     </div>
-                  )}
+                    {isEncrypted(topic.name) && (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 border border-amber-500/40" title="Topic name is encrypted">
+                        <Lock size={10} className="text-amber-400" />
+                        <span className="text-[8px] font-black text-amber-300 uppercase tracking-wider">Encrypted</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                <ChevronRight size={12} className="text-white/30 group-hover/item:text-white/60 group-hover/item:translate-x-0.5 transition-all" />
               </div>
-              <ChevronRight size={12} className="text-white/30 group-hover/item:text-white/60 group-hover/item:translate-x-0.5 transition-all" />
-            </div>
-          ))
+            ))}
+
+            {remainingTopics.length > 0 && (
+              <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+                <CollapsibleTrigger
+                  className="w-full mt-2 py-2 text-[9px] font-black text-[#a78bfa] hover:text-white/80 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                  aria-expanded={isExpanded}
+                >
+                  <span>
+                    {isExpanded ? 'Hide' : `View ${remainingTopics.length} more topics`}
+                  </span>
+                  <ChevronRight
+                    size={12}
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 space-y-3">
+                  {remainingTopics.map((topic: TopTopic) => (
+                    <div
+                      key={topic.name}
+                      className={`group/item flex items-center justify-between p-3 rounded-2xl border hover:border-[#a78bfa]/50 hover:bg-[#a78bfa]/10 transition-all cursor-pointer ${
+                        isEncrypted(topic.name)
+                          ? 'bg-amber-500/10 border-amber-500/30'
+                          : 'bg-white/10 border-white/20'
+                      }`}
+                      onClick={() => navigate(`/conversations?search=${encodeURIComponent(topic.name)}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-1.5 rounded-lg border transition-colors ${getTrendColor(topic.trend)}`}>
+                           {getTrendIcon(topic.trend)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="text-[11px] font-black text-white group-hover/item:text-purple-300 uppercase tracking-tight">
+                              {formatTopicName(topic.name)}
+                            </p>
+                            <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest mt-0.5">{topic.queryCount} RECITALS</p>
+                          </div>
+                          {isEncrypted(topic.name) && (
+                            <div className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 border border-amber-500/40" title="Topic name is encrypted">
+                              <Lock size={10} className="text-amber-400" />
+                              <span className="text-[8px] font-black text-amber-300 uppercase tracking-wider">Encrypted</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight size={12} className="text-white/30 group-hover/item:text-white/60 group-hover/item:translate-x-0.5 transition-all" />
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </>
         )}
 
          <button className="w-full mt-2 flex items-center justify-between px-4 py-2 text-[9px] font-black text-white/60 hover:text-white/90 transition-colors uppercase tracking-[0.3em] border border-white/10 hover:border-white/20 rounded-lg" aria-label="Download full topic schema">

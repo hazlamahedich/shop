@@ -5,6 +5,7 @@ import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 import { useState } from 'react';
 import { BubbleChart, MiniBubbleChart } from '../charts/BubbleChart';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/Collapsible';
 
 interface KnowledgeGap {
   id: string;
@@ -27,6 +28,7 @@ interface KnowledgeGapsData {
 export function KnowledgeGapWidget() {
   const navigate = useNavigate();
   const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'knowledge-gaps'],
@@ -37,7 +39,8 @@ export function KnowledgeGapWidget() {
 
   const gapsData = data as KnowledgeGapsData | undefined;
   const gaps = gapsData?.gaps || [];
-  const displayGaps = gaps.slice(0, 5);
+  const displayGaps = gaps.slice(0, 3);
+  const remainingGaps = gaps.slice(3);
 
   // Prepare bubble chart data (opportunity matrix)
   // Map gaps to quadrants based on count (impact) and suggested action (ease)
@@ -204,13 +207,88 @@ export function KnowledgeGapWidget() {
           ))}
         </div>
 
-        {gaps.length > 5 && (
-          <button
-            onClick={() => navigate('/knowledge-base')}
-            className="w-full mt-2 py-2 text-[9px] font-black text-white/30 hover:text-white transition-all uppercase tracking-[0.2em]"
-          >
-            +{gaps.length - 5} ADDITIONAL_GAPS
-          </button>
+        {remainingGaps.length > 0 && (
+          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+            <CollapsibleTrigger
+              className="w-full mt-2 py-2 text-[9px] font-black text-[#00f5d4] hover:text-white/80 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+              aria-expanded={isExpanded}
+            >
+              <span>
+                {isExpanded ? 'Hide' : `View ${remainingGaps.length} more questions`}
+              </span>
+              <ChevronRight
+                size={12}
+                className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 space-y-2">
+              {remainingGaps.map((gap) => (
+                <div key={gap.id}>
+                  <div
+                    className="group/gap flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/20 hover:bg-[#00f5d4]/5 transition-all cursor-pointer"
+                    onClick={() => setSelectedGap(gap)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-black text-white/80 group-hover/gap:text-white truncate uppercase tracking-tight">
+                        {gap.intent}
+                      </p>
+                      <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
+                        {gap.count} DETECTIONS
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[9px] font-black text-[#00f5d4] bg-[#00f5d4]/10 px-2 py-1 rounded border border-[#00f5d4]/20 uppercase tracking-tighter">
+                        {gap.suggestedAction}
+                      </span>
+                      <ChevronRight size={12} className="text-white/20 group-hover/gap:translate-x-1 group-hover/gap:text-white/60 transition-all" />
+                    </div>
+                  </div>
+
+                  {/* Action Menu */}
+                  {selectedGap?.id === gap.id && (
+                    <div className="mt-2 p-3 bg-[#0d0d12] border border-[#00f5d4]/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] font-black text-[#00f5d4] uppercase tracking-widest">
+                          Bridge Knowledge Gap
+                        </p>
+                        <button
+                          onClick={() => setSelectedGap(null)}
+                          className="p-1 text-white/30 hover:text-white/60 transition-colors"
+                          aria-label="Close knowledge gap menu"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            navigate(`/business-info-faq?addFaq=true&question=${encodeURIComponent(gap.intent)}`);
+                            setSelectedGap(null);
+                          }}
+                          className="flex flex-col items-center gap-2 p-3 bg-[#00f5d4]/5 border border-[#00f5d4]/20 rounded-lg hover:bg-[#00f5d4]/10 transition-all group"
+                          aria-label={`Add "${gap.intent}" as FAQ`}
+                        >
+                          <MessageSquare size={18} className="text-[#00f5d4] group-hover:scale-110 transition-transform" />
+                          <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add as FAQ</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigate('/knowledge-base?add=true');
+                            setSelectedGap(null);
+                          }}
+                          className="flex flex-col items-center gap-2 p-3 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg hover:bg-[#00bbf9]/10 transition-all group"
+                          aria-label="Upload document to knowledge base"
+                        >
+                          <FileText size={18} className="text-[#00bbf9] group-hover:scale-110 transition-transform" />
+                          <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add Document</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
         )}
 
         <button
