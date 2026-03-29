@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, TrendingUp, TrendingDown, Minus, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Clock, TrendingUp, TrendingDown, Minus, AlertTriangle, RefreshCw, BarChart3 } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
+import { BoxPlot, PercentileComparison } from '../charts/BoxPlot';
 
 function formatMs(ms: number | null): string {
   if (ms === null) return '--';
@@ -35,6 +36,7 @@ function getTrendColor(trend: string | undefined): string {
 export function ResponseTimeWidget() {
   const [days, setDays] = useState(7);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['analytics', 'response-time-distribution', days],
@@ -54,6 +56,15 @@ export function ResponseTimeWidget() {
   const p50 = percentiles?.p50 ?? null;
   const p95 = percentiles?.p95 ?? null;
   const p99 = percentiles?.p99 ?? null;
+
+  // Prepare box plot data
+  const boxPlotData = p50 && p95 && p99 && histogram.length > 0 ? {
+    min: Math.min(...histogram.map(h => parseFloat(h.label.replace(/\D/g, '')))),
+    max: Math.max(...histogram.map(h => parseFloat(h.label.replace(/\D/g, '')))),
+    q1: p50,
+    median: p95,
+    q3: p99,
+  } : null;
 
   const getAccentColor = (): 'mantis' | 'yellow' | 'red' => {
     if (p95 === null) return 'mantis';
@@ -79,7 +90,43 @@ export function ResponseTimeWidget() {
       accentColor={getAccentColor()}
       data-testid="response-time-widget"
       isLoading={isLoading}
+      expandable
     >
+      {/* Box Plot Visualization */}
+      {!isLoading && boxPlotData && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              LATENCY_DISTRIBUTION
+            </span>
+            <BarChart3 size={12} className="text-white/20" />
+          </div>
+          <BoxPlot
+            data={boxPlotData}
+            height={100}
+            color={p95 && p95 > 3000 ? '#f87171' : p95 && p95 > 5000 ? '#fb923c' : '#00f5d4'}
+            showLabels={true}
+            ariaLabel="Response time distribution box plot"
+          />
+        </div>
+      )}
+
+      {/* Percentile Comparison */}
+      {!isLoading && previousPeriod && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              PERIOD_COMPARISON
+            </span>
+          </div>
+          <PercentileComparison
+            current={{ p50: p50 || 0, p95: p95 || 0, p99: p99 || 0 }}
+            previous={previousPeriod?.percentiles}
+            height={60}
+          />
+        </div>
+      )}
+
       <div className="space-y-4 mt-4">
         <div className="flex items-center justify-between gap-2">
           <select

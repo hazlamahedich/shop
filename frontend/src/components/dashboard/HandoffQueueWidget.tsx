@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Bell, AlertTriangle, CheckCheck, Clock, ChevronRight, Crown, Activity } from 'lucide-react';
+import { Bell, AlertTriangle, CheckCheck, Clock, ChevronRight, Crown, Activity, Users, Timer } from 'lucide-react';
 import { handoffAlertsService, HandoffAlert } from '../../services/handoffAlerts';
+import { StatCard } from './StatCard';
+import { CircularProgress, MiniCircularProgress } from '../charts/CircularProgress';
 
 const URGENCY_CONFIG = {
   high: {
@@ -104,39 +106,66 @@ export function HandoffQueueWidget() {
   const unreadCount = data?.meta.unreadCount ?? 0;
   const totalWaiting = data?.meta.totalWaiting ?? 0;
 
+  // Calculate queue health (0-100, higher is better)
+  const queueHealth = totalWaiting > 0 ? Math.max(0, 100 - (totalWaiting / 10) * 100) : 100;
+  const oldestWaitSeconds = alerts.length > 0 ? Math.max(...alerts.map(a => a.waitTimeSeconds)) : 0;
+  const queueColor = queueHealth >= 70 ? '#00f5d4' : queueHealth >= 40 ? '#fb923c' : '#f87171';
+
   function handleTakeOver(conversationId: number) {
     navigate(`/conversations/${conversationId}`);
   }
 
   return (
-    <div className="relative group/widget h-full bg-white/5 rounded-[2.5rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl p-6 transition-all duration-500 hover:border-[#00f5d4]/30" data-testid="handoff-queue-widget">
-      {/* HUD Accents */}
-      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover/widget:opacity-30 transition-opacity">
-         <div className="w-12 h-12 border-t-2 border-r-2 border-[#00f5d4] rounded-tr-xl" />
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-[#00f5d4]/10 border border-[#00f5d4]/20 rounded-2xl text-[#00f5d4] shadow-[0_0_20px_rgba(0,245,212,0.1)]">
-            <Bell size={18} strokeWidth={2.5} />
+    <StatCard
+      title="Handoff Queue"
+      value={isLoading ? '...' : totalWaiting.toString()}
+      subValue="WAITING_CUSTOMERS"
+      icon={<Users size={18} />}
+      accentColor={queueHealth >= 70 ? 'mantis' : queueHealth >= 40 ? 'yellow' : 'red'}
+      data-testid="handoff-queue-widget"
+      isLoading={isLoading}
+      expandable
+    >
+      {/* Circular Progress Visualization */}
+      {!isLoading && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              QUEUE_STATUS
+            </span>
+            <Activity size={12} className="text-white/20" />
           </div>
-          <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Signal Queue</h3>
-            <p className="text-[10px] font-bold text-[#00f5d4]/60 uppercase tracking-widest mt-0.5">
-              {isLoading ? 'SCANNING...' : `${totalWaiting} ACTIVE_SIGNALS`}
-            </p>
+          <div className="flex items-center justify-center gap-6">
+            <CircularProgress
+              value={queueHealth}
+              size={100}
+              label="Capacity"
+              subLabel={`${totalWaiting}/10`}
+              color={queueColor}
+              pulse={totalWaiting > 7}
+              ariaLabel="Queue capacity indicator"
+            />
+            <div className="space-y-3">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <Timer size={10} className="text-white/30" />
+                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Oldest Wait</span>
+                </div>
+                <p className={`text-lg font-black ${oldestWaitSeconds > 300 ? 'text-rose-400' : oldestWaitSeconds > 120 ? 'text-amber-400' : 'text-[#00f5d4]'}`}>
+                  {formatWaitTime(oldestWaitSeconds)}
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <Users size={10} className="text-white/30" />
+                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Unread</span>
+                </div>
+                <p className="text-lg font-black text-white">{unreadCount}</p>
+              </div>
+            </div>
           </div>
         </div>
-
-        {unreadCount > 0 && (
-          <button
-            onClick={() => markAllMutation.mutate()}
-            className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[9px] font-black text-rose-400 uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
-          >
-            PURGE {unreadCount}
-          </button>
-        )}
-      </div>
+      )}
 
       <div className="space-y-1">
         {isLoading ? (
@@ -156,14 +185,23 @@ export function HandoffQueueWidget() {
         )}
       </div>
 
+      {unreadCount > 0 && (
+        <button
+          onClick={() => markAllMutation.mutate()}
+          className="w-full mt-4 px-3 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[9px] font-black text-rose-400 uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+        >
+          PURGE {unreadCount} UNREAD
+        </button>
+      )}
+
       <button
         onClick={() => navigate('/conversations?view=handoff')}
-        className="w-full mt-6 flex items-center justify-between px-5 py-3 rounded-2xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/30 hover:bg-[#00f5d4]/10 transition-all group/more"
+        className="w-full mt-2 flex items-center justify-between px-4 py-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/30 hover:bg-[#00f5d4]/10 transition-all group/more"
       >
-        <span className="text-[10px] font-black text-white/30 group-hover/more:text-white uppercase tracking-[0.3em]">Full Topology</span>
-        <Activity size={12} className="text-[#00f5d4] animate-pulse" />
+        <span className="text-[9px] font-black text-white/30 group-hover/more:text-white uppercase tracking-[0.2em]">Full Queue</span>
+        <Activity size={10} className="text-[#00f5d4] animate-pulse" />
       </button>
-    </div>
+    </StatCard>
   );
 }
 

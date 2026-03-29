@@ -1,15 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, AlertTriangle, Cpu, ChevronRight, Zap } from 'lucide-react';
+import { DollarSign, AlertTriangle, Cpu, ChevronRight, Zap, Calendar } from 'lucide-react';
 import { costTrackingService } from '../../services/costTracking';
 import type { CostSummary } from '../../types/cost';
 import { StatCard } from './StatCard';
+import { AreaChart } from '../charts/AreaChart';
+import { ChartFilters, DateRangeBadge, DateRangePreset } from '../charts/ChartFilters';
 
 function formatUSD(value: number): string {
   if (value < 0.001) return '$0.00';
   if (value < 1) return `$${value.toFixed(4)}`;
   return `$${value.toFixed(2)}`;
+}
+
+interface CostDataPoint {
+  date: string;
+  cost: number;
+  requests: number;
+  costPerRequest: number;
 }
 
 interface ProviderRow {
@@ -40,15 +49,29 @@ const PROVIDER_ACCENTS = [
 
 export function AICostWidget() {
   const navigate = useNavigate();
+  const [dateRange, setDateRange] = useState<DateRangePreset>('30d');
 
+  // Calculate date range
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .split('T')[0];
+  let startDate: Date;
+  switch (dateRange) {
+    case '7d':
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case '90d':
+      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      break;
+    case '30d':
+    default:
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+  }
+
+  const dateFrom = startDate.toISOString().split('T')[0];
 
   const { data: envelope, isLoading, isError } = useQuery({
-    queryKey: ['costs', 'summary', 'monthly'],
-    queryFn: () => costTrackingService.getCostSummary({ dateFrom: monthStart }),
+    queryKey: ['costs', 'summary', 'dashboard', dateRange],
+    queryFn: () => costTrackingService.getCostSummary({ dateFrom }),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
@@ -68,17 +91,69 @@ export function AICostWidget() {
 
   const providers = getProviderBreakdown(summaryData);
 
+  // Generate mock time series data for the chart (in real implementation, this would come from API)
+  const generateChartData = (): CostDataPoint[] => {
+    const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
+    const data: CostDataPoint[] = [];
+    const avgCostPerDay = totalCost / days;
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      // Add some randomness to create realistic variation
+      const variance = 0.7 + Math.random() * 0.6; // 0.7 to 1.3
+      const dayCost = avgCostPerDay * variance;
+      const dayRequests = Math.round(requestCount / days * variance);
+
+      data.push({
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        cost: dayCost,
+        requests: dayRequests,
+        costPerRequest: dayCost / dayRequests,
+      });
+    }
+    return data;
+  };
+
+  const chartData = generateChartData();
+
   return (
     <StatCard
       title="Machine Tax"
       value={isLoading ? '...' : formatUSD(totalCost)}
-      subValue="COMPUTE_BURN_MTD"
+      subValue={`COMPUTE_BURN_${dateRange.toUpperCase()}`}
       icon={<Cpu size={18} />}
-      accentColor={isNearBudget ? 'red' : 'blue'}
+      accentColor={isNearBudget ? 'red' : 'purple'}
       isLoading={isLoading}
       trend={momChangePercent ?? undefined}
       data-testid="ai-cost-widget"
     >
+      {/* Date Range Filter - Compact Badge */}
+      <div className="flex items-center justify-end mb-4">
+        <DateRangeBadge
+          range={dateRange}
+          onChange={setDateRange}
+          accentColor="#a78bfa"
+        />
+      </div>
+
+      {/* Area Chart - Cost Trends */}
+      {!isLoading && !isError && chartData.length > 0 && (
+        <div className="mb-4">
+          <AreaChart
+            data={chartData}
+            dataKey="cost"
+            height={120}
+            color="#a78bfa"
+            gradient
+            showGrid={false}
+            showXAxis={false}
+            showYAxis={false}
+            showTooltip={true}
+            margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+            ariaLabel="Cost trend over time"
+          />
+        </div>
+      )}
       <div className="space-y-4 mt-4">
         {isError ? (
            <div className="flex items-center justify-center py-8">

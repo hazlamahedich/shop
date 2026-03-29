@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquare, TrendingUp, TrendingDown } from 'lucide-react';
+import { MessageSquare, TrendingUp, TrendingDown, Clock, Activity } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { handoffAlertsService } from '../../services/handoffAlerts';
 import { conversationsService } from '../../services/conversations';
 import { StatCard } from './StatCard';
+import { TimelineChart, PeakHoursHeatmapStrip } from '../charts/TimelineChart';
 
 function MiniStat({
   label,
@@ -73,17 +74,96 @@ export function ConversationOverviewWidget() {
       : 'N/A';
   const momTrend = orderStats?.momComparison?.conversationsChangePercent ?? null;
 
+  // Generate mock timeline data (in real implementation, this comes from API)
+  const generateTimelineData = () => {
+    const now = new Date();
+    const data = [];
+    for (let i = 23; i >= 0; i--) {
+      const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const hour = time.getHours();
+      // Simulate: more conversations during business hours (9-17)
+      const isBusinessHour = hour >= 9 && hour <= 17;
+      const baseValue = isBusinessHour ? activeCount * 0.8 : activeCount * 0.3;
+      const variance = 0.7 + Math.random() * 0.6;
+      const value = Math.round(baseValue * variance);
+
+      data.push({
+        time: time.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
+        value,
+        label: value > activeCount * 0.8 ? 'Peak' : undefined,
+        color: value > activeCount * 0.8 ? '#fb923c' : undefined,
+      });
+    }
+    return data;
+  };
+
+  // Generate mock peak hours data
+  const generatePeakHoursData = () => {
+    return Array.from({ length: 24 }, (_, hour) => {
+      const isBusinessHour = hour >= 9 && hour <= 17;
+      const baseValue = isBusinessHour ? 80 : 20;
+      const variance = 0.5 + Math.random();
+      return Math.round(baseValue * variance);
+    });
+  };
+
+  const timelineData = generateTimelineData();
+  const peakHoursData = generatePeakHoursData();
+
   return (
     <StatCard
       title="Network Pulse"
       value={isLoading ? '...' : activeCount.toString()}
       subValue="ACTIVE_NODES"
       icon={<MessageSquare size={18} />}
-      accentColor="mantis"
+      accentColor="purple"
       isLoading={isLoading}
       trend={momTrend ?? undefined}
       data-testid="conversation-overview-widget"
+      expandable
     >
+      {/* Timeline Chart - 24h Conversation Volume */}
+      {!isLoading && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              VOLUME_TIMELINE (24H)
+            </span>
+            <Activity size={12} className="text-white/20" />
+          </div>
+          <TimelineChart
+            data={timelineData}
+            height={100}
+            color="#a78bfa"
+            showGrid={false}
+            showYAxis={false}
+            margin={{ top: 5, right: 5, left: 5, bottom: 20 }}
+            ariaLabel="Conversation volume over last 24 hours"
+          />
+        </div>
+      )}
+
+      {/* Peak Hours Heatmap Strip */}
+      {!isLoading && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              PEAK_DENSITY_PATTERN
+            </span>
+            <Clock size={12} className="text-white/20" />
+          </div>
+          <PeakHoursHeatmapStrip
+            data={peakHoursData}
+            height={30}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-[8px] text-white/20">00:00</span>
+            <span className="text-[8px] text-white/20">12:00</span>
+            <span className="text-[8px] text-white/20">23:00</span>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-1 mt-4">
         <MiniStat
           label="Realtime Convs"

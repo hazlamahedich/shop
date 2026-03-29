@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, Activity, Cpu, Layers, Store } from 'lucide-react';
+import { RefreshCw, Activity, Cpu, Layers, Store, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { GlassCard } from '../components/ui/GlassCard';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
@@ -29,6 +29,10 @@ import { CustomerSentimentWidget } from '../components/dashboard/CustomerSentime
 import { ResponseTimeWidget } from '../components/dashboard/ResponseTimeWidget';
 import { FAQUsageWidget } from '../components/dashboard/FAQUsageWidget';
 import { analyticsService } from '../services/analyticsService';
+
+// NEW: Narrative flow components
+import { NarrativeSection } from '../components/dashboard/NarrativeSection';
+import { NarrativeFlowConnector } from '../components/dashboard/NarrativeFlowConnector';
 
 function LastUpdatedBadge() {
   const { dataUpdatedAt } = useQuery({ 
@@ -134,49 +138,69 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 gap-6">
           {!isEcommerce ? (
-            /* CONSOLIDATED KNOWLEDGE HUB VIEW */
+            /* KNOWLEDGE & INTELLIGENCE STORY - Narrative Flow Layout */
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              {/* Primary Analytics & Sentiment */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1">
+              {/* ACT 1: Hero Row - "How are we performing?" */}
+              <NarrativeSection
+                title="How are we performing?"
+                description="System health at a glance"
+                icon={Activity}
+                color="mantis"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <KnowledgeEffectivenessWidget />
                   <AICostWidget />
-                </div>
-                <div className="md:col-span-2">
                   <CustomerSentimentWidget />
                 </div>
-              </div>
+              </NarrativeSection>
 
-              {/* RAG Core Efficiency & Base Knowledge */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2">
+              <NarrativeFlowConnector />
+
+              {/* ACT 2: Key Insights - "What are people asking?" */}
+              <NarrativeSection
+                title="What are people asking?"
+                description="User intent and knowledge coverage"
+                icon={Cpu}
+                color="purple"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <TopTopicsWidget />
                   <KnowledgeBaseWidget />
                 </div>
-                <div>
-                  <KnowledgeEffectivenessWidget />
+                <ConversationOverviewWidget />
+              </NarrativeSection>
+
+              <NarrativeFlowConnector />
+
+              {/* ACT 3: Deep Analysis - "How do we improve?" */}
+              <NarrativeSection
+                title="How do we improve?"
+                description="Identify gaps and optimization opportunities"
+                icon={Layers}
+                color="orange"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <KnowledgeGapWidget />
+                  <ResponseTimeWidget />
                 </div>
-              </div>
+                <FAQUsageWidget />
+              </NarrativeSection>
 
-              {/* Gaps & Intelligence (Response metrics) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <KnowledgeGapWidget />
-                <ResponseTimeWidget />
-              </div>
+              <NarrativeFlowConnector />
 
-              {/* FAQ Usage Widget */}
-              <FAQUsageWidget />
-
-              {/* Operational Status Section (within hub) */}
-              <div className="pt-6 border-t border-white/5">
-                <div className="flex items-center gap-2 mb-6">
-                  <Activity size={14} className="text-[#00f5d4]" />
-                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Operational Pulse</span>
-                </div>
+              {/* ACT 4: Action Items - "What needs attention?" */}
+              <NarrativeSection
+                title="What needs attention?"
+                description="Operational tasks and alerts"
+                icon={AlertTriangle}
+                color="red"
+              >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <HandoffQueueWidget />
                   <AlertsWidget />
+                  <HandoffQueueWidget />
                   <BotQualityWidget />
                 </div>
-              </div>
+              </NarrativeSection>
             </div>
           ) : (
             /* STANDARD COMMERCE DASHBOARD (TABBED) */

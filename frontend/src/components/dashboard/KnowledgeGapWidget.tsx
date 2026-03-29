@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronRight, Plus, EyeOff, MessageSquare, FileText, X } from 'lucide-react';
+import { BookOpen, ChevronRight, Plus, EyeOff, MessageSquare, FileText, X, Target } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 import { useState } from 'react';
+import { BubbleChart, MiniBubbleChart } from '../charts/BubbleChart';
 
 interface KnowledgeGap {
   id: string;
@@ -38,16 +39,86 @@ export function KnowledgeGapWidget() {
   const gaps = gapsData?.gaps || [];
   const displayGaps = gaps.slice(0, 5);
 
+  // Prepare bubble chart data (opportunity matrix)
+  // Map gaps to quadrants based on count (impact) and suggested action (ease)
+  const bubbleData = gaps.map((gap) => {
+    const impact = Math.min(100, gap.count * 10); // More frequent = higher impact
+    const ease = gap.suggestedAction === 'add-doc' ? 80 :
+              gap.suggestedAction === 'add-faq' ? 60 :
+              gap.suggestedAction === 'improve-search' ? 40 : 20;
+    const size = gap.count;
+
+    return {
+      id: gap.id,
+      name: gap.intent,
+      x: ease,
+      y: impact,
+      size,
+      category:
+        ease >= 60 && impact >= 60 ? 'quick-win' :
+        ease >= 60 && impact < 60 ? 'fill-in' :
+        ease < 60 && impact >= 60 ? 'major-project' : 'low-priority',
+    };
+  });
+
+  const handleBubbleClick = (bubble: any) => {
+    const gap = gaps.find(g => g.id === bubble.id);
+    if (gap) {
+      setSelectedGap(gap);
+    }
+  };
+
   return (
     <StatCard
       title="Intelligence Gaps"
       value={isLoading ? '...' : gaps.length.toString()}
-      subValue="BLIND_SPOTS"
-      icon={<EyeOff size={18} />}
+      subValue="OPPORTUNITY_MATRIX"
+      icon={<Target size={18} />}
       accentColor={gaps.length > 0 ? 'orange' : 'mantis'}
       data-testid="knowledge-gap-widget"
       isLoading={isLoading}
+      expandable
+      miniChart={
+        !isLoading && gaps.length > 0 && (
+          <div className="mt-2">
+            <MiniBubbleChart
+              data={bubbleData}
+              width={200}
+              height={50}
+              maxBubbles={5}
+            />
+          </div>
+        )
+      }
     >
+      {/* Bubble Chart Visualization */}
+      {!isLoading && gaps.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              IMPACT vs EFFORT MATRIX
+            </span>
+            <Target size={12} className="text-white/20" />
+          </div>
+          <BubbleChart
+            data={bubbleData}
+            height={200}
+            onClick={handleBubbleClick}
+            showLabels={true}
+            showQuadrants={true}
+            quadrantLabels={{
+              topLeft: 'MAJOR PROJECTS\n(Hard + High Impact)',
+              topRight: 'QUICK WINS\n(Easy + High Impact)',
+              bottomLeft: 'FILL IN\n(Easy + Low Impact)',
+              bottomRight: 'DEFER\n(Hard + Low Impact)',
+            }}
+            xLabel='EASY TO FIX →'
+            yLabel='↑ IMPACT'
+            ariaLabel="Knowledge gap opportunity matrix"
+          />
+        </div>
+      )}
+
       <div className="space-y-2 mt-4">
         {isError && (
           <div className="flex items-center justify-center py-8">
@@ -98,6 +169,7 @@ export function KnowledgeGapWidget() {
                     <button
                       onClick={() => setSelectedGap(null)}
                       className="p-1 text-white/30 hover:text-white/60 transition-colors"
+                      aria-label="Close knowledge gap menu"
                     >
                       <X size={14} />
                     </button>
@@ -109,6 +181,7 @@ export function KnowledgeGapWidget() {
                         setSelectedGap(null);
                       }}
                       className="flex flex-col items-center gap-2 p-3 bg-[#00f5d4]/5 border border-[#00f5d4]/20 rounded-lg hover:bg-[#00f5d4]/10 transition-all group"
+                      aria-label={`Add "${gap.intent}" as FAQ`}
                     >
                       <MessageSquare size={18} className="text-[#00f5d4] group-hover:scale-110 transition-transform" />
                       <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add as FAQ</span>
@@ -119,6 +192,7 @@ export function KnowledgeGapWidget() {
                         setSelectedGap(null);
                       }}
                       className="flex flex-col items-center gap-2 p-3 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg hover:bg-[#00bbf9]/10 transition-all group"
+                      aria-label="Upload document to knowledge base"
                     >
                       <FileText size={18} className="text-[#00bbf9] group-hover:scale-110 transition-transform" />
                       <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add Document</span>

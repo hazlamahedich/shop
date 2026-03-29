@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Cpu, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Star } from 'lucide-react';
+import { Cpu, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Star, Radar } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
+import { RadarChart, MiniRadarChart } from '../charts/RadarChart';
 
 const HEALTH_CONFIG = {
   healthy: {
@@ -73,6 +75,7 @@ function MetricRow({
 }
 
 export function BotQualityWidget() {
+  const [selectedAxis, setSelectedAxis] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['analytics', 'botQuality'],
     queryFn: () => analyticsService.getBotQuality(30),
@@ -94,6 +97,42 @@ export function BotQualityWidget() {
     ? `${(data.resolutionRate * 100).toFixed(1)}%`
     : '0.0%';
 
+  // Prepare radar chart data with clearer labels
+  const radarData = [
+    {
+      axis: 'Accuracy',
+      value: data?.csatScore != null ? data.csatScore * 20 : 70, // CSAT 1-5 → 0-100
+      fullMark: 100,
+    },
+    {
+      axis: 'Speed',
+      value: data?.avgResponseTimeSeconds != null
+        ? Math.max(0, 100 - (data.avgResponseTimeSeconds / 10) * 100) // Lower is better
+        : 75,
+      fullMark: 100,
+    },
+    {
+      axis: 'Resolve',
+      value: data?.resolutionRate != null ? data.resolutionRate * 100 : 80,
+      fullMark: 100,
+    },
+    {
+      axis: 'Stability',
+      value: data?.fallbackRate != null ? (1 - data.fallbackRate) * 100 : 85, // Lower fallback is better
+      fullMark: 100,
+    },
+    {
+      axis: 'Rating',
+      value: data?.csatScore != null ? data.csatScore * 20 : 72,
+      fullMark: 100,
+    },
+  ];
+
+  const handleAxisClick = (axis: string) => {
+    setSelectedAxis(axis);
+    setTimeout(() => setSelectedAxis(null), 3000);
+  };
+
   return (
     <StatCard
       title="Neural Performance"
@@ -102,7 +141,61 @@ export function BotQualityWidget() {
       accentColor={healthConfig.color}
       data-testid="bot-quality-widget"
       isLoading={isLoading}
+      expandable
+      miniChart={
+        !isLoading && data?.csatScore && (
+          <div className="mt-2">
+            <MiniRadarChart data={radarData} width={180} height={50} />
+          </div>
+        )
+      }
     >
+      {/* Radar Chart Visualization */}
+      {!isLoading && data?.csatScore && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              QUALITY_RADAR
+            </span>
+            <Radar size={12} className="text-white/20" />
+          </div>
+          <RadarChart
+            data={radarData}
+            height={220}
+            showAxes={true}
+            showLabels={true}
+            showValues={true}
+            onAxisClick={handleAxisClick}
+            ariaLabel="Bot quality radar chart showing 5 dimensions"
+          />
+          {selectedAxis && (
+            <div className="mt-2 p-2 bg-white/5 border border-white/10 rounded-lg text-center animate-in fade-in slide-in-from-top-2">
+              <p className="text-[9px] font-bold text-[#00f5d4] uppercase tracking-wider">
+                {selectedAxis} Selected
+              </p>
+            </div>
+          )}
+          {/* Legend explaining the radar */}
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[8px]">
+            <div className="flex items-center gap-2 text-white/40">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00f5d4]" />
+              <span className="font-bold uppercase">Good: 70-100</span>
+            </div>
+            <div className="flex items-center gap-2 text-white/40">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <span className="font-bold uppercase">Fair: 50-70</span>
+            </div>
+            <div className="flex items-center gap-2 text-white/40">
+              <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+              <span className="font-bold uppercase">Poor: &lt;50</span>
+            </div>
+            <div className="flex items-center gap-2 text-white/40">
+              <span className="font-bold uppercase">Click axis for details</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-0.5 mt-2">
         <div className="flex items-center justify-between gap-1 py-2 border-b border-white/5">
           <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">STATUS_ARRAY</span>

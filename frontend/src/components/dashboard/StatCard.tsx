@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 interface StatCardProps {
   title: string;
@@ -11,6 +12,12 @@ interface StatCardProps {
   isLoading?: boolean;
   children?: React.ReactNode;
   'data-testid'?: string;
+  // NEW: Chart support props
+  miniChart?: React.ReactNode; // Mini visualization to show below stats
+  chartType?: 'none' | 'sparkline' | 'donut' | 'bar' | 'area';
+  chartData?: number[] | Array<{ value: number; label?: string }>;
+  expandable?: boolean; // Can expand to show full chart
+  onExpand?: () => void;
 }
 
 const COLOR_MAP: Record<string, { bg: string; text: string; border: string; glow: string }> = {
@@ -87,23 +94,52 @@ export function StatCard({
   isLoading = false,
   children,
   'data-testid': testId = 'stat-card',
+  miniChart,
+  chartType = 'none',
+  chartData,
+  expandable = false,
+  onExpand,
 }: StatCardProps) {
   const colors = COLOR_MAP[accentColor] ?? COLOR_MAP.mantis;
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const clickable = onClick
+  const clickable = onClick || expandable
     ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]'
     : '';
 
+  const handleClick = () => {
+    if (expandable && onExpand) {
+      onExpand();
+      setIsExpanded(!isExpanded);
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
   return (
     <div
-      className={`glass-card p-6 transition-all duration-400 ${clickable} ${colors.glow} group overflow-hidden relative`}
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+      className={`glass-card p-6 transition-all duration-400 ${clickable} ${colors.glow} group overflow-hidden relative ${isExpanded ? 'fixed inset-4 z-50 rounded-2xl' : ''}`}
+      onClick={handleClick}
+      role={onClick || expandable ? 'button' : undefined}
+      tabIndex={onClick || expandable ? 0 : undefined}
+      onKeyDown={(e) => (e.key === 'Enter' && handleClick())}
       data-testid={testId}
     >
       <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-transparent via-[#00f5d4]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      {/* Expand button */}
+      {expandable && (
+        <button
+          className="absolute top-4 right-4 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/30 hover:text-white/60 transition-all"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          aria-label={isExpanded ? 'Collapse' : 'Expand'}
+        >
+          {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+      )}
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
@@ -136,8 +172,22 @@ export function StatCard({
         )}
       </div>
 
-      {!isLoading && children && (
-        <div className="mt-6 border-t border-white/5 pt-4">{children}</div>
+      {!isLoading && (children || miniChart) && (
+        <div className="mt-6 border-t border-white/5 pt-4">
+          {children}
+          {/* Render mini chart if provided */}
+          {miniChart && !isExpanded && (
+            <div className="mt-4" aria-hidden="true">
+              {miniChart}
+            </div>
+          )}
+          {/* Expanded chart view */}
+          {isExpanded && miniChart && (
+            <div className="mt-4 h-64">
+              {miniChart}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

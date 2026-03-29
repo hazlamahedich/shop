@@ -18,8 +18,19 @@
 
   /* Focus visible utility for keyboard navigation */
   *:focus-visible {
-    outline: 2px solid var(--shop-primary-600);
+    outline: 2px solid #00f5d4;
     outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Ensure focus is visible on all interactive elements */
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #00f5d4;
+    outline-offset: 2px;
+    border-radius: 4px;
+    box-shadow: 0 0 0 4px rgba(0, 245, 212, 0.1);
   }
 
   :root {
@@ -86,9 +97,9 @@
     --mantis-bg: #0d0d12;
     --mantis-glow: #00f5d4; /* Vibrant Teal */
     --mantis-glow-muted: rgba(0, 245, 212, 0.2);
-    --mantis-glass-bg: rgba(255, 255, 255, 0.03);
-    --mantis-glass-border: rgba(255, 255, 255, 0.08);
-    
+    --mantis-glass-bg: rgba(255, 255, 255, 0.12);
+    --mantis-glass-border: rgba(255, 255, 255, 0.20);
+
     --card-bg: var(--mantis-glass-bg);
     --card-border: var(--mantis-glass-border);
     --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
@@ -107,6 +118,23 @@
 
     /* Animation Tokens */
     --scanline-color: rgba(0, 245, 212, 0.03);
+
+    /* Chart Visualization Colors */
+    --chart-grid-line: rgba(255, 255, 255, 0.08);
+    --chart-axis-text: rgba(255, 255, 255, 0.5);
+    --chart-tooltip-bg: rgba(13, 13, 18, 0.95);
+    --chart-mantis: #00f5d4;
+    --chart-mantis-muted: rgba(0, 245, 212, 0.2);
+    --chart-purple: #a78bfa;
+    --chart-orange: #fb923c;
+    --chart-red: #f87171;
+    --chart-blue: #60a5fa;
+
+    /* Story Section Colors */
+    --story-hero: #00f5d4;
+    --story-insights: #a78bfa;
+    --story-analysis: #fb923c;
+    --story-action: #f87171;
   }
 
   .glass-card {

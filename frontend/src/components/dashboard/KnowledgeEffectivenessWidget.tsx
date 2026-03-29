@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { GitCompare, Target, Zap, Wifi, WifiOff } from 'lucide-react';
+import { GitCompare, Target, Zap, Wifi, WifiOff, TrendingUp, TrendingDown } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { getDashboardWebSocketService, closeDashboardWebSocket } from '../../services/dashboardWebSocketService';
 import { StatCard } from './StatCard';
+import { DonutGauge } from '../charts/DonutChart';
+import { MiniAreaChart } from '../charts/AreaChart';
 
 interface KnowledgeEffectivenessData {
   totalQueries: number;
@@ -12,6 +14,7 @@ interface KnowledgeEffectivenessData {
   avgConfidence: number | null;
   trend: number[];
   lastUpdated: string;
+  dailyData?: Array<{ date: string; rate: number; count: number }>; // NEW: For sparkline
 }
 
 export function KnowledgeEffectivenessWidget() {
@@ -63,15 +66,85 @@ export function KnowledgeEffectivenessWidget() {
   const resolved = effectivenessData?.successfulMatches || 0;
   const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
+  // Calculate trend change (compare last 7 days to previous 7 days)
+  const trend = effectivenessData?.trend || [];
+  const recentTrend = trend.slice(-7);
+  const previousTrend = trend.slice(-14, -7);
+  const avgRecent = recentTrend.length > 0 ? recentTrend.reduce((a, b) => a + b, 0) / recentTrend.length : 0;
+  const avgPrevious = previousTrend.length > 0 ? previousTrend.reduce((a, b) => a + b, 0) / previousTrend.length : 0;
+  const trendChange = avgPrevious > 0 ? ((avgRecent - avgPrevious) / avgPrevious) * 100 : 0;
+
+  // Determine color zone
+  const getColorZone = () => {
+    if (rate >= 80) return 'green';
+    if (rate >= 60) return 'yellow';
+    return 'red';
+  };
+
+  // Prepare sparkline data
+  const sparklineData = (effectivenessData?.dailyData || effectivenessData?.trend || []).slice(-14).map((val, idx) => {
+    if (typeof val === 'number') {
+      return { name: `Day ${idx + 1}`, value: val * 100 };
+    }
+    return { name: val.date, value: val.rate * 100 };
+  });
+
   return (
     <StatCard
       title="Knowledge Effectiveness"
       value={isLoading ? '...' : `${rate}%`}
       subValue="CORE_RELIABILITY_SCORE"
       icon={<GitCompare size={18} />}
-      accentColor={rate > 70 ? 'mantis' : rate > 40 ? 'yellow' : 'red'}
+      accentColor={rate >= 80 ? 'mantis' : rate >= 60 ? 'orange' : 'red'}
       data-testid="knowledge-effectiveness-widget"
       isLoading={isLoading}
+      miniChart={
+        !isLoading && (
+          <div className="flex items-center gap-4 mt-4">
+            {/* Donut Gauge */}
+            <DonutGauge
+              value={rate}
+              maxValue={100}
+              width={100}
+              height={100}
+              showLabel={false}
+            />
+            <div className="flex-1">
+              {/* Mini sparkline chart */}
+              <div className="mb-2">
+                {sparklineData.length > 0 && (
+                  <MiniAreaChart
+                    data={sparklineData}
+                    dataKey="value"
+                    height={50}
+                    color={rate >= 80 ? '#00f5d4' : rate >= 60 ? '#fb923c' : '#f87171'}
+                  />
+                )}
+              </div>
+              {/* Trend indicator */}
+              <div className="flex items-center gap-2 text-[10px]">
+                {trendChange > 5 ? (
+                  <div className="flex items-center gap-1 text-[#00f5d4]">
+                    <TrendingUp size={12} />
+                    <span className="font-black">+{trendChange.toFixed(1)}%</span>
+                  </div>
+                ) : trendChange < -5 ? (
+                  <div className="flex items-center gap-1 text-rose-400">
+                    <TrendingDown size={12} />
+                    <span className="font-black">{trendChange.toFixed(1)}%</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-white/40">
+                    <span className="font-black">Stable</span>
+                  </div>
+                )}
+                <span className="text-white/30">14-day trend</span>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      expandable
     >
       {/* Connection Status Indicator */}
       <div className="flex items-center justify-end mb-2">

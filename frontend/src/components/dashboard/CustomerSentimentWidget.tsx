@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Smile, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Smile, TrendingUp, TrendingDown, AlertTriangle, Meh, Frown } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
+import { MiniAreaChart } from '../charts/AreaChart';
 
 interface SentimentData {
   period: { days: number };
@@ -20,6 +21,8 @@ interface SentimentData {
   dailyBreakdown: Array<{
     date: string;
     positiveRate: number;
+    negativeRate: number;
+    neutralRate: number;
   }>;
   alert: string | null;
 }
@@ -47,16 +50,51 @@ export function CustomerSentimentWidget() {
     : 'Stable';
 
   const positivePct = Math.round((current?.positiveRate ?? 0) * 100);
+  const negativeCount = current?.negativeCount ?? 0;
+  const neutralCount = current?.neutralCount ?? 0;
+  const totalMessages = current?.totalMessages ?? 1;
+  const negativePct = Math.round((negativeCount / totalMessages) * 100);
+  const neutralPct = Math.round((neutralCount / totalMessages) * 100);
+
+  // Animated emoji indicator
+  const getSentimentEmoji = () => {
+    if (positivePct >= 80) return <Smile size={48} className="text-[#00f5d4] animate-pulse" />;
+    if (positivePct >= 60) return <Smile size={48} className="text-[#fb923c]" />;
+    if (positivePct >= 40) return <Meh size={48} className="text-yellow-400" />;
+    return <Frown size={48} className="text-rose-400" />;
+  };
+
+  // Prepare timeline data for mini chart
+  const timelineData = dailyBreakdown.slice(-14).map(day => ({
+    name: day.date,
+    value: day.positiveRate * 100,
+  }));
 
   return (
     <StatCard
       title="Sentiment"
       value={`${positivePct}%`}
       subValue="Customer satisfaction"
-      icon={<Smile size={18} />}
-      accentColor={trend === 'improving' ? 'green' : trend === 'declining' ? 'red' : 'blue'}
+      icon={getSentimentEmoji()}
+      accentColor={trend === 'improving' ? 'mantis' : trend === 'declining' ? 'red' : 'purple'}
       data-testid="customer-sentiment-widget"
       isLoading={isLoading}
+      miniChart={
+        !isLoading && (
+          <div className="mt-4">
+            {/* Sentiment Timeline Mini Chart */}
+            {timelineData.length > 0 && (
+              <MiniAreaChart
+                data={timelineData}
+                dataKey="value"
+                height={60}
+                color={trend === 'improving' ? '#00f5d4' : trend === 'declining' ? '#f87171' : '#a78bfa'}
+              />
+            )}
+          </div>
+        )
+      }
+      expandable
     >
       <div className="space-y-2 mt-2">
         {alert && (
@@ -103,14 +141,32 @@ export function CustomerSentimentWidget() {
 
         {dailyBreakdown.length > 0 && (
           <div className="pt-2 border-t border-white/10">
-            <div className="text-xs text-white/60 mb-1">Last 7 days</div>
-            <div className="flex gap-1">
-              {dailyBreakdown.slice(-7).map((day, i) => (
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-white/60">Last 14 days</div>
+              <div className="flex items-center gap-1">
+                {trendIcon}
+                <span className={`text-xs font-medium ${
+                  trend === 'improving' ? 'text-[#00f5d4]' :
+                  trend === 'declining' ? 'text-rose-400' :
+                  'text-white/60'
+                }`}>
+                  {trendLabel}
+                  {trendChange != null && ` (${trendChange > 0 ? '+' : ''}${trendChange}%)`}
+                </span>
+              </div>
+            </div>
+
+            {/* Visual sentiment timeline bar */}
+            <div className="flex gap-0.5 h-8">
+              {dailyBreakdown.slice(-14).map((day, i) => (
                 <div
                   key={i}
-                  className="flex-1 h-6 rounded-sm"
+                  className="flex-1 rounded-sm transition-all hover:opacity-100 cursor-pointer border border-white/5"
                   style={{
-                    backgroundColor: day.positiveRate > 0.6 ? '#86efac' : day.positiveRate > 0.4 ? '#fcd34d' : '#fca5a5',
+                    backgroundColor: day.positiveRate > 0.6 ? 'rgba(0, 245, 212, 0.6)' :
+                                   day.positiveRate > 0.4 ? 'rgba(251, 191, 36, 0.6)' :
+                                   'rgba(248, 113, 113, 0.6)',
+                    opacity: 0.8,
                   }}
                   title={`${day.date}: ${Math.round(day.positiveRate * 100)}% positive`}
                 />
