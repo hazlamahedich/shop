@@ -27,16 +27,22 @@ function getTrendColor(trend: string) {
 
 /**
  * Format topic name for display
- * Shows readable name or unique ID for encrypted topics
+ * Shows readable name or handles encrypted/failed decryption topics
  */
 function formatTopicName(topicName: string): string {
   if (!topicName) return '[Unknown Topic]';
 
-  // Check if encrypted (Fernet starts with 'gAAAA')
+  // Check if backend marked as failed decryption
+  if (topicName.startsWith('[Encrypted]')) {
+    // Show the backend's marker for failed decryption
+    return topicName;
+  }
+
+  // Check if still encrypted (backend decryption attempt failed but wasn't marked)
   if (isEncrypted(topicName)) {
-    // Show unique ID from first 8 chars of encrypted string
+    // This should NOT happen if backend properly attempted decryption
     const shortId = topicName.substring(0, 8);
-    return `Topic #${shortId}`;
+    return `Topic #${shortId} (Decryption Failed)`;
   }
 
   // Truncate very long names

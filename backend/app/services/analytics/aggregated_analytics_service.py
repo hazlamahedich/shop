@@ -24,6 +24,7 @@ from app.models.rag_query_log import RAGQueryLog
 from app.models.message_feedback import FeedbackRating, MessageFeedback
 from app.services.privacy.data_tier_service import DataTier
 from app.services.analytics.sentiment_analyzer import analyze_sentiment
+from app.core.encryption import decrypt_conversation_content, is_encrypted
 
 logger = structlog.get_logger(__name__)
 
@@ -1647,7 +1648,28 @@ class AggregatedAnalyticsService:
 
             topics = []
             for row in current_rows:
-                topic_name = row.query
+                # Decrypt topic name if encrypted (Fernet-encrypted queries)
+                try:
+                    topic_name = decrypt_conversation_content(row.query)
+
+                    # Verify decryption worked - check if result is still encrypted
+                    if is_encrypted(topic_name):
+                        logger.warning(
+                            "topic_decryption_failed",
+                            merchant_id=merchant_id,
+                            query_prefix=row.query[:20] if row.query else None,
+                        )
+                        # Mark as encrypted for frontend to handle gracefully
+                        topic_name = f"[Encrypted] {topic_name[:16]}..."
+                except Exception as e:
+                    logger.error(
+                        "topic_decryption_error",
+                        merchant_id=merchant_id,
+                        error=str(e),
+                        query_prefix=row.query[:20] if row.query else None,
+                    )
+                    topic_name = row.query
+
                 current_count = row.query_count
                 previous_count = previous_counts.get(topic_name, 0)
 
@@ -1670,6 +1692,16 @@ class AggregatedAnalyticsService:
                     }
                 )
 
+            # Monitor decryption success/failure
+            decryption_failures = sum(1 for t in topics if t["name"].startswith("[Encrypted]"))
+            if decryption_failures > 0:
+                logger.warning(
+                    "topic_decryption_summary",
+                    merchant_id=merchant_id,
+                    failures=decryption_failures,
+                    total=len(topics),
+                )
+
             period_data = {
                 "days": days,
                 "startDate": current_period_start.isoformat(),
@@ -1681,6 +1713,7 @@ class AggregatedAnalyticsService:
                 merchant_id=merchant_id,
                 days=days,
                 topic_count=len(topics),
+                decryption_failures=decryption_failures,
             )
 
             return {

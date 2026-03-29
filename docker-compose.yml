@@ -51,9 +51,10 @@ services:
       - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
       - FACEBOOK_WEBHOOK_VERIFY_TOKEN=${FACEBOOK_WEBHOOK_VERIFY_TOKEN}
       - FACEBOOK_ENCRYPTION_KEY=svDMRtZ5J1tOwT2zfiKuLFh7bFPIorcUpxKBO95tgo4=
+      - CONVERSATION_ENCRYPTION_KEY=bco7iCBkht3aQAW9bD0t7hq21TIbdQHoxa8PaQZy2So=
       - LLM_PROVIDER=ollama
       - OLLAMA_DEFAULT_URL=http://host.docker.internal:11434
-      - IS_TESTING=true
+      - IS_TESTING=false
     depends_on:
       postgres:
         condition: service_healthy
