@@ -1112,18 +1112,10 @@ class AggregatedAnalyticsService:
 
             bot_quality = await self.get_bot_quality_metrics(merchant_id, days)
 
-            # Get total cost - conversation_id is stored as string, need to cast for join
+            # Get total cost - filter by merchant_id since conversation_id is UUID
             cost_result = await self.db.execute(
                 select(func.sum(LLMConversationCost.total_cost_usd).label("total_cost"))
-                .join(
-                    Conversation,
-                    func.cast(
-                        func.regexp_replace(LLMConversationCost.conversation_id, r"^conv-", ""),
-                        Integer,
-                    )
-                    == Conversation.id,
-                )
-                .where(Conversation.merchant_id == merchant_id)
+                .where(LLMConversationCost.merchant_id == merchant_id)
                 .where(LLMConversationCost.created_at >= cutoff_date)
             )
             total_cost = float(cost_result.scalar() or 0.0)

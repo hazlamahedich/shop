@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { RefreshCw, Activity, Cpu, Layers, Store, AlertTriangle } from 'lucide-react';
+import React from 'react';
+import { RefreshCw, Activity, Cpu, Layers, AlertTriangle, DollarSign, ShoppingBag, TrendingUp, Target } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { GlassCard } from '../components/ui/GlassCard';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
@@ -53,18 +53,10 @@ function LastUpdatedBadge() {
   );
 }
 
-type TabType = 'live' | 'rag' | 'market';
-
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('live');
   const hasStoreConnected = useHasStoreConnected();
   const onboardingMode = useAuthStore((state) => state.merchant?.onboardingMode);
   const isEcommerce = onboardingMode !== 'general';
-
-  const tabs: { id: TabType; label: string; icon: React.ElementType }[] = [
-    { id: 'live', label: 'Live Ops', icon: Activity },
-    { id: 'rag', label: 'RAG Intel', icon: Cpu },
-  ];
 
   return (
     <div className="space-y-6 min-h-screen bg-[#0d0d12]/50">
@@ -97,44 +89,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* High-Tech Tab Navigation - Only for Ecommerce */}
-        {isEcommerce && (
-          <div className="flex items-center gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 w-fit backdrop-blur-md">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${
-                  activeTab === tab.id
-                    ? 'bg-[#00f5d4] text-black shadow-[0_0_20px_rgba(0,245,212,0.3)]'
-                    : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-                }`}
-              >
-                <tab.icon size={14} strokeWidth={3} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {isEcommerce && !hasStoreConnected && activeTab === 'market' && (
-          <GlassCard accent="mantis" className="bg-[#00f5d4]/5 border-[#00f5d4]/20 animate-pulse">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#00f5d4]/20 text-[#00f5d4]">
-                <Store size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-black text-[#00f5d4] uppercase tracking-wide">Telemetry Locked</p>
-                <p className="text-[11px] text-[#00f5d4]/50 mt-0.5 font-bold uppercase tracking-tight">
-                  Connect Shopify to initialize commerce data flows.
-                  <a href="/bot-config" className="ml-2 text-white hover:text-[#00f5d4] underline transition-colors">
-                    Access Configuration
-                  </a>
-                </p>
-              </div>
-            </div>
-          </GlassCard>
-        )}
 
         <div className="grid grid-cols-1 gap-6">
           {!isEcommerce ? (
@@ -203,82 +157,79 @@ const Dashboard = () => {
               </NarrativeSection>
             </div>
           ) : (
-            /* STANDARD COMMERCE DASHBOARD (TABBED) */
-            <>
-              {activeTab === 'live' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  {/* Operational Telemetry (Top Row) */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="md:col-span-1">
-                      <RevenueWidget />
-                    </div>
-                    <div className="md:col-span-1">
-                      <AICostWidget />
-                    </div>
-                    <div className="md:col-span-2">
-                      <PendingOrdersWidget />
-                    </div>
-                  </div>
-
-                  {/* Signals & Distribution (Middle Row) */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="md:col-span-2">
-                      <HandoffQueueWidget />
-                    </div>
-                    <div className="md:col-span-2">
-                      <ConversationOverviewWidget />
-                    </div>
-                  </div>
-
-                  {/* Quality & Sentiment Zone */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <BenchmarkComparisonWidget />
-                    <CustomerSentimentWidget />
-                    <FinancialOverviewWidget />
-                  </div>
-
-                  {/* Behavior & Analytics (E-commerce Section) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <PeakHoursHeatmapWidget />
-                    <TopProductsWidget />
-                    <ConversionFunnelWidget />
-                  </div>
-
-                  {/* Geographic Distribution */}
-                  <div className="grid grid-cols-1 gap-6">
-                    <GeographicSnapshotWidget />
-                  </div>
-
-                  {/* Real-time Alerts & Stability (Bottom Row) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <AlertsWidget />
-                    <BotQualityWidget />
-                    <QualityMetricsWidget />
-                  </div>
+            /* E-COMMERCE MODE - Narrative Flow Layout */
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {/* ACT 1: Business Pulse - "How's the business performing right now?" */}
+              <NarrativeSection
+                title="How's the business performing right now?"
+                description="Business Pulse - Real-time financial health"
+                icon={DollarSign}
+                color="blue"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <RevenueWidget />
+                  <FinancialOverviewWidget />
                 </div>
-              )}
+              </NarrativeSection>
 
-              {activeTab === 'rag' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  {/* Neural Core Status */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
-                      <KnowledgeBaseWidget />
-                    </div>
-                    <div>
-                      <KnowledgeEffectivenessWidget />
-                    </div>
-                  </div>
+              <NarrativeFlowConnector />
 
-                  {/* Semantic Analysis & Gaps */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <KnowledgeGapWidget />
-                    <TopTopicsWidget />
-                    <FeedbackAnalyticsWidget />
-                  </div>
+              {/* ACT 2: Customer Journey - "What are customers doing on my store?" */}
+              <NarrativeSection
+                title="What are customers doing on my store?"
+                description="Customer Journey - Behavior and conversion insights"
+                icon={TrendingUp}
+                color="purple"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ConversionFunnelWidget />
+                  <TopProductsWidget />
                 </div>
-              )}
-            </>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                  <div className="md:col-span-2">
+                    <ConversationOverviewWidget />
+                  </div>
+                  <PeakHoursHeatmapWidget />
+                </div>
+              </NarrativeSection>
+
+              <NarrativeFlowConnector />
+
+              {/* ACT 3: Action Center - "What needs my attention right now?" */}
+              <NarrativeSection
+                title="What needs my attention right now?"
+                description="Action Center - Orders requiring immediate attention"
+                icon={ShoppingBag}
+                color="orange"
+              >
+                <div className="grid grid-cols-1 gap-6">
+                  <PendingOrdersWidget />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <HandoffQueueWidget />
+                  <AlertsWidget />
+                </div>
+              </NarrativeSection>
+
+              <NarrativeFlowConnector />
+
+              {/* ACT 4: Growth Opportunities - "How can I improve and grow?" */}
+              <NarrativeSection
+                title="How can I improve and grow?"
+                description="Growth Opportunities - Strategic improvement areas"
+                icon={Target}
+                color="red"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <BenchmarkComparisonWidget />
+                  <CustomerSentimentWidget />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <BotQualityWidget />
+                  <GeographicSnapshotWidget />
+                </div>
+              </NarrativeSection>
+            </div>
           )}
         </div>
 
