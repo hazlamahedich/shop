@@ -1,0 +1,75 @@
+/**
+ * Widget Visibility Fix
+ *
+ * Add this CSS to your portfolio site to ensure the widget is visible.
+ * This file overrides any CSS that might be hiding the widget.
+ */
+
+/* Widget container - ensure it's positioned correctly */
+[class*="shopbot"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Widget bubble - ensure it's visible */
+.shopbot-chat-bubble,
+[class*="shopbot-bubble"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed !important;
+    z-index: 2147483647 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+/* Widget window - ensure it's visible */
+.shopbot-chat-window,
+[class*="shopbot-window"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 2147483647 !important;
+}
+
+/* Widget root element */
+.shopbot-widget-root,
+[class*="shopbot-root"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* All widget elements */
+[class*="shopbot"] * {
+    visibility: visible !important;
+}
+
+/* Specific fixes for common issues */
+.shopbot-chat-bubble:not(:hover) {
+    opacity: 1 !important;
+}
+
+.shopbot-chat-window:not([style*="display: none"]) {
+    display: block !important;
+}
+
+/* Ensure widget is above everything else */
+.shopbot-chat-bubble,
+.shopbot-chat-window {
+    z-index: 2147483647 !important;
+}
+
+/* Fix for position conflicts */
+.shopbot-chat-bubble[style*="position: fixed"],
+.shopbot-chat-window[style*="position: fixed"] {
+    position: fixed !important;
+}
+
+/* Fix for size issues */
+.shopbot-chat-bubble,
+.shopbot-chat-window {
+    min-width: 60px !important;
+    min-height: 60px !important;
+}

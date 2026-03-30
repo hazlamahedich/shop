@@ -182,6 +182,11 @@ class BudgetAwareLLMWrapper(BaseLLMService):
 
         processing_time_ms = (time.time() - start_time) * 1000
 
+        # Extract response_type from response metadata
+        response_type = "unknown"
+        if hasattr(response, "metadata") and response.metadata:
+            response_type = response.metadata.get("response_type", "unknown")
+
         if self.track_costs:
             try:
                 await track_llm_request(
@@ -190,6 +195,7 @@ class BudgetAwareLLMWrapper(BaseLLMService):
                     conversation_id=self.conversation_id,
                     merchant_id=self.merchant_id,
                     processing_time_ms=processing_time_ms,
+                    response_type=response_type,
                 )
 
                 if budget_cap is not None:

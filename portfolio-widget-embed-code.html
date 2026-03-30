@@ -1,0 +1,113 @@
+<!--
+  ADD THIS TO YOUR PORTFOLIO SITE
+  Copy everything below and paste it into your portfolio site's HTML,
+  ideally before the closing </head> tag or in the <head> section.
+-->
+
+<!-- Widget Visibility Fix CSS -->
+<style>
+  /* Widget container - ensure it's positioned correctly */
+  [class*="shopbot"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Widget bubble - ensure it's visible */
+  .shopbot-chat-bubble,
+  [class*="shopbot-bubble"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed !important;
+    z-index: 2147483647 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+  }
+
+  /* Widget window - ensure it's visible */
+  .shopbot-chat-window,
+  [class*="shopbot-window"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 2147483647 !important;
+  }
+
+  /* Widget root element */
+  .shopbot-widget-root,
+  [class*="shopbot-root"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* All widget elements */
+  [class*="shopbot"] * {
+    visibility: visible !important;
+  }
+
+  /* Ensure widget is above everything else */
+  .shopbot-chat-bubble,
+  .shopbot-chat-window {
+    z-index: 2147483647 !important;
+  }
+
+  /* Fix for size issues */
+  .shopbot-chat-bubble,
+  .shopbot-chat-window {
+    min-width: 60px !important;
+    min-height: 60px !important;
+  }
+</style>
+
+<!-- Widget Configuration -->
+<script>
+  window.ShopBotConfig = {
+    merchantId: '1',
+    theme: {
+      primaryColor: '#6366f1',
+      position: 'bottom-right',
+      borderRadius: 12,
+      width: 400,
+      height: 600
+    },
+    apiBaseUrl: 'https://shopdevsherwingor.share.zrok.io/api/v1/widget'
+  };
+</script>
+
+<!-- Load React Dependencies -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+<!-- Load Widget -->
+<script src="https://shopdevsherwingor.share.zrok.io/static/widget/widget.umd.js"></script>
+
+<!-- Debug: Log when widget loads -->
+<script>
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      console.log('🔍 Widget Debug Info:');
+      console.log('ShopBotConfig:', window.ShopBotConfig);
+      console.log('React loaded:', !!window.React);
+      console.log('ReactDOM loaded:', !!window.ReactDOM);
+
+      // Check for widget elements
+      const widgetElements = document.querySelectorAll('[class*="shopbot"]');
+      console.log('Widget elements found:', widgetElements.length);
+
+      widgetElements.forEach((el, i) => {
+        const style = window.getComputedStyle(el);
+        console.log(`Element ${i}:`, {
+          tag: el.tagName,
+          class: el.className,
+          visible: el.offsetParent !== null,
+          zIndex: style.zIndex,
+          display: style.display,
+          opacity: style.opacity,
+          visibility: style.visibility
+        });
+      });
+    }, 2000);
+  });
+</script>

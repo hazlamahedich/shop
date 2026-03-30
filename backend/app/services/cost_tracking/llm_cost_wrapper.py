@@ -113,12 +113,17 @@ class CostTrackingLLMWrapper(BaseLLMService):
         # Calculate processing time
         processing_time_ms = (time.time() - start_time) * 1000
 
+        # Determine response type from metadata
+        response_type = "unknown"
+        if hasattr(response, "metadata") and response.metadata:
+            response_type = response.metadata.get("response_type", "unknown")
+
         # Track costs automatically if enabled
         if self.track_costs:
             try:
                 await track_llm_request(
                     db=self.db,
-                    llm_response=llm_response,
+                    llm_response=response,
                     conversation_id=self.conversation_id,
                     merchant_id=self.merchant_id,
                     processing_time_ms=processing_time_ms,

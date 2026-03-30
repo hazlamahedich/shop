@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select, text
 
-from app.core.database import async_session
+from app.core.database import get_session_factory
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant, PersonalityType
 from app.models.message import Message
@@ -50,7 +50,7 @@ async def seed_merchant(
         personality: Bot personality type
         platform: Platform type (widget/messenger)
     """
-    async with async_session() as db:
+    async with get_session_factory()() as db:
         # Check if merchant exists
         if merchant_id:
             result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
@@ -96,7 +96,7 @@ async def seed_conversations(
         count: Number of conversations to create
         include_handoff: Include handoff conversations
     """
-    async with async_session() as db:
+    async with get_session_factory()() as db:
         # Verify merchant exists
         result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = result.scalars().first()
@@ -179,7 +179,7 @@ async def seed_faqs(merchant_id: int):
     Args:
         merchant_id: Merchant ID to create FAQs for
     """
-    async with async_session() as db:
+    async with get_session_factory()() as db:
         # Verify merchant exists
         result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = result.scalars().first()

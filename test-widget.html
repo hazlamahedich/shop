@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Replies Widget Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        #output {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quick Replies Widget Test</h1>
+
+        <div class="instructions">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Open browser DevTools (F12)</li>
+                <li>Go to Console tab</li>
+                <li>Send a message like "hello" to the widget</li>
+                <li>Check if quick reply chips appear below the bot message</li>
+                <li>Click the "Test API Directly" button below to see the raw API response</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>Direct API Test</h3>
+            <p>Click to test the backend API directly and see the response:</p>
+            <button onclick="testApi()">Test API Directly</button>
+            <div id="output"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Widget</h3>
+            <p>The widget should be loaded in the bottom right corner.</p>
+        </div>
+    </div>
+
+    <script>
+        // Set widget config BEFORE loading the widget
+        window.ShopBotConfig = {
+            merchantId: '1',
+            apiBaseUrl: 'http://localhost:8000'
+        };
+
+        // Load widget AFTER config is set
+        (function(d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) return;
+            js = d.createElement(s); js.id = id;
+            js.src = 'http://localhost:5173/src/widget/loader.ts';
+            js.defer = true;
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'shopbot-widget'));
+
+        const API_BASE = 'http://localhost:8000/api/v1/widget';
+
+        async function testApi() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...';
+
+            try {
+                // Create session
+                const sessionResponse = await fetch(`${API_BASE}/session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant_id: '1' })
+                });
+                const sessionData = await sessionResponse.json();
+                const sessionId = sessionData.data.sessionId;
+
+                // Send message
+                const messageResponse = await fetch(`${API_BASE}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: 'hello'
+                    })
+                });
+                const messageData = await messageResponse.json();
+
+                // Check for quick replies
+                const quickReplies = messageData.data.quickReplies || messageData.data.quick_replies;
+
+                output.textContent = `✅ SUCCESS!\n\n` +
+                    `Message: ${messageData.data.content}\n\n` +
+                    `Quick Replies Found: ${quickReplies ? quickReplies.length : 0}\n\n` +
+                    `Quick Replies Data:\n${JSON.stringify(quickReplies, null, 2)}`;
+
+                if (quickReplies && quickReplies.length > 0) {
+                    output.textContent += '\n\n✅ Quick replies are being sent from backend!';
+                } else {
+                    output.textContent += '\n\n❌ No quick replies in response';
+                }
+            } catch (error) {
+                output.textContent = `❌ ERROR: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

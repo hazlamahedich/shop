@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Test - Merchant 1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .test-info {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .widget-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h1>🧪 Widget Test Page</h1>
+        <p><strong>Merchant ID:</strong> 1</p>
+        <p><strong>Backend:</strong> http://localhost:8000</p>
+        <p><strong>Widget URL:</strong> http://localhost:8000/static/widget/widget.umd.js</p>
+        <hr>
+        <h2>Setup Instructions:</h2>
+        <ol>
+            <li>Open browser console (F12 or Cmd+Option+I)</li>
+            <li>Look for ShopBotConfig errors</li>
+            <li>Check if widget bubble appears in bottom-right corner</li>
+        </ol>
+        <hr>
+        <p><em>If the widget doesn't appear, check the console for errors and let me know what you see.</em></p>
+    </div>
+
+    <!-- Widget Embed Code -->
+    <script>
+        console.log('🔧 Loading widget with config...');
+        window.ShopBotConfig = {
+            merchantId: '1',
+            theme: {
+                primaryColor: '#6366f1',
+                position: 'bottom-right'
+            },
+            apiBaseUrl: 'http://localhost:8000/api/v1/widget'
+        };
+        console.log('✅ ShopBotConfig set:', window.ShopBotConfig);
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="http://localhost:8000/static/widget/widget.umd.js"></script>
+
+    <script>
+        // Log widget loading events
+        window.addEventListener('load', () => {
+            console.log('✅ Page loaded');
+            setTimeout(() => {
+                console.log('🔍 Checking for widget elements...');
+                const widgetElements = document.querySelectorAll('[class*="shopbot"], [id*="shopbot"], [class*="widget"]');
+                console.log('Found widget elements:', widgetElements.length);
+                document.querySelectorAll('*').forEach(el => {
+                    if (el.textContent.includes('ShopBot') || el.className.includes('chat')) {
+                        console.log('Found element:', el.tagName, el.className);
+                    }
+                });
+            }, 2000);
+        });
+
+        // Log errors
+        window.addEventListener('error', (e) => {
+            console.error('❌ Page error:', e.message);
+        });
+    </script>
+</body>
+</html>

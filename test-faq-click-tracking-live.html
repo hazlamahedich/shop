@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ Click Tracking Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+
+        /* Widget Visibility Fix */
+        [class*="shopbot"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        .shopbot-chat-bubble,
+        [class*="shopbot-bubble"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: fixed !important;
+            z-index: 2147483647 !important;
+            cursor: pointer !important;
+            pointer-events: auto !important;
+        }
+
+        .shopbot-chat-window,
+        [class*="shopbot-window"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            z-index: 2147483647 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h1>🧪 FAQ Click Tracking Test</h1>
+        <p><strong>Step 1:</strong> Wait for widget to load</p>
+        <p><strong>Step 2:</strong> Click an FAQ button in the widget</p>
+        <p><strong>Step 3:</strong> Check status below</p>
+        <p><strong>Step 4:</strong> Verify in FAQ Usage Widget (admin panel)</p>
+
+        <div id="status-log"></div>
+        <div id="network-log"></div>
+    </div>
+
+    <script>
+        const statusLog = document.getElementById('status-log');
+        const networkLog = document.getElementById('network-log');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            statusLog.appendChild(div);
+        }
+
+        function networkLog(message) {
+            const div = document.createElement('div');
+            div.style.fontSize = '12px';
+            div.style.fontFamily = 'monospace';
+            div.style.marginTop = '5px';
+            div.textContent = message;
+            networkLog.appendChild(div);
+        }
+
+        // Intercept fetch calls to track FAQ clicks
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const url = args[0];
+
+            if (typeof url === 'string' && url.includes('/faq-click')) {
+                log('📡 FAQ click request detected!', 'info');
+                networkLog(`Request URL: ${url}`);
+                networkLog(`Request body: ${args[1]?.body}`);
+
+                return originalFetch.apply(this, args).then(response => {
+                    networkLog(`Response status: ${response.status}`);
+
+                    // Clone response to read it
+                    const clonedResponse = response.clone();
+                    clonedResponse.json().then(data => {
+                        if (data.success) {
+                            log(`✅ FAQ click tracked! Click ID: ${data.click_id}`, 'success');
+                            networkLog(`Response data: ${JSON.stringify(data)}`);
+                        } else {
+                            log('❌ FAQ click tracking failed', 'error');
+                        }
+                    }).catch(e => {
+                        log('⚠️ Could not parse response', 'error');
+                    });
+
+                    return response;
+                }).catch(error => {
+                    log(`❌ Network error: ${error.message}`, 'error');
+                    throw error;
+                });
+            }
+
+            return originalFetch.apply(this, args);
+        };
+
+        // Widget Configuration
+        window.ShopBotConfig = {
+            merchantId: '1',
+            theme: {
+                primaryColor: '#6366f1',
+                position: 'bottom-right'
+            },
+            apiBaseUrl: 'https://shopdevsherwingor.share.zrok.io/api/v1/widget'
+        };
+    </script>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://shopdevsherwingor.share.zrok.io/static/widget/widget.umd.js"></script>
+
+    <script>
+        log('✅ Page loaded - widget initializing...', 'info');
+
+        setTimeout(() => {
+            log(`✅ React loaded: ${!!window.React}`, 'info');
+            log(`✅ ReactDOM loaded: ${!!window.ReactDOM}`, 'info');
+            log(`✅ ShopBotConfig set: merchantId=${window.ShopBotConfig.merchantId}`, 'info');
+
+            // Check for widget
+            const widgetElements = document.querySelectorAll('[class*="shopbot"]');
+            log(`📊 Widget elements found: ${widgetElements.length}`, widgetElements.length > 0 ? 'success' : 'error');
+
+            if (widgetElements.length > 0) {
+                log('✅ Widget loaded! Click an FAQ button to test tracking.', 'success');
+            } else {
+                log('❌ Widget not found. Check console for errors.', 'error');
+            }
+        }, 3000);
+
+        // Add instructions to network log
+        networkLog.innerHTML = '<strong>Network Activity:</strong>';
+    </script>
+</body>
+</html>

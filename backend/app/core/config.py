@@ -51,7 +51,7 @@ def settings() -> dict[str, Any]:
 
     return {
         # Testing mode - forces use of mock services
-        "IS_TESTING": os.getenv("IS_TESTING", "true").lower() == "true",
+        "IS_TESTING": os.getenv("IS_TESTING", "false").lower() == "true",
         # Application
         "APP_NAME": os.getenv("APP_NAME", "shop-backend"),
         "APP_URL": os.getenv("APP_URL", "http://localhost:8000"),

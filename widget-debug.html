@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        #log {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        .info { color: #00ffff; }
+        .warn { color: #ffff00; }
+    </style>
+</head>
+<body>
+    <h1>🐛 Widget Debug Console</h1>
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+
+        function addLog(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toISOString()}] ${message}`;
+            log.appendChild(div);
+            console.log(message);
+        }
+
+        // Intercept console errors
+        const originalError = console.error;
+        console.error = function(...args) {
+            addLog(`CONSOLE ERROR: ${args.join(' ')}`, 'error');
+            originalError.apply(console, args);
+        };
+
+        // Setup widget config
+        addLog('Setting up ShopBotConfig...', 'info');
+        window.ShopBotConfig = {
+            merchantId: '1',
+            apiBaseUrl: 'http://localhost:8000',
+            theme: {
+                primaryColor: '#6366f1',
+                position: 'bottom-right'
+            }
+        };
+        addLog(`ShopBotConfig set: ${JSON.stringify(window.ShopBotConfig, null, 2)}`, 'success');
+
+        // Test API endpoints
+        async function testAPI() {
+            addLog('Testing API endpoints...', 'info');
+
+            try {
+                const configResponse = await fetch('http://localhost:8000/api/v1/widget/config/1');
+                if (configResponse.ok) {
+                    addLog('✅ Config endpoint reachable', 'success');
+                    const config = await configResponse.json();
+                    addLog(`Config response: ${JSON.stringify(config).substring(0, 200)}...`, 'info');
+                } else {
+                    addLog(`❌ Config endpoint failed: ${configResponse.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Config endpoint error: ${error.message}`, 'error');
+            }
+
+            try {
+                const sessionResponse = await fetch('http://localhost:8000/api/v1/widget/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant_id: '1' })
+                });
+                if (sessionResponse.ok) {
+                    addLog('✅ Session endpoint reachable', 'success');
+                    const session = await sessionResponse.json();
+                    addLog(`Session response: ${JSON.stringify(session)}`, 'info');
+                } else {
+                    addLog(`❌ Session endpoint failed: ${sessionResponse.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Session endpoint error: ${error.message}`, 'error');
+            }
+        }
+
+        // Load React
+        addLog('Loading React...', 'info');
+        const reactScript = document.createElement('script');
+        reactScript.src = 'https://unpkg.com/react@18/umd/react.production.min.js';
+        reactScript.crossOrigin = true;
+        reactScript.onload = () => addLog('✅ React loaded', 'success');
+        reactScript.onerror = () => addLog('❌ React failed to load', 'error');
+        document.body.appendChild(reactScript);
+
+        const reactDOMScript = document.createElement('script');
+        reactDOMScript.src = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+        reactDOMScript.crossOrigin = true;
+        reactDOMScript.onload = () => addLog('✅ ReactDOM loaded', 'success');
+        reactDOMScript.onerror = () => addLog('❌ ReactDOM failed to load', 'error');
+        document.body.appendChild(reactDOMScript);
+
+        // Load widget
+        setTimeout(() => {
+            addLog('Loading widget...', 'info');
+            const widgetScript = document.createElement('script');
+            widgetScript.src = 'http://localhost:8000/static/widget/widget.umd.js';
+            widgetScript.onload = () => {
+                addLog('✅ Widget script loaded', 'success');
+
+                // Check if widget initialized
+                setTimeout(() => {
+                    const widgetRoot = document.getElementById('shopbot-widget-root');
+                    if (widgetRoot) {
+                        addLog('✅ Widget root element found', 'success');
+                        addLog(`Widget root HTML: ${widgetRoot.innerHTML.substring(0, 500)}...`, 'info');
+
+                        // Check for widget elements
+                        const widgetElements = document.querySelectorAll('[class*="shopbot"]');
+                        addLog(`Found ${widgetElements.length} widget elements`, widgetElements.length > 0 ? 'success' : 'warn');
+
+                        // Check visibility
+                        const bubble = document.querySelector('.shopbot-chat-bubble');
+                        if (bubble) {
+                            const styles = window.getComputedStyle(bubble);
+                            addLog(`Bubble visibility: display=${styles.display}, visibility=${styles.visibility}, opacity=${styles.opacity}`, 'info');
+                        } else {
+                            addLog('⚠️ Chat bubble not found', 'warn');
+                        }
+                    } else {
+                        addLog('❌ Widget root element NOT found', 'error');
+                    }
+
+                    // Check ShopBotWidget API
+                    if (window.ShopBotWidget) {
+                        addLog(`✅ ShopBotWidget API available: ${JSON.stringify({
+                            version: window.ShopBotWidget.version,
+                            isMounted: window.ShopBotWidget.isMounted()
+                        })}`, 'success');
+                    } else {
+                        addLog('❌ ShopBotWidget API NOT available', 'error');
+                    }
+                }, 2000);
+            };
+            widgetScript.onerror = () => addLog('❌ Widget script failed to load', 'error');
+            document.body.appendChild(widgetScript);
+
+            testAPI();
+        }, 1000);
+
+        // Monitor for changes
+        setTimeout(() => {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.addedNodes.length > 0) {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.nodeType === 1 && (node.id?.includes('shopbot') || node.className?.includes('shopbot'))) {
+                                addLog(`🔵 DOM change: Added ${node.tagName}#${node.id || '.' + node.className}`, 'info');
+                            }
+                        });
+                    }
+                });
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            addLog('👁️ DOM observer started', 'info');
+        }, 3000);
+    </script>
+</body>
+</html>

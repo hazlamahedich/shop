@@ -501,3 +501,199 @@ async def export_faq_usage_csv(
             "Content-Type": "text/csv",
         },
     )
+
+
+# ────────────────────────────────────────────────────────────────
+# Answer Performance Dashboard Endpoints
+# ────────────────────────────────────────────────────────────────
+
+
+@router.get("/answer-quality")
+async def get_answer_quality_score(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Answer Quality Score - Aggregate RAG performance metric.
+
+    Calculates a composite score (0-100) based on:
+    - Match rate (40%)
+    - Average confidence (35%)
+    - User feedback (25%)
+
+    Returns score, status, and 14-day trend.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.calculate_answer_quality_score(merchant_id, days)
+    return data
+
+
+@router.get("/top-questions")
+async def get_top_questions(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of questions to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Top Customer Questions with performance metrics.
+
+    Returns most frequent queries with:
+    - Frequency count
+    - Match success rate
+    - Average confidence
+    - Category classification
+    - Trend indicator (rising/falling/stable)
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_top_questions_with_metrics(merchant_id, days, limit)
+    return data
+
+
+@router.get("/customer-feedback")
+async def get_customer_feedback(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Customer Feedback Metrics for RAG answers.
+
+    Returns:
+    - Total feedback count
+    - Positive/negative rates
+    - Top feedback themes
+    - Sentiment analysis
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_customer_feedback_metrics(merchant_id, days)
+    return data
+
+
+@router.get("/document-performance")
+async def get_document_performance(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Document Performance and Usage Analytics.
+
+    Returns:
+    - Most referenced documents
+    - Unused documents
+    - Average confidence per document
+    - Document status (active/unused/outdated)
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_document_usage_stats(merchant_id, days)
+    return data
+
+
+@router.get("/high-impact-improvements")
+async def get_high_impact_improvements(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of improvements to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get High-Impact Improvements - Prioritized action items.
+
+    Returns prioritized list of improvements with:
+    - Questions with high volume + low match rate
+    - Estimated handoff reduction impact
+    - Suggested actions (add FAQ, upload doc, update doc)
+    - Priority level (high/medium/low)
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_high_impact_improvements(merchant_id, days, limit)
+    return data
+
+
+@router.get("/question-categories")
+async def get_question_categories(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Question Categories breakdown with performance metrics.
+
+    Returns categories with:
+    - Category name
+    - Query volume
+    - Match rate per category
+    - Average confidence
+    - Trend indicator
+    - Top questions in category
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_question_categories(merchant_id, days)
+    return data
+
+
+@router.get("/failed-queries")
+async def get_failed_queries(
+    request: Request,
+    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of queries to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Failed Queries - questions without answers.
+
+    Returns unmatched queries with:
+    - Query text
+    - Frequency count
+    - Last asked timestamp
+    - Suggested action (add FAQ, upload doc, update doc)
+    - Estimated impact
+    - Category
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_failed_queries(merchant_id, days, limit)
+    return data
+
+
+@router.get("/performance-alerts")
+async def get_performance_alerts(
+    request: Request,
+    days: int = Query(1, ge=1, le=7, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Performance Alerts for RAG health monitoring.
+
+    Returns active alerts with:
+    - Alert type (critical/warning/info)
+    - Title and description
+    - Metric and value
+    - Threshold
+    - Suggested action
+    - Timestamp
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_performance_alerts(merchant_id, days)
+    return data
+
+
+@router.get("/quick-actions")
+async def get_quick_actions(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get Quick Actions for immediate improvements.
+
+    Returns prioritized action list with:
+    - Action title and description
+    - Icon type
+    - Action URL
+    - Priority level
+    - Estimated time
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = AggregatedAnalyticsService(db)
+    data = await service.get_quick_actions(merchant_id)
+    return data

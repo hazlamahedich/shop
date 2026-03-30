@@ -9,7 +9,14 @@
  */
 
 import { apiClient } from './api';
-import type { FaqUsageData } from '../types/analytics';
+import type {
+  FaqUsageData,
+  AnswerQualityScore,
+  TopQuestionsResponse,
+  CustomerFeedbackMetrics,
+  DocumentPerformanceResponse,
+  HighImpactImprovementsResponse
+} from '../types/analytics';
 
 // ────────────────────────────────────────────────────────────────
 // Widget Analytics (Story 9-10)
@@ -392,11 +399,93 @@ export const analyticsService = {
     return (response as unknown as { data: ResponseTimeDistributionData }).data;
   },
 
+  async getQuestionCategories(days = 30): Promise<any> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/question-categories?days=${days}`
+    );
+    return response as unknown;
+  },
+
+  async getFailedQueries(days = 30, limit = 10): Promise<any> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/failed-queries?days=${days}&limit=${limit}`
+    );
+    return response as unknown;
+  },
+
+  async getPerformanceAlerts(days = 1): Promise<any> {
+    const response = await apiClient.get(
+      `/api/v1/analytics/performance-alerts?days=${days}`
+    );
+    return response as unknown;
+  },
+
+  async getQuickActions(): Promise<any> {
+    const response = await apiClient.get(
+      '/api/v1/analytics/quick-actions'
+    );
+    return response as unknown;
+  },
+
   async getFaqUsage(days = 30): Promise<FaqUsageData> {
     const response = await apiClient.get<FaqUsageData>(
       `/api/v1/analytics/faq-usage?days=${days}`
     );
     return response as unknown as FaqUsageData;
+  },
+
+  // ────────────────────────────────────────────────────────────────
+  // Answer Performance Dashboard APIs
+  // ────────────────────────────────────────────────────────────────
+
+  /**
+   * Get Answer Quality Score - Aggregate RAG performance metric
+   */
+  async getAnswerQuality(days = 30): Promise<AnswerQualityScore> {
+    const response = await apiClient.get<AnswerQualityScore>(
+      `/api/v1/analytics/answer-quality?days=${days}`
+    );
+    return response as unknown as AnswerQualityScore;
+  },
+
+  /**
+   * Get Top Customer Questions with performance metrics
+   */
+  async getTopQuestions(days = 30, limit = 10): Promise<TopQuestionsResponse> {
+    const response = await apiClient.get<TopQuestionsResponse>(
+      `/api/v1/analytics/top-questions?days=${days}&limit=${limit}`
+    );
+    return response as unknown as TopQuestionsResponse;
+  },
+
+  /**
+   * Get Customer Feedback Metrics for RAG answers
+   */
+  async getCustomerFeedback(days = 30): Promise<CustomerFeedbackMetrics> {
+    const response = await apiClient.get<CustomerFeedbackMetrics>(
+      `/api/v1/analytics/customer-feedback?days=${days}`
+    );
+    return response as unknown as CustomerFeedbackMetrics;
+  },
+
+  /**
+   * Get Document Performance and Usage Analytics
+   */
+  async getDocumentPerformance(days = 30): Promise<DocumentPerformanceResponse> {
+    const response = await apiClient.get<DocumentPerformanceResponse>(
+      `/api/v1/analytics/document-performance?days=${days}`
+    );
+    return response as unknown as DocumentPerformanceResponse;
+  },
+
+  /**
+   * Get High-Impact Improvements - Prioritized action items
+   */
+  async getHighImpactImprovements(days = 30, limit = 10): Promise<HighImpactImprovementsResponse> {
+    const response = await apiClient.get<HighImpactImprovementsResponse>(
+      `/api/v1/analytics/high-impact-improvements?days=${days}&limit=${limit}`
+    );
+    return response as unknown as HighImpactImprovementsResponse;
   },
 };
 

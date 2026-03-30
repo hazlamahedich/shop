@@ -157,13 +157,20 @@ class LLMHandler(BaseHandler):
 
         quick_replies = self._generate_quick_replies(message, response_text, merchant)
 
+        # Determine response type based on whether RAG context was used
+        response_type = "rag" if rag_context else "general"
+
         return ConversationResponse(
             message=response_text,
             intent="general",
             confidence=1.0,
             products=products,
             quick_replies=quick_replies,
-            metadata={"bot_name": bot_name, "business_name": business_name},
+            metadata={
+                "bot_name": bot_name,
+                "business_name": business_name,
+                "response_type": response_type,
+            },
         )
 
     def _should_detect_products(self, user_message: str, response_text: str) -> bool:

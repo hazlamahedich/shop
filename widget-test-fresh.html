@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fresh Widget Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .status {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Fresh Widget Test (No Cache)</h1>
+    <div class="status" id="status">Initializing...</div>
+
+    <script>
+        const status = document.getElementById('status');
+
+        // Force cache busting
+        const CACHE_BUSTER = Date.now();
+        status.innerHTML += '<br><span class="info">✓ Page loaded</span>';
+
+        // Configure widget
+        window.ShopBotConfig = {
+            merchantId: '1',
+            apiBaseUrl: 'http://localhost:8000',  // FIXED: origin only, not full path
+            theme: {
+                primaryColor: '#6366f1',
+                position: 'bottom-right'
+            }
+        };
+        status.innerHTML += '<br><span class="info">✓ Config set</span>';
+
+        // Load React
+        const reactScript = document.createElement('script');
+        reactScript.src = 'https://unpkg.com/react@18/umd/react.production.min.js';
+        reactScript.crossOrigin = true;
+        reactScript.onload = () => {
+            status.innerHTML += '<br><span class="info">✓ React loaded</span>';
+        };
+        document.body.appendChild(reactScript);
+
+        const reactDOMScript = document.createElement('script');
+        reactDOMScript.src = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+        reactDOMScript.crossOrigin = true;
+        reactDOMScript.onload = () => {
+            status.innerHTML += '<br><span class="info">✓ ReactDOM loaded</span>';
+        };
+        document.body.appendChild(reactDOMScript);
+
+        // Load widget with cache buster
+        setTimeout(() => {
+            const widgetScript = document.createElement('script');
+            widgetScript.src = `http://localhost:8000/static/widget/widget.umd.js?v=${Date.now()}`;
+            widgetScript.onload = () => {
+                status.innerHTML += '<br><span class="success">✓ Widget loaded!</span>';
+
+                // Check for widget elements
+                setTimeout(() => {
+                    const widgetElements = document.querySelectorAll('[class*="shopbot"]');
+                    const bubble = document.querySelector('.shopbot-chat-bubble');
+
+                    if (bubble) {
+                        const isVisible = bubble.offsetParent !== null;
+                        status.innerHTML += `<br><span class="${isVisible ? 'success' : 'error'}">
+                            ${isVisible ? '✓ Widget bubble VISIBLE!' : '✗ Widget bubble hidden'}
+                        </span>`;
+                    } else {
+                        status.innerHTML += '<br><span class="error">✗ Widget bubble NOT found</span>';
+                    }
+
+                    status.innerHTML += `<br><span class="info">Found ${widgetElements.length} widget elements</span>`;
+                }, 3000);
+            };
+            widgetScript.onerror = () => {
+                status.innerHTML += '<br><span class="error">✗ Widget failed to load</span>';
+            };
+            document.body.appendChild(widgetScript);
+        }, 1000);
+    </script>
+</body>
+</html>

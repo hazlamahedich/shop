@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Quick Replies Test - Cache Busted</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .widget-info {
+            background: #f0f7ff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px dashed #2196F3;
+            margin: 20px 0;
+        }
+        .cache-info {
+            background: #fff8e1;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ffc107;
+            margin: 20px 0;
+        }
+        #debug-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Widget Quick Replies Test Page</h1>
+
+        <div class="status success">
+            <strong>✅ Backend Confirmed Working:</strong>
+            <ul>
+                <li>RAG system found graduation info: "University of Santo Tomas"</li>
+                <li>Quick replies are being sent: "Learn more", "Contact us", "Ask a question"</li>
+            </ul>
+        </div>
+
+        <div class="cache-info">
+            <strong>⚠️ Cache Issue Detected:</strong>
+            <p>Your embedded widget is likely using a cached version. This page uses a cache-busting parameter (<code>?v=2</code>) to force the browser to load the latest version.</p>
+        </div>
+
+        <div class="instructions">
+            <strong>📋 Test Instructions:</strong>
+            <ol>
+                <li>The widget should load in the bottom-right corner</li>
+                <li>Send a message like <code>"hello"</code></li>
+                <li>Look for quick reply chips below the bot's response</li>
+                <li>Try asking <code>"where did he graduate"</code> to test RAG</li>
+                <li>Open DevTools (F12) to check for any errors</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>Debug Tools</h3>
+            <button onclick="testApiDirect()">Test API Directly</button>
+            <button onclick="clearCache()">Clear Browser Cache</button>
+            <button onclick="checkWidgetLoaded()">Check Widget Status</button>
+            <div id="debug-output"></div>
+        </div>
+
+        <div class="widget-info">
+            <strong>📦 Widget Configuration:</strong>
+            <ul>
+                <li>Merchant ID: 1</li>
+                <li>API Base URL: http://localhost:8000</li>
+                <li>Widget Loader: loader.ts?v=2 (cache busted)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1/widget';
+        const WIDGET_LOADER = 'http://localhost:5173/src/widget/loader.ts?v=2';
+
+        async function testApiDirect() {
+            const output = document.getElementById('debug-output');
+            output.textContent = 'Testing API...\n';
+
+            try {
+                // Create session
+                const sessionResponse = await fetch(`${API_BASE}/session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant_id: '1' })
+                });
+                const sessionData = await sessionResponse.json();
+                const sessionId = sessionData.data.sessionId;
+                output.textContent += `✓ Session created: ${sessionId}\n`;
+
+                // Send test message
+                const messageResponse = await fetch(`${API_BASE}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: 'hello'
+                    })
+                });
+                const messageData = await messageResponse.json();
+
+                const quickReplies = messageData.data.quickReplies || messageData.data.quick_replies;
+
+                output.textContent += `\n✓ Bot message: ${messageData.data.content.substring(0, 100)}...\n`;
+                output.textContent += `\n✓ Quick replies found: ${quickReplies ? quickReplies.length : 0}\n`;
+
+                if (quickReplies && quickReplies.length > 0) {
+                    output.textContent += `\n✅ SUCCESS! Quick replies:\n`;
+                    quickReplies.forEach((reply, i) => {
+                        output.textContent += `  ${i + 1}. ${reply.text} ${reply.icon}\n`;
+                    });
+                } else {
+                    output.textContent += `\n❌ No quick replies in response\n`;
+                }
+
+                // Test RAG
+                output.textContent += `\n--- Testing RAG ---\n`;
+                const ragResponse = await fetch(`${API_BASE}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: 'where did he graduate'
+                    })
+                });
+                const ragData = await ragResponse.json();
+                output.textContent += `✓ RAG Query: "where did he graduate"\n`;
+                output.textContent += `✓ RAG Response: ${ragData.data.content.substring(0, 150)}...\n`;
+
+            } catch (error) {
+                output.textContent += `\n❌ ERROR: ${error.message}\n`;
+                output.textContent += `Make sure backend is running on port 8000\n`;
+            }
+        }
+
+        function clearCache() {
+            const output = document.getElementById('debug-output');
+            output.textContent = 'Clearing cache...\n';
+
+            // Clear localStorage
+            localStorage.clear();
+            output.textContent += '✓ Cleared localStorage\n';
+
+            // Clear sessionStorage
+            sessionStorage.clear();
+            output.textContent += '✓ Cleared sessionStorage\n';
+
+            output.textContent += '\n✅ Done! Now refresh the page (Ctrl+Shift+R or Cmd+Shift+R)\n';
+        }
+
+        function checkWidgetLoaded() {
+            const output = document.getElementById('debug-output');
+            output.textContent = 'Checking widget status...\n';
+
+            // Check if ShopBotConfig is set
+            if (window.ShopBotConfig) {
+                output.textContent += '✓ ShopBotConfig is set\n';
+                output.textContent += `  Merchant ID: ${window.ShopBotConfig.merchantId}\n`;
+                output.textContent += `  API Base URL: ${window.ShopBotConfig.apiBaseUrl}\n`;
+            } else {
+                output.textContent += '❌ ShopBotConfig not found\n';
+            }
+
+            // Check if widget script loaded
+            const scripts = Array.from(document.getElementsByTagName('script'));
+            const widgetScript = scripts.find(s => s.src.includes('loader.ts'));
+            if (widgetScript) {
+                output.textContent += `\n✓ Widget script loaded\n`;
+                output.textContent += `  Source: ${widgetScript.src}\n`;
+            } else {
+                output.textContent += `\n❌ Widget script not found\n`;
+            }
+        }
+
+        // Load widget with cache-busting parameter
+        (function(d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) return;
+            js = d.createElement(s); js.id = id;
+
+            // Add cache-busting parameter
+            const timestamp = new Date().getTime();
+            js.src = WIDGET_LOADER + '&t=' + timestamp;
+            js.defer = true;
+
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'shopbot-widget'));
+
+        // Set widget config
+        window.ShopBotConfig = {
+            merchantId: '1',
+            apiBaseUrl: 'http://localhost:8000'
+        };
+
+        // Auto-check widget status after load
+        setTimeout(checkWidgetLoaded, 2000);
+    </script>
+</body>
+</html>

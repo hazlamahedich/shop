@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        #output {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Feedback Flow Test</h1>
+        <p>Test the complete feedback submission flow:</p>
+
+        <button onclick="testFeedbackSubmission()">Test Feedback Submission</button>
+        <button onclick="checkDatabase()">Check Database</button>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+
+        async function testFeedbackSubmission() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing feedback submission...\n';
+
+            try {
+                // Step 1: Create session
+                const sessionResponse = await fetch(`${API_BASE}/widget/session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant_id: '1' })
+                });
+                const sessionData = await sessionResponse.json();
+                const sessionId = sessionData.data.sessionId;
+                output.textContent += `✅ Session created: ${sessionId}\n`;
+
+                // Step 2: Send a message
+                const messageResponse = await fetch(`${API_BASE}/widget/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: 'hello'
+                    })
+                });
+                const messageData = await messageResponse.json();
+                const messageId = messageData.data.messageId;
+                output.textContent += `✅ Message sent: ${messageId}\n`;
+
+                // Step 3: Submit feedback (this is what the widget does)
+                const feedbackResponse = await fetch(`${API_BASE}/feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messageId: messageId,
+                        rating: 'positive',
+                        sessionId: sessionId,
+                        merchantId: 1  // This should now be sent correctly
+                    })
+                });
+                const feedbackData = await feedbackResponse.json();
+                output.textContent += `✅ Feedback submitted!\n`;
+                output.textContent += `   Feedback ID: ${feedbackData.data.id}\n`;
+                output.textContent += `   Rating: ${feedbackData.data.rating}\n`;
+                output.textContent += `   Message ID: ${feedbackData.data.messageId}\n`;
+
+            } catch (error) {
+                output.textContent += `❌ Error: ${error.message}\n`;
+                console.error(error);
+            }
+        }
+
+        async function checkDatabase() {
+            const output = document.getElementById('output');
+            output.textContent = 'Checking database for feedback records...\n\n';
+
+            try {
+                const response = await fetch('/api/check-feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                output.textContent += JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.textContent += `Note: Database check requires backend endpoint.\n`;
+                output.textContent += `Use: psql to check manually\n\n`;
+                output.textContent += `SELECT id, widget_message_id, merchant_id, rating FROM message_feedback ORDER BY created_at DESC LIMIT 10;`;
+            }
+        }
+    </script>
+</body>
+</html>

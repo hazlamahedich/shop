@@ -1,5 +1,5 @@
-import React from 'react';
-import { RefreshCw, Activity, Cpu, Layers, AlertTriangle, DollarSign, ShoppingBag, TrendingUp, Target } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, Activity, Cpu, Layers, AlertTriangle, DollarSign, ShoppingBag, TrendingUp, Target, Brain, MessageSquare, Database, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { GlassCard } from '../components/ui/GlassCard';
 import { TutorialPrompt } from '../components/onboarding/TutorialPrompt';
@@ -30,6 +30,18 @@ import { ResponseTimeWidget } from '../components/dashboard/ResponseTimeWidget';
 import { FAQUsageWidget } from '../components/dashboard/FAQUsageWidget';
 import { analyticsService } from '../services/analyticsService';
 
+// Answer Performance Widgets
+import { AnswerQualityScoreWidget } from '../components/dashboard/AnswerQualityScoreWidget';
+import { QueryPerformanceWidget } from '../components/dashboard/QueryPerformanceWidget';
+import { CustomerFeedbackWidget } from '../components/dashboard/CustomerFeedbackWidget';
+import { TopQuestionsWidget } from '../components/dashboard/TopQuestionsWidget';
+import { DocumentPerformanceWidget } from '../components/dashboard/DocumentPerformanceWidget';
+import { HighImpactImprovementsWidget } from '../components/dashboard/HighImpactImprovementsWidget';
+import { QuestionCategoriesWidget } from '../components/dashboard/QuestionCategoriesWidget';
+import { FailedQueriesWidget } from '../components/dashboard/FailedQueriesWidget';
+import { PerformanceAlertsWidget } from '../components/dashboard/PerformanceAlertsWidget';
+import { QuickActionsWidget } from '../components/dashboard/QuickActionsWidget';
+
 // NEW: Narrative flow components
 import { NarrativeSection } from '../components/dashboard/NarrativeSection';
 import { NarrativeFlowConnector } from '../components/dashboard/NarrativeFlowConnector';
@@ -58,6 +70,9 @@ const Dashboard = () => {
   const onboardingMode = useAuthStore((state) => state.merchant?.onboardingMode);
   const isEcommerce = onboardingMode !== 'general';
 
+  // State for Answer Performance view toggle (e-commerce only)
+  const [activeView, setActiveView] = useState<'business' | 'answers'>('business');
+
   return (
     <div className="space-y-6 min-h-screen bg-[#0d0d12]/50">
       <TutorialPrompt />
@@ -76,12 +91,12 @@ const Dashboard = () => {
               </div>
             </div>
             <p className="text-xs text-white/30 mt-1 font-bold uppercase tracking-widest">
-              {onboardingMode === 'general' 
+              {onboardingMode === 'general'
                 ? 'System intelligence and knowledge distribution'
                 : 'Real-time commerce telemetry from Shopify'}
             </p>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="bg-white/5 px-4 py-2 rounded-2xl backdrop-blur-xl border border-white/10 shadow-inner">
               <LastUpdatedBadge />
@@ -89,6 +104,33 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* View Toggle - E-commerce Mode Only */}
+        {isEcommerce && (
+          <div className="flex items-center justify-center mb-6">
+            <div className="glass-panel p-1 rounded-xl flex gap-1">
+              <button
+                onClick={() => setActiveView('business')}
+                className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
+                  activeView === 'business'
+                    ? 'bg-[#00f5d4]/20 text-[#00f5d4] shadow-lg'
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Business Metrics
+              </button>
+              <button
+                onClick={() => setActiveView('answers')}
+                className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
+                  activeView === 'answers'
+                    ? 'bg-[#00f5d4]/20 text-[#00f5d4] shadow-lg'
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Answer Performance
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6">
           {!isEcommerce ? (
@@ -157,78 +199,146 @@ const Dashboard = () => {
               </NarrativeSection>
             </div>
           ) : (
-            /* E-COMMERCE MODE - Narrative Flow Layout */
+            /* E-COMMERCE MODE - Narrative Flow Layout with Dual View */
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              {/* ACT 1: Business Pulse - "How's the business performing right now?" */}
-              <NarrativeSection
-                title="How's the business performing right now?"
-                description="Business Pulse - Real-time financial health"
-                icon={DollarSign}
-                color="blue"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <RevenueWidget />
-                  <FinancialOverviewWidget />
-                </div>
-              </NarrativeSection>
+              {activeView === 'business' ? (
+                <>
+                  {/* BUSINESS METRICS VIEW */}
+                  {/* ACT 1: Business Pulse - "How's the business performing right now?" */}
+                  <NarrativeSection
+                    title="How's the business performing right now?"
+                    description="Business Pulse - Real-time financial health"
+                    icon={DollarSign}
+                    color="blue"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <RevenueWidget />
+                      <FinancialOverviewWidget />
+                    </div>
+                  </NarrativeSection>
 
-              <NarrativeFlowConnector />
+                  <NarrativeFlowConnector />
 
-              {/* ACT 2: Customer Journey - "What are customers doing on my store?" */}
-              <NarrativeSection
-                title="What are customers doing on my store?"
-                description="Customer Journey - Behavior and conversion insights"
-                icon={TrendingUp}
-                color="purple"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <ConversionFunnelWidget />
-                  <TopProductsWidget />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                  <div className="md:col-span-2">
-                    <ConversationOverviewWidget />
-                  </div>
-                  <PeakHoursHeatmapWidget />
-                </div>
-              </NarrativeSection>
+                  {/* ACT 2: Customer Journey - "What are customers doing on my store?" */}
+                  <NarrativeSection
+                    title="What are customers doing on my store?"
+                    description="Customer Journey - Behavior and conversion insights"
+                    icon={TrendingUp}
+                    color="purple"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <ConversionFunnelWidget />
+                      <TopProductsWidget />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                      <div className="md:col-span-2">
+                        <ConversationOverviewWidget />
+                      </div>
+                      <PeakHoursHeatmapWidget />
+                    </div>
+                  </NarrativeSection>
 
-              <NarrativeFlowConnector />
+                  <NarrativeFlowConnector />
 
-              {/* ACT 3: Action Center - "What needs my attention right now?" */}
-              <NarrativeSection
-                title="What needs my attention right now?"
-                description="Action Center - Orders requiring immediate attention"
-                icon={ShoppingBag}
-                color="orange"
-              >
-                <div className="grid grid-cols-1 gap-6">
-                  <PendingOrdersWidget />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  <HandoffQueueWidget />
-                  <AlertsWidget />
-                </div>
-              </NarrativeSection>
+                  {/* ACT 3: Action Center - "What needs my attention right now?" */}
+                  <NarrativeSection
+                    title="What needs my attention right now?"
+                    description="Action Center - Orders requiring immediate attention"
+                    icon={ShoppingBag}
+                    color="orange"
+                  >
+                    <div className="grid grid-cols-1 gap-6">
+                      <PendingOrdersWidget />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                      <HandoffQueueWidget />
+                      <AlertsWidget />
+                    </div>
+                  </NarrativeSection>
 
-              <NarrativeFlowConnector />
+                  <NarrativeFlowConnector />
 
-              {/* ACT 4: Growth Opportunities - "How can I improve and grow?" */}
-              <NarrativeSection
-                title="How can I improve and grow?"
-                description="Growth Opportunities - Strategic improvement areas"
-                icon={Target}
-                color="red"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <BenchmarkComparisonWidget />
-                  <CustomerSentimentWidget />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  <BotQualityWidget />
-                  <GeographicSnapshotWidget />
-                </div>
-              </NarrativeSection>
+                  {/* ACT 4: Growth Opportunities - "How can I improve and grow?" */}
+                  <NarrativeSection
+                    title="How can I improve and grow?"
+                    description="Growth Opportunities - Strategic improvement areas"
+                    icon={Target}
+                    color="red"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <BenchmarkComparisonWidget />
+                      <CustomerSentimentWidget />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                      <BotQualityWidget />
+                      <GeographicSnapshotWidget />
+                    </div>
+                  </NarrativeSection>
+                </>
+              ) : (
+                <>
+                  {/* ANSWER PERFORMANCE VIEW */}
+                  {/* ACT 1: Intelligence Quality - "How well are we answering customer questions?" */}
+                  <NarrativeSection
+                    title="How well are we answering customer questions?"
+                    description="Track the quality and accuracy of AI-powered responses"
+                    icon={Brain}
+                    color="mantis"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="md:col-span-1">
+                        <AnswerQualityScoreWidget />
+                      </div>
+                      <div className="md:col-span-2">
+                        <QueryPerformanceWidget />
+                      </div>
+                    </div>
+                    <CustomerFeedbackWidget />
+                  </NarrativeSection>
+
+                  <NarrativeFlowConnector />
+
+                  {/* ACT 2: Customer Intent - "What are customers asking about?" */}
+                  <NarrativeSection
+                    title="What are customers asking about?"
+                    description="Understand customer questions and identify knowledge gaps"
+                    icon={MessageSquare}
+                    color="purple"
+                  >
+                    <TopQuestionsWidget />
+                    <QuestionCategoriesWidget />
+                    <FailedQueriesWidget />
+                  </NarrativeSection>
+
+                  <NarrativeFlowConnector />
+
+                  {/* ACT 3: Knowledge Coverage - "How healthy is our knowledge base?" */}
+                  <NarrativeSection
+                    title="How healthy is our knowledge base?"
+                    description="Monitor documentation coverage and identify gaps"
+                    icon={Database}
+                    color="orange"
+                  >
+                    <KnowledgeBaseWidget />
+                    <KnowledgeGapWidget />
+                    <DocumentPerformanceWidget />
+                  </NarrativeSection>
+
+                  <NarrativeFlowConnector />
+
+                  {/* ACT 4: Action Items - "What needs improvement right now?" */}
+                  <NarrativeSection
+                    title="What needs improvement right now?"
+                    description="Prioritized actions to boost answer quality"
+                    icon={AlertCircle}
+                    color="red"
+                  >
+                    <HighImpactImprovementsWidget />
+                    <PerformanceAlertsWidget />
+                    <QuickActionsWidget />
+                  </NarrativeSection>
+                </>
+              )}
             </div>
           )}
         </div>

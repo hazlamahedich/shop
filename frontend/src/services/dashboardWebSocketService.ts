@@ -64,11 +64,30 @@ export class DashboardWebSocketService {
 
     this.queryClient = queryClient;
 
+    // Get the backend API URL from environment variable or use default
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
     const apiBase = getApiBase();
-    const wsProtocol = apiBase.includes('https') ? 'wss:' : 'ws:';
-    const wsHost = apiBase ? apiBase.replace(/^https?:/, wsProtocol) : `${wsProtocol}//${window.location.host}`;
 
-    const wsUrl = `${wsHost}/api/v1/ws/dashboard/analytics?merchant_id=${this.merchantId}`;
+    // Construct WebSocket URL
+    let wsUrl: string;
+
+    if (backendUrl && backendUrl !== '') {
+      // Use explicitly configured backend URL
+      const wsProtocol = backendUrl.includes('https') ? 'wss:' : 'ws:';
+      const wsHost = backendUrl.replace(/^https?:/, wsProtocol);
+      wsUrl = `${wsHost}/api/v1/ws/dashboard/analytics?merchant_id=${this.merchantId}`;
+    } else if (!apiBase || apiBase === '') {
+      // Development: Use backend on port 8000
+      const isHttps = window.location.protocol === 'https:';
+      const wsProtocol = isHttps ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      wsUrl = `${wsProtocol}//${host}:8000/api/v1/ws/dashboard/analytics?merchant_id=${this.merchantId}`;
+    } else {
+      // Production: Use the configured API base
+      const wsProtocol = apiBase.includes('https') ? 'wss:' : 'ws:';
+      const wsHost = apiBase.replace(/^https?:/, wsProtocol);
+      wsUrl = `${wsHost}/api/v1/ws/dashboard/analytics?merchant_id=${this.merchantId}`;
+    }
 
     console.log('[DashboardWS] Connecting to:', wsUrl);
 
