@@ -1,25 +1,39 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import { MessageSquare, Clock, CheckCircle2, TrendingUp, TrendingDown } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 import type { KnowledgeEffectivenessResponse } from '../../services/analyticsService';
 
 export function QueryPerformanceWidget() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['analytics', 'query-performance'],
-    queryFn: async () => {
-      // Get both knowledge effectiveness and response time data
-      const effectiveness = await analyticsService.getKnowledgeEffectiveness();
-      const responseTime = await analyticsService.getResponseTimeDistribution();
-      return { effectiveness, responseTime };
-    },
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-    retry: 1,
+  // OPTIMIZATION: Use useQueries to parallelize both API calls
+  // This allows both queries to run simultaneously instead of sequentially
+  // and enables independent cache management for each data source
+  const results = useQueries({
+    queries: [
+      {
+        queryKey: ['analytics', 'knowledge-effectiveness'],
+        queryFn: () => analyticsService.getKnowledgeEffectiveness(),
+        staleTime: 60_000, // 1 minute - match rate changes slowly
+        refetchInterval: 60_000,
+        retry: 1,
+      },
+      {
+        queryKey: ['analytics', 'response-time-distribution'],
+        queryFn: () => analyticsService.getResponseTimeDistribution(),
+        staleTime: 120_000, // 2 minutes - response time changes slowly
+        refetchInterval: 120_000,
+        retry: 1,
+      },
+    ],
   });
 
-  const effectiveness = data?.effectiveness as KnowledgeEffectivenessResponse | undefined;
-  const responseTime = data?.responseTime as any;
+  const [effectivenessResult, responseTimeResult] = results;
+
+  const isLoading = effectivenessResult.isLoading || responseTimeResult.isLoading;
+  const isError = effectivenessResult.isError || responseTimeResult.isError;
+
+  const effectiveness = effectivenessResult.data as KnowledgeEffectivenessResponse | undefined;
+  const responseTime = responseTimeResult.data as any;
 
   // Calculate metrics
   const matchRate = effectiveness

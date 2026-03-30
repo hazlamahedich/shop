@@ -575,19 +575,25 @@ async def get_customer_feedback(
 async def get_document_performance(
     request: Request,
     days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of documents to return"),
+    offset: int = Query(0, ge=0, description="Number of documents to skip"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get Document Performance and Usage Analytics.
 
     Returns:
-    - Most referenced documents
-    - Unused documents
+    - Most referenced documents (paginated)
+    - Unused documents (paginated)
     - Average confidence per document
     - Document status (active/unused/outdated)
+
+    Pagination:
+    - Use limit to control page size (default: 50, max: 100)
+    - Use offset for pagination (default: 0)
     """
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
-    data = await service.get_document_usage_stats(merchant_id, days)
+    data = await service.get_document_usage_stats(merchant_id, days, limit, offset)
     return data
 
 
