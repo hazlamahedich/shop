@@ -146,10 +146,12 @@ export const BotConfig: React.FC = () => {
           </div>
         </div>
 
-        {/* Story 1.15: Neural Priority Matrix */}
-        <div className="mb-12">
-          <ProductPinList />
-        </div>
+        {/* Story 1.15: Neural Priority Matrix - E-commerce Only */}
+        {merchant?.onboardingMode === 'ecommerce' && (
+          <div className="mb-12">
+            <ProductPinList />
+          </div>
+        )}
 
         {/* Footer: Intelligence Repository */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12">
