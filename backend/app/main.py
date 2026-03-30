@@ -60,6 +60,10 @@ from app.background_jobs.widget_cleanup import (
     shutdown_widget_cleanup_scheduler,
     start_widget_cleanup_scheduler,
 )
+from app.background_jobs.widget_conversation_cleanup import (
+    shutdown_widget_conversation_cleanup_scheduler,
+    start_widget_conversation_cleanup_scheduler,
+)
 from app.core.config import settings
 from app.core.database import close_db, engine, init_db
 from app.core.errors import APIError, ErrorCode
@@ -184,6 +188,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Database will be initialized lazily on first use
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
     await start_widget_cleanup_scheduler()  # Story 5-2: Start widget session cleanup scheduler
+    await start_widget_conversation_cleanup_scheduler()  # Story 5-2: Start widget conversation cleanup scheduler
 
     # Initialize LLM pricing from OpenRouter
     try:
@@ -220,6 +225,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger = structlog.get_logger()
         logger.warning("polling_scheduler_shutdown_failed", error=str(e))
     await shutdown_widget_cleanup_scheduler()  # Story 5-2: Shutdown widget cleanup scheduler
+    await shutdown_widget_conversation_cleanup_scheduler()  # Story 5-2: Shutdown widget conversation cleanup scheduler
     shutdown_scheduler()  # Story 2-7: Shutdown scheduler gracefully
     await close_db()
 
