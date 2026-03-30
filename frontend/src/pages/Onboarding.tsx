@@ -7,13 +7,14 @@ import { FacebookConnection } from '../components/onboarding/FacebookConnection'
 import { ShopifyConnection } from '../components/onboarding/ShopifyConnection';
 import { LLMConfiguration } from '../components/onboarding/LLMConfiguration';
 import { ModeSelection } from '../components/onboarding/ModeSelection';
+import { ProgressBarWithMilestones } from '../components/onboarding/ProgressBarWithMilestones';
 import { useDeploymentStore } from '../stores/deploymentStore';
 import { useIntegrationsStore } from '../stores/integrationsStore';
 import { useLLMStore } from '../stores/llmStore';
 import { OnboardingMode, DEFAULT_ONBOARDING_MODE } from '../types/onboarding';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Button } from '../components/ui/Button';
-import { Check, Cpu, Zap, Rocket, Settings2, Sparkles } from 'lucide-react';
+import { Check, Cpu, Zap, Rocket, Settings2, Sparkles, ListTodo, Cloud, Wrench } from 'lucide-react';
 
 const Onboarding = () => {
   const { isComplete, loadFromBackend, onboardingMode, setOnboardingMode } = onboardingStore();
@@ -111,77 +112,44 @@ const Onboarding = () => {
   }
 
   const steps = [
-    { id: 0, label: 'Mode', icon: Cpu },
-    { id: 1, label: 'Protocols', icon: Zap },
-    { id: 2, label: 'Deployment', icon: Rocket },
-    { id: 3, label: 'Sync', icon: Settings2 },
+    { id: 0, label: 'Choose Type', name: 'Choose Your Assistant', icon: Cpu, minutes: 2 },
+    { id: 1, label: 'Get Ready', name: 'Complete Prerequisites', icon: ListTodo, minutes: 15 },
+    { id: 2, label: 'Go Live', name: 'Deploy Your Assistant', icon: Rocket, minutes: 10 },
+    { id: 3, label: 'Connect', name: 'Configure Services', icon: Settings2, minutes: 8 },
   ];
 
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col items-center py-20 px-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#050505] flex flex-col items-center py-12 px-4 md:px-6 relative overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-emerald-500/10 blur-[120px] rounded-full -z-10 opacity-30" />
-      
-      <div className="max-w-5xl w-full space-y-16 relative z-10">
+
+      <div className="max-w-6xl w-full space-y-8 relative z-10">
         {/* Header */}
-        <div className="text-center space-y-6 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 mb-4 animate-in fade-in slide-in-from-top-4 duration-700">
-            <Sparkles size={12} className="animate-pulse" />
-            Neural Initialization Protocol
-          </div>
-          <h1 className="text-6xl font-black tracking-tight text-white leading-none mantis-glow-text">
-            Awaken Your Agent
-          </h1>
-          <p className="text-xl text-emerald-900/60 font-medium leading-relaxed">
+        <div className="text-center space-y-4 max-w-2xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
             {selectedMode === 'general'
-              ? 'Initialize your core autonomous protocols and neural pathways.'
-              : 'Synchronize your e-commerce engine with our advanced AI core.'}
+              ? 'Set Up Your Customer Assistant'
+              : 'Set Up Your Store Assistant'}
+          </h1>
+          <p className="text-base md:text-lg text-white/70 leading-relaxed">
+            {selectedMode === 'general'
+              ? 'Get your AI assistant ready to answer customer questions in just a few steps.'
+              : 'Get your AI assistant ready to help customers browse and buy products.'}
           </p>
         </div>
 
-        {/* Stepper Redesigned */}
-        <div className="relative max-w-3xl mx-auto">
-          <div className="absolute top-6 left-0 right-0 h-px bg-white/[0.03] -z-10" />
-          <div className="flex items-center justify-between">
-            {steps.map((s, i) => {
-              const Icon = s.icon;
-              const isActive = s.id === wizardStep;
-              const isCompleted = s.id < wizardStep;
-              
-              return (
-                <div key={s.id} className="flex flex-col items-center relative group">
-                  <div
-                    className={`
-                      w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-700 border
-                      ${isActive 
-                        ? 'bg-emerald-500 text-black border-emerald-400 scale-110 shadow-[0_0_30px_rgba(16,185,129,0.4)]' 
-                        : isCompleted
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : 'bg-white/[0.02] text-white/20 border-white/[0.05] group-hover:border-white/10 group-hover:text-white/40'}
-                    `}
-                  >
-                    {isCompleted ? <Check size={20} strokeWidth={3} /> : <Icon size={20} />}
-                  </div>
-                  <span
-                    className={`
-                      mt-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500
-                      ${isActive ? 'text-emerald-400' : 'text-white/20'}
-                    `}
-                  >
-                    {s.label}
-                  </span>
-                  
-                  {isActive && (
-                    <div className="absolute -bottom-2 w-1 h-1 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(16,185,129,1)]" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        {/* Progress Bar with Milestones */}
+        <div className="max-w-3xl mx-auto">
+          <ProgressBarWithMilestones
+            currentStep={wizardStep + 1}
+            totalSteps={4}
+            stepName={steps[wizardStep]?.name || ''}
+            totalMinutes={35}
+          />
         </div>
 
-        {/* Wizard Content with Glassmorphic Transition */}
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
+        {/* Wizard Content */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
           {wizardStep === 0 && (
             <ModeSelection
               selectedMode={selectedMode}
@@ -220,9 +188,9 @@ const Onboarding = () => {
                 <div className="flex justify-center">
                   <button
                     onClick={handleDeploymentDone}
-                    className="h-16 px-16 bg-emerald-500 text-black font-black text-[11px] uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-400 transition-all duration-500 shadow-[0_0_40px_rgba(16,185,129,0.2)] hover:shadow-[0_0_50px_rgba(16,185,129,0.4)] hover:-translate-y-1"
+                    className="h-14 px-12 bg-emerald-500 text-black font-bold text-sm uppercase tracking-wide rounded-xl hover:bg-emerald-400 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                   >
-                    Configure Neural Sync
+                    Continue to Setup
                   </button>
                 </div>
               )}
@@ -250,40 +218,40 @@ const Onboarding = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                 <div className="p-12 text-center space-y-8 relative z-10">
                   <div className="space-y-4">
-                    <h3 className="text-3xl font-black text-white tracking-tight leading-none uppercase">Final Verification</h3>
-                    <p className="text-lg text-emerald-900/60 max-w-2xl mx-auto font-medium">
+                    <h3 className="text-2xl md:text-3xl font-black text-white tracking-tight">You're Almost Done!</h3>
+                    <p className="text-base text-white/70 max-w-2xl mx-auto">
                       {isEcommerce
-                        ? "Neural pathways established. Synchronize your platforms and finalize the calibration to initiate the agent."
-                        : "Neural pathways established. Finalize the calibration to initiate the agent."}
+                        ? "Your store assistant is ready! Complete the final connections to start selling."
+                        : "Your assistant is ready! Complete the setup to start helping customers."}
                     </p>
                   </div>
-                  
-                  <div className="flex flex-col sm:flex-row justify-center gap-6 pt-4">
+
+                  <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
                     <button
                       onClick={startTutorial}
                       disabled={!canStartTutorial}
                       className={`
-                        h-14 px-10 rounded-2xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-[0.3em] transition-all duration-500
-                        ${canStartTutorial 
-                          ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.2)]' 
-                          : 'bg-white/5 border border-white/10 text-white/20 cursor-not-allowed'}
+                        h-14 px-8 rounded-xl flex items-center justify-center gap-3 font-bold text-sm uppercase tracking-wide transition-all duration-300
+                        ${canStartTutorial
+                          ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-lg hover:shadow-xl'
+                          : 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed'}
                       `}
                     >
                       <Sparkles size={16} />
-                      Interactive Calibration
+                      Start Tutorial
                     </button>
                     <button
                       onClick={() => (window.location.pathname = '/onboarding/success')}
-                      className="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.3em] hover:bg-white/10 hover:border-white/20 transition-all duration-500"
+                      className="h-14 px-8 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-sm uppercase tracking-wide hover:bg-white/10 transition-all duration-300"
                     >
-                      Bypass to Dashboard
+                      Go to Dashboard
                     </button>
                   </div>
-                  
+
                   {!canStartTutorial && (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/5 border border-red-500/10 rounded-xl text-[9px] font-black text-red-500 uppercase tracking-widest animate-pulse">
-                      <Settings2 size={12} />
-                      Core protocols pending calibration
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs font-bold text-amber-400">
+                      <Settings2 size={14} />
+                      Complete the setup above first
                     </div>
                   )}
                 </div>

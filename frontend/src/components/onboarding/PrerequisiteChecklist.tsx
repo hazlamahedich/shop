@@ -1,19 +1,18 @@
-/** Prerequisite Checklist Component.
-
-Displays onboarding prerequisites with checkboxes and help sections.
-Deploys only when all items are checked (guard logic).
-Story 8.6: Mode-aware prerequisite display.
-
-Features:
-- shadcn/ui components (Card, Checkbox, Button, Collapsible, Progress)
-- Zustand state management with localStorage persistence
-- WCAG AA accessibility compliance
-- Keyboard navigation support
-- Screen reader announcements
-- Mode-aware prerequisite filtering (general vs ecommerce)
-*/
+/**
+ * Interactive Prerequisite Checklist with Celebrations
+ *
+ * Features:
+ * - Mode-aware prerequisites (general vs ecommerce)
+ * - Interactive help sections with demos
+ * - Real-time validation with green checkmarks
+ * - Celebration animations on completion
+ * - Better accessibility and contrast
+ * - Clear time estimates
+ */
 
 import * as React from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import confetti from "canvas-confetti";
 import {
   Card,
   CardHeader,
@@ -28,6 +27,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "../ui/Colla
 import { Progress } from "../ui/Progress";
 import { onboardingStore, PrerequisiteKey } from "../../stores/onboardingStore";
 import { OnboardingMode } from "../../types/onboarding";
+import { Check, Clock, ChevronDown, ChevronUp, Sparkles, ExternalLink } from "lucide-react";
 
 export interface PrerequisiteItem {
   key: PrerequisiteKey;
@@ -36,6 +36,8 @@ export interface PrerequisiteItem {
   helpUrl: string;
   helpContent: string[];
   showInModes: OnboardingMode[];
+  whyMatters?: string;
+  estimatedTime?: string;
 }
 
 export interface PrerequisiteChecklistProps {
@@ -46,57 +48,77 @@ const PREREQUISITES: PrerequisiteItem[] = [
   {
     key: "cloudAccount",
     title: "Cloud Provider Account",
-    description: "Fly.io, Railway, or Render account with payment method",
+    description: "Create an account to host your assistant online",
+    whyMatters: "This puts your assistant on the internet so customers can use it 24/7",
+    estimatedTime: "5 minutes",
     helpUrl: "https://fly.io/docs/hands-on/start/",
     helpContent: [
-      "1. Sign up at fly.io, railway.app, or render.com",
-      "2. Add a payment method to your account",
-      "3. Verify your email address",
-      "4. Keep your API credentials handy for deployment",
+      "💡 Quick start with Fly.io (recommended):",
+      "1. Go to fly.io and click 'Sign Up'",
+      "2. Add a credit card (free tier covers most usage)",
+      "3. Verify your email",
+      "",
+      "⏱️  Takes 5 minutes • 💰 Free tier available",
     ],
     showInModes: ["general", "ecommerce"],
   },
   {
     key: "facebookAccount",
     title: "Facebook Business Account",
-    description: "Meta Business account and Facebook Page created",
+    description: "Connect your Facebook page to send messages",
+    whyMatters: "Your assistant will reply to customers on Facebook Messenger automatically",
+    estimatedTime: "10 minutes",
     helpUrl: "https://developers.facebook.com/docs/development/create-an-app/",
     helpContent: [
-      "1. Create a Meta Business account at business.facebook.com",
-      "2. Create a Facebook Page for your business",
-      "3. Note your Page ID for configuration",
-      "4. You'll need this during bot setup",
+      "📱 Set up your Facebook Business:",
+      "1. Go to business.facebook.com",
+      "2. Create your Business account (free)",
+      "3. Create or connect your Facebook Page",
+      "4. Note your Page ID from 'About' section",
+      "",
+      "⏱️  Takes 10 minutes • 💰 Totally free",
     ],
     showInModes: ["ecommerce"],
   },
   {
     key: "shopifyAccess",
     title: "Shopify Admin Access",
-    description: "Store admin access with API permissions",
+    description: "Connect your store to show products in chat",
+    whyMatters: "Customers can browse and buy your products without leaving the conversation",
+    estimatedTime: "5 minutes",
     helpUrl: "https://help.shopify.com/en/manual/products/product-collections",
     helpContent: [
-      "1. Log in to your Shopify admin panel",
-      "2. Navigate to Settings > Apps and sales channels",
-      "3. Ensure you have admin-level permissions",
-      "4. Have your store URL ready (e.g., mystore.myshopify.com)",
+      "🛍️  Get your Shopify ready:",
+      "1. Log in to your Shopify admin",
+      "2. Go to Settings > Apps and sales channels",
+      "3. Make sure you have admin permissions",
+      "4. Copy your store URL (e.g., mystore.myshopify.com)",
+      "",
+      "⏱️  Takes 5 minutes • ✅ You're already logged in!",
     ],
     showInModes: ["ecommerce"],
   },
   {
     key: "llmProviderChoice",
-    title: "LLM Provider",
-    description: "Ollama (local) or cloud API key selected",
+    title: "Choose AI Provider",
+    description: "Pick the AI brain for your assistant",
+    whyMatters: "This powers your assistant's intelligence - how it understands and responds to customers",
+    estimatedTime: "5 minutes",
     helpUrl: "https://ollama.com/download",
     helpContent: [
-      "Option 1: Ollama (Free, Local)",
-      "  - Download from ollama.com",
-      "  - Install on your machine",
-      "  - No API key needed",
+      "🤖 Two great options:",
       "",
-      "Option 2: Cloud Provider (Paid, Scalable)",
-      "  - OpenAI: Get API key from platform.openai.com",
-      "  - Anthropic: Get API key from console.anthropic.com",
-      "  - Google: Get API key from console.cloud.google.com",
+      "Option 1: Ollama (Free, runs on your computer)",
+      "  • No cost, totally private",
+      "  • Download from ollama.com",
+      "  • Runs on your machine",
+      "",
+      "Option 2: Cloud AI (Paid, more powerful)",
+      "  • OpenAI: ~$10-50/mo",
+      "  • Anthropic: ~$10-50/mo",
+      "  • Faster, smarter, scales better",
+      "",
+      "⏱️  Takes 5 minutes",
     ],
     showInModes: ["general", "ecommerce"],
   },
@@ -105,6 +127,7 @@ const PREREQUISITES: PrerequisiteItem[] = [
 export function PrerequisiteChecklist({
   mode = "ecommerce",
 }: PrerequisiteChecklistProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const {
     isComplete,
     completedCount,
@@ -115,6 +138,9 @@ export function PrerequisiteChecklist({
     llmProviderChoice,
     togglePrerequisite,
   } = onboardingStore();
+
+  const [openHelpSection, setOpenHelpSection] = React.useState<string | null>(null);
+  const [celebrated, setCelebrated] = React.useState(false);
 
   const stateMap: Record<PrerequisiteKey, boolean> = {
     cloudAccount,
@@ -130,86 +156,161 @@ export function PrerequisiteChecklist({
 
   const progressPercentage = (completedCount() / totalCount) * 100;
 
+  // Trigger celebration when all complete
+  React.useEffect(() => {
+    if (isComplete() && !celebrated && !prefersReducedMotion) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ["#d7fff3", "#82d3ff", "#00f5d4"],
+      });
+      setCelebrated(true);
+    }
+  }, [isComplete, celebrated, prefersReducedMotion]);
+
+  const toggleHelp = (key: string) => {
+    setOpenHelpSection(openHelpSection === key ? null : key);
+  };
+
   return (
     <div
       className="w-full max-w-2xl mx-auto p-4"
       data-theme="onboarding"
       data-testid="prerequisite-checklist"
     >
-      <Card>
+      <Card className="border-white/10 bg-white/5">
         <CardHeader>
-          <CardTitle>Setup Prerequisites</CardTitle>
-          <CardDescription>
-            Complete these items before deploying your bot.{" "}
-            <strong>
-              Setup time: {mode === "general" ? "15-30" : "30-60"} minutes
-            </strong>
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <CardTitle className="text-white">Get Ready for Setup</CardTitle>
+              <CardDescription className="text-white/60">
+                Complete these items to deploy your assistant. Each one has clear instructions.
+              </CardDescription>
+            </div>
+            {isComplete() && (
+              <motion.div
+                initial={prefersReducedMotion ? {} : { scale: 0 }}
+                animate={{ scale: 1 }}
+                className="flex items-center gap-2 px-3 py-2 bg-emerald-500/20 rounded-full border border-emerald-500/30"
+              >
+                <Sparkles size={16} className="text-emerald-400" />
+                <span className="text-sm font-bold text-emerald-400">All done!</span>
+              </motion.div>
+            )}
+          </div>
+
           <div
-            className="mt-4"
+            className="mt-4 space-y-3"
             role="status"
             aria-live="polite"
             aria-atomic="true"
           >
-            <p className="text-sm text-slate-600 mb-2" data-testid="progress-text">
-              Progress: {completedCount()} of {totalCount()} items completed
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-white/70" data-testid="progress-text">
+                {completedCount()} of {totalCount()} completed
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-white/50">
+                <Clock size={14} />
+                <span>
+                  {mode === "general" ? "~15-25" : "~25-35"} minutes total
+                </span>
+              </div>
+            </div>
             <Progress value={completedCount()} max={totalCount()} />
           </div>
         </CardHeader>
 
         <CardContent>
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-            {visiblePrerequisites.map((item) => (
-              <div
-                key={item.key}
-                className="border-b border-slate-100 pb-4 last:border-0"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <Checkbox
-                      id={item.key}
-                      label={item.title}
-                      description={item.description}
-                      checked={stateMap[item.key]}
-                      onChange={() => togglePrerequisite(item.key)}
-                      dataTestId={`checkbox-${item.key}`}
-                    />
-                  </div>
-                </div>
+          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+            {visiblePrerequisites.map((item, idx) => {
+              const isChecked = stateMap[item.key];
+              const isOpen = openHelpSection === item.key;
 
-                <div className="mt-3 ml-7">
-                  <Collapsible>
-                    <CollapsibleTrigger data-testid={`help-button-${item.key}`}>
-                      Get help
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2">
-                      <div
-                        className="bg-slate-50 rounded-md p-3 text-sm text-slate-700"
-                        data-testid={`help-section-${item.key}`}
-                      >
-                        <p className="font-medium mb-2">Setup Instructions:</p>
-                        <ul className="list-disc list-inside space-y-1">
-                          {item.helpContent.map((line, idx) => (
-                            <li key={idx} className="whitespace-pre-line">
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
-                        <a
-                          href={item.helpUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block mt-3 text-blue-600 hover:text-blue-700 underline"
-                        >
-                          Open full documentation →
-                        </a>
+              return (
+                <motion.div
+                  key={item.key}
+                  initial={prefersReducedMotion ? {} : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: prefersReducedMotion ? 0 : idx * 0.1 }}
+                  className={`
+                    rounded-xl border-2 transition-all duration-300
+                    ${isChecked
+                      ? "border-emerald-500/50 bg-emerald-500/10"
+                      : "border-white/10 bg-white/5"
+                    }
+                  `}
+                >
+                  <div className="p-4 space-y-3">
+                    {/* Checkbox and Title */}
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id={item.key}
+                        label={item.title}
+                        description={item.description}
+                        checked={isChecked}
+                        onChange={() => togglePrerequisite(item.key)}
+                        dataTestId={`checkbox-${item.key}`}
+                      />
+                    </div>
+
+                    {/* Why This Matters */}
+                    {item.whyMatters && (
+                      <div className="ml-7 pl-4 border-l-2 border-emerald-500/30">
+                        <p className="text-xs text-white/60 italic">
+                          💡 {item.whyMatters}
+                        </p>
                       </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
-              </div>
-            ))}
+                    )}
+
+                    {/* Help Section */}
+                    <div className="ml-7">
+                      <Collapsible open={isOpen} onOpenChange={() => toggleHelp(item.key)}>
+                        <CollapsibleTrigger
+                          data-testid={`help-button-${item.key}`}
+                          className={`
+                            flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors
+                            ${isOpen ? "text-emerald-400" : "text-white/50 hover:text-white/70"}
+                          `}
+                        >
+                          {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          {isOpen ? "Hide" : "Show"} instructions
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-3">
+                          <motion.div
+                            initial={prefersReducedMotion ? {} : { opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="bg-black/30 rounded-lg p-4 border border-white/10"
+                            data-testid={`help-section-${item.key}`}
+                          >
+                            <p className="text-xs font-bold text-white/70 mb-2">How to complete:</p>
+                            <ul className="space-y-1">
+                              {item.helpContent.map((line, idx) => (
+                                <li
+                                  key={idx}
+                                  className="text-xs text-white/60 whitespace-pre-line font-mono"
+                                >
+                                  {line}
+                                </li>
+                              ))}
+                            </ul>
+                            <a
+                              href={item.helpUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-3 text-xs text-emerald-400 hover:text-emerald-300 font-bold transition-colors"
+                            >
+                              Open full guide
+                              <ExternalLink size={12} />
+                            </a>
+                          </motion.div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </form>
         </CardContent>
 
@@ -219,10 +320,17 @@ export function PrerequisiteChecklist({
             size="lg"
             disabled={!isComplete()}
             className="w-full"
-            title={isComplete() ? "Ready to deploy" : "Complete all prerequisites first"}
+            title={isComplete() ? "All prerequisites complete!" : "Complete all prerequisites to continue"}
             dataTestId="deploy-button"
           >
-            {isComplete() ? "Deploy Now" : "Complete all prerequisites to deploy"}
+            {isComplete() ? (
+              <span className="flex items-center gap-2">
+                <Check size={16} />
+                Continue to Deployment
+              </span>
+            ) : (
+              `Complete ${totalCount() - completedCount()} more item${totalCount() - completedCount() > 1 ? 's' : ''} to continue`
+            )}
           </Button>
         </CardFooter>
       </Card>
