@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Cpu, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Star, Radar } from 'lucide-react';
+import { Cpu, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Star, ArrowRight, Lightbulb, Zap, Shield, Target } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
-import { RadarChart, MiniRadarChart } from '../charts/RadarChart';
 
 const HEALTH_CONFIG = {
   healthy: {
@@ -45,6 +44,76 @@ function renderStars(score: number | null): React.ReactNode {
   );
 }
 
+interface MetricBarProps {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+  showLabel?: boolean;
+}
+
+function MetricBar({ label, value, icon: Icon, color, showLabel = true }: MetricBarProps) {
+  const getGrade = (val: number) => {
+    if (val >= 80) return { grade: 'A', color: '#00f5d4' };
+    if (val >= 60) return { grade: 'B', color: '#fb923c' };
+    return { grade: 'C', color: '#f87171' };
+  };
+
+  const { grade, color: gradeColor } = getGrade(value);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon size={12} className="text-white/40" />
+          {showLabel && <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider">{label}</span>}
+        </div>
+        <span className="text-[10px] font-black" style={{ color: gradeColor }}>{value}%</span>
+      </div>
+      <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+          style={{
+            width: `${value}%`,
+            backgroundColor: color,
+            boxShadow: `0 0 10px ${color}40`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface ImprovementTipProps {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+function ImprovementTip({ icon: Icon, title, description, priority }: ImprovementTipProps) {
+  const priorityConfig = {
+    high: { color: 'bg-rose-500/10 border-rose-500/20 text-rose-400', dot: 'bg-rose-400' },
+    medium: { color: 'bg-amber-500/10 border-amber-500/20 text-amber-400', dot: 'bg-amber-400' },
+    low: { color: 'bg-[#00f5d4]/5 border-[#00f5d4]/20 text-[#00f5d4]', dot: 'bg-[#00f5d4]' },
+  };
+
+  const config = priorityConfig[priority];
+
+  return (
+    <div className={`p-2 rounded-lg border ${config.color} group/tip hover:border-opacity-40 transition-all cursor-help`}>
+      <div className="flex items-start gap-2">
+        <Icon size={14} className="mt-0.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-wider mb-0.5">{title}</p>
+          <p className="text-[8px] text-white/60 leading-relaxed">{description}</p>
+        </div>
+        <div className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0 mt-1`} />
+      </div>
+    </div>
+  );
+}
+
 function MetricRow({
   label,
   value,
@@ -75,7 +144,6 @@ function MetricRow({
 }
 
 export function BotQualityWidget() {
-  const [selectedAxis, setSelectedAxis] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['analytics', 'botQuality'],
     queryFn: () => analyticsService.getBotQuality(30),
@@ -97,41 +165,68 @@ export function BotQualityWidget() {
     ? `${(data.resolutionRate * 100).toFixed(1)}%`
     : '0.0%';
 
-  // Prepare radar chart data with clearer labels
-  const radarData = [
-    {
-      axis: 'Accuracy',
-      value: data?.csatScore != null ? data.csatScore * 20 : 70, // CSAT 1-5 → 0-100
-      fullMark: 100,
-    },
-    {
-      axis: 'Speed',
-      value: data?.avgResponseTimeSeconds != null
-        ? Math.max(0, 100 - (data.avgResponseTimeSeconds / 10) * 100) // Lower is better
-        : 75,
-      fullMark: 100,
-    },
-    {
-      axis: 'Resolve',
-      value: data?.resolutionRate != null ? data.resolutionRate * 100 : 80,
-      fullMark: 100,
-    },
-    {
-      axis: 'Stability',
-      value: data?.fallbackRate != null ? (1 - data.fallbackRate) * 100 : 85, // Lower fallback is better
-      fullMark: 100,
-    },
-    {
-      axis: 'Rating',
-      value: data?.csatScore != null ? data.csatScore * 20 : 72,
-      fullMark: 100,
-    },
-  ];
+  // Calculate performance metrics (0-100 scale)
+  const accuracyScore = data?.csatScore != null ? data.csatScore * 20 : 70;
+  const speedScore = data?.avgResponseTimeSeconds != null
+    ? Math.max(0, 100 - (data.avgResponseTimeSeconds / 10) * 100)
+    : 75;
+  const resolutionScore = data?.resolutionRate != null ? data.resolutionRate * 100 : 80;
+  const stabilityScore = data?.fallbackRate != null ? (1 - data.fallbackRate) * 100 : 85;
 
-  const handleAxisClick = (axis: string) => {
-    setSelectedAxis(axis);
-    setTimeout(() => setSelectedAxis(null), 3000);
+  // Generate improvement tips based on performance
+  const getImprovementTips = (): ImprovementTipProps[] => {
+    const tips: ImprovementTipProps[] = [];
+
+    if (accuracyScore < 70) {
+      tips.push({
+        icon: Star,
+        title: 'Boost Accuracy',
+        description: 'Review unresolved conversations to improve knowledge base',
+        priority: 'high',
+      });
+    }
+
+    if (speedScore < 70) {
+      tips.push({
+        icon: Zap,
+        title: 'Improve Speed',
+        description: 'Optimize knowledge base queries and response generation',
+        priority: 'high',
+      });
+    }
+
+    if (resolutionScore < 70) {
+      tips.push({
+        icon: Target,
+        title: 'Increase Resolutions',
+        description: 'Add more FAQs and improve conversation flow',
+        priority: 'medium',
+      });
+    }
+
+    if (stabilityScore < 70) {
+      tips.push({
+        icon: Shield,
+        title: 'Enhance Stability',
+        description: 'Reduce fallback rate by expanding knowledge coverage',
+        priority: 'medium',
+      });
+    }
+
+    // If everything is good, add positive tip
+    if (tips.length === 0) {
+      tips.push({
+        icon: Lightbulb,
+        title: 'Excellent Performance',
+        description: 'Your bot is performing optimally. Keep monitoring trends.',
+        priority: 'low',
+      });
+    }
+
+    return tips.slice(0, 2); // Show max 2 tips
   };
+
+  const improvementTips = getImprovementTips();
 
   return (
     <StatCard
@@ -142,63 +237,70 @@ export function BotQualityWidget() {
       data-testid="bot-quality-widget"
       isLoading={isLoading}
       expandable
-      miniChart={
-        !isLoading && data?.csatScore && (
-          <div className="mt-2">
-            <MiniRadarChart data={radarData} width={180} height={50} />
-          </div>
-        )
-      }
     >
-      {/* Radar Chart Visualization */}
+      {/* Performance Bars */}
       {!isLoading && data?.csatScore && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center justify-between">
             <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
-              QUALITY_RADAR
+              Performance_Metrics
             </span>
-            <Radar size={12} className="text-white/20" />
+            <div className="flex items-center gap-2">
+              <HealthIcon size={12} className={healthConfig.color === 'mantis' ? 'text-[#00f5d4]' : 'text-amber-400'} />
+              <span className={`text-[9px] font-black ${healthConfig.color === 'mantis' ? 'text-[#00f5d4]' : 'text-amber-400'}`}>
+                {healthConfig.label}
+              </span>
+            </div>
           </div>
-          <RadarChart
-            data={radarData}
-            height={220}
-            showAxes={true}
-            showLabels={true}
-            showValues={true}
-            onAxisClick={handleAxisClick}
-            ariaLabel="Bot quality radar chart showing 5 dimensions"
+
+          <MetricBar
+            label="Accuracy"
+            value={Math.round(accuracyScore)}
+            icon={Star}
+            color="#00f5d4"
           />
-          {selectedAxis && (
-            <div className="mt-2 p-2 bg-white/5 border border-white/10 rounded-lg text-center animate-in fade-in slide-in-from-top-2">
-              <p className="text-[9px] font-bold text-[#00f5d4] uppercase tracking-wider">
-                {selectedAxis} Selected
-              </p>
-            </div>
-          )}
-          {/* Legend explaining the radar */}
-          <div className="mt-3 grid grid-cols-2 gap-2 text-[8px]">
-            <div className="flex items-center gap-2 text-white/40">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#00f5d4]" />
-              <span className="font-bold uppercase">Good: 70-100</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/40">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span className="font-bold uppercase">Fair: 50-70</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/40">
-              <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-              <span className="font-bold uppercase">Poor: &lt;50</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/40">
-              <span className="font-bold uppercase">Click axis for details</span>
-            </div>
+          <MetricBar
+            label="Speed"
+            value={Math.round(speedScore)}
+            icon={Zap}
+            color="#a855f7"
+          />
+          <MetricBar
+            label="Resolution"
+            value={Math.round(resolutionScore)}
+            icon={Target}
+            color="#3b82f6"
+          />
+          <MetricBar
+            label="Stability"
+            value={Math.round(stabilityScore)}
+            icon={Shield}
+            color="#f59e0b"
+          />
+        </div>
+      )}
+
+      {/* AI Improvement Tips */}
+      {!isLoading && data?.csatScore && improvementTips.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Lightbulb size={12} className="text-[#00f5d4]" />
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              AI_Insights
+            </span>
+          </div>
+          <div className="space-y-2">
+            {improvementTips.map((tip, idx) => (
+              <ImprovementTip key={idx} {...tip} />
+            ))}
           </div>
         </div>
       )}
 
+      {/* Quick Stats */}
       <div className="space-y-0.5 mt-2">
         <div className="flex items-center justify-between gap-1 py-2 border-b border-white/5">
-          <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">STATUS_ARRAY</span>
+          <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Quick_Stats</span>
           <span className={`flex items-center gap-1.5 text-[10px] font-black px-2 py-0.5 rounded bg-[#00f5d4]/5 border border-[#00f5d4]/20 text-[#00f5d4] shadow-[0_0_10px_rgba(0,245,212,0.1)]`}>
             <HealthIcon size={10} strokeWidth={3} />
             {healthConfig.label}
