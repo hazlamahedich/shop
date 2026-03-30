@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronRight, Plus, EyeOff, MessageSquare, FileText, X, Target } from 'lucide-react';
+import { BookOpen, ChevronDown, Plus, MessageSquare, FileText, Target, ChevronRight } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { StatCard } from './StatCard';
 import { useState } from 'react';
-import { BubbleChart, MiniBubbleChart } from '../charts/BubbleChart';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/Collapsible';
 
 interface KnowledgeGap {
@@ -25,10 +24,78 @@ interface KnowledgeGapsData {
   totalGaps: number;
 }
 
+interface PriorityCardProps {
+  gap: KnowledgeGap;
+  priority: 'urgent' | 'medium' | 'low';
+}
+
+function PriorityCard({ gap, priority }: PriorityCardProps) {
+  const navigate = useNavigate();
+
+  const priorityStyles = {
+    urgent: 'bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50',
+    medium: 'bg-blue-500/10 border-blue-500/30 hover:border-blue-500/50',
+    low: 'bg-white/5 border-white/10 hover:border-white/20',
+  };
+
+  const priorityBadge = {
+    urgent: 'bg-rose-500/20 text-rose-400 border-rose-500/40',
+    medium: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+    low: 'bg-white/10 text-white/40 border-white/20',
+  };
+
+  return (
+    <div
+      className={`p-4 rounded-xl border ${priorityStyles[priority]} transition-all hover:scale-[1.02]`}
+      role="article"
+      aria-label={`Knowledge gap: ${gap.intent}, ${priority} priority`}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-white mb-2 truncate">
+            {gap.intent}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-wider ${priorityBadge[priority]}`}>
+              {priority}
+            </span>
+            <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+              {gap.count} detections
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons - Always Visible */}
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <button
+          onClick={() => navigate(`/business-info-faq?addFaq=true&question=${encodeURIComponent(gap.intent)}`)}
+          className="flex items-center justify-center gap-2 py-2.5 bg-[#00f5d4]/10 hover:bg-[#00f5d4]/20 border border-[#00f5d4]/30 rounded-lg transition-all group"
+          aria-label={`Add "${gap.intent}" as FAQ`}
+        >
+          <MessageSquare size={14} className="text-[#00f5d4] group-hover:scale-110 transition-transform" />
+          <span className="text-[10px] font-black text-[#00f5d4] uppercase tracking-wider">
+            Add FAQ
+          </span>
+        </button>
+        <button
+          onClick={() => navigate('/knowledge-base?add=true')}
+          className="flex items-center justify-center gap-2 py-2.5 bg-[#00bbf9]/10 hover:bg-[#00bbf9]/20 border border-[#00bbf9]/30 rounded-lg transition-all group"
+          aria-label="Upload document to knowledge base"
+        >
+          <FileText size={14} className="text-[#00bbf9] group-hover:scale-110 transition-transform" />
+          <span className="text-[10px] font-black text-[#00bbf9] uppercase tracking-wider">
+            Add Doc
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function KnowledgeGapWidget() {
   const navigate = useNavigate();
-  const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', 'knowledge-gaps'],
@@ -39,90 +106,36 @@ export function KnowledgeGapWidget() {
 
   const gapsData = data as KnowledgeGapsData | undefined;
   const gaps = gapsData?.gaps || [];
-  const displayGaps = gaps.slice(0, 3);
-  const remainingGaps = gaps.slice(3);
 
-  // Prepare bubble chart data (opportunity matrix)
-  // Map gaps to quadrants based on count (impact) and suggested action (ease)
-  const bubbleData = gaps.map((gap) => {
-    const impact = Math.min(100, gap.count * 10); // More frequent = higher impact
-    const ease = gap.suggestedAction === 'add-doc' ? 80 :
-              gap.suggestedAction === 'add-faq' ? 60 :
-              gap.suggestedAction === 'improve-search' ? 40 : 20;
-    const size = gap.count;
-
-    return {
-      id: gap.id,
-      name: gap.intent,
-      x: ease,
-      y: impact,
-      size,
-      category:
-        ease >= 60 && impact >= 60 ? 'quick-win' :
-        ease >= 60 && impact < 60 ? 'fill-in' :
-        ease < 60 && impact >= 60 ? 'major-project' : 'low-priority',
-    };
-  });
-
-  const handleBubbleClick = (bubble: any) => {
-    const gap = gaps.find(g => g.id === bubble.id);
-    if (gap) {
-      setSelectedGap(gap);
-    }
-  };
+  // Group gaps by priority for better UX
+  const quickWins = gaps.filter(g => g.count >= 10 || g.suggestedAction === 'add-faq');
+  const mediumPriority = gaps.filter(g => !quickWins.includes(g) && g.count >= 5);
+  const lowPriority = gaps.filter(g => !quickWins.includes(g) && !mediumPriority.includes(g));
 
   return (
     <StatCard
       title="Intelligence Gaps"
       value={isLoading ? '...' : gaps.length.toString()}
-      subValue="OPPORTUNITY_MATRIX"
+      subValue="PRIORITIZED_ACTION_LIST"
       icon={<Target size={18} />}
       accentColor={gaps.length > 0 ? 'orange' : 'mantis'}
       data-testid="knowledge-gap-widget"
       isLoading={isLoading}
       expandable
       miniChart={
-        !isLoading && gaps.length > 0 && (
-          <div className="mt-2">
-            <MiniBubbleChart
-              data={bubbleData}
-              width={200}
-              height={50}
-              maxBubbles={5}
-            />
+        !isLoading && quickWins.length > 0 && (
+          <div className="flex items-center gap-1 mt-2">
+            {quickWins.slice(0, 5).map((_, i) => (
+              <div
+                key={i}
+                className="h-1.5 w-8 rounded-full bg-gradient-to-r from-rose-500 to-orange-500"
+              />
+            ))}
           </div>
         )
       }
     >
-      {/* Bubble Chart Visualization */}
-      {!isLoading && gaps.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[9px] font-black text-white/30 uppercase tracking-wider">
-              IMPACT vs EFFORT MATRIX
-            </span>
-            <Target size={12} className="text-white/20" />
-          </div>
-          <BubbleChart
-            data={bubbleData}
-            height={200}
-            onClick={handleBubbleClick}
-            showLabels={true}
-            showQuadrants={true}
-            quadrantLabels={{
-              topLeft: 'MAJOR PROJECTS\n(Hard + High Impact)',
-              topRight: 'QUICK WINS\n(Easy + High Impact)',
-              bottomLeft: 'FILL IN\n(Easy + Low Impact)',
-              bottomRight: 'DEFER\n(Hard + Low Impact)',
-            }}
-            xLabel='EASY TO FIX →'
-            yLabel='↑ IMPACT'
-            ariaLabel="Knowledge gap opportunity matrix"
-          />
-        </div>
-      )}
-
-      <div className="space-y-2 mt-4">
+      <div className="space-y-4 mt-4" role="region" aria-label="Knowledge gaps prioritized by urgency">
         {isError && (
           <div className="flex items-center justify-center py-8">
             <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest text-center">TELEMETRY_GAP_ERROR</p>
@@ -139,156 +152,65 @@ export function KnowledgeGapWidget() {
           </div>
         )}
 
-        <div className="space-y-2">
-          {displayGaps.map((gap) => (
-            <div key={gap.id}>
-              <div
-                className="group/gap flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/20 hover:bg-[#00f5d4]/5 transition-all cursor-pointer"
-                onClick={() => setSelectedGap(gap)}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black text-white/80 group-hover/gap:text-white truncate uppercase tracking-tight">
-                    {gap.intent}
-                  </p>
-                  <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
-                    {gap.count} DETECTIONS
-                  </p>
+        {!isLoading && !isError && gaps.length > 0 && (
+          <>
+            {/* Quick Wins Section - Always Expanded */}
+            {quickWins.length > 0 && (
+              <div className="p-4 bg-gradient-to-br from-rose-500/10 to-orange-500/10 border border-rose-500/20 rounded-2xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">🔥</span>
+                  <h3 className="text-xs font-black text-rose-400 uppercase tracking-widest">
+                    Urgent - Quick Wins ({quickWins.length})
+                  </h3>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[9px] font-black text-[#00f5d4] bg-[#00f5d4]/10 px-2 py-1 rounded border border-[#00f5d4]/20 uppercase tracking-tighter">
-                    {gap.suggestedAction}
-                  </span>
-                  <ChevronRight size={12} className="text-white/20 group-hover/gap:translate-x-1 group-hover/gap:text-white/60 transition-all" />
+                <div className="space-y-2">
+                  {quickWins.slice(0, 3).map(gap => (
+                    <PriorityCard key={gap.id} gap={gap} priority="urgent" />
+                  ))}
                 </div>
               </div>
+            )}
 
-              {/* Action Menu */}
-              {selectedGap?.id === gap.id && (
-                <div className="mt-2 p-3 bg-[#0d0d12] border border-[#00f5d4]/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-black text-[#00f5d4] uppercase tracking-widest">
-                      Bridge Knowledge Gap
-                    </p>
-                    <button
-                      onClick={() => setSelectedGap(null)}
-                      className="p-1 text-white/30 hover:text-white/60 transition-colors"
-                      aria-label="Close knowledge gap menu"
-                    >
-                      <X size={14} />
-                    </button>
+            {/* Medium Priority - Collapsible */}
+            {mediumPriority.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger className="w-full p-3 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-between transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span>📋</span>
+                    <span className="text-xs font-black text-white/60 uppercase tracking-widest">
+                      Medium Priority ({mediumPriority.length})
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => {
-                        navigate(`/business-info-faq?addFaq=true&question=${encodeURIComponent(gap.intent)}`);
-                        setSelectedGap(null);
-                      }}
-                      className="flex flex-col items-center gap-2 p-3 bg-[#00f5d4]/5 border border-[#00f5d4]/20 rounded-lg hover:bg-[#00f5d4]/10 transition-all group"
-                      aria-label={`Add "${gap.intent}" as FAQ`}
-                    >
-                      <MessageSquare size={18} className="text-[#00f5d4] group-hover:scale-110 transition-transform" />
-                      <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add as FAQ</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate('/knowledge-base?add=true');
-                        setSelectedGap(null);
-                      }}
-                      className="flex flex-col items-center gap-2 p-3 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg hover:bg-[#00bbf9]/10 transition-all group"
-                      aria-label="Upload document to knowledge base"
-                    >
-                      <FileText size={18} className="text-[#00bbf9] group-hover:scale-110 transition-transform" />
-                      <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add Document</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                  <ChevronDown size={14} className="text-white/40 transition-transform" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 space-y-2">
+                  {mediumPriority.map(gap => (
+                    <PriorityCard key={gap.id} gap={gap} priority="medium" />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
-        {remainingGaps.length > 0 && (
-          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-            <CollapsibleTrigger
-              className="w-full mt-2 py-2 text-[9px] font-black text-[#00f5d4] hover:text-white/80 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
-              aria-expanded={isExpanded}
-            >
-              <span>
-                {isExpanded ? 'Hide' : `View ${remainingGaps.length} more questions`}
-              </span>
-              <ChevronRight
-                size={12}
-                className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 space-y-2">
-              {remainingGaps.map((gap) => (
-                <div key={gap.id}>
-                  <div
-                    className="group/gap flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#00f5d4]/20 hover:bg-[#00f5d4]/5 transition-all cursor-pointer"
-                    onClick={() => setSelectedGap(gap)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-black text-white/80 group-hover/gap:text-white truncate uppercase tracking-tight">
-                        {gap.intent}
-                      </p>
-                      <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">
-                        {gap.count} DETECTIONS
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[9px] font-black text-[#00f5d4] bg-[#00f5d4]/10 px-2 py-1 rounded border border-[#00f5d4]/20 uppercase tracking-tighter">
-                        {gap.suggestedAction}
-                      </span>
-                      <ChevronRight size={12} className="text-white/20 group-hover/gap:translate-x-1 group-hover/gap:text-white/60 transition-all" />
-                    </div>
+            {/* Low Priority - Collapsible */}
+            {lowPriority.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger className="w-full p-3 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-between transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span>💡</span>
+                    <span className="text-xs font-black text-white/40 uppercase tracking-widest">
+                      Low Priority ({lowPriority.length})
+                    </span>
                   </div>
-
-                  {/* Action Menu */}
-                  {selectedGap?.id === gap.id && (
-                    <div className="mt-2 p-3 bg-[#0d0d12] border border-[#00f5d4]/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-[10px] font-black text-[#00f5d4] uppercase tracking-widest">
-                          Bridge Knowledge Gap
-                        </p>
-                        <button
-                          onClick={() => setSelectedGap(null)}
-                          className="p-1 text-white/30 hover:text-white/60 transition-colors"
-                          aria-label="Close knowledge gap menu"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            navigate(`/business-info-faq?addFaq=true&question=${encodeURIComponent(gap.intent)}`);
-                            setSelectedGap(null);
-                          }}
-                          className="flex flex-col items-center gap-2 p-3 bg-[#00f5d4]/5 border border-[#00f5d4]/20 rounded-lg hover:bg-[#00f5d4]/10 transition-all group"
-                          aria-label={`Add "${gap.intent}" as FAQ`}
-                        >
-                          <MessageSquare size={18} className="text-[#00f5d4] group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add as FAQ</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            navigate('/knowledge-base?add=true');
-                            setSelectedGap(null);
-                          }}
-                          className="flex flex-col items-center gap-2 p-3 bg-[#00bbf9]/5 border border-[#00bbf9]/20 rounded-lg hover:bg-[#00bbf9]/10 transition-all group"
-                          aria-label="Upload document to knowledge base"
-                        >
-                          <FileText size={18} className="text-[#00bbf9] group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-black text-white/80 uppercase tracking-tight">Add Document</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
+                  <ChevronDown size={14} className="text-white/40 transition-transform" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 space-y-2">
+                  {lowPriority.map(gap => (
+                    <PriorityCard key={gap.id} gap={gap} priority="low" />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </>
         )}
 
         <button
