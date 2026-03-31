@@ -109,7 +109,7 @@ def upgrade() -> None:
             "SELECT id, business_hours_config FROM merchants WHERE business_hours_config IS NOT NULL"
         )
     )
-    merchants = result.fetchall()
+    merchants = result.all()  # Changed from fetchall() to all() for SQLAlchemy 2.0 compatibility
 
     fixed_count = 0
     skipped_count = 0
@@ -156,7 +156,7 @@ def downgrade() -> None:
             "SELECT id, business_hours_config FROM merchants WHERE business_hours_config IS NOT NULL"
         )
     )
-    merchants = result.fetchall()
+    merchants = result.all()  # Changed from fetchall() to all() for SQLAlchemy 2.0 compatibility
 
     reverted_count = 0
     skipped_count = 0
