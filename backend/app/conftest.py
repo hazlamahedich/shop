@@ -102,6 +102,7 @@ async def _setup_app_database():
         await conn.execute(text("TRUNCATE TABLE deletion_audit_log CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE merchants CASCADE;"))
         await conn.execute(text("TRUNCATE TABLE tutorials CASCADE;"))
+        await conn.execute(text("TRUNCATE TABLE conversation_context CASCADE;"))
 
         # Reset sequences
         await conn.execute(text("SELECT setval('merchants_id_seq', 1, false);"))

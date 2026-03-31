@@ -165,9 +165,13 @@ class ConversationContextService:
             context=updated_context,
         )
 
-        # Persist to Redis AFTER DB (so cache has complete data including timestamps)
         # Reload from DB to get complete context with timestamps
         final_context = await self.get_context(conversation_id, bypass_cache=True)
+
+        # Handle case where context still doesn't exist (shouldn't happen after persist)
+        if not final_context:
+            self.logger.warning("Context not found after persisting", conversation_id=conversation_id)
+            final_context = updated_context
 
         # Update Redis cache with complete context
         if self.redis:
@@ -185,7 +189,7 @@ class ConversationContextService:
             self.logger.info(
                 "Summarization trigger met",
                 conversation_id=conversation_id,
-                turn_count=final_context.get("turn_count"),
+                turn_count=final_context.get("turn_count", 0),
             )
 
         return final_context

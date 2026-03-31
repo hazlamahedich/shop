@@ -202,6 +202,16 @@ class TestConversationContextService:
         mock_context_model = MagicMock(spec=ConversationContext)
         mock_context_model.context_data = existing_context
         mock_context_model.turn_count = 2
+        mock_context_model.expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        mock_context_model.created_at = datetime.now(timezone.utc)
+        mock_context_model.updated_at = datetime.now(timezone.utc)
+        mock_context_model.last_summarized_at = None
+        mock_context_model.preferences = None
+        mock_context_model.mode = "ecommerce"
+        mock_context_model.viewed_products = [123]
+        mock_context_model.cart_items = None
+        mock_context_model.constraints = {"budget_max": 100}
+        mock_context_model.search_history = None
         mock_result.scalar_one_or_none.return_value = mock_context_model
 
         async def mock_execute(stmt):
