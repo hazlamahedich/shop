@@ -148,6 +148,10 @@ class ErrorCode(IntEnum):
     SESSION_EXPIRED = 7000
     CONVERSATION_NOT_FOUND = 7001
     INVALID_CONTEXT = 7002
+    # Story 11-1: Context Memory error codes
+    CONTEXT_NOT_FOUND = 7003  # Context not found for conversation
+    CONTEXT_EXPIRED = 7004  # Context expired (>24 hours old)
+    CONTEXT_SUMMARIZATION_FAILED = 7005  # LLM summarization failed
     CLARIFICATION_FLOW_FAILED = 7010  # Generic clarification error
     CLARIFICATION_TIMEOUT = 7011  # User didn't respond to question
     CLARIFICATION_MAX_ATTEMPTS = 7012  # Max 3 questions exceeded

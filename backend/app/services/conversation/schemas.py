@@ -186,6 +186,7 @@ class ConversationContext(BaseModel):
 
     Story 5-10 Enhancement: Added is_returning_shopper for personalized greetings.
     Story 5-11 Enhancement: Added clarification_state, handoff_state, consent_status, hybrid_mode_enabled.
+    Story 11-1: Added conversation_id for context memory integration.
 
     Provides a unified interface for message processing across
     Widget, Facebook Messenger, and Preview channels.
@@ -194,6 +195,10 @@ class ConversationContext(BaseModel):
     session_id: str = Field(description="Universal identifier (psid or widget_session_id)")
     merchant_id: int = Field(description="Merchant ID")
     channel: Channel = Field(description="Source channel")
+    conversation_id: int | None = Field(
+        None,
+        description="Database conversation ID for context memory (Story 11-1)",
+    )
     conversation_history: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Recent conversation messages",

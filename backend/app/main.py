@@ -26,6 +26,7 @@ from app.api.business_info import router as business_info_router
 from app.api.carriers import router as carriers_router
 from app.api.consent import router as consent_router
 from app.api.conversations import router as conversation_router
+from app.api.conversation_context import router as conversation_context_router
 from app.api.cost_tracking import router as cost_tracking_router
 from app.api.csrf import router as csrf_router
 from app.api.data_deletion import router as data_deletion_router
@@ -466,6 +467,7 @@ app.include_router(facebook_webhook_router, prefix="/api/webhooks", tags=["webho
 app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
+app.include_router(conversation_context_router, prefix="/api/v1", tags=["conversation-context"])
 app.include_router(export_router, tags=["export"])
 app.include_router(cost_tracking_router, tags=["costs"])
 app.include_router(business_hours_router, prefix="/api/v1/merchant", tags=["business-hours"])

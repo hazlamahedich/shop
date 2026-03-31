@@ -61,6 +61,7 @@ class MessengerAdapter:
         metadata: dict[str, Any] | None = None,
         is_returning_shopper: bool = False,
         consent_status: str | None = None,
+        conversation_id: int | None = None,  # Story 11-1: Context memory
     ) -> ConversationContext:
         """Create ConversationContext from Messenger webhook data.
 
@@ -71,6 +72,7 @@ class MessengerAdapter:
             metadata: Additional context metadata
             is_returning_shopper: Whether this is a returning shopper
             consent_status: Current consent status
+            conversation_id: Database conversation ID for context memory (Story 11-1)
 
         Returns:
             ConversationContext configured for Messenger channel
@@ -87,6 +89,7 @@ class MessengerAdapter:
             hybrid_mode_expires_at=None,
             last_activity_at=None,
             metadata=metadata or {},
+            conversation_id=conversation_id,  # Story 11-1: Context memory
         )
 
     def get_cart_key(self, psid: str) -> str:

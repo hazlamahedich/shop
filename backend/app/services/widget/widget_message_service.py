@@ -198,6 +198,32 @@ class WidgetMessageService:
 
         history = await self.session_service.get_message_history(session.session_id)
 
+        # Story 11-1: Load conversation for context memory
+        conversation = None
+        conversation_id = None
+        if self.db:
+            from app.models.conversation import Conversation
+
+            try:
+                result = await self.db.execute(
+                    select(Conversation)
+                    .where(
+                        Conversation.merchant_id == merchant_id,
+                        Conversation.platform_sender_id == session.session_id,
+                    )
+                    .order_by(Conversation.updated_at.desc())
+                    .limit(1)
+                )
+                conversation = result.scalars().first()
+                if conversation:
+                    conversation_id = conversation.id
+            except Exception as e:
+                self.logger.warning(
+                    "load_conversation_id_failed",
+                    session_id=session.session_id,
+                    error=str(e),
+                )
+
         context = ConversationContext(
             session_id=session.session_id,
             merchant_id=merchant_id,
@@ -207,6 +233,7 @@ class WidgetMessageService:
             user_id=None,
             is_returning_shopper=session.is_returning_shopper,
             consent_state=ConsentState(visitor_id=session.visitor_id),
+            conversation_id=conversation_id,  # Story 11-1: Context memory
         )
 
         # Build RAG context builder for General mode
@@ -231,32 +258,12 @@ class WidgetMessageService:
         if session_metadata:
             context.metadata = {**context.metadata, **session_metadata}
 
-        # Also load conversation_data from database
-        if self.db:
-            from app.models.conversation import Conversation
-
-            try:
-                result = await self.db.execute(
-                    select(Conversation)
-                    .where(
-                        Conversation.merchant_id == merchant_id,
-                        Conversation.platform_sender_id == session.session_id,
-                    )
-                    .order_by(Conversation.updated_at.desc())
-                    .limit(1)
-                )
-                conversation = result.scalars().first()
-                if conversation:
-                    context.conversation_data = conversation.decrypted_metadata
-                    # Merge with session metadata
-                    if session_metadata:
-                        context.metadata.update(conversation.decrypted_metadata or {})
-            except Exception as e:
-                self.logger.warning(
-                    "load_conversation_data_failed",
-                    session_id=session.session_id,
-                    error=str(e),
-                )
+        # Story 11-1: Load conversation_data from database (reuse conversation object)
+        if conversation:
+            context.conversation_data = conversation.decrypted_metadata
+            # Merge with session metadata
+            if session_metadata:
+                context.metadata.update(conversation.decrypted_metadata or {})
 
         assert self.db is not None  # We only reach here if db is set
         response = await unified_service.process_message(

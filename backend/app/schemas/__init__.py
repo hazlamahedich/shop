@@ -13,6 +13,14 @@ from app.schemas.business_info import (  # noqa: F401
     BusinessInfoRequest,
     BusinessInfoResponse,
 )
+from app.schemas.conversation_context import (  # noqa: F401
+    ContextSummary,
+    ConversationContextResponse,
+    ConversationContextUpdate,
+    ConversationTurnResponse,
+    ContextSummaryResponse,
+    ContextUpdateResponse,
+)
 from app.schemas.faq import (  # noqa: F401
     FaqEnvelope,
     FaqListEnvelope,
@@ -106,4 +114,11 @@ __all__ = [
     "GreetingConfigUpdate",
     "GreetingConfigResponse",
     "GreetingEnvelope",
+    # Story 11-1: Conversation Context schemas
+    "ConversationContextResponse",
+    "ConversationContextUpdate",
+    "ConversationTurnResponse",
+    "ContextSummary",
+    "ContextUpdateResponse",
+    "ContextSummaryResponse",
 ]

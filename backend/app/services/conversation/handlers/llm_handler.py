@@ -15,12 +15,14 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import get_redis_client
 from app.models.merchant import Merchant, PersonalityType
 from app.services.conversation.handlers.base_handler import BaseHandler
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
+from app.services.conversation_context import ConversationContextService
 from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
 from app.services.personality.personality_prompts import get_personality_system_prompt
 
@@ -56,17 +58,25 @@ class LLMHandler(BaseHandler):
     ) -> ConversationResponse:
         """Handle general/unknown intent with LLM.
 
+        Story 11-1: Enhanced with conversation context memory integration.
+        Injects mode-aware context into LLM prompts for better responses.
+
         Args:
             db: Database session
             merchant: Merchant configuration
             llm_service: LLM service for this merchant
             message: User's message
-            context: Conversation context
+            context: Conversation context (with channel info)
             entities: Extracted entities (not used for general)
 
         Returns:
             ConversationResponse with LLM-generated message
         """
+        # Story 11-1: Retrieve conversation context memory
+        conversation_context = None
+        if context.conversation_id:
+            conversation_context = await self._get_conversation_context(db, context.conversation_id)
+
         rag_context = None
         if context.metadata:
             rag_context = context.metadata.get("rag_context")
@@ -85,6 +95,14 @@ class LLMHandler(BaseHandler):
             personality_type=personality_type,
             pending_state=pending_state,
         )
+
+        # Story 11-1: Inject conversation context into system prompt
+        if conversation_context:
+            system_prompt = self._inject_conversation_context(
+                system_prompt,
+                conversation_context,
+                merchant.onboarding_mode or "ecommerce"
+            )
 
         if rag_context:
             logger.debug(
@@ -433,6 +451,166 @@ class LLMHandler(BaseHandler):
             pending_state["pending_cross_device_lookup"] = True
 
         return pending_state if pending_state else None
+
+    async def _get_conversation_context(
+        self,
+        db: AsyncSession,
+        conversation_id: int,
+    ) -> dict[str, Any] | None:
+        """Retrieve conversation context memory.
+
+        Story 11-1: Context Memory Integration
+        Fetches context from Redis/PostgreSQL for LLM prompt injection.
+
+        Args:
+            db: Database session
+            conversation_id: Conversation ID
+
+        Returns:
+            Context dictionary or None if not found
+        """
+        redis_client = get_redis_client()
+        context_service = ConversationContextService(db=db, redis_client=redis_client)
+
+        try:
+            context = await context_service.get_context(conversation_id)
+            return context
+        except Exception as e:
+            logger.warning(
+                "llm_handler_context_retrieval_failed",
+                conversation_id=conversation_id,
+                error=str(e),
+            )
+            return None
+
+    def _inject_conversation_context(
+        self,
+        base_prompt: str,
+        context: dict[str, Any] | None,
+        onboarding_mode: str,
+    ) -> str:
+        """Inject conversation context into system prompt.
+
+        Story 11-1: Context Memory Integration
+        Injects mode-aware context to improve response relevance.
+
+        Args:
+            base_prompt: Original system prompt
+            context: Conversation context dictionary (can be None)
+            onboarding_mode: Merchant mode (ecommerce or general)
+
+        Returns:
+            Enhanced system prompt with context
+        """
+        if not context:
+            return base_prompt
+
+        # Build context section based on mode
+        if onboarding_mode == "ecommerce":
+            context_section = self._build_ecommerce_context(context)
+        else:  # general mode
+            context_section = self._build_general_context(context)
+
+        # Inject context before instructions
+        enhanced_prompt = f"""{base_prompt}
+
+## Conversation Context
+
+{context_section}
+
+When responding, take this context into account to provide more personalized and relevant assistance."""
+
+        logger.debug(
+            "llm_handler_context_injected",
+            context_keys=list(context.keys()),
+            onboarding_mode=onboarding_mode,
+            context_length=len(context_section),
+        )
+
+        return enhanced_prompt
+
+    def _build_ecommerce_context(self, context: dict[str, Any]) -> str:
+        """Build e-commerce context section for prompt.
+
+        Args:
+            context: Context dictionary
+
+        Returns:
+            Formatted context section
+        """
+        parts = []
+
+        # Products viewed
+        if context.get("viewed_products"):
+            products = context["viewed_products"][:5]  # Limit to 5 for token efficiency
+            parts.append(f"Recently viewed products: {products}")
+
+        # Constraints
+        if context.get("constraints"):
+            constraints = []
+            if context["constraints"].get("budget_max"):
+                constraints.append(f"budget max: ${context['constraints']['budget_max']}")
+            if context["constraints"].get("budget_min"):
+                constraints.append(f"budget min: ${context['constraints']['budget_min']}")
+
+            # Preferences
+            if context["constraints"].get("size"):
+                constraints.append(f"size: {context['constraints']['size']}")
+            if context["constraints"].get("color"):
+                constraints.append(f"color: {context['constraints']['color']}")
+            if context["constraints"].get("brand"):
+                constraints.append(f"brand: {context['constraints']['brand']}")
+
+            if constraints:
+                parts.append(f"Customer constraints: {', '.join(constraints)}")
+
+        # Cart items
+        if context.get("cart_items"):
+            parts.append(f"Items in cart: {context['cart_items']}")
+
+        # Search history
+        if context.get("search_history"):
+            recent_searches = context["search_history"][-3:]  # Last 3 searches
+            parts.append(f"Recent searches: {recent_searches}")
+
+        return "\n".join(parts) if parts else "No specific context available."
+
+    def _build_general_context(self, context: dict[str, Any]) -> str:
+        """Build general mode context section for prompt.
+
+        Args:
+            context: Context dictionary
+
+        Returns:
+            Formatted context section
+        """
+        parts = []
+
+        # Topics discussed
+        if context.get("topics_discussed"):
+            topics = context["topics_discussed"][:5]
+            parts.append(f"Topics discussed: {', '.join(topics)}")
+
+        # Support issues
+        if context.get("support_issues"):
+            issues = []
+            for issue in context["support_issues"][:5]:
+                issue_type = issue.get("type", "unknown")
+                status = issue.get("status", "unknown")
+                issues.append(f"{issue_type} ({status})")
+            if issues:
+                parts.append(f"Support issues: {', '.join(issues)}")
+
+        # Documents referenced
+        if context.get("documents_referenced"):
+            parts.append(f"Documents referenced: {context['documents_referenced']}")
+
+        # Escalation status
+        if context.get("escalation_status"):
+            escalation = context["escalation_status"]
+            parts.append(f"Escalation level: {escalation}")
+
+        return "\n".join(parts) if parts else "No specific context available."
 
     def _inject_rag_context(self, base_prompt: str, rag_context: str) -> str:
         """Inject RAG context into system prompt naturally.

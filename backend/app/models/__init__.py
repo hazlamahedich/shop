@@ -7,6 +7,10 @@ from app.models.budget_alert import BudgetAlert
 from app.models.carrier_config import CarrierConfig
 from app.models.consent import Consent, ConsentType
 from app.models.conversation import Conversation
+from app.models.conversation_context import (
+    ConversationContext,
+    ConversationTurn,
+)
 from app.models.customer_profile import CustomerProfile
 from app.models.data_deletion_request import DataDeletionRequest, DeletionStatus
 from app.models.data_export_audit_log import DataExportAuditLog
@@ -42,6 +46,8 @@ __all__ = [
     "FacebookIntegration",
     "ShopifyIntegration",
     "Conversation",
+    "ConversationContext",
+    "ConversationTurn",
     "Message",
     "MessageFeedback",
     "FeedbackRating",
