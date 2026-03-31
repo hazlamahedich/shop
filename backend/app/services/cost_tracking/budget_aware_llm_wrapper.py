@@ -7,6 +7,7 @@ Blocks requests when budget is exceeded and returns configured message.
 from __future__ import annotations
 
 import time
+from collections.abc import AsyncGenerator
 from decimal import Decimal
 from typing import Any
 
@@ -24,6 +25,7 @@ from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
+    StreamEvent,
 )
 from app.services.llm.llm_router import LLMRouter
 
@@ -226,6 +228,136 @@ class BudgetAwareLLMWrapper(BaseLLMService):
                 )
 
         return response
+
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream chat completion with budget check BEFORE streaming starts.
+
+        Yields tokens to the caller immediately while accumulating content
+        internally for cost tracking after the stream completes.
+
+        Args:
+            messages: Conversation history
+            model: Model override (optional)
+            temperature: Response randomness (0.0-1.0)
+            max_tokens: Maximum tokens in response
+
+        Yields:
+            StreamEvent objects with incremental content
+        """
+        merchant = await self._get_merchant()
+        if not merchant:
+            raise ValueError(f"Merchant {self.merchant_id} not found")
+
+        budget_cap = self._get_budget_cap(merchant)
+
+        if budget_cap is not None:
+            is_paused, pause_reason = await self.budget_service.get_bot_paused_state(
+                self.merchant_id
+            )
+
+            if is_paused:
+                logger.info(
+                    "llm_stream_blocked_bot_paused",
+                    merchant_id=self.merchant_id,
+                    conversation_id=self.conversation_id,
+                    pause_reason=pause_reason,
+                )
+                yield StreamEvent(
+                    type="done",
+                    content=self.PAUSED_BOT_MESSAGE,
+                    metadata={"budget_paused": True, "no_cost_recorded": True},
+                )
+                return
+
+            if budget_cap == Decimal("0"):
+                logger.info(
+                    "llm_stream_blocked_zero_budget",
+                    merchant_id=self.merchant_id,
+                    conversation_id=self.conversation_id,
+                )
+                await self.budget_service.set_bot_paused_state(
+                    self.merchant_id, True, "Zero budget"
+                )
+                yield StreamEvent(
+                    type="done",
+                    content=self.ZERO_BUDGET_MESSAGE,
+                    metadata={"budget_paused": True, "no_cost_recorded": True},
+                )
+                return
+
+        start_time = time.time()
+        accumulated_content: list[str] = []
+        done_metadata: dict[str, Any] = {}
+
+        async for event in self.llm_service.stream_chat(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
+            if event.type == "token":
+                accumulated_content.append(event.content)
+            elif event.type == "done":
+                done_metadata = event.metadata
+
+            yield event
+
+        if self.track_costs and not done_metadata.get("budget_paused"):
+            try:
+                full_content = "".join(accumulated_content)
+                processing_time_ms = (time.time() - start_time) * 1000
+
+                response_type = self._response_type or "unknown"
+
+                fake_response = LLMResponse(
+                    content=full_content,
+                    tokens_used=done_metadata.get("tokens_used", 0),
+                    model=done_metadata.get("model", "unknown"),
+                    provider=done_metadata.get("provider", "unknown"),
+                    metadata={"response_type": response_type},
+                )
+
+                await track_llm_request(
+                    db=self.db,
+                    llm_response=fake_response,
+                    conversation_id=self.conversation_id,
+                    merchant_id=self.merchant_id,
+                    processing_time_ms=processing_time_ms,
+                    response_type=response_type,
+                )
+
+                if budget_cap is not None:
+                    monthly_spend = Decimal(
+                        str(await self.cost_service.get_monthly_spend(self.db, self.merchant_id))
+                    )
+
+                    status, _ = await self.budget_service.check_and_handle_budget_state(
+                        self.merchant_id,
+                        monthly_spend,
+                        budget_cap,
+                    )
+
+                    if status == "exceeded":
+                        logger.info(
+                            "budget_exceeded_after_stream",
+                            merchant_id=self.merchant_id,
+                            monthly_spend=float(monthly_spend),
+                            budget_cap=float(budget_cap),
+                        )
+
+            except Exception as e:
+                logger.warning(
+                    "stream_cost_tracking_failed",
+                    conversation_id=self.conversation_id,
+                    merchant_id=self.merchant_id,
+                    error=str(e),
+                )
 
     def _create_paused_response(self, message: str) -> LLMResponse:
         """Create a response for when bot is paused.
@@ -431,6 +563,98 @@ class BudgetAwareLLMRouter:
                 raise APIError(
                     ErrorCode.LLM_SERVICE_UNAVAILABLE,
                     f"LLM provider failed: {str(e)}",
+                )
+
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        use_backup: bool = False,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream chat completion with budget awareness and failover.
+
+        If the primary stream fails before emitting any tokens, falls back
+        to the backup provider. Partial streams are not retried.
+
+        Args:
+            messages: Conversation history
+            model: Model override (optional)
+            temperature: Response randomness
+            max_tokens: Maximum tokens in response
+            use_backup: Force use of backup provider
+
+        Yields:
+            StreamEvent objects with incremental content
+        """
+        provider = self._backup_provider if use_backup else self._primary_provider
+        provider_name = "backup" if use_backup else "primary"
+
+        try:
+            logger.info(
+                "budget_aware_llm_router_stream_attempt",
+                provider=provider_name,
+                conversation_id=self.conversation_id,
+            )
+
+            has_emitted = False
+            async for event in provider.stream_chat(messages, model, temperature, max_tokens):
+                if event.type == "done" and event.metadata.get("budget_paused"):
+                    yield event
+                    return
+
+                has_emitted = True
+                yield event
+
+            logger.info(
+                "budget_aware_llm_router_stream_success",
+                provider=provider_name,
+                conversation_id=self.conversation_id,
+            )
+
+        except Exception as e:
+            logger.warning(
+                "budget_aware_llm_router_stream_failed",
+                error=str(e),
+                backup_available=self._backup_provider is not None,
+                conversation_id=self.conversation_id,
+            )
+
+            if self._backup_provider and not use_backup and not has_emitted:
+                logger.info(
+                    "budget_aware_llm_router_stream_fallback",
+                    fallback_to="backup",
+                    conversation_id=self.conversation_id,
+                )
+
+                try:
+                    async for event in self._backup_provider.stream_chat(
+                        messages, model, temperature, max_tokens
+                    ):
+                        yield event
+
+                except Exception as backup_error:
+                    logger.error(
+                        "budget_aware_llm_router_stream_both_failed",
+                        primary_error=str(e),
+                        backup_error=str(backup_error),
+                        conversation_id=self.conversation_id,
+                    )
+
+                    from app.core.errors import APIError, ErrorCode
+
+                    raise APIError(
+                        ErrorCode.LLM_ROUTER_BOTH_FAILED,
+                        f"Both LLM providers failed during streaming. "
+                        f"Primary: {str(e)}, Backup: {str(backup_error)}",
+                    )
+            else:
+                from app.core.errors import APIError, ErrorCode
+
+                raise APIError(
+                    ErrorCode.LLM_SERVICE_UNAVAILABLE,
+                    f"LLM provider failed during streaming: {str(e)}",
                 )
 
     async def health_check(self) -> dict[str, Any]:

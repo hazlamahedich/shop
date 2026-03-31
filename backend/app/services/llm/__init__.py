@@ -13,6 +13,7 @@ from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
+    StreamEvent,
 )
 from app.services.llm.gemini_service import GeminiService
 from app.services.llm.glm_service import GLMService
@@ -25,6 +26,7 @@ __all__ = [
     "BaseLLMService",
     "LLMMessage",
     "LLMResponse",
+    "StreamEvent",
     "OllamaService",
     "OpenAIService",
     "AnthropicService",

@@ -6,6 +6,9 @@ Pricing fetched dynamically from OpenRouter via ModelDiscoveryService.
 
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncGenerator
+
 import httpx
 import structlog
 
@@ -14,6 +17,7 @@ from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
+    StreamEvent,
 )
 
 logger = structlog.get_logger(__name__)
@@ -163,6 +167,129 @@ class AnthropicService(BaseLLMService):
             raise APIError(
                 ErrorCode.LLM_PROVIDER_ERROR,
                 f"Anthropic chat failed: {e.response.text}",
+            )
+
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream chat completion tokens from Anthropic.
+
+        Uses Anthropic's streaming API with SSE response format.
+        Event types: content_block_delta (text), message_delta (usage), message_stop.
+        """
+        api_key = self.config.get("api_key")
+        if not api_key:
+            raise APIError(
+                ErrorCode.LLM_API_KEY_MISSING,
+                "Anthropic API key not configured",
+            )
+
+        model_name = model or self.config.get("model", self.DEFAULT_MODEL)
+
+        if self.is_testing:
+            full_text = "Test streaming response from Anthropic"
+            words = full_text.split()
+            for i, word in enumerate(words):
+                token = word if i == 0 else " " + word
+                yield StreamEvent(type="token", content=token)
+            yield StreamEvent(
+                type="done",
+                content="",
+                metadata={
+                    "tokens_used": 10,
+                    "model": model_name,
+                    "provider": "anthropic",
+                },
+            )
+            return
+
+        anthropic_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+
+        payload = {
+            "model": model_name,
+            "messages": anthropic_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with self.async_client.stream(
+                "POST",
+                self.ANTHROPIC_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=60.0,
+            ) as response:
+                response.raise_for_status()
+
+                input_tokens = 0
+                output_tokens = 0
+
+                async for line in response.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+
+                    try:
+                        event = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+
+                    event_type = event.get("type", "")
+
+                    if event_type == "content_block_delta":
+                        delta = event.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            text = delta.get("text", "")
+                            if text:
+                                yield StreamEvent(type="token", content=text)
+
+                    elif event_type == "message_start":
+                        msg_data = event.get("message", {})
+                        usage = msg_data.get("usage", {})
+                        input_tokens = usage.get("input_tokens", 0)
+
+                    elif event_type == "message_delta":
+                        delta = event.get("delta", {})
+                        usage = event.get("usage", {})
+                        output_tokens = usage.get("output_tokens", 0)
+
+                    elif event_type == "message_stop":
+                        break
+
+            yield StreamEvent(
+                type="done",
+                content="",
+                metadata={
+                    "tokens_used": input_tokens + output_tokens,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "model": model_name,
+                    "provider": "anthropic",
+                    "stop_reason": delta.get("stop_reason") if "delta" in dir() else None,
+                },
+            )
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "anthropic_stream_failed",
+                status_code=e.response.status_code,
+                error=str(e),
+            )
+            raise APIError(
+                ErrorCode.LLM_PROVIDER_ERROR,
+                f"Anthropic streaming failed: {e.response.text}",
             )
 
     def count_tokens(self, text: str) -> int:

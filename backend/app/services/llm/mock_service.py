@@ -10,12 +10,16 @@ rephrasing / any other conversational use.
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncGenerator
+
 import structlog
 
 from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
+    StreamEvent,
 )
 
 logger = structlog.get_logger(__name__)
@@ -200,6 +204,41 @@ class MockLLMService(BaseLLMService):
             model="mock-model",
             provider="mock",
             metadata={"mock": True},
+        )
+
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream simulated tokens from mock response.
+
+        Splits the deterministic response into word-level chunks
+        with small delays to simulate real streaming behavior.
+        """
+        response = await self.chat(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        words = response.content.split()
+        for i, word in enumerate(words):
+            await asyncio.sleep(0.02)
+            token = word if i == 0 else " " + word
+            yield StreamEvent(type="token", content=token)
+
+        yield StreamEvent(
+            type="done",
+            content="",
+            metadata={
+                "tokens_used": response.tokens_used,
+                "model": response.model,
+                "provider": response.provider,
+            },
         )
 
     def count_tokens(self, text: str) -> int:

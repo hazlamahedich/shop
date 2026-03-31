@@ -8,6 +8,9 @@ Ollama runs locally on the merchant's server providing:
 
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncGenerator
+
 import httpx
 import structlog
 
@@ -16,6 +19,7 @@ from app.services.llm.base_llm_service import (
     BaseLLMService,
     LLMMessage,
     LLMResponse,
+    StreamEvent,
 )
 
 logger = structlog.get_logger(__name__)
@@ -145,6 +149,107 @@ class OllamaService(BaseLLMService):
             raise APIError(
                 ErrorCode.LLM_PROVIDER_ERROR,
                 f"Ollama chat failed: {e.response.text}",
+            )
+
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream chat completion tokens from Ollama.
+
+        Uses Ollama's /api/generate endpoint with streaming enabled.
+        Each NDJSON line contains a 'response' field with incremental text.
+        The final line has 'done: true' with token counts.
+        """
+        model_name = model or self.config.get("model", self.DEFAULT_MODEL)
+
+        if self.is_testing:
+            full_text = "Test streaming response from Ollama"
+            words = full_text.split()
+            for i, word in enumerate(words):
+                token = word if i == 0 else " " + word
+                yield StreamEvent(type="token", content=token)
+            yield StreamEvent(
+                type="done",
+                content="",
+                metadata={
+                    "tokens_used": 10,
+                    "model": model_name,
+                    "provider": "ollama",
+                },
+            )
+            return
+
+        prompt = self._build_prompt(messages)
+
+        payload = {
+            "model": model_name,
+            "prompt": prompt,
+            "stream": True,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+
+        try:
+            ollama_url = self.config.get("ollama_url", "http://localhost:11434")
+
+            async with httpx.AsyncClient(
+                base_url=ollama_url,
+                timeout=120.0,
+            ) as client:
+                async with client.stream(
+                    "POST",
+                    "/api/generate",
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+
+                    prompt_eval_count = 0
+                    eval_count = 0
+
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+
+                        try:
+                            chunk = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+
+                        text = chunk.get("response", "")
+                        if text:
+                            yield StreamEvent(type="token", content=text)
+
+                        if chunk.get("done", False):
+                            prompt_eval_count = chunk.get("prompt_eval_count", 0)
+                            eval_count = chunk.get("eval_count", 0)
+
+            yield StreamEvent(
+                type="done",
+                content="",
+                metadata={
+                    "tokens_used": prompt_eval_count + eval_count,
+                    "prompt_eval_count": prompt_eval_count,
+                    "eval_count": eval_count,
+                    "model": model_name,
+                    "provider": "ollama",
+                },
+            )
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "ollama_stream_failed",
+                error=str(e),
+                response=e.response.text,
+            )
+            raise APIError(
+                ErrorCode.LLM_PROVIDER_ERROR,
+                f"Ollama streaming failed: {e.response.text}",
             )
 
     def _build_prompt(self, messages: list[LLMMessage]) -> str:

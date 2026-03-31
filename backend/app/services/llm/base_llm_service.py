@@ -8,6 +8,7 @@ automatic failover.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from pydantic import BaseModel
@@ -27,6 +28,14 @@ class LLMResponse(BaseModel):
     tokens_used: int
     model: str
     provider: str
+    metadata: dict[str, Any] = {}
+
+
+class StreamEvent(BaseModel):
+    """Event emitted during streaming chat completion."""
+
+    type: str
+    content: str = ""
     metadata: dict[str, Any] = {}
 
 
@@ -86,6 +95,46 @@ class BaseLLMService(ABC):
             LLM response with content and metadata
         """
         pass
+
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream chat completion tokens from LLM provider.
+
+        Default implementation falls back to non-streaming chat()
+        and yields the full response as a single token event.
+
+        Providers that support streaming should override this method
+        to yield StreamEvent objects as tokens arrive.
+
+        Args:
+            messages: Conversation history
+            model: Model override (optional)
+            temperature: Response randomness (0.0-1.0)
+            max_tokens: Maximum tokens in response
+
+        Yields:
+            StreamEvent objects with incremental content
+        """
+        response = await self.chat(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        yield StreamEvent(
+            type="token",
+            content=response.content,
+            metadata={
+                "tokens_used": response.tokens_used,
+                "model": response.model,
+                "provider": response.provider,
+            },
+        )
 
     @abstractmethod
     def count_tokens(self, text: str) -> int:

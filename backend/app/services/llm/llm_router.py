@@ -6,6 +6,7 @@ Automatically switches to backup if primary fails.
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import structlog
@@ -14,6 +15,7 @@ from app.core.errors import APIError, ErrorCode
 from app.services.llm.base_llm_service import (
     LLMMessage,
     LLMResponse,
+    StreamEvent,
 )
 from app.services.llm.llm_factory import LLMProviderFactory
 
@@ -146,6 +148,95 @@ class LLMRouter:
                     f"LLM provider failed: {str(e)}",
                 )
 
+    async def stream_chat(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        use_backup: bool = False,
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream chat completion using primary provider with automatic failover.
+
+        If the primary stream fails before emitting any tokens, falls back
+        to the backup provider. Partial streams are not retried — the caller
+        receives whatever tokens were emitted before the failure.
+
+        Args:
+            messages: Conversation history
+            model: Model override (optional)
+            temperature: Response randomness
+            max_tokens: Maximum tokens in response
+            use_backup: Force use of backup provider
+
+        Yields:
+            StreamEvent objects with incremental content
+
+        Raises:
+            APIError: If both primary and backup providers fail
+        """
+        provider = self.backup_provider if use_backup else self.primary_provider
+        provider_name = "backup" if use_backup else "primary"
+
+        try:
+            logger.info(
+                "llm_router_stream_attempt",
+                provider=provider_name,
+                use_backup=use_backup,
+            )
+
+            has_emitted = False
+            async for event in provider.stream_chat(messages, model, temperature, max_tokens):
+                has_emitted = True
+                yield event
+
+            logger.info(
+                "llm_router_stream_success",
+                provider=provider_name,
+            )
+
+        except Exception as e:
+            logger.warning(
+                "llm_router_stream_primary_failed",
+                error=str(e),
+                backup_available=self.backup_provider is not None,
+                has_emitted=has_emitted,
+            )
+
+            if self.backup_provider and not use_backup and not has_emitted:
+                logger.info(
+                    "llm_router_stream_fallback",
+                    fallback_to="backup",
+                )
+
+                try:
+                    async for event in self.backup_provider.stream_chat(
+                        messages, model, temperature, max_tokens
+                    ):
+                        yield event
+
+                    logger.info(
+                        "llm_router_stream_backup_success",
+                    )
+
+                except Exception as backup_error:
+                    logger.error(
+                        "llm_router_stream_both_failed",
+                        primary_error=str(e),
+                        backup_error=str(backup_error),
+                    )
+
+                    raise APIError(
+                        ErrorCode.LLM_ROUTER_BOTH_FAILED,
+                        f"Both LLM providers failed during streaming. "
+                        f"Primary: {str(e)}, Backup: {str(backup_error)}",
+                    )
+            else:
+                raise APIError(
+                    ErrorCode.LLM_SERVICE_UNAVAILABLE,
+                    f"LLM provider failed during streaming: {str(e)}",
+                )
+
     async def health_check(self) -> dict[str, Any]:
         """Perform health check on all configured providers.
 
@@ -159,8 +250,6 @@ class LLMRouter:
         }
 
         if self.backup_provider:
-            health_status["backup_provider"] = (
-                await self.backup_provider.health_check()
-            )
+            health_status["backup_provider"] = await self.backup_provider.health_check()
 
         return health_status
