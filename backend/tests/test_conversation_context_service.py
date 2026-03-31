@@ -386,7 +386,7 @@ class TestEcommerceContextExtractor:
 
     @pytest.mark.asyncio
     async def test_merge_with_existing_context(self):
-        """Test merging extracted context with existing."""
+        """Test merging extracted delta with existing via _merge_context."""
         from app.services.context import EcommerceContextExtractor
 
         extractor = EcommerceContextExtractor()
@@ -398,10 +398,16 @@ class TestEcommerceContextExtractor:
 
         updates = await extractor.extract("Add #789 to cart", existing)
 
-        # Verify merge
-        assert 123 in updates["viewed_products"]  # Existing preserved
-        assert 789 in updates["viewed_products"]  # New added
-        assert updates["constraints"]["budget_max"] == 100  # Existing preserved
+        # extract() returns delta updates only (not merged)
+        assert updates["viewed_products"] == [789]
+
+        # Merge via _merge_context (same as ConversationContextService does)
+        merged = extractor._merge_context(existing, updates)
+
+        # Verify merge preserves existing and adds new
+        assert 123 in merged["viewed_products"]
+        assert 789 in merged["viewed_products"]
+        assert merged["constraints"]["budget_max"] == 100
 
 
 class TestGeneralContextExtractor:
@@ -448,7 +454,7 @@ class TestGeneralContextExtractor:
 
     @pytest.mark.asyncio
     async def test_merge_with_existing_context(self):
-        """Test merging general context."""
+        """Test merging general context delta via _merge_context."""
         from app.services.context import GeneralContextExtractor
 
         extractor = GeneralContextExtractor()
@@ -460,9 +466,15 @@ class TestGeneralContextExtractor:
 
         updates = await extractor.extract("Now I have billing issues", existing)
 
-        # Verify merge
-        assert "login" in updates["topics_discussed"]  # Existing preserved
-        assert "billing" in updates["topics_discussed"]  # New added
+        # extract() returns delta updates only (not merged)
+        assert "billing" in updates["topics_discussed"]
+
+        # Merge via _merge_context (same as ConversationContextService does)
+        merged = extractor._merge_context(existing, updates)
+
+        # Verify merge preserves existing and adds new
+        assert "login" in merged["topics_discussed"]
+        assert "billing" in merged["topics_discussed"]
 
 
 class TestContextExpiry:

@@ -24,11 +24,28 @@ class GeneralContextExtractor(BaseContextExtractor):
 
     # Common support topics
     SUPPORT_TOPICS = [
-        "login", "password", "account", "sign in", "authentication",
-        "billing", "payment", "refund", "charge", "invoice",
-        "shipping", "delivery", "tracking", "order",
-        "technical", "error", "bug", "crash", "slow",
-        "feature", "request", "enhancement",
+        "login",
+        "password",
+        "account",
+        "sign in",
+        "authentication",
+        "billing",
+        "payment",
+        "refund",
+        "charge",
+        "invoice",
+        "shipping",
+        "delivery",
+        "tracking",
+        "order",
+        "technical",
+        "error",
+        "bug",
+        "crash",
+        "slow",
+        "feature",
+        "request",
+        "enhancement",
     ]
 
     # Issue type mapping
@@ -76,8 +93,7 @@ class GeneralContextExtractor(BaseContextExtractor):
         # Increment turn count
         updates["turn_count"] = context.get("turn_count", 0) + 1
 
-        # Merge with existing context
-        return self._merge_context(context, updates)
+        return updates
 
     def _extract_topics(self, message: str) -> list[str] | None:
         """Extract topics discussed in message.
@@ -116,7 +132,9 @@ class GeneralContextExtractor(BaseContextExtractor):
             return [int(match) for match in matches]
         return None
 
-    def _detect_support_issues(self, message: str, context: dict[str, Any]) -> list[dict[str, Any]] | None:
+    def _detect_support_issues(
+        self, message: str, context: dict[str, Any]
+    ) -> list[dict[str, Any]] | None:
         """Detect and classify support issues.
 
         Args:
@@ -136,11 +154,13 @@ class GeneralContextExtractor(BaseContextExtractor):
                 existing_types = {issue.get("type") for issue in existing_issues}
 
                 if issue_type not in existing_types:
-                    issues.append({
-                        "type": issue_type,
-                        "status": "pending",
-                        "message": message[:100]  # Truncate for storage
-                    })
+                    issues.append(
+                        {
+                            "type": issue_type,
+                            "status": "pending",
+                            "message": message[:100],  # Truncate for storage
+                        }
+                    )
 
         return issues if issues else None
 
@@ -155,8 +175,14 @@ class GeneralContextExtractor(BaseContextExtractor):
         """
         # High priority escalation (phrases with variations)
         high_patterns = [
-            "speak to human", "speak to a human", "talk to human", "talk to a human",
-            "talk to person", "supervisor", "manager", "urgent"
+            "speak to human",
+            "speak to a human",
+            "talk to human",
+            "talk to a human",
+            "talk to person",
+            "supervisor",
+            "manager",
+            "urgent",
         ]
         if any(pattern in message_lower for pattern in high_patterns):
             return "high"

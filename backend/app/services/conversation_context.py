@@ -55,12 +55,6 @@ class ConversationContextService:
         db: AsyncSession,
         redis_client: Redis | None = None,
     ):
-        """Initialize conversation context service.
-
-        Args:
-            db: Database session for PostgreSQL persistence
-            redis_client: Redis client for fast access (optional)
-        """
         self.db = db
         self.redis = redis_client
         self.logger = structlog.get_logger(__name__)
@@ -68,16 +62,6 @@ class ConversationContextService:
     async def get_context(
         self, conversation_id: int, bypass_cache: bool = False
     ) -> dict[str, Any] | None:
-        """Get conversation context from Redis (fallback to PostgreSQL).
-
-        Args:
-            conversation_id: Conversation ID
-            bypass_cache: If True, skip Redis cache and read from database
-
-        Returns:
-            Context dictionary or None if not found
-        """
-        # Try Redis first (fast path) unless bypassing cache
         if not bypass_cache and self.redis:
             try:
                 context_json = self.redis.get(f"{self.REDIS_KEY_PREFIX}:{conversation_id}")
@@ -85,9 +69,10 @@ class ConversationContextService:
                     self.logger.debug("Context cache hit", conversation_id=conversation_id)
                     return json.loads(context_json)
             except Exception as e:
-                self.logger.warning("Redis get failed", error=str(e), conversation_id=conversation_id)
+                self.logger.warning(
+                    "Redis get failed", error=str(e), conversation_id=conversation_id
+                )
 
-        # Fallback to PostgreSQL
         self.logger.debug("Context cache miss, checking DB", conversation_id=conversation_id)
         result = await self.db.execute(
             select(ConversationContext).where(
@@ -97,14 +82,12 @@ class ConversationContextService:
         context_model = result.scalar_one_or_none()
 
         if context_model:
-            # Check if expired
             if context_model.expires_at < datetime.now(timezone.utc):
                 self.logger.info("Context expired", conversation_id=conversation_id)
                 return None
 
             context = self._model_to_dict(context_model)
 
-            # Repopulate Redis
             if self.redis:
                 try:
                     self.redis.setex(
@@ -126,23 +109,7 @@ class ConversationContextService:
         message: str,
         mode: ModeType,
     ) -> dict[str, Any]:
-        """Update conversation context with new message.
-
-        Extracts relevant context from message using mode-specific extractor,
-        merges with existing context, and persists to Redis + PostgreSQL.
-
-        Args:
-            conversation_id: Conversation ID
-            merchant_id: Merchant ID
-            message: User message to extract context from
-            mode: Merchant mode (ecommerce or general)
-
-        Returns:
-            Updated context dictionary
-        """
-        # Get existing context
         existing_context = await self.get_context(conversation_id)
-        is_new_context = existing_context is None
 
         if not existing_context:
             existing_context = {
@@ -151,12 +118,13 @@ class ConversationContextService:
                 "expires_at": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
             }
 
-        # Extract new context using mode-specific extractor
+        # Extract delta updates using mode-specific extractor, then merge with existing context.
         extractor = self._get_extractor(mode)
         updates = await extractor.extract(message, existing_context)
-
-        # Merge updates
         updated_context = extractor._merge_context(existing_context, updates)
+
+        # Log constraint contradictions for analytics (AC7: conflict resolution)
+        self._log_constraint_changes(existing_context, updated_context, conversation_id)
 
         # Persist to PostgreSQL FIRST (so we have timestamps)
         await self._persist_to_db(
@@ -168,9 +136,10 @@ class ConversationContextService:
         # Reload from DB to get complete context with timestamps
         final_context = await self.get_context(conversation_id, bypass_cache=True)
 
-        # Handle case where context still doesn't exist (shouldn't happen after persist)
         if not final_context:
-            self.logger.warning("Context not found after persisting", conversation_id=conversation_id)
+            self.logger.warning(
+                "Context not found after persisting", conversation_id=conversation_id
+            )
             final_context = updated_context
 
         # Update Redis cache with complete context
@@ -182,33 +151,52 @@ class ConversationContextService:
                     json.dumps(final_context),
                 )
             except Exception as e:
-                self.logger.warning("Redis set failed", error=str(e), conversation_id=conversation_id)
+                self.logger.warning(
+                    "Redis set failed", error=str(e), conversation_id=conversation_id
+                )
 
-        # Check if summarization is needed
+        # Auto-summarize when trigger conditions are met
         if await self.should_summarize(final_context):
             self.logger.info(
-                "Summarization trigger met",
+                "Auto-summarization triggered",
                 conversation_id=conversation_id,
                 turn_count=final_context.get("turn_count", 0),
             )
+            try:
+                summarized = await self.summarize_context(conversation_id, final_context)
+                final_context = summarized
+
+                if self.redis:
+                    try:
+                        self.redis.setex(
+                            f"{self.REDIS_KEY_PREFIX}:{conversation_id}",
+                            self.REDIS_TTL_SECONDS,
+                            json.dumps(final_context),
+                        )
+                    except Exception as e:
+                        self.logger.warning(
+                            "Redis set after summarization failed",
+                            error=str(e),
+                            conversation_id=conversation_id,
+                        )
+            except Exception as e:
+                self.logger.warning(
+                    "Auto-summarization failed, keeping full context",
+                    error=str(e),
+                    conversation_id=conversation_id,
+                )
 
         return final_context
 
     async def should_summarize(self, context: dict[str, Any]) -> bool:
-        """Check if context should be summarized.
+        turn_count = context.get("turn_count", 0)
 
-        Triggers:
-        1. Every 5 turns
-        2. Context size > 1KB
+        # Guard: don't summarize empty/new contexts (turn_count == 0)
+        if turn_count == 0:
+            return False
 
-        Args:
-            context: Context dictionary
-
-        Returns:
-            True if summarization should occur
-        """
         # Trigger 1: Every 5 turns
-        if context.get("turn_count", 0) % self.SUMMARIZE_TURNS_TRIGGER == 0:
+        if turn_count % self.SUMMARIZE_TURNS_TRIGGER == 0:
             return True
 
         # Trigger 2: Context size > 1KB
@@ -223,21 +211,10 @@ class ConversationContextService:
         conversation_id: int,
         context: dict[str, Any],
     ) -> dict[str, Any]:
-        """Summarize conversation context for token efficiency using LLM.
-
-        Args:
-            conversation_id: Conversation ID
-            context: Current context
-
-        Returns:
-            Summary dictionary with key_points and active_constraints
-        """
         from app.services.context_summarizer import ContextSummarizerService
 
-        # Create summarizer service
         summarizer = ContextSummarizerService(db=self.db)
 
-        # Generate summary using LLM
         summary = await summarizer.summarize_context(
             context=context,
             conversation_id=conversation_id,
@@ -246,19 +223,16 @@ class ConversationContextService:
         return summary
 
     async def delete_context(self, conversation_id: int) -> None:
-        """Delete conversation context from Redis and PostgreSQL.
-
-        Args:
-            conversation_id: Conversation ID
-        """
         # Delete from Redis
         if self.redis:
             try:
                 self.redis.delete(f"{self.REDIS_KEY_PREFIX}:{conversation_id}")
             except Exception as e:
-                self.logger.warning("Redis delete failed", error=str(e), conversation_id=conversation_id)
+                self.logger.warning(
+                    "Redis delete failed", error=str(e), conversation_id=conversation_id
+                )
 
-        # Delete from PostgreSQL
+        # Delete from PostgreSQL (single query)
         result = await self.db.execute(
             select(ConversationContext).where(
                 ConversationContext.conversation_id == conversation_id
@@ -267,26 +241,12 @@ class ConversationContextService:
         context_model = result.scalar_one_or_none()
 
         if context_model:
-            await self.db.execute(
-                select(ConversationContext).where(
-                    ConversationContext.conversation_id == conversation_id
-                )
-            )
-            # Use delete() directly on the session with the model
             await self.db.delete(context_model)
             await self.db.commit()
 
             self.logger.info("Context deleted", conversation_id=conversation_id)
 
     def _get_extractor(self, mode: ModeType) -> EcommerceContextExtractor | GeneralContextExtractor:
-        """Factory for mode-specific context extractors.
-
-        Args:
-            mode: Merchant mode
-
-        Returns:
-            Appropriate context extractor
-        """
         if mode == "ecommerce":
             return EcommerceContextExtractor()
         elif mode == "general":
@@ -294,20 +254,54 @@ class ConversationContextService:
         else:
             raise ValueError(f"Invalid mode: {mode}")
 
+    def _log_constraint_changes(
+        self,
+        old_context: dict[str, Any],
+        new_context: dict[str, Any],
+        conversation_id: int,
+    ) -> None:
+        """Log constraint contradictions for analytics (AC7).
+
+        Tracks when numeric constraints change (e.g., budget $50 -> $100).
+        Applies last-mentioned-wins rule and logs for analytics.
+        """
+        old_constraints = old_context.get("constraints") or {}
+        new_constraints = new_context.get("constraints") or {}
+
+        numeric_keys = {"budget_max", "budget_min"}
+        for key in numeric_keys:
+            old_val = old_constraints.get(key)
+            new_val = new_constraints.get(key)
+            if old_val is not None and new_val is not None and old_val != new_val:
+                self.logger.info(
+                    "Constraint contradiction detected",
+                    conversation_id=conversation_id,
+                    constraint_key=key,
+                    old_value=old_val,
+                    new_value=new_val,
+                    resolution="last_mentioned_wins",
+                )
+
+        preference_keys = {"color", "brand", "size"}
+        for key in preference_keys:
+            old_val = old_constraints.get(key)
+            new_val = new_constraints.get(key)
+            if old_val is not None and new_val is not None and old_val != new_val:
+                self.logger.info(
+                    "Preference changed",
+                    conversation_id=conversation_id,
+                    preference_key=key,
+                    old_value=old_val,
+                    new_value=new_val,
+                    resolution="last_mentioned_wins",
+                )
+
     async def _persist_to_db(
         self,
         conversation_id: int,
         merchant_id: int,
         context: dict[str, Any],
     ) -> None:
-        """Persist context to PostgreSQL.
-
-        Args:
-            conversation_id: Conversation ID
-            merchant_id: Merchant ID
-            context: Context dictionary
-        """
-        # Check if context exists
         result = await self.db.execute(
             select(ConversationContext).where(
                 ConversationContext.conversation_id == conversation_id
@@ -316,12 +310,10 @@ class ConversationContextService:
         context_model = result.scalar_one_or_none()
 
         if context_model:
-            # Update existing
             context_model.context_data = context
             context_model.turn_count = context.get("turn_count", 0)
             context_model.updated_at = datetime.now(timezone.utc)
 
-            # Update mode-specific fields
             if context.get("mode") == "ecommerce":
                 context_model.viewed_products = context.get("viewed_products")
                 context_model.cart_items = context.get("cart_items")
@@ -334,7 +326,6 @@ class ConversationContextService:
                 context_model.escalation_status = context.get("escalation_status")
 
         else:
-            # Create new
             context_model = ConversationContext(
                 conversation_id=conversation_id,
                 merchant_id=merchant_id,
@@ -344,7 +335,6 @@ class ConversationContextService:
                 expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
             )
 
-            # Set mode-specific fields
             if context.get("mode") == "ecommerce":
                 context_model.viewed_products = context.get("viewed_products")
                 context_model.cart_items = context.get("cart_items")
@@ -361,25 +351,18 @@ class ConversationContextService:
         await self.db.commit()
 
     def _model_to_dict(self, model: ConversationContext) -> dict[str, Any]:
-        """Convert SQLAlchemy model to dictionary.
-
-        Args:
-            model: ConversationContext model
-
-        Returns:
-            Dictionary representation
-        """
         context = {
             "mode": model.mode,
             "turn_count": model.turn_count,
             "expires_at": model.expires_at.isoformat(),
             "created_at": model.created_at.isoformat() if model.created_at else None,
             "updated_at": model.updated_at.isoformat() if model.updated_at else None,
-            "last_summarized_at": model.last_summarized_at.isoformat() if model.last_summarized_at else None,
+            "last_summarized_at": model.last_summarized_at.isoformat()
+            if model.last_summarized_at
+            else None,
             "preferences": model.preferences if model.preferences else None,
         }
 
-        # Add mode-specific fields
         if model.mode == "ecommerce":
             if model.viewed_products:
                 context["viewed_products"] = model.viewed_products

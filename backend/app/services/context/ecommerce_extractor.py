@@ -66,8 +66,7 @@ class EcommerceContextExtractor(BaseContextExtractor):
         # Increment turn count
         updates["turn_count"] = context.get("turn_count", 0) + 1
 
-        # Merge with existing context
-        return self._merge_context(context, updates)
+        return updates
 
     def _extract_product_ids(self, message: str) -> list[int] | None:
         """Extract product IDs from message.
@@ -143,8 +142,18 @@ class EcommerceContextExtractor(BaseContextExtractor):
 
         # Color patterns
         colors = [
-            "red", "blue", "green", "yellow", "black", "white",
-            "pink", "purple", "orange", "brown", "gray", "grey"
+            "red",
+            "blue",
+            "green",
+            "yellow",
+            "black",
+            "white",
+            "pink",
+            "purple",
+            "orange",
+            "brown",
+            "gray",
+            "grey",
         ]
         for color in colors:
             if color in message_lower:
