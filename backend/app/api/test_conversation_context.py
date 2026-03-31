@@ -16,35 +16,91 @@ from app.models.conversation_context import ConversationContext
 
 @pytest.fixture
 async def client(async_client):
-    """Use async_client with test mode header for auth bypass."""
+    """Use async_client with test mode header for auth bypass and CSRF tokens."""
     # Wrap the client to add X-Test-Mode header to all requests
     class TestClientWrapper:
         def __init__(self, client):
             self._client = client
             self.headers = {"X-Test-Mode": "true"}
+            self.csrf_token = None
+            self.csrf_cookies = {}
+
+        async def get_csrf_token(self):
+            """Get a fresh CSRF token for testing."""
+            response = await self._client.get("/api/v1/csrf-token")
+            assert response.status_code == 200
+            data = response.json()
+            self.csrf_token = data["csrf_token"]
+
+            # Extract CSRF cookie from response
+            set_cookie = response.headers.get("set-cookie", "")
+            if "csrf_token=" in set_cookie:
+                # Parse the cookie value (simple extraction)
+                import re
+                match = re.search(r'csrf_token=([^;]+)', set_cookie)
+                if match:
+                    self.csrf_cookies["csrf_token"] = match.group(1)
+
+            return self.csrf_token
 
         async def get(self, url, **kwargs):
             headers = kwargs.get("headers", {})
             headers.update(self.headers)
+            # Add CSRF token if available
+            if self.csrf_token:
+                headers["X-CSRF-Token"] = self.csrf_token
             kwargs["headers"] = headers
+
+            # Add CSRF cookies if available
+            if self.csrf_cookies:
+                kwargs["cookies"] = kwargs.get("cookies", {})
+                kwargs["cookies"].update(self.csrf_cookies)
+
             return await self._client.get(url, **kwargs)
 
         async def put(self, url, **kwargs):
             headers = kwargs.get("headers", {})
             headers.update(self.headers)
+            # Add CSRF token if available
+            if self.csrf_token:
+                headers["X-CSRF-Token"] = self.csrf_token
             kwargs["headers"] = headers
+
+            # Add CSRF cookies if available
+            if self.csrf_cookies:
+                kwargs["cookies"] = kwargs.get("cookies", {})
+                kwargs["cookies"].update(self.csrf_cookies)
+
             return await self._client.put(url, **kwargs)
 
         async def post(self, url, **kwargs):
             headers = kwargs.get("headers", {})
             headers.update(self.headers)
+            # Add CSRF token if available
+            if self.csrf_token:
+                headers["X-CSRF-Token"] = self.csrf_token
             kwargs["headers"] = headers
+
+            # Add CSRF cookies if available
+            if self.csrf_cookies:
+                kwargs["cookies"] = kwargs.get("cookies", {})
+                kwargs["cookies"].update(self.csrf_cookies)
+
             return await self._client.post(url, **kwargs)
 
         async def delete(self, url, **kwargs):
             headers = kwargs.get("headers", {})
             headers.update(self.headers)
+            # Add CSRF token if available
+            if self.csrf_token:
+                headers["X-CSRF-Token"] = self.csrf_token
             kwargs["headers"] = headers
+
+            # Add CSRF cookies if available
+            if self.csrf_cookies:
+                kwargs["cookies"] = kwargs.get("cookies", {})
+                kwargs["cookies"].update(self.csrf_cookies)
+
             return await self._client.delete(url, **kwargs)
 
     return TestClientWrapper(async_client)
@@ -113,6 +169,9 @@ class TestGetConversationContext:
         db.add(context)
         await db.commit()
 
+        # Get CSRF token
+        await client.get_csrf_token()
+
         # Execute
         response = await client.get(
             f"/api/v1/conversations/{conversation_id}/context",
@@ -129,6 +188,9 @@ class TestGetConversationContext:
     @pytest.mark.asyncio
     async def test_get_context_not_found(self, client):
         """Test that missing context returns 404."""
+        # Get CSRF token
+        await client.get_csrf_token()
+
         response = await client.get(
             "/api/v1/conversations/99999/context",
             headers={"X-Merchant-Id": "1"},
@@ -145,6 +207,9 @@ class TestUpdateConversationContext:
         """Test updating context in e-commerce mode."""
         conversation_id = db_session_with_conversation["conversation_id"]
         merchant_id = db_session_with_conversation["merchant_id"]
+
+        # Get CSRF token
+        await client.get_csrf_token()
 
         update_data = {
             "message": "Show me red shoes under $100",
@@ -167,6 +232,9 @@ class TestUpdateConversationContext:
         """Test updating context in general mode."""
         conversation_id = db_session_with_conversation["conversation_id"]
         merchant_id = db_session_with_conversation["merchant_id"]
+
+        # Get CSRF token
+        await client.get_csrf_token()
 
         update_data = {
             "message": "I'm having login issues",
@@ -208,6 +276,9 @@ class TestSummarizeConversationContext:
         db.add(context)
         await db.commit()
 
+        # Get CSRF token
+        await client.get_csrf_token()
+
         # Execute
         response = await client.post(
             f"/api/v1/conversations/{conversation_id}/context/summary",
@@ -232,6 +303,9 @@ class TestContextAPIValidation:
         conversation_id = db_session_with_conversation["conversation_id"]
         merchant_id = db_session_with_conversation["merchant_id"]
 
+        # Get CSRF token
+        await client.get_csrf_token()
+
         update_data = {
             "message": "Test",
             "mode": "invalid_mode",
@@ -252,6 +326,9 @@ class TestContextAPIAuthorization:
     @pytest.mark.asyncio
     async def test_conversation_not_found_for_merchant(self, client, db_session_with_conversation):
         """Test accessing conversation with wrong merchant ID."""
+        # Get CSRF token
+        await client.get_csrf_token()
+
         response = await client.get(
             "/api/v1/conversations/99999/context",
             headers={"X-Merchant-Id": str(db_session_with_conversation["merchant_id"])},
