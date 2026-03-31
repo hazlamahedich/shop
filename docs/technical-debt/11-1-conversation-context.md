@@ -2,7 +2,52 @@
 
 **Last Updated:** 2026-03-31
 **Story:** 11-1 Conversation Context Memory
-**Status:** Implementation Complete, Technical Debt Tracked
+**Status:** Implementation Complete, Tests Reviewed & Refactored
+
+---
+
+## Implementation Status
+
+### Source Code (Complete)
+- `backend/app/services/conversation_context.py` (386 lines) — `ConversationContextService` with Redis+PostgreSQL hybrid
+- `backend/app/services/context/ecommerce_extractor.py` — `EcommerceContextExtractor`
+- `backend/app/services/context/general_extractor.py` — `GeneralContextExtractor`
+- `backend/app/services/context/llm_context_extractor.py` — `LLMContextExtractor` (scaffolded)
+- `backend/app/api/conversation_context.py` (340 lines) — GET, PUT, SUMMARIZE endpoints
+- `backend/app/models/conversation_context.py` — `ConversationContext` SQLAlchemy model
+- `backend/app/schemas/conversation_context.py` — Pydantic request/response schemas
+
+### Test Suite (Reviewed & Refactored — 2026-03-31)
+
+**Test Review Score:** 85/100 (A - Good) — up from 63/100 (C) after refactoring
+
+| File | Lines | Tests | Status |
+|------|-------|-------|--------|
+| `tests/test_context_service.py` | 228 | 12 | ✅ All passing |
+| `tests/test_ecommerce_extractor.py` | 100 | 5 | ✅ All passing |
+| `tests/test_general_extractor.py` | 152 | 6 | ✅ All passing |
+| `tests/api/test_conversation_context_api.py` | 238 | 7 | ✅ All passing |
+| `tests/api/test_conversation_context_summarize_api.py` | 163 | 5 | ✅ All passing |
+| `tests/integration/test_11_1_ecommerce_e2e.py` | 229 | 5 | Requires PostgreSQL |
+| `tests/integration/test_11_1_general_expiry_e2e.py` | 176 | 3 | Requires PostgreSQL |
+| `tests/helpers/context_factories.py` | 108 | — | Shared data factories |
+| `tests/integration/conftest.py` | 98 | — | Shared fixtures |
+
+**Total:** 43 tests (35 unit/API passing, 8 integration require DB)
+
+### Test Quality Improvements Applied
+- ✅ SQL injection fix: Parameterized queries with `:mid`/`:cid` bindings in integration fixtures
+- ✅ File splitting: 3 files (1,351 lines) → 9 files (max 238 lines each)
+- ✅ Data factories: `tests/helpers/context_factories.py` with 7 factory functions
+- ✅ BDD format: Given/When/Then comments in all test methods
+- ✅ Formal test IDs: `[11.1-SVC-NNN]`, `[11.1-EXT-NNN]`, `[11.1-API-NNN]`, `[11.1-E2E-NNN]`
+- ✅ Error logging: Replaced silent `except: pass` with `logger.warning()`
+- ✅ `MagicMock(spec=Redis)` for proper mock typing
+- ✅ Sequential update and boundary value tests added
+
+### Known Gaps
+- ⚠️ DELETE context API endpoint not yet implemented — tests deferred as TODO
+- ⚠️ Integration tests require running PostgreSQL with `shop_test` database
 
 ---
 
