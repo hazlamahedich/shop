@@ -888,6 +888,9 @@ class UnifiedConversationService:
     def _classify_by_patterns(self, message: str) -> ClassificationResult | None:
         """Fast pattern-based intent classification.
 
+        Story 11-3: Enhanced with synonym normalization, typo tolerance,
+        and expanded colloquial/indirect request patterns.
+
         Args:
             message: User's message
 
@@ -902,13 +905,15 @@ class UnifiedConversationService:
         from app.services.intent.classification_schema import (
             IntentType as ClassifierIntentType,
         )
+        from app.services.intent.variation_maps import normalize_message
 
-        lower_msg = message.lower().strip()
+        lower_msg = normalize_message(message)
 
         # Greeting patterns
         greeting_patterns = [
-            r"^(hi|hello|hey|howdy|greetings|good\s*(morning|afternoon|evening))\s*[!?.]*$",
-            r"^(hi|hello|hey)\s+there\s*[!?.]*$",
+            r"^(hi|hello|hey|howdy|greetings|good\s*(morning|afternoon|evening)|yo|sup|what'?s\s*up|howdy|heya)\s*[!?.]*$",
+            r"^(hi|hello|hey|yo)\s+there\s*[!?.]*$",
+            r"^(hi|hello|hey)\s+(anyone|anybody|somebody)\s*(there|home|around)?\s*[!?.]*$",
         ]
         for pattern in greeting_patterns:
             if re.match(pattern, lower_msg):
@@ -924,10 +929,22 @@ class UnifiedConversationService:
 
         # Add to cart patterns - must be BEFORE cart_view to avoid matching
         add_cart_patterns = [
-            r"(add\s+(this|that|it|these)\s+to\s+(my\s+)?cart)",
-            r"(put\s+(this|that|it)\s+in\s+(my\s+)?cart)",
-            r"(i\s+want\s+to\s+add\s+.*(to\s+cart)?)",
-            r"^(add\s+to\s+cart)$",
+            r"(add\s+(this|that|it|these|those)\s+to\s+(my\s+)?(cart|basket|bag))",
+            r"(put\s+(this|that|it)\s+in\s+(my\s+)?(cart|basket|bag))",
+            r"(throw\s+(it|that|this)\s+in\s+(my\s+)?(cart|basket|bag))",
+            r"(toss\s+(it|that|this)\s+in\s+(my\s+)?(cart|basket|bag))",
+            r"(drop\s+(it|that|this)\s+in\s+(my\s+)?(cart|basket|bag))",
+            r"(throw\s+(it|that|this)\s+in\s+the\s+(cart|basket|bag))",
+            r"(toss\s+(it|that|this)\s+in\s+the\s+(cart|basket|bag))",
+            r"(drop\s+(it|that|this)\s+in\s+the\s+(cart|basket|bag))",
+            r"(i\s+(want|need)\s+to\s+add\s+.*(to\s+(cart|basket|bag))?)",
+            r"^(add\s+to\s+(cart|basket|bag))$",
+            r"(i'?ll\s+take\s+(that|it|this|them))",
+            r"(i\s+want\s+(to\s+)?(grab|get|cop|snag|scoop)\s+(this|that|it|them))",
+            r"(put\s+the\s+\w+\s+(ones?|shoes?|kicks?)\s+in\s+(my\s+)?(cart|basket|bag))",
+            r"(add\s+the\s+\w+\s+(ones?|shoes?|kicks?)\s+to\s+(my\s+)?(cart|basket|bag))",
+            r"(get\s+me\s+(that|it|this|them))",
+            r"(hook\s+me\s+up\s+with\s+(that|it|this|them))",
         ]
         for pattern in add_cart_patterns:
             if re.search(pattern, lower_msg):
@@ -943,10 +960,12 @@ class UnifiedConversationService:
 
         # Cart view patterns - more specific to avoid matching add-to-cart
         cart_view_patterns = [
-            r"(show|view|see|what\'?s?\s+in|check)\s+(my\s+)?cart",
+            r"(show|view|see|what'?s?\s+in|check|open)\s+(my\s+)?(cart|basket|bag)",
             r"^cart$",
             r"^(my\s+)?cart\s*(contents)?$",
-            r"what\s+(is\s+)?(in\s+)?(my\s+)?cart",
+            r"what\s+(is\s+)?(in\s+)?(my\s+)?(cart|basket|bag)",
+            r"(what'?s\s+in\s+(my\s+)?(cart|basket|bag))",
+            r"(cart|basket|bag)\s*(contents|items|stuff)?$",
         ]
         for pattern in cart_view_patterns:
             if re.search(pattern, lower_msg):
@@ -986,6 +1005,10 @@ class UnifiedConversationService:
             r"(complete\s+(my\s+)?(purchase|order|checkout))",
             r"(buy\s+these\s*(items|products|now)?)",
             r"(take\s+me\s+to\s+checkout)",
+            r"(let'?s\s+do\s+this|let'?s\s+go)",
+            r"(i'?m\s+ready\s+to\s+(buy|pay|checkout|purchase))",
+            r"(ring\s+me\s+up|take\s+my\s+money)",
+            r"(time\s+to\s+(pay|checkout|buy)|ready\s+to\s+(pay|checkout|buy|purchase))",
         ]
         for pattern in checkout_patterns:
             if re.search(pattern, lower_msg):
@@ -1001,43 +1024,18 @@ class UnifiedConversationService:
 
         # Order tracking patterns with order number extraction
         # Pattern matches: #1003, order 1003, order #1003, order ORD-123, etc.
-        # Requires: starts with digit OR letter+hyphen OR letter+digit (to avoid matching 'order status')
+        # Story 11-3: Consolidated from two duplicate blocks (3 shared + 2 unique 4th patterns)
         order_number_pattern = r"(?:^|\s)(?:#|order\s*(?:#|number|no\.?)?\s*)((?:[0-9][A-Za-z0-9\-]*|[A-Za-z]+[-][A-Za-z0-9\-]+|[A-Za-z]+[0-9][A-Za-z0-9\-]*))(?:\b|$)"
         order_number_match = re.search(order_number_pattern, lower_msg)
 
         order_patterns = [
-            r"(where\s+is\s+my|track\s+my|check\s+my)\s+order",
-            r"(order\s+status|shipping\s+status)",
+            r"(where\s+is\s+my|track\s+my|check\s+my|where'?s?\s+my|when'?s?\s+my)\s+(order|stuff|package|delivery|shipment)",
+            r"(order\s+status|shipping\s+status|delivery\s+status)",
             r"^order$",
             r"(?:^|\s)(?:#|order\s*(?:#|number|no\.?)?\s*)(?:[0-9][A-Za-z0-9\-]*|[A-Za-z]+[-][A-Za-z0-9\-]+|[A-Za-z]+[0-9][A-Za-z0-9\-]*)",
-        ]
-        for pattern in order_patterns:
-            if re.search(pattern, lower_msg):
-                entities = ExtractedEntities()
-                if order_number_match:
-                    order_number = order_number_match.group(1).strip().lstrip("#")
-                    entities = ExtractedEntities(order_number=order_number)
-                    self.logger.info(
-                        "order_number_extracted",
-                        order_number=order_number,
-                        raw_message=message,
-                    )
-                return ClassificationResult(
-                    intent=ClassifierIntentType.ORDER_TRACKING,
-                    confidence=0.95,
-                    entities=entities,
-                    raw_message=message,
-                    llm_provider="pattern",
-                    model="regex",
-                    processing_time_ms=0,
-                )
-        order_number_match = re.search(order_number_pattern, lower_msg)
-
-        order_patterns = [
-            r"(where\s+is\s+my|track\s+my|check\s+my)\s+order",
-            r"(order\s+status|shipping\s+status)",
-            r"^order$",
             r"(?:order\s*(?:number|#|no\.?)?\s*|#)\s*[A-Za-z0-9\-]{4,20}",
+            r"(has\s+my\s+order\s+shipped|is\s+my\s+order\s+on\s+the\s+way)",
+            r"(delivery\s+status|where\s+is\s+my\s+package|when\s+will\s+my\s+(stuff|order|package)\s+arrive)",
         ]
         for pattern in order_patterns:
             if re.search(pattern, lower_msg):
@@ -1059,7 +1057,6 @@ class UnifiedConversationService:
                     model="regex",
                     processing_time_ms=0,
                 )
-
         # Human handoff patterns
         handoff_patterns = [
             r"(talk\s+to|speak\s+with|speak\s+to|connect\s+me\s+to)\s+(a\s+|your\s+)?(person|human|agent|representative|manager|supervisor)",
@@ -1067,6 +1064,11 @@ class UnifiedConversationService:
             r"(i\s+need\s+help\s+from\s+a\s+person)",
             r"(i\s+want\s+to\s+speak\s+to\s+(a\s+|the\s+|your\s+)?manager)",
             r"(let\s+me\s+speak\s+to\s+(a\s+)?manager)",
+            r"(this\s+bot\s+isn'?t\s+helping|bot\s+is\s+useless|bot\s+can'?t\s+help)",
+            r"(get\s+me\s+someone\s+who\s+knows|i\s+need\s+real\s+help)",
+            r"(connect\s+me\s+to\s+(support|help|someone|agent))",
+            r"(let\s+me\s+talk\s+to\s+(your\s+)?manager|talk\s+to\s+(a\s+)?real\s+person)",
+            r"(not\s+(a\s+)?bot|no\s+more\s+bot|stop\s+(the\s+)?bot)",
         ]
         for pattern in handoff_patterns:
             if re.search(pattern, lower_msg):
@@ -1108,16 +1110,26 @@ class UnifiedConversationService:
 
         # Product search with price constraint
         price_patterns = [
-            r"(products?|items?|things?)\s+(under|below|less\s+than|cheaper\s+than)\s*\$?(\d+)",
-            r"(under|below)\s*\$?(\d+)",
-            r"(products?|items?)\s+(for|at|under)\s*\$?(\d+)",
+            r"(products?|items?|things?|stuff|gear)\s+(under|below|less\s+than|cheaper\s+than|up\s+to)\s*\$?(\d+)",
+            r"(under|below|up\s+to|no\s+more\s+than|max\s+)\s*\$?(\d+)",
+            r"(products?|items?|stuff)\s+(for|at|under|around|about)\s*\$?(\d+)",
+            r"(what\s+can\s+i\s+(get|buy|afford)\s+(for|with|under))\s*\$?(\d+)",
+            r"(budget\s+(is|of|around|about))\s*\$?(\d+)",
+            r"(looking|searching|shopping)\s+(for\s+)?(something\s+)?(under|below|around|about)\s*\$?(\d+)",
+            r"(for|around|about)\s+\$?(\d+)\s*(bucks|dollars|bucks)?",
+            r"(what\s+can\s+i\s+get)\s+(for|with|under)\s+\$?(\d+)",
         ]
         for pattern in price_patterns:
             match = re.search(pattern, lower_msg)
             if match:
-                # Extract budget from last group
                 groups = match.groups()
-                budget = float(groups[-1]) if groups else None
+                budget = None
+                for g in reversed(groups):
+                    if g and g.replace(".", "", 1).isdigit():
+                        budget = float(g)
+                        break
+                if budget is None:
+                    continue
                 return ClassificationResult(
                     intent=ClassifierIntentType.PRODUCT_SEARCH,
                     confidence=0.95,
@@ -1130,8 +1142,10 @@ class UnifiedConversationService:
 
         # Most expensive / highest price
         expensive_patterns = [
-            r"(most\s+expensive|highest\s+priced?|priciest|costliest)",
-            r"(what\'?s?\s+the\s+)?(most\s+expensive|highest\s+price)",
+            r"(most\s+expensive|highest\s+priced?|priciest|costliest|top\s+of\s+the\s+line)",
+            r"(what'?s?\s+the\s+)?(most\s+expensive|highest\s+price|top\s+dollar)",
+            r"(premium|luxury|high-end|expensive|top-shelf)\s+(products?|items?|options?|picks?|stuff)",
+            r"(show\s+me\s+(the\s+)?(expensive|fancy|premium|luxury|high-end)\s*(stuff|options?|items?)?)",
         ]
         for pattern in expensive_patterns:
             if re.search(pattern, lower_msg):
@@ -1149,8 +1163,10 @@ class UnifiedConversationService:
 
         # Cheapest / lowest price
         cheap_patterns = [
-            r"(cheapest|lowest\s+priced?|least\s+expensive|most\s+affordable)",
-            r"(what\'?s?\s+the\s+)?(cheapest|lowest\s+price)",
+            r"(cheapest|lowest\s+priced?|least\s+expensive|most\s+affordable|budget\s+friendly)",
+            r"(what'?s?\s+the\s+)?(cheapest|lowest\s+price|best\s+(deal|value|bang\s+for\s+buck))",
+            r"(budget|affordable|inexpensive|wallet\s+friendly|won'?t\s+break\s+the\s+bank)",
+            r"(on\s+a\s+budget|(good|great)\s+(deal|bargain|steal))",
         ]
         for pattern in cheap_patterns:
             if re.search(pattern, lower_msg):
@@ -1199,6 +1215,14 @@ class UnifiedConversationService:
             (r"(\w+)\s+(?:products?|items?|collection)", 1),
             (r"i\s+want\s+(?:to\s+buy\s+(?:a\s+)?|a\s+|an\s+)(\w+)", 1),
             (r"i\s+(?:want\s+to\s+buy|need|am\s+looking\s+for)\s+(?:a\s+)?(\w+)", 1),
+            (r"(wondering\s+if\s+you\s+(have|carry|stock|sell))\s+(?:any\s+)?(\w+)", 3),
+            (r"(do\s+you\s+(carry|stock|sell|have))\s+(?:any\s+)?(\w+)", 3),
+            (
+                r"i'?m\s+(in\s+the\s+market\s+for|shopping\s+around\s+for|after)\s+(?:a\s+|an\s+)?(\w+)",
+                2,
+            ),
+            (r"(browsing|shopping|search)\s+(?:for\s+)?(\w+)", 2),
+            (r"(got\s+any|any\s+)(\w+)(?:\s+(?:products?|items?|stuff))?", 2),
         ]
         skip_words = {
             "the",
@@ -1281,11 +1305,13 @@ class UnifiedConversationService:
                 )
 
         check_consent_patterns = [
-            r"(are|is)\s+(my\s+)?(preferences?|data|consent|settings)\s+(saved|stored|recorded)",
+            r"(are|is)\s+(my\s+)?(preferences?|data|consent|settings)\s+(saved|stored|recorded|wishlist)",
             r"(confirm|check|verify)\s+(if\s+)?(my\s+)?(preferences?|data|consent)",
             r"what('?s|\s+is)\s+(my\s+)?(consent|preference)\s+status",
             r"do\s+you\s+(remember|know)\s+(my\s+)?(preferences?|data)",
             r"(show|tell)\s+me\s+(my\s+)?(consent|preference)\s+status",
+            r"(did\s+i\s+(say|tell|let)\s+you\s+(to\s+)?(remember|save|keep)\s+(my\s+)?(data|info|preferences?))",
+            r"(you\s+(still\s+)?(remember|know)\s+(my\s+)?(info|data|preferences?|settings))",
         ]
         for pattern in check_consent_patterns:
             if re.search(pattern, lower_msg):
@@ -1300,8 +1326,10 @@ class UnifiedConversationService:
                 )
 
         forget_patterns = [
-            r"(forget|clear|reset|delete)\s+(my\s+)?(preferences?|data|cart|memory)",
-            r"(start\s+over|start\s+again|fresh\s+start)",
+            r"(forget|clear|reset|delete|wipe|erase)\s+(my\s+)?(preferences?|data|cart|memory|info|history)",
+            r"(start\s+over|start\s+again|fresh\s+start|clean\s+slate|wipe\s+clean)",
+            r"(don'?t\s+(remember|save|keep|store)\s+(my\s+)?(info|data|preferences?|stuff))",
+            r"(erase|wipe|scrub)\s+(everything|all\s+(my\s+)?(data|info))",
         ]
         for pattern in forget_patterns:
             if re.search(pattern, lower_msg):

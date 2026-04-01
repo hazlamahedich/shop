@@ -206,3 +206,4 @@ development_status:
   epic-11: in-progress
   11-1-conversation-context-memory: review # ✅ Code Review 2 COMPLETE: 4 HIGH + 2 MEDIUM issues fixed (double-merge, auto-summarization, constraint logging), 43/43 tests passing. LOW items deferred as tech debt.
   11-2-multi-turn-query-handling: review # Code review COMPLETE: 2 CRITICAL + 3 HIGH + 3 MEDIUM + 1 LOW issues found and fixed. 117/117 tests passing.
+  11-3-natural-language-variations: in-progress

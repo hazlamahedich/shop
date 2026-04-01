@@ -1,7 +1,11 @@
-"""LLM-based Context Extractor (Proof of Concept).
+"""LLM-based Context Extractor.
 
-This module demonstrates how to use LLM for context extraction
-instead of regex patterns, addressing technical debt item #1.
+Story 11-3: Fixed 3 bugs and integrated as fallback for pattern extractors.
+
+Bug fixes:
+1. Changed self.llm.generate() → self.llm.chat() (BaseLLMService has no generate)
+2. Changed raw dicts → LLMMessage objects for chat() API
+3. Changed raw LLMResponse → response.content for _parse_response() which expects str
 
 Usage:
     extractor = LLMContextExtractor(llm_service)
@@ -24,7 +28,7 @@ import json
 import logging
 from typing import Any
 
-from app.services.llm.base_llm_service import BaseLLMService
+from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
 
 logger = logging.getLogger(__name__)
 
@@ -32,18 +36,10 @@ logger = logging.getLogger(__name__)
 class LLMContextExtractor:
     """Extract conversation context using LLM with mode-aware prompts.
 
-    This is a proof-of-concept for replacing regex-based extraction
-    with LLM-based extraction for better accuracy and flexibility.
-
-    Technical Debt: Story 11-1, Item #1
+    Used as fallback when pattern-based extractors return empty results.
     """
 
     def __init__(self, llm_service: BaseLLMService):
-        """Initialize LLM context extractor.
-
-        Args:
-            llm_service: LLM service for context extraction
-        """
         self.llm = llm_service
 
     async def extract(
@@ -52,48 +48,35 @@ class LLMContextExtractor:
         mode: str,
         existing_context: dict[str, Any],
     ) -> dict[str, Any]:
-        """Extract context from user message using LLM.
-
-        Args:
-            message: User message to extract context from
-            mode: Merchant mode (ecommerce or general)
-            existing_context: Previous context in conversation
-
-        Returns:
-            Extracted context as dictionary
-        """
         system_prompt = self._get_system_prompt(mode)
-
         user_prompt = self._build_user_prompt(message, existing_context)
 
         try:
-            response = await self.llm.generate(
+            response = await self.llm.chat(
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
+                    LLMMessage(role="system", content=system_prompt),
+                    LLMMessage(role="user", content=user_prompt),
                 ],
-                temperature=0.1,  # Low temperature for consistent extraction
+                temperature=0.1,
                 max_tokens=500,
             )
 
-            extracted_context = self._parse_response(response)
+            extracted_context = self._parse_response(response.content)
 
             logger.info(
-                "llm_context_extraction_success",
-                mode=mode,
-                message_length=len(message),
-                extracted_fields=list(extracted_context.keys()),
+                "llm_context_extraction_success mode=%s fields=%s",
+                mode,
+                list(extracted_context.keys()),
             )
 
             return extracted_context
 
         except Exception as e:
             logger.error(
-                "llm_context_extraction_failed",
-                mode=mode,
-                error=str(e),
+                "llm_context_extraction_failed mode=%s error=%s",
+                mode,
+                str(e),
             )
-            # Fallback to empty context on error
             return {}
 
     def _get_system_prompt(self, mode: str) -> str:

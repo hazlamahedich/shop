@@ -108,7 +108,7 @@ class GeneralContextExtractor(BaseContextExtractor):
         topics_found = []
 
         for topic in self.SUPPORT_TOPICS:
-            if topic in message_lower:
+            if re.search(rf"\b{re.escape(topic)}\b", message_lower):
                 topics_found.append(topic)
 
         return topics_found if topics_found else None
@@ -148,7 +148,7 @@ class GeneralContextExtractor(BaseContextExtractor):
         issues = []
 
         for issue_type, keywords in self.ISSUE_KEYWORDS.items():
-            if any(keyword in message_lower for keyword in keywords):
+            if any(re.search(rf"\b{re.escape(kw)}\b", message_lower) for kw in keywords):
                 # Check if this issue type already exists
                 existing_issues = context.get("support_issues", [])
                 existing_types = {issue.get("type") for issue in existing_issues}

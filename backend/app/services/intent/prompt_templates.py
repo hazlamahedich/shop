@@ -173,6 +173,117 @@ Output: {"intent": "product_search", "confidence": 0.95, "entities": {"constrain
 
 Input: "What's the highest priced snowboard?"
 Output: {"intent": "product_search", "confidence": 0.92, "entities": {"category": "snowboard", "constraints": {"sort_by": "price", "sort_order": "desc", "limit": 1}}, "reasoning": "Category search sorted by highest price"}
+
+Story 11-3: Natural language variation examples — customers express the same intent in many different ways.
+Treat these as equivalent to the canonical examples above:
+
+Input: "sup"
+Output: {"intent": "greeting", "confidence": 0.98, "entities": {}, "reasoning": "Colloquial greeting"}
+
+Input: "anyone home?"
+Output: {"intent": "greeting", "confidence": 0.95, "entities": {}, "reasoning": "Informal greeting checking if someone is available"}
+
+Input: "yo what's good"
+Output: {"intent": "greeting", "confidence": 0.95, "entities": {}, "reasoning": "Very informal greeting"}
+
+Input: "throw them in my bag"
+Output: {"intent": "cart_add", "confidence": 0.93, "entities": {"productReference": "them"}, "reasoning": "Colloquial add to cart with 'bag' synonym"}
+
+Input: "I'll take that one for sure"
+Output: {"intent": "add_last_viewed", "confidence": 0.93, "entities": {"productReference": "that one"}, "reasoning": "Colloquial purchase intent referring to shown product"}
+
+Input: "hook me up with those"
+Output: {"intent": "cart_add", "confidence": 0.90, "entities": {"productReference": "those"}, "reasoning": "Slang add-to-cart request"}
+
+Input: "toss it in the basket"
+Output: {"intent": "cart_add", "confidence": 0.93, "entities": {"productReference": "it"}, "reasoning": "Colloquial add to cart"}
+
+Input: "let me peek at my cart"
+Output: {"intent": "cart_view", "confidence": 0.95, "entities": {}, "reasoning": "Colloquial cart view request"}
+
+Input: "whats in my basket"
+Output: {"intent": "cart_view", "confidence": 0.95, "entities": {}, "reasoning": "Cart view with 'basket' synonym"}
+
+Input: "let's do this! take my money"
+Output: {"intent": "checkout", "confidence": 0.95, "entities": {}, "reasoning": "Enthusiastic colloquial checkout"}
+
+Input: "ring me up"
+Output: {"intent": "checkout", "confidence": 0.95, "entities": {}, "reasoning": "Colloquial checkout request"}
+
+Input: "ready to pay up"
+Output: {"intent": "checkout", "confidence": 0.95, "entities": {}, "reasoning": "Colloquial checkout"}
+
+Input: "wheres my stuff"
+Output: {"intent": "order_tracking", "confidence": 0.90, "entities": {}, "reasoning": "Colloquial order tracking without 'order' keyword"}
+
+Input: "has my package shipped yet"
+Output: {"intent": "order_tracking", "confidence": 0.92, "entities": {}, "reasoning": "Order tracking about shipping status"}
+
+Input: "when will my order get here"
+Output: {"intent": "order_tracking", "confidence": 0.92, "entities": {}, "reasoning": "Delivery timing question"}
+
+Input: "this bot isn't helping, get me someone who knows"
+Output: {"intent": "human_handoff", "confidence": 0.95, "entities": {}, "reasoning": "Frustrated request for human agent"}
+
+Input: "let me talk to your manager"
+Output: {"intent": "human_handoff", "confidence": 0.98, "entities": {}, "reasoning": "Escalation to manager"}
+
+Input: "no more bot please"
+Output: {"intent": "human_handoff", "confidence": 0.90, "entities": {}, "reasoning": "Explicit request to stop bot interaction"}
+
+Input: "wondering if you carry hiking boots"
+Output: {"intent": "product_search", "confidence": 0.92, "entities": {"category": "boots", "constraints": {"type": "hiking"}}, "reasoning": "Indirect product search using 'carry'"}
+
+Input: "I'm in the market for a new laptop"
+Output: {"intent": "product_search", "confidence": 0.90, "entities": {"category": "laptop"}, "reasoning": "Indirect product search using 'in the market for'"}
+
+Input: "do you stock yoga mats"
+Output: {"intent": "product_search", "confidence": 0.92, "entities": {"category": "mats", "constraints": {"type": "yoga"}}, "reasoning": "Indirect search using 'stock'"}
+
+Input: "got any sneakers"
+Output: {"intent": "product_search", "confidence": 0.90, "entities": {"category": "sneakers"}, "reasoning": "Very casual product search"}
+
+Input: "what can I get for around 50 bucks"
+Output: {"intent": "product_search", "confidence": 0.93, "entities": {"budget": 50.0}, "reasoning": "Budget-constrained search with slang 'bucks'"}
+
+Input: "looking for something under 75"
+Output: {"intent": "product_search", "confidence": 0.93, "entities": {"budget": 75.0}, "reasoning": "Budget-constrained indirect search"}
+
+Input: "show me the fancy stuff"
+Output: {"intent": "product_search", "confidence": 0.88, "entities": {"constraints": {"sort_by": "price", "sort_order": "desc"}}, "reasoning": "Colloquial expensive product request"}
+
+Input: "what's the best bang for buck"
+Output: {"intent": "product_search", "confidence": 0.88, "entities": {"constraints": {"sort_by": "price", "sort_order": "asc"}}, "reasoning": "Colloquial cheapest/best value request"}
+
+Input: "won't break the bank options"
+Output: {"intent": "product_search", "confidence": 0.85, "entities": {"constraints": {"sort_by": "price", "sort_order": "asc"}}, "reasoning": "Colloquial budget-friendly search"}
+
+Input: "wipe my history"
+Output: {"intent": "forget_preferences", "confidence": 0.95, "entities": {}, "reasoning": "Colloquial data deletion request"}
+
+Input: "clean slate please"
+Output: {"intent": "forget_preferences", "confidence": 0.93, "entities": {}, "reasoning": "Colloquial reset request"}
+
+Input: "don't remember my info"
+Output: {"intent": "forget_preferences", "confidence": 0.90, "entities": {}, "reasoning": "Indirect data deletion request"}
+
+Input: "you still know my settings right"
+Output: {"intent": "check_consent_status", "confidence": 0.90, "entities": {}, "reasoning": "Colloquial consent status check"}
+
+Input: "did I let you save my data"
+Output: {"intent": "check_consent_status", "confidence": 0.88, "entities": {}, "reasoning": "Indirect consent verification"}
+
+Input: "red kicks under 80"
+Output: {"intent": "product_search", "confidence": 0.93, "entities": {"category": "shoes", "color": "red", "budget": 80.0}, "reasoning": "'kicks' is slang for shoes, with color and budget"}
+
+Input: "nike runners"
+Output: {"intent": "product_search", "confidence": 0.90, "entities": {"brand": "Nike", "category": "shoes", "constraints": {"type": "running"}}, "reasoning": "'runners' is synonym for running shoes"}
+
+Input: "wher is my ordr"
+Output: {"intent": "order_tracking", "confidence": 0.88, "entities": {}, "reasoning": "Order tracking with typos - 'wher' and 'ordr'"}
+
+Input: "sho me chep shoos"
+Output: {"intent": "product_search", "confidence": 0.85, "entities": {"category": "shoes", "constraints": {"sort_by": "price", "sort_order": "asc"}}, "reasoning": "Product search with typos for 'show', 'cheap', 'shoes'"}
 """
 
 

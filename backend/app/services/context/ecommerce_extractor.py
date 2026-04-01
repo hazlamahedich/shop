@@ -156,7 +156,7 @@ class EcommerceContextExtractor(BaseContextExtractor):
             "grey",
         ]
         for color in colors:
-            if color in message_lower:
+            if re.search(rf"\b{re.escape(color)}\b", message_lower):
                 preferences["color"] = color
                 break
 
