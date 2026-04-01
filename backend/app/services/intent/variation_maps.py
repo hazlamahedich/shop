@@ -14,7 +14,7 @@ import re
 from typing import Any
 
 PRODUCT_SYNONYMS: dict[str, list[str]] = {
-    "shoes": ["kicks", "sneakers", "footwear", "trainers", "kicks"],
+    "shoes": ["kicks", "sneakers", "footwear", "trainers"],
     "pants": ["trousers", "jeans", "bottoms", "slacks", "chinos"],
     "shirt": ["top", "tee", "tshirt", "blouse", "polo", "button-up"],
     "jacket": ["coat", "outerwear", "hoodie", "parka", "windbreaker", "blazer"],
@@ -175,10 +175,8 @@ TYPO_MAP: dict[str, str] = {
     "sneekers": "sneakers",
     "snikers": "sneakers",
     "sho": "show",
-    "shot": "shoes",
     "shooes": "shoes",
     "shoos": "shoes",
-    "shoe": "shoes",
     "trak": "track",
     "pance": "pants",
     "pant": "pants",
@@ -198,12 +196,10 @@ TYPO_MAP: dict[str, str] = {
     "drss": "dress",
     "hatz": "hats",
     "bagz": "bags",
-    "nike": "nike",
     "adida": "adidas",
     "adiddas": "adidas",
     "adiads": "adidas",
     "pumma": "puma",
-    "reebok": "reebok",
     "reeboks": "reebok",
     "jordon": "jordan",
     "jordans": "jordan",
@@ -394,22 +390,125 @@ _build_flat_maps()
 _WORD_BOUNDARY_RE = re.compile(r"\b")
 
 
+_MULTI_WORD_SYNONYMS: dict[str, str] = {}
+_MULTI_WORD_MAX_LEN = 0
+
+
+def _build_multi_word_map() -> None:
+    global _MULTI_WORD_MAX_LEN
+    _EXCLUDED_MULTI_WORD = {
+        "hook me up with",
+        "get me",
+        "show me",
+        "i want to buy",
+        "find me",
+        "looking for",
+        "in the market for",
+        "on the hunt for",
+        "shopping for",
+        "browsing for",
+        "scouting for",
+        "do you have",
+        "got any",
+        "i'll take",
+        "i wanna get",
+        "let me get",
+        "throw in my cart",
+        "put in my basket",
+        "add to basket",
+        "toss in",
+        "drop in my bag",
+        "add to cart",
+        "won't break the bank",
+        "i'm in the market for",
+    }
+    sources = [
+        PRODUCT_SYNONYMS,
+        ACTION_SYNONYMS,
+        PRICE_SYNONYMS,
+        ECOMMERCE_SYNONYMS,
+        GENERAL_SYNONYMS,
+    ]
+    for source in sources:
+        for canonical, synonyms in source.items():
+            for synonym in synonyms:
+                key = synonym.lower().strip()
+                if (
+                    " " in key
+                    and key not in _MULTI_WORD_SYNONYMS
+                    and key not in _EXCLUDED_MULTI_WORD
+                ):
+                    _MULTI_WORD_SYNONYMS[key] = canonical.lower().strip()
+                    _MULTI_WORD_MAX_LEN = max(_MULTI_WORD_MAX_LEN, len(key.split()))
+    for canonical, aliases in BRAND_SYNONYMS.items():
+        for alias in aliases:
+            key = alias.lower().strip()
+            if " " in key and key not in _MULTI_WORD_SYNONYMS:
+                _MULTI_WORD_SYNONYMS[key] = canonical.lower().strip()
+                _MULTI_WORD_MAX_LEN = max(_MULTI_WORD_MAX_LEN, len(key.split()))
+
+
+_build_multi_word_map()
+
+
 def normalize_message(message: str) -> str:
     text = message.lower().strip()
 
     if len(text) > _MAX_NORMALIZE_LENGTH:
         text = text[:_MAX_NORMALIZE_LENGTH]
 
-    words = text.split()
+    text_clean = re.sub(r"[.,!?;:'\"()]", "", text)
+
+    if _MULTI_WORD_MAX_LEN > 0:
+        words = text_clean.split()
+        i = 0
+        multi_results: list[tuple[int, int, str]] = []
+        while i < len(words):
+            matched = False
+            for span in range(min(_MULTI_WORD_MAX_LEN, len(words) - i), 1, -1):
+                phrase = " ".join(words[i : i + span])
+                if phrase in _MULTI_WORD_SYNONYMS:
+                    multi_results.append((i, i + span, _MULTI_WORD_SYNONYMS[phrase]))
+                    i += span
+                    matched = True
+                    break
+            if not matched:
+                i += 1
+
+        if multi_results:
+            replacement_positions: set[int] = set()
+            for start, end, _ in multi_results:
+                for pos in range(start, end):
+                    replacement_positions.add(pos)
+
+            replaced = []
+            next_multi = 0
+            for idx, word in enumerate(words):
+                if idx in replacement_positions:
+                    if next_multi < len(multi_results) and multi_results[next_multi][0] == idx:
+                        replaced.append(multi_results[next_multi][2])
+                        next_multi += 1
+                    continue
+                stripped = word
+                if stripped in _FLAT_TYPO_MAP:
+                    replaced.append(_FLAT_TYPO_MAP[stripped])
+                elif stripped in _FLAT_SYNONYM_MAP:
+                    replaced.append(_FLAT_SYNONYM_MAP[stripped])
+                elif stripped in _FLAT_BRAND_MAP:
+                    replaced.append(_FLAT_BRAND_MAP[stripped])
+                else:
+                    replaced.append(word)
+            return " ".join(replaced)
+
+    words = text_clean.split()
     replaced = []
     for word in words:
-        stripped = word.strip(".,!?;:'\"()")
-        if stripped in _FLAT_TYPO_MAP:
-            replaced.append(_FLAT_TYPO_MAP[stripped])
-        elif stripped in _FLAT_SYNONYM_MAP:
-            replaced.append(_FLAT_SYNONYM_MAP[stripped])
-        elif stripped in _FLAT_BRAND_MAP:
-            replaced.append(_FLAT_BRAND_MAP[stripped])
+        if word in _FLAT_TYPO_MAP:
+            replaced.append(_FLAT_TYPO_MAP[word])
+        elif word in _FLAT_SYNONYM_MAP:
+            replaced.append(_FLAT_SYNONYM_MAP[word])
+        elif word in _FLAT_BRAND_MAP:
+            replaced.append(_FLAT_BRAND_MAP[word])
         else:
             replaced.append(word)
 

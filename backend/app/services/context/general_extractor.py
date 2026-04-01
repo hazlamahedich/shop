@@ -173,28 +173,33 @@ class GeneralContextExtractor(BaseContextExtractor):
         Returns:
             Escalation level or None
         """
-        # High priority escalation (phrases with variations)
         high_patterns = [
-            "speak to human",
-            "speak to a human",
-            "talk to human",
-            "talk to a human",
-            "talk to person",
-            "supervisor",
-            "manager",
-            "urgent",
+            r"\bspeak to (a )?human\b",
+            r"\btalk to (a )?(human|person)\b",
+            r"\bsupervisor\b",
+            r"\bmanager\b",
+            r"\burgent\b",
         ]
-        if any(pattern in message_lower for pattern in high_patterns):
+        if any(re.search(p, message_lower) for p in high_patterns):
             return "high"
 
-        # Medium priority escalation
-        medium_keywords = ["frustrated", "angry", "upset", "not happy", "disappointed"]
-        if any(keyword in message_lower for keyword in medium_keywords):
+        medium_patterns = [
+            r"\bfrustrated\b",
+            r"\bangry\b",
+            r"\bupset\b",
+            r"\bnot happy\b",
+            r"\bdisappointed\b",
+        ]
+        if any(re.search(p, message_lower) for p in medium_patterns):
             return "medium"
 
-        # Low priority escalation
-        low_keywords = ["confused", "don't understand", "help", "support"]
-        if any(keyword in message_lower for keyword in low_keywords):
+        low_patterns = [
+            r"\bconfused\b",
+            r"\bdon'?t understand\b",
+            r"\bhelp\b",
+            r"\bsupport\b",
+        ]
+        if any(re.search(p, message_lower) for p in low_patterns):
             return "low"
 
         return None

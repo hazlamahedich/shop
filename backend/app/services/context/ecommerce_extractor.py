@@ -11,6 +11,7 @@ import re
 from typing import Any
 
 from app.services.context.base import BaseContextExtractor
+from app.services.intent.variation_maps import ALL_BRANDS as _VARIATION_BRANDS
 
 
 class EcommerceContextExtractor(BaseContextExtractor):
@@ -161,11 +162,9 @@ class EcommerceContextExtractor(BaseContextExtractor):
                 break
 
         # Brand patterns (simple keyword matching)
-        brands = ["nike", "adidas", "puma", "reebok", "jordan", "converse"]
-        message_words = set(message_lower.split())
-        for brand in brands:
-            if brand in message_words:
-                preferences["brand"] = brand.capitalize()
+        for brand in sorted(_VARIATION_BRANDS, key=len, reverse=True):
+            if re.search(rf"\b{re.escape(brand)}\b", message_lower):
+                preferences["brand"] = brand.title()
                 break
 
         return preferences if preferences else None

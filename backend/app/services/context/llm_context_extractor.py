@@ -193,16 +193,19 @@ Example output format:
 
             # Validate structure
             if not isinstance(context, dict):
-                logger.warning("llm_response_not_dict", response=response)
+                logger.warning(
+                    "llm_response_not_dict response=%s",
+                    response[:200],
+                )
                 return {}
 
             return context
 
         except json.JSONDecodeError as e:
             logger.error(
-                "llm_json_parse_error",
-                error=str(e),
-                response=response[:200],  # Log first 200 chars
+                "llm_json_parse_error error=%s response=%s",
+                str(e),
+                response[:200],
             )
             return {}
 

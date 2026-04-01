@@ -174,7 +174,7 @@ Output: {"intent": "product_search", "confidence": 0.95, "entities": {"constrain
 Input: "What's the highest priced snowboard?"
 Output: {"intent": "product_search", "confidence": 0.92, "entities": {"category": "snowboard", "constraints": {"sort_by": "price", "sort_order": "desc", "limit": 1}}, "reasoning": "Category search sorted by highest price"}
 
-Story 11-3: Natural language variation examples — customers express the same intent in many different ways.
+Additional examples showing natural language variations — customers express the same intent in many different ways.
 Treat these as equivalent to the canonical examples above:
 
 Input: "sup"
