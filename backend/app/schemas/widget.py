@@ -312,10 +312,12 @@ class SendMessageRequest(BaseSchema):
     Attributes:
         session_id: Active session identifier
         message: User message text
+        streaming: Whether to stream response via WebSocket (default: false for fallback to HTTP)
     """
 
     session_id: str
     message: str = Field(min_length=1, max_length=4000)
+    streaming: str | None = Field(default="false", description="Stream via WebSocket if available")
 
 
 class ContactOptionSchema(BaseSchema):

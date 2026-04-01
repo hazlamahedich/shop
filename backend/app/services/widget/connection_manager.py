@@ -433,6 +433,120 @@ class WidgetConnectionManager:
             session_id: len(connections) for session_id, connections in self._connections.items()
         }
 
+    async def broadcast_streaming_start(
+        self,
+        session_id: str,
+        message_id: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
+        """Signal the start of a streaming bot response.
+
+        Args:
+            session_id: Widget session identifier
+            message_id: Unique ID for the streaming message
+            metadata: Optional metadata (intent, confidence, etc.)
+
+        Returns:
+            Number of connections the message was sent to
+        """
+        return await self.broadcast_to_session(
+            session_id,
+            {
+                "type": "bot_stream_start",
+                "data": {
+                    "messageId": message_id,
+                    "sender": "bot",
+                    "createdAt": datetime.now(UTC).isoformat(),
+                    **(metadata or {}),
+                },
+            },
+        )
+
+    async def broadcast_streaming_token(
+        self,
+        session_id: str,
+        message_id: str,
+        token: str,
+    ) -> int:
+        """Broadcast a single streaming token to all connections for a session.
+
+        Args:
+            session_id: Widget session identifier
+            message_id: ID of the streaming message
+            token: Text token to append
+
+        Returns:
+            Number of connections the message was sent to
+        """
+        return await self.broadcast_to_session(
+            session_id,
+            {
+                "type": "bot_stream_token",
+                "data": {
+                    "messageId": message_id,
+                    "token": token,
+                },
+            },
+        )
+
+    async def broadcast_streaming_end(
+        self,
+        session_id: str,
+        message_id: str,
+        full_content: str,
+        extra: dict[str, Any] | None = None,
+    ) -> int:
+        """Signal the end of a streaming bot response.
+
+        Args:
+            session_id: Widget session identifier
+            message_id: ID of the streaming message
+            full_content: Complete message content
+            extra: Optional extra fields (products, quick_replies, etc.)
+
+        Returns:
+            Number of connections the message was sent to
+        """
+        return await self.broadcast_to_session(
+            session_id,
+            {
+                "type": "bot_stream_end",
+                "data": {
+                    "messageId": message_id,
+                    "content": full_content,
+                    "createdAt": datetime.now(UTC).isoformat(),
+                    **(extra or {}),
+                },
+            },
+        )
+
+    async def broadcast_streaming_error(
+        self,
+        session_id: str,
+        message_id: str,
+        error_message: str,
+    ) -> int:
+        """Broadcast a streaming error to all connections for a session.
+
+        Args:
+            session_id: Widget session identifier
+            message_id: ID of the streaming message
+            error_message: Error description
+
+        Returns:
+            Number of connections the message was sent to
+        """
+        return await self.broadcast_to_session(
+            session_id,
+            {
+                "type": "bot_stream_error",
+                "data": {
+                    "messageId": message_id,
+                    "error": error_message,
+                },
+            },
+        )
+
     async def shutdown(self) -> None:
         """Gracefully shutdown all connections and listeners."""
         self._logger.info("connection_manager_shutdown")

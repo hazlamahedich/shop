@@ -2,6 +2,20 @@
 
 Story 11-2: Multi-Turn Query Handling
 Prevents race conditions when concurrent messages arrive for the same conversation.
+
+Architecture Note (Tech Debt - Multi-Worker Limitation):
+    This lock manager uses a module-level singleton (`_lock_manager`) with
+    in-process asyncio.Lock instances. This is safe for a single async worker
+    (current deployment), but will NOT prevent race conditions across multiple
+    worker processes.
+
+    For multi-worker deployment, replace with one of:
+    - Redis-based distributed lock (SETNX with TTL)
+    - PostgreSQL advisory lock (pg_advisory_lock)
+    - Redis Pub/Sub for lock coordination (already used by ConnectionManager)
+
+    The existing Redis infrastructure in ConnectionManager can be extended
+    to support distributed locking when multi-worker deployment is needed.
 """
 
 from __future__ import annotations

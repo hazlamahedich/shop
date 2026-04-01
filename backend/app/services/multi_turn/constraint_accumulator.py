@@ -23,38 +23,57 @@ CONTRADICTORY_KEYWORDS: dict[str, set[str]] = {
     "luxury": {"budget", "cheap", "affordable"},
 }
 
+CURRENCY_SYMBOLS = r"[$€£¥₹₽₩₴₦₱¢]"
+CURRENCY_CODES = r"(?:USD|EUR|GBP|JPY|CNY|INR|RUB|KRW|PHP|CAD|AUD|NZD|CHF|SGD|HKD|ZAR|MXN|BRL|SEK|NOK|DKK|PLN|CZK|THB|IDR|MYR|VND|AED|SAR|EGP|NGN|KES|GHS|TWD|TRY|ILS)"
+CURRENCY_LETTER_PREFIXES = r"(?:R(?=\d)|A\$|C\$|NZ\$|S\$|HK\$|NT\$)"
+CURRENCY_PREFIX = rf"(?:{CURRENCY_SYMBOLS}\s?|{CURRENCY_CODES}\s?|{CURRENCY_LETTER_PREFIXES}\s?)"
+
 ECOMMERCE_CONSTRAINT_PATTERNS: dict[str, list[str]] = {
     "budget_max": [
-        r"under\s+\$?(\d+)",
-        r"less\s+than\s+\$?(\d+)",
-        r"below\s+\$?(\d+)",
-        r"max\s+\$?(\d+)",
+        rf"under\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"less\s+than\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"below\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"max\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"up\s+to\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"at\s+most\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"no\s+more\s+than\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
     ],
     "budget_min": [
-        r"over\s+\$?(\d+)",
-        r"more\s+than\s+\$?(\d+)",
-        r"above\s+\$?(\d+)",
-        r"min\s+\$?(\d+)",
+        rf"over\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"more\s+than\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"above\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"min\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"at\s+least\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
+        rf"starting\s+(?:from|at)\s+{CURRENCY_PREFIX}?(\d+(?:\.\d{{1,2}})?)",
     ],
     "brand": [
         r"(?:brand|from|by|make)\s+(?:is\s+)?([a-z]+(?:\s+[a-z]+){0,2})",
         r"\b(nike|adidas|puma|reebok|under armour|new balance|asics|vans|converse|skechers|gucci|prada|chanel|versace|zara|h&m|uniqlo|levis|gap|tommy hilfiger|ralph lauren|north face|patagonia|columbia|lululemon|fila|jordan|yeezy|balenciaga)\b",
     ],
-    "size": [r"size\s+(xs|s|m|l|xl|xxl|\d+)"],
-    "color": [
-        r"(?:color\s+)?(red|blue|green|black|white|yellow|purple|pink|orange|brown|grey|gray|beige|navy)"
+    "size": [
+        r"size\s+(xs|s|m|l|xl|xxl|xxxl|\d+)",
+        r"\b(xs|small|s|m|medium|l|large|xl|extra\s*large|xxl|2xl|xxxl|3xl)\b",
     ],
-    "category": [r"(shoes?|shirt|pants?|jacket|dress|hat|bag|watch|phone|laptop|headphones?)"],
-    "product_type": [r"(running|casual|formal|sports?|outdoor|indoor|gym|training|walking)"],
+    "color": [
+        r"(?:color\s+)?(red|blue|green|black|white|yellow|purple|pink|orange|brown|grey|gray|beige|navy|teal|turquoise|maroon|coral|cream|ivory|burgundy|khaki|olive|gold|silver|bronze|magenta|violet|indigo|charcoal|slate)"
+    ],
+    "category": [
+        r"(shoes?|shirt|pants?|jacket|dress|hat|bag|watch|phone|laptop|headphones?|boots?|sneakers?|sandals?|heels?|coat|blazer|skirt|shorts|socks?|scarf|gloves?|belt|wallet|backpack|sunglasses|jewel(?:ler)?y|ring|necklace|bracelet)"
+    ],
+    "product_type": [
+        r"(running|casual|formal|sports?|outdoor|indoor|gym|training|walking|hiking|swimming|cycling|football|soccer|basketball|tennis|golf|yoga|skiing|snowboarding|climbing)"
+    ],
 }
 
 GENERAL_CONSTRAINT_PATTERNS: dict[str, list[str]] = {
-    "severity": [r"(urgent|critical|important|minor|low\s+priority|high\s+priority|asap)"],
+    "severity": [
+        r"(urgent|critical|important|minor|low\s+priority|high\s+priority|asap|emergency|severe)"
+    ],
     "timeframe": [
-        r"(today|yesterday|last\s+week|this\s+week|right\s+now|just\s+now|recently|ongoing|constant)"
+        r"(today|yesterday|last\s+week|this\s+week|right\s+now|just\s+now|recently|ongoing|constant|asap|immediately|tomorrow|next\s+week|this\s+month|last\s+month)"
     ],
     "issue_type": [
-        r"(login|payment|shipping|delivery|refund|return|cancel|account|password|error|bug|broken)"
+        r"(login|payment|shipping|delivery|refund|return|cancel(?:lation)?|account|password|error|bug|broken|billing|subscription|upgrade|downgrade|access|permission|verification|authentication|registration)"
     ],
 }
 
@@ -119,7 +138,7 @@ class ConstraintAccumulator:
 
         for constraint_name, patterns_list in patterns.items():
             for pattern in patterns_list:
-                match = re.search(pattern, lower_msg)
+                match = re.search(pattern, lower_msg, re.IGNORECASE)
                 if match:
                     if constraint_name in ("budget_max", "budget_min"):
                         try:

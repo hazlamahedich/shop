@@ -575,17 +575,24 @@ async def send_widget_message(
     allowed_domains = widget_config.get("allowed_domains", [])
     _validate_domain_whitelist(request, allowed_domains)
 
-    # Cache merchant_id to avoid lazy-load issues after process_message
-    # (process_message may commit/rollback and expire ORM objects)
     merchant_id_cached = merchant.id
 
-    # Process message
     message_service = WidgetMessageService(db=db, session_service=session_service)
-    response = await message_service.process_message(
-        session=session,
-        message=sanitized_message,
-        merchant=merchant,
-    )
+
+    streaming_requested = message_request.streaming and message_request.streaming.lower() == "true"
+
+    if streaming_requested:
+        response = await message_service.process_message_streaming(
+            session=session,
+            message=sanitized_message,
+            merchant=merchant,
+        )
+    else:
+        response = await message_service.process_message(
+            session=session,
+            message=sanitized_message,
+            merchant=merchant,
+        )
 
     logger.info(
         "widget_message_sent",

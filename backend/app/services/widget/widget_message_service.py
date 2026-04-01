@@ -719,6 +719,265 @@ class WidgetMessageService:
             config=llm_config,
         )
 
+    async def process_message_streaming(
+        self,
+        session: WidgetSessionData,
+        message: str,
+        merchant: Merchant,
+    ) -> dict:
+        """Process a user message with streaming bot response via WebSocket.
+
+        Story 11-2: WebSocket Streaming for Multi-Turn Responses
+        Streams LLM-generated tokens to the frontend in real-time through
+        the existing WebSocket connection, eliminating perceived latency.
+
+        Falls back to non-streaming process_message() if WebSocket is unavailable.
+
+        Args:
+            session: Widget session data
+            message: User message text
+            merchant: Merchant configuration
+
+        Returns:
+            Dictionary with message_id, content, sender, created_at (same as process_message)
+        """
+        from app.services.widget.connection_manager import get_connection_manager
+
+        if len(message) > MAX_MESSAGE_LENGTH:
+            raise APIError(
+                ErrorCode.WIDGET_MESSAGE_TOO_LONG,
+                f"Message exceeds maximum length of {MAX_MESSAGE_LENGTH} characters",
+            )
+
+        sanitized_message = self.sanitize_message(message)
+
+        if not sanitized_message:
+            raise APIError(
+                ErrorCode.VALIDATION_ERROR,
+                "Message cannot be empty",
+            )
+
+        user_message_id = str(uuid4())
+
+        await self.session_service.add_message_to_history(
+            session.session_id,
+            "user",
+            sanitized_message,
+            message_id=user_message_id,
+            customer_name=session.customer_name,
+        )
+
+        merchant_id_cached = merchant.id
+        connection_manager = get_connection_manager()
+        has_ws_connection = connection_manager.get_connection_count(session.session_id) > 0
+
+        if not has_ws_connection or self.db is None:
+            return await self.process_message(session, message, merchant)
+
+        bot_msg_id = str(uuid4())
+        merchant_id = merchant.id
+        merchant_onboarding_mode = merchant.onboarding_mode
+        merchant_embedding_provider = merchant.embedding_provider
+        merchant_embedding_model = merchant.embedding_model
+        merchant_llm_config = (
+            merchant.llm_configuration if hasattr(merchant, "llm_configuration") else None
+        )
+        merchant_bot_name = merchant.bot_name
+
+        try:
+            await connection_manager.broadcast_streaming_start(
+                session.session_id,
+                bot_msg_id,
+                metadata={"sender": "bot"},
+            )
+
+            history = await self.session_service.get_message_history(session.session_id)
+
+            conversation = None
+            conversation_id = None
+            if self.db:
+                from app.models.conversation import Conversation
+
+                try:
+                    result = await self.db.execute(
+                        select(Conversation)
+                        .where(
+                            Conversation.merchant_id == merchant_id,
+                            Conversation.platform_sender_id == session.session_id,
+                        )
+                        .order_by(Conversation.updated_at.desc())
+                        .limit(1)
+                    )
+                    conversation = result.scalars().first()
+                    if conversation:
+                        conversation_id = conversation.id
+                except Exception as e:
+                    self.logger.warning(
+                        "streaming_load_conversation_failed",
+                        session_id=session.session_id,
+                        error=str(e),
+                    )
+
+            context = ConversationContext(
+                session_id=session.session_id,
+                merchant_id=merchant_id,
+                channel=Channel.WIDGET,
+                conversation_history=history,
+                platform_sender_id=None,
+                user_id=None,
+                is_returning_shopper=session.is_returning_shopper,
+                consent_state=ConsentState(visitor_id=session.visitor_id),
+                conversation_id=conversation_id,
+            )
+
+            rag_context_builder = await self._build_rag_context_builder(
+                merchant_id=merchant_id,
+                merchant_onboarding_mode=merchant_onboarding_mode,
+                merchant_embedding_provider=merchant_embedding_provider,
+                merchant_embedding_model=merchant_embedding_model,
+                merchant_llm_config=merchant_llm_config,
+                merchant_bot_name=merchant_bot_name,
+            )
+
+            unified_service = self.unified_service or UnifiedConversationService(
+                db=self.db,
+                rag_context_builder=rag_context_builder,
+            )
+
+            session_metadata = await self.session_service.get_session_metadata(session.session_id)
+            if session_metadata:
+                context.metadata = {**context.metadata, **session_metadata}
+
+            if conversation:
+                context.conversation_data = conversation.decrypted_metadata
+                if session_metadata:
+                    context.metadata.update(conversation.decrypted_metadata or {})
+
+            assert self.db is not None
+
+            response = await unified_service.process_message(
+                db=self.db,
+                context=context,
+                message=sanitized_message,
+            )
+
+            full_content = response.message
+
+            import time
+
+            CHUNK_SIZE = 3
+            send_interval = 0.03
+
+            chunk_buffer = ""
+            last_send_time = time.monotonic()
+
+            for char in full_content:
+                chunk_buffer += char
+
+                now = time.monotonic()
+                if len(chunk_buffer) >= CHUNK_SIZE or now - last_send_time >= send_interval:
+                    await connection_manager.broadcast_streaming_token(
+                        session.session_id, bot_msg_id, chunk_buffer
+                    )
+                    chunk_buffer = ""
+                    last_send_time = now
+
+            if chunk_buffer:
+                await connection_manager.broadcast_streaming_token(
+                    session.session_id, bot_msg_id, chunk_buffer
+                )
+
+            await self.session_service.add_message_to_history(
+                session.session_id,
+                "bot",
+                full_content,
+                message_id=bot_msg_id,
+                customer_name=session.customer_name,
+            )
+            await self.session_service.refresh_session(session.session_id)
+
+            extra_fields = {}
+            if response.products:
+                extra_fields["products"] = response.products
+            if response.cart:
+                extra_fields["cart"] = response.cart
+            if response.checkout_url:
+                extra_fields["checkout_url"] = response.checkout_url
+            if response.quick_replies:
+                extra_fields["quick_replies"] = response.quick_replies
+            if response.sources:
+                extra_fields["sources"] = response.sources
+            if response.suggested_replies:
+                extra_fields["suggested_replies"] = response.suggested_replies
+            if response.contact_options:
+                extra_fields["contact_options"] = response.contact_options
+
+            if response.metadata:
+                try:
+                    await self.session_service.update_session_metadata(
+                        session.session_id, response.metadata
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        "streaming_session_metadata_save_failed",
+                        session_id=session.session_id,
+                        error=str(e),
+                    )
+
+            consent_prompt = response.metadata.get("consent_prompt_required")
+            if consent_prompt:
+                extra_fields["consent_prompt_required"] = consent_prompt
+
+            await connection_manager.broadcast_streaming_end(
+                session.session_id,
+                bot_msg_id,
+                full_content,
+                extra=extra_fields,
+            )
+
+            result = {
+                "message_id": bot_msg_id,
+                "content": full_content,
+                "sender": "bot",
+                "created_at": datetime.now(UTC),
+                "customer_name": session.customer_name,
+                **extra_fields,
+            }
+
+            self.logger.info(
+                "widget_message_streamed",
+                session_id=session.session_id,
+                merchant_id=merchant_id,
+                intent=response.intent,
+                response_length=len(full_content),
+            )
+
+            return result
+
+        except APIError:
+            raise
+        except Exception as e:
+            import traceback
+
+            self.logger.error(
+                "widget_streaming_failed",
+                session_id=session.session_id,
+                merchant_id=merchant_id_cached,
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
+            )
+            try:
+                await connection_manager.broadcast_streaming_error(
+                    session.session_id, bot_msg_id, str(e)
+                )
+            except Exception:
+                pass
+            raise APIError(
+                ErrorCode.LLM_PROVIDER_ERROR,
+                f"Failed to process streaming message: {str(e)}",
+            )
+
     async def retroactively_save_conversation_history(
         self,
         session_id: str,

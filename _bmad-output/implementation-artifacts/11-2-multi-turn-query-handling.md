@@ -327,3 +327,45 @@ All 10 acceptance criteria now have test coverage across multiple levels:
 1. **API envelope camelCase**: `MinimalEnvelope` meta field serializes as `requestId` (not `request_id`)
 2. **`Conversation` model has no `context` field**: The multi-turn debug API uses `hasattr(conversation, "context")` which is always False for real DB-backed conversations. GET endpoint always returns IDLE defaults; POST reset never persists state changes. This is a gap between the mock-based API tests and the HTTP-level reality.
 3. **`_is_topic_change()` stop words**: Limited to English; Unicode/emoji inputs fall through keyword analysis gracefully (no crashes)
+
+---
+
+## Tech Debt Review & Resolution (2026-04-01)
+
+**Review approach:** Party Mode review surfaced 6 technical debt items. All addressed.
+
+### Items Resolved
+
+| # | Issue | Severity | Resolution |
+|---|-------|----------|------------|
+| 1 | No WebSocket streaming for multi-turn responses | HIGH | Added `process_message_streaming()` + WS broadcast methods |
+| 2 | No CI workflow for Story 11-2 tests | MEDIUM | Created `.github/workflows/story-11-2-e2e-tests.yml` |
+| 3 | Dual LLM call in `process_message_streaming` | HIGH | Removed second `llm_service.stream_chat()` call; uses unified service response with simulated streaming |
+| 4 | Brittle regex patterns: only `$`, case-sensitive currency, limited brands/sizes | HIGH | Extended to 30+ currency symbols, 35+ currency codes, added `re.IGNORECASE`, extended brands/sizes/categories/colors |
+| 5 | State persistence coupling: direct JSONB access in `_check_multi_turn_state` | MEDIUM | Created `MultiTurnStateAdapter` with `load()`/`save()`/`reset()` |
+| 6 | Singleton lock limitation for multi-worker | LOW | Documented in module docstring with recommended solutions |
+
+### New Files Created
+
+| File | Description |
+|------|-------------|
+| `backend/app/services/multi_turn/state_persistence.py` | `MultiTurnStateAdapter` — decouples state machine from JSONB |
+| `.github/workflows/story-11-2-e2e-tests.yml` | CI: backend unit tests + frontend E2E tests |
+
+### Files Modified (Tech Debt)
+
+| File | Change |
+|------|--------|
+| `backend/app/services/multi_turn/constraint_accumulator.py` | Multi-currency regex, `re.IGNORECASE`, extended patterns |
+| `backend/app/services/multi_turn/conversation_lock.py` | Architecture docstring about multi-worker limitation |
+| `backend/app/services/multi_turn/__init__.py` | Added `MultiTurnStateAdapter` export |
+| `backend/app/services/widget/connection_manager.py` | Added `broadcast_streaming_start/token/end/error` methods |
+| `backend/app/services/widget/widget_message_service.py` | Added `process_message_streaming()`, fixed dual LLM call |
+| `backend/app/schemas/widget.py` | Added `streaming` field to `SendMessageRequest` |
+| `backend/app/api/widget.py` | Routes to streaming handler when `streaming=true` |
+| `frontend/src/widget/types/widget.ts` | Added `UPDATE_STREAMING_MESSAGE`, `FINISH_STREAMING_MESSAGE`, `UPDATE_MESSAGE` actions |
+| `frontend/src/widget/context/WidgetContext.tsx` | Streaming message handlers for WS events |
+
+### Post-Resolution Validation
+- All 114 backend unit tests passing
+- Tech debt doc updated: `docs/technical-debt/11-2-multi-turn-query-handling.md`

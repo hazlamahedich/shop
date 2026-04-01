@@ -1,7 +1,7 @@
 """Multi-turn query handling services.
 
 Story 11-2: Multi-Turn Query Handling
- State machine, message classification, constraint accumulation, and conversation locking.
+ State machine, message classification, constraint accumulation, conversation locking, and state persistence.
 """
 
 from app.services.multi_turn.constraint_accumulator import ConstraintAccumulator
@@ -20,6 +20,7 @@ from app.services.multi_turn.schemas import (
     MultiTurnStateEnum,
 )
 from app.services.multi_turn.state_machine import ConversationStateMachine
+from app.services.multi_turn.state_persistence import MultiTurnStateAdapter
 
 __all__ = [
     "ClarificationTurn",
@@ -34,4 +35,5 @@ __all__ = [
     "MultiTurnConfig",
     "MultiTurnState",
     "MultiTurnStateEnum",
+    "MultiTurnStateAdapter",
 ]
