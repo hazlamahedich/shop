@@ -3,6 +3,7 @@ import type {
   WidgetAction, 
   WidgetState, 
   WidgetProduct, 
+  WidgetMessage,
   ConnectionStatus, 
   ConsentState, 
   ThemeMode,
@@ -53,6 +54,10 @@ const initialState: WidgetState = {
   unreadCount: 0,
   themeMode: 'auto',
   faqQuickButtons: [],
+  isStreaming: false,
+  streamingMessageId: null,
+  streamingContent: '',
+  streamingError: null,
 };
 
 function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
@@ -115,6 +120,66 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
             : msg
         ),
       };
+    case 'START_STREAMING': {
+      const streamingMessage: WidgetMessage = {
+        messageId: action.payload.messageId,
+        content: '',
+        sender: 'bot',
+        createdAt: action.payload.createdAt,
+        isStreaming: true,
+      };
+      const newUnreadCount = state.isMinimized ? state.unreadCount + 1 : state.unreadCount;
+      return {
+        ...state,
+        isStreaming: true,
+        streamingMessageId: action.payload.messageId,
+        streamingContent: '',
+        streamingError: null,
+        isTyping: false,
+        messages: [...state.messages, streamingMessage],
+        unreadCount: newUnreadCount,
+      };
+    }
+    case 'UPDATE_STREAMING_MESSAGE': {
+      if (state.streamingMessageId !== action.payload.messageId) return state;
+      const updatedContent = state.streamingContent + action.payload.token;
+      return {
+        ...state,
+        streamingContent: updatedContent,
+        messages: state.messages.map((msg) =>
+          msg.messageId === action.payload.messageId
+            ? { ...msg, content: updatedContent }
+            : msg
+        ),
+      };
+    }
+    case 'FINISH_STREAMING_MESSAGE': {
+      const finalMessage = action.payload;
+      return {
+        ...state,
+        isStreaming: false,
+        streamingMessageId: null,
+        streamingContent: '',
+        streamingError: null,
+        messages: state.messages.map((msg) =>
+          msg.messageId === finalMessage.messageId
+            ? { ...finalMessage, isStreaming: false }
+            : msg
+        ),
+      };
+    }
+    case 'STREAMING_ERROR': {
+      return {
+        ...state,
+        isStreaming: false,
+        streamingError: action.payload.error,
+        messages: state.messages.map((msg) =>
+          msg.messageId === action.payload.messageId
+            ? { ...msg, isStreaming: false }
+            : msg
+        ),
+      };
+    }
     case 'RESET':
       return initialState;
     default:
@@ -445,18 +510,12 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       if (!content.trim()) return;
 
       let currentSessionId = state.session?.sessionId;
-      // Validate session exists and has valid UUID format
       if (!currentSessionId || !isValidSessionId(currentSessionId)) {
-        // Clear invalid session from storage
         safeStorage.remove(SESSION_KEY);
-        
-        // Create new session
         const visitorId = getVisitorId() || undefined;
         const newSession = await createSession(visitorId);
         dispatch({ type: 'SET_SESSION', payload: newSession });
         safeStorage.set(SESSION_KEY, newSession.sessionId);
-        
-        // Use new session ID
         currentSessionId = newSession.sessionId;
       }
 
@@ -469,34 +528,39 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         createdAt: new Date().toISOString(),
       };
       dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
-      dispatch({ type: 'SET_TYPING', payload: true });
 
-      try {
-        const { widgetClient } = await import('../api/widgetClient');
-        const botMessage = await widgetClient.sendMessage(currentSessionId!, content);
-        console.log('[WidgetContext] Bot message received:', {
-          hasConsentPrompt: botMessage.consent_prompt_required,
-          consentPromptValue: botMessage.consent_prompt_required,
-          messageKeys: Object.keys(botMessage)
-        });
-        dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
+      const useStreaming = state.connectionStatus === 'connected' && !state.isStreaming;
 
-        if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
-          console.log('[WidgetContext] Setting consent prompt shown');
-          consentPromptShownRef.current = true;
-          dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
+      if (useStreaming) {
+        try {
+          const { widgetClient } = await import('../api/widgetClient');
+          await widgetClient.sendMessage(currentSessionId!, content, { streaming: 'true' });
+        } catch (error) {
+          addError(error, { action: 'Try Again' });
         }
+      } else {
+        dispatch({ type: 'SET_TYPING', payload: true });
+        try {
+          const { widgetClient } = await import('../api/widgetClient');
+          const botMessage = await widgetClient.sendMessage(currentSessionId!, content);
+          dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
-        if (shopifyCartClient.isOnShopify() && botMessage.cart) {
-          syncCartToShopify(botMessage.cart);
+          if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+            consentPromptShownRef.current = true;
+            dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
+          }
+
+          if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+            syncCartToShopify(botMessage.cart);
+          }
+        } catch (error) {
+          addError(error, { action: 'Try Again' });
+        } finally {
+          dispatch({ type: 'SET_TYPING', payload: false });
         }
-      } catch (error) {
-        addError(error, { action: 'Try Again' });
-      } finally {
-        dispatch({ type: 'SET_TYPING', payload: false });
       }
     },
-    [state.session, addError, createSession, syncCartToShopify]
+    [state.session, state.connectionStatus, state.isStreaming, addError, createSession, syncCartToShopify]
   );
 
   const addToCart = React.useCallback(
@@ -694,7 +758,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
               createdAt: data.createdAt,
             };
             dispatch({ type: 'ADD_MESSAGE', payload: merchantMessage });
-            } else if (event.type === 'handoff_resolved') {
+          } else if (event.type === 'handoff_resolved') {
             const data = event.data as { id: number; content: string; createdAt: string; contactOptions?: ContactOption[] };
             const resolutionMessage = {
               messageId: `resolution-${data.id}`,
@@ -704,6 +768,39 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
               contactOptions: data.contactOptions,
             };
             dispatch({ type: 'ADD_MESSAGE', payload: resolutionMessage });
+          } else if (event.type === 'bot_stream_start') {
+            const data = event.data as { messageId: string; createdAt: string };
+            dispatch({ type: 'START_STREAMING', payload: { messageId: data.messageId, createdAt: data.createdAt } });
+          } else if (event.type === 'bot_stream_token') {
+            const data = event.data as { messageId: string; token: string };
+            dispatch({ type: 'UPDATE_STREAMING_MESSAGE', payload: { messageId: data.messageId, token: data.token } });
+          } else if (event.type === 'bot_stream_end') {
+            const data = event.data as Record<string, unknown>;
+            const finalMessage: WidgetMessage = {
+              messageId: data.messageId as string,
+              content: (data.content as string) || '',
+              sender: 'bot',
+              createdAt: (data.createdAt as string) || new Date().toISOString(),
+              products: data.products as WidgetMessage['products'],
+              cart: data.cart as WidgetMessage['cart'],
+              checkoutUrl: data.checkout_url as string | undefined,
+              quick_replies: data.quick_replies as WidgetMessage['quick_replies'],
+              sources: data.sources as WidgetMessage['sources'],
+              suggestedReplies: data.suggestedReplies as string[] | undefined,
+              contactOptions: data.contactOptions as WidgetMessage['contactOptions'],
+              consent_prompt_required: data.consent_prompt_required as boolean | undefined,
+            };
+            dispatch({ type: 'FINISH_STREAMING_MESSAGE', payload: finalMessage });
+            if (data.consent_prompt_required && !consentPromptShownRef.current) {
+              consentPromptShownRef.current = true;
+              dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
+            }
+            if (shopifyCartClient.isOnShopify() && finalMessage.cart) {
+              syncCartToShopify(finalMessage.cart);
+            }
+          } else if (event.type === 'bot_stream_error') {
+            const data = event.data as { messageId: string; error: string };
+            dispatch({ type: 'STREAMING_ERROR', payload: { messageId: data.messageId, error: data.error } });
           }
         },
         onStatusChange: (status) => {

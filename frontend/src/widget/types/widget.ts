@@ -141,6 +141,7 @@ export interface WidgetMessage {
   contactOptions?: ContactOption[];
   customerName?: string;
   consent_prompt_required?: boolean;
+  isStreaming?: boolean;
 }
 
 export interface MessageGroup {
@@ -188,6 +189,10 @@ export interface WidgetState {
   unreadCount: number;
   themeMode: ThemeMode;
   faqQuickButtons: FAQQuickButton[];
+  isStreaming: boolean;
+  streamingMessageId: string | null;
+  streamingContent: string;
+  streamingError: string | null;
 }
 
 export interface WidgetApiError {
@@ -218,6 +223,10 @@ export type WidgetAction =
   | { type: 'SET_THEME_MODE'; payload: ThemeMode }
   | { type: 'SET_FAQ_QUICK_BUTTONS'; payload: FAQQuickButton[] }
   | { type: 'UPDATE_MESSAGE_FEEDBACK'; payload: { messageId: string; rating: FeedbackRatingValue } }
+  | { type: 'START_STREAMING'; payload: { messageId: string; createdAt: string } }
+  | { type: 'UPDATE_STREAMING_MESSAGE'; payload: { messageId: string; token: string } }
+  | { type: 'FINISH_STREAMING_MESSAGE'; payload: WidgetMessage }
+  | { type: 'STREAMING_ERROR'; payload: { messageId: string; error: string } }
   | { type: 'RESET' };
 
 export interface WidgetProduct {

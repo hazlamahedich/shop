@@ -107,6 +107,15 @@ export interface MockMessageResponse {
     price: number;
     available?: boolean;
   }>;
+  sources?: Array<{
+    title: string;
+    url: string;
+  }>;
+  quick_replies?: Array<{
+    text: string;
+    action: string;
+    value: string;
+  }>;
   cart?: {
     items: Array<{
       variant_id: string;

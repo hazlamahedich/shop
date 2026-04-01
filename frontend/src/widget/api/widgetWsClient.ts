@@ -22,7 +22,7 @@ export interface WSMerchantMessage {
 }
 
 export interface WSMessageEvent {
-  type: 'merchant_message' | 'handoff_resolved' | 'connected' | 'ping' | 'pong' | 'error';
+  type: 'merchant_message' | 'handoff_resolved' | 'connected' | 'ping' | 'pong' | 'error' | 'bot_stream_start' | 'bot_stream_token' | 'bot_stream_end' | 'bot_stream_error';
   data: WSMerchantMessage | Record<string, unknown> | string;
 }
 

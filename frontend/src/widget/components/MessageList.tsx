@@ -390,13 +390,13 @@ function MessageBubbleInGroup({
     return '16px';
   };
 
-  // Only animate new user messages
   const shouldAnimate = isNew && isUser && !reducedMotion;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div
-        data-testid="message-bubble"
+        data-testid={message.isStreaming ? 'streaming-message' : 'message-bubble'}
+        data-streaming={message.isStreaming ? 'true' : undefined}
         className={`message-bubble message-bubble--${position} message-bubble--${isUser ? 'user' : 'bot'}`}
         style={{
           padding: '10px 14px',
@@ -408,6 +408,7 @@ function MessageBubbleInGroup({
           animationDuration: shouldAnimate ? '200ms' : '0ms',
           animationTimingFunction: 'ease-out',
           animationFillMode: 'forwards',
+          boxShadow: message.isStreaming ? `inset 0 0 0 1px ${theme.primaryColor}40` : undefined,
         }}
       >
         {displayName && (

@@ -1028,6 +1028,15 @@ function WidgetInner({ theme }: WidgetInnerProps) {
           }
         }
         
+        @keyframes streaming-pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.3;
+          }
+        }
+        
         @media (prefers-reduced-motion: reduce) {
           .message-bubble {
             animation: none;
@@ -1282,6 +1291,8 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                     faqQuickButtons={state.faqQuickButtons}
                     onFaqButtonClick={handleFaqButtonClick}
                     onFeedbackSubmit={handleFeedbackSubmit}
+                    isStreaming={state.isStreaming}
+                    streamingError={state.streamingError}
                   />
                 </GlassmorphismChatWindow>
               </React.Suspense>

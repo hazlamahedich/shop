@@ -196,11 +196,15 @@ export class WidgetApiClient {
     };
   }
 
-  async sendMessage(sessionId: string, message: string): Promise<WidgetMessage & { consent_prompt_required?: boolean }> {
+  async sendMessage(sessionId: string, message: string, options?: { streaming?: string }): Promise<WidgetMessage & { consent_prompt_required?: boolean }> {
     try {
+      const requestBody: Record<string, unknown> = { session_id: sessionId, message };
+      if (options?.streaming) {
+        requestBody.streaming = options.streaming;
+      }
       const data = await this.request<{ data: unknown }>('/message', {
         method: 'POST',
-        body: JSON.stringify({ session_id: sessionId, message: message }),
+        body: JSON.stringify(requestBody),
       });
       
       const rawData = data.data as Record<string, unknown>;

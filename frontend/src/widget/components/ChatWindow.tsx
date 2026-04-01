@@ -13,6 +13,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { QuickReplyButtons } from './QuickReplyButtons';
 import { FAQQuickButtons } from './FAQQuickButtons';
 import { SuggestedReplies } from './SuggestedReplies';
+import { StreamingIndicator, StreamErrorIndicator } from './StreamingIndicator';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -47,6 +48,8 @@ export interface ChatWindowProps {
   faqQuickButtons?: FAQQuickButton[];
   onFaqButtonClick?: (button: FAQQuickButton) => void;
   onFeedbackSubmit?: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
+  isStreaming?: boolean;
+  streamingError?: string | null;
 }
 
 function ChatWindow({
@@ -82,6 +85,8 @@ function ChatWindow({
   faqQuickButtons,
   onFaqButtonClick,
   onFeedbackSubmit,
+  isStreaming = false,
+  streamingError = null,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = React.useState('');
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
@@ -577,6 +582,9 @@ function ChatWindow({
             />
           </div>
         )}
+
+        <StreamingIndicator isVisible={isStreaming} theme={theme} />
+        <StreamErrorIndicator error={streamingError} />
 
         {(errors.length > 0 || error) && (
           <div
