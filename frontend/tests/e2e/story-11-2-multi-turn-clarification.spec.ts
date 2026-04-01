@@ -9,7 +9,8 @@ import {
 import {
   mockMultiTurnConversation,
   MULTI_TURN_HANDLERS,
-  CLARIFICATION_QUESTIONS,
+  sendAndWaitForResponse,
+  completeShoeClarification,
 } from '../helpers/multi-turn-test-helpers';
 
 test.describe('Story 11.2 - Multi-Turn Clarification Flow', () => {
@@ -32,27 +33,7 @@ test.describe('Story 11.2 - Multi-Turn Clarification Flow', () => {
     await bubble.click();
     await expect(page.getByRole('dialog', { name: 'Chat window' })).toBeVisible();
 
-    const responsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'I am looking for shoes');
-    await responsePromise;
-
-    await expect(page.getByText("What's your budget range?")).toBeVisible();
-
-    const budgetResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'under $100');
-    await budgetResponsePromise;
-
-    await expect(page.getByText('brand')).toBeVisible();
-
-    const brandResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'Nike');
-    await brandResponsePromise;
-
-    await expect(page.getByText('size')).toBeVisible();
-
-    const sizeResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'size L');
-    await sizeResponsePromise;
+    await completeShoeClarification(page);
 
     await expect(page.getByText('Nike running shoes under $100')).toBeVisible();
   });
@@ -62,15 +43,11 @@ test.describe('Story 11.2 - Multi-Turn Clarification Flow', () => {
     await bubble.click();
     await expect(page.getByRole('dialog', { name: 'Chat window' })).toBeVisible();
 
-    const responsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'I am looking for shoes');
-    await responsePromise;
+    await sendAndWaitForResponse(page, 'I am looking for shoes');
 
     await expect(page.getByText("budget")).toBeVisible();
 
-    const topicResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'I want to order a pizza instead');
-    await topicResponsePromise;
+    await sendAndWaitForResponse(page, 'I want to order a pizza instead');
 
     await expect(page.getByText("let's talk about that instead")).toBeVisible();
   });
@@ -80,13 +57,8 @@ test.describe('Story 11.2 - Multi-Turn Clarification Flow', () => {
     await bubble.click();
     await expect(page.getByRole('dialog', { name: 'Chat window' })).toBeVisible();
 
-    const responsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'I am looking for shoes');
-    await responsePromise;
-
-    const invalidResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'asdf');
-    await invalidResponsePromise;
+    await sendAndWaitForResponse(page, 'I am looking for shoes');
+    await sendAndWaitForResponse(page, 'asdf');
 
     await expect(
       page.getByText(/rephrasing|didn't quite catch|try rephrasing/i)
@@ -98,27 +70,7 @@ test.describe('Story 11.2 - Multi-Turn Clarification Flow', () => {
     await bubble.click();
     await expect(page.getByRole('dialog', { name: 'Chat window' })).toBeVisible();
 
-    const responsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'I am looking for shoes');
-    await responsePromise;
-
-    await expect(page.getByText("budget")).toBeVisible();
-
-    const budgetResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'under $100');
-    await budgetResponsePromise;
-
-    await expect(page.getByText('brand')).toBeVisible();
-
-    const brandResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'Nike');
-    await brandResponsePromise;
-
-    await expect(page.getByText('size')).toBeVisible();
-
-    const sizeResponsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'size L');
-    await sizeResponsePromise;
+    await completeShoeClarification(page);
 
     await expect(
       page.getByText(/Nike.*shoes|results|found/i)
@@ -130,16 +82,39 @@ test.describe('Story 11.2 - Multi-Turn Clarification Flow', () => {
     await bubble.click();
     await expect(page.getByRole('dialog', { name: 'Chat window' })).toBeVisible();
 
-    const responsePromise = page.waitForResponse('**/api/v1/widget/message');
-    await sendMessage(page, 'I am looking for shoes');
-    await responsePromise;
+    await sendAndWaitForResponse(page, 'I am looking for shoes');
 
-    const userMessages = page.locator('[data-testid="user-message"], .user-bubble, [class*="user"]');
-    const botMessages = page.locator('[data-testid="bot-message"], .bot-bubble, [class*="bot"]');
+    const userMessages = page.locator('[data-testid="message-bubble"].message-bubble--user');
+    const botMessages = page.locator('[data-testid="message-bubble"].message-bubble--bot');
 
     const userCount = await userMessages.count();
     const botCount = await botMessages.count();
     expect(userCount).toBeGreaterThanOrEqual(1);
     expect(botCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('[P1] 11.2-E2E-008: network error during multi-turn shows recovery', async ({ page }) => {
+    const bubble = page.getByRole('button', { name: 'Open chat' });
+    await bubble.click();
+    await expect(page.getByRole('dialog', { name: 'Chat window' })).toBeVisible();
+
+    await sendAndWaitForResponse(page, 'I am looking for shoes');
+
+    await expect(page.getByText('budget')).toBeVisible();
+
+    await page.route('**/api/v1/widget/message', async (route) => {
+      await route.fulfill({
+        status: 500,
+        body: JSON.stringify({ error: 'Internal Server Error' }),
+      });
+    });
+
+    const errorResponsePromise = page.waitForResponse('**/api/v1/widget/message');
+    await sendMessage(page, 'under $100');
+    await errorResponsePromise;
+
+    await expect(
+      page.getByText(/error|try again|something went wrong/i)
+    ).toBeVisible();
   });
 });

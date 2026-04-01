@@ -6,7 +6,10 @@ import {
   sendMessage,
   WIDGET_CONFIG_DEFAULTS,
 } from '../helpers/widget-test-helpers';
-import { mockMultiTurnConversation } from '../helpers/multi-turn-test-helpers';
+import {
+  mockMultiTurnConversation,
+  GENERAL_MODE_HANDLERS,
+} from '../helpers/multi-turn-test-helpers';
 
 test.describe('Story 11.2 - Multi-Turn General Mode Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -23,49 +26,10 @@ test.describe('Story 11.2 - Multi-Turn General Mode Flow', () => {
     });
     await mockWidgetSession(page, 'test-general-session');
     await mockMultiTurnConversation(page, [
-      {
-        match: (msg: string) => msg.includes('account') || msg.includes('problem'),
-        response: {
-          content: "I'm sorry to hear about your account issue! How severe is this problem?",
-          multiTurnState: 'CLARIFYING',
-          pendingQuestions: ['severity', 'timeframe'],
-          turnCount: 0,
-          originalQuery: 'account problem',
-        },
-      },
-      {
-        match: (msg: string) => msg.includes('urgent') || msg.includes('critical'),
-        response: {
-          content: 'Understood, this is urgent. When did this issue start?',
-          multiTurnState: 'CLARIFYING',
-          accumulatedConstraints: { severity: 'urgent' },
-          pendingQuestions: ['timeframe'],
-          turnCount: 1,
-          originalQuery: 'account problem',
-        },
-      },
-      {
-        match: (msg: string) => msg.includes('today') || msg.includes('started'),
-        response: {
-          content:
-            'Here is what I found for your urgent account issue that started today. I recommend resetting your password first.',
-          multiTurnState: 'REFINE_RESULTS',
-          accumulatedConstraints: { severity: 'urgent', timeframe: 'today' },
-          pendingQuestions: [],
-          turnCount: 2,
-          originalQuery: 'account problem',
-        },
-      },
-      {
-        match: (msg: string) =>
-          msg.includes('pizza') || msg.includes('buy') || msg.includes('shoes'),
-        response: {
-          content: "Sure, let's talk about that instead! How can I help?",
-          multiTurnState: 'IDLE',
-          pendingQuestions: [],
-          turnCount: 0,
-        },
-      },
+      GENERAL_MODE_HANDLERS.accountProblem,
+      GENERAL_MODE_HANDLERS.urgentSeverity,
+      GENERAL_MODE_HANDLERS.timeframeResponse,
+      GENERAL_MODE_HANDLERS.topicChange,
     ]);
     await loadWidgetWithSession(page, 'test-general-session');
   });

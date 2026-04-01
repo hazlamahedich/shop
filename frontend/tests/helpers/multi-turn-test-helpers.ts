@@ -1,4 +1,5 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
+import { sendMessage } from './widget-test-helpers';
 
 export interface ClarificationMessageOptions {
   content: string;
@@ -135,3 +136,68 @@ export const MULTI_TURN_HANDLERS = {
     },
   },
 };
+
+export const GENERAL_MODE_HANDLERS = {
+  accountProblem: {
+    match: (msg: string) => msg.includes('account') || msg.includes('problem'),
+    response: {
+      content: "I'm sorry to hear about your account issue! How severe is this problem?",
+      multiTurnState: 'CLARIFYING',
+      pendingQuestions: ['severity', 'timeframe'],
+      turnCount: 0,
+      originalQuery: 'account problem',
+    },
+  },
+  urgentSeverity: {
+    match: (msg: string) => msg.includes('urgent') || msg.includes('critical'),
+    response: {
+      content: 'Understood, this is urgent. When did this issue start?',
+      multiTurnState: 'CLARIFYING',
+      accumulatedConstraints: { severity: 'urgent' },
+      pendingQuestions: ['timeframe'],
+      turnCount: 1,
+      originalQuery: 'account problem',
+    },
+  },
+  timeframeResponse: {
+    match: (msg: string) => msg.includes('today') || msg.includes('started'),
+    response: {
+      content:
+        'Here is what I found for your urgent account issue that started today. I recommend resetting your password first.',
+      multiTurnState: 'REFINE_RESULTS',
+      accumulatedConstraints: { severity: 'urgent', timeframe: 'today' },
+      pendingQuestions: [],
+      turnCount: 2,
+      originalQuery: 'account problem',
+    },
+  },
+  topicChange: {
+    match: (msg: string) =>
+      msg.includes('pizza') || msg.includes('buy') || msg.includes('shoes'),
+    response: {
+      content: "Sure, let's talk about that instead! How can I help?",
+      multiTurnState: 'IDLE',
+      pendingQuestions: [],
+      turnCount: 0,
+    },
+  },
+};
+
+export async function sendAndWaitForResponse(page: Page, message: string) {
+  const responsePromise = page.waitForResponse('**/api/v1/widget/message');
+  await sendMessage(page, message);
+  await responsePromise;
+}
+
+export async function completeShoeClarification(page: Page) {
+  await sendAndWaitForResponse(page, 'I am looking for shoes');
+  await expect(page.getByText('budget')).toBeVisible();
+
+  await sendAndWaitForResponse(page, 'under $100');
+  await expect(page.getByText('brand')).toBeVisible();
+
+  await sendAndWaitForResponse(page, 'Nike');
+  await expect(page.getByText('size')).toBeVisible();
+
+  await sendAndWaitForResponse(page, 'size L');
+}
