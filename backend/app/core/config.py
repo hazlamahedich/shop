@@ -22,7 +22,7 @@ _env_file = Path(__file__).parent.parent.parent / ".env"
 if _env_file.exists() and not os.getenv("DOCKER"):
     from dotenv import load_dotenv
 
-    load_dotenv(_env_file, override=True)
+    load_dotenv(_env_file, override=False)
 
 
 @lru_cache

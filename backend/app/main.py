@@ -42,6 +42,7 @@ from app.api.integrations import router as integrations_router
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.llm import router as llm_router
 from app.api.merchant import router as merchant_router
+from app.api.multi_turn import router as multi_turn_router
 from app.api.onboarding import router as onboarding_router
 from app.api.preview import router as preview_router
 from app.api.product_pins import router as product_pins_router
@@ -189,7 +190,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Database will be initialized lazily on first use
     start_scheduler()  # Story 2-7: Start data retention cleanup scheduler
     await start_widget_cleanup_scheduler()  # Story 5-2: Start widget session cleanup scheduler
-    await start_widget_conversation_cleanup_scheduler()  # Story 5-2: Start widget conversation cleanup scheduler
+    await (
+        start_widget_conversation_cleanup_scheduler()
+    )  # Story 5-2: Start widget conversation cleanup scheduler
 
     # Initialize LLM pricing from OpenRouter
     try:
@@ -226,7 +229,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger = structlog.get_logger()
         logger.warning("polling_scheduler_shutdown_failed", error=str(e))
     await shutdown_widget_cleanup_scheduler()  # Story 5-2: Shutdown widget cleanup scheduler
-    await shutdown_widget_conversation_cleanup_scheduler()  # Story 5-2: Shutdown widget conversation cleanup scheduler
+    await (
+        shutdown_widget_conversation_cleanup_scheduler()
+    )  # Story 5-2: Shutdown widget conversation cleanup scheduler
     shutdown_scheduler()  # Story 2-7: Shutdown scheduler gracefully
     await close_db()
 
@@ -467,6 +472,7 @@ app.include_router(facebook_webhook_router, prefix="/api/webhooks", tags=["webho
 app.include_router(shopify_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(verification_router, prefix="/api/webhooks/verification", tags=["webhooks"])
 app.include_router(conversation_router, prefix="/api/conversations", tags=["conversations"])
+app.include_router(multi_turn_router, prefix="/api/conversations", tags=["multi-turn"])
 app.include_router(conversation_context_router, prefix="/api/v1", tags=["conversation-context"])
 app.include_router(export_router, tags=["export"])
 app.include_router(cost_tracking_router, tags=["costs"])

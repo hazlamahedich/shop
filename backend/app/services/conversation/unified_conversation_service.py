@@ -198,10 +198,7 @@ class UnifiedConversationService:
             rag_sources: list[str] = []
             rag_chunks: list[RetrievedChunk] = []
             rag_used_in_response = False
-            if (
-                self.rag_context_builder
-                and not self._is_simple_greeting(message)
-            ):
+            if self.rag_context_builder and not self._is_simple_greeting(message):
                 # Story 8-11 AC6: Construct embedding version for dimension consistency
                 embedding_version = None
                 if merchant.embedding_provider and merchant.embedding_model:
@@ -288,6 +285,20 @@ class UnifiedConversationService:
                         )
                         intent_name = "order_tracking"
                         confidence = 1.0
+
+            # Story 11-2: Check multi-turn state before FAQ/intent classification
+            # If in active multi-turn flow, route directly to multi-turn handler
+            if response is None:
+                mt_response = await self._check_multi_turn_state(
+                    db=db,
+                    context=context,
+                    merchant=merchant,
+                    message=message,
+                )
+                if mt_response:
+                    response = mt_response
+                    intent_name = response.intent or "clarification"
+                    confidence = response.confidence or 0.8
 
             # Check for FAQ match before intent classification
             faq_matched = False
@@ -2518,3 +2529,177 @@ class UnifiedConversationService:
                 return True
 
         return False
+
+    async def _check_multi_turn_state(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Any,
+        message: str,
+    ) -> ConversationResponse | None:
+        """Check if conversation is in an active multi-turn flow.
+
+        Story 11-2: Multi-Turn Query Handling
+        Routes directly to multi-turn handler when state is CLARIFYING or REFINE_RESULTS.
+        Skips normal intent classification to avoid misrouting.
+
+        Args:
+            db: Database session
+            context: Conversation context
+            merchant: Merchant model
+            message: User's message
+
+        Returns:
+            ConversationResponse if multi-turn flow is active, None otherwise
+        """
+        from app.services.multi_turn import (
+            ConstraintAccumulator,
+            ConversationLockManager,
+            ConversationStateMachine,
+            MessageClassifier,
+            MultiTurnConfig,
+            MultiTurnState,
+            MultiTurnStateEnum,
+            MessageType,
+        )
+        from app.services.clarification.question_generator import QuestionGenerator
+
+        clarification_state = context.clarification_state
+        mt_state_str = getattr(clarification_state, "multi_turn_state", "IDLE")
+
+        if mt_state_str in ("IDLE", "COMPLETE") or mt_state_str == MultiTurnStateEnum.IDLE:
+            return None
+
+        conv_id = context.conversation_id
+        if not conv_id:
+            return None
+
+        mode = getattr(merchant, "onboarding_mode", "ecommerce") or "ecommerce"
+
+        mt_state = MultiTurnState(
+            state=mt_state_str,
+            turn_count=getattr(clarification_state, "turn_count", 0),
+            accumulated_constraints=getattr(clarification_state, "accumulated_constraints", {}),
+            questions_asked=list(clarification_state.questions_asked),
+            pending_questions=[],
+            original_query=getattr(clarification_state, "original_query", None),
+            invalid_response_count=getattr(clarification_state, "invalid_response_count", 0),
+            mode=mode,
+        )
+
+        config = MultiTurnConfig()
+        sm = ConversationStateMachine(config)
+        accumulator = ConstraintAccumulator()
+        question_gen = QuestionGenerator()
+
+        classifier = MessageClassifier()
+        msg_type = await classifier.classify(message, mt_state, {})
+
+        if msg_type == MessageType.TOPIC_CHANGE:
+            sm.reset(mt_state)
+            clarification_state.multi_turn_state = "IDLE"
+            clarification_state.turn_count = 0
+            clarification_state.accumulated_constraints = {}
+            clarification_state.original_query = None
+            clarification_state.invalid_response_count = 0
+            return None
+
+        if msg_type == MessageType.INVALID_RESPONSE:
+            sm.increment_invalid_count(mt_state)
+            clarification_state.invalid_response_count = mt_state.invalid_response_count
+
+            if mt_state.invalid_response_count >= config.max_invalid_responses:
+                sm.transition_to_refine(mt_state, "max_invalid_responses")
+                clarification_state.multi_turn_state = "REFINE_RESULTS"
+                summary = accumulator.format_constraint_summary(
+                    mt_state.accumulated_constraints, mode
+                )
+                return ConversationResponse(
+                    message=f"Based on what I know so far ({summary}), let me show you what I found.",
+                    intent="clarification",
+                    confidence=0.8,
+                )
+
+            return ConversationResponse(
+                message="I didn't quite catch that. Could you try rephrasing? For example, you could mention a specific price range, size, or brand.",
+                intent="clarification",
+                confidence=0.7,
+            )
+
+        if msg_type == MessageType.CONSTRAINT_ADDITION:
+            new_constraints = accumulator.accumulate(
+                message, mt_state.accumulated_constraints, mode
+            )
+            mt_state.accumulated_constraints = new_constraints
+            clarification_state.accumulated_constraints = new_constraints
+
+            sm.transition_to_refine(mt_state, "constraint_added")
+            clarification_state.multi_turn_state = "REFINE_RESULTS"
+
+            summary = accumulator.format_constraint_summary(new_constraints, mode)
+            return ConversationResponse(
+                message=f"Got it! Updated preferences: {summary}. Let me refine the results for you.",
+                intent="clarification",
+                confidence=0.85,
+            )
+
+        if msg_type == MessageType.CLARIFICATION_RESPONSE:
+            new_constraints = accumulator.accumulate(
+                message, mt_state.accumulated_constraints, mode
+            )
+            mt_state.accumulated_constraints = new_constraints
+            clarification_state.accumulated_constraints = new_constraints
+
+            current_pending = getattr(mt_state, "pending_questions", [])
+            constraint_name = current_pending[0] if current_pending else "general"
+
+            sm.process_clarification_response(mt_state, constraint_name, message, is_valid=True)
+            clarification_state.turn_count = mt_state.turn_count
+            clarification_state.multi_turn_state = mt_state.state
+
+            if sm.is_near_turn_limit(mt_state) and mt_state.state in (
+                "CLARIFYING",
+                MultiTurnStateEnum.CLARIFYING,
+            ):
+                summary = accumulator.format_constraint_summary(new_constraints, mode)
+                sm.transition_to_refine(mt_state, "near_turn_limit")
+                clarification_state.multi_turn_state = "REFINE_RESULTS"
+                return ConversationResponse(
+                    message=f"So far I understand: {summary}. Let me show you what I found based on this.",
+                    intent="clarification",
+                    confidence=0.85,
+                )
+
+            if mt_state.state in ("REFINE_RESULTS", MultiTurnStateEnum.REFINE_RESULTS):
+                summary = accumulator.format_constraint_summary(new_constraints, mode)
+                return ConversationResponse(
+                    message=f"Based on your preferences ({summary}), here are the results.",
+                    intent="clarification",
+                    confidence=0.85,
+                )
+
+            try:
+                question, next_constraint = await question_gen.generate_mode_aware_question(
+                    pending_questions=current_pending,
+                    questions_asked=mt_state.questions_asked,
+                    mode=mode,
+                    accumulated_constraints=new_constraints,
+                )
+                clarification_state.last_question = question
+                clarification_state.last_type = next_constraint
+                return ConversationResponse(
+                    message=question,
+                    intent="clarification",
+                    confidence=0.8,
+                )
+            except ValueError:
+                sm.transition_to_refine(mt_state, "all_questions_answered")
+                clarification_state.multi_turn_state = "REFINE_RESULTS"
+                summary = accumulator.format_constraint_summary(new_constraints, mode)
+                return ConversationResponse(
+                    message=f"Thanks! Based on everything ({summary}), here are the results.",
+                    intent="clarification",
+                    confidence=0.85,
+                )
+
+        return None

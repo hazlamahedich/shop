@@ -1,7 +1,7 @@
 /**
  * Login Page
- * 
- * Re-imagined with Mantis Neural aesthetic.
+ *
+ * Simple, easy-to-understand language for all users.
  */
 
 import { useState, useEffect } from 'react';
@@ -9,7 +9,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import type { LoginRequest } from '../types/auth';
 import { GlassCard } from '../components/ui/GlassCard';
-import { Cpu, Lock, User, ShieldAlert, ArrowRight, Zap } from 'lucide-react';
+import { Lock, User, ShieldAlert, ArrowRight, Zap } from 'lucide-react';
 import { CostValuePanel } from '../components/auth/CostValuePanel';
 import { Interactive3DBackground } from '../components/ui/Interactive3DBackground';
 
@@ -38,7 +38,7 @@ export default function Login() {
     e.preventDefault();
 
     if (!email || !password) {
-      setLocalError('Neural signature incomplete');
+      setLocalError('Please fill in all fields');
       return;
     }
 
@@ -56,9 +56,9 @@ export default function Login() {
       sessionStorage.removeItem('intendedDestination');
       navigate(from, { replace: true });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Uplink failed';
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
       if ((err as any).code === 2011) {
-        setLocalError('Rate limit exceeded. Await neural recovery.');
+        setLocalError('Too many attempts. Please wait a moment and try again.');
       } else {
         setLocalError(errorMessage);
       }
@@ -85,23 +85,19 @@ export default function Login() {
           <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <GlassCard accent="mantis" className="bg-[#131318]/80 backdrop-blur-xl border border-white/[0.05] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-10 sm:p-12 overflow-hidden group">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
-              
+
               <div className="space-y-12">
                 <div className="space-y-6">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-400 mb-2 relative group-hover:scale-105 transition-transform duration-700">
-                    <Cpu size={32} className="animate-pulse" />
-                    <div className="absolute inset-0 animate-ping rounded-2xl border-2 border-emerald-500/10 opacity-40" />
-                  </div>
                   <div>
-                    <h2 className="text-3xl font-black text-white tracking-tight leading-none uppercase mantis-glow-text" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Neural Gateway</h2>
-                    <p className="text-[10px] font-black text-emerald-500/70 uppercase tracking-[0.4em] mt-3">Initialize Authenticator</p>
+                    <h2 className="text-3xl font-black text-white tracking-tight leading-none uppercase mantis-glow-text" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Welcome Back</h2>
+                    <p className="text-[10px] font-black text-emerald-500/70 uppercase tracking-[0.4em] mt-3">Sign in to your account</p>
                   </div>
                 </div>
 
                 <form className="space-y-8" onSubmit={handleSubmit}>
                   <div className="space-y-6">
                     <div className="space-y-2 group/input">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Credential Interface</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Email Address</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/30 group-focus-within/input:text-emerald-400 transition-colors">
                           <User size={18} />
@@ -109,7 +105,7 @@ export default function Login() {
                         <input
                           type="email"
                           required
-                          placeholder="Neural ID (Email)"
+                          placeholder="your@email.com"
                           className="w-full h-14 bg-[#1f1f26] border-b-2 border-transparent pl-14 pr-6 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 focus:bg-[#25252c] transition-all duration-300 placeholder:text-white/20 rounded-t-lg"
                           value={email}
                           onChange={(e) => setEmail(e.target.value.trim())}
@@ -119,7 +115,7 @@ export default function Login() {
                     </div>
 
                     <div className="space-y-2 group/input">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Encryption Key</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/30 group-focus-within/input:text-emerald-400 transition-colors">
                           <Lock size={18} />
@@ -127,7 +123,7 @@ export default function Login() {
                         <input
                           type="password"
                           required
-                          placeholder="Neural Key"
+                          placeholder="Your password"
                           className="w-full h-14 bg-[#1f1f26] border-b-2 border-transparent pl-14 pr-6 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 focus:bg-[#25252c] transition-all duration-300 placeholder:text-white/20 rounded-t-lg"
                           value={password}
                           onChange={(e) => setPassword(e.target.value.trim())}
@@ -153,20 +149,20 @@ export default function Login() {
                       {isLoading ? (
                         <>
                           <Zap size={18} className="animate-spin" />
-                          Decrypting...
+                          Signing in...
                         </>
                       ) : (
                         <>
-                          Execute Uplink
+                          Sign In
                           <ArrowRight size={18} />
                         </>
                       )}
                     </button>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 pt-2">
-                      <Link to="/register" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Generate Account</Link>
+                      <Link to="/register" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Create account</Link>
                       <div className="hidden sm:block w-px h-3 bg-white/10" />
-                      <button type="button" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Recover ID</button>
+                      <button type="button" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Forgot password?</button>
                     </div>
                   </div>
                 </form>
@@ -177,7 +173,7 @@ export default function Login() {
             <div className="mt-8 text-center animate-in fade-in duration-1000 delay-500">
               <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-[#131318]/50 backdrop-blur-md border border-white/[0.05] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)]">
                 <div className="w-1.5 h-1.5 bg-[#12f8d7] rounded-full animate-pulse shadow-[0_0_8px_#12f8d7]" />
-                <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.2em]">Neural Interface: Secure Encryption Active</p>
+                <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.2em]">Secure connection active</p>
               </div>
             </div>
           </div>

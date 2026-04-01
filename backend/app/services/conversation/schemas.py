@@ -20,14 +20,6 @@ class SourceCitation(BaseModel):
     """Source citation for RAG-based responses.
 
     Story 10-1: Source Citations Widget
-
-    Attributes:
-        document_id: ID of the source document
-        title: Document title for display
-        document_type: Type of document (pdf, url, text)
-        relevance_score: Similarity score from RAG retrieval (0.0 to 1.0)
-        url: Optional URL for web documents
-        chunk_index: Optional chunk index that was used
     """
 
     document_id: int = Field(description="Document ID")
@@ -53,7 +45,6 @@ class ConsentState(BaseModel):
     """Tracks consent state within a conversation.
 
     Story 6-1: Opt-In Consent Flow
-    Task 3.1: Consent check integration
     Story 6-2: Added visitor_id for cross-platform deletion
     """
 
@@ -74,6 +65,7 @@ class ClarificationState(BaseModel):
 
     Story 5-11: Messenger Unified Service Migration
     GAP-3: Clarification State Tracking
+    Story 11-2: Extended with multi-turn state tracking fields.
     """
 
     active: bool = Field(default=False, description="Whether clarification flow is active")
@@ -84,6 +76,30 @@ class ClarificationState(BaseModel):
     )
     last_question: str | None = Field(None, description="Last question asked")
     last_type: str | None = Field(None, description="Last clarification type")
+    multi_turn_state: str = Field(
+        default="IDLE",
+        description="Multi-turn state machine state: IDLE, CLARIFYING, REFINE_RESULTS, COMPLETE (Story 11-2)",
+    )
+    accumulated_constraints: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Mode-specific accumulated constraints (Story 11-2)",
+    )
+    resolved_questions: list[str] = Field(
+        default_factory=list,
+        description="Questions that received valid answers (Story 11-2)",
+    )
+    invalid_response_count: int = Field(
+        default=0,
+        description="Consecutive invalid responses counter (Story 11-2)",
+    )
+    original_query: str | None = Field(
+        None,
+        description="The query that started the multi-turn flow (Story 11-2)",
+    )
+    turn_count: int = Field(
+        default=0,
+        description="Total clarification turns (Story 11-2)",
+    )
 
 
 class HandoffState(BaseModel):
@@ -100,13 +116,7 @@ class HandoffState(BaseModel):
 
 
 class SessionShoppingState(BaseModel):
-    """Tracks shopping-related state within a conversation session.
-
-    Enables context-aware responses for:
-    - Anaphoric references ("add that to cart")
-    - Product mention detection
-    - Personalized recommendations
-    """
+    """Tracks shopping-related state within a conversation session."""
 
     last_viewed_products: list[dict[str, Any]] = Field(
         default_factory=list,
@@ -133,12 +143,10 @@ class SessionShoppingState(BaseModel):
     def add_viewed_product(self, product: dict[str, Any]) -> None:
         """Add a product to viewed history, maintaining max 5."""
         product_id = product.get("id")
-        # Remove if already exists (will be added at front)
         self.last_viewed_products = [
             p for p in self.last_viewed_products if p.get("id") != product_id
         ]
         self.last_viewed_products.insert(0, product)
-        # Keep only last 5
         self.last_viewed_products = self.last_viewed_products[:5]
 
     def get_last_viewed_product(self) -> dict[str, Any] | None:
@@ -149,20 +157,12 @@ class SessionShoppingState(BaseModel):
         self,
         reference: str,
     ) -> dict[str, Any] | None:
-        """Find a product by reference term (first, last, by name/brand).
-
-        Args:
-            reference: Term like "first", "last", "the red one", "nike", etc.
-
-        Returns:
-            Matching product or None
-        """
+        """Find a product by reference term."""
         if not self.last_viewed_products:
             return None
 
         ref_lower = reference.lower().strip()
 
-        # Positional references
         if ref_lower in ("first", "that one", "it", "this one", "the first one"):
             return self.last_viewed_products[0]
         if ref_lower in ("second", "the second one") and len(self.last_viewed_products) > 1:
@@ -172,7 +172,6 @@ class SessionShoppingState(BaseModel):
         if ref_lower in ("last", "the last one"):
             return self.last_viewed_products[-1]
 
-        # Search by title/brand
         for product in self.last_viewed_products:
             title = (product.get("title") or "").lower()
             if ref_lower in title:
@@ -187,9 +186,6 @@ class ConversationContext(BaseModel):
     Story 5-10 Enhancement: Added is_returning_shopper for personalized greetings.
     Story 5-11 Enhancement: Added clarification_state, handoff_state, consent_status, hybrid_mode_enabled.
     Story 11-1: Added conversation_id for context memory integration.
-
-    Provides a unified interface for message processing across
-    Widget, Facebook Messenger, and Preview channels.
     """
 
     session_id: str = Field(description="Universal identifier (psid or widget_session_id)")
@@ -273,9 +269,7 @@ class ConversationResponse(BaseModel):
     """
 
     message: str = Field(description="Response message text")
-    message_id: int | None = Field(
-        None, description="Database ID of the bot message"
-    )
+    message_id: int | None = Field(None, description="Database ID of the bot message")
     intent: str | None = Field(None, description="Classified intent")
     confidence: float | None = Field(None, description="Classification confidence")
     checkout_url: str | None = Field(None, description="Checkout URL if applicable")
@@ -308,22 +302,13 @@ class ConversationResponse(BaseModel):
         description="Additional metadata",
     )
 
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata",
-    )
-
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return self.model_dump(exclude_none=True)
 
 
 class IntentType(str, Enum):
-    """Supported intent types for unified routing.
-
-    Extends the existing IntentType from classification_schema
-    with additional intents needed for unified processing.
-    """
+    """Supported intent types for unified routing."""
 
     PRODUCT_SEARCH = "product_search"
     PRODUCT_INQUIRY = "product_inquiry"

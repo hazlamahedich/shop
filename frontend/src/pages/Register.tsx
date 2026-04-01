@@ -1,7 +1,7 @@
 /**
  * Register Page
- * 
- * Re-imagined with Mantis Neural aesthetic.
+ *
+ * Simple, easy-to-understand language for all users.
  */
 
 import { useState, useEffect } from 'react';
@@ -9,7 +9,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import type { RegisterRequest } from '../types/auth';
 import { GlassCard } from '../components/ui/GlassCard';
-import { Sparkles, Lock, User, ShieldAlert, ArrowRight, Zap } from 'lucide-react';
+import { Lock, User, ShieldAlert, ArrowRight, Zap } from 'lucide-react';
 import { CostValuePanel } from '../components/auth/CostValuePanel';
 import { Interactive3DBackground } from '../components/ui/Interactive3DBackground';
 
@@ -37,12 +37,12 @@ export default function Register() {
     e.preventDefault();
 
     if (!email || !password || !confirmPassword) {
-      setLocalError('Neural synthesis incomplete');
+      setLocalError('Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      setLocalError('Encryption keys do not match');
+      setLocalError('Passwords do not match');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function Register() {
       await register(credentials);
       navigate('/onboarding', { replace: true });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Architecture generation failed';
+      const errorMessage = err instanceof Error ? err.message : 'Account creation failed';
       setLocalError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -79,23 +79,19 @@ export default function Register() {
           <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <GlassCard accent="mantis" className="bg-[#131318]/80 backdrop-blur-xl border border-white/[0.05] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-10 sm:p-12 overflow-hidden group">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
-              
+
               <div className="space-y-10">
                 <div className="space-y-6">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-400 mb-2 relative group-hover:scale-105 transition-transform duration-700">
-                    <Sparkles size={32} className="animate-pulse" />
-                    <div className="absolute inset-0 animate-ping rounded-2xl border-2 border-emerald-500/10 opacity-40" />
-                  </div>
                   <div>
-                    <h2 className="text-3xl font-black text-white tracking-tight leading-none uppercase mantis-glow-text" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Neural Origin</h2>
-                    <p className="text-[10px] font-black text-emerald-500/70 uppercase tracking-[0.4em] mt-3">Synthesize Agent Account</p>
+                    <h2 className="text-3xl font-black text-white tracking-tight leading-none uppercase mantis-glow-text" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Create Your Account</h2>
+                    <p className="text-[10px] font-black text-emerald-500/70 uppercase tracking-[0.4em] mt-3">Get started in minutes</p>
                   </div>
                 </div>
 
                 <form className="space-y-6" onSubmit={handleSubmit}>
                   <div className="space-y-4">
                     <div className="space-y-1.5 group/input">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Entity Identifier</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Email Address</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/30 group-focus-within/input:text-emerald-400 transition-colors">
                           <User size={18} />
@@ -103,7 +99,7 @@ export default function Register() {
                         <input
                           type="email"
                           required
-                          placeholder="Neural ID (Email)"
+                          placeholder="your@email.com"
                           className="w-full h-14 bg-[#1f1f26] border-b-2 border-transparent pl-14 pr-6 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 focus:bg-[#25252c] transition-all duration-300 placeholder:text-white/20 rounded-t-lg"
                           value={email}
                           onChange={(e) => setEmail(e.target.value.trim())}
@@ -113,7 +109,7 @@ export default function Register() {
                     </div>
 
                     <div className="space-y-1.5 group/input">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Primary Encryption</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/30 group-focus-within/input:text-emerald-400 transition-colors">
                           <Lock size={18} />
@@ -121,7 +117,7 @@ export default function Register() {
                         <input
                           type="password"
                           required
-                          placeholder="Assign Neural Key"
+                          placeholder="Create a password"
                           className="w-full h-14 bg-[#1f1f26] border-b-2 border-transparent pl-14 pr-6 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 focus:bg-[#25252c] transition-all duration-300 placeholder:text-white/20 rounded-t-lg"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -131,7 +127,7 @@ export default function Register() {
                     </div>
 
                     <div className="space-y-1.5 group/input">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Key Verification</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] pl-1">Confirm Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/30 group-focus-within/input:text-emerald-400 transition-colors">
                           <ShieldAlert size={18} />
@@ -139,7 +135,7 @@ export default function Register() {
                         <input
                           type="password"
                           required
-                          placeholder="Confirm Neural Key"
+                          placeholder="Re-enter your password"
                           className="w-full h-14 bg-[#1f1f26] border-b-2 border-transparent pl-14 pr-6 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 focus:bg-[#25252c] transition-all duration-300 placeholder:text-white/20 rounded-t-lg"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
@@ -165,18 +161,18 @@ export default function Register() {
                       {isLoading ? (
                         <>
                           <Zap size={18} className="animate-spin" />
-                          Synthesizing...
+                          Creating account...
                         </>
                       ) : (
                         <>
-                          Register Agent
+                          Create Account
                           <ArrowRight size={18} />
                         </>
                       )}
                     </button>
 
                      <div className="text-center">
-                      <Link to="/login" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Existing Entity? Uplink Here</Link>
+                      <Link to="/login" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Already have an account? Sign in</Link>
                     </div>
                   </div>
                 </form>
@@ -186,9 +182,9 @@ export default function Register() {
             {/* Requirements Card */}
             <div className="mt-6 grid grid-cols-3 gap-3 animate-in fade-in duration-1000 delay-500">
               {[
-                { label: 'Entropy', val: '8+ chars' },
-                { label: 'Casing', val: 'Mixed' },
-                { label: 'Uplink', val: 'Secure' },
+                { label: 'Length', val: '8+ chars' },
+                { label: 'Strength', val: 'Mixed case' },
+                { label: 'Security', val: 'Encrypted' },
               ].map((req, i) => (
                 <div key={i} className="bg-[#131318]/50 backdrop-blur-md border border-white/[0.05] rounded-xl p-3 text-center space-y-1">
                   <p className="text-[8px] font-black text-emerald-500/70 uppercase tracking-wider">{req.label}</p>

@@ -72,6 +72,11 @@ class Merchant(Base):
         nullable=False,
         index=True,
     )
+    platform: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="widget",
+    )
     # Use PostgreSQL ENUM to properly map to the database type
     status: Mapped[str] = mapped_column(
         ENUM(

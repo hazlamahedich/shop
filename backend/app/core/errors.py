@@ -229,6 +229,12 @@ class ErrorCode(IntEnum):
     INVALID_URL_FORMAT = 7082  # Custom URL format invalid
     NO_CONTACT_OPTIONS = 7083  # At least one contact option required
 
+    # Story 11-2: Multi-turn query handling error codes
+    MULTI_TURN_LLM_CLASSIFICATION_FAILED = 7090  # LLM classification failure, heuristic fallback
+    MULTI_TURN_STATE_MACHINE_ERROR = 7091  # Invalid state transition
+    MULTI_TURN_CONSTRAINT_CONFLICT = 7092  # Contradictory constraints detected
+    MULTI_TURN_STATE_NOT_FOUND = 7093  # Multi-turn state not found for conversation
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002
