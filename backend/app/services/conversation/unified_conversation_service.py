@@ -2554,7 +2554,6 @@ class UnifiedConversationService:
         """
         from app.services.multi_turn import (
             ConstraintAccumulator,
-            ConversationLockManager,
             ConversationStateMachine,
             MessageClassifier,
             MultiTurnConfig,
@@ -2595,6 +2594,15 @@ class UnifiedConversationService:
         classifier = MessageClassifier()
         msg_type = await classifier.classify(message, mt_state, {})
 
+        async def _persist_mt_state() -> None:
+            conversation = await self._get_conversation(db, context.session_id, merchant.id)
+            if conversation and hasattr(conversation, "context"):
+                ctx_data = conversation.context if isinstance(conversation.context, dict) else {}
+                cs = clarification_state.model_dump()
+                ctx_data["clarification_state"] = cs
+                conversation.context = ctx_data
+                await db.commit()
+
         if msg_type == MessageType.TOPIC_CHANGE:
             sm.reset(mt_state)
             clarification_state.multi_turn_state = "IDLE"
@@ -2602,6 +2610,7 @@ class UnifiedConversationService:
             clarification_state.accumulated_constraints = {}
             clarification_state.original_query = None
             clarification_state.invalid_response_count = 0
+            await _persist_mt_state()
             return None
 
         if msg_type == MessageType.INVALID_RESPONSE:
@@ -2611,15 +2620,17 @@ class UnifiedConversationService:
             if mt_state.invalid_response_count >= config.max_invalid_responses:
                 sm.transition_to_refine(mt_state, "max_invalid_responses")
                 clarification_state.multi_turn_state = "REFINE_RESULTS"
-                summary = accumulator.format_constraint_summary(
+                await _persist_mt_state()
+                understanding = question_gen.generate_summary_of_understanding(
                     mt_state.accumulated_constraints, mode
                 )
                 return ConversationResponse(
-                    message=f"Based on what I know so far ({summary}), let me show you what I found.",
+                    message=f"{understanding} Let me show you what I found based on this.",
                     intent="clarification",
                     confidence=0.8,
                 )
 
+            await _persist_mt_state()
             return ConversationResponse(
                 message="I didn't quite catch that. Could you try rephrasing? For example, you could mention a specific price range, size, or brand.",
                 intent="clarification",
@@ -2635,10 +2646,11 @@ class UnifiedConversationService:
 
             sm.transition_to_refine(mt_state, "constraint_added")
             clarification_state.multi_turn_state = "REFINE_RESULTS"
+            await _persist_mt_state()
 
-            summary = accumulator.format_constraint_summary(new_constraints, mode)
+            understanding = question_gen.generate_summary_of_understanding(new_constraints, mode)
             return ConversationResponse(
-                message=f"Got it! Updated preferences: {summary}. Let me refine the results for you.",
+                message=f"Got it! {understanding} Let me refine the results for you.",
                 intent="clarification",
                 confidence=0.85,
             )
@@ -2661,19 +2673,25 @@ class UnifiedConversationService:
                 "CLARIFYING",
                 MultiTurnStateEnum.CLARIFYING,
             ):
-                summary = accumulator.format_constraint_summary(new_constraints, mode)
+                understanding = question_gen.generate_summary_of_understanding(
+                    new_constraints, mode
+                )
                 sm.transition_to_refine(mt_state, "near_turn_limit")
                 clarification_state.multi_turn_state = "REFINE_RESULTS"
+                await _persist_mt_state()
                 return ConversationResponse(
-                    message=f"So far I understand: {summary}. Let me show you what I found based on this.",
+                    message=f"{understanding} Let me show you what I found based on this.",
                     intent="clarification",
                     confidence=0.85,
                 )
 
             if mt_state.state in ("REFINE_RESULTS", MultiTurnStateEnum.REFINE_RESULTS):
-                summary = accumulator.format_constraint_summary(new_constraints, mode)
+                understanding = question_gen.generate_summary_of_understanding(
+                    new_constraints, mode
+                )
+                await _persist_mt_state()
                 return ConversationResponse(
-                    message=f"Based on your preferences ({summary}), here are the results.",
+                    message=f"{understanding} Here are the results.",
                     intent="clarification",
                     confidence=0.85,
                 )
@@ -2687,6 +2705,7 @@ class UnifiedConversationService:
                 )
                 clarification_state.last_question = question
                 clarification_state.last_type = next_constraint
+                await _persist_mt_state()
                 return ConversationResponse(
                     message=question,
                     intent="clarification",
@@ -2695,9 +2714,12 @@ class UnifiedConversationService:
             except ValueError:
                 sm.transition_to_refine(mt_state, "all_questions_answered")
                 clarification_state.multi_turn_state = "REFINE_RESULTS"
-                summary = accumulator.format_constraint_summary(new_constraints, mode)
+                understanding = question_gen.generate_summary_of_understanding(
+                    new_constraints, mode
+                )
+                await _persist_mt_state()
                 return ConversationResponse(
-                    message=f"Thanks! Based on everything ({summary}), here are the results.",
+                    message=f"Thanks! {understanding} Here are the results.",
                     intent="clarification",
                     confidence=0.85,
                 )

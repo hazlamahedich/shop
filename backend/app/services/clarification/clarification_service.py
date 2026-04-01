@@ -44,25 +44,20 @@ class ClarificationService:
         classification: ClassificationResult,
         context: dict[str, Any],
     ) -> bool:
-        if classification.intent != IntentType.PRODUCT_SEARCH:
-            return False
-
-        if classification.confidence < self.CONFIDENCE_THRESHOLD:
+        mode = context.get("mode", "ecommerce")
+        threshold = (
+            self.GENERAL_MODE_CONFIDENCE_THRESHOLD
+            if mode == "general"
+            else self.CONFIDENCE_THRESHOLD
+        )
+        if classification.confidence < threshold:
             self.logger.info(
                 "low_confidence_detected",
                 confidence=classification.confidence,
-                threshold=self.CONFIDENCE_THRESHOLD,
+                threshold=threshold,
+                mode=mode,
             )
             return True
-
-        missing = self._get_missing_constraints(classification.entities)
-        if missing:
-            self.logger.info(
-                "missing_constraints_detected",
-                missing=missing,
-            )
-            return True
-
         return False
 
     async def is_general_mode_clarification(
@@ -70,14 +65,14 @@ class ClarificationService:
         classification: ClassificationResult,
         context: dict[str, Any],
     ) -> bool:
-        if classification.confidence < self.GENERAL_MODE_CONFIDENCE_THRESHOLD:
+        threshold = self.GENERAL_MODE_CONFIDENCE_THRESHOLD
+        if classification.confidence < threshold:
             self.logger.info(
                 "general_mode_low_confidence",
                 confidence=classification.confidence,
-                threshold=self.GENERAL_MODE_CONFIDENCE_THRESHOLD,
+                threshold=threshold,
             )
             return True
-
         return False
 
     async def process_multi_turn_clarification(

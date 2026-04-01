@@ -4,7 +4,7 @@ Story 11-2: Debug API for inspecting and resetting multi-turn conversation state
 These endpoints are for admin/dashboard debugging only — the widget does NOT call these.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -127,7 +127,7 @@ async def get_multi_turn_state(
         data=state_data.model_dump(),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         ),
     )
 
@@ -184,6 +184,6 @@ async def reset_multi_turn_state(
         data=reset_response.model_dump(),
         meta=MetaData(
             request_id=str(uuid4()),
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         ),
     )

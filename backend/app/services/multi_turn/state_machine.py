@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import structlog
 
+from app.core.errors import ErrorCode
 from app.services.multi_turn.schemas import (
     MultiTurnConfig,
     MultiTurnState,
@@ -175,6 +176,7 @@ class ConversationStateMachine:
         if to_val not in allowed:
             logger.error(
                 "invalid_state_transition",
+                error_code=ErrorCode.MULTI_TURN_STATE_MACHINE_ERROR,
                 from_state=from_val,
                 to_state=to_val,
                 allowed=list(allowed),

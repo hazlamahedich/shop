@@ -36,7 +36,10 @@ ECOMMERCE_CONSTRAINT_PATTERNS: dict[str, list[str]] = {
         r"above\s+\$?(\d+)",
         r"min\s+\$?(\d+)",
     ],
-    "brand": [r"^(nike|adidas|puma|reebok|new\s+balance|converse|vans|jordan|asics|skechers)$"],
+    "brand": [
+        r"(?:brand|from|by|make)\s+(?:is\s+)?([a-z]+(?:\s+[a-z]+){0,2})",
+        r"\b(nike|adidas|puma|reebok|under armour|new balance|asics|vans|converse|skechers|gucci|prada|chanel|versace|zara|h&m|uniqlo|levis|gap|tommy hilfiger|ralph lauren|north face|patagonia|columbia|lululemon|fila|jordan|yeezy|balenciaga)\b",
+    ],
     "size": [r"size\s+(xs|s|m|l|xl|xxl|\d+)"],
     "color": [
         r"(?:color\s+)?(red|blue|green|black|white|yellow|purple|pink|orange|brown|grey|gray|beige|navy)"

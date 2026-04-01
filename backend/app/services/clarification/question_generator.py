@@ -208,14 +208,6 @@ class QuestionGenerator:
                 missing.append(constraint)
         return missing
 
-    def _get_missing_constraints(self, entities: Any) -> list[str]:
-        missing = []
-        for constraint in self.QUESTION_PRIORITY:
-            entity_value = getattr(entities, constraint, None)
-            if not entity_value:
-                missing.append(constraint)
-        return missing
-
     def _select_question_template(self, constraint: str) -> str:
         templates = self.QUESTION_TEMPLATES.get(constraint, [])
         if not templates:

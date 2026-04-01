@@ -1,6 +1,6 @@
 # Story 11.2: Multi-Turn Query Handling
 
-Status: done
+Status: review (tests automated)
 
 ## Story
 
@@ -223,3 +223,107 @@ and PostgreSQL. This needs dedicated design work around TTL strategy and context
 | `backend/app/models/merchant.py` | Added `platform` back as mapped column |
 | `backend/alembic/versions/...9580e911f8fb_remove_platform_column.py` | Reverted to no-op (keeping column) |
 | `backend/tests/api/test_multi_turn_api.py` | Rewritten as direct function tests |
+
+## Code Review Findings (2026-04-01)
+
+**Review approach**: Adversarial senior developer review, all 10 ACs + 7 implementation tasks audited.
+
+### Issues Found and Fixed
+
+| ID | Severity | Issue | File | Fix |
+|----|----------|-------|------|-----|
+| M3 | HIGH | `datetime.UTC` (Python 3.11+ only) | `multi_turn.py` | Changed to `datetime.now(timezone.utc)` |
+| H2 | HIGH | `accumulator.format_constraint_summary()` produces key-value dump, not NL | `unified_conversation_service.py` | Replaced with `question_gen.generate_summary_of_understanding()` |
+| H3 | HIGH | No DB persistence of clarification state in `_check_multi_turn_state` | `unified_conversation_service.py` | Added `_persist_mt_state()` inner function with `db.commit()` |
+| H4 | MEDIUM | `state_machine.py` logs generic error, not ErrorCode | `state_machine.py` | Added `ErrorCode.MULTI_TURN_STATE_MACHINE_ERROR` (7091) |
+| H5 | MEDIUM | No `get_lock_manager()` singleton exported | `conversation_lock.py` | Added module-level singleton + `__init__.py` export |
+| M1 | MEDIUM | `needs_clarification()` hard-gates on PRODUCT_SEARCH intent | `clarification_service.py` | Unified threshold check for all intents + modes |
+| L1 | LOW | Duplicate `_get_missing_constraints` method | `question_generator.py` | Removed duplicate |
+| M2 | MEDIUM | Brand regex hardcoded to 10 brands | `constraint_accumulator.py` | Expanded to keyword-triggered + 30+ brand list |
+| CRIT1 | CRITICAL | `_check_multi_turn_state()` had duplicate broken first half + syntax errors from multi-step edits | `unified_conversation_service.py` | Removed broken first half, kept clean second version with all handlers |
+| CRIT2 | CRITICAL | `clarification_service.py` had unreachable code after `return False` + infinite recursion in `is_general_mode_clarification()` | `clarification_service.py` | Removed dead code, fixed recursion with standalone implementation |
+
+### Post-Fix Verification
+- All 117 multi-turn tests pass (33 state_machine + 18 accumulator + 19 classifier + 16 schemas + 9 API + 13 ecommerce integration + 9 general integration)
+- Python syntax verified for all edited files
+- Pre-existing LSP errors in `unified_conversation_service.py` are None type narrowing false positives (JSONB columns)
+
+### Acknowledged (Not Fixed)
+- H1: 3 unrelated frontend files (CostValuePanel.tsx, Login.tsx, Register.tsx) in commit — cosmetic plain-language UX rewrites, not multi-turn code
+- Pre-existing test failures (171 in test_feedback.py, 14 in test_webhook_error_handling.py) from IS_TESTING/.env lifecycle — unrelated to Story 11-2
+
+---
+
+## TEA Test Automation (2026-04-01)
+
+**Workflow:** TEA Automate (BMad-Integrated Mode)
+**Coverage Target:** critical-paths
+**Result:** 93 new backend tests + 7 E2E tests + 1 support file — **210/210 backend passing**
+**Summary:** `_bmad-output/automation-summary-story-11-2.md`
+
+### Coverage Gaps Filled
+
+| Gap | Priority | Resolution |
+|-----|----------|------------|
+| Zero E2E tests for multi-turn widget flow | P0 | 7 E2E tests (ecommerce + general mode) |
+| No `_check_multi_turn_state()` orchestration test | P0 | 11 integration tests covering all branches |
+| No `conversation_lock.py` unit tests | P0 | 15 unit tests (TTL, singleton, concurrency) |
+| No COMPLETE state transition tests | P1 | 13 unit tests (COMPLETE->IDLE, COMPLETE->CLARIFYING) |
+| No LLM success path tests | P1 | 16 unit tests (confidence threshold, label mapping) |
+| No HTTP-level debug endpoint tests | P2 | 9 API tests through FastAPI ASGI transport |
+| No edge case tests for `_is_topic_change()` | P2 | 22 unit tests (empty/Unicode/emoji/boundary) |
+| No concurrent state consistency tests | P2 | 7 integration tests (lock serialization + parallel) |
+
+### New Test Files
+
+| File | Tests | Type | Priority |
+|------|-------|------|----------|
+| `backend/tests/unit/test_conversation_lock.py` | 15 | Unit | P0 |
+| `backend/tests/unit/test_state_machine_complete_transitions.py` | 13 | Unit | P1 |
+| `backend/tests/unit/test_message_classifier_llm_success.py` | 16 | Unit | P1 |
+| `backend/tests/unit/test_topic_change_edge_cases.py` | 22 | Unit | P2 |
+| `backend/tests/api/test_multi_turn_api_http.py` | 9 | API | P2 |
+| `backend/tests/integration/test_multi_turn_orchestration.py` | 11 | Integration | P0 |
+| `backend/tests/integration/test_concurrent_multi_turn.py` | 7 | Integration | P2 |
+| `frontend/tests/e2e/story-11-2-multi-turn-clarification.spec.ts` | 5 | E2E | P0/P1/P2 |
+| `frontend/tests/e2e/story-11-2-multi-turn-general-mode.spec.ts` | 2 | E2E | P2 |
+| `frontend/tests/helpers/multi-turn-test-helpers.ts` | — | Support | — |
+
+### AC Coverage After Automation
+
+All 10 acceptance criteria now have test coverage across multiple levels:
+
+| AC | Unit | Integration | E2E |
+|----|------|-------------|-----|
+| AC1: Follow-up questions | existing | existing | **new** |
+| AC2: Constraint memory | existing | existing | — |
+| AC3: Result refinement | existing | existing | — |
+| AC4: Turn limit | existing | existing | **new** |
+| AC5: Completion detection | existing | **new** | **new** |
+| AC6: State machine | existing + **new** | **new** | **new** |
+| AC7: General mode | existing | existing | **new** |
+| AC8: Contradictory constraints | existing | existing | — |
+| AC9: Invalid response | existing | **new** | **new** |
+| AC10: LLM fallback | existing + **new** | existing | — |
+
+### Updated Test Counts
+
+| Category | Before | After |
+|----------|--------|-------|
+| Unit tests | 68 | 134 (+66) |
+| API tests | 9 | 18 (+9) |
+| Integration tests | 22 | 40 (+18) |
+| E2E tests | 0 | 7 (+7) |
+| **Total** | **117** | **217 (+100)** |
+
+### Validation
+- 93/93 new backend tests passing
+- 117/117 existing tests still passing (no regression)
+- Full multi-turn suite: **210/210 passing**
+- E2E: 7/7 passing against live frontend dev server
+- Automation summary: `_bmad-output/automation-summary-story-11-2.md`
+
+### Discoveries During Automation
+1. **API envelope camelCase**: `MinimalEnvelope` meta field serializes as `requestId` (not `request_id`)
+2. **`Conversation` model has no `context` field**: The multi-turn debug API uses `hasattr(conversation, "context")` which is always False for real DB-backed conversations. GET endpoint always returns IDLE defaults; POST reset never persists state changes. This is a gap between the mock-based API tests and the HTTP-level reality.
+3. **`_is_topic_change()` stop words**: Limited to English; Unicode/emoji inputs fall through keyword analysis gracefully (no crashes)

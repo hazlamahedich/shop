@@ -16,6 +16,16 @@ logger = structlog.get_logger(__name__)
 LOCK_TTL_SECONDS = 300  # 5 minutes
 
 
+_lock_manager: ConversationLockManager | None = None
+
+
+def get_lock_manager() -> ConversationLockManager:
+    global _lock_manager
+    if _lock_manager is None:
+        _lock_manager = ConversationLockManager()
+    return _lock_manager
+
+
 class ConversationLockManager:
     """Manages per-conversation asyncio.Lock instances with TTL cleanup.
 
