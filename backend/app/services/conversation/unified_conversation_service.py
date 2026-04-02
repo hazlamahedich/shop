@@ -634,6 +634,12 @@ class UnifiedConversationService:
                 "reason": "conversation_not_found",
             }
 
+        from app.services.personality.transition_selector import get_transition_selector
+
+        platform_sender_id = conversation.platform_sender_id
+        if platform_sender_id:
+            get_transition_selector().clear_conversation(platform_sender_id)
+
         # Get last 5 messages for context
         messages_query = (
             select(Message)

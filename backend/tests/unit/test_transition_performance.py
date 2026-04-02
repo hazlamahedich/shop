@@ -5,6 +5,8 @@ Tests single-selection latency, batch throughput, and
 anti-repetition lookup performance at scale.
 """
 
+import random
+
 import time
 
 import pytest
@@ -16,6 +18,7 @@ from app.services.personality.transition_selector import (
     TransitionSelector,
     get_transition_selector,
 )
+
 
 MAX_SINGLE_SELECT_MS = 1.0
 MAX_BATCH_AVG_MS = 1.0
@@ -29,7 +32,9 @@ SCALE_ITERATIONS = 200
 def reset_selector():
     selector = get_transition_selector()
     selector.reset()
+    random.seed(42)
     yield
+    random.seed(42)
     selector.reset()
 
 

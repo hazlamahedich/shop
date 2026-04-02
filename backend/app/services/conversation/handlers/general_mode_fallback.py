@@ -76,14 +76,15 @@ class GeneralModeFallbackHandler(BaseHandler):
         Returns:
             ConversationResponse with personality-aware fallback message
         """
-        formatter = PersonalityAwareResponseFormatter()
-
         personality_type: PersonalityType = merchant.personality or PersonalityType.FRIENDLY
 
-        fallback_message = formatter.format_response(
+        fallback_message = PersonalityAwareResponseFormatter.format_response(
             response_type="general_mode_fallback",
             message_key="ecommerce_not_supported",
             personality=personality_type,
+            include_transition=True,
+            conversation_id=str(context.session_id),
+            mode="general",
         )
 
         logger.info(

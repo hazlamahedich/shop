@@ -4,6 +4,8 @@ Story 11-4: Covers _cleanup_stale(), register_response_type(),
 _format_neutral_fallback(), KeyError handling, and edge cases.
 """
 
+import random
+
 import time
 
 import pytest
@@ -25,7 +27,9 @@ from app.services.personality.transition_selector import (
 def reset_selector():
     selector = get_transition_selector()
     selector.reset()
+    random.seed(42)
     yield
+    random.seed(42)
     selector.reset()
 
 

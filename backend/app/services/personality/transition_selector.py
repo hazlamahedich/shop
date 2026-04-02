@@ -8,6 +8,11 @@ Design decisions:
 - In-memory dict: sufficient for process-per-worker model
 - MAX_RECENT_PER_CONVERSATION: prevents unbounded growth per conversation
 - TTL-based cleanup: removes abandoned conversations after CONVERSATION_TTL_SECONDS
+
+Thread safety: This singleton uses plain dicts for mutable state. This is safe
+under asyncio (single-threaded event loop) and uvicorn's process-per-worker model.
+If you introduce multi-threaded execution (e.g., thread pool executors accessing
+this), add threading.Lock around _recent/_last_access mutations.
 """
 
 from __future__ import annotations
@@ -41,7 +46,7 @@ class TransitionSelector:
     def __new__(cls) -> TransitionSelector:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._recent: dict[str, set[str]] = {}
+            cls._instance._recent: dict[str, dict[str, None]] = {}
             cls._instance._last_access: dict[str, float] = {}
             cls._instance._select_count: int = 0
         return cls._instance
@@ -94,13 +99,13 @@ class TransitionSelector:
         selected = random.choice(available)
 
         if conversation_id:
-            recent = self._recent.setdefault(conversation_id, set())
-            recent.add(selected)
+            recent = self._recent.setdefault(conversation_id, {})
+            recent[selected] = None
             if len(recent) > self.MAX_RECENT_PER_CONVERSATION:
                 excess = len(recent) - self.MAX_RECENT_PER_CONVERSATION
-                to_remove = list(recent)[:excess]
-                for item in to_remove:
-                    recent.discard(item)
+                keys = list(recent.keys())[:excess]
+                for key in keys:
+                    recent.pop(key, None)
             self._last_access[conversation_id] = time.monotonic()
 
         return selected
@@ -118,7 +123,7 @@ class TransitionSelector:
 
     def get_recent_count(self, conversation_id: str) -> int:
         """Get number of tracked phrases for a conversation. For testing."""
-        return len(self._recent.get(conversation_id, set()))
+        return len(self._recent.get(conversation_id, {}))
 
     @property
     def active_conversation_count(self) -> int:

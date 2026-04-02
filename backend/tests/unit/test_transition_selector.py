@@ -4,6 +4,8 @@ Story 11-4: Tests singleton pattern, anti-repetition logic,
 mode-specific phrases, and conversation cleanup.
 """
 
+import random
+
 import pytest
 
 from app.models.merchant import PersonalityType
@@ -19,7 +21,9 @@ from app.services.personality.transition_selector import (
 def reset_selector():
     selector = get_transition_selector()
     selector.reset()
+    random.seed(42)
     yield
+    random.seed(42)
     selector.reset()
 
 
