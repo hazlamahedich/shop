@@ -3,9 +3,6 @@ import { Page, expect } from '@playwright/test';
 export type StreamingToken = string;
 
 export interface StreamingEventConfig {
-  sessionId?: string;
-  autoRespond?: boolean;
-  onMessage?: (message: string) => void;
   wsUrlPattern?: string;
   tokenDelay?: number;
 }
@@ -132,156 +129,6 @@ export class StreamingMessageBuilder {
   }
 }
 
-interface WebSocketController {
-  sendEvent(event: StreamingEvent): void;
-  sendEvents(events: StreamingEvent[], delay?: number): Promise<void>;
-  close(code?: number, reason?: string): void;
-}
-
-const activeSockets = new WeakMap<Page, WebSocketController>();
-
-export async function mockStreamingWebSocket(
-  page: Page,
-  options: StreamingEventConfig = {}
-): Promise<WebSocketController> {
-  const {
-    autoRespond = false,
-    onMessage,
-    wsUrlPattern = '**/ws/**',
-    tokenDelay = 0,
-  } = options;
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let storedController: WebSocketController;
-
-  await page.routeWebSocket(wsUrlPattern, (ws) => {
-    const controller: WebSocketController = {
-      sendEvent(event: StreamingEvent) {
-        ws.send(JSON.stringify(event));
-      },
-
-      async sendEvents(events: StreamingEvent[], delay: number = tokenDelay) {
-        for (const event of events) {
-          this.sendEvent(event);
-          if (delay > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
-        }
-      },
-
-      close(code?: number, reason?: string) {
-        ws.close({ code, reason });
-      },
-    };
-
-    storedController = controller;
-    activeSockets.set(page, controller);
-
-    if (autoRespond) {
-      ws.onMessage((message) => {
-        const messageStr = typeof message === 'string' ? message : message.toString();
-        onMessage?.(messageStr);
-
-        const builder = new StreamingMessageBuilder();
-        const events = builder
-          .withTokens(['Hello', '! ', 'How', ' ', 'can', ' ', 'I', ' ', 'help', '?'])
-          .build();
-
-        controller.sendEvents(events, tokenDelay);
-      });
-    } else {
-      ws.onMessage((message) => {
-        const messageStr = typeof message === 'string' ? message : message.toString();
-        onMessage?.(messageStr);
-      });
-    }
-  });
-
-  return new Proxy({} as WebSocketController, {
-    get(_target, prop) {
-      const ctrl = activeSockets.get(page);
-      if (!ctrl) {
-        throw new Error(
-          'No active WebSocket connection. Ensure the page has connected to the WebSocket before calling this method.'
-        );
-      }
-      const value = (ctrl as unknown as Record<string, unknown>)[prop as string];
-      if (typeof value === 'function') {
-        return value.bind(ctrl);
-      }
-      return value;
-    },
-  });
-}
-
-export async function simulateStreamingResponse(
-  page: Page,
-  builder: StreamingMessageBuilder,
-  delay: number = 10
-): Promise<void> {
-  const controller = activeSockets.get(page);
-  if (!controller) {
-    throw new Error(
-      'No active WebSocket mock found. Call mockStreamingWebSocket() first and ensure the page has connected.'
-    );
-  }
-
-  const events = builder.build();
-  await controller.sendEvents(events, delay);
-}
-
-export async function waitForStreamingStart(page: Page, timeout: number = 10000) {
-  await expect(page.getByTestId('streaming-indicator')).toBeVisible({ timeout });
-}
-
-export async function waitForStreamingToken(page: Page, expectedText: string, timeout: number = 10000) {
-  await expect(page.getByTestId('streaming-message').getByText(expectedText, { exact: false })).toBeVisible({ timeout });
-}
-
-export async function waitForStreamingEnd(page: Page, timeout: number = 10000) {
-  await expect(page.getByTestId('streaming-indicator')).toBeHidden({ timeout });
-  await expect(page.getByTestId('streaming-message')).toHaveAttribute('data-streaming', 'false', { timeout });
-}
-
-export function createStreamingBuilder(): StreamingMessageBuilder {
-  return new StreamingMessageBuilder();
-}
-
-export function createDefaultStreamingEvents(
-  overrides: { content?: string; tokens?: string[]; messageId?: string } = {}
-): StreamingEvent[] {
-  const { content, tokens, messageId } = overrides;
-  const builder = new StreamingMessageBuilder();
-
-  if (messageId) builder.withMessageId(messageId);
-  if (tokens) builder.withTokens(tokens);
-  if (content) builder.withFinalContent(content);
-
-  return builder.build();
-}
-
-export function createProductStreamingEvents(
-  overrides: { productCount?: number; basePrice?: number } = {}
-): StreamingEvent[] {
-  const { productCount = 1, basePrice = 29.99 } = overrides;
-  const products = Array.from({ length: productCount }, (_, i) => ({
-    id: crypto.randomUUID(),
-    variant_id: crypto.randomUUID(),
-    title: `Streaming Product ${i + 1}`,
-    price: basePrice + i * 10,
-    available: true,
-  }));
-
-  return new StreamingMessageBuilder()
-    .withTokens(['Here', ' ', 'are', ' ', 'some', ' ', 'products', '!'])
-    .withProducts(products)
-    .build();
-}
-
-export function createErrorStreamingEvents(error: string = 'Stream interrupted'): StreamingEvent[] {
-  return new StreamingMessageBuilder().buildError(error);
-}
-
 export const STREAM_EVENTS = {
   START: 'bot_stream_start',
   TOKEN: 'bot_stream_token',
@@ -290,8 +137,76 @@ export const STREAM_EVENTS = {
 } as const;
 
 export interface StreamedEvent {
-  event: string;
+  type: string;
   data: Record<string, unknown>;
+}
+
+function buildMinimalMessageResponse(): string {
+  return JSON.stringify({
+    data: {
+      message_id: crypto.randomUUID(),
+      sender: 'bot',
+      content: '',
+      created_at: new Date().toISOString(),
+    },
+  });
+}
+
+function sendEventsWithDelay(
+  ws: { send: (data: string) => void },
+  events: Array<{ type: string; data: Record<string, unknown> }>,
+  delay: number
+): void {
+  let i = 0;
+  const sendNext = () => {
+    if (i < events.length) {
+      ws.send(JSON.stringify({ type: events[i].type, data: events[i].data }));
+      i++;
+      if (i < events.length && delay > 0) {
+        setTimeout(sendNext, delay);
+      }
+    }
+  };
+  sendNext();
+}
+
+export async function mockStreamingWebSocket(
+  page: Page,
+  builder: StreamingMessageBuilder,
+  options: StreamingEventConfig = {}
+): Promise<void> {
+  const { wsUrlPattern = '**/ws/**', tokenDelay = 10 } = options;
+  const events = builder.build();
+  let httpMessageSent = false;
+
+  await page.route('**/api/v1/widget/message', async (route) => {
+    httpMessageSent = true;
+    await route.fulfill({
+      status: 200,
+      body: buildMinimalMessageResponse(),
+    });
+  });
+
+  await page.routeWebSocket(wsUrlPattern, (ws) => {
+    ws.onMessage((msg) => {
+      const str = typeof msg === 'string' ? msg : msg.toString();
+      try {
+        const parsed = JSON.parse(str);
+        if (parsed.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
+      } catch {}
+    });
+
+    const pollAndSend = () => {
+      if (httpMessageSent) {
+        sendEventsWithDelay(ws, events, tokenDelay);
+      } else {
+        setTimeout(pollAndSend, 50);
+      }
+    };
+    pollAndSend();
+  });
 }
 
 export async function mockWebSocketStream(
@@ -299,17 +214,36 @@ export async function mockWebSocketStream(
   events: StreamedEvent[],
   options: { wsUrlPattern?: string; delay?: number } = {}
 ): Promise<void> {
-  const { wsUrlPattern = '**/ws/**', delay = 5 } = options;
+  const { wsUrlPattern = '**/ws/**', delay = 10 } = options;
+  let httpMessageSent = false;
+
+  await page.route('**/api/v1/widget/message', async (route) => {
+    httpMessageSent = true;
+    await route.fulfill({
+      status: 200,
+      body: buildMinimalMessageResponse(),
+    });
+  });
 
   await page.routeWebSocket(wsUrlPattern, (ws) => {
-    ws.onMessage(async () => {
-      for (const evt of events) {
-        ws.send(JSON.stringify({ type: evt.event, data: evt.data }));
-        if (delay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
+    ws.onMessage((msg) => {
+      const str = typeof msg === 'string' ? msg : msg.toString();
+      try {
+        const parsed = JSON.parse(str);
+        if (parsed.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
         }
-      }
+      } catch {}
     });
+
+    const pollAndSend = () => {
+      if (httpMessageSent) {
+        sendEventsWithDelay(ws, events, delay);
+      } else {
+        setTimeout(pollAndSend, 50);
+      }
+    };
+    pollAndSend();
   });
 }
 
@@ -337,31 +271,185 @@ export async function mockWebSocketReconnect(
     delay?: number;
   }
 ): Promise<ReconnectController> {
-  const { firstStreamEvents, secondStreamEvents, wsUrlPattern = '**/ws/**', delay = 5 } = config;
+  const { firstStreamEvents, secondStreamEvents, wsUrlPattern = '**/ws/**', delay = 10 } = config;
+  let connectionIndex = 0;
+  let httpMessageCount = 0;
+  let wsHandledCount = 0;
 
-  let callCount = 0;
+  await page.route('**/api/v1/widget/message', async (route) => {
+    httpMessageCount++;
+    await route.fulfill({
+      status: 200,
+      body: buildMinimalMessageResponse(),
+    });
+  });
 
   await page.routeWebSocket(wsUrlPattern, (ws) => {
-    callCount++;
-    const currentEvents = callCount <= 1 ? firstStreamEvents : secondStreamEvents;
+    const currentConnection = connectionIndex;
+    connectionIndex++;
 
-    ws.onMessage(async () => {
-      for (const evt of currentEvents) {
-        ws.send(JSON.stringify({ type: evt.event, data: evt.data }));
-        if (delay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
+    ws.onMessage((msg) => {
+      const str = typeof msg === 'string' ? msg : msg.toString();
+      try {
+        const parsed = JSON.parse(str);
+        if (parsed.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
         }
-      }
+      } catch {}
     });
 
-    if (callCount === 1) {
-      setTimeout(() => {
-        ws.close({ code: 1006, reason: 'Simulated disconnect' });
-      }, currentEvents.length * delay + 50);
-    }
+    const events = currentConnection === 0 ? firstStreamEvents : secondStreamEvents;
+
+    const pollAndSend = () => {
+      if (wsHandledCount < httpMessageCount) {
+        wsHandledCount++;
+        let i = 0;
+        const sendNext = () => {
+          if (i < events.length) {
+            ws.send(JSON.stringify({ type: events[i].type, data: events[i].data }));
+            i++;
+            if (i < events.length) {
+              setTimeout(sendNext, delay);
+            } else if (currentConnection === 0) {
+              setTimeout(() => {
+                ws.close({ code: 1006, reason: 'Simulated disconnect' });
+              }, 100);
+            }
+          }
+        };
+        sendNext();
+      } else {
+        setTimeout(pollAndSend, 50);
+      }
+    };
+    pollAndSend();
   });
 
   return {
     triggerReconnect() {},
   };
+}
+
+export function createStreamingBuilder(): StreamingMessageBuilder {
+  return new StreamingMessageBuilder();
+}
+
+export function createDefaultStreamingEvents(
+  overrides: { content?: string; tokens?: string[]; messageId?: string } = {}
+): StreamingEvent[] {
+  const { content, tokens, messageId } = overrides;
+  const builder = new StreamingMessageBuilder();
+
+  if (messageId) builder.withMessageId(messageId);
+  if (tokens) builder.withTokens(tokens);
+  if (content) builder.withFinalContent(content);
+
+  return builder.build();
+}
+
+export async function waitForStreamingStart(page: Page, timeout: number = 10000) {
+  await expect(page.getByTestId('streaming-indicator')).toBeVisible({ timeout });
+}
+
+export async function waitForStreamingToken(page: Page, expectedText: string, timeout: number = 10000) {
+  await expect(page.getByTestId('streaming-message').getByText(expectedText, { exact: false })).toBeVisible({ timeout });
+}
+
+export async function waitForStreamingEnd(page: Page, timeout: number = 10000) {
+  await expect(page.getByTestId('streaming-indicator')).toBeHidden({ timeout });
+}
+
+export async function waitForWebSocketConnected(page: Page, timeout: number = 10000) {
+  await expect(page.getByText(/Connecting\.\.\.|Disconnected|Connection error/)).not.toBeVisible({ timeout });
+}
+
+export interface WsTurnConfig {
+  type: 'stream' | 'abort';
+  events?: StreamedEvent[];
+}
+
+export interface RestTurnConfig {
+  match: (message: string) => boolean;
+  response: {
+    message_id: string;
+    sender: string;
+    content: string;
+  };
+}
+
+export async function mockMultiTurnConversation(
+  page: Page,
+  wsTurns: WsTurnConfig[],
+  restResponses: RestTurnConfig[] = [],
+  options: { wsUrlPattern?: string; restUrlPattern?: string; delay?: number } = {}
+): Promise<void> {
+  const { wsUrlPattern = '**/ws/**', restUrlPattern = '**/api/v1/widget/message', delay = 10 } = options;
+  let wsMessageIndex = 0;
+  let httpMessageCount = 0;
+
+  await page.route(restUrlPattern, async (route) => {
+    httpMessageCount++;
+    const body = route.request().postDataJSON();
+    const message = body?.message?.toLowerCase() || '';
+    const match = restResponses.find((r) => r.match(message));
+    if (match) {
+      await route.fulfill({
+        status: 200,
+        body: JSON.stringify({
+          data: {
+            ...match.response,
+            sender: 'bot',
+            created_at: new Date().toISOString(),
+          },
+        }),
+      });
+    } else {
+      await route.fulfill({
+        status: 200,
+        body: buildMinimalMessageResponse(),
+      });
+    }
+  });
+
+  await page.routeWebSocket(wsUrlPattern, (ws) => {
+    ws.onMessage((msg) => {
+      const str = typeof msg === 'string' ? msg : msg.toString();
+      try {
+        const parsed = JSON.parse(str);
+        if (parsed.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
+      } catch {}
+    });
+
+    const pollAndSend = () => {
+      if (wsMessageIndex < httpMessageCount && wsMessageIndex < wsTurns.length) {
+        const turn = wsTurns[wsMessageIndex];
+        wsMessageIndex++;
+
+        if (turn.type === 'stream' && turn.events) {
+          let i = 0;
+          const sendNext = () => {
+            if (i < turn.events!.length) {
+              ws.send(JSON.stringify({ type: turn.events![i].type, data: turn.events![i].data }));
+              i++;
+              if (i < turn.events!.length) {
+                setTimeout(sendNext, delay);
+              } else {
+                setTimeout(pollAndSend, 50);
+              }
+            }
+          };
+          sendNext();
+        } else if (turn.type === 'abort') {
+          ws.close({ code: 1006, reason: 'Aborting WS connection' });
+        } else {
+          setTimeout(pollAndSend, 50);
+        }
+      } else {
+        setTimeout(pollAndSend, 50);
+      }
+    };
+    pollAndSend();
+  });
 }
