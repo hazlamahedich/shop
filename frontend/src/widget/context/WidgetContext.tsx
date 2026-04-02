@@ -172,6 +172,8 @@ function widgetReducer(state: WidgetState, action: WidgetAction): WidgetState {
       return {
         ...state,
         isStreaming: false,
+        streamingMessageId: null,
+        streamingContent: '',
         streamingError: action.payload.error,
         messages: state.messages.map((msg) =>
           msg.messageId === action.payload.messageId

@@ -250,10 +250,10 @@ test.describe('Story 11.3 - Streaming Message Flow (Happy Path)', () => {
 
   test('[P1] 11.3-E2E-005: streaming indicator appears during active stream', async ({ page }) => {
     await mockWebSocketStream(page, [
-      { type: STREAM_EVENTS.START, data: { message_id: 'msg-indicator-001' } },
-      { type: STREAM_EVENTS.TOKEN, data: { token: 'Loading', message_id: 'msg-indicator-001' } },
-      { type: STREAM_EVENTS.TOKEN, data: { token: '...', message_id: 'msg-indicator-001' } },
-      { type: STREAM_EVENTS.END, data: { message_id: 'msg-indicator-001', content: 'Loading...' } },
+      { type: STREAM_EVENTS.START, data: { messageId: 'msg-indicator-001' } },
+      { type: STREAM_EVENTS.TOKEN, data: { token: 'Loading', messageId: 'msg-indicator-001' } },
+      { type: STREAM_EVENTS.TOKEN, data: { token: '...', messageId: 'msg-indicator-001' } },
+      { type: STREAM_EVENTS.END, data: { messageId: 'msg-indicator-001', content: 'Loading...' } },
     ], { delay: 100 });
 
     await loadWidgetWithSession(page, 'test-streaming-session');

@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-04-02
 **Story:** 11-3 Streaming Message Flow
-**Status:** Implementation Complete, All E2E Tests Passing
+**Status:** Implementation Complete, All E2E Tests Passing, Party-Mode Review Action Items Resolved
 
 ---
 
@@ -105,6 +105,56 @@
 - `test.describe.configure({ retries: 2, mode: 'serial' })` — retries handle first-run failures
 - Tests within each file run serially to minimize cross-test interference
 - All tests pass reliably with `--workers=1` or with retries enabled
+
+---
+
+### 6. `message_id` vs `messageId` Mismatch in E2E Test Mocks ✅ RESOLVED
+
+**Issue:** Backend sends `messageId` (camelCase) in WebSocket events via `connection_manager.py:457`. Frontend correctly expects `messageId` in `WidgetContext.tsx:772`. However, 4 of 10 E2E test files used `message_id` (snake_case) in inline mock event data — meaning tests validated against a contract the real backend doesn't produce.
+
+**Resolution:** Fixed `message_id` → `messageId` in test files 005, 006, 009, 010. Tests using `StreamingMessageBuilder` were unaffected (it correctly uses `messageId`).
+
+**Discovery Method:** Party-mode multi-agent review (Winston/Architect, Amelia/Developer, Murat/Test Architect, Mary/Analyst, Bob/Scrum Master).
+
+---
+
+### 7. Hard Waits (`waitForTimeout`) in Tests 009 & 010 ✅ RESOLVED
+
+**Issue:** Tests 009 and 010 used `page.waitForTimeout(5000)` and `page.waitForTimeout(4000)` respectively, violating AGENTS.md E2E test standards.
+
+**Resolution:** Replaced with deterministic `ConnectionStatusIndicator` text assertions — waiting for "Disconnected - Reconnecting..." to appear then disappear, or "Connection error" to become visible.
+
+---
+
+### 8. `STREAMING_ERROR` Reducer State Leak ✅ RESOLVED
+
+**Issue:** The `STREAMING_ERROR` case in `WidgetContext.tsx` didn't clear `streamingMessageId` or `streamingContent`, unlike `FINISH_STREAMING_MESSAGE` which properly clears all streaming state. This was a latent bug — error state would persist streaming content indefinitely.
+
+**Resolution:** Added `streamingMessageId: null` and `streamingContent: ''` to the `STREAMING_ERROR` reducer case.
+
+---
+
+### 9. Test 010 Inline Mocking → `mockMultiTurnConversation` Helper ✅ RESOLVED
+
+**Issue:** Test 010 had ~73 lines of inline WS/REST mocking (noted as P2 recommendation in test review score 96/100). The existing `mockMultiTurnConversation` helper lacked `closeAfter` and `refuseAfter` support.
+
+**Resolution:** Extended `WsTurnConfig` with `closeAfter` property, added `MultiTurnOptions` interface with `refuseAfter`, updated helper to handle connection closure and refusal. Test 010 reduced from ~130 lines to ~50 lines.
+
+---
+
+### 10. Excessive `console.warn` in `widgetWsClient.ts` ✅ RESOLVED
+
+**Issue:** `widgetWsClient.ts` had ~25 `console.warn` calls for routine operational logging (connection events, heartbeat, reconnection). These trigger warning indicators in browser DevTools and monitoring tools.
+
+**Resolution:** All 25 instances converted from `console.warn` → `console.debug`.
+
+---
+
+### 11. `refuseAfterTurnCount` Parameter Name Mismatch ✅ RESOLVED
+
+**Issue:** Test 010 passed `refuseAfterTurnCount: 2` to `mockMultiTurnConversation`, but the `MultiTurnOptions` interface defines `refuseAfter`. The option was silently ignored, meaning connection refusal wasn't working as intended in the test.
+
+**Resolution:** Fixed parameter name to `refuseAfter: 2` in test 010 call.
 
 ---
 

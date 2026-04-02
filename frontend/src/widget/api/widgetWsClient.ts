@@ -84,7 +84,7 @@ export function connectWidgetWebSocket(
   let hasFallenBack = false; // Track if we've already fallen back to polling
 
   const updateStatus = (status: ConnectionStatus) => {
-    console.warn('[WS] Status:', status);
+    console.debug('[WS] Status:', status);
     onStatusChange?.(status);
   };
 
@@ -104,7 +104,7 @@ export function connectWidgetWebSocket(
     heartbeatTimer = setInterval(() => {
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping' }));
-        console.warn('[WS] Heartbeat ping sent');
+        console.debug('[WS] Heartbeat ping sent');
       }
     }, 25000);
   };
@@ -112,47 +112,47 @@ export function connectWidgetWebSocket(
   const connect = () => {
     if (isClosed) return;
 
-    console.warn('[WS] ========== WIDGET WS CLIENT v20260308-12-00 ==========');
+    console.debug('[WS] ========== WIDGET WS CLIENT v20260308-12-00 ==========');
     
     const wsBaseUrl = getWsBaseUrl();
     const url = `${wsBaseUrl}/ws/widget/${sessionId}`;
 
-    console.warn('[WS] Connecting to:', url);
+    console.debug('[WS] Connecting to:', url);
     updateStatus('connecting');
 
     try {
       ws = new WebSocket(url);
     } catch (error) {
-      console.warn('[WS] Failed to create WebSocket:', error);
+      console.debug('[WS] Failed to create WebSocket:', error);
       updateStatus('error');
       scheduleReconnect();
       return;
     }
 
     ws.onopen = () => {
-      console.warn('[WS] Connection opened');
+      console.debug('[WS] Connection opened');
       reconnectAttempts = 0;
       updateStatus('connected');
       startHeartbeat();
     };
 
     ws.onmessage = (event) => {
-      console.warn('[WS] onmessage triggered, data type:', typeof event.data);
+      console.debug('[WS] onmessage triggered, data type:', typeof event.data);
       try {
         // Handle plain text pong
         if (event.data === 'pong') {
-          console.warn('[WS] Heartbeat pong received');
+          console.debug('[WS] Heartbeat pong received');
           return;
         }
 
-        console.warn('[WS] Parsing JSON...');
+        console.debug('[WS] Parsing JSON...');
         const parsed = JSON.parse(event.data);
-        console.warn('[WS] Message received:', parsed);
-        console.warn('[WS] Message type:', parsed.type);
+        console.debug('[WS] Message received:', parsed);
+        console.debug('[WS] Message type:', parsed.type);
 
         // Handle different message types
         if (parsed.type === 'ping') {
-          console.warn('[WS] Handling ping, responding with pong');
+          console.debug('[WS] Handling ping, responding with pong');
           // Respond to server ping
           if (ws?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'pong' }));
@@ -161,27 +161,27 @@ export function connectWidgetWebSocket(
         }
 
         if (parsed.type === 'pong') {
-          console.warn('[WS] Handling pong, ignoring');
+          console.debug('[WS] Handling pong, ignoring');
           // Response to our ping - ignore
           return;
         }
 
-        console.warn('[WS] Not ping/pong, checking onMessage callback...');
-        console.warn('[WS] onMessage exists:', !!onMessage);
-        console.warn('[WS] onMessage type:', typeof onMessage);
+        console.debug('[WS] Not ping/pong, checking onMessage callback...');
+        console.debug('[WS] onMessage exists:', !!onMessage);
+        console.debug('[WS] onMessage type:', typeof onMessage);
         
         // Pass to message handler
         if (onMessage) {
-          console.warn('[WS] Calling onMessage with:', parsed);
+          console.debug('[WS] Calling onMessage with:', parsed);
           try {
             onMessage(parsed);
-            console.warn('[WS] onMessage call completed successfully');
+            console.debug('[WS] onMessage call completed successfully');
           } catch (callbackError) {
             console.error('[WS] Error in onMessage callback:', callbackError);
           }
         } else {
-          console.warn('[WS] ⚠️ onMessage callback is undefined!');
-          console.warn('[WS] Available callbacks:', {
+          console.debug('[WS] ⚠️ onMessage callback is undefined!');
+          console.debug('[WS] Available callbacks:', {
             onMessage: typeof onMessage,
             onStatusChange: typeof onStatusChange,
             onError: typeof onError
@@ -194,13 +194,13 @@ export function connectWidgetWebSocket(
     };
 
     ws.onerror = (error) => {
-      console.warn('[WS] Error:', error);
+      console.debug('[WS] Error:', error);
       updateStatus('error');
       onError?.(error);
     };
 
     ws.onclose = (event) => {
-      console.warn('[WS] Closed:', event.code, event.reason);
+      console.debug('[WS] Closed:', event.code, event.reason);
       clearTimers();
       
       if (!isClosed) {
@@ -215,14 +215,14 @@ export function connectWidgetWebSocket(
 
     if (reconnectAttempts < maxReconnectAttempts) {
       reconnectAttempts++;
-      console.warn(`[WS] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+      console.debug(`[WS] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
 
       reconnectTimer = setTimeout(() => {
         connect();
       }, reconnectInterval);
     } else {
       // Max reconnect attempts reached - fall back to polling
-      console.warn('[WS] Max reconnect attempts reached, falling back to polling');
+      console.debug('[WS] Max reconnect attempts reached, falling back to polling');
       hasFallenBack = true;
       updateStatus('error');
 
@@ -246,7 +246,7 @@ export function connectWidgetWebSocket(
 
   // Return cleanup function
   return () => {
-    console.warn('[WS] Cleanup - closing connection');
+    console.debug('[WS] Cleanup - closing connection');
     isClosed = true;
     clearTimers();
     

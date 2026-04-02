@@ -11,6 +11,7 @@ import {
   mockWebSocketStream,
   mockWebSocketFailure,
   mockWebSocketReconnect,
+  mockMultiTurnConversation,
   STREAM_EVENTS,
   type StreamedEvent,
 } from '../helpers/streaming-test-helpers';
@@ -28,9 +29,9 @@ test.describe('Story 11.3 - Streaming Error Handling and Fallback', () => {
 
   test('[P1] 11.3-E2E-006: streaming error mid-stream shows error message', async ({ page }) => {
     await mockWebSocketStream(page, [
-      { type: STREAM_EVENTS.START, data: { message_id: 'msg-err-1' } },
-      { type: STREAM_EVENTS.TOKEN, data: { token: 'Hello ', message_id: 'msg-err-1' } },
-      { type: STREAM_EVENTS.ERROR, data: { message_id: 'msg-err-1', error: 'stream_interrupted' } },
+      { type: STREAM_EVENTS.START, data: { messageId: 'msg-err-1' } },
+      { type: STREAM_EVENTS.TOKEN, data: { token: 'Hello ', messageId: 'msg-err-1' } },
+      { type: STREAM_EVENTS.ERROR, data: { messageId: 'msg-err-1', error: 'stream_interrupted' } },
     ], { delay: 100 });
 
     await loadWidgetWithSession(page, 'test-streaming-session');
@@ -114,16 +115,16 @@ test.describe('Story 11.3 - Streaming Error Handling and Fallback', () => {
     let connectionIndex = 0;
 
     const firstEvents: StreamedEvent[] = [
-      { type: STREAM_EVENTS.START, data: { message_id: 'msg-disc-1' } },
-      { type: STREAM_EVENTS.TOKEN, data: { token: 'Good ', message_id: 'msg-disc-1' } },
-      { type: STREAM_EVENTS.ERROR, data: { message_id: 'msg-disc-1', error: 'connection_lost' } },
+      { type: STREAM_EVENTS.START, data: { messageId: 'msg-disc-1' } },
+      { type: STREAM_EVENTS.TOKEN, data: { token: 'Good ', messageId: 'msg-disc-1' } },
+      { type: STREAM_EVENTS.ERROR, data: { messageId: 'msg-disc-1', error: 'connection_lost' } },
     ];
 
     const secondEvents: StreamedEvent[] = [
-      { type: STREAM_EVENTS.START, data: { message_id: 'msg-disc-2' } },
-      { type: STREAM_EVENTS.TOKEN, data: { token: 'Reconnected ', message_id: 'msg-disc-2' } },
-      { type: STREAM_EVENTS.TOKEN, data: { token: 'response', message_id: 'msg-disc-2' } },
-      { type: STREAM_EVENTS.END, data: { message_id: 'msg-disc-2', content: 'Reconnected response' } },
+      { type: STREAM_EVENTS.START, data: { messageId: 'msg-disc-2' } },
+      { type: STREAM_EVENTS.TOKEN, data: { token: 'Reconnected ', messageId: 'msg-disc-2' } },
+      { type: STREAM_EVENTS.TOKEN, data: { token: 'response', messageId: 'msg-disc-2' } },
+      { type: STREAM_EVENTS.END, data: { messageId: 'msg-disc-2', content: 'Reconnected response' } },
     ];
 
     await page.route('**/api/v1/widget/message', async (route) => {
@@ -191,119 +192,49 @@ test.describe('Story 11.3 - Streaming Error Handling and Fallback', () => {
     await sendMessage(page, 'first message');
     await expect(page.getByTestId('stream-error-indicator')).toBeVisible({ timeout: 10000 });
 
-    await page.waitForTimeout(5000);
+    await expect(page.getByText('Disconnected - Reconnecting...')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Disconnected|Connecting/)).toBeHidden({ timeout: 10000 });
 
     await sendMessage(page, 'second message');
     await expect(page.getByText('Reconnected response').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('[P2] 11.3-E2E-010: multi-turn conversation with streaming errors', async ({ page }) => {
-    let httpMessageCount = 0;
-    let wsTurnIndex = 0;
-
-    const wsTurns: Array<{
-      events: StreamedEvent[];
-      closeAfter?: boolean;
-    }> = [
-      {
-        events: [
-          { type: STREAM_EVENTS.START, data: { message_id: 'msg-multi-1' } },
-          { type: STREAM_EVENTS.TOKEN, data: { token: 'Great ', message_id: 'msg-multi-1' } },
-          { type: STREAM_EVENTS.TOKEN, data: { token: 'choice!', message_id: 'msg-multi-1' } },
-          { type: STREAM_EVENTS.END, data: { message_id: 'msg-multi-1', content: 'Great choice!' } },
-        ],
-        closeAfter: true,
-      },
-      {
-        events: [
-          { type: STREAM_EVENTS.START, data: { message_id: 'msg-multi-2' } },
-          { type: STREAM_EVENTS.TOKEN, data: { token: 'Error...', message_id: 'msg-multi-2' } },
-          { type: STREAM_EVENTS.ERROR, data: { message_id: 'msg-multi-2', error: 'stream_failed' } },
-        ],
-        closeAfter: true,
-      },
-    ];
-
-    await page.route('**/api/v1/widget/message', async (route) => {
-      httpMessageCount++;
-      const body = route.request().postDataJSON();
-      const message = body?.message?.toLowerCase() || '';
-
-      if (message.includes('use fallback')) {
-        await route.fulfill({
-          status: 200,
-          body: JSON.stringify({
-            data: {
-              message_id: 'msg-multi-3',
-              sender: 'bot',
-              content: 'REST fallback response with full details.',
-              created_at: new Date().toISOString(),
-            },
-          }),
-        });
-      } else {
-        await route.fulfill({
-          status: 200,
-          body: JSON.stringify({
-            data: {
-              message_id: crypto.randomUUID(),
-              sender: 'bot',
-              content: '',
-              created_at: new Date().toISOString(),
-            },
-          }),
-        });
-      }
-    });
-
-    let allWsClosed = false;
-
-    await page.routeWebSocket('**/ws/**', (ws) => {
-      if (allWsClosed) {
-        ws.close({ code: 1006, reason: 'Connection refused' });
-        return;
-      }
-
-      ws.onMessage((msg) => {
-        const str = typeof msg === 'string' ? msg : msg.toString();
-        try {
-          const parsed = JSON.parse(str);
-          if (parsed.type === 'ping') {
-            ws.send(JSON.stringify({ type: 'pong' }));
-          }
-        } catch {}
-      });
-
-      const pollAndSend = () => {
-        if (wsTurnIndex < httpMessageCount && wsTurnIndex < wsTurns.length) {
-          const turn = wsTurns[wsTurnIndex];
-          wsTurnIndex++;
-          let i = 0;
-          const sendNext = () => {
-            if (i < turn.events.length) {
-              ws.send(JSON.stringify({ type: turn.events[i].type, data: turn.events[i].data }));
-              i++;
-              if (i < turn.events.length) {
-                setTimeout(sendNext, 100);
-              } else if (turn.closeAfter) {
-                setTimeout(() => {
-                  ws.close({ code: 1006, reason: 'Simulated error' });
-                  if (wsTurnIndex >= wsTurns.length) {
-                    allWsClosed = true;
-                  }
-                }, 100);
-              } else {
-                setTimeout(pollAndSend, 50);
-              }
-            }
-          };
-          sendNext();
-        } else {
-          setTimeout(pollAndSend, 50);
-        }
-      };
-      pollAndSend();
-    });
+    await mockMultiTurnConversation(
+      page,
+      [
+        {
+          type: 'stream',
+          events: [
+            { type: STREAM_EVENTS.START, data: { messageId: 'msg-multi-1' } },
+            { type: STREAM_EVENTS.TOKEN, data: { token: 'Great ', messageId: 'msg-multi-1' } },
+            { type: STREAM_EVENTS.TOKEN, data: { token: 'choice!', messageId: 'msg-multi-1' } },
+            { type: STREAM_EVENTS.END, data: { messageId: 'msg-multi-1', content: 'Great choice!' } },
+          ],
+          closeAfter: true,
+        },
+        {
+          type: 'stream',
+          events: [
+            { type: STREAM_EVENTS.START, data: { messageId: 'msg-multi-2' } },
+            { type: STREAM_EVENTS.TOKEN, data: { token: 'Error...', messageId: 'msg-multi-2' } },
+            { type: STREAM_EVENTS.ERROR, data: { messageId: 'msg-multi-2', error: 'stream_failed' } },
+          ],
+          closeAfter: true,
+        },
+      ],
+      [
+        {
+          match: (msg) => msg.includes('use fallback'),
+          response: {
+            message_id: 'msg-multi-3',
+            sender: 'bot',
+            content: 'REST fallback response with full details.',
+          },
+        },
+      ],
+      { delay: 100, refuseAfter: 2 }
+    );
 
     await loadWidgetWithSession(page, 'test-streaming-session');
 
@@ -317,7 +248,7 @@ test.describe('Story 11.3 - Streaming Error Handling and Fallback', () => {
     await sendMessage(page, 'more details');
     await expect(page.getByTestId('stream-error-indicator')).toBeVisible({ timeout: 10000 });
 
-    await page.waitForTimeout(4000);
+    await expect(page.getByText(/Disconnected|Connection error/)).toBeVisible({ timeout: 10000 });
 
     const restResponsePromise = page.waitForResponse('**/api/v1/widget/message');
     await sendMessage(page, 'use fallback');

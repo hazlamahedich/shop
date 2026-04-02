@@ -217,3 +217,9 @@ npx playwright test --grep "\[P0\].*11\.3"
 | 2026-04-02 | Phase 2: Updated ChatWindow with streaming indicators | ChatWindow.tsx |
 | 2026-04-02 | Phase 2: Updated Widget to pass streaming state | Widget.tsx |
 | 2026-04-02 | Phase 2: Added streaming-pulse CSS keyframe | Widget.tsx |
+| 2026-04-02 | Party-mode review: Fixed messageId mismatch in 4 test files | streaming-error-fallback.spec.ts, streaming-message-flow.spec.ts |
+| 2026-04-02 | Party-mode review: Replaced waitForTimeout with event-based waits in tests 009, 010 | streaming-error-fallback.spec.ts |
+| 2026-04-02 | Party-mode review: Fixed STREAMING_ERROR reducer state leak | WidgetContext.tsx |
+| 2026-04-02 | Party-mode review: Refactored test 010 to use mockMultiTurnConversation | streaming-error-fallback.spec.ts, streaming-test-helpers.ts |
+| 2026-04-02 | Party-mode review: console.warn → console.debug in WS client | widgetWsClient.ts |
+| 2026-04-02 | Party-mode review: Fixed refuseAfterTurnCount → refuseAfter parameter name | streaming-error-fallback.spec.ts |

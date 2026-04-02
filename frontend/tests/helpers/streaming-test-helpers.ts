@@ -366,6 +366,7 @@ export async function waitForWebSocketConnected(page: Page, timeout: number = 10
 export interface WsTurnConfig {
   type: 'stream' | 'abort';
   events?: StreamedEvent[];
+  closeAfter?: boolean;
 }
 
 export interface RestTurnConfig {
@@ -377,15 +378,23 @@ export interface RestTurnConfig {
   };
 }
 
+export interface MultiTurnOptions {
+  wsUrlPattern?: string;
+  restUrlPattern?: string;
+  delay?: number;
+  refuseAfter?: number;
+}
+
 export async function mockMultiTurnConversation(
   page: Page,
   wsTurns: WsTurnConfig[],
   restResponses: RestTurnConfig[] = [],
-  options: { wsUrlPattern?: string; restUrlPattern?: string; delay?: number } = {}
+  options: MultiTurnOptions = {}
 ): Promise<void> {
-  const { wsUrlPattern = '**/ws/**', restUrlPattern = '**/api/v1/widget/message', delay = 10 } = options;
+  const { wsUrlPattern = '**/ws/**', restUrlPattern = '**/api/v1/widget/message', delay = 10, refuseAfter } = options;
   let wsMessageIndex = 0;
   let httpMessageCount = 0;
+  let connectionIndex = 0;
 
   await page.route(restUrlPattern, async (route) => {
     httpMessageCount++;
@@ -412,6 +421,14 @@ export async function mockMultiTurnConversation(
   });
 
   await page.routeWebSocket(wsUrlPattern, (ws) => {
+    const currentConnection = connectionIndex;
+    connectionIndex++;
+
+    if (refuseAfter !== undefined && currentConnection >= refuseAfter) {
+      ws.close({ code: 1006, reason: 'Connection refused' });
+      return;
+    }
+
     ws.onMessage((msg) => {
       const str = typeof msg === 'string' ? msg : msg.toString();
       try {
@@ -435,6 +452,10 @@ export async function mockMultiTurnConversation(
               i++;
               if (i < turn.events!.length) {
                 setTimeout(sendNext, delay);
+              } else if (turn.closeAfter) {
+                setTimeout(() => {
+                  ws.close({ code: 1006, reason: 'Simulated disconnect' });
+                }, 100);
               } else {
                 setTimeout(pollAndSend, 50);
               }
