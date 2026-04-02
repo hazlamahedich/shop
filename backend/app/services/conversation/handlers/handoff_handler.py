@@ -27,6 +27,8 @@ from app.services.personality.response_formatter import PersonalityAwareResponse
 
 logger = structlog.get_logger(__name__)
 
+_MODE = "ecommerce"
+
 
 class HandoffHandler(BaseHandler):
     """Handler for HUMAN_HANDOFF intent.
@@ -78,6 +80,9 @@ class HandoffHandler(BaseHandler):
                     "handoff",
                     "after_hours",
                     merchant.personality,
+                    include_transition=True,
+                    conversation_id=str(context.session_id),
+                    mode=_MODE,
                     business_hours=business_hours_str,
                 )
             else:
@@ -85,6 +90,9 @@ class HandoffHandler(BaseHandler):
                     "handoff",
                     "standard",
                     merchant.personality,
+                    include_transition=True,
+                    conversation_id=str(context.session_id),
+                    mode=_MODE,
                 )
         except Exception as e:
             logger.warning(
@@ -96,6 +104,9 @@ class HandoffHandler(BaseHandler):
                 "handoff",
                 "standard",
                 merchant.personality,
+                include_transition=True,
+                conversation_id=str(context.session_id),
+                mode=_MODE,
             )
 
         conversation = await self._update_conversation_handoff_status(

@@ -26,6 +26,8 @@ from app.services.conversation.schemas import (
 )
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+from app.services.personality.transition_phrases import TransitionCategory
+from app.services.personality.transition_selector import get_transition_selector
 from app.services.shopify.circuit_breaker import (
     CircuitOpenError,
     ShopifyCircuitBreaker,
@@ -138,12 +140,14 @@ class SearchHandler(BaseHandler):
                     formatted_products,
                     search_result.total_count,
                     merchant,
+                    context,
                 )
             else:
                 response_message = self._format_results_message(
                     formatted_products,
                     search_result.total_count,
                     merchant,
+                    context,
                 )
 
             logger.info(
@@ -334,18 +338,11 @@ class SearchHandler(BaseHandler):
         products: list[dict],
         total_count: int,
         merchant: Merchant,
+        context: ConversationContext | None = None,
     ) -> str:
-        """Format message for product recommendations.
-
-        Args:
-            products: List of recommended products
-            total_count: Total number of products available
-            merchant: Merchant configuration
-
-        Returns:
-            Formatted recommendation message
-        """
         business_name = merchant.business_name or "our store"
+        conversation_id = str(context.session_id) if context else None
+        mode = getattr(merchant, "onboarding_mode", None) or "ecommerce"
 
         if len(products) == 1:
             p = products[0]
@@ -354,6 +351,9 @@ class SearchHandler(BaseHandler):
                 "product_search",
                 "recommendation_single",
                 merchant.personality,
+                include_transition=True,
+                conversation_id=conversation_id,
+                mode=mode,
                 business_name=business_name,
                 title=p["title"],
                 price=price_str,
@@ -377,6 +377,9 @@ class SearchHandler(BaseHandler):
             "product_search",
             "recommendation_multiple",
             merchant.personality,
+            include_transition=True,
+            conversation_id=conversation_id,
+            mode=mode,
             business_name=business_name,
             products=products_str,
             more_options=more_options,
@@ -387,9 +390,11 @@ class SearchHandler(BaseHandler):
         products: list[dict],
         total_count: int,
         merchant: Merchant,
+        context: ConversationContext | None = None,
     ) -> str:
-        """Format message with product results."""
         business_name = merchant.business_name or "our store"
+        conversation_id = str(context.session_id) if context else None
+        mode = getattr(merchant, "onboarding_mode", None) or "ecommerce"
 
         if len(products) == 1:
             p = products[0]
@@ -398,6 +403,9 @@ class SearchHandler(BaseHandler):
                 "product_search",
                 "found_single",
                 merchant.personality,
+                include_transition=True,
+                conversation_id=conversation_id,
+                mode=mode,
                 business_name=business_name,
                 title=p["title"],
                 price=price_str,
@@ -409,15 +417,23 @@ class SearchHandler(BaseHandler):
             product_lines.append(f"• {p['title']}{price_str}")
         products_str = "\n".join(product_lines)
 
-        more_options = ""
         if total_count > 5:
-            more_options = f"\n...and {total_count - 5} more. Want me to show you more?"
-            products_str = f"{products_str}\n{more_options}"
+            selector = get_transition_selector()
+            offering = selector.select(
+                TransitionCategory.OFFERING_HELP,
+                merchant.personality,
+                conversation_id=conversation_id,
+                mode=mode,
+            )
+            products_str = f"{products_str}\n...and {total_count - 5} more. {offering}"
 
         return PersonalityAwareResponseFormatter.format_response(
             "product_search",
             "found_multiple",
             merchant.personality,
+            include_transition=True,
+            conversation_id=conversation_id,
+            mode=mode,
             business_name=business_name,
             products=products_str,
         )

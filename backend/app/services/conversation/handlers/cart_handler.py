@@ -31,6 +31,8 @@ from app.services.personality.response_formatter import PersonalityAwareResponse
 
 logger = structlog.get_logger(__name__)
 
+_MODE = "ecommerce"
+
 
 class CartHandler(BaseHandler):
     """Handler for cart-related intents.
@@ -48,19 +50,6 @@ class CartHandler(BaseHandler):
         context: ConversationContext,
         entities: dict[str, Any] | None = None,
     ) -> ConversationResponse:
-        """Handle cart intent based on type.
-
-        Args:
-            db: Database session
-            merchant: Merchant configuration
-            llm_service: LLM service for this merchant
-            message: User's message
-            context: Conversation context (includes shopping_state)
-            entities: Extracted entities (product info for add)
-
-        Returns:
-            ConversationResponse with cart state
-        """
         from app.services.cart.cart_service import CartService
         from app.services.conversation.cart_key_strategy import CartKeyStrategy
 
@@ -68,6 +57,7 @@ class CartHandler(BaseHandler):
         cart_key = CartKeyStrategy.get_key_for_context(context)
 
         intent = entities.get("cart_action", "view") if entities else "view"
+        conversation_id = str(context.session_id)
 
         try:
             if intent == "add":
@@ -77,13 +67,19 @@ class CartHandler(BaseHandler):
                     entities=entities or {},
                     merchant=merchant,
                     context=context,
+                    conversation_id=conversation_id,
                 )
             elif intent == "remove":
                 return await self._handle_remove(cart_service, cart_key, entities or {}, merchant)
             elif intent == "clear":
                 return await self._handle_clear(cart_service, cart_key, merchant)
             else:
-                return await self._handle_view(cart_service, cart_key, merchant)
+                return await self._handle_view(
+                    cart_service,
+                    cart_key,
+                    merchant,
+                    conversation_id=conversation_id,
+                )
 
         except Exception as e:
             logger.error(
@@ -108,8 +104,8 @@ class CartHandler(BaseHandler):
         cart_service: Any,
         cart_key: str,
         merchant: Merchant,
+        conversation_id: str | None = None,
     ) -> ConversationResponse:
-        """Handle cart view."""
         cart = await cart_service.get_cart(cart_key)
 
         if not cart.items:
@@ -118,6 +114,9 @@ class CartHandler(BaseHandler):
                     "cart",
                     "view_empty",
                     merchant.personality,
+                    include_transition=True,
+                    conversation_id=conversation_id,
+                    mode=_MODE,
                 ),
                 intent="cart_view",
                 confidence=1.0,
@@ -135,6 +134,9 @@ class CartHandler(BaseHandler):
             "cart",
             "view_items",
             merchant.personality,
+            include_transition=True,
+            conversation_id=conversation_id,
+            mode=_MODE,
             items=items_str,
             subtotal=f"{cart.subtotal:.2f}",
         )
@@ -153,14 +155,8 @@ class CartHandler(BaseHandler):
         entities: dict[str, Any],
         merchant: Merchant,
         context: ConversationContext | None = None,
+        conversation_id: str | None = None,
     ) -> ConversationResponse:
-        """Handle add to cart.
-
-        Enhanced to resolve anaphoric references from shopping_state.
-        If variant_id is missing, looks up product from last_viewed_products.
-
-        Story 5-11 GAP-4: Added consent check for cart operations.
-        """
         variant_id = entities.get("variant_id")
         title = entities.get("title", "Product")
         price = entities.get("price", 0)
@@ -266,6 +262,9 @@ class CartHandler(BaseHandler):
                 "cart",
                 "add_success",
                 merchant.personality,
+                include_transition=True,
+                conversation_id=conversation_id,
+                mode=_MODE,
                 title=title,
             ),
             intent="cart_add",

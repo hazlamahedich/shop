@@ -17,6 +17,12 @@ from typing import Any, ClassVar
 import structlog
 
 from app.models.merchant import PersonalityType
+from app.services.personality.transition_phrases import (
+    RESPONSE_TYPE_TO_TRANSITION,
+    TEMPLATES_WITH_OPENINGS,
+    TransitionCategory,
+)
+from app.services.personality.transition_selector import get_transition_selector
 
 logger = structlog.get_logger(__name__)
 
@@ -250,28 +256,26 @@ class PersonalityAwareResponseFormatter:
         response_type: str,
         message_key: str,
         personality: PersonalityType,
+        include_transition: bool = False,
+        conversation_id: str | None = None,
+        mode: str = "ecommerce",
         **kwargs: Any,
     ) -> str:
         """Format a response using personality-appropriate template.
 
-        Looks up template by response_type → personality → message_key,
-        then substitutes provided kwargs.
+        Story 11-4: Added include_transition for transition phrase prefixing.
 
         Args:
             response_type: Type of response (e.g., "product_search", "cart")
             message_key: Specific message template key (e.g., "found_single")
             personality: Merchant's personality type
+            include_transition: Whether to prepend a transition phrase
+            conversation_id: Conversation ID for anti-repetition tracking
+            mode: "ecommerce" or "general" for mode-specific transitions
             **kwargs: Variables to substitute in template
 
         Returns:
             Formatted message string
-
-        Examples:
-            >>> formatter.format_response(
-            ...     "cart", "add_success", PersonalityType.FRIENDLY,
-            ...     title="Snowboard Pro"
-            ... )
-            "Added Snowboard Pro to your cart! 🛒 Want to keep shopping or checkout?"
         """
         template = cls._get_template(response_type, message_key, personality)
 
@@ -285,7 +289,7 @@ class PersonalityAwareResponseFormatter:
             return cls._format_neutral_fallback(response_type, message_key, **kwargs)
 
         try:
-            return template.format(**kwargs)
+            formatted = template.format(**kwargs)
         except KeyError as e:
             logger.warning(
                 "template_substitution_failed",
@@ -294,6 +298,16 @@ class PersonalityAwareResponseFormatter:
                 missing_key=str(e),
             )
             return template
+
+        if include_transition and response_type in RESPONSE_TYPE_TO_TRANSITION:
+            if message_key in TEMPLATES_WITH_OPENINGS.get(response_type, set()):
+                return formatted
+            category = RESPONSE_TYPE_TO_TRANSITION[response_type]
+            selector = get_transition_selector()
+            transition = selector.select(category, personality, conversation_id, mode)
+            return f"{transition} {formatted}"
+
+        return formatted
 
     @classmethod
     def _get_template(

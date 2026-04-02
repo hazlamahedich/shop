@@ -34,6 +34,9 @@ from app.services.shopify.circuit_breaker import (
 logger = structlog.get_logger(__name__)
 
 
+_MODE = "ecommerce"
+
+
 class CheckoutHandler(BaseHandler):
     """Handler for CHECKOUT intent.
 
@@ -103,6 +106,9 @@ class CheckoutHandler(BaseHandler):
                     "checkout",
                     "ready",
                     merchant.personality,
+                    include_transition=True,
+                    conversation_id=str(context.session_id),
+                    mode=_MODE,
                     checkout_url=checkout_url,
                 ),
                 intent="checkout",

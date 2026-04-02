@@ -28,6 +28,8 @@ from app.services.intent.classification_schema import (
     IntentType,
 )
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.transition_phrases import TransitionCategory
+from app.services.personality.transition_selector import get_transition_selector
 
 logger = structlog.get_logger(__name__)
 
@@ -72,6 +74,7 @@ class ClarificationHandler(BaseHandler):
         question_generator = QuestionGenerator()
 
         context_dict = self._context_to_dict(context, entities)
+        conversation_id = str(context.session_id)
         clarification_state = context_dict.get("clarification", {})
 
         if clarification_state.get("active"):
@@ -83,6 +86,7 @@ class ClarificationHandler(BaseHandler):
                 context=context_dict,
                 clarification_service=clarification_service,
                 question_generator=question_generator,
+                conversation_id=conversation_id,
             )
 
         return await self._ask_first_question(
@@ -91,6 +95,7 @@ class ClarificationHandler(BaseHandler):
             entities=entities,
             context=context_dict,
             question_generator=question_generator,
+            conversation_id=conversation_id,
         )
 
     async def _handle_clarification_response(
@@ -102,6 +107,7 @@ class ClarificationHandler(BaseHandler):
         context: dict[str, Any],
         clarification_service: ClarificationService,
         question_generator: QuestionGenerator,
+        conversation_id: str | None = None,
     ) -> ConversationResponse:
         """Handle response to a clarification question.
 
@@ -166,6 +172,7 @@ class ClarificationHandler(BaseHandler):
             result=result,
             question_generator=question_generator,
             clarification_service=clarification_service,
+            conversation_id=conversation_id,
         )
 
     async def _ask_first_question(
@@ -175,6 +182,7 @@ class ClarificationHandler(BaseHandler):
         entities: dict[str, Any] | None,
         context: dict[str, Any],
         question_generator: QuestionGenerator,
+        conversation_id: str | None = None,
     ) -> ConversationResponse:
         """Ask the first clarification question.
 
@@ -218,6 +226,7 @@ class ClarificationHandler(BaseHandler):
             constraint=constraint,
             merchant=merchant,
             llm_service=llm_service,
+            conversation_id=conversation_id,
         )
 
         logger.info(
@@ -246,6 +255,7 @@ class ClarificationHandler(BaseHandler):
         result: ClassificationResult,
         question_generator: QuestionGenerator,
         clarification_service: ClarificationService,
+        conversation_id: str | None = None,
     ) -> ConversationResponse:
         """Ask the next clarification question.
 
@@ -256,6 +266,7 @@ class ClarificationHandler(BaseHandler):
             result: Re-classification result
             question_generator: Question generator
             clarification_service: Clarification service
+            conversation_id: Conversation ID for anti-repetition tracking
 
         Returns:
             ConversationResponse with next clarifying question
@@ -290,6 +301,7 @@ class ClarificationHandler(BaseHandler):
             constraint=constraint,
             merchant=merchant,
             llm_service=llm_service,
+            conversation_id=conversation_id,
         )
 
         logger.info(
@@ -316,32 +328,23 @@ class ClarificationHandler(BaseHandler):
         constraint: str,
         merchant: Merchant,
         llm_service: BaseLLMService,
+        conversation_id: str | None = None,
     ) -> str:
-        """Personalize question with merchant's personality.
-
-        Args:
-            question: Base question template
-            constraint: Constraint being asked about
-            merchant: Merchant configuration
-            llm_service: LLM service
-
-        Returns:
-            Personalized question string
-        """
-        personality_type = getattr(merchant, "personality_type", "friendly")
         business_name = getattr(merchant, "business_name", None)
 
-        if personality_type == "professional":
-            prefix = "To help you better, "
-        elif personality_type == "enthusiastic":
-            prefix = "Great question! "
-        else:
-            prefix = ""
+        selector = get_transition_selector()
+        transition = selector.select(
+            TransitionCategory.CLARIFYING,
+            merchant.personality,
+            conversation_id=conversation_id,
+            mode="ecommerce",
+        )
 
+        prefix = ""
         if business_name and constraint == "budget":
             prefix = f"At {business_name}, we have options for every budget. "
 
-        return f"{prefix}{question}"
+        return f"{transition} {prefix}{question}"
 
     def _context_to_dict(
         self,

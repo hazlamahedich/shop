@@ -27,6 +27,8 @@ from app.services.conversation.schemas import (
 )
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+from app.services.personality.transition_phrases import TransitionCategory
+from app.services.personality.transition_selector import get_transition_selector
 
 logger = structlog.get_logger(__name__)
 
@@ -167,14 +169,21 @@ class OrderHandler(BaseHandler):
                 context=context,
             )
 
-        # Use all orders from customer lookup (result.orders), fall back to
-        # single order for by-number lookups (result.order only).
         orders = result.orders if result.orders else [result.order]
+        conversation_id = str(context.session_id)
 
         if len(orders) == 1:
             order = orders[0]
             product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
-            response_text = tracking_service.format_order_response(order, product_images)
+            raw_response = tracking_service.format_order_response(order, product_images)
+            selector = get_transition_selector()
+            transition = selector.select(
+                TransitionCategory.SHOWING_RESULTS,
+                merchant.personality,
+                conversation_id=conversation_id,
+                mode="ecommerce",
+            )
+            response_text = f"{transition}\n\n{raw_response}"
             order_dict = {
                 "order_number": order.order_number,
                 "status": order.status,
@@ -191,8 +200,16 @@ class OrderHandler(BaseHandler):
                 )
                 formatted = tracking_service.format_order_response(order, product_images)
                 response_parts.append(formatted)
-            response_text = "\n\n---\n\n".join(response_parts)
-            order_dict = None  # multiple orders; caller uses the message text
+            raw_text = "\n\n---\n\n".join(response_parts)
+            selector = get_transition_selector()
+            transition = selector.select(
+                TransitionCategory.SHOWING_RESULTS,
+                merchant.personality,
+                conversation_id=conversation_id,
+                mode="ecommerce",
+            )
+            response_text = f"{transition}\n\n{raw_text}"
+            order_dict = None
 
         logger.info(
             "order_tracking_success",
@@ -263,8 +280,15 @@ class OrderHandler(BaseHandler):
                 merchant.personality,
                 customer_name=profile.first_name or "there",
             )
+            selector = get_transition_selector()
+            browse_phrase = selector.select(
+                TransitionCategory.OFFERING_HELP,
+                merchant.personality,
+                conversation_id=str(context.session_id),
+                mode="ecommerce",
+            )
             return ConversationResponse(
-                message=f"{welcome_msg} But I couldn't find any orders yet. Would you like to browse our products?",
+                message=f"{welcome_msg} But I couldn't find any orders yet. {browse_phrase}",
                 intent="order_tracking",
                 confidence=1.0,
             )
@@ -272,7 +296,15 @@ class OrderHandler(BaseHandler):
         if len(orders) == 1:
             order = orders[0]
             product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
-            response_text = tracking_service.format_order_response(order, product_images)
+            raw_response = tracking_service.format_order_response(order, product_images)
+            selector = get_transition_selector()
+            transition = selector.select(
+                TransitionCategory.SHOWING_RESULTS,
+                merchant.personality,
+                conversation_id=str(context.session_id),
+                mode="ecommerce",
+            )
+            response_text = f"{transition}\n\n{raw_response}"
         else:
             response_parts = []
             for order in orders:
@@ -281,7 +313,15 @@ class OrderHandler(BaseHandler):
                 )
                 formatted = tracking_service.format_order_response(order, product_images)
                 response_parts.append(formatted)
-            response_text = "\n\n---\n\n".join(response_parts)
+            raw_text = "\n\n---\n\n".join(response_parts)
+            selector = get_transition_selector()
+            transition = selector.select(
+                TransitionCategory.SHOWING_RESULTS,
+                merchant.personality,
+                conversation_id=str(context.session_id),
+                mode="ecommerce",
+            )
+            response_text = f"{transition}\n\n{raw_text}"
 
         device_link_msg = PersonalityAwareResponseFormatter.format_response(
             "order_tracking",
