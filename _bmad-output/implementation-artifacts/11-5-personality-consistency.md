@@ -642,7 +642,7 @@ Claude (Anthropic) via opencode
 
 ### Test Automation (TEA Workflow — 2026-04-03)
 
-- Generated 47 new integration tests in `backend/tests/integration/test_story_11_5_personality_integration.py` — all 47 PASS
+- Generated 47 new integration tests in `backend/tests/integration/story_11_5/` — all 47 PASS
 - Closed 12/12 coverage gaps across handler personality integration points:
   - LLM handler validation/reinforcement integration
   - Template compliance across all 3 personalities
@@ -651,6 +651,25 @@ Claude (Anthropic) via opencode
 - Verified 286/287 existing tests pass — fixed the 1 pre-existing failure:
   - `test_substitute_bot_name_with_default` assertion corrected: expected `"mantisbot"` (actual default) instead of `"your shopping assistant"`
 - Automation summary produced at `_bmad-output/automation-summary.md`
+
+### Test Refactoring (TEA Review — 2026-04-03)
+
+BMad TEA test-review scored 87/100 (B — Good). All findings addressed:
+
+- **File split**: 979-line monolith (`test_story_11_5_personality_integration.py`) split into 11 focused files under `backend/tests/integration/story_11_5/` (max 118 lines per file, well under 300-line guideline)
+- **DRY via parametrize**: 5 test classes with triple-personality patterns refactored to `@pytest.mark.parametrize`:
+  - `test_llm_handler_error_fallback.py` — classification leak + LLM exception (2 parametrized → 4 cases)
+  - `test_clarification_valueerror_fallback.py` — 3 personalities → 1 parametrized test
+  - `test_consent_handler_exception.py` — 3 personalities → 1 parametrized test
+  - `test_conversation_template_formatting.py` — 6 tests → 1 parametrized with 6 cases
+  - `test_llm_handler_system_prompt.py` — 3 tests → 1 parametrized with 3 cases
+- **Test IDs**: All 34 test functions decorated with `@pytest.mark.test_id("11-5-INT-001")` through `"11-5-INT-034"` (convention matches `test_rag_pipeline.py` format `"8-9-INT-009"`)
+- **Magic numbers replaced**: `unique_conv_id()` using `itertools.count(1)` replaces hardcoded conversation IDs (42, 43, 44, 45, 50-53)
+- **Inline imports fixed**: `__import__("re")` replaced with proper `import re` in `fixtures.py`
+- **Module-level side effect moved**: `register_conversation_templates()` called in `fixtures.py` (imported by all test files) instead of at module level
+- **Shared fixtures**: `conftest.py` (autouse `_reset_tracker`), `fixtures.py` (make_merchant, make_context, make_llm_service, count_emojis, unique_conv_id, EMOJI_REGEX)
+- **Original monolith deleted**: `test_story_11_5_personality_integration.py` removed
+- **All 47 tests pass** after refactoring (verified 1.45s)
 
 ### File List
 
@@ -667,7 +686,20 @@ Claude (Anthropic) via opencode
 - `backend/tests/unit/test_personality_reinforcement.py` — Reinforcement prompt tests
 - `backend/tests/unit/test_messenger_personality.py` — Messenger personality formatting tests
 - `backend/tests/unit/test_cross_channel_personality.py` — Cross-channel tone parity tests
-- `backend/tests/integration/test_story_11_5_personality_integration.py` — 47 TEA integration tests for handler personality integration
+- `backend/tests/integration/story_11_5/__init__.py` — Package marker
+- `backend/tests/integration/story_11_5/conftest.py` — Autouse `_reset_tracker` fixture
+- `backend/tests/integration/story_11_5/fixtures.py` — Shared helpers (make_merchant, make_context, make_llm_service, count_emojis, unique_conv_id, EMOJI_REGEX)
+- `backend/tests/integration/story_11_5/test_llm_handler_post_response.py` — 5 tests, IDs 001-005
+- `backend/tests/integration/story_11_5/test_llm_handler_reinforcement.py` — 5 tests, IDs 006-010
+- `backend/tests/integration/story_11_5/test_conversation_template_compliance.py` — 8 tests, IDs 011-018
+- `backend/tests/integration/story_11_5/test_llm_handler_error_fallback.py` — 2 parametrized → 4 cases, IDs 019-020
+- `backend/tests/integration/story_11_5/test_clarification_valueerror_fallback.py` — 1 parametrized → 3 cases, ID 021
+- `backend/tests/integration/story_11_5/test_clarification_personalize_question.py` — 3 tests, IDs 022-024
+- `backend/tests/integration/story_11_5/test_general_mode_fallback.py` — 2 tests, IDs 025-026
+- `backend/tests/integration/story_11_5/test_consent_handler_exception.py` — 1 parametrized → 3 cases, ID 027
+- `backend/tests/integration/story_11_5/test_forget_preferences_error_paths.py` — 5 tests, IDs 028-032
+- `backend/tests/integration/story_11_5/test_conversation_template_formatting.py` — 1 parametrized → 6 cases, ID 033
+- `backend/tests/integration/story_11_5/test_llm_handler_system_prompt.py` — 1 parametrized → 3 cases, ID 034
 
 **Modified files:**
 - `backend/app/services/messaging/message_processor.py` — Migrated 16 hardcoded strings to `self._fmt()` (AC8)
