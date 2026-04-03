@@ -41,8 +41,13 @@ from app.services.intent import IntentClassifier, IntentType
 from app.services.messaging.conversation_context import ConversationContextManager
 from app.services.messenger import CartFormatter, MessengerProductFormatter, MessengerSendService
 from app.services.order_tracking import OrderLookupType, OrderTrackingService
+from app.models.merchant import PersonalityType
 from app.services.personality import BotResponseService
+from app.services.personality.messenger_templates import register_messenger_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 from app.services.session import SessionService
+
+register_messenger_templates()
 from app.services.shopify import ProductSearchService
 from app.services.shopify_storefront import ShopifyStorefrontClient
 
@@ -121,6 +126,8 @@ class MessageProcessor:
 
         self._order_tracking_service: OrderTrackingService | None = None
 
+        self._personality: PersonalityType | None = None
+
     async def _get_shopify_client(self) -> ShopifyStorefrontClient:
         """Get or create a Shopify client for the merchant.
 
@@ -193,54 +200,60 @@ class MessageProcessor:
             self._order_tracking_service = OrderTrackingService()
         return self._order_tracking_service
 
-    async def _get_personality_greeting(self) -> str:
-        """Get personality-based greeting message (Story 1.10).
+    async def _get_personality(self) -> PersonalityType:
+        """Load merchant personality from DB (Story 11-5).
+
+        Caches result per-instance since personality doesn't change
+        during a processor's lifetime.
 
         Returns:
-            Greeting message appropriate for merchant's personality type
+            PersonalityType for the merchant, defaults to FRIENDLY.
         """
-        if self.merchant_id:
-            try:
-                from app.core.database import async_session
+        if self._personality is not None:
+            return self._personality
+        if not self.merchant_id:
+            self._personality = PersonalityType.FRIENDLY
+            return self._personality
+        try:
+            from sqlalchemy import select
 
-                async with async_session() as db:
-                    return await self._get_bot_response_service().get_greeting(self.merchant_id, db)
-            except Exception as e:
-                self.logger.warning(
-                    "personality_greeting_failed", merchant_id=self.merchant_id, error=str(e)
-                )
-        # Default fallback greeting (when no merchant_id or error occurs)
-        return "Hi! How can I help you today?"
+            from app.core.database import async_session
+            from app.models.merchant import Merchant
+
+            async with async_session() as db:
+                result = await db.execute(select(Merchant).where(Merchant.id == self.merchant_id))
+                merchant = result.scalars().first()
+                if merchant and merchant.personality:
+                    self._personality = merchant.personality
+                    return self._personality
+        except Exception as e:
+            self.logger.warning(
+                "personality_load_failed", merchant_id=self.merchant_id, error=str(e)
+            )
+        self._personality = PersonalityType.FRIENDLY
+        return self._personality
+
+    def _fmt(self, key: str, personality: PersonalityType, **kwargs: Any) -> str:
+        """Format a messenger template with personality (Story 11-5)."""
+        return PersonalityAwareResponseFormatter.format_response(
+            "messenger", key, personality, validate=True, **kwargs
+        )
+
+    async def _get_personality_greeting(self) -> str:
+        """Get personality-based greeting message (Story 1.10, 11-5)."""
+        personality = await self._get_personality()
+        return self._fmt("greeting", personality)
 
     async def _get_personality_error(self) -> str:
-        """Get personality-based error message (Story 1.10).
-
-        Returns:
-            Error message appropriate for merchant's personality type
-        """
-        if self.merchant_id:
-            try:
-                from app.core.database import async_session
-
-                async with async_session() as db:
-                    return await self._get_bot_response_service().get_error_response(
-                        self.merchant_id, db
-                    )
-            except Exception as e:
-                self.logger.warning(
-                    "personality_error_failed", merchant_id=self.merchant_id, error=str(e)
-                )
-        # Default fallback error
-        return "Sorry, I encountered an error. Please try again."
+        """Get personality-based error message (Story 1.10, 11-5)."""
+        personality = await self._get_personality()
+        return self._fmt("error", personality)
 
     async def _get_handoff_message(self) -> str:
-        """Get business hours-aware handoff message (Stories 3.10, 4-12).
-
-        Returns:
-            Handoff message with business hours info and expected response time
-        """
+        """Get business hours-aware handoff message (Stories 3.10, 4-12)."""
+        personality = await self._get_personality()
         if not self.merchant_id:
-            return "Connecting you to a human agent..."
+            return self._fmt("handoff", personality)
 
         try:
             from sqlalchemy import select
@@ -253,7 +266,7 @@ class MessageProcessor:
                 merchant = result.scalars().first()
 
                 if not merchant:
-                    return "Connecting you to a human agent..."
+                    return self._fmt("handoff", personality)
 
                 service = BusinessHoursHandoffService()
                 return service.build_handoff_message(merchant.business_hours_config)
@@ -262,7 +275,7 @@ class MessageProcessor:
             self.logger.warning(
                 "handoff_message_failed", merchant_id=self.merchant_id, error=str(e)
             )
-            return "Connecting you to a human agent..."
+            return self._fmt("handoff", personality)
 
     async def _check_handoff(
         self,
@@ -481,11 +494,7 @@ class MessageProcessor:
 
                     # Get merchant details for personality rephrasing
                     business_name = merchant.business_name if merchant else None
-                    bot_name = (
-                        merchant.bot_name
-                        if merchant and merchant.bot_name
-                        else "Mantisbot"
-                    )
+                    bot_name = merchant.bot_name if merchant and merchant.bot_name else "Mantisbot"
                     personality_type = (
                         merchant.personality
                         if merchant and merchant.personality
@@ -698,8 +707,9 @@ class MessageProcessor:
                         merchant_id=self.merchant_id,
                         pause_reason=pause_reason,
                     )
+                    personality = await self._get_personality()
                     return MessengerResponse(
-                        text="I'm currently unavailable. Please contact support or try again later.",
+                        text=self._fmt("unavailable", personality),
                         recipient_id=psid,
                     )
 
@@ -724,10 +734,10 @@ class MessageProcessor:
                 if should_welcome:
                     item_count = await self.session_service.get_cart_item_count(psid)
                     self.logger.info("returning_shopper_welcome", psid=psid, item_count=item_count)
-                    welcome_back = (
-                        f"Welcome back! You have {item_count} "
-                        f"item{'s' if item_count != 1 else ''} in your cart. "
-                        "Type 'cart' to view."
+                    personality = await self._get_personality()
+                    s = "s" if item_count != 1 else ""
+                    welcome_back = self._fmt(
+                        "welcome_back", personality, item_count=item_count, s=s
                     )
                     send_service = MessengerSendService()
                     await send_service.send_message(psid, {"text": welcome_back})
@@ -824,6 +834,8 @@ class MessageProcessor:
         self.logger.info("postback_processing_start", psid=psid, payload=payload)
 
         try:
+            personality = await self._get_personality()
+
             # Load conversation context
             context = await self.context_manager.get_context(psid)
 
@@ -844,10 +856,9 @@ class MessageProcessor:
                 variant_id = parts[1]
                 return await self._handle_adjust_quantity(psid, variant_id, "decrease", context)
 
-            # Continue shopping action
             elif action == "continue_shopping":
                 return MessengerResponse(
-                    text="What else can I help you find? Type a product or category.",
+                    text=self._fmt("postback_continue", personality),
                     recipient_id=psid,
                 )
 
@@ -868,26 +879,26 @@ class MessageProcessor:
             # Browse/Search products (empty cart actions)
             elif action == "browse_products":
                 return MessengerResponse(
-                    text="What category of products are you interested in?",
+                    text=self._fmt("postback_browse", personality),
                     recipient_id=psid,
                 )
 
             elif action == "search_products":
                 return MessengerResponse(
-                    text="What would you like to search for?",
+                    text=self._fmt("postback_search", personality),
                     recipient_id=psid,
                 )
 
             else:
                 return MessengerResponse(
-                    text="Sorry, I didn't understand that action. Please try again.",
+                    text=self._fmt("postback_unknown", personality),
                     recipient_id=psid,
                 )
 
         except Exception as e:
             self.logger.error("postback_processing_failed", psid=psid, error=str(e))
             return MessengerResponse(
-                text="Sorry, I encountered an error. Please try again.",
+                text=self._fmt("error", personality),
                 recipient_id=psid,
             )
 
@@ -959,8 +970,9 @@ class MessageProcessor:
             return await self._handle_forget_preferences(psid)
 
         else:  # UNKNOWN or unhandled
+            personality = await self._get_personality()
             return MessengerResponse(
-                text="I'm not sure what you're looking for. Could you provide more details?",
+                text=self._fmt("fallback", personality),
                 recipient_id=psid,
             )
 
@@ -1160,34 +1172,31 @@ class MessageProcessor:
         Returns:
             Messenger response with confirmation or error
         """
+        personality = await self._get_personality()
+
         # Check consent status (Story 2.7: opt-in flow)
         consent_status = await self.consent_service.get_consent(psid)
         if consent_status == ConsentStatus.PENDING:
-            # Store product info temporarily and request consent
             return await self._request_consent(psid, product_id, variant_id, context)
 
-        # Get cart service using shared Redis client from context manager
         cart_service = CartService(redis_client=self.context_manager.redis)
 
-        # Extract product info from context (last viewed products)
         last_search = context.get("last_search_results", {})
         products = last_search.get("products", [])
 
         if not products:
             self.logger.warning("cart_add_no_products", psid=psid)
             return MessengerResponse(
-                text="Sorry, I don't know which product to add. Please search for products first.",
+                text=self._fmt("no_product", personality),
                 recipient_id=psid,
             )
 
-        # Find the product in last search results
         product_data = None
         variant_data = None
 
         for p in products:
             if p.get("id") == product_id:
                 product_data = p
-                # Find variant
                 for v in p.get("variants", []):
                     if v.get("id") == variant_id:
                         variant_data = v
@@ -1197,28 +1206,26 @@ class MessageProcessor:
         if not product_data:
             self.logger.warning("cart_add_product_not_found", psid=psid, product_id=product_id)
             return MessengerResponse(
-                text="Sorry, I couldn't find that product. Please search again.",
+                text=self._fmt("product_not_found", personality),
                 recipient_id=psid,
             )
 
         if not variant_data:
             self.logger.warning("cart_add_variant_not_found", psid=psid, variant_id=variant_id)
             return MessengerResponse(
-                text="Sorry, that product variant is not available.",
+                text=self._fmt("variant_unavailable", personality),
                 recipient_id=psid,
             )
 
-        # Check availability
         if not variant_data.get("available_for_sale", False):
             self.logger.info(
                 "cart_add_out_of_stock", psid=psid, product_id=product_id, variant_id=variant_id
             )
             return MessengerResponse(
-                text=f"Sorry, '{product_data.get('title')}' is currently out of stock.",
+                text=self._fmt("out_of_stock", personality, title=product_data.get("title")),
                 recipient_id=psid,
             )
 
-        # Add to cart
         try:
             cart = await cart_service.add_item(
                 psid=psid,
@@ -1240,14 +1247,19 @@ class MessageProcessor:
             )
 
             return MessengerResponse(
-                text=f"Added {product_data.get('title')} (${variant_data.get('price')}) to your cart. View cart: [View Cart] button or type 'cart'",
+                text=self._fmt(
+                    "cart_confirm",
+                    personality,
+                    title=product_data.get("title"),
+                    price=variant_data.get("price"),
+                ),
                 recipient_id=psid,
             )
 
         except Exception as e:
             self.logger.error("cart_add_failed", psid=psid, product_id=product_id, error=str(e))
             return MessengerResponse(
-                text="Sorry, I encountered an error adding that item to your cart. Please try again.",
+                text=self._fmt("cart_add_error", personality),
                 recipient_id=psid,
             )
 
@@ -1272,8 +1284,9 @@ class MessageProcessor:
         products = last_search.get("products", [])
 
         if not products:
+            personality = await self._get_personality()
             return MessengerResponse(
-                text="Sorry, I don't know which product to add. Please search for products first.",
+                text=self._fmt("no_product", personality),
                 recipient_id=psid,
             )
 
@@ -1330,8 +1343,9 @@ class MessageProcessor:
 
         except Exception as e:
             self.logger.error("view_cart_failed", psid=psid, error=str(e))
+            personality = await self._get_personality()
             return MessengerResponse(
-                text="Sorry, I couldn't retrieve your cart. Please try again.",
+                text=self._fmt("cart_view_error", personality),
                 recipient_id=psid,
             )
 
@@ -1354,6 +1368,7 @@ class MessageProcessor:
         cart_service = CartService(redis_client=self.context_manager.redis)
 
         try:
+            personality = await self._get_personality()
             # Get cart before removal (for product name)
             cart = await cart_service.get_cart(psid)
             removed_item = None
@@ -1390,17 +1405,18 @@ class MessageProcessor:
                 item_title=removed_item.title if removed_item else "unknown",
             )
 
-            # Return text message with confirmation
-            prefix = f"Removed {removed_item.title if removed_item else 'item'} from cart. "
+            item_name = removed_item.title if removed_item else "item"
             if not cart.items:
-                prefix += "Your cart is now empty. Let's find some more products!"
+                prefix = self._fmt("cart_removed_empty", personality, item=item_name)
+            else:
+                prefix = self._fmt("cart_removed", personality, item=item_name)
 
             return MessengerResponse(text=prefix, recipient_id=psid)
 
         except Exception as e:
             self.logger.error("remove_item_failed", psid=psid, variant_id=variant_id, error=str(e))
             return MessengerResponse(
-                text="Sorry, I couldn't remove that item. Please try again.",
+                text=self._fmt("cart_remove_error", personality),
                 recipient_id=psid,
             )
 
@@ -1482,7 +1498,7 @@ class MessageProcessor:
                 error=str(e),
             )
             return MessengerResponse(
-                text="Sorry, I couldn't update the quantity. Please try again.",
+                text=self._fmt("cart_quantity_error", await self._get_personality()),
                 recipient_id=psid,
             )
 
@@ -1504,19 +1520,17 @@ class MessageProcessor:
 
             self.logger.info("forget_preferences_success", psid=psid, voluntary_data_cleared=True)
 
-            # Send confirmation with data tier explanation
+            personality = await self._get_personality()
             return MessengerResponse(
-                text=(
-                    "I've forgotten your cart and preferences. "
-                    "Your order references are kept for business purposes."
-                ),
+                text=self._fmt("forget_success", personality),
                 recipient_id=psid,
             )
 
         except Exception as e:
             self.logger.error("forget_preferences_failed", psid=psid, error=str(e))
+            personality = await self._get_personality()
             return MessengerResponse(
-                text="Sorry, I couldn't clear your data. Please try again.",
+                text=self._fmt("forget_error", personality),
                 recipient_id=psid,
             )
 
@@ -1561,7 +1575,7 @@ class MessageProcessor:
                 "consent_request_product_not_found", psid=psid, product_id=product_id
             )
             return MessengerResponse(
-                text="Sorry, I couldn't find that product. Please search again.",
+                text=self._fmt("product_not_found", personality),
                 recipient_id=psid,
             )
 
@@ -1589,17 +1603,18 @@ class MessageProcessor:
 
         # Send consent request with quick reply buttons via MessengerSendService
         send_service = MessengerSendService()
+        personality = await self._get_personality()
         consent_message = {
-            "text": "To remember your cart for next time, I'll save it. OK?",
+            "text": self._fmt("consent_prompt", personality),
             "quick_replies": [
                 {
                     "content_type": "text",
-                    "title": "Yes, save my cart",
+                    "title": self._fmt("consent_yes", personality),
                     "payload": f"CONSENT:YES:{product_id}:{variant_id}",
                 },
                 {
                     "content_type": "text",
-                    "title": "No, don't save",
+                    "title": self._fmt("consent_no", personality),
                     "payload": f"CONSENT:NO:{product_id}:{variant_id}",
                 },
             ],
@@ -1624,6 +1639,8 @@ class MessageProcessor:
         Returns:
             Messenger response with confirmation or next action
         """
+        personality = await self._get_personality()
+
         # Parse consent response
         consent_choice = parts[1]  # YES or NO
         product_id = parts[2] if len(parts) > 2 else None
@@ -1678,33 +1695,38 @@ class MessageProcessor:
                     )
 
                     return MessengerResponse(
-                        text=f"Great! I've added {pending['title']} (${pending['price']}) to your cart. Your cart will be saved for 24 hours.",
+                        text=self._fmt(
+                            "consent_added",
+                            personality,
+                            title=pending["title"],
+                            price=pending["price"],
+                        ),
                         recipient_id=psid,
                     )
 
                 except Exception as e:
                     self.logger.error("cart_add_after_consent_failed", psid=psid, error=str(e))
                     return MessengerResponse(
-                        text="Sorry, I encountered an error adding that item. Please try again.",
+                        text=self._fmt("consent_add_error", personality),
                         recipient_id=psid,
                     )
             else:
                 # Pending data expired - ask user to try again
                 return MessengerResponse(
-                    text="Your cart session expired. Please search for the product again and add it.",
+                    text=self._fmt("consent_expired", personality),
                     recipient_id=psid,
                 )
 
         elif consent_granted:
             # User opted in but no pending product
             return MessengerResponse(
-                text="Thanks! I'll save your cart for next time. What would you like to add?",
+                text=self._fmt("consent_granted", personality),
                 recipient_id=psid,
             )
         else:
             # User opted out
             return MessengerResponse(
-                text="No problem. I won't save your cart. You can still shop, but your cart will be cleared when you close this chat.",
+                text=self._fmt("consent_denied", personality),
                 recipient_id=psid,
             )
 
@@ -1765,7 +1787,7 @@ class MessageProcessor:
                 error=str(e),
             )
             return MessengerResponse(
-                text="Sorry, I encountered an error during checkout. Please try again.",
+                text=self._fmt("checkout_error", await self._get_personality()),
                 recipient_id=psid,
             )
 
@@ -1797,8 +1819,9 @@ class MessageProcessor:
             Messenger response with order status or prompt for order number
         """
         if not self.merchant_id:
+            personality = await self._get_personality()
             return MessengerResponse(
-                text="Order tracking is not available. Please contact support.",
+                text=self._fmt("unavailable", personality),
                 recipient_id=psid,
             )
 
@@ -1896,6 +1919,6 @@ class MessageProcessor:
                 error=str(e),
             )
             return MessengerResponse(
-                text="Sorry, I couldn't look up your order right now. Please try again.",
+                text=self._fmt("order_error", await self._get_personality()),
                 recipient_id=psid,
             )

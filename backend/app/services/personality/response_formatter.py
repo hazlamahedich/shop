@@ -259,11 +259,13 @@ class PersonalityAwareResponseFormatter:
         include_transition: bool = False,
         conversation_id: str | None = None,
         mode: str = "ecommerce",
+        validate: bool = False,
         **kwargs: Any,
     ) -> str:
         """Format a response using personality-appropriate template.
 
         Story 11-4: Added include_transition for transition phrase prefixing.
+        Story 11-5: Added validate for optional personality validation logging.
 
         Args:
             response_type: Type of response (e.g., "product_search", "cart")
@@ -272,6 +274,7 @@ class PersonalityAwareResponseFormatter:
             include_transition: Whether to prepend a transition phrase
             conversation_id: Conversation ID for anti-repetition tracking
             mode: "ecommerce" or "general" for mode-specific transitions
+            validate: If True, run personality validation and log violations
             **kwargs: Variables to substitute in template
 
         Returns:
@@ -301,13 +304,45 @@ class PersonalityAwareResponseFormatter:
 
         if include_transition and response_type in RESPONSE_TYPE_TO_TRANSITION:
             if message_key in TEMPLATES_WITH_OPENINGS.get(response_type, set()):
+                if validate:
+                    cls._run_validation(formatted, personality, response_type, message_key)
                 return formatted
             category = RESPONSE_TYPE_TO_TRANSITION[response_type]
             selector = get_transition_selector()
             transition = selector.select(category, personality, conversation_id, mode)
-            return f"{transition} {formatted}"
+            result = f"{transition} {formatted}"
+            if validate:
+                cls._run_validation(result, personality, response_type, message_key)
+            return result
 
+        if validate:
+            cls._run_validation(formatted, personality, response_type, message_key)
         return formatted
+
+    @classmethod
+    def _run_validation(
+        cls,
+        text: str,
+        personality: PersonalityType,
+        response_type: str,
+        message_key: str,
+    ) -> None:
+        """Run personality validation on formatted text (advisory only).
+
+        Logs violations as warnings but never blocks the response.
+        """
+        from app.services.personality.personality_validator import validate_personality
+
+        result = validate_personality(text, personality)
+        if not result.passed:
+            logger.warning(
+                "personality_validation_violation",
+                response_type=response_type,
+                message_key=message_key,
+                personality=personality.value,
+                violations=result.violations,
+                severity=result.severity,
+            )
 
     @classmethod
     def _get_template(

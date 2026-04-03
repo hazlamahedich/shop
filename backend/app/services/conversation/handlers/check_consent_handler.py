@@ -13,7 +13,7 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, PersonalityType
 from app.schemas.consent import ConsentStatus
 from app.services.consent.consent_prompt_service import ConsentPromptService
 from app.services.consent.extended_consent_service import ConversationConsentService
@@ -23,6 +23,10 @@ from app.services.conversation.schemas import (
     ConversationResponse,
 )
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.conversation_templates import register_conversation_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+
+register_conversation_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -129,7 +133,11 @@ class CheckConsentHandler(BaseHandler):
                 exc_info=True,
             )
             return ConversationResponse(
-                message="I couldn't check your preferences right now. Please try again later.",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "conversation",
+                    "consent_check_error",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                ),
                 intent="check_consent_status",
                 confidence=1.0,
                 checkout_url=None,

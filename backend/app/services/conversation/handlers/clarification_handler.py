@@ -14,7 +14,7 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, PersonalityType
 from app.services.clarification import ClarificationService
 from app.services.clarification.question_generator import QuestionGenerator
 from app.services.conversation.handlers.base_handler import BaseHandler
@@ -28,8 +28,13 @@ from app.services.intent.classification_schema import (
     IntentType,
 )
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.conversation_templates import register_conversation_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 from app.services.personality.transition_phrases import TransitionCategory
+
 from app.services.personality.transition_selector import get_transition_selector
+
+register_conversation_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -215,7 +220,11 @@ class ClarificationHandler(BaseHandler):
             )
         except ValueError:
             return ConversationResponse(
-                message="I'm not sure what you're looking for. Could you tell me more?",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "conversation",
+                    "clarification_fallback",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                ),
                 intent="clarification",
                 confidence=0.5,
                 metadata={"error": "no_questions"},

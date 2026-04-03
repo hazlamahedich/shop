@@ -622,3 +622,124 @@ class TestFullConversationFlow:
         assert "!!!" in search_result or "AMAZING" in search_result.upper()
         assert "WOOHOO" in cart_result or "!!!" in cart_result
         assert "!!!" in checkout_result or "LOVE" in checkout_result.upper()
+
+
+class TestMultiTurnPersonalityConsistency:
+    """Story 11-5 AC1: Multi-turn personality consistency using PersonalityTracker."""
+
+    @pytest.mark.asyncio
+    async def test_friendly_remains_consistent_across_turns(self):
+        from app.services.personality.personality_tracker import get_personality_tracker
+
+        tracker = get_personality_tracker()
+        conv_id = "test-multi-turn-friendly"
+        tracker.clear_conversation(conv_id)
+
+        responses = [
+            PersonalityAwareResponseFormatter.format_response(
+                "product_search",
+                "found_single",
+                PersonalityType.FRIENDLY,
+                business_name="Store",
+                title="Shoes",
+                price=" $50",
+            ),
+            PersonalityAwareResponseFormatter.format_response(
+                "cart",
+                "add_success",
+                PersonalityType.FRIENDLY,
+                title="Shoes",
+            ),
+            PersonalityAwareResponseFormatter.format_response(
+                "checkout",
+                "ready",
+                PersonalityType.FRIENDLY,
+                checkout_url="https://example.com/co",
+            ),
+        ]
+
+        for i, resp in enumerate(responses):
+            tracker.record_validation(
+                conv_id, PersonalityType.FRIENDLY, passed=True, turn_number=i + 1
+            )
+
+        assert not tracker.is_drifting(conv_id)
+        assert tracker.get_consistency_score(conv_id) == 1.0
+        tracker.clear_conversation(conv_id)
+
+    @pytest.mark.asyncio
+    async def test_drift_detected_after_consecutive_violations(self):
+        from app.services.personality.personality_tracker import get_personality_tracker
+
+        tracker = get_personality_tracker()
+        conv_id = "test-drift-detection"
+        tracker.clear_conversation(conv_id)
+
+        for turn in range(1, 8):
+            tracker.record_validation(
+                conv_id, PersonalityType.PROFESSIONAL, passed=False, turn_number=turn
+            )
+
+        assert tracker.is_drifting(conv_id)
+        assert tracker.get_consistency_score(conv_id) < 0.7
+        tracker.clear_conversation(conv_id)
+
+    @pytest.mark.asyncio
+    async def test_conversation_templates_match_across_channels(self):
+        from app.services.personality.conversation_templates import register_conversation_templates
+
+        register_conversation_templates()
+        for personality in PersonalityType:
+            messenger_fallback = PersonalityAwareResponseFormatter.format_response(
+                "messenger",
+                "fallback",
+                personality,
+            )
+            conv_fallback = PersonalityAwareResponseFormatter.format_response(
+                "conversation",
+                "clarification_fallback",
+                personality,
+            )
+            assert isinstance(messenger_fallback, str)
+            assert isinstance(conv_fallback, str)
+            assert len(messenger_fallback) > 0
+            assert len(conv_fallback) > 0
+
+
+class TestPersonalityTrackerConcurrency:
+    """Story 11-5: Tracker handles multiple conversations simultaneously."""
+
+    def test_multiple_conversations_independent(self):
+        from app.services.personality.personality_tracker import get_personality_tracker
+
+        tracker = get_personality_tracker()
+        conv_a = "conv-a-001"
+        conv_b = "conv-b-002"
+        tracker.clear_conversation(conv_a)
+        tracker.clear_conversation(conv_b)
+
+        for turn in range(1, 6):
+            tracker.record_validation(
+                conv_a, PersonalityType.FRIENDLY, passed=True, turn_number=turn
+            )
+        for turn in range(1, 6):
+            tracker.record_validation(
+                conv_b, PersonalityType.PROFESSIONAL, passed=False, turn_number=turn
+            )
+
+        assert not tracker.is_drifting(conv_a)
+        assert tracker.is_drifting(conv_b)
+        assert tracker.get_consistency_score(conv_a) == 1.0
+        assert tracker.get_consistency_score(conv_b) < 0.7
+        tracker.clear_conversation(conv_a)
+        tracker.clear_conversation(conv_b)
+
+    def test_tracker_reset_clears_all(self):
+        from app.services.personality.personality_tracker import get_personality_tracker
+
+        tracker = get_personality_tracker()
+        tracker.record_validation("r1", PersonalityType.FRIENDLY, passed=True, turn_number=1)
+        tracker.record_validation("r2", PersonalityType.PROFESSIONAL, passed=False, turn_number=1)
+        tracker.reset()
+        assert tracker.get_consistency_score("r1") == 0.0
+        assert tracker.get_consistency_score("r2") == 0.0

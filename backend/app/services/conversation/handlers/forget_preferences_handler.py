@@ -17,7 +17,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError, ErrorCode
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, PersonalityType
 from app.services.consent.consent_prompt_service import ConsentPromptService
 from app.services.consent.extended_consent_service import ConversationConsentService
 from app.services.conversation.handlers.base_handler import BaseHandler
@@ -26,6 +26,10 @@ from app.services.conversation.schemas import (
     ConversationResponse,
 )
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.conversation_templates import register_conversation_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+
+register_conversation_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -97,7 +101,11 @@ class ForgetPreferencesHandler(BaseHandler):
                     session_id=context.session_id,
                 )
                 return ConversationResponse(
-                    message="You've already requested data deletion recently. Please wait before trying again.",
+                    message=PersonalityAwareResponseFormatter.format_response(
+                        "conversation",
+                        "forget_rate_limited",
+                        merchant.personality or PersonalityType.FRIENDLY,
+                    ),
                     intent="forget_preferences",
                     confidence=1.0,
                     checkout_url=None,
@@ -120,7 +128,11 @@ class ForgetPreferencesHandler(BaseHandler):
                 error=str(e),
             )
             return ConversationResponse(
-                message="I encountered an error while trying to delete your preferences. Please try again later.",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "conversation",
+                    "forget_error",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                ),
                 intent="forget_preferences",
                 confidence=1.0,
                 checkout_url=None,
@@ -144,7 +156,11 @@ class ForgetPreferencesHandler(BaseHandler):
                 exc_info=True,
             )
             return ConversationResponse(
-                message="I encountered an unexpected error. Please try again later.",
+                message=PersonalityAwareResponseFormatter.format_response(
+                    "conversation",
+                    "forget_unexpected_error",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                ),
                 intent="forget_preferences",
                 confidence=1.0,
                 checkout_url=None,

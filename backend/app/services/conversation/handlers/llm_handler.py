@@ -25,6 +25,15 @@ from app.services.conversation.schemas import (
 from app.services.conversation_context import ConversationContextService
 from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
 from app.services.personality.personality_prompts import get_personality_system_prompt
+from app.services.personality.personality_reinforcement import (
+    get_personality_reinforcement,
+)
+from app.services.personality.personality_tracker import get_personality_tracker
+from app.services.personality.personality_validator import validate_personality
+from app.services.personality.conversation_templates import register_conversation_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+
+register_conversation_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -86,6 +95,11 @@ class LLMHandler(BaseHandler):
         personality_type: PersonalityType = merchant.personality or PersonalityType.FRIENDLY
 
         pending_state = self._get_pending_state(context)
+        turn_number = len(context.conversation_history) + 1
+
+        conv_id: str | None = (
+            str(context.conversation_id) if context.conversation_id is not None else None
+        )
 
         system_prompt = await self._build_system_prompt(
             db=db,
@@ -94,14 +108,14 @@ class LLMHandler(BaseHandler):
             business_name=business_name,
             personality_type=personality_type,
             pending_state=pending_state,
+            turn_number=turn_number,
+            conversation_id=conv_id,
         )
 
         # Story 11-1: Inject conversation context into system prompt
         if conversation_context:
             system_prompt = self._inject_conversation_context(
-                system_prompt,
-                conversation_context,
-                merchant.onboarding_mode or "ecommerce"
+                system_prompt, conversation_context, merchant.onboarding_mode or "ecommerce"
             )
 
         if rag_context:
@@ -118,7 +132,9 @@ class LLMHandler(BaseHandler):
                 merchant_id=merchant.id,
                 message="No relevant knowledge base information found",
             )
-            system_prompt = self._add_no_rag_note(system_prompt, business_name, merchant.onboarding_mode)
+            system_prompt = self._add_no_rag_note(
+                system_prompt, business_name, merchant.onboarding_mode
+            )
 
         messages = [LLMMessage(role="system", content=system_prompt)]
 
@@ -152,16 +168,22 @@ class LLMHandler(BaseHandler):
                     merchant_id=merchant.id,
                     raw_response=response_text[:200],
                 )
-                response_text = f"I'd be happy to help you with that! Could you tell me a bit more?"
+                response_text = PersonalityAwareResponseFormatter.format_response(
+                    "conversation",
+                    "llm_classification_leak",
+                    personality_type,
+                )
         except Exception as e:
             logger.warning(
                 "llm_handler_fallback",
                 merchant_id=merchant.id,
                 error=str(e),
             )
-            response_text = (
-                f"I'm here to help you shop at {business_name}! "
-                "You can ask me about products, check your cart, or place an order."
+            response_text = PersonalityAwareResponseFormatter.format_response(
+                "conversation",
+                "llm_fallback",
+                personality_type,
+                business_name=business_name,
             )
 
         products = None
@@ -177,6 +199,23 @@ class LLMHandler(BaseHandler):
 
         # Determine response type based on whether RAG context was used
         response_type = "rag" if rag_context else "general"
+
+        if conv_id and response_text:
+            validation = validate_personality(response_text, personality_type)
+            tracker = get_personality_tracker()
+            tracker.record_validation(
+                conv_id,
+                personality_type,
+                passed=validation.passed,
+                turn_number=turn_number,
+            )
+            if tracker.is_drifting(conv_id):
+                logger.warning(
+                    "personality_drift_detected",
+                    conversation_id=conv_id,
+                    personality=personality_type.value,
+                    consistency_score=tracker.get_consistency_score(conv_id),
+                )
 
         return ConversationResponse(
             message=response_text,
@@ -375,12 +414,15 @@ class LLMHandler(BaseHandler):
         business_name: str,
         personality_type: PersonalityType,
         pending_state: dict | None = None,
+        turn_number: int = 0,
+        conversation_id: str | None = None,
     ) -> str:
         """Build system prompt with personality and context.
 
         Story 5-10: Fixed positional args bug - now passes all parameters correctly.
         Includes business_hours, custom_greeting, business_description, and product context.
         Added pending_state for conversation state awareness.
+        Story 11-5: Added turn_number for mid-conversation personality reinforcement.
 
         Args:
             db: Database session
@@ -389,6 +431,8 @@ class LLMHandler(BaseHandler):
             business_name: Business name
             personality_type: Personality type
             pending_state: Optional pending state context
+            turn_number: Current turn number for reinforcement
+            conversation_id: Optional conversation ID for tracker lookup
 
         Returns:
             Complete system prompt
@@ -428,6 +472,16 @@ class LLMHandler(BaseHandler):
             pending_state,
             merchant.onboarding_mode,
         )
+
+        if turn_number >= 5 and conversation_id:
+            conv_id_str = str(conversation_id)
+            tracker = get_personality_tracker()
+            consistency_score = tracker.get_consistency_score(conv_id_str)
+            reinforcement = get_personality_reinforcement(
+                personality_type, turn_number, consistency_score
+            )
+            if reinforcement:
+                personality_prompt += reinforcement
 
         return personality_prompt
 
@@ -648,9 +702,7 @@ When responding, take this context into account to provide more personalized and
 Remember: You're not "looking up information" - you're answering based on what you know.
 """
 
-    def _add_no_rag_note(
-        self, base_prompt: str, business_name: str, onboarding_mode: str
-    ) -> str:
+    def _add_no_rag_note(self, base_prompt: str, business_name: str, onboarding_mode: str) -> str:
         """Add note when no RAG context is available.
 
         Story 8-5: Graceful degradation when RAG finds no results.

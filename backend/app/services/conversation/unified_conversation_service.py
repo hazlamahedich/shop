@@ -69,6 +69,10 @@ from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.privacy.data_tier_service import DataTier
 from app.services.rag.context_builder import RAGContextBuilder
 from app.services.rag.retrieval_service import RetrievedChunk
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
+from app.services.personality.conversation_templates import register_conversation_templates
+
+register_conversation_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -612,7 +616,9 @@ class UnifiedConversationService:
         merchant = await self._load_merchant(db, merchant_id)
         if not merchant:
             return {
-                "content": "Welcome back! Is there anything else I can help you with?",
+                "content": PersonalityAwareResponseFormatter.format_response(
+                    "conversation", "welcome_back_fallback", PersonalityType.FRIENDLY
+                ),
                 "fallback": True,
                 "reason": "merchant_not_found",
             }
@@ -629,7 +635,9 @@ class UnifiedConversationService:
 
         if not conversation:
             return {
-                "content": "Welcome back! Is there anything else I can help you with?",
+                "content": PersonalityAwareResponseFormatter.format_response(
+                    "conversation", "welcome_back_fallback", PersonalityType.FRIENDLY
+                ),
                 "fallback": True,
                 "reason": "conversation_not_found",
             }
@@ -1629,7 +1637,11 @@ class UnifiedConversationService:
                     pause_reason=pause_reason,
                 )
                 return ConversationResponse(
-                    message="I'm currently unavailable. Please contact support or try again later.",
+                    message=PersonalityAwareResponseFormatter.format_response(
+                        "conversation",
+                        "bot_paused",
+                        merchant.personality or PersonalityType.FRIENDLY,
+                    ),
                     intent="bot_paused",
                     confidence=1.0,
                     metadata={"bot_paused": True, "reason": pause_reason},
