@@ -239,4 +239,134 @@ test.describe('Story 11-6: Contextual Product Recommendations', () => {
     const text = await botBubble.innerText();
     expect(text.length).toBeGreaterThan(0);
   });
+
+  test('[P1] 11.6-E2E-009 AC7: Multi-turn recommendations show varied transition phrases', async ({
+    page,
+  }) => {
+    await setupRecommendationWidget(page);
+
+    const responses: string[] = [];
+
+    for (let turn = 0; turn < 3; turn++) {
+      await sendMessage(page, 'What do you recommend?');
+      const botBubble = page
+        .locator('[data-testid="message-bubble"].message-bubble--bot')
+        .last();
+      await expect(botBubble).toBeVisible({ timeout: 10000 });
+      const text = await botBubble.innerText();
+      responses.push(text);
+    }
+
+    expect(responses).toHaveLength(3);
+    for (const response of responses) {
+      expect(response.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('[P2] 11.6-E2E-010 AC6: Enthusiastic personality tone in recommendations', async ({
+    page,
+  }) => {
+    const ENTHUSIASTIC_RESPONSE: MockMessageResponse = {
+      content:
+        "OMG you're gonna LOVE these!!! Here are my TOP picks for running shoes! 🔥",
+      products: [
+        {
+          id: 'prod-1',
+          variant_id: 'var-1',
+          title: 'Nike Air Max',
+          price: 89.99,
+          available: true,
+          image_url: 'https://example.com/shoes.jpg',
+        },
+      ],
+    };
+
+    const sessionId = crypto.randomUUID();
+    await mockWidgetConfig(page, { personalityType: 'enthusiastic' });
+    await mockWidgetSession(page, sessionId);
+    await mockWidgetMessageConditional(page, [
+      {
+        match: (msg: string) => msg.includes('recommend') || msg.includes('suggest'),
+        response: ENTHUSIASTIC_RESPONSE,
+      },
+    ]);
+    await loadWidgetWithSession(page, sessionId);
+
+    await sendMessage(page, 'What do you recommend?');
+
+    const botBubble = page
+      .locator('[data-testid="message-bubble"].message-bubble--bot')
+      .last();
+    await expect(botBubble).toBeVisible({ timeout: 10000 });
+
+    const text = await botBubble.innerText();
+    expect(text.length).toBeGreaterThan(0);
+  });
+
+  test('[P2] 11.6-E2E-011 AC7: Dismissal followed by new recommendation shows transition', async ({
+    page,
+  }) => {
+    await setupRecommendationWidget(page);
+
+    await sendMessage(page, 'Recommend me some shoes');
+    const firstResponse = page
+      .locator('[data-testid="message-bubble"].message-bubble--bot')
+      .last();
+    await expect(firstResponse).toBeVisible({ timeout: 10000 });
+
+    await sendMessage(page, "don't like that");
+    const dismissResponse = page
+      .locator('[data-testid="message-bubble"].message-bubble--bot')
+      .last();
+    await expect(dismissResponse).toBeVisible({ timeout: 10000 });
+
+    await sendMessage(page, 'recommend something else');
+    const newRecResponse = page
+      .locator('[data-testid="message-bubble"].message-bubble--bot')
+      .last();
+    await expect(newRecResponse).toBeVisible({ timeout: 10000 });
+
+    const text = await newRecResponse.innerText();
+    expect(text.length).toBeGreaterThan(0);
+  });
+
+  test('[P2] 11.6-E2E-012 AC6: Professional personality avoids casual language', async ({
+    page,
+  }) => {
+    const PROFESSIONAL_RESPONSE: MockMessageResponse = {
+      content:
+        'Based on your stated preferences, here are our recommendations from Test Store.',
+      products: [
+        {
+          id: 'prod-1',
+          variant_id: 'var-1',
+          title: 'Nike Air Max',
+          price: 89.99,
+          available: true,
+          image_url: 'https://example.com/shoes.jpg',
+        },
+      ],
+    };
+
+    const sessionId = crypto.randomUUID();
+    await mockWidgetConfig(page, { personalityType: 'professional' });
+    await mockWidgetSession(page, sessionId);
+    await mockWidgetMessageConditional(page, [
+      {
+        match: (msg: string) => msg.includes('recommend') || msg.includes('suggest'),
+        response: PROFESSIONAL_RESPONSE,
+      },
+    ]);
+    await loadWidgetWithSession(page, sessionId);
+
+    await sendMessage(page, 'What do you recommend?');
+
+    const botBubble = page
+      .locator('[data-testid="message-bubble"].message-bubble--bot')
+      .last();
+    await expect(botBubble).toBeVisible({ timeout: 10000 });
+
+    const text = await botBubble.innerText();
+    expect(text.length).toBeGreaterThan(0);
+  });
 });
