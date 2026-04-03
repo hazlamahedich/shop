@@ -63,25 +63,32 @@ def _make_context(
 
 
 class TestErrorTypeMapping:
-    # GIVEN all ErrorType enum values exist
-    # WHEN the service maps them to template keys
-    # THEN every enum value has a corresponding template key entry
-    def test_all_error_types_have_template_keys(self):
-        for error_type in ErrorType:
-            assert error_type in NaturalErrorRecoveryService._ERROR_TYPE_TO_TEMPLATE_KEY
+    # GIVEN all ErrorType enum values
+    # WHEN each enum value is inspected
+    # THEN the .value matches the expected snake_case template key
+    def test_all_error_type_values_are_valid_template_keys(self):
+        expected = {
+            "search_failed",
+            "cart_failed",
+            "checkout_failed",
+            "order_lookup_failed",
+            "llm_timeout",
+            "context_lost",
+            "general",
+        }
+        actual = {et.value for et in ErrorType}
+        assert actual == expected
 
-    # GIVEN the service's internal mapping
-    # WHEN each ErrorType is looked up
-    # THEN the mapped string matches the expected snake_case key
-    def test_template_key_matches_enum_value(self):
-        mapping = NaturalErrorRecoveryService._ERROR_TYPE_TO_TEMPLATE_KEY
-        assert mapping[ErrorType.SEARCH_FAILED] == "search_failed"
-        assert mapping[ErrorType.CART_FAILED] == "cart_failed"
-        assert mapping[ErrorType.CHECKOUT_FAILED] == "checkout_failed"
-        assert mapping[ErrorType.ORDER_LOOKUP_FAILED] == "order_lookup_failed"
-        assert mapping[ErrorType.LLM_TIMEOUT] == "llm_timeout"
-        assert mapping[ErrorType.CONTEXT_LOST] == "context_lost"
-        assert mapping[ErrorType.GENERAL] == "general"
+    # GIVEN all ErrorType enum values
+    # WHEN the suggestion builder dict is inspected after registration
+    # THEN every non-GENERAL type has a registered builder
+    def test_all_non_general_error_types_have_suggestion_builders(self):
+        NaturalErrorRecoveryService._register_builders()
+        builders = NaturalErrorRecoveryService._SUGGESTION_BUILDERS
+        for error_type in ErrorType:
+            if error_type == ErrorType.GENERAL:
+                continue
+            assert error_type in builders, f"No builder for {error_type}"
 
 
 class TestBasicRecovery:
@@ -447,7 +454,32 @@ class TestFallbackUrl:
         merchant = _make_merchant()
         context = _make_context()
 
-        with patch.dict("sys.modules", {"app.services.shopify.circuit_breaker": None}):
+        with patch(
+            "app.services.conversation.error_recovery_service.PersonalityAwareResponseFormatter.format_response",
+            return_value="test",
+        ):
+            with patch.dict("sys.modules", {"app.services.shopify.circuit_breaker": None}):
+                response = await service.recover(
+                    error_type=ErrorType.CHECKOUT_FAILED,
+                    merchant=merchant,
+                    context=context,
+                    error=Exception("err"),
+                    intent="checkout",
+                )
+                assert response.fallback_url is None
+
+    # GIVEN a checkout error where ShopifyCircuitBreaker.get_fallback_url raises
+    # WHEN recovery is invoked with ErrorType.CHECKOUT_FAILED
+    # THEN the response fallback_url is None and no exception propagates
+    @pytest.mark.asyncio
+    async def test_fallback_url_runtime_exception_returns_none(self, service):
+        merchant = _make_merchant()
+        context = _make_context()
+
+        with patch(
+            "app.services.shopify.circuit_breaker.ShopifyCircuitBreaker.get_fallback_url",
+            side_effect=RuntimeError("circuit breaker blew up"),
+        ):
             response = await service.recover(
                 error_type=ErrorType.CHECKOUT_FAILED,
                 merchant=merchant,

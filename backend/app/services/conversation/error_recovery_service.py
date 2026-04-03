@@ -9,18 +9,21 @@ No LLM calls - template-based formatting only (performance/cost/reliability).
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 import structlog
 
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, PersonalityType
 from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
+    SessionShoppingState,
 )
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 logger = structlog.get_logger(__name__)
+
+RECOVERY_CONFIDENCE = 1.0
 
 
 class ErrorType(str, Enum):
@@ -53,15 +56,24 @@ class NaturalErrorRecoveryService:
         )
     """
 
-    _ERROR_TYPE_TO_TEMPLATE_KEY: dict[ErrorType, str] = {
-        ErrorType.SEARCH_FAILED: "search_failed",
-        ErrorType.CART_FAILED: "cart_failed",
-        ErrorType.CHECKOUT_FAILED: "checkout_failed",
-        ErrorType.ORDER_LOOKUP_FAILED: "order_lookup_failed",
-        ErrorType.LLM_TIMEOUT: "llm_timeout",
-        ErrorType.CONTEXT_LOST: "context_lost",
-        ErrorType.GENERAL: "general",
-    }
+    _SUGGESTION_BUILDERS: dict[ErrorType, Callable[..., str | None]] = {}
+
+    def __init__(self) -> None:
+        if not NaturalErrorRecoveryService._SUGGESTION_BUILDERS:
+            NaturalErrorRecoveryService._register_builders()
+
+    @classmethod
+    def _register_builders(cls) -> None:
+        if cls._SUGGESTION_BUILDERS:
+            return
+        cls._SUGGESTION_BUILDERS = {
+            ErrorType.SEARCH_FAILED: cls._search_failed_suggestion,
+            ErrorType.CART_FAILED: cls._cart_failed_suggestion,
+            ErrorType.CHECKOUT_FAILED: cls._checkout_failed_suggestion,
+            ErrorType.ORDER_LOOKUP_FAILED: cls._order_lookup_suggestion,
+            ErrorType.LLM_TIMEOUT: cls._llm_timeout_suggestion,
+            ErrorType.CONTEXT_LOST: cls._context_lost_suggestion,
+        }
 
     async def recover(
         self,
@@ -87,7 +99,7 @@ class NaturalErrorRecoveryService:
             and context-aware suggestions.
         """
         personality = merchant.personality
-        template_key = self._ERROR_TYPE_TO_TEMPLATE_KEY.get(error_type, "general")
+        template_key = error_type.value
 
         logger.info(
             "error_recovery_started",
@@ -121,7 +133,7 @@ class NaturalErrorRecoveryService:
         return ConversationResponse(
             message=message,
             intent=intent,
-            confidence=1.0,
+            confidence=RECOVERY_CONFIDENCE,
             fallback=True,
             fallback_url=fallback_url,
             metadata=metadata,
@@ -131,7 +143,7 @@ class NaturalErrorRecoveryService:
         self,
         error_type: ErrorType,
         context: ConversationContext,
-        personality: Any,
+        personality: PersonalityType,
         conversation_id: str | None = None,
     ) -> str | None:
         """Build a context-aware suggestion based on error type and conversation state.
@@ -139,27 +151,20 @@ class NaturalErrorRecoveryService:
         Uses shopping_state from context to provide actionable next steps.
         Returns None when no relevant context is available.
         """
+        builder = self._SUGGESTION_BUILDERS.get(error_type)
+        if builder is None:
+            return None
+
         shopping_state = context.shopping_state
+        if error_type in (ErrorType.ORDER_LOOKUP_FAILED, ErrorType.CONTEXT_LOST):
+            return builder(self, personality, conversation_id)
 
-        if error_type == ErrorType.SEARCH_FAILED:
-            return self._search_failed_suggestion(shopping_state, personality, conversation_id)
-        elif error_type == ErrorType.CART_FAILED:
-            return self._cart_failed_suggestion(shopping_state, personality, conversation_id)
-        elif error_type == ErrorType.CHECKOUT_FAILED:
-            return self._checkout_failed_suggestion(shopping_state, personality, conversation_id)
-        elif error_type == ErrorType.ORDER_LOOKUP_FAILED:
-            return self._order_lookup_suggestion(personality, conversation_id)
-        elif error_type == ErrorType.LLM_TIMEOUT:
-            return self._llm_timeout_suggestion(shopping_state, personality, conversation_id)
-        elif error_type == ErrorType.CONTEXT_LOST:
-            return self._context_lost_suggestion(personality, conversation_id)
-
-        return None
+        return builder(self, shopping_state, personality, conversation_id)
 
     def _search_failed_suggestion(
         self,
-        shopping_state: Any,
-        personality: Any,
+        shopping_state: SessionShoppingState,
+        personality: PersonalityType,
         conversation_id: str | None,
     ) -> str | None:
         if shopping_state.last_search_query:
@@ -183,8 +188,8 @@ class NaturalErrorRecoveryService:
 
     def _cart_failed_suggestion(
         self,
-        shopping_state: Any,
-        personality: Any,
+        shopping_state: SessionShoppingState,
+        personality: PersonalityType,
         conversation_id: str | None,
     ) -> str | None:
         if shopping_state.last_viewed_products:
@@ -199,8 +204,8 @@ class NaturalErrorRecoveryService:
 
     def _checkout_failed_suggestion(
         self,
-        shopping_state: Any,
-        personality: Any,
+        shopping_state: SessionShoppingState,
+        personality: PersonalityType,
         conversation_id: str | None,
     ) -> str | None:
         if shopping_state.last_cart_item_count and shopping_state.last_cart_item_count > 0:
@@ -215,7 +220,7 @@ class NaturalErrorRecoveryService:
 
     def _order_lookup_suggestion(
         self,
-        personality: Any,
+        personality: PersonalityType,
         conversation_id: str | None,
     ) -> str | None:
         return PersonalityAwareResponseFormatter.format_response(
@@ -228,8 +233,8 @@ class NaturalErrorRecoveryService:
 
     def _llm_timeout_suggestion(
         self,
-        shopping_state: Any,
-        personality: Any,
+        shopping_state: SessionShoppingState,
+        personality: PersonalityType,
         conversation_id: str | None,
     ) -> str | None:
         if shopping_state.last_search_query:
@@ -251,7 +256,7 @@ class NaturalErrorRecoveryService:
 
     def _context_lost_suggestion(
         self,
-        personality: Any,
+        personality: PersonalityType,
         conversation_id: str | None,
     ) -> str | None:
         return PersonalityAwareResponseFormatter.format_response(
@@ -276,6 +281,13 @@ class NaturalErrorRecoveryService:
                 from app.services.shopify.circuit_breaker import ShopifyCircuitBreaker
 
                 return ShopifyCircuitBreaker.get_fallback_url(merchant)
+            except ImportError:
+                logger.warning("circuit_breaker_import_failed")
+                return None
             except Exception:
+                logger.warning(
+                    "fallback_url_generation_failed",
+                    error_type=error_type.value,
+                )
                 return None
         return None
