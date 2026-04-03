@@ -29,6 +29,12 @@ class SuggestionConfig:
     min_chunk_content_length: int = 20
     llm_temperature: float = 0.5
     llm_max_tokens: int = 200
+    # Only use LLM for suggestions if we have high-quality chunks
+    min_similarity_for_llm: float = 0.3  # Require decent similarity score
+    min_chunks_for_llm: int = 2  # Require at least 2 chunks
+    # Validation settings
+    validate_entities: bool = True  # Ensure suggestions only contain entities from chunks
+    max_entity_edit_distance: int = 2  # Allow small typos in entity names
 
 
 FALLBACK_SUGGESTIONS: dict[str, list[str]] = {
@@ -89,11 +95,19 @@ class SuggestionGenerator:
     Story 10-3: Quick Reply Chips Widget
 
     Features:
-    - LLM-powered suggestion generation (primary)
-    - Topic extraction from RAG chunk content (fallback)
+    - LLM-powered suggestion generation with strict entity validation (primary)
+    - Entity extraction from RAG chunks to prevent hallucinations
     - Document name-based suggestions
+    - Topic extraction from RAG chunk content (fallback)
     - Keyword-based category detection for fallback
     - Max 4 suggestions per response
+
+    Validation Layers:
+    1. Minimum similarity threshold (0.3) before using LLM
+    2. Minimum chunk count (2) required for LLM generation
+    3. Entity extraction from chunks
+    4. Post-generation validation to ensure suggestions only contain entities from chunks
+    5. FAQ document detection for FAQ-based suggestions
     """
 
     def __init__(
@@ -118,9 +132,16 @@ class SuggestionGenerator:
         """Generate follow-up questions based on RAG context.
 
         Priority:
-        1. LLM-based generation (if LLM service available and chunks exist)
-        2. Topic extraction from chunks
-        3. Keyword-based fallback
+        1. LLM-based generation (if LLM service available AND chunks are high quality)
+        2. FAQ-based suggestions (if FAQ documents detected)
+        3. Topic extraction from chunks
+        4. Keyword-based fallback
+
+        Validation Layers:
+        - Checks minimum similarity threshold (0.3)
+        - Requires minimum chunk count (2)
+        - Validates suggestions only contain entities from chunks
+        - Falls back to chunk extraction if validation fails
 
         Args:
             query: User's original query
@@ -130,10 +151,31 @@ class SuggestionGenerator:
             List of follow-up question suggestions (max 4)
         """
         if chunks and len(chunks) > 0:
-            if self.llm_service:
+            # Check if chunks are high enough quality for LLM generation
+            if self.llm_service and self._chunks_are_high_quality(chunks):
                 llm_suggestions = await self._generate_with_llm(query, chunks)
                 if llm_suggestions:
-                    return llm_suggestions
+                    # Validate suggestions only contain entities from chunks
+                    if self.config.validate_entities:
+                        valid_suggestions = self._validate_suggestions_against_chunks(
+                            llm_suggestions, chunks
+                        )
+                        if valid_suggestions:
+                            return valid_suggestions
+                        # If validation fails, fall through to chunk extraction
+                        logger.info(
+                            "suggestion_validation_failed",
+                            fallback="chunk_extraction",
+                            rejected_count=len(llm_suggestions),
+                        )
+                    else:
+                        return llm_suggestions
+
+            # Check for FAQ documents for FAQ-based suggestions
+            faq_suggestions = self._generate_faq_suggestions(chunks)
+            if faq_suggestions:
+                return faq_suggestions
+
             return self._extract_from_chunks(chunks)
 
         return self._fallback_suggestions(query)
@@ -164,13 +206,20 @@ User's question: {query}
 Context from knowledge base:
 {context_text}
 
-Requirements:
-1. Questions must be DIRECTLY related to the context provided
-2. Questions should help the user explore the topic deeper
-3. Each question should be specific and actionable
-4. Questions should be natural, conversational (not robotic)
-5. DO NOT repeat the original question
-6. DO NOT ask generic questions like "Can you tell me more?"
+CRITICAL REQUIREMENTS:
+1. Questions MUST be DIRECTLY based on entities/topics explicitly mentioned in the context above
+2. DO NOT hallucinate, invent, or assume any company names, people, or organizations not in the context
+3. If the context mentions specific entities (companies, products, services), ask about those
+4. If the context is too vague or generic, use generic exploration questions
+5. Questions should help the user explore the topic deeper
+6. Each question should be specific and actionable
+7. Questions should be natural, conversational (not robotic)
+8. DO NOT repeat the original question
+9. DO NOT ask generic questions like "Can you tell me more?"
+
+If unsure, prefer general questions like:
+- "Can you explain more about [topic from context]?"
+- "What else should I know about [topic from context]?"
 
 Return ONLY a JSON array of {self.config.max_suggestions} question strings.
 Example: ["What are your business hours?", "How can I contact support?", "Do you offer discounts?", "Where are you located?"]"""
@@ -227,6 +276,283 @@ Example: ["What are your business hours?", "How can I contact support?", "Do you
             total_chars += len(content)
 
         return "\n".join(context_parts)
+
+    def _chunks_are_high_quality(self, chunks: list[RetrievedChunk]) -> bool:
+        """Check if chunks meet quality thresholds for LLM generation.
+
+        Args:
+            chunks: Retrieved RAG chunks
+
+        Returns:
+            True if chunks are high enough quality for LLM generation
+        """
+        if len(chunks) < self.config.min_chunks_for_llm:
+            return False
+
+        # Check if at least some chunks have decent similarity scores
+        high_quality_chunks = [
+            c
+            for c in chunks
+            if hasattr(c, "similarity") and c.similarity >= self.config.min_similarity_for_llm
+        ]
+
+        return len(high_quality_chunks) >= self.config.min_chunks_for_llm
+
+    def _extract_entities_from_chunks(self, chunks: list[RetrievedChunk]) -> set[str]:
+        """Extract named entities from RAG chunks for validation.
+
+        Args:
+            chunks: Retrieved RAG chunks
+
+        Returns:
+            Set of entity names found in chunks
+        """
+        entities: set[str] = set()
+
+        for chunk in chunks:
+            content = chunk.content
+
+            # Extract capitalized phrases (potential entities)
+            # This includes: Product Names, Company Names, Locations, etc.
+            matches = re.findall(
+                r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b|\b[A-Z]{2,}\b", content
+            )
+
+            for match in matches:
+                entity = match.strip()
+                # Filter out common words
+                skip_words = {
+                    "The",
+                    "This",
+                    "That",
+                    "These",
+                    "Those",
+                    "What",
+                    "When",
+                    "Where",
+                    "How",
+                    "Why",
+                    "If",
+                    "Then",
+                    "Else",
+                    "And",
+                    "But",
+                    "Or",
+                    "For",
+                    "With",
+                    "From",
+                    "Into",
+                    "Upon",
+                    "About",
+                    "Our",
+                    "Their",
+                    "Some",
+                    "Many",
+                    "Such",
+                }
+
+                # Remove skip words from the beginning of the entity
+                entity_parts = entity.split()
+                while entity_parts and entity_parts[0] in skip_words:
+                    entity_parts.pop(0)
+
+                # If we removed all words or the entity is now too short, skip it
+                if not entity_parts:
+                    continue
+
+                entity = " ".join(entity_parts)
+
+                if len(entity) < 3:
+                    continue
+                if entity in skip_words:
+                    continue
+
+                entities.add(entity)
+
+        # Also extract document names as entities
+        for chunk in chunks:
+            doc_name = self._clean_document_name(chunk.document_name)
+            if doc_name:
+                # Split into words and add as potential entities
+                words = doc_name.split()
+                for word in words:
+                    if len(word) >= 3:
+                        entities.add(word)
+
+        return entities
+
+    def _validate_suggestions_against_chunks(
+        self, suggestions: list[str], chunks: list[RetrievedChunk]
+    ) -> list[str]:
+        """Validate that suggestions only contain entities from chunks.
+
+        Args:
+            suggestions: LLM-generated suggestions
+            chunks: Retrieved RAG chunks
+
+        Returns:
+            List of validated suggestions (only those referencing entities in chunks)
+        """
+        entities = self._extract_entities_from_chunks(chunks)
+
+        if not entities:
+            # If we couldn't extract any entities, be conservative and reject all
+            logger.info("no_entities_extracted", rejecting_all=True)
+            return []
+
+        valid_suggestions: list[str] = []
+
+        for suggestion in suggestions:
+            if self._suggestion_contains_valid_entities(suggestion, entities):
+                valid_suggestions.append(suggestion)
+            else:
+                logger.debug(
+                    "suggestion_rejected",
+                    suggestion=suggestion[:50],
+                    reason="no_valid_entities",
+                )
+
+        return valid_suggestions[: self.config.max_suggestions]
+
+    def _suggestion_contains_valid_entities(
+        self, suggestion: str, entities: set[str]
+    ) -> bool:
+        """Check if suggestion contains any valid entities from chunks.
+
+        Args:
+            suggestion: Suggestion text to check
+            entities: Set of valid entity names
+
+        Returns:
+            True if suggestion contains at least one valid entity
+        """
+        suggestion_lower = suggestion.lower()
+
+        for entity in entities:
+            entity_lower = entity.lower()
+            if entity_lower in suggestion_lower:
+                return True
+
+            # Check for fuzzy match (allow small typos)
+            if self._fuzzy_match(entity_lower, suggestion_lower):
+                return True
+
+        return False
+
+    def _fuzzy_match(self, entity: str, text: str) -> bool:
+        """Check if entity appears in text with small edit distance allowed.
+
+        Args:
+            entity: Entity name to search for
+            text: Text to search in
+
+        Returns:
+            True if entity matches with edit distance <= max_entity_edit_distance
+        """
+        if len(entity) < 4:
+            return False
+
+        words = text.split()
+        for word in words:
+            if len(word) < 3:
+                continue
+
+            # Simple edit distance calculation
+            if self._edit_distance(entity, word) <= self.config.max_entity_edit_distance:
+                # Check that lengths are somewhat similar (prevent false positives)
+                if abs(len(entity) - len(word)) <= 2:
+                    return True
+
+        return False
+
+    def _edit_distance(self, s1: str, s2: str) -> int:
+        """Calculate Levenshtein edit distance between two strings.
+
+        Args:
+            s1: First string
+            s2: Second string
+
+        Returns:
+            Edit distance (number of insertions, deletions, substitutions)
+        """
+        if len(s1) < len(s2):
+            return self._edit_distance(s2, s1)
+
+        if len(s2) == 0:
+            return len(s1)
+
+        previous_row = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+
+        return previous_row[-1]
+
+    def _generate_faq_suggestions(self, chunks: list[RetrievedChunk]) -> list[str]:
+        """Generate suggestions from FAQ documents in chunks.
+
+        Args:
+            chunks: Retrieved RAG chunks
+
+        Returns:
+            List of FAQ-based questions (max 4)
+        """
+        suggestions: list[str] = []
+        seen_suggestions: set[str] = set()
+
+        for chunk in chunks:
+            # Check if document is an FAQ
+            doc_name_lower = chunk.document_name.lower()
+            if "faq" not in doc_name_lower and "question" not in doc_name_lower:
+                continue
+
+            # Extract questions from FAQ content
+            # Look for patterns like: "Q: ...", "Question: ...", "? ..."
+            content = chunk.content
+
+            # Pattern 1: "Q:" or "Question:" prefix (stop at "A:" or "Answer:")
+            q_pattern = re.findall(
+                r"^(?:Q[:\s]|Question[:\s])\s*(.+?)(?:\s+A[:\s]|\s+Answer[:\s]|$)", content, re.MULTILINE | re.IGNORECASE
+            )
+            for match in q_pattern:
+                question = match.strip()
+                # Clean up the question
+                question = re.sub(r"^\d+[\.)]\s*", "", question)  # Remove "1." prefix
+                if len(question) > 10 and question.endswith("?"):
+                    question_lower = question.lower()
+                    if question_lower not in seen_suggestions:
+                        suggestions.append(question)
+                        seen_suggestions.add(question_lower)
+                        if len(suggestions) >= self.config.max_suggestions:
+                            break
+
+            # Pattern 2: Lines ending with "?"
+            if len(suggestions) < self.config.max_suggestions:
+                question_lines = re.findall(r"^([^\n]+\?)$", content, re.MULTILINE)
+                for question in question_lines:
+                    question = question.strip()
+                    # Skip if it looks like an answer continuation
+                    if question.startswith(("A:", "Answer:", "Ans:")):
+                        continue
+                    # Clean up the question
+                    question = re.sub(r"^\d+[\.)]\s*", "", question)
+                    if len(question) > 10:
+                        question_lower = question.lower()
+                        if question_lower not in seen_suggestions:
+                            suggestions.append(question)
+                            seen_suggestions.add(question_lower)
+                            if len(suggestions) >= self.config.max_suggestions:
+                                break
+
+            if len(suggestions) >= self.config.max_suggestions:
+                break
+
+        return suggestions[: self.config.max_suggestions]
 
     def _extract_from_chunks(self, chunks: list[RetrievedChunk]) -> list[str]:
         """Extract suggestions from RAG chunk content.

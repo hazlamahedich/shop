@@ -162,7 +162,7 @@ export default function Login() {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 pt-2">
                       <Link to="/register" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Create account</Link>
                       <div className="hidden sm:block w-px h-3 bg-white/10" />
-                      <button type="button" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Forgot password?</button>
+                      <Link to="/forgot-password" className="text-[10px] font-bold text-white/50 uppercase tracking-[0.1em] border-b border-white/10 pb-1 hover:text-emerald-400 hover:border-emerald-400 transition-colors">Forgot password?</Link>
                     </div>
                   </div>
                 </form>

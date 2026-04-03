@@ -25,7 +25,7 @@ Error Codes:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import (
@@ -49,11 +49,13 @@ from app.core.auth import (
     validate_password_requirements,
     verify_password,
 )
+from app.services.email.email_service import send_email
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import ErrorCode
 from app.core.rate_limiter import RateLimiter
 from app.models.merchant import Merchant
+from app.models.password_reset_token import PasswordResetToken
 from app.models.session import Session
 from app.schemas.auth import RegisterRequest
 from app.schemas.base import MetaData, MinimalEnvelope
@@ -181,7 +183,7 @@ def _create_meta() -> MetaData:
     """
     return MetaData(
         request_id=str(uuid4()),
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 

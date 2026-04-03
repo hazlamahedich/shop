@@ -14,6 +14,7 @@ import { QuickReplyButtons } from './QuickReplyButtons';
 import { FAQQuickButtons } from './FAQQuickButtons';
 import { SuggestedReplies } from './SuggestedReplies';
 import { StreamingIndicator, StreamErrorIndicator } from './StreamingIndicator';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface ChatWindowProps {
   isOpen: boolean;
@@ -97,6 +98,9 @@ function ChatWindow({
   const [activeSuggestions, setActiveSuggestions] = React.useState<string[] | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const quickReplyRef = React.useRef<HTMLDivElement>(null);
+  const suggestedReplyRef = React.useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
 
   // Story 10-3: Hide suggestions when user starts typing
   const handleInputChange = (value: string) => {
@@ -217,6 +221,31 @@ function ChatWindow({
       setShowFaqButtons(false);
     }
   }, [messages, showFaqButtons]);
+
+  // Scroll to show both message and quick replies when buttons appear
+  React.useEffect(() => {
+    if (activeQuickReplies && activeQuickReplies.length > 0 && quickReplyRef.current) {
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        quickReplyRef.current?.scrollIntoView({
+          behavior: reducedMotion ? 'auto' : 'smooth',
+          block: 'end'
+        });
+      }, 100);
+    }
+  }, [activeQuickReplies, reducedMotion]);
+
+  // Scroll to show both message and suggested replies when chips appear
+  React.useEffect(() => {
+    if (activeSuggestions && activeSuggestions.length > 0 && suggestedReplyRef.current) {
+      setTimeout(() => {
+        suggestedReplyRef.current?.scrollIntoView({
+          behavior: reducedMotion ? 'auto' : 'smooth',
+          block: 'end'
+        });
+      }, 100);
+    }
+  }, [activeSuggestions, reducedMotion]);
 
   if (!isOpen) return null;
 
@@ -517,7 +546,7 @@ function ChatWindow({
 
         {/* Story 10-3: Suggested Reply Chips */}
         {activeSuggestions && activeSuggestions.length > 0 && (
-          <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
+          <div ref={suggestedReplyRef} style={{ flexShrink: 0, padding: '0 12px 8px' }}>
             <SuggestedReplies
               suggestions={activeSuggestions}
               onSelect={handleSuggestionSelect}
@@ -529,7 +558,7 @@ function ChatWindow({
 
         {/* Quick Reply Buttons - Story 9-4 */}
         {activeQuickReplies && activeQuickReplies.length > 0 && (
-          <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
+          <div ref={quickReplyRef} style={{ flexShrink: 0, padding: '0 12px 8px' }}>
             <QuickReplyButtons
               quickReplies={activeQuickReplies}
               onReply={handleQuickReply}

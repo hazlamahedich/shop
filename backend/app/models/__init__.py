@@ -38,6 +38,7 @@ from app.models.tutorial import Tutorial
 from app.models.webhook_verification_log import WebhookVerificationLog
 from app.models.widget_analytics_event import WidgetAnalyticsEvent
 from app.models.knowledge_gap import GapType, KnowledgeGap, SuggestedAction
+from app.models.password_reset_token import PasswordResetToken
 
 __all__ = [
     "Merchant",
@@ -81,4 +82,5 @@ __all__ = [
     "KnowledgeGap",
     "GapType",
     "SuggestedAction",
+    "PasswordResetToken",
 ]

@@ -367,40 +367,55 @@ class LLMHandler(BaseHandler):
         lower_msg = user_message.lower().strip()
         lower_response = response_text.lower()
 
+        # Get onboarding mode early to ensure all quick replies are mode-aware
+        onboarding_mode = getattr(merchant, "onboarding_mode", "ecommerce")
+
+        # Yes/No questions apply to both modes
         if "?" in lower_response and ("would you" in lower_response or "are you" in lower_response):
             return [
                 {"id": "1", "text": "Yes", "icon": "✓"},
                 {"id": "2", "text": "No", "icon": "✗"},
             ]
 
+        # Greeting responses - mode-aware
         if any(word in lower_msg for word in ["hello", "hi", "hey", "greet"]):
-            return [
-                {"id": "1", "text": "Show products", "icon": "🛍️"},
-                {"id": "2", "text": "Check my cart", "icon": "🛒"},
-                {"id": "3", "text": "Track my order", "icon": "📦"},
-            ]
+            if onboarding_mode == "general":
+                return [
+                    {"id": "1", "text": "Tell me about yourself", "icon": "🤖"},
+                    {"id": "2", "text": "What can you help with?", "icon": "🤝"},
+                    {"id": "3", "text": "Give me an example", "icon": "💡"},
+                ]
+            else:  # ecommerce mode
+                return [
+                    {"id": "1", "text": "Show products", "icon": "🛍️"},
+                    {"id": "2", "text": "Check my cart", "icon": "🛒"},
+                    {"id": "3", "text": "Track my order", "icon": "📦"},
+                ]
 
-        if "product" in lower_msg or "item" in lower_msg or "search" in lower_msg:
+        # Product-related responses - only for ecommerce mode
+        if onboarding_mode != "general" and ("product" in lower_msg or "item" in lower_msg or "search" in lower_msg):
             return [
                 {"id": "1", "text": "Show more", "icon": "🔍"},
                 {"id": "2", "text": "Add to cart", "icon": "🛒"},
             ]
 
-        if "cart" in lower_msg or "checkout" in lower_msg:
+        # Cart-related responses - only for ecommerce mode
+        if onboarding_mode != "general" and ("cart" in lower_msg or "checkout" in lower_msg):
             return [
                 {"id": "1", "text": "Checkout", "icon": "💳"},
                 {"id": "2", "text": "Continue shopping", "icon": "🛍️"},
             ]
 
-        onboarding_mode = getattr(merchant, "onboarding_mode", "ecommerce")
-
+        # Default responses based on mode
         if onboarding_mode == "general":
+            # Generic buttons that work for any general-mode bot
+            # Focus on exploration rather than specific actions like "Contact us"
             return [
-                {"id": "1", "text": "Learn more", "icon": "📚"},
-                {"id": "2", "text": "Contact us", "icon": "💬"},
-                {"id": "3", "text": "Ask a question", "icon": "❓"},
+                {"id": "1", "text": "Tell me more", "icon": "💡"},
+                {"id": "2", "text": "What can you help with?", "icon": "🤝"},
+                {"id": "3", "text": "Give me an example", "icon": "💡"},
             ]
-        else:
+        else:  # ecommerce mode
             return [
                 {"id": "1", "text": "Show products", "icon": "🛍️"},
                 {"id": "2", "text": "Check my cart", "icon": "🛒"},
@@ -717,20 +732,23 @@ Remember: You're not "looking up information" - you're answering based on what y
         """
         if onboarding_mode == "general":
             note = f"""
-**Note:** I don't have specific information about that in my knowledge base.
-I can still try to help based on what I know about {business_name}, or you can ask about:
-- Business information and services
-- Policies and procedures
-- General questions I might be able to answer
+**IMPORTANT:** I don't have specific information about what you're asking in my knowledge base.
+I MUST tell you honestly that I don't have this information rather than making up a generic response.
+
+If you don't have the specific information in the provided context, say:
+"I don't have that specific information in my knowledge base. Could you upload a document about that, or ask something else I might be able to help with?"
+
+DO NOT make up or hallucinate details about {business_name} that aren't in the provided context.
 """
         else:  # ecommerce mode
             note = f"""
-**Note:** I don't have specific information about that in my knowledge base,
-but I can help you with:
-- Product searches and availability
-- Shopping cart and checkout
-- Order tracking and management
-- {business_name} products and services
+**Note:** I don't have specific information about that in my knowledge base.
+I MUST tell you honestly that I don't have this information rather than giving a generic response.
+
+If you don't have the specific information in the provided context, say:
+"I don't have that information. Would you like me to help you search our products instead?"
+
+DO NOT make up or hallucinate details.
 """
         return f"{base_prompt}\n{note}"
 

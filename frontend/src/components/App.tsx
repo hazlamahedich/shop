@@ -18,6 +18,8 @@ import BotConfig from '../pages/BotConfig';
 import { BotPreview } from '../pages/BotPreview';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
+import ForgotPassword from '../pages/ForgotPassword';
+import ResetPassword from '../pages/ResetPassword';
 import WidgetTestPage from '../pages/WidgetTestPage';
 import AuditLogs from '../pages/AuditLogs';
 import KnowledgeBasePage from '../pages/KnowledgeBasePage';
@@ -58,6 +60,24 @@ export function App() {
         element={
           <AuthGuard isAuthenticated={isAuthenticated}>
             <Register />
+          </AuthGuard>
+        }
+      />
+
+      {/* Password reset routes - no auth required */}
+      <Route
+        path="/forgot-password"
+        element={
+          <AuthGuard isAuthenticated={isAuthenticated}>
+            <ForgotPassword />
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/reset-password/:token"
+        element={
+          <AuthGuard isAuthenticated={isAuthenticated}>
+            <ResetPassword />
           </AuthGuard>
         }
       />

@@ -221,3 +221,136 @@ export function isSessionExpiringSoon(
   if (!expiresAt) return true;
   return getTimeUntilExpiration(expiresAt) < thresholdMs;
 }
+
+
+/**
+ * Password Reset API Functions
+ */
+
+/**
+ * Request password reset email.
+ *
+ * Generates a secure reset token and emails it to the merchant.
+ * Token expires after 1 hour.
+ * Rate limits requests (3 per hour per email/IP).
+ *
+ * @param email - Merchant email address
+ * @returns Success message
+ * @throws Error if request fails
+ */
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const data: any = await response.json().catch(() => null);
+    const errorData = data?.detail || data || {
+      error_code: 2000,
+      message: 'Failed to send reset email',
+    };
+    const error = new Error(errorData.message);
+    (error as any).code = errorData.error_code;
+    throw error;
+  }
+
+  return response.json();
+}
+
+/**
+ * Verify password reset token validity.
+ *
+ * Checks if token exists, is not expired, and has not been used.
+ *
+ * @param token - Password reset token
+ * @returns Token validity and associated email (if valid)
+ * @throws Error if verification fails
+ */
+export async function verifyResetToken(
+  token: string
+): Promise<{ valid: boolean; email: string | null }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify-reset-token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ token }),
+  });
+
+  if (!response.ok) {
+    const data: any = await response.json().catch(() => null);
+    const errorData = data?.detail || data || {
+      error_code: 2000,
+      message: 'Token verification failed',
+    };
+    const error = new Error(errorData.message);
+    (error as any).code = errorData.error_code;
+    throw error;
+  }
+
+  return response.json();
+}
+
+/**
+ * Reset password using valid token.
+ *
+ * Validates token, updates password, marks token as used,
+ * invalidates all existing sessions, and sends confirmation email.
+ *
+ * @param token - Password reset token
+ * @param newPassword - New password (min 8 characters)
+ * @returns Success message
+ * @throws Error if token is invalid, expired, or already used
+ */
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      token,
+      new_password: newPassword,
+    }),
+  });
+
+  if (!response.ok) {
+    const data: any = await response.json().catch(() => null);
+    const errorData = data?.detail || data || {
+      error_code: 2000,
+      message: 'Password reset failed',
+    };
+    const error = new Error(errorData.message);
+    (error as any).code = errorData.error_code;
+    (error as any).details = errorData.details;
+    throw error;
+  }
+
+  return response.json();
+}
+
+// Re-export as authApi for convenience
+export const authApi = {
+  login,
+  register,
+  logout,
+  getMe,
+  refreshToken,
+  forgotPassword,
+  verifyResetToken,
+  resetPassword,
+  setupAuthBroadcast,
+  broadcastLogout,
+  getTimeUntilExpiration,
+  isSessionExpiringSoon,
+};

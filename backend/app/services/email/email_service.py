@@ -228,3 +228,73 @@ If you have questions, please contact us.
 Best regards,
 {merchant_name}
 """
+
+
+# Generic email sending function for password reset and other emails
+
+
+async def send_email(
+    to_email: str,
+    subject: str,
+    template_name: str,
+    template_data: dict,
+) -> bool:
+    """Send email using specified template.
+
+    Generic email sending function that supports multiple templates.
+    Currently uses mock implementation for development/testing.
+
+    Args:
+        to_email: Recipient email address
+        subject: Email subject line
+        template_name: Template name (password_reset, password_reset_confirmation, etc.)
+        template_data: Data to populate template
+
+    Returns:
+        True if email sent successfully, False otherwise
+
+    Example:
+        await send_email(
+            to_email="user@example.com",
+            subject="Password Reset Request",
+            template_name="password_reset",
+            template_data={"reset_link": "...", "expires_in": "1 hour"},
+        )
+    """
+    if IS_TESTING or EMAIL_PROVIDER == "mock":
+        # Mock implementation - log the email
+        logger.info(
+            "email_mock_sent",
+            to=to_email,
+            subject=subject,
+            template=template_name,
+            data=template_data,
+        )
+
+        # Log password reset details for debugging
+        if template_name == "password_reset":
+            logger.info(
+                "password_reset_email",
+                to=to_email,
+                reset_link=template_data.get("reset_link"),
+                expires_in=template_data.get("expires_in"),
+                business_name=template_data.get("business_name"),
+            )
+        elif template_name == "password_reset_confirmation":
+            logger.info(
+                "password_reset_confirmation_email",
+                to=to_email,
+                business_name=template_data.get("business_name"),
+                reset_time=template_data.get("reset_time"),
+            )
+
+        return True
+
+    # TODO: Implement production email sending via SendGrid/SES
+    logger.warning(
+        "email_provider_not_configured",
+        provider=EMAIL_PROVIDER,
+        template=template_name,
+        to=to_email,
+    )
+    return False

@@ -20,6 +20,7 @@ from app.api import health as health_router
 from app.api.analytics import router as analytics_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
+from app.api.password_reset import router as password_reset_router
 from app.api.bot_config import router as bot_config_router
 from app.api.business_hours import router as business_hours_router
 from app.api.business_info import router as business_info_router
@@ -42,6 +43,7 @@ from app.api.integrations import router as integrations_router
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.llm import router as llm_router
 from app.api.merchant import router as merchant_router
+from app.api.merchant_profile import router as merchant_profile_router
 from app.api.multi_turn import router as multi_turn_router
 from app.api.onboarding import router as onboarding_router
 from app.api.preview import router as preview_router
@@ -453,9 +455,11 @@ if _static_dir.exists():
 # Include API routes
 # Story 1.8: Authentication
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(password_reset_router, prefix="/api/v1/auth", tags=["password-reset"])
 app.include_router(onboarding_router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(deployment_router, prefix="/api/deployment", tags=["deployment"])
 app.include_router(merchant_router, prefix="/api/merchant", tags=["merchant"])
+app.include_router(merchant_profile_router, prefix="/api/v1/merchant", tags=["merchant-profile"])
 # Story 1.11: Business Info & FAQ Configuration
 app.include_router(business_info_router, prefix="/api/v1/merchant", tags=["business-info"])
 # Story 1.12: Bot Naming Configuration

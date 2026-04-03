@@ -400,7 +400,9 @@ class TestSuggestionGeneratorLLM:
             provider="test",
         )
 
-        generator = SuggestionGenerator(llm_service=mock_llm_service)
+        # Disable validation for this test to focus on LLM functionality
+        config = SuggestionConfig(validate_entities=False)
+        generator = SuggestionGenerator(config=config, llm_service=mock_llm_service)
         chunks = [
             RetrievedChunk(
                 chunk_id=1,
@@ -409,7 +411,15 @@ class TestSuggestionGeneratorLLM:
                 document_name="Store Info.pdf",
                 document_id=1,
                 similarity=0.9,
-            )
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="We offer refunds within 30 days of purchase.",
+                chunk_index=1,
+                document_name="Store Info.pdf",
+                document_id=1,
+                similarity=0.85,
+            ),
         ]
 
         suggestions = await generator.generate_suggestions(
@@ -431,7 +441,9 @@ class TestSuggestionGeneratorLLM:
             provider="test",
         )
 
-        generator = SuggestionGenerator(llm_service=mock_llm_service)
+        # Disable validation for this test to focus on JSON parsing
+        config = SuggestionConfig(validate_entities=False)
+        generator = SuggestionGenerator(config=config, llm_service=mock_llm_service)
         chunks = [
             RetrievedChunk(
                 chunk_id=1,
@@ -440,7 +452,15 @@ class TestSuggestionGeneratorLLM:
                 document_name="Test.pdf",
                 document_id=1,
                 similarity=0.9,
-            )
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="More test content",
+                chunk_index=1,
+                document_name="Test.pdf",
+                document_id=1,
+                similarity=0.85,
+            ),
         ]
 
         suggestions = await generator.generate_suggestions(
@@ -491,7 +511,9 @@ class TestSuggestionGeneratorLLM:
             provider="test",
         )
 
-        generator = SuggestionGenerator(llm_service=mock_llm_service)
+        # Disable validation for this test to focus on length filtering
+        config = SuggestionConfig(validate_entities=False)
+        generator = SuggestionGenerator(config=config, llm_service=mock_llm_service)
         chunks = [
             RetrievedChunk(
                 chunk_id=1,
@@ -500,7 +522,15 @@ class TestSuggestionGeneratorLLM:
                 document_name="Test.pdf",
                 document_id=1,
                 similarity=0.9,
-            )
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="More test content",
+                chunk_index=1,
+                document_name="Test.pdf",
+                document_id=1,
+                similarity=0.85,
+            ),
         ]
 
         suggestions = await generator.generate_suggestions(
@@ -534,3 +564,249 @@ class TestSuggestionGeneratorLLM:
 
         assert len(suggestions) > 0
         assert any("Pricing Guide" in s for s in suggestions)
+
+
+class TestSuggestionGeneratorValidation:
+    """Test entity validation and quality filtering for suggestions."""
+
+    @pytest.fixture
+    def generator(self) -> SuggestionGenerator:
+        """Create a SuggestionGenerator with validation enabled."""
+        config = SuggestionConfig(
+            validate_entities=True,
+            min_similarity_for_llm=0.3,
+            min_chunks_for_llm=2,
+        )
+        return SuggestionGenerator(config=config)
+
+    def test_chunks_are_high_quality_with_good_chunks(self, generator: SuggestionGenerator) -> None:
+        """Test that high-quality chunks pass the quality check."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Good content",
+                chunk_index=0,
+                document_name="Test.pdf",
+                document_id=1,
+                similarity=0.8,
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="More good content",
+                chunk_index=1,
+                document_name="Test2.pdf",
+                document_id=2,
+                similarity=0.75,
+            ),
+        ]
+
+        assert generator._chunks_are_high_quality(chunks) is True
+
+    def test_chunks_are_low_quality_with_few_chunks(self, generator: SuggestionGenerator) -> None:
+        """Test that having too few chunks fails quality check."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Good content",
+                chunk_index=0,
+                document_name="Test.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+        ]
+
+        assert generator._chunks_are_high_quality(chunks) is False
+
+    def test_chunks_are_low_quality_with_low_similarity(self, generator: SuggestionGenerator) -> None:
+        """Test that low similarity chunks fail quality check."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Poor content",
+                chunk_index=0,
+                document_name="Test.pdf",
+                document_id=1,
+                similarity=0.2,
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="More poor content",
+                chunk_index=1,
+                document_name="Test2.pdf",
+                document_id=2,
+                similarity=0.25,
+            ),
+        ]
+
+        assert generator._chunks_are_high_quality(chunks) is False
+
+    def test_extract_entities_from_chunks(self, generator: SuggestionGenerator) -> None:
+        """Test entity extraction from chunks."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Our Product Name and Company Name offer great services.",
+                chunk_index=0,
+                document_name="Product Guide.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+        ]
+
+        entities = generator._extract_entities_from_chunks(chunks)
+
+        assert "Product Name" in entities
+        assert "Company Name" in entities
+        assert "Product" in entities or "Guide" in entities
+
+    def test_validate_suggestions_with_valid_entities(self, generator: SuggestionGenerator) -> None:
+        """Test that suggestions with valid entities are accepted."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Our Product Name offers great features.",
+                chunk_index=0,
+                document_name="Product Guide.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+        ]
+
+        suggestions = ["Tell me more about Product Name", "What features does Product Name have?"]
+        valid = generator._validate_suggestions_against_chunks(suggestions, chunks)
+
+        assert len(valid) == 2
+
+    def test_validate_suggestions_with_invalid_entities(self, generator: SuggestionGenerator) -> None:
+        """Test that suggestions with hallucinated entities are rejected."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Our products include basic features.",
+                chunk_index=0,
+                document_name="Product Guide.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+        ]
+
+        suggestions = ["Tell me about Lyst", "What about SomeRandomCompany?"]
+        valid = generator._validate_suggestions_against_chunks(suggestions, chunks)
+
+        assert len(valid) == 0
+
+    def test_faq_suggestions_extracted_from_faq_documents(self, generator: SuggestionGenerator) -> None:
+        """Test that questions are extracted from FAQ documents."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Q: What are your hours? A: We are open 9-5.\nQ: How can I contact support? A: Email us at support@example.com",
+                chunk_index=0,
+                document_name="FAQ.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+        ]
+
+        suggestions = generator._generate_faq_suggestions(chunks)
+
+        assert len(suggestions) > 0
+        assert any("hours" in s.lower() for s in suggestions)
+        assert any("contact" in s.lower() or "support" in s.lower() for s in suggestions)
+
+    def test_faq_suggestions_skips_non_faq_documents(self, generator: SuggestionGenerator) -> None:
+        """Test that non-FAQ documents are skipped."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="This is just a regular document with some information.",
+                chunk_index=0,
+                document_name="Product Guide.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+        ]
+
+        suggestions = generator._generate_faq_suggestions(chunks)
+
+        assert len(suggestions) == 0
+
+    @pytest.mark.asyncio
+    async def test_low_quality_chunks_skip_llm(self, generator: SuggestionGenerator) -> None:
+        """Test that low-quality chunks skip LLM generation."""
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat = AsyncMock()
+
+        generator_with_llm = SuggestionGenerator(config=generator.config, llm_service=mock_llm)
+
+        # Low-quality chunks (low similarity)
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Some content",
+                chunk_index=0,
+                document_name="Test.pdf",
+                document_id=1,
+                similarity=0.2,
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="More content",
+                chunk_index=1,
+                document_name="Test2.pdf",
+                document_id=2,
+                similarity=0.25,
+            ),
+        ]
+
+        await generator_with_llm.generate_suggestions("test query", chunks)
+
+        # LLM should not have been called due to low quality
+        mock_llm.chat.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hallucinated_suggestions_are_filtered_out(self, generator: SuggestionGenerator) -> None:
+        """Test that LLM suggestions with hallucinated entities are filtered out."""
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat = AsyncMock(
+            return_value=LLMResponse(
+                content='["Tell me about Lyst", "What about Product Name?", "How does SomeRandomCompany work?"]',
+                tokens_used=50,
+                model="test",
+                provider="test",
+            )
+        )
+
+        generator_with_llm = SuggestionGenerator(config=generator.config, llm_service=mock_llm)
+
+        # Chunks only mention "Product Name"
+        chunks = [
+            RetrievedChunk(
+                chunk_id=1,
+                content="Our Product Name offers great features.",
+                chunk_index=0,
+                document_name="Product Guide.pdf",
+                document_id=1,
+                similarity=0.9,
+            ),
+            RetrievedChunk(
+                chunk_id=2,
+                content="Product Name is easy to use.",
+                chunk_index=1,
+                document_name="Product Guide.pdf",
+                document_id=1,
+                similarity=0.85,
+            ),
+        ]
+
+        suggestions = await generator_with_llm.generate_suggestions("test query", chunks)
+
+        # Only "Product Name" suggestion should pass validation
+        assert len(suggestions) == 1
+        assert "Product Name" in suggestions[0]
+        assert "Lyst" not in suggestions[0]
+        assert "SomeRandomCompany" not in suggestions[0]
