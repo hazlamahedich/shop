@@ -56,6 +56,10 @@ const GENERAL_MODE_RESPONSE: MockMessageResponse = {
     "I'd be happy to help you with general questions! For product recommendations, please visit our store directly.",
 };
 
+const FALLBACK_RESPONSE: MockMessageResponse = {
+  content: 'I can help you find the perfect product! What are you looking for?',
+};
+
 async function setupRecommendationWidget(
   page: import('@playwright/test').Page,
   personalityType: 'friendly' | 'professional' | 'enthusiastic' = 'friendly'
@@ -88,9 +92,18 @@ async function setupRecommendationWidget(
       match: (msg: string) => msg.includes('general'),
       response: GENERAL_MODE_RESPONSE,
     },
+    {
+      match: () => true,
+      response: FALLBACK_RESPONSE,
+    },
   ]);
 
   await loadWidgetWithSession(page, sessionId);
+
+  const bubble = page.getByRole('button', { name: 'Open chat' });
+  await bubble.click();
+  const dialog = page.getByRole('dialog', { name: 'Chat window' });
+  await expect(dialog).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Story 11-6: Contextual Product Recommendations', () => {
@@ -292,6 +305,11 @@ test.describe('Story 11-6: Contextual Product Recommendations', () => {
     ]);
     await loadWidgetWithSession(page, sessionId);
 
+    const bubble = page.getByRole('button', { name: 'Open chat' });
+    await bubble.click();
+    const dialog = page.getByRole('dialog', { name: 'Chat window' });
+    await expect(dialog).toBeVisible({ timeout: 10000 });
+
     await sendMessage(page, 'What do you recommend?');
 
     const botBubble = page
@@ -358,6 +376,11 @@ test.describe('Story 11-6: Contextual Product Recommendations', () => {
       },
     ]);
     await loadWidgetWithSession(page, sessionId);
+
+    const bubble = page.getByRole('button', { name: 'Open chat' });
+    await bubble.click();
+    const dialog = page.getByRole('dialog', { name: 'Chat window' });
+    await expect(dialog).toBeVisible({ timeout: 10000 });
 
     await sendMessage(page, 'What do you recommend?');
 

@@ -5,7 +5,7 @@ import { WidgetErrorBoundary } from './components/WidgetErrorBoundary';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ProactiveModal } from './components/ProactiveModal';
 import { useProactiveTriggers } from './hooks/useProactiveTriggers';
-import type { WidgetTheme, ProactiveTriggerAction, FeedbackRatingValue } from './types/widget';
+import type { WidgetTheme, ProactiveTriggerAction, FeedbackRatingValue, FAQQuickButton } from './types/widget';
 import { DEFAULT_PROACTIVE_CONFIG } from './types/widget';
 import { mergeThemes } from './utils/themeMerge';
 import { useThemeDetection } from './hooks/useThemeDetection';
@@ -14,7 +14,7 @@ import { getNextThemeMode } from './components/ThemeToggle';
 import { positioningStyles } from './utils/styles';
 import { widgetClient } from './api/widgetClient';
 
-const ChatWindow = React.lazy(() => import('./components/ChatWindow'));
+import ChatWindow from './components/ChatWindow';
 
 interface WidgetInnerProps {
   theme?: Partial<WidgetTheme>;
