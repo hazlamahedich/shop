@@ -122,7 +122,19 @@ class CheckoutHandler(BaseHandler):
                 merchant_id=merchant.id,
                 retry_after=e.retry_after,
             )
-            return self._create_circuit_open_response(merchant)
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.CHECKOUT_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
+                intent="checkout",
+                conversation_id=str(context.session_id),
+            )
 
         except Exception as e:
             logger.warning(
@@ -130,7 +142,19 @@ class CheckoutHandler(BaseHandler):
                 merchant_id=merchant.id,
                 error=str(e),
             )
-            return self._create_fallback_response(merchant)
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.CHECKOUT_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
+                intent="checkout",
+                conversation_id=str(context.session_id),
+            )
 
     async def _create_shopify_checkout(
         self,

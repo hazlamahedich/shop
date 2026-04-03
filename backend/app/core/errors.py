@@ -234,6 +234,9 @@ class ErrorCode(IntEnum):
     MULTI_TURN_STATE_MACHINE_ERROR = 7091  # Invalid state transition
     MULTI_TURN_CONSTRAINT_CONFLICT = 7092  # Contradictory constraints detected
     MULTI_TURN_STATE_NOT_FOUND = 7093  # Multi-turn state not found for conversation
+    # Story 11-7: Natural error recovery error codes
+    ERROR_FORMATTING_FAILED = 7094  # Response formatter failed during error recovery
+    ERROR_RECOVERY_SERVICE_UNAVAILABLE = 7095  # Error recovery service unavailable
 
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001

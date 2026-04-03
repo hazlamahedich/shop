@@ -68,12 +68,10 @@ from app.services.intent.intent_classifier import IntentClassifier
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.personality.conversation_templates import register_conversation_templates
-from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-from app.services.privacy.data_tier_service import DataTier
-from app.services.rag.context_builder import RAGContextBuilder
-from app.services.rag.retrieval_service import RetrievedChunk
+from app.services.personality.error_recovery_templates import register_error_recovery_templates
 
 register_conversation_templates()
+register_error_recovery_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -594,10 +592,32 @@ class UnifiedConversationService:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            raise APIError(
-                ErrorCode.LLM_PROVIDER_ERROR,
-                f"Failed to process message: {str(e)}",
-            )
+            try:
+                from app.services.conversation.error_recovery_service import (
+                    ErrorType,
+                    NaturalErrorRecoveryService,
+                )
+
+                recovery_service = NaturalErrorRecoveryService()
+                return await recovery_service.recover(
+                    error_type=ErrorType.GENERAL,
+                    merchant=merchant,
+                    context=context,
+                    error=e,
+                    intent=intent_name or "unknown",
+                    conversation_id=str(context.session_id),
+                )
+            except Exception as recovery_error:
+                self.logger.error(
+                    "error_recovery_failed",
+                    merchant_id=context.merchant_id,
+                    original_error=str(e),
+                    recovery_error=str(recovery_error),
+                )
+                raise APIError(
+                    ErrorCode.LLM_PROVIDER_ERROR,
+                    f"Failed to process message: {str(e)}",
+                )
 
     async def generate_handoff_resolution_message(
         self,

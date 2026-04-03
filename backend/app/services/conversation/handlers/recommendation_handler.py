@@ -48,15 +48,18 @@ class RecommendationHandler(BaseHandler):
             logger.error(
                 "recommendation_product_fetch_failed", merchant_id=merchant.id, error=str(e)
             )
-            return ConversationResponse(
-                message=PersonalityAwareResponseFormatter.format_response(
-                    "error",
-                    "search_failed",
-                    merchant.personality,
-                ),
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.SEARCH_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
                 intent="product_recommendation",
-                confidence=1.0,
-                fallback=True,
+                conversation_id=str(context.session_id),
             )
 
         context_data = await self._load_context_data(db, context)

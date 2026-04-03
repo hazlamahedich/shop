@@ -179,11 +179,16 @@ class LLMHandler(BaseHandler):
                 merchant_id=merchant.id,
                 error=str(e),
             )
-            response_text = PersonalityAwareResponseFormatter.format_response(
-                "conversation",
-                "llm_fallback",
-                personality_type,
-                business_name=business_name,
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.LLM_TIMEOUT,
+                context=context,
+                merchant=merchant,
+                original_message=message,
             )
 
         products = None
@@ -226,7 +231,7 @@ class LLMHandler(BaseHandler):
             metadata={
                 "bot_name": bot_name,
                 "business_name": business_name,
-                "response_type": response_type,
+                "response_type": "rag" if rag_context else "general",
             },
         )
 
@@ -393,7 +398,9 @@ class LLMHandler(BaseHandler):
                 ]
 
         # Product-related responses - only for ecommerce mode
-        if onboarding_mode != "general" and ("product" in lower_msg or "item" in lower_msg or "search" in lower_msg):
+        if onboarding_mode != "general" and (
+            "product" in lower_msg or "item" in lower_msg or "search" in lower_msg
+        ):
             return [
                 {"id": "1", "text": "Show more", "icon": "🔍"},
                 {"id": "2", "text": "Add to cart", "icon": "🛒"},

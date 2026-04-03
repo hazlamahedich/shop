@@ -88,15 +88,18 @@ class CartHandler(BaseHandler):
                 intent=intent,
                 error=str(e),
             )
-            return ConversationResponse(
-                message=PersonalityAwareResponseFormatter.format_response(
-                    "error",
-                    "cart_failed",
-                    merchant.personality,
-                ),
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.CART_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
                 intent=f"cart_{intent}",
-                confidence=1.0,
-                fallback=True,
+                conversation_id=str(context.session_id),
             )
 
     async def _handle_view(

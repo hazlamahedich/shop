@@ -176,13 +176,18 @@ class SearchHandler(BaseHandler):
                 merchant_id=merchant.id,
                 retry_after=e.retry_after,
             )
-            return ConversationResponse(
-                message=ShopifyCircuitBreaker.get_fallback_message(merchant),
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.SEARCH_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
                 intent="product_search",
-                confidence=1.0,
-                fallback=True,
-                fallback_url=ShopifyCircuitBreaker.get_fallback_url(merchant),
-                metadata={"circuit_open": True},
+                conversation_id=str(context.session_id),
             )
 
         except Exception as e:
@@ -191,15 +196,18 @@ class SearchHandler(BaseHandler):
                 merchant_id=merchant.id,
                 error=str(e),
             )
-            return ConversationResponse(
-                message=PersonalityAwareResponseFormatter.format_response(
-                    "error",
-                    "search_failed",
-                    merchant.personality,
-                ),
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.SEARCH_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
                 intent="product_search",
-                confidence=1.0,
-                fallback=True,
+                conversation_id=str(context.session_id),
             )
 
     async def _handle_no_results_with_fallback(

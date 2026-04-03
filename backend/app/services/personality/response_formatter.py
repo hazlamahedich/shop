@@ -186,6 +186,8 @@ class PersonalityAwareResponseFormatter:
                 "cart_failed": "I had trouble with your cart. Please try again!",
                 "checkout_failed": "I had trouble with checkout. Please try again!",
                 "order_lookup_failed": "I had trouble finding your order. Please try again!",
+                "llm_timeout": "Oops, I got a bit distracted! 😅 Could you try that again?",
+                "context_lost": "Hmm, I lost track of our conversation! 😅 Mind starting fresh?",
             },
             PersonalityType.PROFESSIONAL: {
                 "general": "An error occurred. Please try your request again.",
@@ -193,6 +195,8 @@ class PersonalityAwareResponseFormatter:
                 "cart_failed": "Unable to process cart request. Please try again.",
                 "checkout_failed": "Unable to process checkout request. Please try again.",
                 "order_lookup_failed": "Unable to locate order. Please try again.",
+                "llm_timeout": "I apologize for the delay. Could you please try your request again?",
+                "context_lost": "I seem to have lost context. Could you please restate your request?",
             },
             PersonalityType.ENTHUSIASTIC: {
                 "general": "Oopsie! Something went a little wonky! 😅 Let's try again - it'll work this time! 💪",
@@ -200,6 +204,8 @@ class PersonalityAwareResponseFormatter:
                 "cart_failed": "Oops! The cart is being a little shy! 😅 Let's give it another try! 🛒",
                 "checkout_failed": "Eek! Checkout hit a tiny bump! 😅 Let's try again - you're SO close! ✨",
                 "order_lookup_failed": "Hmm, I couldn't quite find that order! 😅 Let's try again! 🔍",
+                "llm_timeout": "Oopsie! My brain took a tiny nap! 😅 Let's try that again - I'm ready NOW! 💪",
+                "context_lost": "Oh no! I lost our chat thread! 😅 Let's start fresh - what can I help you with?! ✨",
             },
         },
         "order_confirmation": {

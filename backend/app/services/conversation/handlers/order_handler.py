@@ -93,6 +93,46 @@ class OrderHandler(BaseHandler):
         Returns:
             ConversationResponse with order status
         """
+        try:
+            return await self._handle_order_tracking(
+                db=db,
+                merchant=merchant,
+                llm_service=llm_service,
+                message=message,
+                context=context,
+                entities=entities,
+            )
+        except Exception as e:
+            logger.error(
+                "order_handler_failed",
+                merchant_id=merchant.id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.ORDER_LOOKUP_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
+                intent="order_tracking",
+                conversation_id=str(context.session_id),
+            )
+
+    async def _handle_order_tracking(
+        self,
+        db: AsyncSession,
+        merchant: Merchant,
+        llm_service: BaseLLMService,
+        message: str,
+        context: ConversationContext,
+        entities: dict[str, Any] | None = None,
+    ) -> ConversationResponse:
+        """Internal order tracking implementation."""
         from app.services.customer_lookup_service import CustomerLookupService
         from app.services.order_tracking.order_tracking_service import OrderTrackingService
 
