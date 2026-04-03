@@ -415,3 +415,29 @@ class TestLogging:
             assert call_kwargs["error_type"] == "search_failed"
             assert call_kwargs["error_class"] == "ValueError"
             assert call_kwargs["intent"] == "product_search"
+
+
+class TestPerformance:
+    @pytest.mark.asyncio
+    async def test_all_error_types_complete_under_50ms(self, service):
+        import time
+
+        merchant = _make_merchant()
+        context = _make_context(
+            last_search_query="shoes",
+            last_viewed_products=[{"id": "1", "title": "Sneakers"}],
+            last_cart_item_count=2,
+        )
+
+        for error_type in ErrorType:
+            start = time.monotonic()
+            await service.recover(
+                error_type=error_type,
+                merchant=merchant,
+                context=context,
+                error=Exception("perf test"),
+                intent="test",
+                conversation_id="sess_perf",
+            )
+            elapsed_ms = (time.monotonic() - start) * 1000
+            assert elapsed_ms < 50, f"{error_type.value} took {elapsed_ms:.1f}ms (>50ms)"

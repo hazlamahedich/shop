@@ -186,9 +186,11 @@ class LLMHandler(BaseHandler):
 
             return await NaturalErrorRecoveryService().recover(
                 error_type=ErrorType.LLM_TIMEOUT,
-                context=context,
                 merchant=merchant,
-                original_message=message,
+                context=context,
+                error=e,
+                intent="general",
+                conversation_id=str(context.session_id),
             )
 
         products = None
