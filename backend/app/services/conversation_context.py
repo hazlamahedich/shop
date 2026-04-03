@@ -317,6 +317,7 @@ class ConversationContextService:
             if context.get("mode") == "ecommerce":
                 context_model.viewed_products = context.get("viewed_products")
                 context_model.cart_items = context.get("cart_items")
+                context_model.dismissed_products = context.get("dismissed_products")
                 context_model.constraints = context.get("constraints")
                 context_model.search_history = context.get("search_history")
             elif context.get("mode") == "general":
@@ -338,6 +339,7 @@ class ConversationContextService:
             if context.get("mode") == "ecommerce":
                 context_model.viewed_products = context.get("viewed_products")
                 context_model.cart_items = context.get("cart_items")
+                context_model.dismissed_products = context.get("dismissed_products")
                 context_model.constraints = context.get("constraints")
                 context_model.search_history = context.get("search_history")
             elif context.get("mode") == "general":
@@ -368,6 +370,8 @@ class ConversationContextService:
                 context["viewed_products"] = model.viewed_products
             if model.cart_items:
                 context["cart_items"] = model.cart_items
+            if model.dismissed_products:
+                context["dismissed_products"] = model.dismissed_products
             if model.constraints:
                 context["constraints"] = model.constraints
             if model.search_history:

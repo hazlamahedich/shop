@@ -22,6 +22,7 @@ def TimestampTZ() -> DateTime:
     """Create a timezone-aware DateTime column (TIMESTAMPTZ)."""
     return DateTime(timezone=True)
 
+
 ModeType = Literal["ecommerce", "general"]
 
 
@@ -64,22 +65,15 @@ class ConversationContext(Base):
     context_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     # E-commerce mode fields
-    viewed_products: Mapped[list[int] | None] = mapped_column(
-        ARRAY(Integer), nullable=True
-    )
+    viewed_products: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
     cart_items: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
+    dismissed_products: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
     constraints: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    search_history: Mapped[list[str] | None] = mapped_column(
-        ARRAY(String), nullable=True
-    )
+    search_history: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
 
     # General mode fields
-    topics_discussed: Mapped[list[str] | None] = mapped_column(
-        ARRAY(String), nullable=True
-    )
-    documents_referenced: Mapped[list[int] | None] = mapped_column(
-        ARRAY(Integer), nullable=True
-    )
+    topics_discussed: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    documents_referenced: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True)
     support_issues: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
     escalation_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
 

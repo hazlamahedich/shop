@@ -123,6 +123,10 @@ class SessionShoppingState(BaseModel):
         description="Last 5 products shown to user",
         max_length=5,
     )
+    last_cart_item_count: int = Field(
+        default=0,
+        description="Number of items in cart at last check",
+    )
     last_search_query: str | None = Field(
         None,
         description="Most recent search query",
@@ -135,9 +139,9 @@ class SessionShoppingState(BaseModel):
         default_factory=list,
         description="Product IDs user has shown interest in",
     )
-    last_cart_item_count: int = Field(
-        default=0,
-        description="Number of items in cart at last check",
+    dismissed_product_ids: list[int] = Field(
+        default_factory=list,
+        description="Product IDs that have been dismissed from future recommendations (Story 11-6)",
     )
 
     def add_viewed_product(self, product: dict[str, Any]) -> None:
@@ -325,5 +329,6 @@ class IntentType(str, Enum):
     HUMAN_HANDOFF = "human_handoff"
     FORGET_PREFERENCES = "forget_preferences"
     CHECK_CONSENT_STATUS = "check_consent_status"
+    PRODUCT_RECOMMENDATION = "product_recommendation"
     GENERAL = "general"
     UNKNOWN = "unknown"

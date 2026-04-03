@@ -46,6 +46,7 @@ from app.services.conversation.handlers import (
     HandoffHandler,
     LLMHandler,
     OrderHandler,
+    RecommendationHandler,
     SearchHandler,
 )
 from app.services.conversation.handlers.general_mode_fallback import (
@@ -66,11 +67,11 @@ from app.services.intent.classification_schema import (
 from app.services.intent.intent_classifier import IntentClassifier
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
+from app.services.personality.conversation_templates import register_conversation_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 from app.services.privacy.data_tier_service import DataTier
 from app.services.rag.context_builder import RAGContextBuilder
 from app.services.rag.retrieval_service import RetrievedChunk
-from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
-from app.services.personality.conversation_templates import register_conversation_templates
 
 register_conversation_templates()
 
@@ -115,6 +116,7 @@ class UnifiedConversationService:
         "clarification": "clarification",
         "forget_preferences": "forget_preferences",
         "check_consent_status": "check_consent",
+        "product_recommendation": "recommendation",
         "general": "llm",
         "unknown": "llm",
     }
@@ -142,6 +144,8 @@ class UnifiedConversationService:
         self._handlers = {
             "greeting": GreetingHandler(),
             "llm": LLMHandler(),
+            "order": OrderHandler(),
+            "recommendation": RecommendationHandler(),
             "search": SearchHandler(),
             "cart": CartHandler(),
             "checkout": CheckoutHandler(),
@@ -326,17 +330,32 @@ class UnifiedConversationService:
                         merchant_id=merchant.id,
                         channel=context.channel,
                     )
-                    handler = self._handlers["llm"]
-                    response = await handler.handle(
-                        db=db,
-                        merchant=merchant,
-                        llm_service=llm_service,
-                        message=message,
-                        context=context,
-                        entities=None,
-                    )
                     intent_name = "general"
-                    confidence = 1.0
+                    confidence = 1.0  # No classification in general mode
+
+                    # Check for handoff triggers (keyword detection works without confidence)
+                    handoff_response = await self._check_handoff(
+                        db=db,
+                        context=context,
+                        merchant=merchant,
+                        message=message,
+                        confidence=confidence,
+                        intent_name=intent_name,
+                    )
+                    if handoff_response:
+                        response = handoff_response
+                        intent_name = response.intent or "human_handoff"
+                        confidence = response.confidence or 1.0
+                    else:
+                        handler = self._handlers["llm"]
+                        response = await handler.handle(
+                            db=db,
+                            merchant=merchant,
+                            llm_service=llm_service,
+                            message=message,
+                            context=context,
+                            entities=None,
+                        )
                 else:
                     classification = await self._classify_intent(
                         llm_service=llm_service,
@@ -1207,7 +1226,7 @@ class UnifiedConversationService:
         for pattern in recommend_patterns:
             if re.search(pattern, lower_msg):
                 return ClassificationResult(
-                    intent=ClassifierIntentType.PRODUCT_SEARCH,
+                    intent=ClassifierIntentType.PRODUCT_RECOMMENDATION,
                     confidence=0.92,
                     entities=ExtractedEntities(
                         constraints={"pinned": True, "sort_by": "relevance"}
@@ -1443,7 +1462,7 @@ class UnifiedConversationService:
             if category:
                 context.shopping_state.last_search_category = category
 
-            if intent_name in ("product_search", "product_inquiry"):
+            if intent_name in ("product_search", "product_inquiry", "product_recommendation"):
                 raw_message = entities.get("raw_message")
                 if raw_message:
                     context.shopping_state.last_search_query = raw_message[:100]
@@ -2598,16 +2617,16 @@ class UnifiedConversationService:
         Returns:
             ConversationResponse if multi-turn flow is active, None otherwise
         """
+        from app.services.clarification.question_generator import QuestionGenerator
         from app.services.multi_turn import (
             ConstraintAccumulator,
             ConversationStateMachine,
             MessageClassifier,
+            MessageType,
             MultiTurnConfig,
             MultiTurnState,
             MultiTurnStateEnum,
-            MessageType,
         )
-        from app.services.clarification.question_generator import QuestionGenerator
 
         clarification_state = context.clarification_state
         mt_state_str = getattr(clarification_state, "multi_turn_state", "IDLE")

@@ -6,7 +6,6 @@ Extracts e-commerce specific context: products, prices, constraints, cart items.
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -37,34 +36,32 @@ class EcommerceContextExtractor(BaseContextExtractor):
         """
         updates = {}
 
-        # Extract product IDs (assuming format: #123 or product-123)
         products = self._extract_product_ids(message)
         if products:
             updates["viewed_products"] = products
 
-        # Extract price constraints
         price_constraints = self._extract_price_constraints(message)
         if price_constraints:
             if "constraints" not in updates:
                 updates["constraints"] = {}
             updates["constraints"].update(price_constraints)
 
-        # Extract size/color/brand preferences
         preferences = self._extract_preferences(message)
         if preferences:
             if "constraints" not in updates:
                 updates["constraints"] = {}
             updates["constraints"].update(preferences)
 
-        # Extract cart mentions
         cart_items = self._extract_cart_mentions(message)
         if cart_items:
             updates["cart_items"] = cart_items
 
-        # Track search history
+        dismissed = self._extract_dismissals(message, context)
+        if dismissed:
+            updates["dismissed_products"] = dismissed
+
         updates["search_history"] = [message]
 
-        # Increment turn count
         updates["turn_count"] = context.get("turn_count", 0) + 1
 
         return updates
@@ -178,10 +175,64 @@ class EcommerceContextExtractor(BaseContextExtractor):
         Returns:
             List of product IDs in cart or None
         """
-        # Look for "add #123 to cart", "cart has #456", etc.
         cart_pattern = r"(?:add|cart|basket)[\s\w]+(?:#|product\-)(\d+)"
         matches = re.findall(cart_pattern, message, re.IGNORECASE)
 
         if matches:
             return [int(match) for match in matches]
         return None
+
+    def _extract_dismissals(self, message: str, context: dict[str, Any]) -> list[int] | None:
+        """Extract product dismissals from message (Story 11-6).
+
+        Detects phrases like "don't show me that", "not interested",
+        "don't like", "no thanks", "skip", "next" referring to a product.
+
+        Args:
+            message: User message
+            context: Current conversation context (for resolving product references)
+
+        Returns:
+            List of product IDs to dismiss, or None
+        """
+        lower = message.lower().strip()
+
+        dismissal_phrases = [
+            r"don'?t\s+(?:show|recommend|suggest)\s+me",
+            r"not\s+interested",
+            r"don'?t\s+like",
+            r"no\s+thanks",
+            r"skip\s+(?:that|this|it)",
+            r"not\s+(?:for\s+me|my\s+style)",
+            r"nope",
+            r"nah",
+            r"never\s+mind",
+            r"forget\s+(?:about\s+)?(?:that|this|it)",
+            r"something\s+else",
+            r"anything\s+else",
+            r"next",
+            r"no\s+(?:more|longer)",
+        ]
+
+        is_dismissal = any(re.search(phrase, lower) for phrase in dismissal_phrases)
+        if not is_dismissal:
+            return None
+
+        dismissed_ids: list[int] = []
+
+        viewed = context.get("last_viewed_products") or []
+        if viewed:
+            dismissed_ids.append(viewed[0].get("id")) if viewed and isinstance(
+                viewed[0], dict
+            ) else None
+
+        product_ids = self._extract_product_ids(message)
+        if product_ids:
+            dismissed_ids.extend(product_ids)
+
+        existing_dismissed = context.get("dismissed_products") or []
+        dismissed_ids = list(
+            set(existing_dismissed + [pid for pid in dismissed_ids if pid is not None])
+        )
+
+        return dismissed_ids if dismissed_ids else None
