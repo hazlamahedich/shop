@@ -63,10 +63,16 @@ def _make_context(
 
 
 class TestErrorTypeMapping:
+    # GIVEN all ErrorType enum values exist
+    # WHEN the service maps them to template keys
+    # THEN every enum value has a corresponding template key entry
     def test_all_error_types_have_template_keys(self):
         for error_type in ErrorType:
             assert error_type in NaturalErrorRecoveryService._ERROR_TYPE_TO_TEMPLATE_KEY
 
+    # GIVEN the service's internal mapping
+    # WHEN each ErrorType is looked up
+    # THEN the mapped string matches the expected snake_case key
     def test_template_key_matches_enum_value(self):
         mapping = NaturalErrorRecoveryService._ERROR_TYPE_TO_TEMPLATE_KEY
         assert mapping[ErrorType.SEARCH_FAILED] == "search_failed"
@@ -79,6 +85,9 @@ class TestErrorTypeMapping:
 
 
 class TestBasicRecovery:
+    # GIVEN a general error and a friendly merchant
+    # WHEN recovery is invoked with ErrorType.GENERAL
+    # THEN the response has fallback=True, correct metadata, and confidence=1.0
     @pytest.mark.asyncio
     async def test_general_error_returns_fallback_response(self, service):
         merchant = _make_merchant(PersonalityType.FRIENDLY)
@@ -101,6 +110,9 @@ class TestBasicRecovery:
         assert response.metadata["error_class"] == "RuntimeError"
         assert response.metadata["recovered"] is True
 
+    # GIVEN a professional merchant and every error type
+    # WHEN recovery is called for each type
+    # THEN every response contains a non-empty message string
     @pytest.mark.asyncio
     async def test_response_message_is_not_empty(self, service):
         merchant = _make_merchant(PersonalityType.PROFESSIONAL)
@@ -116,6 +128,9 @@ class TestBasicRecovery:
             )
             assert response.message, f"No message for {error_type}"
 
+    # GIVEN a specific conversation_id
+    # WHEN recovery is invoked
+    # THEN the formatter receives the conversation_id in kwargs
     @pytest.mark.asyncio
     async def test_conversation_id_passed_to_formatter(self, service):
         merchant = _make_merchant()
@@ -138,6 +153,9 @@ class TestBasicRecovery:
 
 
 class TestPersonalityConsistency:
+    # GIVEN any supported personality type
+    # WHEN recovery handles an LLM timeout
+    # THEN the response is a non-empty string with fallback=True
     @pytest.mark.parametrize("personality", list(PersonalityType))
     @pytest.mark.asyncio
     async def test_all_personalities_get_nonempty_message(self, service, personality):
@@ -159,6 +177,9 @@ class TestPersonalityConsistency:
 
 
 class TestContextAwareSuggestions:
+    # GIVEN a search error with a last_search_query in context
+    # WHEN recovery is invoked with ErrorType.SEARCH_FAILED
+    # THEN the response includes a suggestion referencing the context
     @pytest.mark.asyncio
     async def test_search_failed_with_last_query_includes_suggestion(self, service):
         merchant = _make_merchant()
@@ -176,6 +197,9 @@ class TestContextAwareSuggestions:
         assert response.message
         assert response.metadata["error_type"] == "search_failed"
 
+    # GIVEN a search error with previously viewed products in context
+    # WHEN recovery is invoked with ErrorType.SEARCH_FAILED
+    # THEN the response has fallback=True
     @pytest.mark.asyncio
     async def test_search_failed_with_viewed_products_includes_suggestion(self, service):
         merchant = _make_merchant()
@@ -191,6 +215,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN a search error with no context (no last query, no viewed products)
+    # WHEN recovery is invoked with ErrorType.SEARCH_FAILED
+    # THEN the response still succeeds with fallback=True
     @pytest.mark.asyncio
     async def test_search_failed_no_context_no_suggestion(self, service):
         merchant = _make_merchant()
@@ -206,6 +233,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN a cart error with viewed products in context
+    # WHEN recovery is invoked with ErrorType.CART_FAILED
+    # THEN the response has fallback=True
     @pytest.mark.asyncio
     async def test_cart_failed_with_viewed_products_suggests_retry(self, service):
         merchant = _make_merchant()
@@ -221,6 +251,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN a cart error with no viewed products
+    # WHEN recovery is invoked with ErrorType.CART_FAILED
+    # THEN the response still succeeds with fallback=True
     @pytest.mark.asyncio
     async def test_cart_failed_no_viewed_products_no_suggestion(self, service):
         merchant = _make_merchant()
@@ -236,6 +269,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN a checkout error with cart items in context
+    # WHEN recovery is invoked with ErrorType.CHECKOUT_FAILED
+    # THEN the response has fallback=True
     @pytest.mark.asyncio
     async def test_checkout_failed_with_cart_items_suggests_retry(self, service):
         merchant = _make_merchant()
@@ -251,6 +287,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN a checkout error with an empty cart
+    # WHEN recovery is invoked with ErrorType.CHECKOUT_FAILED
+    # THEN the response still succeeds with fallback=True
     @pytest.mark.asyncio
     async def test_checkout_failed_empty_cart_no_suggestion(self, service):
         merchant = _make_merchant()
@@ -266,6 +305,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN an order lookup error with no context
+    # WHEN recovery is invoked with ErrorType.ORDER_LOOKUP_FAILED
+    # THEN the response always includes a suggestion with fallback=True
     @pytest.mark.asyncio
     async def test_order_lookup_always_has_suggestion(self, service):
         merchant = _make_merchant()
@@ -281,6 +323,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN an LLM timeout with a last search query in context
+    # WHEN recovery is invoked with ErrorType.LLM_TIMEOUT
+    # THEN the response has fallback=True
     @pytest.mark.asyncio
     async def test_llm_timeout_with_last_query_includes_suggestion(self, service):
         merchant = _make_merchant()
@@ -296,6 +341,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN an LLM timeout with no context
+    # WHEN recovery is invoked with ErrorType.LLM_TIMEOUT
+    # THEN the response returns a generic fallback
     @pytest.mark.asyncio
     async def test_llm_timeout_no_context_returns_generic(self, service):
         merchant = _make_merchant()
@@ -311,6 +359,9 @@ class TestContextAwareSuggestions:
 
         assert response.fallback is True
 
+    # GIVEN a context_lost error with no context
+    # WHEN recovery is invoked with ErrorType.CONTEXT_LOST
+    # THEN the response always includes a suggestion with fallback=True
     @pytest.mark.asyncio
     async def test_context_lost_always_has_suggestion(self, service):
         merchant = _make_merchant()
@@ -328,6 +379,9 @@ class TestContextAwareSuggestions:
 
 
 class TestFallbackUrl:
+    # GIVEN a checkout error and a circuit breaker returning a fallback URL
+    # WHEN recovery is invoked with ErrorType.CHECKOUT_FAILED
+    # THEN the response includes the fallback URL
     @pytest.mark.asyncio
     async def test_checkout_failed_requests_fallback_url(self, service):
         merchant = _make_merchant()
@@ -346,6 +400,9 @@ class TestFallbackUrl:
             )
             assert response.fallback_url == "https://test.myshopify.com"
 
+    # GIVEN a cart error and a circuit breaker returning a fallback URL
+    # WHEN recovery is invoked with ErrorType.CART_FAILED
+    # THEN the response includes the fallback URL
     @pytest.mark.asyncio
     async def test_cart_failed_requests_fallback_url(self, service):
         merchant = _make_merchant()
@@ -364,6 +421,9 @@ class TestFallbackUrl:
             )
             assert response.fallback_url == "https://test.myshopify.com/cart"
 
+    # GIVEN a search error
+    # WHEN recovery is invoked with ErrorType.SEARCH_FAILED
+    # THEN the response has no fallback URL
     @pytest.mark.asyncio
     async def test_search_failed_no_fallback_url(self, service):
         merchant = _make_merchant()
@@ -379,6 +439,9 @@ class TestFallbackUrl:
 
         assert response.fallback_url is None
 
+    # GIVEN a checkout error where the circuit breaker import fails
+    # WHEN recovery is invoked with ErrorType.CHECKOUT_FAILED
+    # THEN the response fallback_url is None
     @pytest.mark.asyncio
     async def test_fallback_url_import_failure_returns_none(self, service):
         merchant = _make_merchant()
@@ -396,6 +459,9 @@ class TestFallbackUrl:
 
 
 class TestLogging:
+    # GIVEN a search failed error
+    # WHEN recovery is invoked
+    # THEN the logger.info call includes error_type, error_class, and intent
     @pytest.mark.asyncio
     async def test_recovery_logs_error_type_and_class(self, service):
         merchant = _make_merchant()
@@ -418,6 +484,9 @@ class TestLogging:
 
 
 class TestPerformance:
+    # GIVEN a context with full shopping state
+    # WHEN recovery is called for every error type
+    # THEN each completes in under 50ms
     @pytest.mark.asyncio
     async def test_all_error_types_complete_under_50ms(self, service):
         import time

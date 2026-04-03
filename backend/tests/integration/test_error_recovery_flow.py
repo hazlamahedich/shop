@@ -59,6 +59,9 @@ def _make_context(
 
 
 class TestErrorRecoveryServiceEndToEnd:
+    # GIVEN a friendly merchant with a last search query
+    # WHEN NaturalErrorRecoveryService handles a SEARCH_FAILED error
+    # THEN the response includes the original query in its message and correct metadata
     @pytest.mark.asyncio
     async def test_search_failed_with_context_produces_suggestion(self):
         service = NaturalErrorRecoveryService()
@@ -79,6 +82,9 @@ class TestErrorRecoveryServiceEndToEnd:
         assert response.metadata["error_class"] == "RuntimeError"
         assert response.metadata["recovered"] is True
 
+    # GIVEN a professional merchant with cart items
+    # WHEN NaturalErrorRecoveryService handles a CHECKOUT_FAILED error
+    # THEN the response includes a fallback URL from the circuit breaker
     @pytest.mark.asyncio
     async def test_checkout_failed_with_cart_items_suggests_retry(self):
         service = NaturalErrorRecoveryService()
@@ -98,6 +104,9 @@ class TestErrorRecoveryServiceEndToEnd:
             assert response.fallback is True
             assert response.fallback_url == "https://fallback.example.com"
 
+    # GIVEN an enthusiastic merchant with a last search query
+    # WHEN NaturalErrorRecoveryService handles an LLM_TIMEOUT error
+    # THEN the response includes the original query in its message
     @pytest.mark.asyncio
     async def test_llm_timeout_with_search_query_includes_suggestion(self):
         service = NaturalErrorRecoveryService()
@@ -113,6 +122,9 @@ class TestErrorRecoveryServiceEndToEnd:
         assert response.fallback is True
         assert "red dress" in response.message
 
+    # GIVEN a merchant with no context
+    # WHEN NaturalErrorRecoveryService handles a CONTEXT_LOST error
+    # THEN the response suggests a fresh start with correct metadata
     @pytest.mark.asyncio
     async def test_context_lost_always_suggests_fresh_start(self):
         service = NaturalErrorRecoveryService()
@@ -131,6 +143,9 @@ class TestErrorRecoveryServiceEndToEnd:
 
 
 class TestPersonalityConsistencyAcrossErrorTypes:
+    # GIVEN any personality type with full shopping context
+    # WHEN NaturalErrorRecoveryService handles every error type
+    # THEN each response is non-empty with fallback=True and confidence=1.0
     @pytest.mark.parametrize(
         "personality",
         list(PersonalityType),
@@ -162,6 +177,10 @@ class TestPersonalityConsistencyAcrossErrorTypes:
 
 
 class TestHandlerErrorRecoveryIntegration:
+    # GIVEN a CartHandler with a CartService that throws RuntimeError
+    # WHEN the handler processes a "show my cart" message
+    # THEN the real NaturalErrorRecoveryService produces a fallback
+    #   response with cart_failed metadata
     @pytest.mark.asyncio
     async def test_cart_handler_error_uses_recovery_service(self):
         from app.services.conversation.handlers.cart_handler import CartHandler
@@ -173,28 +192,16 @@ class TestHandlerErrorRecoveryIntegration:
         llm_service = AsyncMock()
         mock_cart_svc = AsyncMock()
         mock_cart_svc.get_cart.side_effect = RuntimeError("DB connection lost")
-        with (
-            patch("app.services.cart.cart_service.CartService", return_value=mock_cart_svc),
-            patch(
-                "app.services.conversation.error_recovery_service.NaturalErrorRecoveryService"
-            ) as mock_recovery_cls,
-        ):
-            mock_service = AsyncMock()
-            mock_response = MagicMock(
-                message="Something went wrong with your cart",
-                fallback=True,
-                intent="cart_view",
-                confidence=1.0,
-                fallback_url=None,
-                metadata={"error_type": "cart_failed", "recovered": True},
-            )
-            mock_service.recover.return_value = mock_response
-            mock_recovery_cls.return_value = mock_service
-            await handler.handle(db, merchant, llm_service, "show my cart", context)
-            mock_service.recover.assert_called_once()
-            call_kwargs = mock_service.recover.call_args[1]
-            assert call_kwargs["error_type"] == ErrorType.CART_FAILED
+        with patch("app.services.cart.cart_service.CartService", return_value=mock_cart_svc):
+            result = await handler.handle(db, merchant, llm_service, "show my cart", context)
+            assert result is not None
+            assert result.fallback is True
+            assert result.metadata.get("error_type") == "cart_failed"
 
+    # GIVEN an OrderHandler with _handle_order_tracking that throws RuntimeError
+    # WHEN the handler processes an order tracking message
+    # THEN the real NaturalErrorRecoveryService produces a fallback
+    #   response with order_lookup_failed metadata
     @pytest.mark.asyncio
     async def test_order_handler_error_uses_recovery_service(self):
         from app.services.conversation.handlers.order_handler import OrderHandler
@@ -204,36 +211,21 @@ class TestHandlerErrorRecoveryIntegration:
         context = _make_context()
         db = AsyncMock()
         llm_service = AsyncMock()
-        with (
-            patch.object(
-                handler,
-                "_handle_order_tracking",
-                side_effect=RuntimeError("Shopify API down"),
-            ),
-            patch(
-                "app.services.conversation.error_recovery_service.NaturalErrorRecoveryService"
-            ) as mock_recovery_cls,
+        with patch.object(
+            handler,
+            "_handle_order_tracking",
+            side_effect=RuntimeError("Shopify API down"),
         ):
-            mock_service = AsyncMock()
-            mock_response = MagicMock(
-                message="Could not look up your order",
-                fallback=True,
-                intent="order_tracking",
-                confidence=1.0,
-                fallback_url=None,
-                metadata={"error_type": "order_lookup_failed", "recovered": True},
-            )
-            mock_service.recover.return_value = mock_response
-            mock_recovery_cls.return_value = mock_service
-            await handler.handle(
-                db, merchant, llm_service, "where is my order", context
-            )
-            mock_service.recover.assert_called_once()
-            call_kwargs = mock_service.recover.call_args[1]
-            assert call_kwargs["error_type"] == ErrorType.ORDER_LOOKUP_FAILED
+            result = await handler.handle(db, merchant, llm_service, "where is my order", context)
+            assert result is not None
+            assert result.fallback is True
+            assert result.metadata.get("error_type") == "order_lookup_failed"
 
 
 class TestContextPreservation:
+    # GIVEN a context with viewed products
+    # WHEN NaturalErrorRecoveryService handles a CART_FAILED error
+    # THEN the viewed_products list is not mutated
     @pytest.mark.asyncio
     async def test_recovery_does_not_mutate_viewed_products(self):
         service = NaturalErrorRecoveryService()
@@ -249,6 +241,12 @@ class TestContextPreservation:
         )
         assert context.shopping_state.last_viewed_products == original_products
 
+    # GIVEN a context with 5 cart items
+    # WHEN recovery processes a CHECKOUT_FAILED error
+    # THEN the last_cart_item_count is not mutated
+    # GIVEN a context with a cart item count
+    # WHEN NaturalErrorRecoveryService handles a CHECKOUT_FAILED error
+    # THEN the cart count is not mutated
     @pytest.mark.asyncio
     async def test_recovery_does_not_mutate_cart_count(self):
         service = NaturalErrorRecoveryService()
