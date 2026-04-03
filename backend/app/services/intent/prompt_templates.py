@@ -26,6 +26,7 @@ Classify the message into one of these intents:
 - forget_preferences: User wants to clear their data/cart
 - check_consent_status: User wants to verify their data/consent preferences status
 - add_last_viewed: User refers to a previously shown product (e.g., "add that one", "get the first", "I want it")
+- product_recommendation: User explicitly asks for product suggestions, recommendations, or picks. Distinct from product_search which is a direct search query. Examples: "what do you recommend?", "any suggestions?" "top picks for me"
 - unknown: Intent cannot be determined
 
 IMPORTANT - When to use "human_handoff":
@@ -53,7 +54,7 @@ Extract these entities if present:
 
 Respond ONLY with valid JSON in this format:
 {
-    "intent": "product_search|product_inquiry|product_comparison|greeting|general|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|check_consent_status|add_last_viewed|unknown",
+    "intent": "product_search|product_inquiry|product_comparison|greeting|general|clarification|cart_view|cart_add|checkout|order_tracking|human_handoff|forget_preferences|check_consent_status|add_last_viewed|product_recommendation|unknown",
     "confidence": 0.0-1.0,
     "entities": {
         "category": "shoes or null",
@@ -284,6 +285,18 @@ Output: {"intent": "order_tracking", "confidence": 0.88, "entities": {}, "reason
 
 Input: "sho me chep shoos"
 Output: {"intent": "product_search", "confidence": 0.85, "entities": {"category": "shoes", "constraints": {"sort_by": "price", "sort_order": "asc"}}, "reasoning": "Product search with typos for 'show', 'cheap', 'shoes'"}
+
+Input: "what do you recommend?"
+Output: {"intent": "product_recommendation", "confidence": 0.95, "entities": {}, "reasoning": "User explicitly asks for recommendations, not a specific search"}
+
+Input: "any suggestions for me?"
+Output: {"intent": "product_recommendation", "confidence": 0.93, "entities": {}, "reasoning": "User requesting suggestions, not searching for specific product"}
+
+Input: "top picks for me"
+Output: {"intent": "product_recommendation", "confidence": 0.90, "entities": {}, "reasoning": "User asking for curated picks"}
+
+Input: "what should I get?"
+Output: {"intent": "product_recommendation", "confidence": 0.88, "entities": {}, "reasoning": "User requesting personalized recommendation"}
 """
 
 

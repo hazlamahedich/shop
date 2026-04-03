@@ -62,6 +62,13 @@ class RecommendationHandler(BaseHandler):
         context_data = await self._load_context_data(db, context)
         shopping_state = context.shopping_state.model_dump() if context.shopping_state else {}
 
+        dismissed_from_context = context_data.get("dismissed_products") or []
+        if dismissed_from_context and context.shopping_state:
+            context.shopping_state.dismissed_product_ids = [
+                pid for pid in dismissed_from_context if isinstance(pid, int)
+            ]
+            shopping_state["dismissed_product_ids"] = context.shopping_state.dismissed_product_ids
+
         rec_service = ContextualRecommendationService()
         result = rec_service.generate_recommendations(
             products=products,

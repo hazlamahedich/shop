@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.shopify import Product
 
 
-@dataclass
-class RecommendationScore:
+class RecommendationScore(BaseModel):
     """Score breakdown for a contextual recommendation."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     product: Product
     total_score: float

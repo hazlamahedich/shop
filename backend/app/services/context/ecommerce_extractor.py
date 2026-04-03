@@ -183,18 +183,6 @@ class EcommerceContextExtractor(BaseContextExtractor):
         return None
 
     def _extract_dismissals(self, message: str, context: dict[str, Any]) -> list[int] | None:
-        """Extract product dismissals from message (Story 11-6).
-
-        Detects phrases like "don't show me that", "not interested",
-        "don't like", "no thanks", "skip", "next" referring to a product.
-
-        Args:
-            message: User message
-            context: Current conversation context (for resolving product references)
-
-        Returns:
-            List of product IDs to dismiss, or None
-        """
         lower = message.lower().strip()
 
         dismissal_phrases = [
@@ -212,6 +200,9 @@ class EcommerceContextExtractor(BaseContextExtractor):
             r"anything\s+else",
             r"next",
             r"no\s+(?:more|longer)",
+            r"not\s+that\s+one",
+            r"show\s+me\s+different",
+            r"too\s+expensive",
         ]
 
         is_dismissal = any(re.search(phrase, lower) for phrase in dismissal_phrases)
@@ -221,18 +212,15 @@ class EcommerceContextExtractor(BaseContextExtractor):
         dismissed_ids: list[int] = []
 
         viewed = context.get("last_viewed_products") or []
-        if viewed:
-            dismissed_ids.append(viewed[0].get("id")) if viewed and isinstance(
-                viewed[0], dict
-            ) else None
+        if viewed and isinstance(viewed[0], dict):
+            dismissed_ids.append(viewed[0].get("id"))
 
         product_ids = self._extract_product_ids(message)
         if product_ids:
             dismissed_ids.extend(product_ids)
 
         existing_dismissed = context.get("dismissed_products") or []
-        dismissed_ids = list(
-            set(existing_dismissed + [pid for pid in dismissed_ids if pid is not None])
-        )
+        all_ids = existing_dismissed + [pid for pid in dismissed_ids if pid is not None]
+        dismissed_ids = list(set(all_ids))
 
         return dismissed_ids if dismissed_ids else None

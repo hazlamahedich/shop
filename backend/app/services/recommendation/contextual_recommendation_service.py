@@ -237,4 +237,7 @@ class ContextualRecommendationService:
                 reasons.append(f"feature_match:{constraints.color}")
         if novelty > 0.8:
             reasons.append("novelty:new")
+        product_type = self._get_product_type(product)
+        if product_type and product_type != "unknown":
+            reasons.append(f"category_match:{product_type}")
         return "||".join(reasons) if reasons else "default"

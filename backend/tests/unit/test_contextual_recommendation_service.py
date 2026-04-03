@@ -335,7 +335,7 @@ class TestReasonGeneration:
             budget_min=None, budget_max=100.0, color=None, size=None, brand=None
         )
         reason = service._generate_reason(product, constraints, 0.5)
-        assert reason == "default"
+        assert "category_match" in reason
 
 
 class TestGenerateRecommendations:
