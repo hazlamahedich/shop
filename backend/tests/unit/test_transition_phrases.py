@@ -62,6 +62,7 @@ class TestResponseTypeToTransitionMapping:
             "error",
             "order_confirmation",
             "general_mode_fallback",
+            "proactive_gathering",
         }
         assert set(RESPONSE_TYPE_TO_TRANSITION.keys()) == expected_types
 

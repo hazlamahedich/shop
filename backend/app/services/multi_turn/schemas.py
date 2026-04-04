@@ -23,6 +23,7 @@ class MessageType(StrEnum):
 class MultiTurnStateEnum(StrEnum):
     IDLE = "IDLE"
     CLARIFYING = "CLARIFYING"
+    PROACTIVE_GATHERING = "PROACTIVE_GATHERING"
     REFINE_RESULTS = "REFINE_RESULTS"
     COMPLETE = "COMPLETE"
 

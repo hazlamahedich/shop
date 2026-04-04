@@ -13,6 +13,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.services.proactive_gathering.schemas import GatheringState as ProactiveGatheringState
+
 SourceDocumentType = Literal["pdf", "url", "text"]
 
 
@@ -222,6 +224,10 @@ class ConversationContext(BaseModel):
     clarification_state: ClarificationState = Field(
         default_factory=ClarificationState,
         description="Clarification flow state (GAP-3)",
+    )
+    gathering_state: ProactiveGatheringState = Field(
+        default_factory=ProactiveGatheringState,
+        description="Proactive gathering state (Story 11-8)",
     )
     handoff_state: HandoffState = Field(
         default_factory=HandoffState,

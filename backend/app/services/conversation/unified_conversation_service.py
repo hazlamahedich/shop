@@ -316,6 +316,20 @@ class UnifiedConversationService:
                     confidence = response.confidence or 1.0
                     faq_matched = True
 
+            # Story 11-8: Proactive information gathering
+            # After FAQ check, before intent classification
+            # Check if active gathering state and handle response
+            if response is None:
+                response = await self._check_proactive_gathering(
+                    db=db,
+                    context=context,
+                    merchant=merchant,
+                    message=message,
+                )
+                if response:
+                    intent_name = response.intent or "proactive_gathering"
+                    confidence = response.confidence or 0.8
+
             # Normal flow: intent classification and handler routing
             if response is None:
                 llm_service = await self._get_merchant_llm(merchant, db, context)
@@ -2614,6 +2628,172 @@ class UnifiedConversationService:
                 return True
 
         return False
+
+    async def _check_proactive_gathering(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Any,
+        message: str,
+    ) -> ConversationResponse | None:
+        """Story 11-8: Proactive information gathering.
+
+        Checks active gathering state and handles response.
+        If no active state, starts fresh gathering.
+
+        Only runs for ecommerce mode with classified intents.
+        Mutual exclusion: skip if CLARIFYING state.
+        Max 2 gathering rounds then best-effort routing.
+        """
+        from app.services.proactive_gathering.proactive_gathering_service import (
+            ProactiveGatheringService,
+        )
+        from app.services.proactive_gathering.schemas import GatheringState as GatheringStateSchema
+        from app.services.proactive_gathering.intent_requirements import _SKIP_INTENTS
+
+        gs = context.gathering_state
+        if gs and gs.active and not gs.is_complete:
+            return await self._handle_active_gathering(
+                db,
+                context,
+                merchant,
+                message,
+                gs,
+            )
+
+        mode = getattr(merchant, "onboarding_mode", "ecommerce") or "ecommerce"
+        personality = getattr(merchant, "personality", "friendly") or "friendly"
+        bot_name = getattr(merchant, "bot_name", "ShopBot")
+        conv_id = context.conversation_id or str(context.session_id) or ""
+
+        llm_service = await self._get_merchant_llm(merchant, db, context)
+        classification = await self._classify_intent(
+            llm_service=llm_service,
+            message=message,
+            context=context,
+        )
+        if not classification or not classification.entities:
+            return None
+
+        classification_intent = classification.intent
+        if classification_intent in _SKIP_INTENTS:
+            return None
+
+        gathering_service = ProactiveGatheringService()
+        entities = classification.entities
+        missing = gathering_service.detect_missing_info(
+            classification_intent,
+            entities,
+            context,
+            mode,
+        )
+        if not missing:
+            return None
+
+        missing_required = [f for f in missing if f.required]
+        if not missing_required:
+            return None
+
+        partial = gathering_service.extract_partial_answer(
+            message,
+            missing_required,
+            mode,
+        )
+        remaining = [f for f in missing_required if f.field_name not in partial]
+        if not remaining:
+            return None
+
+        intent_val = (
+            classification_intent.value
+            if hasattr(classification_intent, "value")
+            else str(classification_intent)
+        )
+        context.gathering_state = GatheringStateSchema(
+            active=True,
+            round_count=0,
+            original_intent=intent_val,
+            original_query=message,
+            missing_fields=remaining,
+            gathered_data=partial,
+        )
+        gathering_msg = gathering_service.generate_gathering_message(
+            remaining,
+            personality,
+            bot_name,
+            mode,
+            context,
+            conv_id,
+        )
+        self.logger.info("proactive_gathering_started")
+        return ConversationResponse(
+            message=gathering_msg,
+            intent="proactive_gathering",
+            confidence=0.9,
+        )
+
+    async def _handle_active_gathering(
+        self,
+        db: AsyncSession,
+        context: ConversationContext,
+        merchant: Any,
+        message: str,
+        gs: Any,
+    ) -> ConversationResponse | None:
+        """Handle an active proactive gathering round."""
+        from app.services.proactive_gathering.proactive_gathering_service import (
+            ProactiveGatheringService,
+        )
+
+        mode = getattr(merchant, "onboarding_mode", "ecommerce") or "ecommerce"
+        personality = getattr(merchant, "personality", "friendly") or "friendly"
+        bot_name = getattr(merchant, "bot_name", "ShopBot")
+        conv_id = context.conversation_id or str(context.session_id) or ""
+
+        next_round = gs.round_count + 1
+        if next_round >= 2:
+            gs.is_complete = True
+            gs.active = False
+            context.gathering_state = gs
+            return ConversationResponse(
+                message="I'll do my best with what I have! Let me search with the information provided.",
+                intent="proactive_gathering",
+                confidence=0.85,
+            )
+
+        gathering_service = ProactiveGatheringService()
+        extracted = gathering_service.extract_partial_answer(
+            message,
+            gs.missing_fields,
+            mode,
+        )
+        remaining = [f for f in gs.missing_fields if f.field_name not in extracted]
+        gs.gathered_data.update(extracted)
+
+        if not remaining:
+            gs.is_complete = True
+            gs.active = False
+            context.gathering_state = gs
+            self.logger.info("proactive_gathering_complete")
+            return None
+
+        gs.missing_fields = remaining
+        gs.round_count = next_round
+        context.gathering_state = gs
+
+        gathering_msg = gathering_service.generate_gathering_message(
+            remaining,
+            personality,
+            bot_name,
+            mode,
+            context,
+            conv_id,
+        )
+        self.logger.info("proactive_gathering_round")
+        return ConversationResponse(
+            message=gathering_msg,
+            intent="proactive_gathering",
+            confidence=0.9,
+        )
 
     async def _check_multi_turn_state(
         self,

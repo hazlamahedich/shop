@@ -302,6 +302,7 @@ RESPONSE_TYPE_TO_TRANSITION: dict[str, TransitionCategory] = {
     "error": TransitionCategory.ACKNOWLEDGING,
     "order_confirmation": TransitionCategory.CONFIRMING,
     "general_mode_fallback": TransitionCategory.ACKNOWLEDGING,
+    "proactive_gathering": TransitionCategory.CLARIFYING,
 }
 
 TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
@@ -315,6 +316,14 @@ TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
     "checkout": {"ready"},
     "order_tracking": {"found", "found_shipped", "found_delivered", "found_processing"},
     "order_confirmation": {"confirmed"},
+    "proactive_gathering": {
+        "needs_order_number",
+        "needs_product_details",
+        "needs_constraints",
+        "needs_issue_type",
+        "combined_question",
+        "best_effort_notice",
+    },
 }
 
 

@@ -18,8 +18,9 @@ from app.services.multi_turn.schemas import (
 logger = structlog.get_logger(__name__)
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
-    "IDLE": {"CLARIFYING", "IDLE"},
+    "IDLE": {"CLARIFYING", "PROACTIVE_GATHERING", "IDLE"},
     "CLARIFYING": {"CLARIFYING", "REFINE_RESULTS", "IDLE"},
+    "PROACTIVE_GATHERING": {"PROACTIVE_GATHERING", "COMPLETE", "IDLE"},
     "REFINE_RESULTS": {"REFINE_RESULTS", "COMPLETE", "IDLE"},
     "COMPLETE": {"IDLE", "CLARIFYING"},
 }
@@ -127,6 +128,56 @@ class ConversationStateMachine:
         state.state = MultiTurnStateEnum.COMPLETE
 
         self._log_transition(old_state, MultiTurnStateEnum.COMPLETE, "results_shown")
+        return state
+
+    def start_proactive_gathering(
+        self,
+        state: MultiTurnState,
+        original_query: str,
+        missing_field_names: list[str],
+        mode: str = "ecommerce",
+    ) -> MultiTurnState:
+        if state.state == MultiTurnStateEnum.CLARIFYING:
+            raise ValueError(
+                "Cannot start proactive gathering while in CLARIFYING state "
+                "(multi-turn clarification has priority)"
+            )
+        self._validate_transition(state.state, MultiTurnStateEnum.PROACTIVE_GATHERING)
+
+        old_state = state.state
+        state.state = MultiTurnStateEnum.PROACTIVE_GATHERING
+        state.original_query = original_query
+        state.pending_questions = list(missing_field_names)
+        state.mode = mode
+        state.turn_count = 0
+
+        self._log_transition(
+            old_state, MultiTurnStateEnum.PROACTIVE_GATHERING, "proactive_gathering"
+        )
+        return state
+
+    def complete_proactive_gathering(self, state: MultiTurnState) -> MultiTurnState:
+        self._validate_transition(state.state, MultiTurnStateEnum.COMPLETE)
+
+        old_state = state.state
+        state.state = MultiTurnStateEnum.COMPLETE
+
+        self._log_transition(old_state, MultiTurnStateEnum.COMPLETE, "gathering_complete")
+        return state
+
+    def increment_gathering_round(self, state: MultiTurnState) -> MultiTurnState:
+        if state.state != MultiTurnStateEnum.PROACTIVE_GATHERING:
+            raise ValueError(
+                f"Cannot increment gathering round from {state.state}. "
+                f"Must be in PROACTIVE_GATHERING state."
+            )
+
+        state.turn_count += 1
+        self._log_transition(
+            MultiTurnStateEnum.PROACTIVE_GATHERING,
+            MultiTurnStateEnum.PROACTIVE_GATHERING,
+            f"gathering_round_{state.turn_count}",
+        )
         return state
 
     def reset(self, state: MultiTurnState) -> MultiTurnState:
