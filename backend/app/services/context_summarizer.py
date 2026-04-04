@@ -7,6 +7,7 @@ Task 4: Implement context summarization to avoid token bloat.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,6 +19,19 @@ from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
 from app.services.llm.llm_factory import LLMProviderFactory
 
 logger = structlog.get_logger(__name__)
+
+_PRODUCT_PATTERN = re.compile(
+    r"\b(shoes?|shirt|dress|jacket|pants?|hat|bag|phone|laptop|watch|headphones?)\b",
+    re.IGNORECASE,
+)
+_PRICE_PATTERN = re.compile(r"\$\d+[\d,.]*|\d+\s?(?:dollars?|bucks?)", re.IGNORECASE)
+_SIZE_PATTERN = re.compile(r"\bsize\s+([\w]+)\b", re.IGNORECASE)
+_COLOR_PATTERN = re.compile(
+    r"\b(red|blue|green|black|white|yellow|orange|pink|purple|brown|gray|grey|navy)\b",
+    re.IGNORECASE,
+)
+
+MAX_CONTEXT_CHARS_FOR_PROMPT = 12000
 
 
 class ContextSummarizerService:
@@ -182,6 +196,9 @@ Include all active issues and constraints in active_constraints."""
     def _build_user_prompt(self, context: dict[str, Any], mode: str) -> str:
         """Build user prompt with context data.
 
+        Truncates conversation history if context exceeds MAX_CONTEXT_CHARS_FOR_PROMPT
+        to avoid hitting LLM token limits on long conversations.
+
         Args:
             context: Current context dictionary
             mode: Merchant mode
@@ -190,6 +207,9 @@ Include all active issues and constraints in active_constraints."""
             User prompt for LLM
         """
         context_json = json.dumps(context, indent=2, default=str)
+
+        if len(context_json) > MAX_CONTEXT_CHARS_FOR_PROMPT:
+            context_json = self._truncate_context(context, MAX_CONTEXT_CHARS_FOR_PROMPT)
 
         if mode == "ecommerce":
             prompt = f"""Analyze this e-commerce conversation context and provide a summary:
@@ -209,6 +229,36 @@ Extract key points and active constraints."""
 Extract key points and active constraints."""
 
         return prompt
+
+    def _truncate_context(self, context: dict[str, Any], max_chars: int) -> str:
+        """Truncate context to fit within token budget by trimming conversation history.
+
+        Keeps recent messages and discards older ones when context is too large.
+
+        Args:
+            context: Current context dictionary
+            max_chars: Maximum character budget
+
+        Returns:
+            JSON string of truncated context
+        """
+        context_copy = dict(context)
+        history = list(context_copy.get("conversation_history", []))
+
+        if not history:
+            return json.dumps(context_copy, indent=2, default=str)
+
+        summary_line = f"[... {len(history)} earlier messages truncated for length ...]"
+
+        while history:
+            context_copy["conversation_history"] = [summary_line] + history
+            serialized = json.dumps(context_copy, indent=2, default=str)
+            if len(serialized) <= max_chars:
+                return serialized
+            history.pop(0)
+
+        context_copy["conversation_history"] = [summary_line]
+        return json.dumps(context_copy, indent=2, default=str)
 
     def _parse_summary_response(
         self,
@@ -408,18 +458,45 @@ Extract key points and active constraints."""
         if not history:
             return "No conversation history to summarize."
 
-        if mode == "general":
-            topics = []
-            for msg in history:
-                if isinstance(msg, dict) and msg.get("content"):
-                    topics.append(msg["content"][:80])
-            return "📝 **Topics Covered:**\n" + "\n".join(f"- {t}" for t in topics)
+        customer_messages = [
+            msg.get("content", "")
+            for msg in history
+            if isinstance(msg, dict)
+            and msg.get("role") in ("customer", "user")
+            and msg.get("content")
+        ]
+        all_text = " ".join(customer_messages)
 
-        key_points = []
-        for msg in history:
-            if isinstance(msg, dict) and msg.get("content"):
-                key_points.append(msg["content"][:100])
-        return "🛍️ **Discussion Summary:**\n" + "\n".join(f"- {p}" for p in key_points)
+        if mode == "ecommerce":
+            products = set(m.group(1).lower() for m in _PRODUCT_PATTERN.finditer(all_text))
+            prices = _PRICE_PATTERN.findall(all_text)
+            sizes = _SIZE_PATTERN.findall(all_text)
+            colors = _COLOR_PATTERN.findall(all_text)
+
+            lines = ["🛍️ **Discussion Summary:**"]
+            if products:
+                lines.append(f"- Products mentioned: {', '.join(sorted(products))}")
+            if prices:
+                lines.append(f"- Budget/price mentions: {', '.join(prices)}")
+            if sizes:
+                lines.append(f"- Size preferences: {', '.join(sizes)}")
+            if colors:
+                lines.append(f"- Color preferences: {', '.join(colors)}")
+            if not any([products, prices, sizes, colors]):
+                lines.append(
+                    f"- {customer_messages[-1][:120]}"
+                    if customer_messages
+                    else "- No details extracted"
+                )
+            return "\n".join(lines)
+
+        topics = [msg[:80] for msg in customer_messages] if customer_messages else []
+        lines = ["📝 **Topics Covered:**"]
+        for t in topics[:5]:
+            lines.append(f"- {t}")
+        if not topics:
+            lines.append("- No topics extracted")
+        return "\n".join(lines)
 
     def _create_llm_service(self) -> BaseLLMService:
         """Create LLM service instance using factory.

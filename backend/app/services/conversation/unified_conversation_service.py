@@ -308,10 +308,11 @@ class UnifiedConversationService:
                     intent_name = summarize_intent.value
                     confidence = 0.98
                     handler = self._handlers["summarize"]
+                    llm_service = await self._get_merchant_llm(merchant, db, context)
                     response = await handler.handle(
                         db=db,
                         merchant=merchant,
-                        llm_service=None,
+                        llm_service=llm_service,
                         message=message,
                         context=context,
                         entities=None,

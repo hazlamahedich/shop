@@ -194,7 +194,7 @@ test.describe('Story 11-9: Conversation Summarization @p1', () => {
     await expect(page.getByText(/size 10|Nike Air Zoom/i)).toBeVisible();
   });
 
-  test('[P1] 11.9-E2E-005: exactly 3 turns triggers full summary (boundary)', async ({ page }) => {
+  test('[P1] 11.9-E2E-005: 2 conversation turns + recap triggers full summary', async ({ page }) => {
     const THIRD_TURN_RESPONSE = createMockMessageResponse({
       content: 'Good to know! Anything else?',
     });

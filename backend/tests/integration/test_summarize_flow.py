@@ -237,20 +237,40 @@ class TestSummarizationAllStates:
                 result = await handler.handle(mock_db, merchant, mock_llm, "recap", context)
         assert result.intent == "summarize"
 
+
+class TestConcurrentSummarizeRace:
+    """Verify concurrent summarize requests don't corrupt context."""
+
     @pytest.mark.asyncio
-    async def test_proactive_gathering_state(self, handler, mock_db, mock_llm):
+    async def test_two_concurrent_recap_requests_both_succeed(self, handler, mock_db, mock_llm):
+        import asyncio
+
         merchant = _make_merchant()
         context = _make_context(history=_make_history(5))
-        context.gathering_state.active = True
+
+        call_count = 0
+
+        def make_summary(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return f"Summary {call_count}"
+
         with patch(
             "app.services.conversation.handlers.summarize_handler.ContextSummarizerService"
         ) as mock_svc_cls:
             mock_svc = AsyncMock()
-            mock_svc.summarize_for_customer = AsyncMock(return_value="Summary")
+            mock_svc.summarize_for_customer = AsyncMock(side_effect=make_summary)
             mock_svc_cls.return_value = mock_svc
             with patch(
                 "app.services.conversation.handlers.summarize_handler.PersonalityAwareResponseFormatter"
             ) as mock_fmt:
-                mock_fmt.format_response.side_effect = ["Intro", "Closing"]
-                result = await handler.handle(mock_db, merchant, mock_llm, "recap", context)
-        assert result.intent == "summarize"
+                mock_fmt.format_response.side_effect = lambda *a, **kw: "Formatted"
+                results = await asyncio.gather(
+                    handler.handle(mock_db, merchant, mock_llm, "recap", context),
+                    handler.handle(mock_db, merchant, mock_llm, "summarize", context),
+                )
+
+        assert len(results) == 2
+        assert all(r.intent == "summarize" for r in results)
+        assert all(r.metadata["summary_generated"] is True for r in results)
+        assert context.conversation_history is not None

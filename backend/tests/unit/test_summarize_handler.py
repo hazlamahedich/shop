@@ -225,13 +225,9 @@ class TestHandlerFailureErrorCode:
             "app.services.conversation.handlers.summarize_handler.PersonalityAwareResponseFormatter.format_response",
             side_effect=RuntimeError("Unexpected"),
         ):
-            with patch(
-                "app.services.conversation.handlers.summarize_handler.PersonalityAwareResponseFormatter.format_response",
-                side_effect=RuntimeError("Unexpected"),
-            ):
-                result = await handler.handle(
-                    mock_db, ecommerce_merchant, mock_llm, "summarize", context
-                )
+            result = await handler.handle(
+                mock_db, ecommerce_merchant, mock_llm, "summarize", context
+            )
         assert result.intent == "summarize"
         assert result.metadata.get("fallback") is True
 
@@ -330,7 +326,7 @@ class TestFallbackSummary:
             ]
         }
         result = SummarizeHandler._fallback_summary(ctx, "ecommerce")
-        assert "shoes" in result.lower() or "Summary" in result
+        assert "Discussion Summary" in result or "shoes" in result.lower()
 
     def test_fallback_with_history_general(self):
         ctx = {
@@ -340,7 +336,7 @@ class TestFallbackSummary:
             ]
         }
         result = SummarizeHandler._fallback_summary(ctx, "general")
-        assert "Summary" in result or "returns" in result.lower()
+        assert "Topics Covered" in result or "returns" in result.lower()
 
 
 class TestMetadataFields:
