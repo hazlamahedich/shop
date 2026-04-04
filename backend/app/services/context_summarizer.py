@@ -301,7 +301,7 @@ Extract key points and active constraints."""
             if context.get("documents_referenced"):
                 key_points.append(f"Referenced {len(context['documents_referenced'])} documents")
             if context.get("support_issues"):
-                issue_types = [issue.get('type', 'unknown') for issue in context['support_issues']]
+                issue_types = [issue.get("type", "unknown") for issue in context["support_issues"]]
                 key_points.append(f"Issues: {', '.join(issue_types)}")
             if context.get("escalation_status"):
                 key_points.append(f"Escalation: {context['escalation_status']}")
@@ -312,6 +312,114 @@ Extract key points and active constraints."""
             "key_points": key_points,
             "active_constraints": active_constraints,
         }
+
+    async def summarize_for_customer(
+        self,
+        context_dict: dict[str, Any],
+        mode: str,
+        conversation_id: int | None = None,
+    ) -> str:
+        """Generate a customer-facing conversation summary in markdown format.
+
+        Uses a separate prompt and parser from the internal summarize_context().
+        Returns formatted markdown string, NOT a dict.
+
+        Args:
+            context_dict: Conversation context as dict
+            mode: Merchant mode (ecommerce or general)
+            conversation_id: Conversation ID for logging
+
+        Returns:
+            Markdown-formatted summary string
+        """
+        try:
+            system_prompt = self._get_customer_system_prompt(mode)
+
+            user_prompt = self._build_user_prompt(context_dict, mode)
+
+            if not self.llm:
+                self.llm = self._create_llm_service()
+
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt),
+            ]
+
+            response = await self.llm.chat(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=800,
+            )
+
+            return response.content.strip()
+
+        except Exception as e:
+            self.logger.error(
+                "Customer summarization failed, using fallback",
+                error=str(e),
+                conversation_id=conversation_id,
+            )
+            return self._fallback_customer_summary(context_dict, mode)
+
+    def _get_customer_system_prompt(self, mode: str) -> str:
+        """Get system prompt for customer-facing summarization.
+
+        Args:
+            mode: Merchant mode (ecommerce or general)
+
+        Returns:
+            System prompt instructing LLM to output formatted markdown
+        """
+        if mode == "ecommerce":
+            return (
+                "Summarize this shopping conversation for the customer in markdown. "
+                "Include sections:\n"
+                "- 🛍️ Products Discussed\n"
+                "- 🎯 Preferences & Constraints\n"
+                "- 🛒 Cart Status\n"
+                "- 📋 Suggested Next Steps\n"
+                "Use bullet points. Be concise and friendly."
+            )
+        return (
+            "Summarize this support conversation for the customer in markdown. "
+            "Include sections:\n"
+            "- 📝 Topics Covered\n"
+            "- 📄 Documents Referenced\n"
+            "- ✅ Issues & Resolutions\n"
+            "- ❓ Open Items\n"
+            "Use bullet points. Be concise and friendly."
+        )
+
+    def _fallback_customer_summary(
+        self,
+        context_dict: dict[str, Any],
+        mode: str,
+    ) -> str:
+        """Rule-based fallback for customer-facing summary without LLM.
+
+        Args:
+            context_dict: Conversation context as dict
+            mode: Merchant mode
+
+        Returns:
+            Plain markdown summary string
+        """
+        history = context_dict.get("conversation_history", [])
+        if not history:
+            return "No conversation history to summarize."
+
+        if mode == "general":
+            topics = []
+            for msg in history:
+                if isinstance(msg, dict) and msg.get("content"):
+                    topics.append(msg["content"][:80])
+            return "📝 **Topics Covered:**\n" + "\n".join(f"- {t}" for t in topics)
+
+        key_points = []
+        for msg in history:
+            if isinstance(msg, dict) and msg.get("content"):
+                key_points.append(msg["content"][:100])
+        return "🛍️ **Discussion Summary:**\n" + "\n".join(f"- {p}" for p in key_points)
 
     def _create_llm_service(self) -> BaseLLMService:
         """Create LLM service instance using factory.

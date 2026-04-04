@@ -27,6 +27,7 @@ _SKIP_INTENTS: set[IntentType] = {
     IntentType.FORGET_PREFERENCES,
     IntentType.CHECK_CONSENT_STATUS,
     IntentType.PRODUCT_RECOMMENDATION,
+    IntentType.SUMMARIZE,
 }
 
 INTENT_REQUIREMENTS: dict[IntentType, list[IntentRequirement]] = {

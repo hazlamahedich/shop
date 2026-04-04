@@ -32,6 +32,7 @@ class IntentType(str, Enum):
     FORGET_PREFERENCES = "forget_preferences"
     CHECK_CONSENT_STATUS = "check_consent_status"
     PRODUCT_RECOMMENDATION = "product_recommendation"
+    SUMMARIZE = "summarize"
     UNKNOWN = "unknown"
 
 

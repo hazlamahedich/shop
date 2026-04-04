@@ -303,6 +303,7 @@ RESPONSE_TYPE_TO_TRANSITION: dict[str, TransitionCategory] = {
     "order_confirmation": TransitionCategory.CONFIRMING,
     "general_mode_fallback": TransitionCategory.ACKNOWLEDGING,
     "proactive_gathering": TransitionCategory.CLARIFYING,
+    "summarization": TransitionCategory.CONFIRMING,
 }
 
 TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
@@ -323,6 +324,11 @@ TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
         "needs_issue_type",
         "combined_question",
         "best_effort_notice",
+    },
+    "summarization": {
+        "summary_intro",
+        "short_conversation",
+        "summary_closing",
     },
 }
 

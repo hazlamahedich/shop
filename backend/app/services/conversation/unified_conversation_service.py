@@ -21,9 +21,10 @@ Story 5-11: Messenger Unified Service Migration
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 from sqlalchemy import select
@@ -48,6 +49,7 @@ from app.services.conversation.handlers import (
     OrderHandler,
     RecommendationHandler,
     SearchHandler,
+    SummarizeHandler,
 )
 from app.services.conversation.handlers.general_mode_fallback import (
     GeneralModeFallbackHandler,
@@ -67,11 +69,15 @@ from app.services.intent.classification_schema import (
 from app.services.intent.intent_classifier import IntentClassifier
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
-from app.services.personality.conversation_templates import register_conversation_templates
+from app.services.personality.conversation_templates import (
+    register_conversation_templates,
+    register_summarization_templates,
+)
 from app.services.personality.error_recovery_templates import register_error_recovery_templates
 
 register_conversation_templates()
 register_error_recovery_templates()
+register_summarization_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -115,6 +121,7 @@ class UnifiedConversationService:
         "forget_preferences": "forget_preferences",
         "check_consent_status": "check_consent",
         "product_recommendation": "recommendation",
+        "summarize": "summarize",
         "general": "llm",
         "unknown": "llm",
     }
@@ -153,6 +160,7 @@ class UnifiedConversationService:
             "forget_preferences": ForgetPreferencesHandler(),
             "check_consent": CheckConsentHandler(),
             "general_mode_fallback": self.general_mode_fallback_handler,
+            "summarize": SummarizeHandler(),
         }
 
     async def process_message(
@@ -291,6 +299,23 @@ class UnifiedConversationService:
                         )
                         intent_name = "order_tracking"
                         confidence = 1.0
+
+            # Story 11-9: Early SUMMARIZE pattern pre-check
+            # Must run BEFORE multi-turn check, FAQ check, proactive gathering, and general-mode bypass
+            if response is None:
+                summarize_intent = self._check_summarize_pattern(message)
+                if summarize_intent:
+                    intent_name = summarize_intent.value
+                    confidence = 0.98
+                    handler = self._handlers["summarize"]
+                    response = await handler.handle(
+                        db=db,
+                        merchant=merchant,
+                        llm_service=None,
+                        message=message,
+                        context=context,
+                        entities=None,
+                    )
 
             # Story 11-2: Check multi-turn state before FAQ/intent classification
             # If in active multi-turn flow, route directly to multi-turn handler
@@ -951,6 +976,28 @@ class UnifiedConversationService:
                 model="error",
                 processing_time_ms=0,
             )
+
+    _SUMMARIZE_PATTERNS: ClassVar[list[str]] = [
+        r"^(recap|summarize|summary|quick recap)\s*[!?.]*$",
+        r"^what (did|have) we (discuss(ed)?|talk(ed)? about|cover(ed)?)\s*[?!.]*$",
+        r"^refresh my memory\s*[!?.]*$",
+        r"^catch me up\s*[!?.]*$",
+        r"^summarize (our|this|the) (conversation|chat|discussion)\s*[!?.]*$",
+        r"^give me (a |an |the )?(recap|summary|overview)\s*[!?.]*$",
+    ]
+
+    def _check_summarize_pattern(self, message: str) -> "ClassifierIntentType" | None:
+        """Story 11-9: Check if message matches a summarize intent pattern.
+
+        Runs BEFORE multi-turn check, FAQ check, proactive gathering,
+        and general-mode bypass. Uses tight ^...$ anchors to prevent
+        false matches like 'summarize the return policy'.
+        """
+        normalized = message.strip().lower()
+        for pattern in self._SUMMARIZE_PATTERNS:
+            if re.match(pattern, normalized, re.IGNORECASE):
+                return ClassifierIntentType.SUMMARIZE
+        return None
 
     def _classify_by_patterns(self, message: str) -> ClassificationResult | None:
         """Fast pattern-based intent classification.
@@ -2849,6 +2896,10 @@ class UnifiedConversationService:
         mt_state_str = getattr(clarification_state, "multi_turn_state", "IDLE")
 
         if mt_state_str in ("IDLE", "COMPLETE") or mt_state_str == MultiTurnStateEnum.IDLE:
+            return None
+
+        # Story 11-9 defense-in-depth: if message matches SUMMARIZE pattern, don't intercept
+        if self._check_summarize_pattern(message) is not None:
             return None
 
         conv_id = context.conversation_id

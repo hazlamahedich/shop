@@ -79,6 +79,25 @@ PROACTIVE_GATHERING_TEMPLATES = {
 }
 
 
+SUMMARIZATION_TEMPLATES = {
+    PersonalityType.FRIENDLY: {
+        "summary_intro": "Here's a quick recap of our chat! 📋",
+        "short_conversation": "We just started chatting! 😊 Not much to summarize yet, but feel free to ask me anything!",
+        "summary_closing": "Anything else I can help you with? 😊",
+    },
+    PersonalityType.PROFESSIONAL: {
+        "summary_intro": "Here is a summary of our conversation.",
+        "short_conversation": "Our conversation has just begun. There is not yet enough content to summarize. Please feel free to continue.",
+        "summary_closing": "Is there anything else I can assist you with?",
+    },
+    PersonalityType.ENTHUSIASTIC: {
+        "summary_intro": "Here's an AWESOME recap of our chat!!! 📋✨",
+        "short_conversation": "We JUST started chatting! 🎉 Not much to summarize yet, but I'm SO ready to help with ANYTHING!!!",
+        "summary_closing": "What else can I help you with?! I'm SO here for you!!! ✨",
+    },
+}
+
+
 def register_conversation_templates():
     PersonalityAwareResponseFormatter.register_response_type("conversation", CONVERSATION_TEMPLATES)
 
@@ -86,4 +105,10 @@ def register_conversation_templates():
 def register_proactive_gathering_templates():
     PersonalityAwareResponseFormatter.register_response_type(
         "proactive_gathering", PROACTIVE_GATHERING_TEMPLATES
+    )
+
+
+def register_summarization_templates():
+    PersonalityAwareResponseFormatter.register_response_type(
+        "summarization", SUMMARIZATION_TEMPLATES
     )

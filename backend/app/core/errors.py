@@ -238,6 +238,9 @@ class ErrorCode(IntEnum):
     ERROR_FORMATTING_FAILED = 7094  # Response formatter failed during error recovery
     ERROR_RECOVERY_SERVICE_UNAVAILABLE = 7095  # Error recovery service unavailable
 
+    # Story 11-9: Conversation summarization error codes
+    SUMMARIZATION_HANDLER_FAILED = 7100  # Summarization handler failure
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

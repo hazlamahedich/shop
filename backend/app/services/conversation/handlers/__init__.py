@@ -25,6 +25,7 @@ from app.services.conversation.handlers.llm_handler import LLMHandler
 from app.services.conversation.handlers.order_handler import OrderHandler
 from app.services.conversation.handlers.recommendation_handler import RecommendationHandler
 from app.services.conversation.handlers.search_handler import SearchHandler
+from app.services.conversation.handlers.summarize_handler import SummarizeHandler
 
 __all__ = [
     "BaseHandler",
@@ -39,4 +40,5 @@ __all__ = [
     "OrderHandler",
     "RecommendationHandler",
     "SearchHandler",
+    "SummarizeHandler",
 ]

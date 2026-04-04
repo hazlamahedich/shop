@@ -45,6 +45,9 @@ class TestSkipIntents:
     def test_check_consent_status(self) -> None:
         assert is_skip_intent(IntentType.CHECK_CONSENT_STATUS) is True
 
+    def test_summarize(self) -> None:
+        assert is_skip_intent(IntentType.SUMMARIZE) is True
+
     def test_cart_add_not_skip(self) -> None:
         assert is_skip_intent(IntentType.CART_ADD) is False
 
