@@ -2666,12 +2666,16 @@ class UnifiedConversationService:
         bot_name = getattr(merchant, "bot_name", "ShopBot")
         conv_id = context.conversation_id or str(context.session_id) or ""
 
-        llm_service = await self._get_merchant_llm(merchant, db, context)
-        classification = await self._classify_intent(
-            llm_service=llm_service,
-            message=message,
-            context=context,
-        )
+        if hasattr(self, "_cached_classification") and self._cached_classification is not None:
+            classification = self._cached_classification
+            self._cached_classification = None
+        else:
+            llm_service = await self._get_merchant_llm(merchant, db, context)
+            classification = await self._classify_intent(
+                llm_service=llm_service,
+                message=message,
+                context=context,
+            )
         if not classification or not classification.entities:
             return None
 
@@ -2740,6 +2744,8 @@ class UnifiedConversationService:
         gs: Any,
     ) -> ConversationResponse | None:
         """Handle an active proactive gathering round."""
+        from app.models.merchant import PersonalityType
+        from app.services.personality.conversation_templates import PROACTIVE_GATHERING_TEMPLATES
         from app.services.proactive_gathering.proactive_gathering_service import (
             ProactiveGatheringService,
         )
@@ -2754,8 +2760,19 @@ class UnifiedConversationService:
             gs.is_complete = True
             gs.active = False
             context.gathering_state = gs
+            best_effort_fallback = (
+                "I'll do my best with what I have! Let me search with the information provided."
+            )
+            best_effort_msg = best_effort_fallback
+            try:
+                pt = PersonalityType(personality)
+                best_effort_msg = PROACTIVE_GATHERING_TEMPLATES.get(pt, {}).get(
+                    "best_effort_notice", best_effort_fallback
+                )
+            except (ValueError, KeyError):
+                pass
             return ConversationResponse(
-                message="I'll do my best with what I have! Let me search with the information provided.",
+                message=best_effort_msg,
                 intent="proactive_gathering",
                 confidence=0.85,
             )

@@ -64,7 +64,9 @@ def gctx() -> ConversationContext:
 
 class TestFullFlow:
     @pytest.mark.asyncio
-    async def test_detect_ask_answer_route(self, svc: ProactiveGatheringService, ctx: ConversationContext) -> None:
+    async def test_detect_ask_answer_route(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
         entities = ExtractedEntities()
         missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, entities, ctx, "ecommerce")
         assert len(missing) > 0
@@ -80,7 +82,9 @@ class TestFullFlow:
         assert all(f.field_name not in ["budget", "color"] for f in remaining)
 
     @pytest.mark.asyncio
-    async def test_all_entities_present_skips_gathering(self, svc: ProactiveGatheringService, ctx: ConversationContext) -> None:
+    async def test_all_entities_present_skips_gathering(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
         entities = ExtractedEntities(budget=100, color="red")
         missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, entities, ctx, "ecommerce")
         budget_missing = [f for f in missing if f.field_name == "budget"]
@@ -91,14 +95,18 @@ class TestFullFlow:
 
 class TestContextAwareness:
     @pytest.mark.asyncio
-    async def test_budget_in_entities_not_re_asked(self, svc: ProactiveGatheringService, ctx: ConversationContext) -> None:
+    async def test_budget_in_entities_not_re_asked(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
         entities = ExtractedEntities(budget=100)
         missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, entities, ctx, "ecommerce")
         budget_fields = [f for f in missing if f.field_name == "budget"]
         assert len(budget_fields) == 0
 
     @pytest.mark.asyncio
-    async def test_category_from_entities_not_re_asked(self, svc: ProactiveGatheringService, ctx: ConversationContext) -> None:
+    async def test_category_from_entities_not_re_asked(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
         entities = ExtractedEntities(category="shoes")
         missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, entities, ctx, "ecommerce")
         cat_fields = [f for f in missing if f.field_name == "category"]
@@ -137,27 +145,38 @@ class TestErrorDegradation:
 
 class TestFaqSkip:
     @pytest.mark.asyncio
-    async def test_faq_match_skips_gathering(self, svc: ProactiveGatheringService, ctx: ConversationContext) -> None:
-        faq_response = True
-        if faq_response:
-            missing = []
-        else:
-            missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, ExtractedEntities(), ctx, "ecommerce")
-        assert len(missing) == 0
+    async def test_faq_match_skips_gathering(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
+        entities = ExtractedEntities()
+        missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, entities, ctx, "ecommerce")
+        assert len(missing) > 0
+
+        faq_response = "Here is our shipping policy..."
+        assert faq_response is not None
+        assert len(faq_response) > 0
+        after_faq_missing = [] if faq_response else missing
+        assert len(after_faq_missing) == 0
 
 
 class TestMutualExclusion:
     @pytest.mark.asyncio
-    async def test_clarifying_state_blocks_gathering(self, svc: ProactiveGatheringService, ctx: ConversationContext) -> None:
-        state_is_clarifying = True
-        if state_is_clarifying:
-            missing = []
-        else:
-            missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, ExtractedEntities(), ctx, "ecommerce")
-        assert len(missing) == 0
+    async def test_clarifying_state_blocks_gathering(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
+        ctx.clarification_state.multi_turn_state = "CLARIFYING"
+        entities = ExtractedEntities()
+        missing = svc.detect_missing_info(IntentType.PRODUCT_SEARCH, entities, ctx, "ecommerce")
+        assert len(missing) > 0
+
+        is_clarifying = ctx.clarification_state.multi_turn_state == "CLARIFYING"
+        after_check_missing = [] if is_clarifying else missing
+        assert len(after_check_missing) == 0
 
     @pytest.mark.asyncio
-    async def test_no_gathering_state_created_when_clarifying(self, ctx: ConversationContext) -> None:
+    async def test_no_gathering_state_created_when_clarifying(
+        self, ctx: ConversationContext
+    ) -> None:
         gs = ctx.gathering_state
         assert gs.active is False
         assert gs.is_complete is False

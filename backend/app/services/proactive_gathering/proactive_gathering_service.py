@@ -98,6 +98,7 @@ class ProactiveGatheringService:
                     field_name=req.field_name,
                     display_name=req.display_name,
                     priority=req.priority,
+                    required=req.required,
                     mode=req.mode,
                     example_values=req.example_values,
                 )
@@ -211,6 +212,8 @@ class ProactiveGatheringService:
             "brand": entities.brand,
             "order_number": entities.order_number,
             "category": entities.category,
+            "product_identifier": entities.product_reference,
+            "product_identifiers": entities.product_reference,
         }
         if field_name in entity_fields and entity_fields[field_name] is not None:
             return True
@@ -297,6 +300,11 @@ class ProactiveGatheringService:
         if field_name == "color":
             match = _COLOR_PATTERN.search(response)
             return match.group(0).lower() if match else None
+        if field_name in ("product_identifier", "product_identifiers"):
+            stripped = response.strip()
+            if len(stripped) <= 150 and stripped:
+                return stripped
+            return None
         if field_name == "brand":
             response_lower = response.lower()
             for brand in _BRAND_KNOWN:

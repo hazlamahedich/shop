@@ -11,6 +11,7 @@ class MissingField(BaseModel):
     field_name: str = Field(description="Internal field name (e.g., 'budget', 'order_number')")
     display_name: str = Field(description="Human-readable name for question generation")
     priority: int = Field(ge=1, le=3, description="1=critical, 2=important, 3=nice-to-have")
+    required: bool = Field(default=True, description="Whether this field is required vs optional")
     mode: str = Field(description="ecommerce, general, or both")
     example_values: list[str] = Field(
         default_factory=list, description="Example values for guidance"
