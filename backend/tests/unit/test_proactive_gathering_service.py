@@ -418,6 +418,16 @@ class TestRegexPatterns:
         for size in ("XS", "S", "M", "L", "XL", "XXL"):
             assert _SIZE_PATTERN.search(f"size {size}") is not None
 
+    def test_size_pattern_numeric_with_unit(self) -> None:
+        for text in ("size 42 eu", "10 inch", "30 cm", "size 8 uk"):
+            assert _SIZE_PATTERN.search(text) is not None
+
+    def test_size_pattern_rejects_bare_numbers(self) -> None:
+        for text in ("$100", "under 50", "200", "budget is $80", "around 150 dollars"):
+            assert (
+                _SIZE_PATTERN.search(text) is None
+            ), f"_SIZE_PATTERN should not match bare number in: {text!r}"
+
     def test_order_number_pattern(self) -> None:
         assert _ORDER_NUMBER_PATTERN.search("#1234") is not None
         assert _ORDER_NUMBER_PATTERN.search("ORD-567") is not None
@@ -489,6 +499,60 @@ class TestExtractPartialAnswerMultiField:
         assert "budget" in result
         assert "color" in result
         assert "brand" not in result
+
+
+class TestCrossFieldConflict:
+    def test_budget_extraction_no_false_size(self, service: ProactiveGatheringService) -> None:
+        fields = [
+            MissingField(
+                field_name="budget",
+                display_name="budget",
+                priority=1,
+                mode="ecommerce",
+                example_values=["$50"],
+            ),
+            MissingField(
+                field_name="size",
+                display_name="size",
+                priority=2,
+                mode="ecommerce",
+                example_values=["M"],
+            ),
+        ]
+        result = service.extract_partial_answer("my budget is $100", fields, "ecommerce")
+        assert "budget" in result
+        assert "size" not in result
+
+    def test_budget_and_color_no_false_size(self, service: ProactiveGatheringService) -> None:
+        fields = [
+            MissingField(
+                field_name="budget",
+                display_name="budget",
+                priority=1,
+                mode="ecommerce",
+                example_values=["$50"],
+            ),
+            MissingField(
+                field_name="color",
+                display_name="color",
+                priority=2,
+                mode="ecommerce",
+                example_values=["red"],
+            ),
+            MissingField(
+                field_name="size",
+                display_name="size",
+                priority=3,
+                mode="ecommerce",
+                example_values=["M"],
+            ),
+        ]
+        result = service.extract_partial_answer(
+            "I want blue and my budget is under 80 dollars", fields, "ecommerce"
+        )
+        assert "budget" in result
+        assert "color" in result
+        assert "size" not in result
 
 
 class TestBrandFallbackLongResponse:
