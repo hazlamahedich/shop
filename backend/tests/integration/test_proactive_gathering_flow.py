@@ -11,8 +11,6 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 
 from app.services.conversation.schemas import ConversationContext
@@ -115,13 +113,24 @@ class TestContextAwareness:
 
 class TestBestEffort:
     @pytest.mark.asyncio
-    async def test_best_effort_after_2_rounds(self, gctx: ConversationContext) -> None:
+    async def test_best_effort_after_2_rounds(
+        self, svc: ProactiveGatheringService, gctx: ConversationContext
+    ) -> None:
         gs = gctx.gathering_state
-        gs.round_count = 1
-        next_round = gs.round_count + 1
-        assert next_round >= 2
-        gs.is_complete = True
+        gs.round_count = 2
+
+        msg = svc.generate_gathering_message(
+            gs.missing_fields, "friendly", "Bot", "ecommerce", gctx, "conv-best-effort"
+        )
+        assert len(msg) > 0
+
+        user_response = "I'm not sure about the rest"
+        extracted = svc.extract_partial_answer(user_response, gs.missing_fields, "ecommerce")
+        assert isinstance(extracted, dict)
+
+        gs.gathered_data.update(extracted)
         gs.active = False
+        gs.is_complete = True
         assert gs.is_complete is True
         assert gs.active is False
 
@@ -181,3 +190,31 @@ class TestMutualExclusion:
         assert gs.active is False
         assert gs.is_complete is False
         assert gs.round_count == 0
+
+
+class TestExtractThenDetectRemaining:
+    @pytest.mark.asyncio
+    async def test_extract_then_detect_remaining(
+        self, svc: ProactiveGatheringService, ctx: ConversationContext
+    ) -> None:
+        missing_r1 = svc.detect_missing_info(
+            IntentType.PRODUCT_SEARCH, ExtractedEntities(), ctx, "ecommerce"
+        )
+        assert len(missing_r1) > 0
+
+        user_msg = "under $80 in blue please"
+        extracted = svc.extract_partial_answer(user_msg, missing_r1, "ecommerce")
+        assert "budget" in extracted
+        assert "color" in extracted
+
+        updated_entities = ExtractedEntities(
+            budget=extracted["budget"] if isinstance(extracted["budget"], (int, float)) else None,
+            color=extracted.get("color"),
+        )
+        remaining = svc.detect_missing_info(
+            IntentType.PRODUCT_SEARCH, updated_entities, ctx, "ecommerce"
+        )
+        remaining_names = [f.field_name for f in remaining]
+        assert "budget" not in remaining_names
+        assert "color" not in remaining_names
+        assert len(remaining) < len(missing_r1)

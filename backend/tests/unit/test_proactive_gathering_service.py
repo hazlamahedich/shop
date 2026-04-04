@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
+from unittest.mock import patch
 
 import pytest
 
-from app.models.merchant import PersonalityType
 from app.services.conversation.schemas import Channel, ConversationContext
 from app.services.intent.classification_schema import ExtractedEntities, IntentType
-from app.services.proactive_gathering.intent_requirements import (
-    INTENT_REQUIREMENTS,
-    _SKIP_INTENTS,
-    IntentRequirement,
-    get_requirements_for_intent,
-    is_skip_intent,
-)
+from app.services.proactive_gathering.intent_requirements import _SKIP_INTENTS
 from app.services.proactive_gathering.proactive_gathering_service import (
     _BRAND_KNOWN,
     _BUDGET_PATTERN,
@@ -22,9 +15,7 @@ from app.services.proactive_gathering.proactive_gathering_service import (
     _SIZE_PATTERN,
     ProactiveGatheringService,
 )
-from app.services.proactive_gathering.schemas import GatheringState, MissingField
-from app.services.multi_turn.schemas import MultiTurnConfig, MultiTurnState, MultiTurnStateEnum
-from app.services.multi_turn.state_machine import ConversationStateMachine
+from app.services.proactive_gathering.schemas import MissingField
 
 
 @pytest.fixture
@@ -436,3 +427,168 @@ class TestRegexPatterns:
         assert "nike" in _BRAND_KNOWN
         assert "adidas" in _BRAND_KNOWN
         assert "apple" in _BRAND_KNOWN
+
+
+class TestExtractPartialAnswerMultiField:
+    def test_partial_match_extracts_only_matched(self, service: ProactiveGatheringService) -> None:
+        fields = [
+            MissingField(
+                field_name="budget",
+                display_name="budget",
+                priority=1,
+                mode="ecommerce",
+                example_values=["$50"],
+            ),
+            MissingField(
+                field_name="color",
+                display_name="color",
+                priority=2,
+                mode="ecommerce",
+                example_values=["red"],
+            ),
+            MissingField(
+                field_name="brand",
+                display_name="brand",
+                priority=3,
+                mode="ecommerce",
+                example_values=["Nike"],
+            ),
+        ]
+        result = service.extract_partial_answer("my budget is $50", fields, "ecommerce")
+        assert "budget" in result
+        assert "color" not in result
+        assert "brand" not in result
+
+    def test_two_fields_matched_one_remaining(self, service: ProactiveGatheringService) -> None:
+        fields = [
+            MissingField(
+                field_name="budget",
+                display_name="budget",
+                priority=1,
+                mode="ecommerce",
+                example_values=["$50"],
+            ),
+            MissingField(
+                field_name="color",
+                display_name="color",
+                priority=2,
+                mode="ecommerce",
+                example_values=["red"],
+            ),
+            MissingField(
+                field_name="brand",
+                display_name="brand",
+                priority=3,
+                mode="ecommerce",
+                example_values=["Nike"],
+            ),
+        ]
+        result = service.extract_partial_answer(
+            "I want blue color and my budget is $100", fields, "ecommerce"
+        )
+        assert "budget" in result
+        assert "color" in result
+        assert "brand" not in result
+
+
+class TestBrandFallbackLongResponse:
+    def test_long_response_returns_none(self, service: ProactiveGatheringService) -> None:
+        fields = [
+            MissingField(
+                field_name="brand",
+                display_name="brand",
+                priority=3,
+                mode="ecommerce",
+                example_values=["Nike"],
+            ),
+        ]
+        long_response = "I want something really comfortable and stylish for everyday wear"
+        result = service.extract_partial_answer(long_response, fields, "ecommerce")
+        assert "brand" in result
+        assert result["brand"] == long_response
+
+
+class TestContextPrefixMultipleConstraints:
+    def test_multiple_constraints_combined(self, service: ProactiveGatheringService) -> None:
+        ctx = _context_with_constraints(budget=100, color="blue", brand="Nike")
+        fields = [
+            MissingField(
+                field_name="size",
+                display_name="size",
+                priority=2,
+                mode="ecommerce",
+                example_values=["M"],
+            ),
+        ]
+        result = service.generate_gathering_message(
+            fields, "friendly", "Bot", "ecommerce", ctx, "conv-multi"
+        )
+        assert "budget" in result.lower() or "100" in result
+        assert "nike" in result.lower() or "blue" in result.lower()
+
+
+class TestResolvePersonalityEdgeCases:
+    def test_empty_string_personality(self, service: ProactiveGatheringService) -> None:
+        result = service._resolve_personality("")
+        assert result.value == "friendly"
+
+    def test_none_personality(self, service: ProactiveGatheringService) -> None:
+        result = service._resolve_personality(None)
+        assert result.value == "friendly"
+
+
+class TestIsModeCompatibleBothMode:
+    def test_both_mode_matches_ecommerce(self, service: ProactiveGatheringService) -> None:
+        assert service._is_mode_compatible("both", "ecommerce") is True
+
+    def test_both_mode_matches_general(self, service: ProactiveGatheringService) -> None:
+        assert service._is_mode_compatible("both", "general") is True
+
+    def test_mismatched_mode(self, service: ProactiveGatheringService) -> None:
+        assert service._is_mode_compatible("ecommerce", "general") is False
+
+
+class TestGenerateMessageTransitionException:
+    def test_transition_exception_falls_back(
+        self, service: ProactiveGatheringService, context: ConversationContext
+    ) -> None:
+        fields = [
+            MissingField(
+                field_name="budget",
+                display_name="budget",
+                priority=1,
+                mode="ecommerce",
+                example_values=["$50"],
+            ),
+        ]
+        with patch(
+            "app.services.proactive_gathering.proactive_gathering_service.get_transition_selector",
+            side_effect=RuntimeError("selector broken"),
+        ):
+            result = service.generate_gathering_message(
+                fields, "friendly", "Bot", "ecommerce", context, "conv-exc"
+            )
+        assert len(result) > 0
+        assert "budget" in result.lower()
+
+
+class TestFormatFieldGroupNoExamples:
+    def test_single_field_no_examples(self, service: ProactiveGatheringService) -> None:
+        fields = [
+            MissingField(
+                field_name="issue_type",
+                display_name="issue type",
+                priority=1,
+                mode="general",
+                example_values=[],
+            ),
+        ]
+        result = service._format_field_group(fields)
+        assert "issue type" in result
+        assert "e.g." not in result
+
+
+class TestCombineRelatedFieldsEmpty:
+    def test_empty_fields_returns_fallback(self, service: ProactiveGatheringService) -> None:
+        result = service._combine_related_fields([])
+        assert result == ["Could you tell me more?"]

@@ -25,7 +25,7 @@ _BUDGET_PATTERN = re.compile(
 _SIZE_PATTERN = re.compile(
     r"\b(xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl|one\s*size|extra\s*small|small|"
     r"medium|large|extra\s*large)\b"
-    r"|(\d+(?:\.\d+)?(?:\s*(?:cm|mm|inch|in|eu|uk|us))?)",
+    r"|(\d+(?:\.\d+)?\s*(?:cm|mm|inch|in|eu|uk|us))",
     re.IGNORECASE,
 )
 
@@ -236,7 +236,7 @@ class ProactiveGatheringService:
             return True
         return False
 
-    def _resolve_personality(self, personality: str) -> PersonalityType:
+    def _resolve_personality(self, personality: str | None) -> PersonalityType:
         personality_lower = personality.lower() if personality else "friendly"
         for pt in PersonalityType:
             if pt.value == personality_lower:
