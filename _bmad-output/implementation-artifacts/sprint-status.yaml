@@ -212,4 +212,4 @@ development_status:
   11-7-natural-error-handling: done # Code review COMPLETE: 1 CRITICAL + 1 HIGH + 3 MEDIUM + 2 LOW issues fixed. 54/54 tests passing. No regressions.
   11-8-proactive-information-gathering: done # Code review COMPLETE: 2 CRITICAL + 1 HIGH + 5 MEDIUM issues found and fixed (C1: MissingField.required AttributeError, C2: duplicate CONVERSATION_TEMPLATES, H1: product_identifier not detected, M2-M5: fake tests, hardcoded message, missing extraction, double classification). 109/109 story tests passing.
   11-9-conversation-summarization: done # 112/112 tests passing. All 6 tasks complete: SUMMARIZE intent, SummarizeHandler, customer-facing summarization, personality templates, defense-in-depth checks.
-  11-10-sentiment-adaptive-responses: review # Story file created: sentiment detection, adaptive response formatting, auto-escalation, mode-aware templates
+  11-10-sentiment-adaptive-responses: in-progress # Code review 1 COMPLETE: 3 HIGH + 2 MEDIUM issues auto-fixed (general mode missing, transition suppression, mode templates, error code, positive guard). 61/61 tests passing. LOW items deferred.

@@ -219,6 +219,10 @@ class TestStrategyMapping:
         score = _make_score()
         assert service._is_concise("i need this urgently please", score) is False
 
+    def test_not_concise_positive_sentiment(self, service: SentimentAdapterService):
+        score = _make_score(sentiment=Sentiment.POSITIVE, positive=5.0, confidence=0.8)
+        assert service._is_concise("I URGENTLY LOVE this!!!", score) is False
+
     def test_detailed_with_multiple_questions(self, service: SentimentAdapterService):
         score = _make_score(sentiment=Sentiment.NEUTRAL)
         assert service._is_detailed("how does this work? what about the warranty?", score) is True

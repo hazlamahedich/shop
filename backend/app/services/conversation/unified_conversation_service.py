@@ -375,6 +375,28 @@ class UnifiedConversationService:
                     intent_name = "general"
                     confidence = 1.0  # No classification in general mode
 
+                    # Story 11-10: Sentiment analysis for adaptive responses (general mode)
+                    sentiment_adapter = SentimentAdapterService()
+                    mode = getattr(merchant, "onboarding_mode", "general")
+                    adaptation = sentiment_adapter.analyze_sentiment(message, mode=mode)
+
+                    if adaptation.strategy != SentimentStrategy.NONE:
+                        sentiment_adapter.track_sentiment(context, adaptation)
+                        context.metadata["current_sentiment_adaptation"] = {
+                            "strategy": adaptation.strategy.value,
+                            "pre_phrase_key": adaptation.pre_phrase_key,
+                            "post_phrase_key": adaptation.post_phrase_key,
+                            "mode": adaptation.mode,
+                        }
+
+                    if sentiment_adapter.should_escalate(context, adaptation):
+                        intent_name = "human_handoff"
+                        self.logger.info(
+                            "sentiment_escalation_triggered",
+                            merchant_id=merchant.id,
+                            strategy=adaptation.strategy.value,
+                        )
+
                     # Check for handoff triggers (keyword detection works without confidence)
                     handoff_response = await self._check_handoff(
                         db=db,
@@ -388,6 +410,17 @@ class UnifiedConversationService:
                         response = handoff_response
                         intent_name = response.intent or "human_handoff"
                         confidence = response.confidence or 1.0
+                    elif intent_name == "human_handoff":
+                        handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
+                        handler = self._handlers.get(handler_name, self._handlers["llm"])
+                        response = await handler.handle(
+                            db=db,
+                            merchant=merchant,
+                            llm_service=llm_service,
+                            message=message,
+                            context=context,
+                            entities=None,
+                        )
                     else:
                         handler = self._handlers["llm"]
                         response = await handler.handle(
@@ -614,23 +647,63 @@ class UnifiedConversationService:
                 try:
                     personality = merchant.personality
                     mode = sentiment_data.get("mode", "ecommerce")
+                    pre_key = sentiment_data["pre_phrase_key"]
+                    post_key = sentiment_data["post_phrase_key"]
 
-                    pre_phrase = PersonalityAwareResponseFormatter.format_response(
-                        response_type="sentiment_adaptive",
-                        message_key=sentiment_data["pre_phrase_key"],
-                        personality=personality,
-                        mode=mode,
+                    def _get_sentiment_phrase(rtype: str, key: str, p: str, m: str) -> str | None:
+                        mode_key = f"{key}_{m}"
+                        try:
+                            result = PersonalityAwareResponseFormatter.format_response(
+                                rtype, mode_key, p, mode=m
+                            )
+                            if result:
+                                return result
+                        except (KeyError, ValueError):
+                            pass
+                        return PersonalityAwareResponseFormatter.format_response(
+                            rtype, key, p, mode=m
+                        )
+
+                    pre_phrase = _get_sentiment_phrase(
+                        "sentiment_adaptive",
+                        pre_key,
+                        personality,
+                        mode,
                     )
-                    post_phrase = PersonalityAwareResponseFormatter.format_response(
-                        response_type="sentiment_adaptive",
-                        message_key=sentiment_data["post_phrase_key"],
-                        personality=personality,
-                        mode=mode,
+                    post_phrase = _get_sentiment_phrase(
+                        "sentiment_adaptive",
+                        post_key,
+                        personality,
+                        mode,
                     )
-                    if pre_phrase:
-                        response.message = f"{pre_phrase} {response.message}"
-                    if post_phrase:
-                        response.message = f"{response.message} {post_phrase}"
+
+                    # H2: Transition suppression (anti double-acknowledgment per AC2)
+                    msg = response.message
+                    from app.services.personality.transition_phrases import TRANSITION_PHRASES
+
+                    transition_suppressed = False
+                    all_phrases: list[str] = []
+                    for cat_phrases in TRANSITION_PHRASES.values():
+                        all_phrases.extend(cat_phrases.get(personality, []))
+                    for phrase in sorted(all_phrases, key=len, reverse=True):
+                        prefix = phrase.rstrip(".")
+                        if prefix and msg.startswith(prefix):
+                            msg = msg[len(prefix) :].lstrip()
+                            transition_suppressed = True
+                            break
+
+                    if pre_phrase and post_phrase:
+                        response.message = f"{pre_phrase}\n\n{msg}\n\n{post_phrase}"
+
+                    elif pre_phrase:
+                        response.message = f"{pre_phrase}\n\n{msg}"
+                    elif post_phrase:
+                        response.message = f"{msg}\n\n{post_phrase}"
+
+                    response.metadata["sentiment_adapted"] = True
+                    response.metadata["sentiment_strategy"] = sentiment_data.get("strategy")
+
+                    response.metadata["transition_suppressed"] = transition_suppressed
                 except Exception:
                     self.logger.exception(
                         "sentiment_adaptation_failed",

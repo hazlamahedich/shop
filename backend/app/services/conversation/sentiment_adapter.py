@@ -147,7 +147,7 @@ class SentimentAdapterService:
         except Exception:
             logger.exception(
                 "sentiment_escalation_check_failed",
-                error_code=ErrorCode.SENTIMENT_ANALYSIS_FAILED,
+                error_code=ErrorCode.SENTIMENT_ADAPTATION_FAILED,
             )
             return False
 
@@ -171,6 +171,8 @@ class SentimentAdapterService:
         return neg_ratio > 0.6 or (neg_ratio > 0.4 and has_frustration_kw)
 
     def _is_concise(self, lower: str, score: SentimentScore) -> bool:
+        if score.sentiment == Sentiment.POSITIVE:
+            return False
         has_keyword = any(kw in lower for kw in URGENCY_KEYWORDS)
         if not has_keyword:
             return False
