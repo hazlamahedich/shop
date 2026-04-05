@@ -22,7 +22,9 @@ from app.services.conversation.unified_conversation_service import UnifiedConver
 
 @pytest.fixture(autouse=True)
 def _reset_turn_write_metrics():
-    UnifiedConversationService._turn_write_metrics = {"duplicate": 0, "unknown": 0}
+    saved = dict(UnifiedConversationService._turn_write_metrics)
+    yield
+    UnifiedConversationService._turn_write_metrics.update(saved)
 
 
 def _make_context(

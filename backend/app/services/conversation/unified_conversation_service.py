@@ -97,6 +97,34 @@ register_natural_question_templates()
 logger = structlog.get_logger(__name__)
 
 
+def build_turn_context_snapshot(
+    confidence: float,
+    processing_time_ms: float,
+    context: ConversationContext,
+    sentiment_adaptation: SentimentAdaptation | None = None,
+    sentiment_confidence: float | None = None,
+    mode: str | None = None,
+) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {
+        "confidence": confidence,
+        "processing_time_ms": int(processing_time_ms),
+        "has_context_reference": len(context.conversation_history) > 0,
+    }
+    if mode is not None:
+        snapshot["mode"] = mode
+    if sentiment_adaptation and sentiment_adaptation.original_score:
+        snapshot["sentiment_score"] = sentiment_adaptation.original_score.confidence
+    elif sentiment_confidence is not None:
+        snapshot["sentiment_score"] = sentiment_confidence
+
+    clarification_state = context.clarification_state
+    if clarification_state and clarification_state.multi_turn_state != "IDLE":
+        snapshot["clarification_state"] = clarification_state.multi_turn_state
+        snapshot["clarification_attempt_count"] = clarification_state.attempt_count
+
+    return snapshot
+
+
 class UnifiedConversationService:
     """Single service for all chat channels.
 
@@ -2739,24 +2767,14 @@ class UnifiedConversationService:
         sentiment_confidence: float | None = None,
         mode: str | None = None,
     ) -> dict[str, Any]:
-        snapshot: dict[str, Any] = {
-            "confidence": confidence,
-            "processing_time_ms": int(processing_time_ms),
-            "has_context_reference": len(context.conversation_history) > 0,
-        }
-        if mode is not None:
-            snapshot["mode"] = mode
-        if sentiment_adaptation and sentiment_adaptation.original_score:
-            snapshot["sentiment_score"] = sentiment_adaptation.original_score.confidence
-        elif sentiment_confidence is not None:
-            snapshot["sentiment_score"] = sentiment_confidence
-
-        clarification_state = context.clarification_state
-        if clarification_state and clarification_state.multi_turn_state != "IDLE":
-            snapshot["clarification_state"] = clarification_state.multi_turn_state
-            snapshot["clarification_attempt_count"] = clarification_state.attempt_count
-
-        return snapshot
+        return build_turn_context_snapshot(
+            confidence=confidence,
+            processing_time_ms=processing_time_ms,
+            context=context,
+            sentiment_adaptation=sentiment_adaptation,
+            sentiment_confidence=sentiment_confidence,
+            mode=mode,
+        )
 
     async def _write_conversation_turn(
         self,
