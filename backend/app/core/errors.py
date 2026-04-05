@@ -241,6 +241,10 @@ class ErrorCode(IntEnum):
     # Story 11-9: Conversation summarization error codes
     SUMMARIZATION_HANDLER_FAILED = 7100  # Summarization handler failure
 
+    # Story 11-10: Sentiment adaptive response error codes
+    SENTIMENT_ANALYSIS_FAILED = 7101  # SentimentAnalyzer or SentimentAdapterService failure
+    SENTIMENT_ADAPTATION_FAILED = 7102  # Response adaptation failure
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

@@ -304,6 +304,7 @@ RESPONSE_TYPE_TO_TRANSITION: dict[str, TransitionCategory] = {
     "general_mode_fallback": TransitionCategory.ACKNOWLEDGING,
     "proactive_gathering": TransitionCategory.CLARIFYING,
     "summarization": TransitionCategory.CONFIRMING,
+    "sentiment_adaptive": TransitionCategory.ACKNOWLEDGING,
 }
 
 TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
@@ -329,6 +330,21 @@ TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
         "summary_intro",
         "short_conversation",
         "summary_closing",
+    },
+    "sentiment_adaptive": {
+        "pre_empathetic",
+        "pre_empathetic_ecommerce",
+        "pre_empathetic_general",
+        "pre_concise",
+        "pre_concise_ecommerce",
+        "pre_concise_general",
+        "pre_detailed",
+        "pre_enthusiastic",
+        "post_empathetic",
+        "post_empathetic_ecommerce",
+        "post_empathetic_general",
+        "post_enthusiastic",
+        "escalation_message",
     },
 }
 

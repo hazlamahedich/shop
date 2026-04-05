@@ -59,6 +59,7 @@ from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
+from app.services.conversation.sentiment_adapter import SentimentAdapterService, SentimentStrategy
 from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
 from app.services.intent.classification_schema import (
     ClassificationResult,
@@ -71,13 +72,16 @@ from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
 from app.services.personality.conversation_templates import (
     register_conversation_templates,
+    register_sentiment_adaptive_templates,
     register_summarization_templates,
 )
 from app.services.personality.error_recovery_templates import register_error_recovery_templates
+from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 register_conversation_templates()
 register_error_recovery_templates()
 register_summarization_templates()
+register_sentiment_adaptive_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -406,6 +410,29 @@ class UnifiedConversationService:
                     )
                     confidence = classification.confidence
 
+                    # Story 11-10: Sentiment analysis for adaptive responses
+                    sentiment_adapter = SentimentAdapterService()
+                    mode = getattr(merchant, "onboarding_mode", "general")
+                    adaptation = sentiment_adapter.analyze_sentiment(message, mode=mode)
+
+                    if adaptation.strategy != SentimentStrategy.NONE:
+                        sentiment_adapter.track_sentiment(context, adaptation)
+                        context.metadata["current_sentiment_adaptation"] = {
+                            "strategy": adaptation.strategy.value,
+                            "pre_phrase_key": adaptation.pre_phrase_key,
+                            "post_phrase_key": adaptation.post_phrase_key,
+                            "mode": adaptation.mode,
+                        }
+
+                    # Story 11-10: Escalation check
+                    if sentiment_adapter.should_escalate(context, adaptation):
+                        intent_name = "human_handoff"
+                        self.logger.info(
+                            "sentiment_escalation_triggered",
+                            merchant_id=merchant.id,
+                            strategy=adaptation.strategy.value,
+                        )
+
                     self.logger.info(
                         "unified_conversation_classified",
                         merchant_id=merchant.id,
@@ -580,6 +607,35 @@ class UnifiedConversationService:
                 response.products = self._deduplicate_products(response.products)
 
             self._update_shopping_state(context, response, intent_name, entities)
+
+            # Story 11-10: Apply sentiment adaptation to post-processing layer
+            sentiment_data = context.metadata.get("current_sentiment_adaptation")
+            if sentiment_data and sentiment_data.get("strategy") != "none" and response:
+                try:
+                    personality = merchant.personality
+                    mode = sentiment_data.get("mode", "ecommerce")
+
+                    pre_phrase = PersonalityAwareResponseFormatter.format_response(
+                        response_type="sentiment_adaptive",
+                        message_key=sentiment_data["pre_phrase_key"],
+                        personality=personality,
+                        mode=mode,
+                    )
+                    post_phrase = PersonalityAwareResponseFormatter.format_response(
+                        response_type="sentiment_adaptive",
+                        message_key=sentiment_data["post_phrase_key"],
+                        personality=personality,
+                        mode=mode,
+                    )
+                    if pre_phrase:
+                        response.message = f"{pre_phrase} {response.message}"
+                    if post_phrase:
+                        response.message = f"{response.message} {post_phrase}"
+                except Exception:
+                    self.logger.exception(
+                        "sentiment_adaptation_failed",
+                        error_code=ErrorCode.SENTIMENT_ADAPTATION_FAILED,
+                    )
 
             # Capture merchant_id before persistence (which may rollback and expire objects)
             merchant_id_for_log = context.merchant_id
@@ -987,7 +1043,7 @@ class UnifiedConversationService:
         r"^give me (a |an |the )?(recap|summary|overview)\s*[!?.]*$",
     ]
 
-    def _check_summarize_pattern(self, message: str) -> "ClassifierIntentType" | None:
+    def _check_summarize_pattern(self, message: str) -> ClassifierIntentType | None:
         """Story 11-9: Check if message matches a summarize intent pattern.
 
         Runs BEFORE multi-turn check, FAQ check, proactive gathering,
@@ -2693,11 +2749,11 @@ class UnifiedConversationService:
         Mutual exclusion: skip if CLARIFYING state.
         Max 2 gathering rounds then best-effort routing.
         """
+        from app.services.proactive_gathering.intent_requirements import _SKIP_INTENTS
         from app.services.proactive_gathering.proactive_gathering_service import (
             ProactiveGatheringService,
         )
         from app.services.proactive_gathering.schemas import GatheringState as GatheringStateSchema
-        from app.services.proactive_gathering.intent_requirements import _SKIP_INTENTS
 
         gs = context.gathering_state
         if gs and gs.active and not gs.is_complete:

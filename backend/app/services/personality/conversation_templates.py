@@ -112,3 +112,58 @@ def register_summarization_templates():
     PersonalityAwareResponseFormatter.register_response_type(
         "summarization", SUMMARIZATION_TEMPLATES
     )
+
+
+SENTIMENT_ADAPTIVE_TEMPLATES = {
+    PersonalityType.FRIENDLY: {
+        "pre_empathetic": "Oh no, I totally get the frustration! 😔",
+        "pre_empathetic_ecommerce": "I'm sorry about this! Let me find you a better option right away. 😊",
+        "pre_empathetic_general": "I understand this is frustrating. Let me help you directly. 😊",
+        "pre_concise": "Got it, let's get this sorted fast! ⚡",
+        "pre_concise_ecommerce": "Let's skip right to your cart — here's the fastest fix! ⚡",
+        "pre_concise_general": "Here's the direct answer — no FAQ needed. ⚡",
+        "pre_detailed": "Let me break this down step by step! 📝",
+        "pre_enthusiastic": "Awesome! 🎉",
+        "post_empathetic": "Would you like me to connect you with someone who can help even more? 🤝",
+        "post_empathetic_ecommerce": "Want me to find alternative options or expedite shipping for you? 😊",
+        "post_empathetic_general": "Want me to pull up our knowledge base for a shortcut? I can also escalate to a specialist. 🤝",
+        "post_enthusiastic": "Anything else I can help with? 😊",
+        "escalation_message": "It sounds like you could use some extra help. Let me connect you with a human agent who can assist you better. 🤝",
+    },
+    PersonalityType.PROFESSIONAL: {
+        "pre_empathetic": "I understand this has been difficult.",
+        "pre_empathetic_ecommerce": "I apologize for the inconvenience. Let me offer you alternative options or expedited resolution.",
+        "pre_empathetic_general": "I understand this is frustrating. I can escalate this or provide direct knowledge base shortcuts.",
+        "pre_concise": "Understood. Here's the quickest path forward.",
+        "pre_concise_ecommerce": "Proceeding directly to cart/checkout. Here is the fastest resolution.",
+        "pre_concise_general": "Here is the direct answer. Bypassing additional context.",
+        "pre_detailed": "Let me walk you through this clearly.",
+        "pre_enthusiastic": "Wonderful news.",
+        "post_empathetic": "I can escalate this to a specialist if you'd prefer.",
+        "post_empathetic_ecommerce": "I can offer expedited shipping or alternative products. Shall I proceed?",
+        "post_empathetic_general": "I can escalate this to a specialist or search the knowledge base for a more specific answer. Which would you prefer?",
+        "post_enthusiastic": "Is there anything else?",
+        "escalation_message": "It appears you could benefit from additional assistance. I will connect you with a human agent who can better address your needs.",
+    },
+    PersonalityType.ENTHUSIASTIC: {
+        "pre_empathetic": "Oh no! Let me jump right in and fix this! 💪",
+        "pre_empathetic_ecommerce": "I'm SO sorry about this! Let me find you a BETTER option and expedite it right away! 🚀",
+        "pre_empathetic_general": "I understand this is frustrating! Let me get you a direct answer or escalate RIGHT NOW! 💪",
+        "pre_concise": "On it! Here's EXACTLY what you need! ⚡",
+        "pre_concise_ecommerce": "Let's SKIP right to checkout! Here's the FASTEST fix! 🚀",
+        "pre_concise_general": "Here's the DIRECT answer — no FAQ needed! Let's GO! ⚡",
+        "pre_detailed": "Great question! Let me show you EXACTLY how this works! 📝",
+        "pre_enthusiastic": "That's fantastic!!! 🎉",
+        "post_empathetic": "Want me to get a real person on this right away?! 💪",
+        "post_empathetic_ecommerce": "Want me to find BETTER alternatives or expedite your order RIGHT NOW?! 🚀",
+        "post_empathetic_general": "Should I escalate to a specialist or dig deeper in the knowledge base for you?! 💪",
+        "post_enthusiastic": "What else can we do together?! 🚀",
+        "escalation_message": "It sounds like you could use some EXTRA help! Let me connect you with a human agent who can make things RIGHT! 💪✨",
+    },
+}
+
+
+def register_sentiment_adaptive_templates():
+    PersonalityAwareResponseFormatter.register_response_type(
+        "sentiment_adaptive", SENTIMENT_ADAPTIVE_TEMPLATES
+    )
