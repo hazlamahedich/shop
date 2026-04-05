@@ -24,7 +24,6 @@ class TestTemplateRotation:
         assert result == QuestionGenerator.QUESTION_TEMPLATES["budget"][0]
 
     def test_rotation_with_used_indices_cycles_through(self):
-        gen = QuestionGenerator()
         templates = QuestionGenerator.QUESTION_TEMPLATES["budget"]
         used: dict[str, int] = {}
 
@@ -197,21 +196,47 @@ class TestHelperMethods:
         result = gen._build_context_reference({}, "ecommerce")
         assert result == ""
 
+    def test_build_context_reference_all_ecommerce_constraints(self):
+        gen = QuestionGenerator()
+        result = gen._build_context_reference(
+            {
+                "category": "shoes",
+                "brand": "nike",
+                "budget_max": "100",
+                "color": "red",
+                "size": "10",
+            },
+            "ecommerce",
+        )
+        assert "shoes" in result
+        assert "Nike" in result
+        assert "$100" in result
+        assert "red" in result
+        assert "size 10" in result
+
+    def test_build_context_reference_general_all_constraints(self):
+        gen = QuestionGenerator()
+        result = gen._build_context_reference(
+            {"issue_type": "payment", "severity": "critical", "timeframe": "yesterday"},
+            "general",
+        )
+        assert "payment" in result
+
 
 class TestExtendedTemplates:
     def test_ecommerce_templates_have_natural_variants(self):
         for constraint in QuestionGenerator.QUESTION_PRIORITY:
             templates = QuestionGenerator.QUESTION_TEMPLATES[constraint]
-            assert len(templates) >= 3, (
-                f"Expected >=3 templates for {constraint}, got {len(templates)}"
-            )
+            assert (
+                len(templates) >= 3
+            ), f"Expected >=3 templates for {constraint}, got {len(templates)}"
 
     def test_general_templates_have_natural_variants(self):
         for constraint in QuestionGenerator.GENERAL_QUESTION_PRIORITY:
             templates = QuestionGenerator.GENERAL_MODE_TEMPLATES[constraint]
-            assert len(templates) >= 3, (
-                f"Expected >=3 templates for {constraint}, got {len(templates)}"
-            )
+            assert (
+                len(templates) >= 3
+            ), f"Expected >=3 templates for {constraint}, got {len(templates)}"
 
     def test_first_templates_unchanged_for_backward_compat(self):
         assert QuestionGenerator.QUESTION_TEMPLATES["budget"][0] == ("What's your budget for this?")

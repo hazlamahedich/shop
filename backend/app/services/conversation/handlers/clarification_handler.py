@@ -263,6 +263,7 @@ class ClarificationHandler(BaseHandler):
             conversation_id=conversation_id,
             mode=mode,
             accumulated_constraints=accumulated_constraints or None,
+            is_combined=len(missing_constraints) > 1,
         )
 
         logger.info(
@@ -341,7 +342,7 @@ class ClarificationHandler(BaseHandler):
 
         next_constraint = remaining[0]
 
-        used_indices = self._compute_used_indices(questions_asked, question_generator, mode)
+        used_indices = clarification_state.get("used_indices", {})
 
         partial_field = self._detect_partial_response(result)
         if partial_field:
@@ -350,6 +351,9 @@ class ClarificationHandler(BaseHandler):
                 accumulated_constraints=accumulated_constraints,
                 mode=mode,
                 used_indices=used_indices,
+            )
+            updated_indices = self._advance_used_index(
+                used_indices, next_constraint, question_generator, mode
             )
             message = self._handle_partial_response(
                 accepted_field=partial_field,
@@ -373,6 +377,7 @@ class ClarificationHandler(BaseHandler):
                     "attempt": attempt_count,
                     "partial_response": True,
                     "accepted_field": partial_field,
+                    "used_indices": updated_indices,
                 },
             )
 
@@ -381,6 +386,9 @@ class ClarificationHandler(BaseHandler):
             accumulated_constraints=accumulated_constraints,
             mode=mode,
             used_indices=used_indices,
+        )
+        updated_indices = self._advance_used_index(
+            used_indices, next_constraint, question_generator, mode
         )
 
         personalized_question = await self._personalize_question(
@@ -409,8 +417,27 @@ class ClarificationHandler(BaseHandler):
                 "clarification_active": True,
                 "constraint": next_constraint,
                 "attempt": attempt_count,
+                "used_indices": updated_indices,
             },
         )
+
+    @staticmethod
+    def _advance_used_index(
+        used_indices: dict[str, int],
+        constraint: str,
+        question_generator: QuestionGenerator,
+        mode: str,
+    ) -> dict[str, int]:
+        """Advance and return the used index for a constraint after template selection."""
+        templates = (
+            question_generator.GENERAL_MODE_TEMPLATES.get(constraint, [])
+            if mode == "general"
+            else question_generator.QUESTION_TEMPLATES.get(constraint, [])
+        )
+        current = used_indices.get(constraint, -1)
+        updated = dict(used_indices)
+        updated[constraint] = (current + 1) % max(len(templates), 1)
+        return updated
 
     @staticmethod
     def _compute_used_indices(
@@ -449,12 +476,13 @@ class ClarificationHandler(BaseHandler):
         mode: str = "ecommerce",
         skip_transition: bool = False,
         accumulated_constraints: dict[str, Any] | None = None,
+        is_combined: bool = False,
     ) -> str:
         personality = merchant.personality or PersonalityType.FRIENDLY
         business_name = getattr(merchant, "business_name", None)
 
         prefix = ""
-        if business_name and constraint == "budget":
+        if business_name and constraint == "budget" and not is_combined:
             prefix = f"At {business_name}, we have options for every budget. "
 
         if skip_transition:

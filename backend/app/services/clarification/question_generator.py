@@ -303,7 +303,8 @@ class QuestionGenerator:
             display = self._get_display_name(constraints[0], mode)
             return f"What {display} are you looking for?"
 
-        names = [self._get_display_name(c, mode) for c in constraints]
+        capped = constraints[:3]
+        names = [self._get_display_name(c, mode) for c in capped]
 
         if len(names) == 2:
             question = f"Do you have a preference for {names[0]} or {names[1]}?"
