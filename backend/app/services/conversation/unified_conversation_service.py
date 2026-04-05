@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import APIError, ErrorCode
+from app.core.input_sanitizer import sanitize_user_message_for_llm
 from app.models.knowledge_base import KnowledgeDocument
 from app.models.knowledge_gap import GapType, KnowledgeGap
 from app.models.merchant import Merchant, PersonalityType
@@ -70,13 +71,13 @@ from app.services.intent.classification_schema import (
 from app.services.intent.intent_classifier import IntentClassifier
 from app.services.llm.base_llm_service import BaseLLMService
 from app.services.llm.llm_factory import LLMProviderFactory
+from app.services.personality.clarification_question_templates import (
+    register_natural_question_templates,
+)
 from app.services.personality.conversation_templates import (
     register_conversation_templates,
     register_sentiment_adaptive_templates,
     register_summarization_templates,
-)
-from app.services.personality.clarification_question_templates import (
-    register_natural_question_templates,
 )
 from app.services.personality.error_recovery_templates import register_error_recovery_templates
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
@@ -203,6 +204,13 @@ class UnifiedConversationService:
         intent_name = None
         confidence = None
         entities = None
+
+        message = sanitize_user_message_for_llm(message)
+        if not message:
+            raise APIError(
+                ErrorCode.VALIDATION_ERROR,
+                "Message cannot be empty after sanitization",
+            )
 
         try:
             merchant = await self._load_merchant(db, context.merchant_id)

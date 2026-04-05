@@ -128,6 +128,15 @@ async def send_preview_message(
             "Message cannot be empty",
         )
 
+    from app.core.input_sanitizer import sanitize_user_message_for_llm
+
+    sanitized = sanitize_user_message_for_llm(message_request.message)
+    if not sanitized:
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Message is not valid after sanitization",
+        )
+
     preview_service = PreviewService(db=db)
 
     # Verify session exists
@@ -142,7 +151,7 @@ async def send_preview_message(
         # Send message and get bot response
         response = await preview_service.send_message(
             session_id=message_request.preview_session_id,
-            message=message_request.message,
+            message=sanitized,
             merchant=merchant,
         )
 

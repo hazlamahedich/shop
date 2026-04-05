@@ -15,6 +15,7 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.input_sanitizer import sanitize_history_message, sanitize_llm_input
 from app.core.security import get_redis_client
 from app.models.merchant import Merchant, PersonalityType
 from app.services.conversation.handlers.base_handler import BaseHandler
@@ -24,13 +25,13 @@ from app.services.conversation.schemas import (
 )
 from app.services.conversation_context import ConversationContextService
 from app.services.llm.base_llm_service import BaseLLMService, LLMMessage
+from app.services.personality.conversation_templates import register_conversation_templates
 from app.services.personality.personality_prompts import get_personality_system_prompt
 from app.services.personality.personality_reinforcement import (
     get_personality_reinforcement,
 )
 from app.services.personality.personality_tracker import get_personality_tracker
 from app.services.personality.personality_validator import validate_personality
-from app.services.personality.conversation_templates import register_conversation_templates
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
 register_conversation_templates()
@@ -119,6 +120,7 @@ class LLMHandler(BaseHandler):
             )
 
         if rag_context:
+            rag_context = sanitize_history_message(rag_context)
             logger.debug(
                 "llm_handler_rag_context_injecting",
                 merchant_id=merchant.id,
@@ -140,7 +142,9 @@ class LLMHandler(BaseHandler):
 
         for msg in context.conversation_history[-5:]:
             role = "user" if msg.get("role") == "user" else "assistant"
-            messages.append(LLMMessage(role=role, content=msg.get("content", "")))
+            content = sanitize_history_message(msg.get("content", ""))
+            if content:
+                messages.append(LLMMessage(role=role, content=content))
 
         if rag_context:
             messages.append(
@@ -149,7 +153,9 @@ class LLMHandler(BaseHandler):
                     content=f"Context:\n{rag_context}",
                 )
             )
-        messages.append(LLMMessage(role="user", content=message))
+
+        sanitized_message = sanitize_llm_input(message, max_length=4000)
+        messages.append(LLMMessage(role="user", content=sanitized_message))
 
         logger.debug(
             "llm_handler_messages",
