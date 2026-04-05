@@ -28,6 +28,7 @@ from typing import Any, ClassVar
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -36,6 +37,7 @@ from app.core.input_sanitizer import sanitize_user_message_for_llm
 from app.models.knowledge_base import KnowledgeDocument
 from app.models.knowledge_gap import GapType, KnowledgeGap
 from app.models.merchant import Merchant, PersonalityType
+from app.models.conversation_context import ConversationTurn
 from app.schemas.consent import ConsentStatus
 from app.services.consent.extended_consent_service import ConversationConsentService
 from app.services.conversation.handlers import (
@@ -60,7 +62,11 @@ from app.services.conversation.schemas import (
     ConversationContext,
     ConversationResponse,
 )
-from app.services.conversation.sentiment_adapter import SentimentAdapterService, SentimentStrategy
+from app.services.conversation.sentiment_adapter import (
+    SentimentAdapterService,
+    SentimentAdaptation,
+    SentimentStrategy,
+)
 from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
 from app.services.intent.classification_schema import (
     ClassificationResult,
@@ -112,6 +118,7 @@ class UnifiedConversationService:
     HANDOFF_CONFIDENCE_THRESHOLD = 0.50
     HANDOFF_CONFIDENCE_TRIGGER_COUNT = 3
     RETURNING_SHOPPER_THRESHOLD_SECONDS = 1800
+    _turn_write_metrics: ClassVar[dict[str, int]] = {"duplicate": 0, "unknown": 0}
 
     INTENT_TO_HANDLER_MAP = {
         "product_search": "search",
@@ -399,6 +406,7 @@ class UnifiedConversationService:
                             "pre_phrase_key": adaptation.pre_phrase_key,
                             "post_phrase_key": adaptation.post_phrase_key,
                             "mode": adaptation.mode,
+                            "confidence": adaptation.original_score.confidence,
                         }
 
                     if sentiment_adapter.should_escalate(context, adaptation):
@@ -467,6 +475,7 @@ class UnifiedConversationService:
                             "pre_phrase_key": adaptation.pre_phrase_key,
                             "post_phrase_key": adaptation.post_phrase_key,
                             "mode": adaptation.mode,
+                            "confidence": adaptation.original_score.confidence,
                         }
 
                     # Story 11-10: Escalation check
@@ -736,15 +745,56 @@ class UnifiedConversationService:
                 cart=response.cart,
             )
 
+            conversation_id = None
             if res:
-                _, bot_msg_id = res
+                conversation_id, bot_msg_id = res
                 response.message_id = bot_msg_id
+
+            # Story 11-12a: Track conversation turn for analytics
+            if conversation_id:
+                try:
+                    sentiment_strategy_name: str | None = None
+                    sentiment_confidence: float | None = None
+                    sentiment_data = context.metadata.get("current_sentiment_adaptation")
+                    if sentiment_data and sentiment_data.get("strategy") not in (None, "none"):
+                        sentiment_strategy_name = sentiment_data.get("strategy", "").upper()
+                        score_confidence = sentiment_data.get("confidence")
+                        if score_confidence is not None:
+                            sentiment_confidence = float(score_confidence)
+
+                    turn_context_snapshot = self._build_turn_context_snapshot(
+                        confidence=confidence or 0.0,
+                        processing_time_ms=processing_time_ms,
+                        context=context,
+                        sentiment_confidence=sentiment_confidence,
+                    )
+                    await self._write_conversation_turn(
+                        db=db,
+                        conversation_id=conversation_id,
+                        turn_number=len(context.conversation_history) + 1,
+                        intent_detected=intent_name,
+                        sentiment=sentiment_strategy_name,
+                        context_snapshot=turn_context_snapshot,
+                        user_message=message,
+                        bot_response=response.message if response else None,
+                    )
+                except Exception as e:
+                    error_type = "duplicate" if isinstance(e, IntegrityError) else "unknown"
+                    UnifiedConversationService._turn_write_metrics[error_type] += 1
+                    self.logger.error(
+                        "conversation_turn_write_failed",
+                        error_code=7127,
+                        conversation_id=conversation_id,
+                        error=str(e),
+                        error_type=error_type,
+                        metric_count=UnifiedConversationService._turn_write_metrics[error_type],
+                    )
 
             # Detect and record knowledge gaps
             await self._detect_and_record_knowledge_gap(
                 db=db,
                 merchant=merchant,
-                conversation_id=res[0] if res else None,
+                conversation_id=conversation_id,
                 user_message=message,
                 bot_response=response.message if response else "",
                 confidence=confidence if confidence else 0.0,
@@ -2680,6 +2730,55 @@ class UnifiedConversationService:
                 return True
 
         return False
+
+    def _build_turn_context_snapshot(
+        self,
+        confidence: float,
+        processing_time_ms: float,
+        context: ConversationContext,
+        sentiment_adaptation: SentimentAdaptation | None = None,
+        sentiment_confidence: float | None = None,
+    ) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {
+            "confidence": confidence,
+            "processing_time_ms": int(processing_time_ms),
+            "has_context_reference": len(context.conversation_history) > 0,
+        }
+        if sentiment_adaptation and sentiment_adaptation.original_score:
+            snapshot["sentiment_score"] = sentiment_adaptation.original_score.confidence
+        elif sentiment_confidence is not None:
+            snapshot["sentiment_score"] = sentiment_confidence
+
+        clarification_state = context.clarification_state
+        if clarification_state and clarification_state.multi_turn_state != "IDLE":
+            snapshot["clarification_state"] = clarification_state.multi_turn_state
+            snapshot["clarification_attempt_count"] = clarification_state.attempt_count
+
+        return snapshot
+
+    async def _write_conversation_turn(
+        self,
+        db: AsyncSession,
+        conversation_id: int,
+        turn_number: int,
+        intent_detected: str | None,
+        sentiment: str | None,
+        context_snapshot: dict[str, Any],
+        user_message: str | None = None,
+        bot_response: str | None = None,
+    ) -> None:
+        async with db.begin_nested():
+            turn = ConversationTurn(
+                conversation_id=conversation_id,
+                turn_number=turn_number,
+                user_message=user_message,
+                bot_response=bot_response,
+                intent_detected=intent_detected,
+                context_snapshot=context_snapshot,
+                sentiment=sentiment,
+            )
+            db.add(turn)
+            await db.flush()
 
     async def _detect_and_record_knowledge_gap(
         self,

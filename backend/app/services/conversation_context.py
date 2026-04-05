@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation_context import (
     ConversationContext,
-    ConversationTurn,
 )
 from app.services.context import EcommerceContextExtractor, GeneralContextExtractor
 

@@ -400,3 +400,44 @@ async def test_message(async_session: AsyncSession, test_conversation):
     await async_session.flush()
     await async_session.commit()
     return message
+
+
+# =============================================================================
+# FIXTURE: Seed Conversation Turns (Story 11-12a support)
+# =============================================================================
+
+
+@pytest.fixture(scope="function")
+async def seed_conversation_turns(async_session: AsyncSession, test_conversation):
+    """Seed N conversation turns for analytics testing (Story 11-12b support).
+
+    Returns a factory function that creates turn records.
+    """
+
+    from app.models.conversation_context import ConversationTurn
+
+    async def _seed(n: int = 3, **overrides) -> list[ConversationTurn]:
+        turns: list[ConversationTurn] = []
+        for i in range(1, n + 1):
+            defaults = {
+                "conversation_id": test_conversation.id,
+                "turn_number": i,
+                "user_message": f"User message {i}",
+                "bot_response": f"Bot response {i}",
+                "intent_detected": "product_search" if i % 2 == 0 else "greeting",
+                "sentiment": None,
+                "context_snapshot": {
+                    "confidence": 0.9,
+                    "processing_time_ms": 100 + i * 10,
+                    "has_context_reference": i > 1,
+                },
+            }
+            defaults.update(overrides)
+            turn = ConversationTurn(**defaults)
+            async_session.add(turn)
+            turns.append(turn)
+        await async_session.flush()
+        await async_session.commit()
+        return turns
+
+    return _seed
