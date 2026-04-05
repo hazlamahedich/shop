@@ -3091,12 +3091,15 @@ class UnifiedConversationService:
                 understanding = question_gen.generate_summary_of_understanding(
                     mt_state.accumulated_constraints, mode
                 )
-                msg = PersonalityAwareResponseFormatter.format_response(
-                    "clarification_natural",
-                    "near_limit_summary",
-                    merchant.personality or PersonalityType.FRIENDLY,
-                    understanding=understanding,
-                )
+                try:
+                    msg = PersonalityAwareResponseFormatter.format_response(
+                        "clarification_natural",
+                        "near_limit_summary",
+                        merchant.personality or PersonalityType.FRIENDLY,
+                        understanding=understanding,
+                    )
+                except Exception:
+                    msg = f"Let me search based on what we know: {understanding}"
                 return ConversationResponse(
                     message=msg,
                     intent="clarification",
@@ -3104,11 +3107,14 @@ class UnifiedConversationService:
                 )
 
             await _persist_mt_state()
-            retry_msg = PersonalityAwareResponseFormatter.format_response(
-                "clarification_natural",
-                "invalid_response_retry",
-                merchant.personality or PersonalityType.FRIENDLY,
-            )
+            try:
+                retry_msg = PersonalityAwareResponseFormatter.format_response(
+                    "clarification_natural",
+                    "invalid_response_retry",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                )
+            except Exception:
+                retry_msg = "I didn't quite catch that. Could you try again?"
             return ConversationResponse(
                 message=retry_msg,
                 intent="clarification",
@@ -3127,12 +3133,15 @@ class UnifiedConversationService:
             await _persist_mt_state()
 
             understanding = question_gen.generate_summary_of_understanding(new_constraints, mode)
-            ack_msg = PersonalityAwareResponseFormatter.format_response(
-                "clarification_natural",
-                "constraint_added_acknowledgment",
-                merchant.personality or PersonalityType.FRIENDLY,
-                understanding=understanding,
-            )
+            try:
+                ack_msg = PersonalityAwareResponseFormatter.format_response(
+                    "clarification_natural",
+                    "constraint_added_acknowledgment",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                    understanding=understanding,
+                )
+            except Exception:
+                ack_msg = f"Got it! {understanding} Let me refine the search."
             return ConversationResponse(
                 message=ack_msg,
                 intent="clarification",
@@ -3163,12 +3172,15 @@ class UnifiedConversationService:
                 sm.transition_to_refine(mt_state, "near_turn_limit")
                 clarification_state.multi_turn_state = "REFINE_RESULTS"
                 await _persist_mt_state()
-                near_limit_msg = PersonalityAwareResponseFormatter.format_response(
-                    "clarification_natural",
-                    "near_limit_summary",
-                    merchant.personality or PersonalityType.FRIENDLY,
-                    understanding=understanding,
-                )
+                try:
+                    near_limit_msg = PersonalityAwareResponseFormatter.format_response(
+                        "clarification_natural",
+                        "near_limit_summary",
+                        merchant.personality or PersonalityType.FRIENDLY,
+                        understanding=understanding,
+                    )
+                except Exception:
+                    near_limit_msg = f"Based on what you've told me: {understanding}"
                 return ConversationResponse(
                     message=near_limit_msg,
                     intent="clarification",
@@ -3180,12 +3192,15 @@ class UnifiedConversationService:
                     new_constraints, mode
                 )
                 await _persist_mt_state()
-                results_msg = PersonalityAwareResponseFormatter.format_response(
-                    "clarification_natural",
-                    "transition_to_results",
-                    merchant.personality or PersonalityType.FRIENDLY,
-                    understanding=understanding,
-                )
+                try:
+                    results_msg = PersonalityAwareResponseFormatter.format_response(
+                        "clarification_natural",
+                        "transition_to_results",
+                        merchant.personality or PersonalityType.FRIENDLY,
+                        understanding=understanding,
+                    )
+                except Exception:
+                    results_msg = f"Here's what I've found: {understanding}"
                 return ConversationResponse(
                     message=results_msg,
                     intent="clarification",
@@ -3214,12 +3229,15 @@ class UnifiedConversationService:
                     new_constraints, mode
                 )
                 await _persist_mt_state()
-                thanks_msg = PersonalityAwareResponseFormatter.format_response(
-                    "clarification_natural",
-                    "transition_to_results_thanks",
-                    merchant.personality or PersonalityType.FRIENDLY,
-                    understanding=understanding,
-                )
+                try:
+                    thanks_msg = PersonalityAwareResponseFormatter.format_response(
+                        "clarification_natural",
+                        "transition_to_results_thanks",
+                        merchant.personality or PersonalityType.FRIENDLY,
+                        understanding=understanding,
+                    )
+                except Exception:
+                    thanks_msg = f"Thanks for all the details! {understanding}"
                 return ConversationResponse(
                     message=thanks_msg,
                     intent="clarification",

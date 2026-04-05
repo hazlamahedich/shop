@@ -31,16 +31,12 @@ from app.services.intent.classification_schema import (
     IntentType,
 )
 from app.services.llm.base_llm_service import BaseLLMService
-from app.services.personality.clarification_question_templates import (
-    register_natural_question_templates,
-)
 from app.services.personality.conversation_templates import register_conversation_templates
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 from app.services.personality.transition_phrases import TransitionCategory
 from app.services.personality.transition_selector import get_transition_selector
 
 register_conversation_templates()
-register_natural_question_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -197,17 +193,25 @@ class ClarificationHandler(BaseHandler):
     ) -> ConversationResponse:
         """Ask the first clarification question.
 
+        Uses combined question when multiple constraints are missing (AC2),
+        with template rotation for variety (AC1).
+
         Args:
             merchant: Merchant configuration
             llm_service: LLM service for personality-based questions
             entities: Extracted entities
             context: Conversation context
             question_generator: Question generator
+            conversation_id: Conversation ID for anti-repetition
 
         Returns:
             ConversationResponse with clarifying question
         """
         extracted = self._dict_to_entities(entities)
+        mode = getattr(merchant, "onboarding_mode", "ecommerce") or "ecommerce"
+        accumulated_constraints = context.get("clarification", {}).get(
+            "accumulated_constraints", {}
+        )
 
         dummy_classification = ClassificationResult(
             intent=IntentType.PRODUCT_SEARCH,
@@ -217,20 +221,35 @@ class ClarificationHandler(BaseHandler):
             llm_provider="unknown",
             model="unknown",
             processing_time_ms=0,
+            reasoning="",
         )
 
+        missing_constraints = question_generator.get_missing_constraints(extracted)
+
         try:
-            question, constraint = await question_generator.generate_next_question(
-                classification=dummy_classification,
-                questions_asked=[],
-            )
+            if len(missing_constraints) > 1:
+                question = question_generator.generate_combined_question(
+                    constraints=missing_constraints,
+                    accumulated_constraints=accumulated_constraints or None,
+                    mode=mode,
+                )
+                constraint = missing_constraints[0]
+            else:
+                question, constraint = await question_generator.generate_next_question(
+                    classification=dummy_classification,
+                    questions_asked=[],
+                )
         except ValueError:
-            return ConversationResponse(
-                message=PersonalityAwareResponseFormatter.format_response(
+            try:
+                fallback_msg = PersonalityAwareResponseFormatter.format_response(
                     "conversation",
                     "clarification_fallback",
                     merchant.personality or PersonalityType.FRIENDLY,
-                ),
+                )
+            except Exception:
+                fallback_msg = "Could you tell me more about what you're looking for?"
+            return ConversationResponse(
+                message=fallback_msg,
                 intent="clarification",
                 confidence=0.5,
                 metadata={"error": "no_questions"},
@@ -242,6 +261,8 @@ class ClarificationHandler(BaseHandler):
             merchant=merchant,
             llm_service=llm_service,
             conversation_id=conversation_id,
+            mode=mode,
+            accumulated_constraints=accumulated_constraints or None,
         )
 
         logger.info(
@@ -249,6 +270,7 @@ class ClarificationHandler(BaseHandler):
             merchant_id=merchant.id,
             constraint=constraint,
             question=personalized_question,
+            combined=len(missing_constraints) > 1,
         )
 
         return ConversationResponse(
@@ -259,6 +281,9 @@ class ClarificationHandler(BaseHandler):
                 "clarification_active": True,
                 "constraint": constraint,
                 "attempt": 1,
+                "combined_constraints": (
+                    missing_constraints if len(missing_constraints) > 1 else None
+                ),
             },
         )
 
@@ -274,6 +299,9 @@ class ClarificationHandler(BaseHandler):
     ) -> ConversationResponse:
         """Ask the next clarification question.
 
+        Uses context-aware generation (AC3), template rotation (AC1),
+        and partial response acknowledgment when appropriate.
+
         Args:
             merchant: Merchant configuration
             llm_service: LLM service for personality-based questions
@@ -288,14 +316,14 @@ class ClarificationHandler(BaseHandler):
         """
         clarification_state = context.get("clarification", {})
         questions_asked = clarification_state.get("questions_asked", [])
+        accumulated_constraints = clarification_state.get("accumulated_constraints", {})
         attempt_count = clarification_state.get("attempt_count", 0) + 1
+        mode = getattr(merchant, "onboarding_mode", "ecommerce") or "ecommerce"
 
-        try:
-            question, constraint = await question_generator.generate_next_question(
-                classification=result,
-                questions_asked=questions_asked,
-            )
-        except ValueError:
+        missing_constraints = question_generator.get_missing_constraints(result.entities)
+        remaining = [c for c in missing_constraints if c not in questions_asked]
+
+        if not remaining:
             message_text, assumed = await clarification_service.generate_assumption_message(
                 result,
                 context,
@@ -311,19 +339,66 @@ class ClarificationHandler(BaseHandler):
                 },
             )
 
+        next_constraint = remaining[0]
+
+        used_indices = self._compute_used_indices(questions_asked, question_generator, mode)
+
+        partial_field = self._detect_partial_response(result)
+        if partial_field:
+            follow_up = await question_generator.generate_context_aware_question(
+                constraint=next_constraint,
+                accumulated_constraints=accumulated_constraints,
+                mode=mode,
+                used_indices=used_indices,
+            )
+            message = self._handle_partial_response(
+                accepted_field=partial_field,
+                follow_up_question=follow_up,
+                merchant=merchant,
+            )
+            logger.info(
+                "clarification_partial_response",
+                merchant_id=merchant.id,
+                accepted=partial_field,
+                next_constraint=next_constraint,
+                attempt=attempt_count,
+            )
+            return ConversationResponse(
+                message=message,
+                intent="clarification",
+                confidence=result.confidence,
+                metadata={
+                    "clarification_active": True,
+                    "constraint": next_constraint,
+                    "attempt": attempt_count,
+                    "partial_response": True,
+                    "accepted_field": partial_field,
+                },
+            )
+
+        question = await question_generator.generate_context_aware_question(
+            constraint=next_constraint,
+            accumulated_constraints=accumulated_constraints,
+            mode=mode,
+            used_indices=used_indices,
+        )
+
         personalized_question = await self._personalize_question(
             question=question,
-            constraint=constraint,
+            constraint=next_constraint,
             merchant=merchant,
             llm_service=llm_service,
             conversation_id=conversation_id,
+            mode=mode,
+            accumulated_constraints=accumulated_constraints,
         )
 
         logger.info(
             "clarification_followup_asked",
             merchant_id=merchant.id,
-            constraint=constraint,
+            constraint=next_constraint,
             attempt=attempt_count,
+            context_aware=True,
         )
 
         return ConversationResponse(
@@ -332,10 +407,37 @@ class ClarificationHandler(BaseHandler):
             confidence=result.confidence,
             metadata={
                 "clarification_active": True,
-                "constraint": constraint,
+                "constraint": next_constraint,
                 "attempt": attempt_count,
             },
         )
+
+    @staticmethod
+    def _compute_used_indices(
+        questions_asked: list[str],
+        question_generator: QuestionGenerator,
+        mode: str,
+    ) -> dict[str, int]:
+        """Compute template rotation indices from questions asked."""
+        used_indices: dict[str, int] = {}
+        for q in questions_asked:
+            templates = (
+                question_generator.GENERAL_MODE_TEMPLATES.get(q, [])
+                if mode == "general"
+                else question_generator.QUESTION_TEMPLATES.get(q, [])
+            )
+            current = used_indices.get(q, -1)
+            used_indices[q] = (current + 1) % max(len(templates), 1)
+        return used_indices
+
+    @staticmethod
+    def _detect_partial_response(result: ClassificationResult) -> str | None:
+        """Detect if the user gave a partial response with one resolved entity."""
+        entity_fields = ["category", "budget", "size", "color", "brand"]
+        resolved = [f for f in entity_fields if getattr(result.entities, f, None) is not None]
+        if len(resolved) == 1:
+            return resolved[0]
+        return None
 
     async def _personalize_question(
         self,

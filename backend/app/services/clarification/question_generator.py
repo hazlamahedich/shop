@@ -76,13 +76,16 @@ class QuestionGenerator:
 
     GENERAL_MODE_TEMPLATES: dict[str, list[str]] = {
         "issue_type": [
-            "Could you tell me more about what kind of issue you're experiencing? (e.g., login problem, payment issue, shipping delay)",
+            "Could you tell me more about what kind of issue you're "
+            "experiencing? (e.g., login problem, payment issue, shipping delay)",
             "What type of problem are you facing? (e.g., account access, billing, delivery)",
-            "I want to make sure I help you effectively — could you describe the issue you're running into?",
+            "I want to make sure I help you effectively — "
+            "could you describe the issue you're running into?",
             "To get you the right support, what seems to be the trouble?",
         ],
         "severity": [
-            "How urgent is this? Is it preventing you from completing something, or more of an inconvenience?",
+            "How urgent is this? Is it preventing you from completing "
+            "something, or more of an inconvenience?",
             "Would you say this is critical, important, or minor?",
             "Is this something that's blocking you right now, or more of a minor hiccup?",
             "How much is this affecting you — is it urgent or can it wait a bit?",
@@ -94,10 +97,13 @@ class QuestionGenerator:
             "When did this start, and is it ongoing?",
         ],
         "specifics": [
-            "Can you share any additional details? For example, error messages, order numbers, or steps you've already tried?",
+            "Can you share any additional details? For example, error messages, "
+            "order numbers, or steps you've already tried?",
             "Any extra info that might help — like error codes or what you've tried so far?",
-            "To help me look into this further, could you share any details like error messages or order numbers?",
-            "Anything else that might be helpful — like what you've already tried or any error messages?",
+            "To help me look into this further, could you share any details "
+            "like error messages or order numbers?",
+            "Anything else that might be helpful — "
+            "like what you've already tried or any error messages?",
         ],
     }
 
@@ -110,6 +116,8 @@ class QuestionGenerator:
         self,
         classification: ClassificationResult,
         questions_asked: list[str],
+        *,
+        used_indices: dict[str, int] | None = None,
     ) -> tuple[str, str]:
         entities = classification.entities
         missing_constraints = self.get_missing_constraints(entities)
@@ -119,7 +127,7 @@ class QuestionGenerator:
             raise ValueError("No more questions to ask")
 
         next_constraint = remaining[0]
-        question = self._select_question_template(next_constraint)
+        question = self._select_question_template(next_constraint, used_indices=used_indices)
 
         self.logger.info(
             "question_generated",
