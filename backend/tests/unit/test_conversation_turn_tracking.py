@@ -461,3 +461,154 @@ class TestTurnTrackingNonBlocking:
 
         assert UnifiedConversationService._turn_write_metrics["duplicate"] == prev + 1
         UnifiedConversationService._turn_write_metrics["duplicate"] = prev
+
+
+class TestBuildTurnContextSnapshotEdgeCases:
+    @pytest.mark.p1
+    @pytest.mark.test_id("STORY-11-12a-015")
+    def test_mode_omitted_when_none(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = MagicMock(spec=UnifiedConversationService)
+        service._build_turn_context_snapshot = (
+            UnifiedConversationService._build_turn_context_snapshot.__get__(service)
+        )
+        context = _make_context()
+
+        result = service._build_turn_context_snapshot(
+            confidence=0.7,
+            processing_time_ms=80.0,
+            context=context,
+            mode=None,
+        )
+
+        assert "mode" not in result
+        assert result["confidence"] == 0.7
+        assert result["processing_time_ms"] == 80
+
+    @pytest.mark.p2
+    @pytest.mark.test_id("STORY-11-12a-016")
+    def test_sentiment_confidence_zero_boundary(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = MagicMock(spec=UnifiedConversationService)
+        service._build_turn_context_snapshot = (
+            UnifiedConversationService._build_turn_context_snapshot.__get__(service)
+        )
+        context = _make_context()
+
+        result = service._build_turn_context_snapshot(
+            confidence=0.5,
+            processing_time_ms=50.0,
+            context=context,
+            sentiment_confidence=0.0,
+        )
+
+        assert result["sentiment_score"] == 0.0
+
+    @pytest.mark.p2
+    @pytest.mark.test_id("STORY-11-12a-017")
+    def test_processing_time_ms_float_rounds_to_int(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = MagicMock(spec=UnifiedConversationService)
+        service._build_turn_context_snapshot = (
+            UnifiedConversationService._build_turn_context_snapshot.__get__(service)
+        )
+        context = _make_context()
+
+        result = service._build_turn_context_snapshot(
+            confidence=0.9,
+            processing_time_ms=99.7,
+            context=context,
+        )
+
+        assert result["processing_time_ms"] == 99
+        assert isinstance(result["processing_time_ms"], int)
+
+    @pytest.mark.p1
+    @pytest.mark.test_id("STORY-11-12a-018")
+    def test_sentiment_adaptation_without_original_score_omits_field(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = MagicMock(spec=UnifiedConversationService)
+        service._build_turn_context_snapshot = (
+            UnifiedConversationService._build_turn_context_snapshot.__get__(service)
+        )
+        context = _make_context()
+        adaptation_no_score = MagicMock()
+        adaptation_no_score.original_score = None
+
+        result = service._build_turn_context_snapshot(
+            confidence=0.6,
+            processing_time_ms=70.0,
+            context=context,
+            sentiment_adaptation=adaptation_no_score,
+        )
+
+        assert "sentiment_score" not in result
+
+    @pytest.mark.p1
+    @pytest.mark.test_id("STORY-11-12a-019")
+    def test_zero_processing_time_rounds_correctly(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = MagicMock(spec=UnifiedConversationService)
+        service._build_turn_context_snapshot = (
+            UnifiedConversationService._build_turn_context_snapshot.__get__(service)
+        )
+        context = _make_context()
+
+        result = service._build_turn_context_snapshot(
+            confidence=0.4,
+            processing_time_ms=0.0,
+            context=context,
+        )
+
+        assert result["processing_time_ms"] == 0
+        assert isinstance(result["processing_time_ms"], int)
+
+    @pytest.mark.p2
+    @pytest.mark.test_id("STORY-11-12a-020")
+    def test_all_optional_fields_omitted(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        service = MagicMock(spec=UnifiedConversationService)
+        service._build_turn_context_snapshot = (
+            UnifiedConversationService._build_turn_context_snapshot.__get__(service)
+        )
+        context = _make_context()
+
+        result = service._build_turn_context_snapshot(
+            confidence=0.3,
+            processing_time_ms=10.0,
+            context=context,
+        )
+
+        assert result == {
+            "confidence": 0.3,
+            "processing_time_ms": 10,
+            "has_context_reference": False,
+        }
+
+    @pytest.mark.p2
+    @pytest.mark.test_id("STORY-11-12a-021")
+    def test_metrics_reset_after_each_test(self):
+        from app.services.conversation.unified_conversation_service import (
+            UnifiedConversationService,
+        )
+
+        assert UnifiedConversationService._turn_write_metrics["duplicate"] == 0
+        assert UnifiedConversationService._turn_write_metrics["unknown"] == 0

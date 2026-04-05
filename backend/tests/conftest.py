@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from dotenv import load_dotenv
 from httpx import ASGITransport
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -15,6 +16,9 @@ from sqlalchemy.pool import NullPool
 
 # Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Load .env BEFORE reading TEST_DATABASE_URL so port/credentials are correct
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 # =============================================================================
