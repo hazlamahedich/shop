@@ -304,23 +304,62 @@ class QuestionGenerator:
             return f"What {display} are you looking for?"
 
         capped = constraints[:3]
-        names = [self._get_display_name(c, mode) for c in capped]
+        deferred = constraints[3:]
+        if deferred:
+            self.logger.info(
+                "combined_question_deferred_constraints",
+                deferred=deferred,
+                total=len(constraints),
+                cap=3,
+            )
+
+        question = self._build_combined_text(capped, mode, accumulated_constraints)
+
+        if len(question) > max_length:
+            question = self._build_combined_text(capped[:2], mode, accumulated_constraints)
+
+        if len(question) > max_length:
+            question = question[: max_length - 3].rstrip("?.! ") + "..."
+
+        return question
+
+    def _build_combined_text(
+        self,
+        constraints: list[str],
+        mode: str,
+        accumulated_constraints: dict[str, Any] | None,
+    ) -> str:
+        names = [self._get_display_name(c, mode) for c in constraints]
+
+        examples: list[str] = []
+        for c in constraints:
+            ex_vals = self._get_examples_for_constraint(c, mode)
+            if ex_vals:
+                examples.extend(ex_vals[:2])
 
         if len(names) == 2:
             question = f"Do you have a preference for {names[0]} or {names[1]}?"
+            if examples:
+                ex_str = ", ".join(examples[:4])
+                question = (
+                    f"Do you have a preference for {names[0]} or {names[1]}? For example, {ex_str}?"
+                )
         else:
             all_but_last = ", ".join(names[:-1])
             question = (
                 f"To help narrow things down — any thoughts on {all_but_last}, or {names[-1]}?"
             )
+            if examples:
+                ex_str = ", ".join(examples[:6])
+                question = (
+                    f"To help narrow things down — any thoughts on {all_but_last}, "
+                    f"or {names[-1]}? For example, {ex_str}?"
+                )
 
         if accumulated_constraints:
             context_ref = self._build_context_reference(accumulated_constraints, mode)
-            if context_ref and len(question) + len(context_ref) + 3 <= max_length:
+            if context_ref:
                 question = question.rstrip("?.! ") + f" ({context_ref})?"
-
-        if len(question) > max_length:
-            question = question[: max_length - 3].rstrip("?.! ") + "..."
 
         return question
 

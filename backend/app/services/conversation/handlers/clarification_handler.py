@@ -226,6 +226,8 @@ class ClarificationHandler(BaseHandler):
 
         missing_constraints = question_generator.get_missing_constraints(extracted)
 
+        used_indices = context.get("clarification", {}).get("used_indices", {})
+
         try:
             if len(missing_constraints) > 1:
                 question = question_generator.generate_combined_question(
@@ -234,10 +236,18 @@ class ClarificationHandler(BaseHandler):
                     mode=mode,
                 )
                 constraint = missing_constraints[0]
+                for c in missing_constraints:
+                    used_indices = self._advance_used_index(
+                        used_indices, c, question_generator, mode
+                    )
             else:
                 question, constraint = await question_generator.generate_next_question(
                     classification=dummy_classification,
                     questions_asked=[],
+                    used_indices=used_indices or None,
+                )
+                used_indices = self._advance_used_index(
+                    used_indices, constraint, question_generator, mode
                 )
         except ValueError:
             try:
@@ -285,6 +295,7 @@ class ClarificationHandler(BaseHandler):
                 "combined_constraints": (
                     missing_constraints if len(missing_constraints) > 1 else None
                 ),
+                "used_indices": used_indices,
             },
         )
 
@@ -344,7 +355,7 @@ class ClarificationHandler(BaseHandler):
 
         used_indices = clarification_state.get("used_indices", {})
 
-        partial_field = self._detect_partial_response(result)
+        partial_field = self._detect_partial_response(result, mode=mode)
         if partial_field:
             follow_up = await question_generator.generate_context_aware_question(
                 constraint=next_constraint,
@@ -458,9 +469,13 @@ class ClarificationHandler(BaseHandler):
         return used_indices
 
     @staticmethod
-    def _detect_partial_response(result: ClassificationResult) -> str | None:
-        """Detect if the user gave a partial response with one resolved entity."""
-        entity_fields = ["category", "budget", "size", "color", "brand"]
+    def _detect_partial_response(
+        result: ClassificationResult, mode: str = "ecommerce"
+    ) -> str | None:
+        if mode == "general":
+            entity_fields = ["issue_type", "severity", "timeframe", "specifics"]
+        else:
+            entity_fields = ["category", "budget", "size", "color", "brand"]
         resolved = [f for f in entity_fields if getattr(result.entities, f, None) is not None]
         if len(resolved) == 1:
             return resolved[0]
@@ -487,6 +502,33 @@ class ClarificationHandler(BaseHandler):
 
         if skip_transition:
             return f"{prefix}{question}"
+
+        template_key = "combined_question_wrapper" if is_combined else None
+        if template_key:
+            try:
+                template = PersonalityAwareResponseFormatter._get_template(
+                    "clarification_natural",
+                    template_key,
+                    personality,
+                )
+                if template:
+                    formatted = PersonalityAwareResponseFormatter.format_response(
+                        "clarification_natural",
+                        template_key,
+                        personality,
+                        include_transition=True,
+                        conversation_id=conversation_id,
+                        mode=mode,
+                        combined_question=f"{prefix}{question}",
+                    )
+                    if formatted:
+                        return formatted
+            except Exception:
+                logger.warning(
+                    "natural_question_format_failed",
+                    error_code=7110,
+                    constraint=constraint,
+                )
 
         selector = get_transition_selector()
         transition = selector.select(
