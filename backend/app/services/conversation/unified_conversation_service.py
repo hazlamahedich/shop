@@ -146,7 +146,10 @@ class UnifiedConversationService:
     HANDOFF_CONFIDENCE_THRESHOLD = 0.50
     HANDOFF_CONFIDENCE_TRIGGER_COUNT = 3
     RETURNING_SHOPPER_THRESHOLD_SECONDS = 1800
-    _turn_write_metrics: ClassVar[dict[str, int]] = {"duplicate": 0, "unknown": 0}
+    _turn_write_metrics: ClassVar[dict[str, int]] = {
+        "duplicate": 0,
+        "unknown": 0,
+    }  # TODO: TECH-DEBT — process-local only; invisible to APM, resets on restart. Wire into structlog metrics or Prometheus counter.
 
     INTENT_TO_HANDLER_MAP = {
         "product_search": "search",
@@ -436,6 +439,7 @@ class UnifiedConversationService:
                             "mode": adaptation.mode,
                             "confidence": adaptation.original_score.confidence,
                         }
+                        context.metadata["_sentiment_adaptation_obj"] = adaptation
 
                     if sentiment_adapter.should_escalate(context, adaptation):
                         intent_name = "human_handoff"
@@ -505,6 +509,7 @@ class UnifiedConversationService:
                             "mode": adaptation.mode,
                             "confidence": adaptation.original_score.confidence,
                         }
+                        context.metadata["_sentiment_adaptation_obj"] = adaptation
 
                     # Story 11-10: Escalation check
                     if sentiment_adapter.should_escalate(context, adaptation):
@@ -779,43 +784,15 @@ class UnifiedConversationService:
                 response.message_id = bot_msg_id
 
             # Story 11-12a: Track conversation turn for analytics
-            if conversation_id:
-                try:
-                    sentiment_strategy_name: str | None = None
-                    sentiment_confidence: float | None = None
-                    sentiment_data = context.metadata.get("current_sentiment_adaptation")
-                    if sentiment_data and sentiment_data.get("strategy") not in (None, "none"):
-                        sentiment_strategy_name = sentiment_data.get("strategy", "").upper()
-                        score_confidence = sentiment_data.get("confidence")
-                        if score_confidence is not None:
-                            sentiment_confidence = float(score_confidence)
-
-                    turn_context_snapshot = self._build_turn_context_snapshot(
-                        confidence=confidence,
-                        processing_time_ms=processing_time_ms,
-                        context=context,
-                        sentiment_confidence=sentiment_confidence,
-                        mode=merchant.onboarding_mode,
-                    )
-                    await self._write_conversation_turn(
-                        db=db,
-                        conversation_id=conversation_id,
-                        turn_number=len(context.conversation_history) + 1,
-                        intent_detected=intent_name,
-                        sentiment=sentiment_strategy_name,
-                        context_snapshot=turn_context_snapshot,
-                    )
-                except Exception as e:
-                    error_type = "duplicate" if isinstance(e, IntegrityError) else "unknown"
-                    UnifiedConversationService._turn_write_metrics[error_type] += 1
-                    self.logger.error(
-                        "conversation_turn_write_failed",
-                        error_code=7127,
-                        conversation_id=conversation_id,
-                        error=str(e),
-                        error_type=error_type,
-                        metric_count=UnifiedConversationService._turn_write_metrics[error_type],
-                    )
+            await self._track_conversation_turn(
+                db=db,
+                conversation_id=conversation_id,
+                context=context,
+                confidence=confidence,
+                processing_time_ms=processing_time_ms,
+                intent_name=intent_name,
+                mode=merchant.onboarding_mode,
+            )
 
             # Detect and record knowledge gaps
             await self._detect_and_record_knowledge_gap(
@@ -2795,6 +2772,61 @@ class UnifiedConversationService:
             )
             db.add(turn)
             await db.flush()
+
+    async def _track_conversation_turn(
+        self,
+        db: AsyncSession,
+        conversation_id: int | None,
+        context: ConversationContext,
+        confidence: float,
+        processing_time_ms: float,
+        intent_name: str | None,
+        mode: str | None,
+    ) -> None:
+        if not conversation_id:
+            return
+        try:
+            sentiment_strategy_name: str | None = None
+            sentiment_adaptation_obj: SentimentAdaptation | None = context.metadata.get(
+                "_sentiment_adaptation_obj"
+            )
+            sentiment_confidence: float | None = None
+
+            if (
+                sentiment_adaptation_obj
+                and sentiment_adaptation_obj.strategy != SentimentStrategy.NONE
+            ):
+                sentiment_strategy_name = sentiment_adaptation_obj.strategy.value
+                if sentiment_adaptation_obj.original_score:
+                    sentiment_confidence = sentiment_adaptation_obj.original_score.confidence
+
+            turn_context_snapshot = self._build_turn_context_snapshot(
+                confidence=confidence,
+                processing_time_ms=processing_time_ms,
+                context=context,
+                sentiment_adaptation=sentiment_adaptation_obj,
+                sentiment_confidence=sentiment_confidence,
+                mode=mode,
+            )
+            await self._write_conversation_turn(
+                db=db,
+                conversation_id=conversation_id,
+                turn_number=len(context.conversation_history) + 1,
+                intent_detected=intent_name,
+                sentiment=sentiment_strategy_name,
+                context_snapshot=turn_context_snapshot,
+            )
+        except Exception as e:
+            error_type = "duplicate" if isinstance(e, IntegrityError) else "unknown"
+            UnifiedConversationService._turn_write_metrics[error_type] += 1
+            self.logger.error(
+                "conversation_turn_write_failed",
+                error_code=7127,
+                conversation_id=conversation_id,
+                error=str(e),
+                error_type=error_type,
+                metric_count=UnifiedConversationService._turn_write_metrics[error_type],
+            )
 
     async def _detect_and_record_knowledge_gap(
         self,

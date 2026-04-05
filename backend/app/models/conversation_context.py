@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -144,7 +144,7 @@ class ConversationTurn(Base):
     )
 
     __table_args__ = (
-        Index("ix_conversation_turns_conversation", "conversation_id", "turn_number"),
+        UniqueConstraint("conversation_id", "turn_number", name="uq_conversation_turns_conv_turn"),
     )
 
     def __repr__(self) -> str:
