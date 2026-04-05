@@ -483,3 +483,23 @@ glm-5.1 (zai-coding-plan/glm-5.1)
 
 ### Created (E2E):
 - `frontend/tests/e2e/story-11-10-sentiment-adaptive-responses.spec.ts` — 6 Playwright E2E tests (2 P0, 3 P1, 1 P2)
+
+### TEA Test Quality Review (2026-04-05)
+
+**Score**: 84/100 (A - Good) → **Approve with Comments**
+
+**Report**: `_bmad-output/test-reviews/story-11-10.md`
+
+All 4 review findings addressed:
+
+| # | Severity | Issue | Fix |
+|---|----------|-------|-----|
+| 1 | P2 | No BDD Given/When/Then structure in test bodies | Added `// Given:`, `// When:`, `// Then:` phase markers to all 6 tests |
+| 2 | P2 | No Playwright fixtures (`test.extend`) — repetitive setup | Deferred — would change test runner semantics; extracted `sendAndAwait` and `botMessages` to shared helpers instead |
+| 3 | P2 | CSS class selector `.message-bubble--bot .message-bubble__content` brittle | Added `data-testid="bot-message-content"` to `MessageList.tsx` component; `botMessages()` helper now uses `[data-testid="bot-message-content"]` |
+| 4 | P3 | Hardcoded response mock content in 6 constants | Replaced with `createSentimentResponse()` factory + `SENTIMENT_CONTENT` lookup table |
+
+**Files Modified by Review**:
+- `frontend/tests/e2e/story-11-10-sentiment-adaptive-responses.spec.ts` — BDD structure, parameterized factory, data-testid selectors, shared helpers
+- `frontend/tests/helpers/widget-test-helpers.ts` — Added `sendAndAwait()` and `botMessages()` shared helpers
+- `frontend/src/widget/components/MessageList.tsx` — Added `data-testid="bot-message-content"` to message content div

@@ -425,6 +425,7 @@ function MessageBubbleInGroup({
           </div>
         )}
         <div
+          data-testid={isUser ? 'user-message-content' : 'bot-message-content'}
           className="message-bubble__content"
           style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         >

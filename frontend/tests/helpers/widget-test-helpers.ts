@@ -312,6 +312,15 @@ export function createMockMessageResponse(overrides: Partial<MockMessageResponse
   };
 }
 
+export function sendAndAwait(page: Page, messageText: string) {
+  const response = page.waitForResponse('**/api/v1/widget/message');
+  return { response, send: () => sendMessage(page, messageText) };
+}
+
+export function botMessages(page: Page) {
+  return page.locator('[data-testid="bot-message-content"]');
+}
+
 /**
  * Load widget test page with session ID via URL parameter injection.
  *
