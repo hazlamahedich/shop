@@ -275,3 +275,60 @@ class TestBackwardCompatibility:
         from app.core.errors import ErrorCode
 
         assert ErrorCode.NATURAL_QUESTION_FORMAT_FAILED == 7110
+
+
+class TestG5FormatterExceptionFallback:
+    """G5 (AC6, P1): Verify graceful fallback when formatter raises exception."""
+
+    @pytest.mark.asyncio
+    async def test_personalize_question_falls_back_on_transition_error(self):
+        handler = ClarificationHandler()
+        merchant = _make_merchant()
+        llm = _make_llm()
+
+        result = await handler._personalize_question(
+            question="What is your budget?",
+            constraint="budget",
+            merchant=merchant,
+            llm_service=llm,
+            skip_transition=True,
+        )
+
+        assert "What is your budget?" in result
+        assert len(result) > 0
+
+    def test_handle_partial_response_fallback_on_formatter_error(self):
+        handler = ClarificationHandler()
+        merchant = MagicMock()
+        merchant.personality = None
+        merchant.business_name = "Test Shop"
+
+        result = handler._handle_partial_response(
+            accepted_field="color",
+            follow_up_question="What size?",
+            merchant=merchant,
+        )
+
+        assert "color" in result.lower()
+        assert "size" in result.lower()
+
+    def test_handle_partial_response_explicit_exception_fallback(self):
+        from unittest.mock import patch
+
+        handler = ClarificationHandler()
+        merchant = _make_merchant()
+
+        with patch.object(
+            PersonalityAwareResponseFormatter,
+            "format_response",
+            side_effect=RuntimeError("formatter crashed"),
+        ):
+            result = handler._handle_partial_response(
+                accepted_field="budget",
+                follow_up_question="What brand?",
+                merchant=merchant,
+            )
+
+        assert len(result) > 0
+        assert "budget" in result.lower()
+        assert "brand" in result.lower()
