@@ -763,10 +763,11 @@ class UnifiedConversationService:
                             sentiment_confidence = float(score_confidence)
 
                     turn_context_snapshot = self._build_turn_context_snapshot(
-                        confidence=confidence or 0.0,
+                        confidence=confidence,
                         processing_time_ms=processing_time_ms,
                         context=context,
                         sentiment_confidence=sentiment_confidence,
+                        mode=merchant.onboarding_mode,
                     )
                     await self._write_conversation_turn(
                         db=db,
@@ -775,8 +776,6 @@ class UnifiedConversationService:
                         intent_detected=intent_name,
                         sentiment=sentiment_strategy_name,
                         context_snapshot=turn_context_snapshot,
-                        user_message=message,
-                        bot_response=response.message if response else None,
                     )
                 except Exception as e:
                     error_type = "duplicate" if isinstance(e, IntegrityError) else "unknown"
@@ -2738,12 +2737,15 @@ class UnifiedConversationService:
         context: ConversationContext,
         sentiment_adaptation: SentimentAdaptation | None = None,
         sentiment_confidence: float | None = None,
+        mode: str | None = None,
     ) -> dict[str, Any]:
         snapshot: dict[str, Any] = {
             "confidence": confidence,
             "processing_time_ms": int(processing_time_ms),
             "has_context_reference": len(context.conversation_history) > 0,
         }
+        if mode is not None:
+            snapshot["mode"] = mode
         if sentiment_adaptation and sentiment_adaptation.original_score:
             snapshot["sentiment_score"] = sentiment_adaptation.original_score.confidence
         elif sentiment_confidence is not None:
@@ -2764,15 +2766,11 @@ class UnifiedConversationService:
         intent_detected: str | None,
         sentiment: str | None,
         context_snapshot: dict[str, Any],
-        user_message: str | None = None,
-        bot_response: str | None = None,
     ) -> None:
         async with db.begin_nested():
             turn = ConversationTurn(
                 conversation_id=conversation_id,
                 turn_number=turn_number,
-                user_message=user_message,
-                bot_response=bot_response,
                 intent_detected=intent_detected,
                 context_snapshot=context_snapshot,
                 sentiment=sentiment,

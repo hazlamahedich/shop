@@ -6,9 +6,8 @@ IntegrityError handling, clarification state serialization, and edge cases.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -62,6 +61,17 @@ def _make_sentiment_adaptation(
     )
 
 
+@pytest.fixture(autouse=True)
+def _reset_turn_write_metrics():
+    from app.services.conversation.unified_conversation_service import (
+        UnifiedConversationService,
+    )
+
+    saved = dict(UnifiedConversationService._turn_write_metrics)
+    yield
+    UnifiedConversationService._turn_write_metrics.update(saved)
+
+
 class TestBuildTurnContextSnapshot:
     @pytest.mark.p0
     @pytest.mark.test_id("STORY-11-12a-001")
@@ -81,11 +91,13 @@ class TestBuildTurnContextSnapshot:
             processing_time_ms=150.5,
             context=context,
             sentiment_adaptation=None,
+            mode="ecommerce",
         )
 
         assert result["confidence"] == 0.92
         assert result["processing_time_ms"] == 150
         assert result["has_context_reference"] is False
+        assert result["mode"] == "ecommerce"
         assert "sentiment_score" not in result
         assert "clarification_state" not in result
 
@@ -288,8 +300,6 @@ class TestWriteConversationTurn:
             intent_detected="product_search",
             sentiment="EMPATHETIC",
             context_snapshot=snapshot,
-            user_message="I want red shoes",
-            bot_response="Here are some red shoes!",
         )
 
         db.add.assert_called_once()
@@ -300,8 +310,6 @@ class TestWriteConversationTurn:
         assert turn_obj.intent_detected == "product_search"
         assert turn_obj.sentiment == "EMPATHETIC"
         assert turn_obj.context_snapshot == snapshot
-        assert turn_obj.user_message == "I want red shoes"
-        assert turn_obj.bot_response == "Here are some red shoes!"
 
     @pytest.mark.p0
     @pytest.mark.test_id("STORY-11-12a-008")
@@ -381,7 +389,6 @@ class TestTurnTrackingNonBlocking:
         processing_time_ms = 123.0
         intent_name = "greeting"
         confidence = 0.9
-        message = "hello"
         response = MagicMock()
         response.message = "Hi there!"
 
@@ -399,8 +406,6 @@ class TestTurnTrackingNonBlocking:
                 intent_detected=intent_name,
                 sentiment=None,
                 context_snapshot=turn_context_snapshot,
-                user_message=message,
-                bot_response=response.message,
             )
         except Exception as e:
             error_type = "duplicate" if isinstance(e, IntegrityError) else "unknown"
@@ -440,7 +445,6 @@ class TestTurnTrackingNonBlocking:
         UnifiedConversationService._turn_write_metrics["duplicate"] = prev
 
         db = AsyncMock()
-        context = _make_context()
 
         try:
             await service._write_conversation_turn(
