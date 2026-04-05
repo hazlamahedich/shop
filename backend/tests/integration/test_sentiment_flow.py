@@ -134,6 +134,23 @@ class TestSentimentAnalysisToResponse:
         assert adaptation.pre_phrase_key == ""
         assert adaptation.post_phrase_key == ""
 
+    def test_multi_question_message_produces_detailed_wrapping(self):
+        service = SentimentAdapterService()
+        merchant = _make_merchant()
+        message = "How does shipping work? What about returns? Can you explain the warranty?"
+
+        adaptation = service.analyze_sentiment(message, mode="ecommerce")
+        assert adaptation.strategy == SentimentStrategy.DETAILED
+
+        pre = PersonalityAwareResponseFormatter.format_response(
+            "sentiment_adaptive",
+            adaptation.pre_phrase_key,
+            merchant.personality,
+            mode="ecommerce",
+        )
+        assert pre
+        assert isinstance(pre, str)
+
 
 class TestEscalationFlow:
     def test_persistent_negative_triggers_escalation(self):

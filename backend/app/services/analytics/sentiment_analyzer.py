@@ -156,7 +156,6 @@ NEGATIVE_PATTERNS = {
     "not working": 1.5,
     "doesn't work": 1.5,
     "does not work": 1.5,
-    "not working": 1.5,
     "stopped working": 1.5,
     "very disappointed": 1.5,
     "really disappointed": 1.5,
@@ -337,7 +336,6 @@ POSITIVE_EMOJIS = {
     "🔥",
     "💪",
     "🏆",
-    " medal",
 }
 
 # Negative emoji patterns
@@ -368,7 +366,6 @@ NEGATIVE_EMOJIS = {
     "👎🏾",
     "👎🏿",
     "💔",
-    "😤",
     "🤦",
     "🤦🏻",
     "🤦🏼",
@@ -381,10 +378,6 @@ NEGATIVE_EMOJIS = {
     "🤷🏽",
     "🤷🏾",
     "🤷🏿",
-    "😤",
-    "😠",
-    "😡",
-    "🤬",
     "👿",
     "💀",
     "☠️",
@@ -421,7 +414,7 @@ class SentimentAnalyzer:
     Enhanced sentiment analyzer with weighted scoring and context awareness.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._positive_patterns = self._compile_patterns(POSITIVE_PATTERNS)
         self._negative_patterns = self._compile_patterns(NEGATIVE_PATTERNS)
         self._negation_pattern = re.compile(
@@ -507,8 +500,7 @@ class SentimentAnalyzer:
                         "impressed",
                         "nice",
                     }:
-                        # Flip positive to negative (not just reduce)
-                        positive_score = 0
+                        positive_score *= 0.2
                         negative_score += 1.5
                         break
 
