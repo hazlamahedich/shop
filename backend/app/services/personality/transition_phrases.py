@@ -305,6 +305,7 @@ RESPONSE_TYPE_TO_TRANSITION: dict[str, TransitionCategory] = {
     "proactive_gathering": TransitionCategory.CLARIFYING,
     "summarization": TransitionCategory.CONFIRMING,
     "sentiment_adaptive": TransitionCategory.ACKNOWLEDGING,
+    "clarification_natural": TransitionCategory.CLARIFYING,
 }
 
 TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
@@ -345,6 +346,15 @@ TEMPLATES_WITH_OPENINGS: dict[str, set[str]] = {
         "post_empathetic_general",
         "post_enthusiastic",
         "escalation_message",
+    },
+    "clarification_natural": {
+        "constraint_added_acknowledgment",
+        "transition_to_results",
+        "transition_to_results_thanks",
+        "near_limit_summary",
+        "invalid_response_retry",
+        "partial_response_acknowledge",
+        "combined_question_wrapper",
     },
 }
 

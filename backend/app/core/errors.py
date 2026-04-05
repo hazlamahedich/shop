@@ -245,6 +245,9 @@ class ErrorCode(IntEnum):
     SENTIMENT_ANALYSIS_FAILED = 7101  # SentimentAnalyzer or SentimentAdapterService failure
     SENTIMENT_ADAPTATION_FAILED = 7102  # Response adaptation failure
 
+    # Story 11-11: Natural clarification question error codes
+    NATURAL_QUESTION_FORMAT_FAILED = 7110  # Natural question formatting failure
+
     # 8000-8999: Export (owner: export team)
     EXPORT_TOO_LARGE = 8001
     EXPORT_TIMEOUT = 8002

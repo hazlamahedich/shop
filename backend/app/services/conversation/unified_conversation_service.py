@@ -75,6 +75,9 @@ from app.services.personality.conversation_templates import (
     register_sentiment_adaptive_templates,
     register_summarization_templates,
 )
+from app.services.personality.clarification_question_templates import (
+    register_natural_question_templates,
+)
 from app.services.personality.error_recovery_templates import register_error_recovery_templates
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 
@@ -82,6 +85,7 @@ register_conversation_templates()
 register_error_recovery_templates()
 register_summarization_templates()
 register_sentiment_adaptive_templates()
+register_natural_question_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -3087,15 +3091,26 @@ class UnifiedConversationService:
                 understanding = question_gen.generate_summary_of_understanding(
                     mt_state.accumulated_constraints, mode
                 )
+                msg = PersonalityAwareResponseFormatter.format_response(
+                    "clarification_natural",
+                    "near_limit_summary",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                    understanding=understanding,
+                )
                 return ConversationResponse(
-                    message=f"{understanding} Let me show you what I found based on this.",
+                    message=msg,
                     intent="clarification",
                     confidence=0.8,
                 )
 
             await _persist_mt_state()
+            retry_msg = PersonalityAwareResponseFormatter.format_response(
+                "clarification_natural",
+                "invalid_response_retry",
+                merchant.personality or PersonalityType.FRIENDLY,
+            )
             return ConversationResponse(
-                message="I didn't quite catch that. Could you try rephrasing? For example, you could mention a specific price range, size, or brand.",
+                message=retry_msg,
                 intent="clarification",
                 confidence=0.7,
             )
@@ -3112,8 +3127,14 @@ class UnifiedConversationService:
             await _persist_mt_state()
 
             understanding = question_gen.generate_summary_of_understanding(new_constraints, mode)
+            ack_msg = PersonalityAwareResponseFormatter.format_response(
+                "clarification_natural",
+                "constraint_added_acknowledgment",
+                merchant.personality or PersonalityType.FRIENDLY,
+                understanding=understanding,
+            )
             return ConversationResponse(
-                message=f"Got it! {understanding} Let me refine the results for you.",
+                message=ack_msg,
                 intent="clarification",
                 confidence=0.85,
             )
@@ -3142,8 +3163,14 @@ class UnifiedConversationService:
                 sm.transition_to_refine(mt_state, "near_turn_limit")
                 clarification_state.multi_turn_state = "REFINE_RESULTS"
                 await _persist_mt_state()
+                near_limit_msg = PersonalityAwareResponseFormatter.format_response(
+                    "clarification_natural",
+                    "near_limit_summary",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                    understanding=understanding,
+                )
                 return ConversationResponse(
-                    message=f"{understanding} Let me show you what I found based on this.",
+                    message=near_limit_msg,
                     intent="clarification",
                     confidence=0.85,
                 )
@@ -3153,8 +3180,14 @@ class UnifiedConversationService:
                     new_constraints, mode
                 )
                 await _persist_mt_state()
+                results_msg = PersonalityAwareResponseFormatter.format_response(
+                    "clarification_natural",
+                    "transition_to_results",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                    understanding=understanding,
+                )
                 return ConversationResponse(
-                    message=f"{understanding} Here are the results.",
+                    message=results_msg,
                     intent="clarification",
                     confidence=0.85,
                 )
@@ -3181,8 +3214,14 @@ class UnifiedConversationService:
                     new_constraints, mode
                 )
                 await _persist_mt_state()
+                thanks_msg = PersonalityAwareResponseFormatter.format_response(
+                    "clarification_natural",
+                    "transition_to_results_thanks",
+                    merchant.personality or PersonalityType.FRIENDLY,
+                    understanding=understanding,
+                )
                 return ConversationResponse(
-                    message=f"Thanks! {understanding} Here are the results.",
+                    message=thanks_msg,
                     intent="clarification",
                     confidence=0.85,
                 )

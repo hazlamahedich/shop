@@ -5,6 +5,9 @@ Story 5-10 Task 16: ClarificationHandler
 Handles CLARIFICATION intent when user input is ambiguous or
 missing critical constraints. Generates focused clarifying questions
 and manages the clarification flow.
+
+Story 11-11: Enhanced with natural question formatting, template rotation,
+             context-aware follow-ups, and partial response handling.
 """
 
 from __future__ import annotations
@@ -28,13 +31,16 @@ from app.services.intent.classification_schema import (
     IntentType,
 )
 from app.services.llm.base_llm_service import BaseLLMService
+from app.services.personality.clarification_question_templates import (
+    register_natural_question_templates,
+)
 from app.services.personality.conversation_templates import register_conversation_templates
 from app.services.personality.response_formatter import PersonalityAwareResponseFormatter
 from app.services.personality.transition_phrases import TransitionCategory
-
 from app.services.personality.transition_selector import get_transition_selector
 
 register_conversation_templates()
+register_natural_question_templates()
 
 logger = structlog.get_logger(__name__)
 
@@ -338,22 +344,48 @@ class ClarificationHandler(BaseHandler):
         merchant: Merchant,
         llm_service: BaseLLMService,
         conversation_id: str | None = None,
+        mode: str = "ecommerce",
+        skip_transition: bool = False,
+        accumulated_constraints: dict[str, Any] | None = None,
     ) -> str:
+        personality = merchant.personality or PersonalityType.FRIENDLY
         business_name = getattr(merchant, "business_name", None)
-
-        selector = get_transition_selector()
-        transition = selector.select(
-            TransitionCategory.CLARIFYING,
-            merchant.personality,
-            conversation_id=conversation_id,
-            mode="ecommerce",
-        )
 
         prefix = ""
         if business_name and constraint == "budget":
             prefix = f"At {business_name}, we have options for every budget. "
 
+        if skip_transition:
+            return f"{prefix}{question}"
+
+        selector = get_transition_selector()
+        transition = selector.select(
+            TransitionCategory.CLARIFYING,
+            personality,
+            conversation_id=conversation_id,
+            mode=mode,
+        )
+
         return f"{transition} {prefix}{question}"
+
+    def _handle_partial_response(
+        self,
+        accepted_field: str,
+        follow_up_question: str,
+        merchant: Merchant,
+    ) -> str:
+        personality = merchant.personality or PersonalityType.FRIENDLY
+
+        try:
+            return PersonalityAwareResponseFormatter.format_response(
+                "clarification_natural",
+                "partial_response_acknowledge",
+                personality,
+                accepted_field=accepted_field,
+                follow_up_question=follow_up_question,
+            )
+        except Exception:
+            return f"Thanks for sharing the {accepted_field}! {follow_up_question}"
 
     def _context_to_dict(
         self,
