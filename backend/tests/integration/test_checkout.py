@@ -118,9 +118,7 @@ class TestCheckoutFlow:
         assert ttl == 24 * 60 * 60  # 24 hours
 
     @pytest.mark.asyncio
-    async def test_checkout_with_empty_cart(
-        self, checkout_service, cart_service, mock_redis
-    ):
+    async def test_checkout_with_empty_cart(self, checkout_service, cart_service, mock_redis):
         """Test checkout with empty cart returns empty cart status."""
         # Mock empty cart
         empty_cart = Cart(
@@ -230,9 +228,7 @@ class TestCheckoutFlow:
         assert "created_at" in token_data
 
     @pytest.mark.asyncio
-    async def test_checkout_token_retrieval(
-        self, checkout_service, mock_redis
-    ):
+    async def test_checkout_token_retrieval(self, checkout_service, mock_redis):
         """Test retrieving stored checkout token."""
         psid = "test_psid"
         checkout_token = "ABC123XYZ"

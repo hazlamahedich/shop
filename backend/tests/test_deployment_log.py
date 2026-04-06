@@ -1,6 +1,5 @@
 """Tests for deployment log ORM model."""
 
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

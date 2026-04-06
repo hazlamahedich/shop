@@ -36,7 +36,7 @@ CSV_HEADERS = [
 ]
 
 # UTF-8 BOM for Excel UTF-8 detection
-UTF8_BOM = "\uFEFF"
+UTF8_BOM = "\ufeff"
 
 # Maximum export limit (per AC2)
 MAX_EXPORT_CONVERSATIONS = 10_000
@@ -159,9 +159,7 @@ class CSVExportService:
         if date_to:
             try:
                 to_datetime = datetime.fromisoformat(date_to)
-                to_datetime = to_datetime.replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
+                to_datetime = to_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
                 query = query.where(Conversation.created_at <= to_datetime)
             except ValueError:
                 # Invalid date format - ignore filter
@@ -185,17 +183,13 @@ class CSVExportService:
 
         return query
 
-    async def _get_conversation_count(
-        self, db: AsyncSession, query: select
-    ) -> int:
+    async def _get_conversation_count(self, db: AsyncSession, query: select) -> int:
         """Get total count of conversations matching the query."""
         count_query = select(func.count()).select_from(query.subquery())
         result = await db.execute(count_query)
         return result.scalar() or 0
 
-    async def _generate_csv_content(
-        self, db: AsyncSession, query: select
-    ) -> str:
+    async def _generate_csv_content(self, db: AsyncSession, query: select) -> str:
         """Generate CSV content from query results.
 
         Uses streaming to handle large datasets efficiently.
@@ -235,7 +229,9 @@ class CSVExportService:
         message_count = len(messages)
 
         # Customer ID (masked - last 4 characters)
-        customer_id = f"****{conv.platform_sender_id[-4:]}" if len(conv.platform_sender_id) >= 4 else "****"
+        customer_id = (
+            f"****{conv.platform_sender_id[-4:]}" if len(conv.platform_sender_id) >= 4 else "****"
+        )
 
         # Format dates for Excel (YYYY-MM-DD HH:MM:SS)
         created_date = conv.created_at.strftime("%Y-%m-%d %H:%M:%S")
@@ -267,9 +263,7 @@ class CSVExportService:
                         break
 
         # Calculate estimated cost
-        estimated_cost = self.cost_calculator.calculate_llm_cost(
-            llm_provider, total_tokens
-        )
+        estimated_cost = self.cost_calculator.calculate_llm_cost(llm_provider, total_tokens)
 
         # Last message preview (truncated to 100 chars)
         last_message_preview = ""

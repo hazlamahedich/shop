@@ -575,7 +575,10 @@ class TestConversationService:
 
         assert len(conversations) == 1
         # Last message should be decrypted
-        assert "Customer wants red shoes" in conversations[0]["last_message"] or conversations[0]["last_message"] == "Customer wants red shoes"
+        assert (
+            "Customer wants red shoes" in conversations[0]["last_message"]
+            or conversations[0]["last_message"] == "Customer wants red shoes"
+        )
 
     async def test_get_conversations_multiple_messages_shows_latest(self, async_session):
         """Test that conversations with multiple messages show the most recent one."""
@@ -646,7 +649,10 @@ class TestConversationService:
 
         assert len(conversations) == 1
         # The latest message (message3) should be shown
-        assert "Third message (even later)" in conversations[0]["last_message"] or conversations[0]["last_message"] == "Third message (even later)"
+        assert (
+            "Third message (even later)" in conversations[0]["last_message"]
+            or conversations[0]["last_message"] == "Third message (even later)"
+        )
 
     # ========== SEARCH AND FILTER TESTS (Story 3.2) ==========
 

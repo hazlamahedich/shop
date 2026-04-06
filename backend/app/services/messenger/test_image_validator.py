@@ -217,7 +217,9 @@ class TestImageValidator:
             mock_response.headers = {"content-length": "250000"}
 
             mock_client.return_value.__aenter__.return_value.head.return_value = mock_response
-            mock_client.return_value.__aenter__.return_value.head.return_value.raise_for_status = MagicMock()
+            mock_client.return_value.__aenter__.return_value.head.return_value.raise_for_status = (
+                MagicMock()
+            )
 
             info = await validator.get_image_info("https://example.com/test.jpg")
 
@@ -230,10 +232,12 @@ class TestImageValidator:
         with patch("httpx.AsyncClient") as mock_client:
             import httpx
 
-            mock_client.return_value.__aenter__.return_value.head.side_effect = httpx.HTTPStatusError(
-                "Not Found",
-                request=MagicMock(),
-                response=MagicMock(status_code=404),
+            mock_client.return_value.__aenter__.return_value.head.side_effect = (
+                httpx.HTTPStatusError(
+                    "Not Found",
+                    request=MagicMock(),
+                    response=MagicMock(status_code=404),
+                )
             )
 
             info = await validator.get_image_info("https://example.com/test.jpg")
@@ -245,8 +249,10 @@ class TestImageValidator:
         """Test image validation and preparation with valid URL."""
         url = "https://cdn.shopify.com/s/files/1/product.jpg"
 
-        with patch.object(validator, "validate_image_url", return_value=True), \
-             patch.object(validator, "get_image_info", return_value=None):
+        with (
+            patch.object(validator, "validate_image_url", return_value=True),
+            patch.object(validator, "get_image_info", return_value=None),
+        ):
             result = await validator.validate_and_prepare_image(url)
             assert result == url
 
@@ -264,8 +270,10 @@ class TestImageValidator:
         """Test image validation with file too large returns fallback."""
         url = "https://cdn.shopify.com/s/files/1/product.jpg"
 
-        with patch.object(validator, "validate_image_url", return_value=True), \
-             patch.object(validator, "get_image_info", return_value={"size_bytes": 600 * 1024}):
+        with (
+            patch.object(validator, "validate_image_url", return_value=True),
+            patch.object(validator, "get_image_info", return_value={"size_bytes": 600 * 1024}),
+        ):
             result = await validator.validate_and_prepare_image(url)
             assert result == validator.fallback_image_url
 

@@ -97,11 +97,7 @@ async def test_shopify_integration_unique_shop_domain(db_session: AsyncSession, 
     from app.models.shopify_integration import ShopifyIntegration
 
     # Create a second merchant with required fields
-    merchant2 = Merchant(
-        id=2,
-        merchant_key="test_merchant_key_2",
-        platform="facebook"
-    )
+    merchant2 = Merchant(id=2, merchant_key="test_merchant_key_2", platform="facebook")
     db_session.add(merchant2)
     await db_session.commit()
 

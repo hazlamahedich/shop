@@ -15,18 +15,14 @@ async def test_update_widget_config_contact_options(
     merchant = await async_session.get(Merchant, 1)
     if not merchant:
         merchant = Merchant(
-            id=1,
-            merchant_key="test-merchant",
-            platform="shopify",
-            widget_config={}
+            id=1, merchant_key="test-merchant", platform="shopify", widget_config={}
         )
         async_session.add(merchant)
         await async_session.commit()
 
     # Initial state
     response = await async_client.get(
-        "/api/v1/merchants/widget-config",
-        headers={"X-Merchant-Id": "1"}
+        "/api/v1/merchants/widget-config", headers={"X-Merchant-Id": "1"}
     )
     assert response.status_code == 200
     data = response.json()["data"]
@@ -39,28 +35,20 @@ async def test_update_widget_config_contact_options(
                 "type": "email",
                 "label": "Neural Support",
                 "value": "neural@antigravity.ai",
-                "icon": "mail"
+                "icon": "mail",
             },
-            {
-                "type": "phone",
-                "label": "Direct Link",
-                "value": "+123456789",
-                "icon": "phone"
-            }
+            {"type": "phone", "label": "Direct Link", "value": "+123456789", "icon": "phone"},
         ]
     }
 
     response = await async_client.patch(
-        "/api/v1/merchants/widget-config",
-        json=update_data,
-        headers={"X-Merchant-Id": "1"}
+        "/api/v1/merchants/widget-config", json=update_data, headers={"X-Merchant-Id": "1"}
     )
     assert response.status_code == 200
 
     # Verify persistence
     response = await async_client.get(
-        "/api/v1/merchants/widget-config",
-        headers={"X-Merchant-Id": "1"}
+        "/api/v1/merchants/widget-config", headers={"X-Merchant-Id": "1"}
     )
     assert response.status_code == 200
     config = response.json()["data"]

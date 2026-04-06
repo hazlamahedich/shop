@@ -170,7 +170,6 @@ async def test_llm_failure_fallback():
     """Test that LLM failure returns unknown intent."""
     from unittest.mock import AsyncMock, patch
 
-
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_router.chat.side_effect = Exception("LLM service unavailable")

@@ -32,7 +32,7 @@ class CartFormatter:
         "EUR": "€",
         "GBP": "£",
         "CAD": "C$",
-        "AUD": "A$"
+        "AUD": "A$",
     }
 
     # Default placeholder image when product image is unavailable
@@ -79,14 +79,10 @@ class CartFormatter:
                 {
                     "type": "postback",
                     "title": "🛍️ Continue Shopping",
-                    "payload": "continue_shopping"
+                    "payload": "continue_shopping",
                 },
-                {
-                    "type": "postback",
-                    "title": "💳 Checkout",
-                    "payload": "checkout"
-                }
-            ]
+                {"type": "postback", "title": "💳 Checkout", "payload": "checkout"},
+            ],
         }
         elements.append(summary_element)
 
@@ -100,25 +96,17 @@ class CartFormatter:
             "title": "Ready to checkout?",
             "subtitle": f"Total: {self._format_price(cart.subtotal, cart.currency_code.value)}",
             "buttons": [
-                {
-                    "type": "postback",
-                    "title": "💳 Proceed to Checkout",
-                    "payload": "checkout"
-                },
+                {"type": "postback", "title": "💳 Proceed to Checkout", "payload": "checkout"},
                 {
                     "type": "postback",
                     "title": "🛍️ Continue Shopping",
-                    "payload": "continue_shopping"
-                }
-            ]
+                    "payload": "continue_shopping",
+                },
+            ],
         }
         elements.append(checkout_element)
 
-        self.logger.info(
-            "cart_formatted",
-            item_count=cart.item_count,
-            subtotal=cart.subtotal
-        )
+        self.logger.info("cart_formatted", item_count=cart.item_count, subtotal=cart.subtotal)
 
         return {
             "attachment": {
@@ -126,7 +114,7 @@ class CartFormatter:
                 "payload": {
                     "template_type": "generic",
                     "elements": elements,
-                    "image_aspect_ratio": "square"
+                    "image_aspect_ratio": "square",
                 },
             },
         }
@@ -147,15 +135,15 @@ class CartFormatter:
                         {
                             "type": "postback",
                             "title": "🛍️ Browse Products",
-                            "payload": "browse_products"
+                            "payload": "browse_products",
                         },
                         {
                             "type": "postback",
                             "title": "🔍 Search Products",
-                            "payload": "search_products"
-                        }
-                    ]
-                }
+                            "payload": "search_products",
+                        },
+                    ],
+                },
             }
         }
 
@@ -189,22 +177,10 @@ class CartFormatter:
                 "webview_height_ratio": "tall",
             },
             "buttons": [
-                {
-                    "type": "postback",
-                    "title": "➕ Increase",
-                    "payload": increase_payload
-                },
-                {
-                    "type": "postback",
-                    "title": "➖ Decrease",
-                    "payload": decrease_payload
-                },
-                {
-                    "type": "postback",
-                    "title": "🗑️ Remove",
-                    "payload": remove_payload
-                }
-            ]
+                {"type": "postback", "title": "➕ Increase", "payload": increase_payload},
+                {"type": "postback", "title": "➖ Decrease", "payload": decrease_payload},
+                {"type": "postback", "title": "🗑️ Remove", "payload": remove_payload},
+            ],
         }
 
         # Disable decrease button if quantity is 1
@@ -228,10 +204,7 @@ class CartFormatter:
         """
         price = self._format_price(item.price, item.currency_code.value)
         quantity_str = f"Qty: {item.quantity}"
-        total = self._format_price(
-            item.price * item.quantity,
-            item.currency_code.value
-        )
+        total = self._format_price(item.price * item.quantity, item.currency_code.value)
 
         return f"{quantity_str} | {price} each | Total: {total}"
 

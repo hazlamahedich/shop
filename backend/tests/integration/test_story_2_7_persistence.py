@@ -62,7 +62,7 @@ async def test_full_consent_flow_first_add_opt_in_persistence():
         title="Test Product",
         price=29.99,
         image_url="https://example.com/image.jpg",
-        quantity=1
+        quantity=1,
     )
 
     assert len(cart.items) == 1
@@ -83,21 +83,23 @@ async def test_returning_shopper_welcome_message():
 
     # Setup: User with existing cart and consent
     existing_cart = {
-        "items": [{
-            "productId": "prod_1",
-            "variantId": "var_1",
-            "title": "Running Shoes",
-            "price": 89.99,
-            "imageUrl": "https://example.com/shoes.jpg",
-            "currencyCode": "USD",
-            "quantity": 2,
-            "addedAt": datetime.now(UTC).isoformat()
-        }],
+        "items": [
+            {
+                "productId": "prod_1",
+                "variantId": "var_1",
+                "title": "Running Shoes",
+                "price": 89.99,
+                "imageUrl": "https://example.com/shoes.jpg",
+                "currencyCode": "USD",
+                "quantity": 2,
+                "addedAt": datetime.now(UTC).isoformat(),
+            }
+        ],
         "subtotal": 179.98,
         "currencyCode": "USD",
         "itemCount": 2,
         "createdAt": datetime.now(UTC).isoformat(),
-        "updatedAt": datetime.now(UTC).isoformat()
+        "updatedAt": datetime.now(UTC).isoformat(),
     }
 
     # Track stored data to maintain mock state
@@ -140,32 +142,36 @@ async def test_forget_preferences_clears_voluntary_only():
 
     # Setup: Cart and consent
     existing_cart = {
-        "items": [{
-            "productId": "prod_1",
-            "variantId": "var_1",
-            "title": "Test Product",
-            "price": 29.99,
-            "imageUrl": "https://example.com/image.jpg",
-            "currencyCode": "USD",
-            "quantity": 1,
-            "addedAt": datetime.now(UTC).isoformat()
-        }],
+        "items": [
+            {
+                "productId": "prod_1",
+                "variantId": "var_1",
+                "title": "Test Product",
+                "price": 29.99,
+                "imageUrl": "https://example.com/image.jpg",
+                "currencyCode": "USD",
+                "quantity": 1,
+                "addedAt": datetime.now(UTC).isoformat(),
+            }
+        ],
         "subtotal": 29.99,
         "currencyCode": "USD",
         "itemCount": 1,
         "createdAt": datetime.now(UTC).isoformat(),
-        "updatedAt": datetime.now(UTC).isoformat()
+        "updatedAt": datetime.now(UTC).isoformat(),
     }
 
     # Track stored data and deleted keys
     stored_data = {
         "cart:test_forget_user": json.dumps(existing_cart),
-        "consent:test_forget_user": json.dumps({
-            "status": "opted_in",
-            "timestamp": datetime.now(UTC).isoformat(),
-            "psid": "test_forget_user"
-        }),
-        "order_ref:test_forget_user": "order_12345"  # Operational data
+        "consent:test_forget_user": json.dumps(
+            {
+                "status": "opted_in",
+                "timestamp": datetime.now(UTC).isoformat(),
+                "psid": "test_forget_user",
+            }
+        ),
+        "order_ref:test_forget_user": "order_12345",  # Operational data
     }
     deleted_keys = []
 
@@ -383,9 +389,10 @@ async def test_activity_tracking_for_returning_shoppers():
 @pytest.mark.asyncio
 async def test_consent_message_integration():
     """Test consent message is sent via MessengerSendService."""
-    with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class, \
-         patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class:
-
+    with (
+        patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class,
+        patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class,
+    ):
         # Mock consent service - pending consent
         mock_consent = MagicMock()
         mock_consent.get_consent = AsyncMock(return_value=ConsentStatus.PENDING)
@@ -414,16 +421,18 @@ async def test_consent_message_integration():
                                 "id": "var_1",
                                 "price": 29.99,
                                 "currency_code": "USD",
-                                "available_for_sale": True
+                                "available_for_sale": True,
                             }
-                        ]
+                        ],
                     }
                 ],
-                "total_count": 1
+                "total_count": 1,
             }
         }
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_context.redis = mock_redis
             mock_context.get_context = AsyncMock(return_value=context_with_product)
@@ -436,7 +445,7 @@ async def test_consent_message_integration():
                 psid="test_consent_msg",
                 product_id="prod_1",
                 variant_id="var_1",
-                context=context_with_product
+                context=context_with_product,
             )
 
             # Verify send_message was called with quick replies
@@ -453,9 +462,10 @@ async def test_forget_preferences_intent_routing():
     """Test FORGET_PREFERENCES intent routes to forget handler."""
     from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
 
-    with patch("app.services.messaging.message_processor.SessionService") as mock_session_class, \
-         patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class:
-
+    with (
+        patch("app.services.messaging.message_processor.SessionService") as mock_session_class,
+        patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class,
+    ):
         # Mock session service
         mock_session = MagicMock()
         mock_session.clear_session = AsyncMock(return_value=None)
@@ -470,7 +480,9 @@ async def test_forget_preferences_intent_routing():
 
         # Mock context manager
         mock_redis = MagicMock()
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_context.redis = mock_redis
             mock_context.get_context = AsyncMock(return_value={})
@@ -487,14 +499,12 @@ async def test_forget_preferences_intent_routing():
                 raw_message="forget my preferences",
                 llm_provider="test",
                 model="test",
-                processing_time_ms=50
+                processing_time_ms=50,
             )
 
             # Route to response
             response = await processor._route_response(
-                psid="test_forget_intent",
-                classification=classification,
-                context={}
+                psid="test_forget_intent", classification=classification, context={}
             )
 
             # Verify forget handler was called

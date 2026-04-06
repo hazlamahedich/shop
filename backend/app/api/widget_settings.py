@@ -110,16 +110,12 @@ def _parse_widget_config(config: dict[str, Any] | None) -> WidgetConfig:
 
     # Story 10-5: Contact Options
     contact_options_data = widget_data.get("contact_options", [])
-    contact_options = [
-        ContactOptionSchema(**opt) for opt in contact_options_data
-    ]
+    contact_options = [ContactOptionSchema(**opt) for opt in contact_options_data]
 
     return WidgetConfig(
         enabled=widget_data.get("enabled", True),
         bot_name=widget_data.get("bot_name", "Mantisbot"),
-        welcome_message=widget_data.get(
-            "welcome_message", "Hi! How can I help you today?"
-        ),
+        welcome_message=widget_data.get("welcome_message", "Hi! How can I help you today?"),
         theme=theme,
         allowed_domains=widget_data.get("allowed_domains", []),
         rate_limit=widget_data.get("rate_limit"),
@@ -172,9 +168,7 @@ def _merge_widget_config(
         widget_config["feedback_enabled"] = update.feedback_enabled
 
     if update.contact_options is not None:
-        widget_config["contact_options"] = [
-            opt.model_dump() for opt in update.contact_options
-        ]
+        widget_config["contact_options"] = [opt.model_dump() for opt in update.contact_options]
 
     return widget_config
 
@@ -204,9 +198,7 @@ async def get_widget_config(
     """
     merchant_id = _get_merchant_id(request)
 
-    result = await db.execute(
-        select(Merchant).where(Merchant.id == merchant_id)
-    )
+    result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
     merchant = result.scalars().first()
 
     if not merchant:
@@ -269,9 +261,7 @@ async def update_widget_config(
     try:
         merchant_id = _get_merchant_id(request)
 
-        result = await db.execute(
-            select(Merchant).where(Merchant.id == merchant_id)
-        )
+        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = result.scalars().first()
 
         if not merchant:

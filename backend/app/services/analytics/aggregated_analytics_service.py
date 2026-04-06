@@ -1279,7 +1279,7 @@ class AggregatedAnalyticsService:
                         MessageFeedback.merchant_id == merchant_id,
                         MessageFeedback.conversation_id.in_(
                             select(Conversation.id).where(Conversation.merchant_id == merchant_id)
-                        )
+                        ),
                     )
                 )
                 .where(MessageFeedback.created_at >= cutoff_date)
@@ -2244,9 +2244,9 @@ class AggregatedAnalyticsService:
             # Calculate match rate and confidence from RAG query logs
             rag_result = await self.db.execute(
                 select(
-                    func.count(RAGQueryLog.id).label('total_queries'),
-                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label('matched'),
-                    func.avg(RAGQueryLog.confidence).label('avg_confidence'),
+                    func.count(RAGQueryLog.id).label("total_queries"),
+                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label("matched"),
+                    func.avg(RAGQueryLog.confidence).label("avg_confidence"),
                 )
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
@@ -2256,7 +2256,9 @@ class AggregatedAnalyticsService:
 
             total_queries = rag_row.total_queries if rag_row else 0
             matched_count = rag_row.matched if rag_row else 0
-            avg_confidence = float(rag_row.avg_confidence) if rag_row and rag_row.avg_confidence else 0.5
+            avg_confidence = (
+                float(rag_row.avg_confidence) if rag_row and rag_row.avg_confidence else 0.5
+            )
 
             # Calculate match rate (0-1)
             match_rate = (matched_count / total_queries) if total_queries > 0 else 0.5
@@ -2269,8 +2271,10 @@ class AggregatedAnalyticsService:
 
             feedback_result = await self.db.execute(
                 select(
-                    func.count(MessageFeedback.id).label('total_feedback'),
-                    func.sum(case((MessageFeedback.rating == 'positive', 1), else_=0)).label('positive'),
+                    func.count(MessageFeedback.id).label("total_feedback"),
+                    func.sum(case((MessageFeedback.rating == "positive", 1), else_=0)).label(
+                        "positive"
+                    ),
                 )
                 .select_from(MessageFeedback)
                 .join(Msg, MessageFeedback.message_id == Msg.id)
@@ -2289,21 +2293,17 @@ class AggregatedAnalyticsService:
 
             # Calculate composite score (0-100)
             # Weighted: Match rate 40%, Confidence 35%, Feedback 25%
-            score = (
-                (match_rate * 40) +
-                (avg_confidence * 35) +
-                (feedback_rate * 25)
-            )
+            score = (match_rate * 40) + (avg_confidence * 35) + (feedback_rate * 25)
 
             # Determine status
             if score >= 80:
-                status_label = 'excellent'
+                status_label = "excellent"
             elif score >= 60:
-                status_label = 'good'
+                status_label = "good"
             elif score >= 40:
-                status_label = 'fair'
+                status_label = "fair"
             else:
-                status_label = 'poor'
+                status_label = "poor"
 
             # Calculate 14-day trend
             trend = []
@@ -2313,8 +2313,10 @@ class AggregatedAnalyticsService:
 
                 day_result = await self.db.execute(
                     select(
-                        func.count(RAGQueryLog.id).label('day_total'),
-                        func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label('day_matched'),
+                        func.count(RAGQueryLog.id).label("day_total"),
+                        func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label(
+                            "day_matched"
+                        ),
                     )
                     .where(RAGQueryLog.merchant_id == merchant_id)
                     .where(RAGQueryLog.created_at >= day_start)
@@ -2328,15 +2330,15 @@ class AggregatedAnalyticsService:
                 trend.append(day_rate)
 
             return {
-                'score': round(score, 1),
-                'status': status_label,
-                'trend': trend,
-                'lastUpdated': datetime.utcnow().isoformat(),
+                "score": round(score, 1),
+                "status": status_label,
+                "trend": trend,
+                "lastUpdated": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(
-                'answer_quality_score_failed',
+                "answer_quality_score_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -2362,9 +2364,11 @@ class AggregatedAnalyticsService:
             result = await self.db.execute(
                 select(
                     RAGQueryLog.query,
-                    func.count(RAGQueryLog.id).label('frequency'),
-                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label('matched_count'),
-                    func.avg(RAGQueryLog.confidence).label('avg_confidence'),
+                    func.count(RAGQueryLog.id).label("frequency"),
+                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label(
+                        "matched_count"
+                    ),
+                    func.avg(RAGQueryLog.confidence).label("avg_confidence"),
                 )
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
@@ -2383,43 +2387,45 @@ class AggregatedAnalyticsService:
                 match_rate = (matched_count / frequency) if frequency > 0 else 0
 
                 # Determine trend (simplified - would need more complex logic)
-                trend = 'stable'  # Could calculate by comparing recent vs older periods
+                trend = "stable"  # Could calculate by comparing recent vs older periods
 
                 # Categorize question (simplified - could use ML classification)
                 query_lower = row.query.lower()
-                if any(word in query_lower for word in ['price', 'cost', 'how much']):
-                    category = 'Pricing'
-                elif any(word in query_lower for word in ['shipping', 'delivery', 'when will']):
-                    category = 'Shipping'
-                elif any(word in query_lower for word in ['return', 'refund']):
-                    category = 'Returns'
-                elif any(word in query_lower for word in ['product', 'item']):
-                    category = 'Product Info'
+                if any(word in query_lower for word in ["price", "cost", "how much"]):
+                    category = "Pricing"
+                elif any(word in query_lower for word in ["shipping", "delivery", "when will"]):
+                    category = "Shipping"
+                elif any(word in query_lower for word in ["return", "refund"]):
+                    category = "Returns"
+                elif any(word in query_lower for word in ["product", "item"]):
+                    category = "Product Info"
                 else:
-                    category = 'General'
+                    category = "General"
 
-                questions.append({
-                    'question': row.query,
-                    'frequency': frequency,
-                    'matchRate': match_rate,
-                    'avgConfidence': avg_conf,
-                    'category': category,
-                    'trend': trend,
-                })
+                questions.append(
+                    {
+                        "question": row.query,
+                        "frequency": frequency,
+                        "matchRate": match_rate,
+                        "avgConfidence": avg_conf,
+                        "category": category,
+                        "trend": trend,
+                    }
+                )
 
             return {
-                'questions': questions,
-                'period': {
-                    'days': days,
-                    'startDate': start_date.isoformat(),
-                    'endDate': end_date.isoformat(),
+                "questions": questions,
+                "period": {
+                    "days": days,
+                    "startDate": start_date.isoformat(),
+                    "endDate": end_date.isoformat(),
                 },
-                'lastUpdated': datetime.utcnow().isoformat(),
+                "lastUpdated": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(
-                'top_questions_failed',
+                "top_questions_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -2445,9 +2451,13 @@ class AggregatedAnalyticsService:
             # Get feedback stats from MessageFeedback table
             result = await self.db.execute(
                 select(
-                    func.count(MessageFeedback.id).label('total_feedback'),
-                    func.sum(case((MessageFeedback.rating == 'positive', 1), else_=0)).label('positive_count'),
-                    func.sum(case((MessageFeedback.rating == 'negative', 1), else_=0)).label('negative_count'),
+                    func.count(MessageFeedback.id).label("total_feedback"),
+                    func.sum(case((MessageFeedback.rating == "positive", 1), else_=0)).label(
+                        "positive_count"
+                    ),
+                    func.sum(case((MessageFeedback.rating == "negative", 1), else_=0)).label(
+                        "negative_count"
+                    ),
                 )
                 .select_from(MessageFeedback)
                 .join(Message, MessageFeedback.message_id == Message.id)
@@ -2468,21 +2478,25 @@ class AggregatedAnalyticsService:
             # Extract feedback themes (simplified - would use NLP in production)
             themes = []
             if positive_count > 0 and positive_count > negative_count:
-                themes.append({'theme': 'Helpful responses', 'count': positive_count, 'sentiment': 'positive'})
+                themes.append(
+                    {"theme": "Helpful responses", "count": positive_count, "sentiment": "positive"}
+                )
             if negative_count > 0:
-                themes.append({'theme': 'Needs improvement', 'count': negative_count, 'sentiment': 'negative'})
+                themes.append(
+                    {"theme": "Needs improvement", "count": negative_count, "sentiment": "negative"}
+                )
 
             return {
-                'totalFeedback': total_feedback,
-                'positiveRate': positive_rate,
-                'negativeRate': negative_rate,
-                'themes': themes[:5],  # Top 5 themes
-                'lastUpdated': datetime.utcnow().isoformat(),
+                "totalFeedback": total_feedback,
+                "positiveRate": positive_rate,
+                "negativeRate": negative_rate,
+                "themes": themes[:5],  # Top 5 themes
+                "lastUpdated": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(
-                'customer_feedback_failed',
+                "customer_feedback_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -2529,14 +2543,14 @@ class AggregatedAnalyticsService:
 
             if not documents:
                 return {
-                    'documents': [],
-                    'summary': {'total': 0, 'active': 0, 'unused': 0, 'outdated': 0},
-                    'period': {
-                        'days': days,
-                        'startDate': start_date.isoformat(),
-                        'endDate': end_date.isoformat(),
+                    "documents": [],
+                    "summary": {"total": 0, "active": 0, "unused": 0, "outdated": 0},
+                    "period": {
+                        "days": days,
+                        "startDate": start_date.isoformat(),
+                        "endDate": end_date.isoformat(),
                     },
-                    'lastUpdated': datetime.utcnow().isoformat(),
+                    "lastUpdated": datetime.utcnow().isoformat(),
                 }
 
             # OPTIMIZATION: Bulk count references using single query with jsonb_path_exists
@@ -2562,11 +2576,7 @@ class AggregatedAnalyticsService:
 
             ref_result = await self.db.execute(
                 ref_counts_query,
-                {
-                    "merchant_id": merchant_id,
-                    "start_date": start_date,
-                    "end_date": end_date
-                }
+                {"merchant_id": merchant_id, "start_date": start_date, "end_date": end_date},
             )
 
             # Build lookup dict for O(1) access
@@ -2583,65 +2593,67 @@ class AggregatedAnalyticsService:
 
                 # Determine status based on reference count and document status
                 if ref_count == 0:
-                    status = 'unused'
+                    status = "unused"
                     unused_count += 1
-                elif doc.status == 'error':
-                    status = 'outdated'
+                elif doc.status == "error":
+                    status = "outdated"
                     outdated_count += 1
                 else:
-                    status = 'active'
+                    status = "active"
                     active_count += 1
 
                 # Estimate confidence based on document status and reference count
                 # Active documents with more references get higher confidence
                 base_confidence = 0.6
-                if status == 'active':
+                if status == "active":
                     confidence_boost = min(ref_count * 0.01, 0.3)  # Max 0.3 boost
                     avg_confidence = base_confidence + confidence_boost
                 else:
                     avg_confidence = base_confidence
 
-                doc_stats.append({
-                    'documentId': doc.id,
-                    'filename': doc.filename,
-                    'referenceCount': ref_count,
-                    'avgConfidence': round(avg_confidence, 2),
-                    'lastReferenced': doc.created_at.isoformat() if doc.created_at else None,
-                    'status': status,
-                })
+                doc_stats.append(
+                    {
+                        "documentId": doc.id,
+                        "filename": doc.filename,
+                        "referenceCount": ref_count,
+                        "avgConfidence": round(avg_confidence, 2),
+                        "lastReferenced": doc.created_at.isoformat() if doc.created_at else None,
+                        "status": status,
+                    }
+                )
 
             # Sort by reference count (descending)
-            doc_stats.sort(key=lambda x: x['referenceCount'], reverse=True)
+            doc_stats.sort(key=lambda x: x["referenceCount"], reverse=True)
 
             # Apply pagination
             total_documents = len(doc_stats)
-            paginated_docs = doc_stats[offset:offset + limit]
+            paginated_docs = doc_stats[offset : offset + limit]
 
             return {
-                'documents': paginated_docs,
-                'pagination': {
-                    'total': total_documents,
-                    'limit': limit,
-                    'offset': offset,
-                    'hasMore': offset + limit < total_documents,
+                "documents": paginated_docs,
+                "pagination": {
+                    "total": total_documents,
+                    "limit": limit,
+                    "offset": offset,
+                    "hasMore": offset + limit < total_documents,
                 },
-                'summary': {
-                    'total': total_documents,
-                    'active': active_count,
-                    'unused': unused_count,
-                    'outdated': outdated_count,
+                "summary": {
+                    "total": total_documents,
+                    "active": active_count,
+                    "unused": unused_count,
+                    "outdated": outdated_count,
                 },
-                'period': {
-                    'days': days,
-                    'startDate': start_date.isoformat(),
-                    'endDate': end_date.isoformat(),
+                "period": {
+                    "days": days,
+                    "startDate": start_date.isoformat(),
+                    "endDate": end_date.isoformat(),
                 },
-                'lastUpdated': datetime.utcnow().isoformat(),
+                "lastUpdated": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(
-                'document_performance_failed',
+                "document_performance_failed",
                 merchant_id=merchant_id,
                 error=str(e),
                 exc_info=True,
@@ -2667,8 +2679,10 @@ class AggregatedAnalyticsService:
             result = await self.db.execute(
                 select(
                     RAGQueryLog.query,
-                    func.count(RAGQueryLog.id).label('frequency'),
-                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label('matched_count'),
+                    func.count(RAGQueryLog.id).label("frequency"),
+                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label(
+                        "matched_count"
+                    ),
                 )
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
@@ -2689,48 +2703,50 @@ class AggregatedAnalyticsService:
                 # Only include questions with low match rate (< 60%)
                 if match_rate < 0.6:
                     # Determine suggested action
-                    if row.query.endswith('?'):
-                        suggested_action = 'add_faq'
+                    if row.query.endswith("?"):
+                        suggested_action = "add_faq"
                     else:
-                        suggested_action = 'upload_document'
+                        suggested_action = "upload_document"
 
                     # Calculate estimated handoff reduction
                     estimated_reduction = (1 - match_rate) * frequency * 0.1
 
                     # Determine priority
                     if frequency >= 10 and match_rate < 0.3:
-                        priority = 'high'
+                        priority = "high"
                     elif frequency >= 5 and match_rate < 0.5:
-                        priority = 'medium'
+                        priority = "medium"
                     else:
-                        priority = 'low'
+                        priority = "low"
 
-                    actions.append({
-                        'id': f"action_{len(actions)}",
-                        'question': row.query,
-                        'frequency': frequency,
-                        'matchRate': match_rate,
-                        'estimatedHandoffReduction': estimated_reduction,
-                        'suggestedAction': suggested_action,
-                        'priority': priority,
-                    })
+                    actions.append(
+                        {
+                            "id": f"action_{len(actions)}",
+                            "question": row.query,
+                            "frequency": frequency,
+                            "matchRate": match_rate,
+                            "estimatedHandoffReduction": estimated_reduction,
+                            "suggestedAction": suggested_action,
+                            "priority": priority,
+                        }
+                    )
 
             # Sort by estimated impact and take top N
-            actions.sort(key=lambda x: x['estimatedHandoffReduction'], reverse=True)
+            actions.sort(key=lambda x: x["estimatedHandoffReduction"], reverse=True)
             actions = actions[:limit]
 
             # Calculate total estimated impact
-            total_impact = sum(action['estimatedHandoffReduction'] for action in actions)
+            total_impact = sum(action["estimatedHandoffReduction"] for action in actions)
 
             return {
-                'actions': actions,
-                'totalEstimatedImpact': total_impact,
-                'lastUpdated': datetime.utcnow().isoformat(),
+                "actions": actions,
+                "totalEstimatedImpact": total_impact,
+                "lastUpdated": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(
-                'high_impact_improvements_failed',
+                "high_impact_improvements_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -2754,9 +2770,11 @@ class AggregatedAnalyticsService:
             result = await self.db.execute(
                 select(
                     RAGQueryLog.query,
-                    func.count(RAGQueryLog.id).label('volume'),
-                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label('matched_count'),
-                    func.avg(RAGQueryLog.confidence).label('avg_confidence'),
+                    func.count(RAGQueryLog.id).label("volume"),
+                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label(
+                        "matched_count"
+                    ),
+                    func.avg(RAGQueryLog.confidence).label("avg_confidence"),
                 )
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
@@ -2774,50 +2792,54 @@ class AggregatedAnalyticsService:
 
                 if category not in categories:
                     categories[category] = {
-                        'category': category,
-                        'volume': 0,
-                        'matchedCount': 0,
-                        'totalConfidence': 0,
-                        'queries': [],
+                        "category": category,
+                        "volume": 0,
+                        "matchedCount": 0,
+                        "totalConfidence": 0,
+                        "queries": [],
                     }
 
-                categories[category]['volume'] += row.volume or 0
-                categories[category]['matchedCount'] += row.matched_count or 0
+                categories[category]["volume"] += row.volume or 0
+                categories[category]["matchedCount"] += row.matched_count or 0
                 if row.avg_confidence:
-                    categories[category]['totalConfidence'] += float(row.avg_confidence) * (row.volume or 0)
-                categories[category]['queries'].append(row.query)
+                    categories[category]["totalConfidence"] += float(row.avg_confidence) * (
+                        row.volume or 0
+                    )
+                categories[category]["queries"].append(row.query)
 
             # Calculate metrics per category
             category_list = []
             for cat_name, cat_data in categories.items():
-                volume = cat_data['volume']
-                matched = cat_data['matchedCount']
-                avg_conf = cat_data['totalConfidence'] / volume if volume > 0 else 0
+                volume = cat_data["volume"]
+                matched = cat_data["matchedCount"]
+                avg_conf = cat_data["totalConfidence"] / volume if volume > 0 else 0
                 match_rate = (matched / volume) if volume > 0 else 0
 
                 # Determine trend (simplified - could implement proper trend analysis)
-                trend = 'stable'
+                trend = "stable"
 
                 # Get top 2 questions for this category
-                top_queries = cat_data['queries'][:2]
+                top_queries = cat_data["queries"][:2]
 
-                category_list.append({
-                    'category': cat_name,
-                    'volume': volume,
-                    'matchRate': match_rate,
-                    'avgConfidence': avg_conf,
-                    'trend': trend,
-                    'topQuestions': top_queries,
-                })
+                category_list.append(
+                    {
+                        "category": cat_name,
+                        "volume": volume,
+                        "matchRate": match_rate,
+                        "avgConfidence": avg_conf,
+                        "trend": trend,
+                        "topQuestions": top_queries,
+                    }
+                )
 
             # Sort by volume
-            category_list.sort(key=lambda x: x['volume'], reverse=True)
+            category_list.sort(key=lambda x: x["volume"], reverse=True)
 
             return category_list
 
         except Exception as e:
             logger.error(
-                'question_categories_failed',
+                "question_categories_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -2825,24 +2847,24 @@ class AggregatedAnalyticsService:
 
     def _categorize_query(self, query: str) -> str:
         """Categorize a query based on keywords."""
-        if any(word in query for word in ['price', 'cost', 'how much', 'expensive', 'cheap']):
-            return 'Pricing'
-        elif any(word in query for word in ['shipping', 'delivery', 'when will', 'ship', 'arrive']):
-            return 'Shipping & Delivery'
-        elif any(word in query for word in ['return', 'refund', 'exchange', 'policy']):
-            return 'Returns & Refunds'
-        elif any(word in query for word in ['product', 'item', 'stock', 'inventory', 'available']):
-            return 'Product Information'
-        elif any(word in query for word in ['order', 'status', 'tracking', 'where is']):
-            return 'Order Management'
-        elif any(word in query for word in ['payment', 'pay', 'checkout', 'card']):
-            return 'Payment & Checkout'
-        elif any(word in query for word in ['account', 'login', 'password', 'sign in']):
-            return 'Account Support'
-        elif any(word in query for word in ['discount', 'coupon', 'promo', 'sale', 'offer']):
-            return 'Discounts & Promotions'
+        if any(word in query for word in ["price", "cost", "how much", "expensive", "cheap"]):
+            return "Pricing"
+        elif any(word in query for word in ["shipping", "delivery", "when will", "ship", "arrive"]):
+            return "Shipping & Delivery"
+        elif any(word in query for word in ["return", "refund", "exchange", "policy"]):
+            return "Returns & Refunds"
+        elif any(word in query for word in ["product", "item", "stock", "inventory", "available"]):
+            return "Product Information"
+        elif any(word in query for word in ["order", "status", "tracking", "where is"]):
+            return "Order Management"
+        elif any(word in query for word in ["payment", "pay", "checkout", "card"]):
+            return "Payment & Checkout"
+        elif any(word in query for word in ["account", "login", "password", "sign in"]):
+            return "Account Support"
+        elif any(word in query for word in ["discount", "coupon", "promo", "sale", "offer"]):
+            return "Discounts & Promotions"
         else:
-            return 'General'
+            return "General"
 
     async def get_failed_queries(
         self,
@@ -2863,8 +2885,8 @@ class AggregatedAnalyticsService:
             result = await self.db.execute(
                 select(
                     RAGQueryLog.query,
-                    func.count(RAGQueryLog.id).label('frequency'),
-                    func.max(RAGQueryLog.created_at).label('last_asked'),
+                    func.count(RAGQueryLog.id).label("frequency"),
+                    func.max(RAGQueryLog.created_at).label("last_asked"),
                 )
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
@@ -2882,30 +2904,34 @@ class AggregatedAnalyticsService:
                 category = self._categorize_query(query_lower)
 
                 # Determine suggested action
-                if row.query.endswith('?'):
-                    suggested_action = 'add_faq'
-                elif any(word in query_lower for word in ['product', 'item', 'specification']):
-                    suggested_action = 'upload_document'
+                if row.query.endswith("?"):
+                    suggested_action = "add_faq"
+                elif any(word in query_lower for word in ["product", "item", "specification"]):
+                    suggested_action = "upload_document"
                 else:
-                    suggested_action = 'update_document'
+                    suggested_action = "update_document"
 
                 # Calculate estimated impact (frequency * 0.1 = 10% handoff reduction per fix)
                 estimated_impact = (row.frequency or 0) * 0.1
 
-                failed_queries.append({
-                    'query': row.query,
-                    'frequency': row.frequency or 0,
-                    'lastAsked': row.last_asked.isoformat() if row.last_asked else datetime.utcnow().isoformat(),
-                    'suggestedAction': suggested_action,
-                    'estimatedImpact': estimated_impact,
-                    'category': category,
-                })
+                failed_queries.append(
+                    {
+                        "query": row.query,
+                        "frequency": row.frequency or 0,
+                        "lastAsked": row.last_asked.isoformat()
+                        if row.last_asked
+                        else datetime.utcnow().isoformat(),
+                        "suggestedAction": suggested_action,
+                        "estimatedImpact": estimated_impact,
+                        "category": category,
+                    }
+                )
 
             return failed_queries
 
         except Exception as e:
             logger.error(
-                'failed_queries_failed',
+                "failed_queries_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -2931,8 +2957,8 @@ class AggregatedAnalyticsService:
             # Check 1: No-match rate spike (critical if > 30%)
             result = await self.db.execute(
                 select(
-                    func.count(RAGQueryLog.id).label('total'),
-                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label('matched'),
+                    func.count(RAGQueryLog.id).label("total"),
+                    func.sum(case((RAGQueryLog.matched == True, 1), else_=0)).label("matched"),
                 )
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
@@ -2943,33 +2969,37 @@ class AggregatedAnalyticsService:
             if row and row.total > 0:
                 no_match_rate = 1 - (row.matched / row.total) if row.total else 0
                 if no_match_rate > 0.3:
-                    alerts.append({
-                        'id': 'no-match-spike',
-                        'type': 'critical',
-                        'title': 'High No-Match Rate',
-                        'description': 'More than 30% of queries are not finding matches in the knowledge base.',
-                        'metric': 'No-match rate',
-                        'value': f'{no_match_rate * 100:.1f}%',
-                        'threshold': '30%',
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'suggestedAction': 'Review failed queries and add missing documentation',
-                    })
+                    alerts.append(
+                        {
+                            "id": "no-match-spike",
+                            "type": "critical",
+                            "title": "High No-Match Rate",
+                            "description": "More than 30% of queries are not finding matches in the knowledge base.",
+                            "metric": "No-match rate",
+                            "value": f"{no_match_rate * 100:.1f}%",
+                            "threshold": "30%",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "suggestedAction": "Review failed queries and add missing documentation",
+                        }
+                    )
                 elif no_match_rate > 0.2:
-                    alerts.append({
-                        'id': 'no-match-warning',
-                        'type': 'warning',
-                        'title': 'Elevated No-Match Rate',
-                        'description': 'No-match rate is above 20%. Consider expanding knowledge base.',
-                        'metric': 'No-match rate',
-                        'value': f'{no_match_rate * 100:.1f}%',
-                        'threshold': '20%',
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'suggestedAction': 'Add documentation for frequently asked questions',
-                    })
+                    alerts.append(
+                        {
+                            "id": "no-match-warning",
+                            "type": "warning",
+                            "title": "Elevated No-Match Rate",
+                            "description": "No-match rate is above 20%. Consider expanding knowledge base.",
+                            "metric": "No-match rate",
+                            "value": f"{no_match_rate * 100:.1f}%",
+                            "threshold": "20%",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "suggestedAction": "Add documentation for frequently asked questions",
+                        }
+                    )
 
             # Check 2: Low confidence average (warning if < 0.6)
             result = await self.db.execute(
-                select(func.avg(RAGQueryLog.confidence).label('avg_confidence'))
+                select(func.avg(RAGQueryLog.confidence).label("avg_confidence"))
                 .where(RAGQueryLog.merchant_id == merchant_id)
                 .where(RAGQueryLog.created_at >= start_date)
                 .where(RAGQueryLog.created_at <= end_date)
@@ -2978,70 +3008,77 @@ class AggregatedAnalyticsService:
             row = result.one_or_none()
 
             if row and row.avg_confidence and row.avg_confidence < 0.6:
-                alerts.append({
-                    'id': 'low-confidence',
-                    'type': 'warning',
-                    'title': 'Low Average Confidence',
-                    'description': 'Average confidence score is below 60%. Answers may not be accurate.',
-                    'metric': 'Avg confidence',
-                    'value': f'{row.avg_confidence * 100:.1f}%',
-                    'threshold': '60%',
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'suggestedAction': 'Review and improve knowledge base quality',
-                })
+                alerts.append(
+                    {
+                        "id": "low-confidence",
+                        "type": "warning",
+                        "title": "Low Average Confidence",
+                        "description": "Average confidence score is below 60%. Answers may not be accurate.",
+                        "metric": "Avg confidence",
+                        "value": f"{row.avg_confidence * 100:.1f}%",
+                        "threshold": "60%",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "suggestedAction": "Review and improve knowledge base quality",
+                    }
+                )
 
             # Check 3: Documents with errors (critical)
             result = await self.db.execute(
-                select(func.count(KnowledgeDocument.id).label('error_count'))
+                select(func.count(KnowledgeDocument.id).label("error_count"))
                 .where(KnowledgeDocument.merchant_id == merchant_id)
-                .where(KnowledgeDocument.status == 'error')
+                .where(KnowledgeDocument.status == "error")
             )
             row = result.one_or_none()
 
             if row and row.error_count > 0:
-                alerts.append({
-                    'id': 'document-errors',
-                    'type': 'critical',
-                    'title': f'{row.error_count} Document(s) Failed to Process',
-                    'description': 'Some documents have errors during processing or embedding.',
-                    'metric': 'Error count',
-                    'value': row.error_count,
-                    'threshold': '0',
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'suggestedAction': 'Check document status and re-upload failed documents',
-                })
+                alerts.append(
+                    {
+                        "id": "document-errors",
+                        "type": "critical",
+                        "title": f"{row.error_count} Document(s) Failed to Process",
+                        "description": "Some documents have errors during processing or embedding.",
+                        "metric": "Error count",
+                        "value": row.error_count,
+                        "threshold": "0",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "suggestedAction": "Check document status and re-upload failed documents",
+                    }
+                )
 
             # Check 4: Stale knowledge base (info - no recent uploads)
             result = await self.db.execute(
-                select(func.max(KnowledgeDocument.created_at).label('last_upload'))
-                .where(KnowledgeDocument.merchant_id == merchant_id)
+                select(func.max(KnowledgeDocument.created_at).label("last_upload")).where(
+                    KnowledgeDocument.merchant_id == merchant_id
+                )
             )
             row = result.one_or_none()
 
             if row and row.last_upload:
                 days_since_upload = (end_date - row.last_upload).days
                 if days_since_upload > 30:
-                    alerts.append({
-                        'id': 'stale-kb',
-                        'type': 'info',
-                        'title': 'Knowledge Base Not Updated Recently',
-                        'description': f'Last upload was {days_since_upload} days ago. Consider adding fresh content.',
-                        'metric': 'Days since upload',
-                        'value': days_since_upload,
-                        'threshold': '30',
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'suggestedAction': 'Upload recent documentation to keep knowledge base fresh',
-                    })
+                    alerts.append(
+                        {
+                            "id": "stale-kb",
+                            "type": "info",
+                            "title": "Knowledge Base Not Updated Recently",
+                            "description": f"Last upload was {days_since_upload} days ago. Consider adding fresh content.",
+                            "metric": "Days since upload",
+                            "value": days_since_upload,
+                            "threshold": "30",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "suggestedAction": "Upload recent documentation to keep knowledge base fresh",
+                        }
+                    )
 
             # Sort alerts by severity (critical first, then warning, then info)
-            severity_order = {'critical': 0, 'warning': 1, 'info': 2}
-            alerts.sort(key=lambda x: severity_order.get(x['type'], 3))
+            severity_order = {"critical": 0, "warning": 1, "info": 2}
+            alerts.sort(key=lambda x: severity_order.get(x["type"], 3))
 
             return alerts
 
         except Exception as e:
             logger.error(
-                'performance_alerts_failed',
+                "performance_alerts_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )
@@ -3059,62 +3096,70 @@ class AggregatedAnalyticsService:
             actions = []
 
             # Action 1: Add FAQ (always available)
-            actions.append({
-                'id': 'add-faq',
-                'title': 'Add New FAQ',
-                'description': 'Create a new FAQ entry for common questions',
-                'icon': 'add_faq',
-                'actionUrl': '/business-info-faq',
-                'priority': 'medium',
-                'estimatedTime': '2 min',
-            })
+            actions.append(
+                {
+                    "id": "add-faq",
+                    "title": "Add New FAQ",
+                    "description": "Create a new FAQ entry for common questions",
+                    "icon": "add_faq",
+                    "actionUrl": "/business-info-faq",
+                    "priority": "medium",
+                    "estimatedTime": "2 min",
+                }
+            )
 
             # Action 2: Upload documentation (always available)
-            actions.append({
-                'id': 'upload-doc',
-                'title': 'Upload Documentation',
-                'description': 'Add new documents to the knowledge base',
-                'icon': 'upload_document',
-                'actionUrl': '/business-info-faq#knowledge',
-                'priority': 'medium',
-                'estimatedTime': '5 min',
-            })
+            actions.append(
+                {
+                    "id": "upload-doc",
+                    "title": "Upload Documentation",
+                    "description": "Add new documents to the knowledge base",
+                    "icon": "upload_document",
+                    "actionUrl": "/business-info-faq#knowledge",
+                    "priority": "medium",
+                    "estimatedTime": "5 min",
+                }
+            )
 
             # Action 3: Test RAG (always available)
-            actions.append({
-                'id': 'test-rag',
-                'title': 'Test RAG Query',
-                'description': 'Test how the AI responds to specific queries',
-                'icon': 'test_rag',
-                'actionUrl': '/bot-preview',
-                'priority': 'low',
-                'estimatedTime': '1 min',
-            })
+            actions.append(
+                {
+                    "id": "test-rag",
+                    "title": "Test RAG Query",
+                    "description": "Test how the AI responds to specific queries",
+                    "icon": "test_rag",
+                    "actionUrl": "/bot-preview",
+                    "priority": "low",
+                    "estimatedTime": "1 min",
+                }
+            )
 
             # Action 4: Re-embed knowledge base (conditional)
             result = await self.db.execute(
-                select(func.count(KnowledgeDocument.id).label('doc_count'))
+                select(func.count(KnowledgeDocument.id).label("doc_count"))
                 .where(KnowledgeDocument.merchant_id == merchant_id)
-                .where(KnowledgeDocument.status == 'ready')
+                .where(KnowledgeDocument.status == "ready")
             )
             row = result.one_or_none()
 
             if row and row.doc_count > 0:
-                actions.append({
-                    'id': 're-embed',
-                    'title': 'Re-embed Knowledge Base',
-                    'description': 'Re-process all documents with updated embedding model',
-                    'icon': 're_embed',
-                    'actionUrl': '',  # Will trigger API call
-                    'priority': 'low',
-                    'estimatedTime': '10 min',
-                })
+                actions.append(
+                    {
+                        "id": "re-embed",
+                        "title": "Re-embed Knowledge Base",
+                        "description": "Re-process all documents with updated embedding model",
+                        "icon": "re_embed",
+                        "actionUrl": "",  # Will trigger API call
+                        "priority": "low",
+                        "estimatedTime": "10 min",
+                    }
+                )
 
             return actions
 
         except Exception as e:
             logger.error(
-                'quick_actions_failed',
+                "quick_actions_failed",
                 merchant_id=merchant_id,
                 error=str(e),
             )

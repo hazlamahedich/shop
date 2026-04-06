@@ -90,11 +90,7 @@ async def test_ollama_build_prompt() -> None:
     ]
 
     prompt = service._build_prompt(messages)
-    expected = (
-        "System: You are helpful.\n"
-        "User: Hello!\n"
-        "Assistant: Hi there!"
-    )
+    expected = "System: You are helpful.\nUser: Hello!\nAssistant: Hi there!"
     assert prompt == expected
 
 

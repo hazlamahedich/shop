@@ -41,7 +41,9 @@ async def test_merchant(db_session):
     merchant_id = result.fetchone()[0]
     yield merchant_id
     # Cleanup - delete all related data first
-    await db_session.execute(text(f"DELETE FROM conversation_context WHERE merchant_id = {merchant_id}"))
+    await db_session.execute(
+        text(f"DELETE FROM conversation_context WHERE merchant_id = {merchant_id}")
+    )
     await db_session.execute(text(f"DELETE FROM conversations WHERE merchant_id = {merchant_id}"))
     await db_session.execute(text(f"DELETE FROM merchants WHERE id = {merchant_id}"))
     await db_session.commit()
@@ -88,9 +90,7 @@ class TestLLMHandlerContextRetrieval:
     """Test conversation context retrieval in LLM handler."""
 
     @pytest.mark.asyncio
-    async def test_get_conversation_context_with_redis(
-        self, db_session, mock_redis
-    ):
+    async def test_get_conversation_context_with_redis(self, db_session, mock_redis):
         """Test retrieving context from Redis."""
         import json
 
@@ -106,7 +106,10 @@ class TestLLMHandlerContextRetrieval:
         }
         mock_redis.get.return_value = json.dumps(context_data).encode()
 
-        with patch("app.services.conversation.handlers.llm_handler.get_redis_client", return_value=mock_redis):
+        with patch(
+            "app.services.conversation.handlers.llm_handler.get_redis_client",
+            return_value=mock_redis,
+        ):
             context = await handler._get_conversation_context(db_session, 123)
 
             assert context is not None
@@ -147,7 +150,10 @@ class TestLLMHandlerContextRetrieval:
         # Mock Redis to return None (fallback to DB)
         mock_redis.get.return_value = None
 
-        with patch("app.services.conversation.handlers.llm_handler.get_redis_client", return_value=mock_redis):
+        with patch(
+            "app.services.conversation.handlers.llm_handler.get_redis_client",
+            return_value=mock_redis,
+        ):
             context = await handler._get_conversation_context(db_session, conversation_id)
 
             assert context is not None
@@ -155,7 +161,9 @@ class TestLLMHandlerContextRetrieval:
             assert context["viewed_products"] == [123, 456]
 
         # Cleanup
-        await db_session.execute(text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}"))
+        await db_session.execute(
+            text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}")
+        )
         await db_session.execute(text(f"DELETE FROM conversations WHERE id = {conversation_id}"))
         await db_session.commit()
 
@@ -188,13 +196,18 @@ class TestLLMHandlerContextRetrieval:
 
         mock_redis.get.return_value = None
 
-        with patch("app.services.conversation.handlers.llm_handler.get_redis_client", return_value=mock_redis):
+        with patch(
+            "app.services.conversation.handlers.llm_handler.get_redis_client",
+            return_value=mock_redis,
+        ):
             context = await handler._get_conversation_context(db_session, conversation_id)
 
             assert context is None  # Expired context returns None
 
         # Cleanup
-        await db_session.execute(text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}"))
+        await db_session.execute(
+            text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}")
+        )
         await db_session.execute(text(f"DELETE FROM conversations WHERE id = {conversation_id}"))
         await db_session.commit()
 
@@ -204,7 +217,10 @@ class TestLLMHandlerContextRetrieval:
         handler = LLMHandler()
         mock_redis.get.return_value = None
 
-        with patch("app.services.conversation.handlers.llm_handler.get_redis_client", return_value=mock_redis):
+        with patch(
+            "app.services.conversation.handlers.llm_handler.get_redis_client",
+            return_value=mock_redis,
+        ):
             context = await handler._get_conversation_context(db_session, 999)
 
             assert context is None
@@ -225,9 +241,7 @@ class TestLLMHandlerContextInjection:
             "search_history": ["running shoes", "basketball shoes"],
         }
 
-        enhanced = handler._inject_conversation_context(
-            base_prompt, context, "ecommerce"
-        )
+        enhanced = handler._inject_conversation_context(base_prompt, context, "ecommerce")
 
         assert "Conversation Context" in enhanced
         assert "Recently viewed products: [123, 456, 789]" in enhanced
@@ -243,7 +257,7 @@ class TestLLMHandlerContextInjection:
         base_prompt = "You are a helpful support assistant."
         context = {
             "mode": "general",
-            "topics_discussed":["login issues", "password reset"],
+            "topics_discussed": ["login issues", "password reset"],
             "support_issues": [
                 {"type": "login", "status": "pending"},
                 {"type": "payment", "status": "resolved"},
@@ -251,9 +265,7 @@ class TestLLMHandlerContextInjection:
             "escalation_status": "medium",
         }
 
-        enhanced = handler._inject_conversation_context(
-            base_prompt, context, "general"
-        )
+        enhanced = handler._inject_conversation_context(base_prompt, context, "general")
 
         assert "Conversation Context" in enhanced
         assert "Topics discussed: login issues, password reset" in enhanced
@@ -438,6 +450,7 @@ class TestLLMHandlerIntegration:
 
         # Create merchant object for handler
         from app.models.merchant import Merchant
+
         merchant = MagicMock()
         merchant.id = test_merchant
         merchant.bot_name = "TestBot"
@@ -448,7 +461,10 @@ class TestLLMHandlerIntegration:
         handler = LLMHandler()
         mock_redis.get.return_value = None  # Force DB lookup
 
-        with patch("app.services.conversation.handlers.llm_handler.get_redis_client", return_value=mock_redis):
+        with patch(
+            "app.services.conversation.handlers.llm_handler.get_redis_client",
+            return_value=mock_redis,
+        ):
             response = await handler.handle(
                 db=db_session,
                 merchant=merchant,
@@ -473,7 +489,9 @@ class TestLLMHandlerIntegration:
             assert response.intent == "general"
 
         # Cleanup
-        await db_session.execute(text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}"))
+        await db_session.execute(
+            text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}")
+        )
         await db_session.execute(text(f"DELETE FROM conversations WHERE id = {conversation_id}"))
         await db_session.commit()
 
@@ -555,6 +573,7 @@ class TestLLMHandlerIntegration:
 
         # Create merchant object for handler
         from app.models.merchant import Merchant
+
         merchant = MagicMock()
         merchant.id = test_merchant
         merchant.bot_name = "TestBot"
@@ -565,7 +584,10 @@ class TestLLMHandlerIntegration:
         handler = LLMHandler()
         mock_redis.get.return_value = None
 
-        with patch("app.services.conversation.handlers.llm_handler.get_redis_client", return_value=mock_redis):
+        with patch(
+            "app.services.conversation.handlers.llm_handler.get_redis_client",
+            return_value=mock_redis,
+        ):
             response = await handler.handle(
                 db=db_session,
                 merchant=merchant,
@@ -587,6 +609,8 @@ class TestLLMHandlerIntegration:
             assert response.message is not None
 
         # Cleanup
-        await db_session.execute(text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}"))
+        await db_session.execute(
+            text(f"DELETE FROM conversation_context WHERE conversation_id = {conversation_id}")
+        )
         await db_session.execute(text(f"DELETE FROM conversations WHERE id = {conversation_id}"))
         await db_session.commit()

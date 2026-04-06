@@ -27,7 +27,7 @@ async def test_storefront_verify_access(async_client: AsyncClient) -> None:
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Should return True in test mode
@@ -49,7 +49,7 @@ async def test_storefront_product_search_basic(async_client: AsyncClient) -> Non
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Search with query
@@ -74,14 +74,11 @@ async def test_storefront_product_search_with_filters(async_client: AsyncClient)
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Search with price filter
-    filters = {
-        "max_price": 150.00,
-        "category": "shoes"
-    }
+    filters = {"max_price": 150.00, "category": "shoes"}
 
     products = await client.search_products(query="shoes", first=10, filters=filters)
 
@@ -102,7 +99,7 @@ async def test_storefront_product_search_no_results(async_client: AsyncClient) -
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Search for non-existent product
@@ -127,16 +124,11 @@ async def test_storefront_checkout_url_generation(async_client: AsyncClient) -> 
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Cart items
-    items = [
-        {
-            "variant_id": "gid://shopify/ProductVariant/1",
-            "quantity": 2
-        }
-    ]
+    items = [{"variant_id": "gid://shopify/ProductVariant/1", "quantity": 2}]
 
     checkout_url = await client.create_checkout_url(items)
 
@@ -161,7 +153,7 @@ async def test_storefront_checkout_url_validation(async_client: AsyncClient) -> 
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     valid_url = "https://checkout.shopify.com/test"
@@ -170,7 +162,7 @@ async def test_storefront_checkout_url_validation(async_client: AsyncClient) -> 
     mock_response = AsyncMock()
     mock_response.status_code = 200
 
-    with patch.object(client.async_client, 'head', return_value=mock_response):
+    with patch.object(client.async_client, "head", return_value=mock_response):
         # Test validation method exists and works
         result = await client._validate_checkout_url(valid_url)
         assert result is True  # Should return True for valid URL
@@ -191,7 +183,7 @@ async def test_storefront_checkout_empty_cart(async_client: AsyncClient) -> None
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Empty cart
@@ -223,7 +215,7 @@ async def test_storefront_multiple_items_checkout(async_client: AsyncClient) -> 
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="test_storefront_token",
-        is_testing=True
+        is_testing=True,
     )
 
     # Multiple items
@@ -253,7 +245,7 @@ async def test_storefront_api_error_handling(async_client: AsyncClient) -> None:
     client = ShopifyStorefrontClient(
         shop_domain="test-store.myshopify.com",
         access_token="invalid_token",
-        is_testing=False  # Use real API mode (will fail)
+        is_testing=False,  # Use real API mode (will fail)
     )
 
     # Should handle error gracefully

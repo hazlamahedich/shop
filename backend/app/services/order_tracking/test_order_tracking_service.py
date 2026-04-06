@@ -392,9 +392,7 @@ class TestPendingStateManagement:
         self, service: OrderTrackingService
     ) -> None:
         """Test that pending state is False when expired (5+ minutes old)."""
-        expired_time = datetime.now(UTC) - timedelta(
-            seconds=PENDING_STATE_TIMEOUT_SECONDS + 60
-        )
+        expired_time = datetime.now(UTC) - timedelta(seconds=PENDING_STATE_TIMEOUT_SECONDS + 60)
         data = {
             PENDING_STATE_KEY: True,
             PENDING_STATE_TIMESTAMP_KEY: expired_time.isoformat(),

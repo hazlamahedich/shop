@@ -434,6 +434,13 @@ export const analyticsService = {
     return response as unknown as FaqUsageData;
   },
 
+  async getConversationFlowOverview(days = 30): Promise<any> {
+    const response = await apiClient.get<any>(
+      `/api/v1/analytics/conversation-flow/overview?days=${days}`
+    );
+    return response as any;
+  },
+
   async getConversationFlowLengthDistribution(days = 30): Promise<ConversationFlowLengthDistribution> {
     const response = await apiClient.get<ConversationFlowLengthDistribution>(
       `/api/v1/analytics/conversation-flow/length-distribution?days=${days}`

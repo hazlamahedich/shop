@@ -213,11 +213,7 @@ class TestDeploymentScripts:
     def test_flyio_script_checks_cli_before_deploy(self, mock_run: Mock) -> None:
         """Test that Fly.io script checks for CLI installation before deploying."""
         # Mock successful CLI check
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="",
-            stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         # This test validates the script flow logic
         # Actual CLI testing would require integration tests
@@ -237,21 +233,24 @@ class TestDeploymentScripts:
         flyio_script = script_dir / "flyio.sh"
         content = flyio_script.read_text()
 
-        assert "log_success \"STEP:SUCCESS\"" in content or 'echo "STEP:SUCCESS"' in content, \
+        assert 'log_success "STEP:SUCCESS"' in content or 'echo "STEP:SUCCESS"' in content, (
             "Script must output STEP:SUCCESS on completion"
+        )
 
     def test_railway_script_outputs_success_indicator(self, script_dir: Path) -> None:
         """Test that Railway script outputs STEP:SUCCESS on completion."""
         railway_script = script_dir / "railway.sh"
         content = railway_script.read_text()
 
-        assert "log_success \"STEP:SUCCESS\"" in content or 'echo "STEP:SUCCESS"' in content, \
+        assert 'log_success "STEP:SUCCESS"' in content or 'echo "STEP:SUCCESS"' in content, (
             "Script must output STEP:SUCCESS on completion"
+        )
 
     def test_render_script_outputs_success_indicator(self, script_dir: Path) -> None:
         """Test that Render script outputs STEP:SUCCESS on completion."""
         render_script = script_dir / "render.sh"
         content = render_script.read_text()
 
-        assert "log_success \"STEP:SUCCESS\"" in content or 'echo "STEP:SUCCESS"' in content, \
+        assert 'log_success "STEP:SUCCESS"' in content or 'echo "STEP:SUCCESS"' in content, (
             "Script must output STEP:SUCCESS on completion"
+        )

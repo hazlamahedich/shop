@@ -56,9 +56,7 @@ class ProductSearchService:
         self.db = db
         self.logger = structlog.get_logger(__name__)
 
-    async def _get_admin_client_for_merchant(
-        self, merchant_id: int
-    ) -> ShopifyAdminClient | None:
+    async def _get_admin_client_for_merchant(self, merchant_id: int) -> ShopifyAdminClient | None:
         """Get Shopify Admin client for a specific merchant.
 
         Uses the admin token from ShopifyIntegration (no storefront token needed).

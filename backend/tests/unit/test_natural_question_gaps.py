@@ -42,9 +42,9 @@ class TestG1NoRoboticPatterns:
             templates = QuestionGenerator.QUESTION_TEMPLATES[constraint]
             for template in templates:
                 for pattern in ROBOTIC_PATTERNS:
-                    assert (
-                        pattern.lower() not in template.lower()
-                    ), f"Robotic '{pattern}' in {constraint}: {template}"
+                    assert pattern.lower() not in template.lower(), (
+                        f"Robotic '{pattern}' in {constraint}: {template}"
+                    )
 
     @pytest.mark.asyncio
     async def test_general_question_no_robotic_patterns(self):
@@ -52,9 +52,9 @@ class TestG1NoRoboticPatterns:
             templates = QuestionGenerator.GENERAL_MODE_TEMPLATES[constraint]
             for template in templates:
                 for pattern in ROBOTIC_PATTERNS:
-                    assert (
-                        pattern.lower() not in template.lower()
-                    ), f"Robotic '{pattern}' in general {constraint}: {template}"
+                    assert pattern.lower() not in template.lower(), (
+                        f"Robotic '{pattern}' in general {constraint}: {template}"
+                    )
 
     @pytest.mark.asyncio
     async def test_context_aware_output_no_robotic_patterns(self):
@@ -65,9 +65,9 @@ class TestG1NoRoboticPatterns:
             mode="ecommerce",
         )
         for pattern in ROBOTIC_PATTERNS:
-            assert (
-                pattern.lower() not in result.lower()
-            ), f"Robotic '{pattern}' in context-aware: {result}"
+            assert pattern.lower() not in result.lower(), (
+                f"Robotic '{pattern}' in context-aware: {result}"
+            )
 
     def test_combined_question_no_robotic_patterns(self):
         gen = QuestionGenerator()
@@ -76,9 +76,9 @@ class TestG1NoRoboticPatterns:
             mode="ecommerce",
         )
         for pattern in ROBOTIC_PATTERNS:
-            assert (
-                pattern.lower() not in result.lower()
-            ), f"Robotic '{pattern}' in combined: {result}"
+            assert pattern.lower() not in result.lower(), (
+                f"Robotic '{pattern}' in combined: {result}"
+            )
 
 
 class TestG2ConstraintCapping:
@@ -188,16 +188,16 @@ class TestG4ModeCrossContamination:
     @pytest.mark.asyncio
     async def test_ecommerce_mode_does_not_use_general_templates(self):
         for constraint in QuestionGenerator.QUESTION_PRIORITY:
-            assert (
-                constraint not in QuestionGenerator.GENERAL_MODE_TEMPLATES
-            ), f"Ecommerce constraint '{constraint}' found in general templates"
+            assert constraint not in QuestionGenerator.GENERAL_MODE_TEMPLATES, (
+                f"Ecommerce constraint '{constraint}' found in general templates"
+            )
 
     @pytest.mark.asyncio
     async def test_general_mode_does_not_use_ecommerce_templates(self):
         for constraint in QuestionGenerator.GENERAL_QUESTION_PRIORITY:
-            assert (
-                constraint not in QuestionGenerator.QUESTION_TEMPLATES
-            ), f"General constraint '{constraint}' found in ecommerce templates"
+            assert constraint not in QuestionGenerator.QUESTION_TEMPLATES, (
+                f"General constraint '{constraint}' found in ecommerce templates"
+            )
 
     @pytest.mark.asyncio
     async def test_ecommerce_question_uses_ecommerce_templates(self):

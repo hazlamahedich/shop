@@ -35,21 +35,18 @@ SAMPLE_QUERIES = [
     "Do you have a physical store location?",
     "Are you open on weekends?",
     "What's your phone number?",
-
     # Product-specific (medium frequency)
     "Do you have this in stock?",
     "When will this item be back in stock?",
     "Can I get a discount on bulk orders?",
     "Do you price match?",
     "Is this product available in different colors?",
-
     # Support questions (lower frequency)
     "How do I reset my password?",
     "I need to change my shipping address",
     "Can I cancel my order?",
     "How long does delivery take?",
     "Do you ship internationally?",
-
     # Knowledge base queries (varied frequency)
     "What is your warranty policy?",
     "How do I make a return?",
@@ -120,15 +117,12 @@ async def generate_realistic_data(
             base_time = now - timedelta(
                 days=random.uniform(0, 7),
                 hours=random.uniform(0, 24),
-                minutes=random.uniform(0, 60)
+                minutes=random.uniform(0, 60),
             )
 
             for i in range(frequency):
                 # Add some randomness to each occurrence time
-                time_offset = timedelta(
-                    hours=random.uniform(0, 12),
-                    minutes=random.uniform(0, 60)
-                )
+                time_offset = timedelta(hours=random.uniform(0, 12), minutes=random.uniform(0, 60))
                 created_at = base_time - time_offset
 
                 # Randomly determine if matched (70% match rate)
@@ -148,22 +142,26 @@ async def generate_realistic_data(
                         for _ in range(random.randint(1, 3))
                     ]
 
-                logs_to_create.append({
-                    "query": query,
-                    "frequency": i + 1,
-                    "merchant_id": merchant_id,
-                    "matched": matched,
-                    "confidence": confidence,
-                    "created_at": created_at,
-                })
+                logs_to_create.append(
+                    {
+                        "query": query,
+                        "frequency": i + 1,
+                        "merchant_id": merchant_id,
+                        "matched": matched,
+                        "confidence": confidence,
+                        "created_at": created_at,
+                    }
+                )
 
         if dry_run:
             print(f"\nDry run - would create {len(logs_to_create)} log entries:\n")
             for log in logs_to_create[:10]:  # Show first 10
-                print(f"  - {log['query'][:50]}... "
-                      f"(occurrence #{log['frequency']}, "
-                      f"matched={log['matched']}, "
-                      f"at {log['created_at'].strftime('%Y-%m-%d %H:%M')})")
+                print(
+                    f"  - {log['query'][:50]}... "
+                    f"(occurrence #{log['frequency']}, "
+                    f"matched={log['matched']}, "
+                    f"at {log['created_at'].strftime('%Y-%m-%d %H:%M')})"
+                )
             if len(logs_to_create) > 10:
                 print(f"  ... and {len(logs_to_create) - 10} more")
             return len(logs_to_create)
@@ -208,10 +206,7 @@ async def show_current_stats():
     """Show current RAG query log statistics."""
     async with get_session_factory()() as session:
         result = await session.execute(
-            select(
-                RAGQueryLog.query,
-                func.count(RAGQueryLog.id).label("count")
-            )
+            select(RAGQueryLog.query, func.count(RAGQueryLog.id).label("count"))
             .group_by(RAGQueryLog.query)
             .order_by(func.count(RAGQueryLog.id).desc())
         )

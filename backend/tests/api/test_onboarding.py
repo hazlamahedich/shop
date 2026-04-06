@@ -123,12 +123,7 @@ async def test_check_prerequisites_all_missing() -> None:
 
         assert data["error_code"] == 2004
         assert len(data["details"]["missing"]) == 4
-        expected_missing = {
-            "cloudAccount",
-            "facebookAccount",
-            "shopifyAccess",
-            "llmProviderChoice"
-        }
+        expected_missing = {"cloudAccount", "facebookAccount", "shopifyAccess", "llmProviderChoice"}
         assert set(data["details"]["missing"]) == expected_missing
 
 
@@ -230,12 +225,7 @@ async def test_validate_prerequisites_all_missing() -> None:
 
         assert data["data"]["isComplete"] is False
         assert len(data["data"]["missing"]) == 4
-        expected_missing = {
-            "cloudAccount",
-            "facebookAccount",
-            "shopifyAccess",
-            "llmProviderChoice"
-        }
+        expected_missing = {"cloudAccount", "facebookAccount", "shopifyAccess", "llmProviderChoice"}
         assert set(data["data"]["missing"]) == expected_missing
 
 
@@ -267,12 +257,7 @@ async def test_check_prerequisites_defaults_to_false() -> None:
 
         assert data["error_code"] == 2004
         assert len(data["details"]["missing"]) == 4
-        expected_missing = {
-            "cloudAccount",
-            "facebookAccount",
-            "shopifyAccess",
-            "llmProviderChoice"
-        }
+        expected_missing = {"cloudAccount", "facebookAccount", "shopifyAccess", "llmProviderChoice"}
         assert set(data["details"]["missing"]) == expected_missing
 
 
@@ -284,11 +269,21 @@ async def test_response_metadata_consistency_success_path() -> None:
         # Make two requests and compare metadata structure
         response1 = await client.get(
             "/api/onboarding/prerequisites/check",
-            params={"cloudAccount": True, "facebookAccount": True, "shopifyAccess": True, "llmProviderChoice": True}
+            params={
+                "cloudAccount": True,
+                "facebookAccount": True,
+                "shopifyAccess": True,
+                "llmProviderChoice": True,
+            },
         )
         response2 = await client.post(
             "/api/onboarding/prerequisites/validate",
-            json={"cloudAccount": True, "facebookAccount": True, "shopifyAccess": True, "llmProviderChoice": True}
+            json={
+                "cloudAccount": True,
+                "facebookAccount": True,
+                "shopifyAccess": True,
+                "llmProviderChoice": True,
+            },
         )
 
         data1 = response1.json()

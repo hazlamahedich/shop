@@ -251,9 +251,7 @@ class TestMessengerProductFormatter:
                 title=f"Product {i}",
                 product_type="Test",
                 price=float(i * 10),
-                images=[
-                    ProductImage(url=f"https://cdn.shopify.com/test{i}.jpg")
-                ],
+                images=[ProductImage(url=f"https://cdn.shopify.com/test{i}.jpg")],
                 variants=[
                     ProductVariant(
                         id=f"gid://shopify/ProductVariant/{i}",
@@ -353,7 +351,10 @@ class TestMessengerProductFormatterErrors:
         # Note: The story uses 2029 which is in 2000-2999 range (Auth/Security)
         # But this is a messenger-specific error, so it should be in 5000-5999
         # Following the existing code, we'll use the code as specified in story
-        assert exc_info.value.code in [ErrorCode.MESSENGER_FORMATTING_FAILED, ErrorCode.MESSAGE_SEND_FAILED]
+        assert exc_info.value.code in [
+            ErrorCode.MESSENGER_FORMATTING_FAILED,
+            ErrorCode.MESSAGE_SEND_FAILED,
+        ]
 
     def test_format_with_all_products_failing_skips_all(
         self,
@@ -378,9 +379,7 @@ class TestMessengerProductFormatterErrors:
 
         # Mock _format_product_card to raise exception
         with patch.object(
-            formatter,
-            "_format_product_card",
-            side_effect=ValueError("Formatting failed")
+            formatter, "_format_product_card", side_effect=ValueError("Formatting failed")
         ):
             with pytest.raises(APIError) as exc_info:
                 formatter.format_product_results(search_result)

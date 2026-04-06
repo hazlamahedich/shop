@@ -144,7 +144,6 @@ class TestRAGPerformance:
             ):
                 start = time.perf_counter()
 
-
                 results = await embedding_service.embed_texts(chunks)
 
                 elapsed_ms = (time.perf_counter() - start) * 1000

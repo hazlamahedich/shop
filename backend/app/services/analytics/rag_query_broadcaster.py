@@ -48,9 +48,7 @@ class RAGQueryBroadcaster:
         try:
             # Fetch fresh knowledge effectiveness metrics
             service = AggregatedAnalyticsService(db)
-            effectiveness_data = await service.get_knowledge_effectiveness(
-                merchant_id, days=7
-            )
+            effectiveness_data = await service.get_knowledge_effectiveness(merchant_id, days=7)
 
             # Broadcast to connected dashboard clients
             connections = await broadcast_knowledge_effectiveness_update(
@@ -106,9 +104,7 @@ class RAGQueryBroadcaster:
         try:
             # Fetch fresh knowledge effectiveness metrics
             service = AggregatedAnalyticsService(db)
-            effectiveness_data = await service.get_knowledge_effectiveness(
-                merchant_id, days=7
-            )
+            effectiveness_data = await service.get_knowledge_effectiveness(merchant_id, days=7)
 
             # Broadcast to connected dashboard clients
             connections = await broadcast_knowledge_effectiveness_update(
@@ -160,6 +156,4 @@ async def broadcast_rag_query_update(
     Returns:
         Broadcast data if successful, None otherwise
     """
-    return await RAGQueryBroadcaster.broadcast_on_query_create(
-        db, merchant_id, query_id
-    )
+    return await RAGQueryBroadcaster.broadcast_on_query_create(db, merchant_id, query_id)

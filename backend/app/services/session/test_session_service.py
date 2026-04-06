@@ -70,12 +70,10 @@ async def test_get_cart_item_count(mock_redis: redis.Redis) -> None:
 
     # Create cart with items
     import json
+
     cart_data = {
-        "items": [
-            {"variant_id": "var1", "quantity": 2},
-            {"variant_id": "var2", "quantity": 1}
-        ],
-        "subtotal": 100
+        "items": [{"variant_id": "var1", "quantity": 2}, {"variant_id": "var2", "quantity": 1}],
+        "subtotal": 100,
     }
     service.redis.setex(f"cart:{psid}", 86400, json.dumps(cart_data))
 

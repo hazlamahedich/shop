@@ -22,7 +22,9 @@ async def test_get_budget_progress_below_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
@@ -80,7 +82,9 @@ async def test_get_budget_progress_medium_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
@@ -129,7 +133,9 @@ async def test_get_budget_progress_high_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
@@ -177,7 +183,9 @@ async def test_get_budget_progress_no_budget_cap(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Remove budget cap
@@ -228,7 +236,9 @@ async def test_get_budget_progress_insufficient_projection_data(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
@@ -282,7 +292,9 @@ async def test_get_budget_progress_zero_monthly_spend(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
@@ -315,7 +327,9 @@ async def test_get_budget_progress_projection_exceeds_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
@@ -365,7 +379,9 @@ async def test_get_budget_progress_month_boundary(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
@@ -435,7 +451,9 @@ async def test_get_budget_progress_single_query_optimization(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap

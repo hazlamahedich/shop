@@ -228,9 +228,7 @@ class TestExpectedResponseTimeScenarios:
 
         for hours, expected_prefix in test_cases:
             from_time = datetime(2026, 2, 18, 10, 0, 0, tzinfo=UTC)
-            next_hour = datetime(
-                2026, 2, 18, 10 + int(hours), int((hours % 1) * 60), 0, tzinfo=UTC
-            )
+            next_hour = datetime(2026, 2, 18, 10 + int(hours), int((hours % 1) * 60), 0, tzinfo=UTC)
             result = service.format_expected_response_time(from_time, next_hour)
             assert expected_prefix in result, (
                 f"Expected '{expected_prefix}' in '{result}' for {hours} hours"

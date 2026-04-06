@@ -53,7 +53,9 @@ class TestDeploymentAPIContract:
             assert response.status_code in (202, 400, 500)
 
     @pytest.mark.asyncio
-    async def test_start_deployment_rejects_invalid_platform(self, client: httpx.AsyncClient) -> None:
+    async def test_start_deployment_rejects_invalid_platform(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that start deployment rejects invalid platform values."""
         response = await client.post(
             "/api/deployment/start",
@@ -64,7 +66,9 @@ class TestDeploymentAPIContract:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_start_deployment_requires_platform_field(self, client: httpx.AsyncClient) -> None:
+    async def test_start_deployment_requires_platform_field(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that start deployment requires platform field."""
         response = await client.post(
             "/api/deployment/start",
@@ -75,7 +79,9 @@ class TestDeploymentAPIContract:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_start_deployment_response_has_required_fields(self, client: httpx.AsyncClient) -> None:
+    async def test_start_deployment_response_has_required_fields(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that start deployment response includes all required fields."""
         response = await client.post(
             "/api/deployment/start",
@@ -95,7 +101,9 @@ class TestDeploymentAPIContract:
             assert "timestamp" in data["meta"]
 
     @pytest.mark.asyncio
-    async def test_get_deployment_status_returns_404_for_unknown_id(self, client: httpx.AsyncClient) -> None:
+    async def test_get_deployment_status_returns_404_for_unknown_id(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that get status returns 404 for unknown deployment ID."""
         response = await client.get("/api/deployment/status/unknown-deployment-id")
 
@@ -103,7 +111,9 @@ class TestDeploymentAPIContract:
         assert response.status_code in (404, 500)
 
     @pytest.mark.asyncio
-    async def test_cancel_deployment_returns_404_for_unknown_id(self, client: httpx.AsyncClient) -> None:
+    async def test_cancel_deployment_returns_404_for_unknown_id(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that cancel deployment returns 404 for unknown deployment ID."""
         response = await client.post("/api/deployment/cancel/unknown-deployment-id")
 
@@ -111,7 +121,9 @@ class TestDeploymentAPIContract:
         assert response.status_code in (404, 500)
 
     @pytest.mark.asyncio
-    async def test_progress_stream_returns_event_stream_content_type(self, client: httpx.AsyncClient) -> None:
+    async def test_progress_stream_returns_event_stream_content_type(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that progress stream returns correct content type."""
         response = await client.get("/api/deployment/progress/test-deployment-id")
 
@@ -160,10 +172,11 @@ class TestDeploymentSSEEdgeCases:
                 # Get progress stream with timeout to avoid long wait
                 # The deployment may take up to 15 minutes, so we just validate the stream format
                 import asyncio
+
                 try:
                     response = await asyncio.wait_for(
                         client.get(f"/api/deployment/progress/{deployment_id}"),
-                        timeout=3.0  # Short timeout to get initial SSE data
+                        timeout=3.0,  # Short timeout to get initial SSE data
                     )
                     assert response.status_code == 200
                     # Stream should contain SSE format data
@@ -192,7 +205,9 @@ class TestDeploymentSSEEdgeCases:
             assert response.status_code in (200, 404, 422)
 
     @pytest.mark.asyncio
-    async def test_sse_concurrent_connections_same_deployment(self, client: httpx.AsyncClient) -> None:
+    async def test_sse_concurrent_connections_same_deployment(
+        self, client: httpx.AsyncClient
+    ) -> None:
         """Test that SSE handles concurrent connections to the same deployment_id (DEFER-1.2-2)."""
         import asyncio
 
@@ -210,7 +225,7 @@ class TestDeploymentSSEEdgeCases:
                     try:
                         return await asyncio.wait_for(
                             client.get(f"/api/deployment/progress/{deployment_id}"),
-                            timeout=3.0  # Short timeout to avoid long wait
+                            timeout=3.0,  # Short timeout to avoid long wait
                         )
                     except TimeoutError:
                         # Timeout is acceptable - means stream is running
@@ -246,16 +261,20 @@ class TestDeploymentSSEEdgeCases:
             assert "keep-alive" in connection or connection == ""
 
             # Should disable nginx buffering
-            assert headers.get("x-accel-buffering", "") == "no" or headers.get("x-accel-buffering") is None
+            assert (
+                headers.get("x-accel-buffering", "") == "no"
+                or headers.get("x-accel-buffering") is None
+            )
 
     @pytest.mark.asyncio
     async def test_sse_format_validation(self, client: httpx.AsyncClient) -> None:
         """Test that SSE events follow proper SSE format (DEFER-1.2-2)."""
         import asyncio
+
         try:
             response = await asyncio.wait_for(
                 client.get("/api/deployment/progress/format-validation-test"),
-                timeout=3.0  # Short timeout to avoid long wait
+                timeout=3.0,  # Short timeout to avoid long wait
             )
         except TimeoutError:
             # Timeout means stream is running, which is valid
@@ -270,4 +289,6 @@ class TestDeploymentSSEEdgeCases:
             for line in lines:
                 if line.strip() and not line.strip().startswith("[DONE]"):
                     # Non-empty lines that aren't [DONE] should be SSE data lines
-                    assert line.startswith("data:") or line.strip() == "", f"Invalid SSE format: {line}"
+                    assert line.startswith("data:") or line.strip() == "", (
+                        f"Invalid SSE format: {line}"
+                    )

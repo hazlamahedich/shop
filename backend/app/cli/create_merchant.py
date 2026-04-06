@@ -107,9 +107,7 @@ async def create_merchant(email: str, password: str) -> Merchant:
 
     async with async_session() as db:
         # Check if email already exists
-        result = await db.execute(
-            select(Merchant).where(Merchant.email == email)
-        )
+        result = await db.execute(select(Merchant).where(Merchant.email == email))
         existing = result.scalars().first()
 
         if existing:
@@ -120,6 +118,7 @@ async def create_merchant(email: str, password: str) -> Merchant:
 
         # Generate merchant key
         import uuid
+
         merchant_key = uuid.uuid4().hex[:12]
 
         # Create merchant

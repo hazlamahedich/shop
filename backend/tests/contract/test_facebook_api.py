@@ -152,7 +152,9 @@ class TestFacebookApiErrorResponseContract:
         assert response.status_code == 200
 
         # Test with invalid data that would return error
-        response = await async_client.delete("/api/integrations/facebook/disconnect?merchant_id=999")
+        response = await async_client.delete(
+            "/api/integrations/facebook/disconnect?merchant_id=999"
+        )
 
         # Should return 400 or 404
         assert response.status_code in (400, 404)

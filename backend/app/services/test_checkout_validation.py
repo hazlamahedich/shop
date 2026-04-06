@@ -27,9 +27,7 @@ class TestCheckoutURLValidation:
     async def test_valid_checkout_url_passes_validation(self):
         """Test that valid checkout URL passes validation."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock HTTP client
@@ -42,18 +40,14 @@ class TestCheckoutURLValidation:
 
         assert result is True
         client.async_client.head.assert_called_once_with(
-            checkout_url,
-            follow_redirects=True,
-            timeout=5.0
+            checkout_url, follow_redirects=True, timeout=5.0
         )
 
     @pytest.mark.asyncio
     async def test_invalid_checkout_url_fails_validation(self):
         """Test that invalid checkout URL fails validation."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock HTTP client to return non-200 status
@@ -70,15 +64,11 @@ class TestCheckoutURLValidation:
     async def test_checkout_url_validation_with_timeout(self):
         """Test checkout URL validation handles timeout."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock timeout exception
-        client.async_client.head = AsyncMock(
-            side_effect=TimeoutException("Request timed out")
-        )
+        client.async_client.head = AsyncMock(side_effect=TimeoutException("Request timed out"))
 
         checkout_url = "https://checkout.shopify.com/12345"
         result = await client._validate_checkout_url(checkout_url)
@@ -89,15 +79,11 @@ class TestCheckoutURLValidation:
     async def test_checkout_url_validation_with_connection_error(self):
         """Test checkout URL validation handles connection errors."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock connection error
-        client.async_client.head = AsyncMock(
-            side_effect=RequestError("Connection error")
-        )
+        client.async_client.head = AsyncMock(side_effect=RequestError("Connection error"))
 
         checkout_url = "https://checkout.shopify.com/12345"
         result = await client._validate_checkout_url(checkout_url)
@@ -108,17 +94,13 @@ class TestCheckoutURLValidation:
     async def test_checkout_url_validation_with_http_error(self):
         """Test checkout URL validation handles HTTP errors."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock HTTP error
         client.async_client.head = AsyncMock(
             side_effect=HTTPStatusError(
-                "Server error",
-                request=MagicMock(),
-                response=MagicMock(status_code=500)
+                "Server error", request=MagicMock(), response=MagicMock(status_code=500)
             )
         )
 
@@ -131,9 +113,7 @@ class TestCheckoutURLValidation:
     async def test_checkout_url_validation_with_redirect(self):
         """Test checkout URL validation follows redirects."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock redirect response (should follow and get final status)
@@ -154,9 +134,7 @@ class TestCheckoutURLGenerationWithValidation:
     async def test_create_checkout_url_validates_before_return(self):
         """Test that checkout URL is validated before being returned (NFR-S9)."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response for checkout creation
@@ -165,10 +143,8 @@ class TestCheckoutURLGenerationWithValidation:
         mock_post_response.json.return_value = {
             "data": {
                 "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": "https://checkout.shopify.com/12345"
-                    },
-                    "checkoutUserErrors": []
+                    "checkout": {"webUrl": "https://checkout.shopify.com/12345"},
+                    "checkoutUserErrors": [],
                 }
             }
         }
@@ -190,9 +166,7 @@ class TestCheckoutURLGenerationWithValidation:
     async def test_create_checkout_url_fails_on_invalid_url(self):
         """Test that invalid checkout URL raises error (NFR-S9)."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response for checkout creation
@@ -201,10 +175,8 @@ class TestCheckoutURLGenerationWithValidation:
         mock_post_response.json.return_value = {
             "data": {
                 "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": "https://invalid-checkout.com"
-                    },
-                    "checkoutUserErrors": []
+                    "checkout": {"webUrl": "https://invalid-checkout.com"},
+                    "checkoutUserErrors": [],
                 }
             }
         }
@@ -226,9 +198,7 @@ class TestCheckoutURLGenerationWithValidation:
     async def test_create_checkout_url_handles_validation_timeout(self):
         """Test checkout creation handles validation timeout gracefully."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response for checkout creation
@@ -237,19 +207,15 @@ class TestCheckoutURLGenerationWithValidation:
         mock_post_response.json.return_value = {
             "data": {
                 "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": "https://checkout.shopify.com/12345"
-                    },
-                    "checkoutUserErrors": []
+                    "checkout": {"webUrl": "https://checkout.shopify.com/12345"},
+                    "checkoutUserErrors": [],
                 }
             }
         }
         client.async_client.post = AsyncMock(return_value=mock_post_response)
 
         # Mock validation timeout
-        client.async_client.head = AsyncMock(
-            side_effect=TimeoutException("Validation timeout")
-        )
+        client.async_client.head = AsyncMock(side_effect=TimeoutException("Validation timeout"))
 
         items = [{"variant_id": "gid://shopify/ProductVariant/1", "quantity": 2}]
 
@@ -262,9 +228,7 @@ class TestCheckoutURLGenerationWithValidation:
     async def test_create_checkout_url_in_testing_mode_skips_validation(self):
         """Test that testing mode skips validation and returns mock URL."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=True
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=True
         )
 
         items = [{"variant_id": "gid://shopify/ProductVariant/1", "quantity": 2}]
@@ -272,7 +236,7 @@ class TestCheckoutURLGenerationWithValidation:
 
         assert checkout_url == "https://checkout.shopify.com/test"
         # No HTTP calls should be made in testing mode
-        assert not hasattr(client, '_async_client') or client._async_client is None
+        assert not hasattr(client, "_async_client") or client._async_client is None
 
 
 class TestCheckoutURLErrorHandling:
@@ -282,9 +246,7 @@ class TestCheckoutURLErrorHandling:
     async def test_malformed_checkout_url(self):
         """Test handling of malformed checkout URLs."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response with malformed URL
@@ -293,19 +255,15 @@ class TestCheckoutURLErrorHandling:
         mock_post_response.json.return_value = {
             "data": {
                 "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": "not-a-valid-url"
-                    },
-                    "checkoutUserErrors": []
+                    "checkout": {"webUrl": "not-a-valid-url"},
+                    "checkoutUserErrors": [],
                 }
             }
         }
         client.async_client.post = AsyncMock(return_value=mock_post_response)
 
         # Validation should fail for malformed URL
-        client.async_client.head = AsyncMock(
-            side_effect=RequestError("Invalid URL")
-        )
+        client.async_client.head = AsyncMock(side_effect=RequestError("Invalid URL"))
 
         items = [{"variant_id": "gid://shopify/ProductVariant/1", "quantity": 2}]
 
@@ -318,23 +276,14 @@ class TestCheckoutURLErrorHandling:
     async def test_empty_checkout_url_from_api(self):
         """Test handling of empty checkout URL from API."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response with empty URL
         mock_post_response = MagicMock()
         mock_post_response.status_code = 200
         mock_post_response.json.return_value = {
-            "data": {
-                "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": None
-                    },
-                    "checkoutUserErrors": []
-                }
-            }
+            "data": {"checkoutCreate": {"checkout": {"webUrl": None}, "checkoutUserErrors": []}}
         }
         client.async_client.post = AsyncMock(return_value=mock_post_response)
 
@@ -349,9 +298,7 @@ class TestCheckoutURLErrorHandling:
     async def test_checkout_with_user_errors(self):
         """Test handling of checkout creation with user errors."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response with user errors
@@ -360,16 +307,14 @@ class TestCheckoutURLErrorHandling:
         mock_post_response.json.return_value = {
             "data": {
                 "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": "https://checkout.shopify.com/12345"
-                    },
+                    "checkout": {"webUrl": "https://checkout.shopify.com/12345"},
                     "checkoutUserErrors": [
                         {
                             "code": "INVALID_PRODUCT",
                             "field": ["lineItems"],
-                            "message": "Product is not available"
+                            "message": "Product is not available",
                         }
-                    ]
+                    ],
                 }
             }
         }
@@ -386,21 +331,14 @@ class TestCheckoutURLErrorHandling:
     async def test_checkout_with_api_errors(self):
         """Test handling of checkout creation with API errors."""
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response with API errors
         mock_post_response = MagicMock()
         mock_post_response.status_code = 200
         mock_post_response.json.return_value = {
-            "errors": [
-                {
-                    "message": "API rate limit exceeded",
-                    "code": "RATE_LIMIT"
-                }
-            ]
+            "errors": [{"message": "API rate limit exceeded", "code": "RATE_LIMIT"}]
         }
         client.async_client.post = AsyncMock(return_value=mock_post_response)
 
@@ -423,9 +361,7 @@ class TestCheckoutURLRetryLogic:
         Current implementation fails immediately on validation error.
         """
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock POST response
@@ -434,10 +370,8 @@ class TestCheckoutURLRetryLogic:
         mock_post_response.json.return_value = {
             "data": {
                 "checkoutCreate": {
-                    "checkout": {
-                        "webUrl": "https://checkout.shopify.com/12345"
-                    },
-                    "checkoutUserErrors": []
+                    "checkout": {"webUrl": "https://checkout.shopify.com/12345"},
+                    "checkoutUserErrors": [],
                 }
             }
         }

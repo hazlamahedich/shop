@@ -107,7 +107,9 @@ class ProfileUpdateRequest(BaseModel):
     """Request schema for updating merchant profile."""
 
     business_name: str | None = Field(None, max_length=100, description="Business name")
-    business_description: str | None = Field(None, max_length=500, description="Business description")
+    business_description: str | None = Field(
+        None, max_length=500, description="Business description"
+    )
     business_hours: BusinessHours | None = Field(None, description="Business hours")
     bot_name: str | None = Field(None, max_length=50, description="Bot name")
 

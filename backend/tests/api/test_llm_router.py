@@ -25,6 +25,7 @@ from tests.conftest import TestingSessionLocal, test_engine
 def bypass_rate_limit(monkeypatch):
     """Bypass rate limiting in tests."""
     from app.core import rate_limiter
+
     monkeypatch.setattr(rate_limiter.RateLimiter, "is_rate_limited", lambda *args, **kwargs: False)
 
 
@@ -86,10 +87,7 @@ class TestLLMRouterPrimary:
         """[P0] Should successfully route chat through primary provider."""
         config = {
             "primary_provider": "ollama",
-            "primary_config": {
-                "ollama_url": "http://localhost:11434",
-                "model": "llama3"
-            }
+            "primary_config": {"ollama_url": "http://localhost:11434", "model": "llama3"},
         }
 
         router = LLMRouter(config, is_testing=True)
@@ -106,7 +104,7 @@ class TestLLMRouterPrimary:
         """[P1] Should use model override when specified."""
         config = {
             "primary_provider": "ollama",
-            "primary_config": {"ollama_url": "http://localhost:11434"}
+            "primary_config": {"ollama_url": "http://localhost:11434"},
         }
 
         router = LLMRouter(config, is_testing=True)
@@ -119,10 +117,7 @@ class TestLLMRouterPrimary:
     @pytest.mark.asyncio
     async def test_primary_provider_with_temperature(self, async_session):
         """[P2] Should pass temperature parameter to provider."""
-        config = {
-            "primary_provider": "openai",
-            "primary_config": {"api_key": "test-key"}
-        }
+        config = {"primary_provider": "openai", "primary_config": {"api_key": "test-key"}}
 
         router = LLMRouter(config, is_testing=True)
         messages = [LLMMessage(role="user", content="Test")]
@@ -136,7 +131,7 @@ class TestLLMRouterPrimary:
         """[P2] Should pass max_tokens parameter to provider."""
         config = {
             "primary_provider": "ollama",
-            "primary_config": {"ollama_url": "http://localhost:11434"}
+            "primary_config": {"ollama_url": "http://localhost:11434"},
         }
 
         router = LLMRouter(config, is_testing=True)
@@ -157,10 +152,12 @@ class TestLLMRouterFailover:
             "primary_provider": "ollama",
             "primary_config": {"ollama_url": "http://invalid:11434"},
             "backup_provider": "openai",
-            "backup_config": {"api_key": "test-key"}
+            "backup_config": {"api_key": "test-key"},
         }
 
-        with patch('app.services.llm.llm_factory.LLMProviderFactory.create_provider') as mock_factory:
+        with patch(
+            "app.services.llm.llm_factory.LLMProviderFactory.create_provider"
+        ) as mock_factory:
             # Mock primary to fail
             primary_mock = AsyncMock()
             primary_mock.chat.side_effect = Exception("Primary failed")
@@ -168,10 +165,7 @@ class TestLLMRouterFailover:
             # Mock backup to succeed
             backup_mock = AsyncMock()
             backup_mock.chat.return_value = LLMResponse(
-                content="Backup response",
-                model="gpt-3.5-turbo",
-                tokens_used=50,
-                provider="openai"
+                content="Backup response", model="gpt-3.5-turbo", tokens_used=50, provider="openai"
             )
 
             def create_provider_side_effect(provider_name, config, is_testing=False):
@@ -197,10 +191,12 @@ class TestLLMRouterFailover:
             "primary_provider": "ollama",
             "primary_config": {"ollama_url": "http://invalid:11434"},
             "backup_provider": "openai",
-            "backup_config": {"api_key": "invalid-key"}
+            "backup_config": {"api_key": "invalid-key"},
         }
 
-        with patch('app.services.llm.llm_factory.LLMProviderFactory.create_provider') as mock_factory:
+        with patch(
+            "app.services.llm.llm_factory.LLMProviderFactory.create_provider"
+        ) as mock_factory:
             # Mock both to fail
             primary_mock = AsyncMock()
             primary_mock.chat.side_effect = Exception("Primary failed")
@@ -230,7 +226,7 @@ class TestLLMRouterFailover:
             "primary_provider": "ollama",
             "primary_config": {"ollama_url": "http://localhost:11434"},
             "backup_provider": "openai",
-            "backup_config": {"api_key": "test-key"}
+            "backup_config": {"api_key": "test-key"},
         }
 
         router = LLMRouter(config, is_testing=True)
@@ -249,7 +245,7 @@ class TestLLMRouterHealthCheck:
         """[P0] Should return health status for primary provider only."""
         config = {
             "primary_provider": "ollama",
-            "primary_config": {"ollama_url": "http://localhost:11434"}
+            "primary_config": {"ollama_url": "http://localhost:11434"},
         }
 
         router = LLMRouter(config, is_testing=True)
@@ -266,7 +262,7 @@ class TestLLMRouterHealthCheck:
             "primary_provider": "ollama",
             "primary_config": {"ollama_url": "http://localhost:11434"},
             "backup_provider": "openai",
-            "backup_config": {"api_key": "test-key"}
+            "backup_config": {"api_key": "test-key"},
         }
 
         router = LLMRouter(config, is_testing=True)
@@ -286,11 +282,7 @@ class TestLLMAPIEndpoints:
         client, db = client_with_db
 
         # Create merchant
-        merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_llm_router",
-            platform="facebook"
-        )
+        merchant = Merchant(id=1, merchant_key="test_merchant_llm_router", platform="facebook")
         db.add(merchant)
         await db.commit()
 
@@ -298,11 +290,8 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         assert response.status_code == 200
@@ -317,11 +306,7 @@ class TestLLMAPIEndpoints:
         client, db = client_with_db
 
         # Create merchant
-        merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_cloud_router",
-            platform="facebook"
-        )
+        merchant = Merchant(id=1, merchant_key="test_merchant_cloud_router", platform="facebook")
         db.add(merchant)
         await db.commit()
 
@@ -332,9 +317,9 @@ class TestLLMAPIEndpoints:
                 "cloud_config": {
                     "provider": "openai",
                     "api_key": "sk-test-key",
-                    "model": "gpt-3.5-turbo"
-                }
-            }
+                    "model": "gpt-3.5-turbo",
+                },
+            },
         )
 
         assert response.status_code == 200
@@ -348,9 +333,7 @@ class TestLLMAPIEndpoints:
 
         # Create merchant
         merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_duplicate_router",
-            platform="facebook"
+            id=1, merchant_key="test_merchant_duplicate_router", platform="facebook"
         )
         db.add(merchant)
         await db.commit()
@@ -360,11 +343,8 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         # Second configure should fail
@@ -372,11 +352,8 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         assert response.status_code == 400
@@ -387,11 +364,7 @@ class TestLLMAPIEndpoints:
         client, db = client_with_db
 
         # Create merchant
-        merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_status_router",
-            platform="facebook"
-        )
+        merchant = Merchant(id=1, merchant_key="test_merchant_status_router", platform="facebook")
         db.add(merchant)
         await db.commit()
 
@@ -400,11 +373,8 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         # Get status
@@ -422,9 +392,7 @@ class TestLLMAPIEndpoints:
 
         # Create merchant
         merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_no_config_router",
-            platform="facebook"
+            id=1, merchant_key="test_merchant_no_config_router", platform="facebook"
         )
         db.add(merchant)
         await db.commit()
@@ -438,11 +406,7 @@ class TestLLMAPIEndpoints:
         client, db = client_with_db
 
         # Create merchant
-        merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_update_router",
-            platform="facebook"
-        )
+        merchant = Merchant(id=1, merchant_key="test_merchant_update_router", platform="facebook")
         db.add(merchant)
         await db.commit()
 
@@ -451,18 +415,12 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         # Update model
-        response = await client.put(
-            "/api/llm/update",
-            json={"ollama_model": "llama2"}
-        )
+        response = await client.put("/api/llm/update", json={"ollama_model": "llama2"})
 
         assert response.status_code == 200
         data = response.json()
@@ -474,11 +432,7 @@ class TestLLMAPIEndpoints:
         client, db = client_with_db
 
         # Create merchant
-        merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_clear_router",
-            platform="facebook"
-        )
+        merchant = Merchant(id=1, merchant_key="test_merchant_clear_router", platform="facebook")
         db.add(merchant)
         await db.commit()
 
@@ -487,11 +441,8 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         # Clear
@@ -528,9 +479,7 @@ class TestLLMAPIEndpoints:
 
         # Create merchant
         merchant = Merchant(
-            id=1,
-            merchant_key="test_merchant_test_endpoint_router",
-            platform="facebook"
+            id=1, merchant_key="test_merchant_test_endpoint_router", platform="facebook"
         )
         db.add(merchant)
         await db.commit()
@@ -540,18 +489,12 @@ class TestLLMAPIEndpoints:
             "/api/llm/configure",
             json={
                 "provider": "ollama",
-                "ollama_config": {
-                    "ollama_url": "http://localhost:11434",
-                    "ollama_model": "llama3"
-                }
-            }
+                "ollama_config": {"ollama_url": "http://localhost:11434", "ollama_model": "llama3"},
+            },
         )
 
         # Test
-        response = await client.post(
-            "/api/llm/test",
-            json={"test_prompt": "Hello"}
-        )
+        response = await client.post("/api/llm/test", json={"test_prompt": "Hello"})
 
         assert response.status_code == 200
         data = response.json()

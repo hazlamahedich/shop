@@ -9,6 +9,7 @@ from app.services.analytics.aggregated_analytics_service import AggregatedAnalyt
 
 logging.basicConfig(level=logging.INFO)
 
+
 async def main():
     async with async_session() as db:
         result = await db.execute(select(Merchant))
@@ -28,6 +29,7 @@ async def main():
                     print(f"No top products for merchant {merchant.id}")
             except Exception as e:
                 print(f"EXCEPTION for merchant {merchant.id}:", e)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

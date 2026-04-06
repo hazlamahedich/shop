@@ -21,11 +21,7 @@ async def test_shopify_webhook_invalid_signature(async_client: AsyncClient) -> N
         "X-Shopify-Shop-Domain": "test.myshopify.com",
     }
 
-    response = await async_client.post(
-        "/webhooks/shopify",
-        json=payload,
-        headers=headers
-    )
+    response = await async_client.post("/webhooks/shopify", json=payload, headers=headers)
 
     assert response.status_code == 403
 
@@ -37,7 +33,6 @@ async def test_shopify_webhook_valid_signature(async_client: AsyncClient, monkey
     import hashlib
     import hmac
 
-
     # Mock config
     def mock_settings():
         return {"SHOPIFY_API_SECRET": "test_secret", "IS_TESTING": True}
@@ -48,11 +43,7 @@ async def test_shopify_webhook_valid_signature(async_client: AsyncClient, monkey
     raw_payload = json.dumps(payload).encode()
 
     # Generate valid HMAC
-    computed_hmac = hmac.new(
-        b"test_secret",
-        raw_payload,
-        hashlib.sha256
-    ).digest()
+    computed_hmac = hmac.new(b"test_secret", raw_payload, hashlib.sha256).digest()
     signature = base64.b64encode(computed_hmac).decode()
 
     headers = {
@@ -61,11 +52,7 @@ async def test_shopify_webhook_valid_signature(async_client: AsyncClient, monkey
         "X-Shopify-Shop-Domain": "test.myshopify.com",
     }
 
-    response = await async_client.post(
-        "/webhooks/shopify",
-        content=raw_payload,
-        headers=headers
-    )
+    response = await async_client.post("/webhooks/shopify", content=raw_payload, headers=headers)
 
     # Should return 200 OK immediately (async processing)
     assert response.status_code == 200
@@ -92,11 +79,7 @@ async def test_shopify_webhook_orders_create(async_client: AsyncClient, monkeypa
     raw_payload = json.dumps(payload).encode()
 
     # Generate valid HMAC
-    computed_hmac = hmac.new(
-        b"test_secret",
-        raw_payload,
-        hashlib.sha256
-    ).digest()
+    computed_hmac = hmac.new(b"test_secret", raw_payload, hashlib.sha256).digest()
     signature = base64.b64encode(computed_hmac).decode()
 
     headers = {
@@ -105,11 +88,7 @@ async def test_shopify_webhook_orders_create(async_client: AsyncClient, monkeypa
         "X-Shopify-Shop-Domain": "test.myshopify.com",
     }
 
-    response = await async_client.post(
-        "/webhooks/shopify",
-        content=raw_payload,
-        headers=headers
-    )
+    response = await async_client.post("/webhooks/shopify", content=raw_payload, headers=headers)
 
     assert response.status_code == 200
 
@@ -134,11 +113,7 @@ async def test_shopify_webhook_orders_updated(async_client: AsyncClient, monkeyp
     raw_payload = json.dumps(payload).encode()
 
     # Generate valid HMAC
-    computed_hmac = hmac.new(
-        b"test_secret",
-        raw_payload,
-        hashlib.sha256
-    ).digest()
+    computed_hmac = hmac.new(b"test_secret", raw_payload, hashlib.sha256).digest()
     signature = base64.b64encode(computed_hmac).decode()
 
     headers = {
@@ -147,10 +122,6 @@ async def test_shopify_webhook_orders_updated(async_client: AsyncClient, monkeyp
         "X-Shopify-Shop-Domain": "test.myshopify.com",
     }
 
-    response = await async_client.post(
-        "/webhooks/shopify",
-        content=raw_payload,
-        headers=headers
-    )
+    response = await async_client.post("/webhooks/shopify", content=raw_payload, headers=headers)
 
     assert response.status_code == 200

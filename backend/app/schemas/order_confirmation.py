@@ -31,12 +31,10 @@ class OrderConfirmationRequest(BaseModel):
     psid: str | None = Field(None, description="Facebook PSID from order attributes")
     created_at: str = Field(description="Order creation timestamp (ISO-8601)")
     note_attributes: list[dict[str, str]] | None = Field(
-        default_factory=list,
-        description="Order note attributes for PSID lookup"
+        default_factory=list, description="Order note attributes for PSID lookup"
     )
     attributes: list[dict[str, str]] | None = Field(
-        default_factory=list,
-        description="Order attributes for PSID lookup (GraphQL/Plus)"
+        default_factory=list, description="Order attributes for PSID lookup (GraphQL/Plus)"
     )
 
 

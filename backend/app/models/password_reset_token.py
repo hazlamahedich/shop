@@ -53,9 +53,7 @@ class PasswordResetToken(Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        Index("ix_password_reset_tokens_merchant_token", "merchant_id", "token"),
-    )
+    __table_args__ = (Index("ix_password_reset_tokens_merchant_token", "merchant_id", "token"),)
 
     merchant: Mapped["Merchant"] = relationship(
         "Merchant",

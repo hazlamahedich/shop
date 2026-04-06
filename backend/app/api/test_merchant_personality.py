@@ -16,7 +16,9 @@ class TestGetPersonalityConfiguration:
     """Tests for GET /api/merchant/personality endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_personality_configuration_friendly(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_get_personality_configuration_friendly(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test getting personality configuration with friendly personality (Story 1.10 AC 5)."""
         # Create merchant with friendly personality
         merchant = Merchant(
@@ -44,7 +46,9 @@ class TestGetPersonalityConfiguration:
         assert data["custom_greeting"] == "Hey! 👋 Welcome to my store!"
 
     @pytest.mark.asyncio
-    async def test_get_personality_configuration_professional(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_get_personality_configuration_professional(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test getting personality configuration with professional personality."""
         merchant = Merchant(
             merchant_key="test-get-personality-professional",
@@ -69,7 +73,9 @@ class TestGetPersonalityConfiguration:
         assert data["custom_greeting"] == "Thank you for visiting. How may I assist you?"
 
     @pytest.mark.asyncio
-    async def test_get_personality_configuration_enthusiastic(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_get_personality_configuration_enthusiastic(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test getting personality configuration with enthusiastic personality."""
         merchant = Merchant(
             merchant_key="test-get-personality-enthusiastic",
@@ -94,7 +100,9 @@ class TestGetPersonalityConfiguration:
         assert data["custom_greeting"] == "YAY!!! Welcome to our AMAZING store!!! 🎉✨"
 
     @pytest.mark.asyncio
-    async def test_get_personality_configuration_no_custom_greeting(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_get_personality_configuration_no_custom_greeting(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test getting personality configuration without custom greeting (Story 1.10 AC 3)."""
         merchant = Merchant(
             merchant_key="test-get-personality-no-greeting",
@@ -118,7 +126,9 @@ class TestGetPersonalityConfiguration:
         assert data["custom_greeting"] is None
 
     @pytest.mark.asyncio
-    async def test_get_personality_configuration_default_personality(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_get_personality_configuration_default_personality(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test that new merchants default to friendly personality (Story 1.10 AC 3)."""
         merchant = Merchant(
             merchant_key="test-get-personality-default",
@@ -144,7 +154,9 @@ class TestUpdatePersonalityConfiguration:
     """Tests for PATCH /api/merchant/personality endpoint."""
 
     @pytest.mark.asyncio
-    async def test_update_personality_to_professional(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_personality_to_professional(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating personality to professional (Story 1.10 AC 5)."""
         merchant = Merchant(
             merchant_key="test-update-personality-professional",
@@ -172,7 +184,9 @@ class TestUpdatePersonalityConfiguration:
         assert merchant.personality == PersonalityType.PROFESSIONAL
 
     @pytest.mark.asyncio
-    async def test_update_personality_to_enthusiastic(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_personality_to_enthusiastic(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating personality to enthusiastic."""
         merchant = Merchant(
             merchant_key="test-update-personality-enthusiastic",
@@ -196,7 +210,9 @@ class TestUpdatePersonalityConfiguration:
         assert data["personality"] == "enthusiastic"
 
     @pytest.mark.asyncio
-    async def test_update_custom_greeting(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_custom_greeting(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating custom greeting (Story 1.10 AC 5)."""
         merchant = Merchant(
             merchant_key="test-update-greeting",
@@ -221,7 +237,9 @@ class TestUpdatePersonalityConfiguration:
         assert data["custom_greeting"] == new_greeting
 
     @pytest.mark.asyncio
-    async def test_update_both_personality_and_greeting(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_both_personality_and_greeting(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating both personality and custom greeting simultaneously."""
         merchant = Merchant(
             merchant_key="test-update-both",
@@ -249,7 +267,9 @@ class TestUpdatePersonalityConfiguration:
         assert data["custom_greeting"] == "WOOHOO!!! Welcome to the BEST store EVER!!! 🎉🔥"
 
     @pytest.mark.asyncio
-    async def test_update_clear_custom_greeting(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_clear_custom_greeting(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test clearing custom greeting by setting to empty string."""
         merchant = Merchant(
             merchant_key="test-clear-greeting",
@@ -274,7 +294,9 @@ class TestUpdatePersonalityConfiguration:
         assert data["custom_greeting"] is None
 
     @pytest.mark.asyncio
-    async def test_update_custom_greeting_max_length(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_custom_greeting_max_length(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating custom greeting with exactly 500 characters (Story 1.10 AC 2)."""
         merchant = Merchant(
             merchant_key="test-update-greeting-max",
@@ -287,7 +309,9 @@ class TestUpdatePersonalityConfiguration:
         await db_session.refresh(merchant)
 
         # Create greeting with exactly 500 characters
-        max_greeting = "Welcome! " * 100  # "Welcome! " is 9 chars, 9 * 100 = 900 chars... wait let me fix
+        max_greeting = (
+            "Welcome! " * 100
+        )  # "Welcome! " is 9 chars, 9 * 100 = 900 chars... wait let me fix
         max_greeting = "Hi! " * 125  # "Hi! " is 4 chars, 4 * 125 = 500 chars
 
         response = await async_client.patch(
@@ -302,7 +326,9 @@ class TestUpdatePersonalityConfiguration:
         assert len(data["custom_greeting"]) == 500
 
     @pytest.mark.asyncio
-    async def test_update_custom_greeting_exceeds_max_length(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_custom_greeting_exceeds_max_length(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test that custom greeting exceeding 500 characters is rejected (Story 1.10 AC 2)."""
         merchant = Merchant(
             merchant_key="test-update-greeting-exceeds",
@@ -326,7 +352,9 @@ class TestUpdatePersonalityConfiguration:
         assert response.status_code == 422  # Validation error
 
     @pytest.mark.asyncio
-    async def test_update_personality_no_changes(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_personality_no_changes(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating with empty body returns current configuration."""
         merchant = Merchant(
             merchant_key="test-update-no-changes",
@@ -352,7 +380,9 @@ class TestUpdatePersonalityConfiguration:
         assert data["custom_greeting"] == "Original greeting"
 
     @pytest.mark.asyncio
-    async def test_update_personality_invalid_type(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_personality_invalid_type(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test that invalid personality type is rejected."""
         merchant = Merchant(
             merchant_key="test-update-invalid-personality",
@@ -373,7 +403,9 @@ class TestUpdatePersonalityConfiguration:
         assert response.status_code == 422  # Validation error
 
     @pytest.mark.asyncio
-    async def test_update_personality_merchant_not_found(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_personality_merchant_not_found(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test updating configuration for non-existent merchant."""
         response = await async_client.patch(
             "/api/merchant/personality",
@@ -384,7 +416,9 @@ class TestUpdatePersonalityConfiguration:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_personality_merchant_not_found(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_get_personality_merchant_not_found(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test getting configuration for non-existent merchant."""
         response = await async_client.get(
             "/api/merchant/personality",
@@ -394,7 +428,9 @@ class TestUpdatePersonalityConfiguration:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_update_personality_whitespace_greeting(self, async_client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_update_personality_whitespace_greeting(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
         """Test that whitespace-only greeting is treated as None."""
         merchant = Merchant(
             merchant_key="test-update-whitespace-greeting",

@@ -135,9 +135,7 @@ async def forgot_password(
 
     # Always return success to prevent email enumeration
     # But only actually send email if account exists
-    result = await db.execute(
-        select(Merchant).where(Merchant.email == body.email)
-    )
+    result = await db.execute(select(Merchant).where(Merchant.email == body.email))
     merchant = result.scalars().first()
 
     if merchant:
@@ -332,9 +330,7 @@ async def reset_password(
 
     # Invalidate all existing sessions for security
     sessions_result = await db.execute(
-        select(Session).where(
-            Session.merchant_id == merchant.id, Session.revoked.is_(False)
-        )
+        select(Session).where(Session.merchant_id == merchant.id, Session.revoked.is_(False))
     )
     for session in sessions_result.scalars():
         session.revoke()

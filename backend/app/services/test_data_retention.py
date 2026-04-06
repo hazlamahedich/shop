@@ -84,11 +84,7 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_cleanup_voluntary_data_deletes_old_conversations(
-        self,
-        db_session,
-        retention_service,
-        old_conversation,
-        recent_conversation
+        self, db_session, retention_service, old_conversation, recent_conversation
     ):
         """Test that voluntary data cleanup deletes conversations older than retention period."""
         # Verify both conversations exist before cleanup
@@ -125,11 +121,7 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_cleanup_voluntary_data_dry_run(
-        self,
-        db_session,
-        retention_service,
-        old_conversation,
-        recent_conversation
+        self, db_session, retention_service, old_conversation, recent_conversation
     ):
         """Test that dry run mode reports deletions without actually deleting."""
         # Run cleanup in dry run mode
@@ -152,29 +144,21 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_cleanup_voluntary_data_custom_cutoff(
-        self,
-        db_session,
-        retention_service,
-        recent_conversation
+        self, db_session, retention_service, recent_conversation
     ):
         """Test cleanup with custom cutoff date."""
         # Set cutoff to delete even recent conversation
         custom_cutoff = datetime.utcnow() - timedelta(days=1)
 
         stats = await retention_service.cleanup_voluntary_data(
-            db_session,
-            before_date=custom_cutoff
+            db_session, before_date=custom_cutoff
         )
 
         # Should delete the recent conversation too
         assert stats["conversations_deleted"] == 1
 
     @pytest.mark.asyncio
-    async def test_cleanup_expired_sessions(
-        self,
-        db_session,
-        retention_service
-    ):
+    async def test_cleanup_expired_sessions(self, db_session, retention_service):
         """Test session cleanup (placeholder for future implementation)."""
         stats = await retention_service.cleanup_expired_sessions(db_session)
 
@@ -184,11 +168,7 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_get_retention_stats(
-        self,
-        db_session,
-        retention_service,
-        old_conversation,
-        recent_conversation
+        self, db_session, retention_service, old_conversation, recent_conversation
     ):
         """Test getting retention statistics."""
         stats = await retention_service.get_retention_stats(db_session)
@@ -215,11 +195,7 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_get_conversations_to_delete(
-        self,
-        db_session,
-        retention_service,
-        old_conversation,
-        recent_conversation
+        self, db_session, retention_service, old_conversation, recent_conversation
     ):
         """Test getting list of conversations to delete."""
         conversations = await retention_service.get_conversations_to_delete(db_session)
@@ -232,10 +208,7 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_get_conversations_to_delete_respects_limit(
-        self,
-        db_session,
-        retention_service,
-        merchant_factory
+        self, db_session, retention_service, merchant_factory
     ):
         """Test that get_conversations_to_delete respects the limit parameter."""
         # Create multiple old conversations
@@ -255,20 +228,14 @@ class TestDataRetentionService:
         await db_session.commit()
 
         # Request with limit
-        conversations = await retention_service.get_conversations_to_delete(
-            db_session,
-            limit=3
-        )
+        conversations = await retention_service.get_conversations_to_delete(db_session, limit=3)
 
         # Should only return 3
         assert len(conversations) == 3
 
     @pytest.mark.asyncio
     async def test_order_references_not_deleted(
-        self,
-        db_session,
-        retention_service,
-        merchant_factory
+        self, db_session, retention_service, merchant_factory
     ):
         """Test that order references are preserved (operational data)."""
         # This is a placeholder test for when order references are implemented
@@ -289,11 +256,7 @@ class TestDataRetentionService:
         assert "messages_deleted" in stats
 
     @pytest.mark.asyncio
-    async def test_configurable_retention_periods(
-        self,
-        db_session,
-        merchant_factory
-    ):
+    async def test_configurable_retention_periods(self, db_session, merchant_factory):
         """Test that retention periods are configurable."""
         # Create service with 7-day retention
         short_retention = DataRetentionService(voluntary_days=7)
@@ -318,11 +281,7 @@ class TestDataRetentionService:
         assert stats["conversations_deleted"] == 1
 
     @pytest.mark.asyncio
-    async def test_empty_database_cleanup(
-        self,
-        db_session,
-        retention_service
-    ):
+    async def test_empty_database_cleanup(self, db_session, retention_service):
         """Test cleanup behavior with empty database."""
         stats = await retention_service.cleanup_voluntary_data(db_session)
 
@@ -331,10 +290,7 @@ class TestDataRetentionService:
 
     @pytest.mark.asyncio
     async def test_messages_deleted_before_conversations(
-        self,
-        db_session,
-        retention_service,
-        merchant_factory
+        self, db_session, retention_service, merchant_factory
     ):
         """Test that messages are deleted before conversations (foreign key constraint)."""
         # Create old conversation with messages

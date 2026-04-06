@@ -173,9 +173,7 @@ async def get_prerequisite_state(
     """
     try:
         result = await db.execute(
-            select(PrerequisiteChecklist).where(
-                PrerequisiteChecklist.merchant_id == merchant_id
-            )
+            select(PrerequisiteChecklist).where(PrerequisiteChecklist.merchant_id == merchant_id)
         )
         checklist = result.scalars().first()
 
@@ -234,9 +232,7 @@ async def upsert_prerequisite_state(
     try:
         # Check if checklist exists
         result = await db.execute(
-            select(PrerequisiteChecklist).where(
-                PrerequisiteChecklist.merchant_id == merchant_id
-            )
+            select(PrerequisiteChecklist).where(PrerequisiteChecklist.merchant_id == merchant_id)
         )
         checklist = result.scalars().first()
 
@@ -316,9 +312,7 @@ async def sync_prerequisite_state(
     try:
         # Get existing state from database
         result = await db.execute(
-            select(PrerequisiteChecklist).where(
-                PrerequisiteChecklist.merchant_id == merchant_id
-            )
+            select(PrerequisiteChecklist).where(PrerequisiteChecklist.merchant_id == merchant_id)
         )
         checklist = result.scalars().first()
 
@@ -399,9 +393,7 @@ async def delete_prerequisite_state(
     """
     try:
         result = await db.execute(
-            select(PrerequisiteChecklist).where(
-                PrerequisiteChecklist.merchant_id == merchant_id
-            )
+            select(PrerequisiteChecklist).where(PrerequisiteChecklist.merchant_id == merchant_id)
         )
         checklist = result.scalars().first()
 

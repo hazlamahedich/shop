@@ -118,9 +118,7 @@ class TestProductDisplayIntegration:
 
             # Send to Facebook
             with respx.mock:
-                request = respx.post(
-                    "https://graph.facebook.com/v19.0/me/messages"
-                ).mock(
+                request = respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                     return_value=httpx.Response(
                         200,
                         json={"message_id": "mid.msg_456"},
@@ -154,9 +152,7 @@ class TestProductDisplayIntegration:
 
             # Mock Facebook error response
             with respx.mock:
-                respx.post(
-                    "https://graph.facebook.com/v19.0/me/messages"
-                ).mock(
+                respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                     return_value=httpx.Response(
                         200,
                         json={
@@ -206,7 +202,9 @@ class TestProductDisplayEdgeCases:
             element = message_payload["attachment"]["payload"]["elements"][0]
 
             # Should use fallback image
-            assert "fallback" in element["image_url"].lower() or "cdn" in element["image_url"].lower()
+            assert (
+                "fallback" in element["image_url"].lower() or "cdn" in element["image_url"].lower()
+            )
 
     @pytest.mark.asyncio
     async def test_product_with_long_title(

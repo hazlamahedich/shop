@@ -36,7 +36,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_1"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart with multiple items
@@ -49,7 +49,7 @@ class TestStory26CartManagementE2E:
                         price=89.99,
                         image_url="http://example.com/shoes.jpg",
                         quantity=2,
-                        currency_code=CurrencyCode.USD
+                        currency_code=CurrencyCode.USD,
                     ),
                     CartItem(
                         product_id="prod_2",
@@ -58,20 +58,22 @@ class TestStory26CartManagementE2E:
                         price=12.99,
                         image_url="http://example.com/socks.jpg",
                         quantity=3,
-                        currency_code=CurrencyCode.USD
-                    )
+                        currency_code=CurrencyCode.USD,
+                    ),
                 ],
                 subtotal=218.95,  # (89.99 * 2) + (12.99 * 3)
                 currency_code=CurrencyCode.USD,
-                item_count=5
+                item_count=5,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -84,7 +86,7 @@ class TestStory26CartManagementE2E:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     response = await message_processor._route_response(psid, classification, {})
@@ -118,7 +120,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_2"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart with item to remove
@@ -130,7 +132,7 @@ class TestStory26CartManagementE2E:
                         title="Item to Remove",
                         price=29.99,
                         image_url="http://example.com/item.jpg",
-                        quantity=1
+                        quantity=1,
                     ),
                     CartItem(
                         product_id="prod_2",
@@ -138,12 +140,12 @@ class TestStory26CartManagementE2E:
                         title="Item to Keep",
                         price=49.99,
                         image_url="http://example.com/item2.jpg",
-                        quantity=1
-                    )
+                        quantity=1,
+                    ),
                 ],
                 subtotal=79.98,
                 currency_code=CurrencyCode.USD,
-                item_count=2
+                item_count=2,
             )
 
             # Mock updated cart after removal
@@ -155,22 +157,24 @@ class TestStory26CartManagementE2E:
                         title="Item to Keep",
                         price=49.99,
                         image_url="http://example.com/item2.jpg",
-                        quantity=1
+                        quantity=1,
                     )
                 ],
                 subtotal=49.99,
                 currency_code=CurrencyCode.USD,
-                item_count=1
+                item_count=1,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 mock_service_instance.remove_item.return_value = mock_cart_after_removal
                 MockCartService.return_value = mock_service_instance
                 MockCartService.MAX_QUANTITY = 10
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -188,12 +192,12 @@ class TestStory26CartManagementE2E:
                                         "timestamp": 1234567890,
                                         "postback": {
                                             "payload": "remove_item:var_1",
-                                            "title": "Remove"
-                                        }
+                                            "title": "Remove",
+                                        },
                                     }
-                                ]
+                                ],
                             }
-                        ]
+                        ],
                     )
 
                     response = await message_processor.process_postback(webhook_payload)
@@ -218,7 +222,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_3"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart with item at quantity 2
@@ -230,12 +234,12 @@ class TestStory26CartManagementE2E:
                         title="Test Product",
                         price=25.00,
                         image_url="http://example.com/product.jpg",
-                        quantity=2
+                        quantity=2,
                     )
                 ],
                 subtotal=50.00,
                 currency_code=CurrencyCode.USD,
-                item_count=2
+                item_count=2,
             )
 
             # Mock cart after increasing quantity
@@ -247,22 +251,24 @@ class TestStory26CartManagementE2E:
                         title="Test Product",
                         price=25.00,
                         image_url="http://example.com/product.jpg",
-                        quantity=3
+                        quantity=3,
                     )
                 ],
                 subtotal=75.00,
                 currency_code=CurrencyCode.USD,
-                item_count=3
+                item_count=3,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 mock_service_instance.update_quantity.return_value = mock_cart_increased
                 MockCartService.return_value = mock_service_instance
                 MockCartService.MAX_QUANTITY = 10
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -280,12 +286,12 @@ class TestStory26CartManagementE2E:
                                         "timestamp": 1234567890,
                                         "postback": {
                                             "payload": "increase_quantity:var_1",
-                                            "title": "Increase"
-                                        }
+                                            "title": "Increase",
+                                        },
                                     }
-                                ]
+                                ],
                             }
-                        ]
+                        ],
                     )
 
                     response = await message_processor.process_postback(webhook_payload)
@@ -306,7 +312,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_4"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart with item at minimum quantity (1)
@@ -318,12 +324,12 @@ class TestStory26CartManagementE2E:
                         title="Test Product",
                         price=25.00,
                         image_url="http://example.com/product.jpg",
-                        quantity=1
+                        quantity=1,
                     )
                 ],
                 subtotal=25.00,
                 currency_code=CurrencyCode.USD,
-                item_count=1
+                item_count=1,
             )
 
             # Mock cart at maximum quantity (10)
@@ -335,23 +341,22 @@ class TestStory26CartManagementE2E:
                         title="Test Product",
                         price=25.00,
                         image_url="http://example.com/product.jpg",
-                        quantity=10
+                        quantity=10,
                     )
                 ],
                 subtotal=250.00,
                 currency_code=CurrencyCode.USD,
-                item_count=10
+                item_count=10,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 from app.core.errors import APIError, ErrorCode
 
                 # Test minimum limit (cannot go below 1)
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 mock_service_instance.update_quantity.side_effect = APIError(
-                    code=ErrorCode.INVALID_QUANTITY,
-                    message="Quantity must be between 1 and 10"
+                    code=ErrorCode.INVALID_QUANTITY, message="Quantity must be between 1 and 10"
                 )
                 MockCartService.return_value = mock_service_instance
                 MockCartService.MAX_QUANTITY = 10
@@ -370,12 +375,12 @@ class TestStory26CartManagementE2E:
                                     "timestamp": 1234567890,
                                     "postback": {
                                         "payload": "decrease_quantity:var_1",
-                                        "title": "Decrease"
-                                    }
+                                        "title": "Decrease",
+                                    },
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 )
 
                 response = await message_processor.process_postback(webhook_payload)
@@ -396,23 +401,20 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_5"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock empty cart
-            mock_cart = Cart(
-                items=[],
-                subtotal=0.0,
-                currency_code=CurrencyCode.USD,
-                item_count=0
-            )
+            mock_cart = Cart(items=[], subtotal=0.0, currency_code=CurrencyCode.USD, item_count=0)
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -425,7 +427,7 @@ class TestStory26CartManagementE2E:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     response = await message_processor._route_response(psid, classification, {})
@@ -461,7 +463,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_6"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart with items
@@ -473,20 +475,22 @@ class TestStory26CartManagementE2E:
                         title="Test Product",
                         price=29.99,
                         image_url="http://example.com/product.jpg",
-                        quantity=2
+                        quantity=2,
                     )
                 ],
                 subtotal=59.98,
                 currency_code=CurrencyCode.USD,
-                item_count=2
+                item_count=2,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -499,7 +503,7 @@ class TestStory26CartManagementE2E:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     response = await message_processor._route_response(psid, classification, {})
@@ -532,7 +536,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_7"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # User taps Continue Shopping button
@@ -549,12 +553,12 @@ class TestStory26CartManagementE2E:
                                 "timestamp": 1234567890,
                                 "postback": {
                                     "payload": "continue_shopping",
-                                    "title": "Continue Shopping"
-                                }
+                                    "title": "Continue Shopping",
+                                },
                             }
-                        ]
+                        ],
                     }
-                ]
+                ],
             )
 
             response = await message_processor.process_postback(webhook_payload)
@@ -573,7 +577,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_8"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart
@@ -585,20 +589,22 @@ class TestStory26CartManagementE2E:
                         title="Premium Widget",
                         price=99.99,
                         image_url="http://example.com/widget.jpg",
-                        quantity=2
+                        quantity=2,
                     )
                 ],
                 subtotal=199.98,
                 currency_code=CurrencyCode.USD,
-                item_count=2
+                item_count=2,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -611,7 +617,7 @@ class TestStory26CartManagementE2E:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     response = await message_processor._route_response(psid, classification, {})
@@ -654,7 +660,7 @@ class TestStory26CartManagementE2E:
         """
         psid = "test_user_e2e_9"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock cart with 3 items
@@ -666,7 +672,7 @@ class TestStory26CartManagementE2E:
                         title="Product A",
                         price=10.00,
                         image_url="http://example.com/a.jpg",
-                        quantity=1
+                        quantity=1,
                     ),
                     CartItem(
                         product_id="prod_2",
@@ -674,7 +680,7 @@ class TestStory26CartManagementE2E:
                         title="Product B",
                         price=20.00,
                         image_url="http://example.com/b.jpg",
-                        quantity=2
+                        quantity=2,
                     ),
                     CartItem(
                         product_id="prod_3",
@@ -682,20 +688,22 @@ class TestStory26CartManagementE2E:
                         title="Product C",
                         price=30.00,
                         image_url="http://example.com/c.jpg",
-                        quantity=1
-                    )
+                        quantity=1,
+                    ),
                 ],
                 subtotal=80.00,  # 10 + (20*2) + 30
                 currency_code=CurrencyCode.USD,
-                item_count=4
+                item_count=4,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -708,7 +716,7 @@ class TestStory26CartManagementE2E:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     response = await message_processor._route_response(psid, classification, {})

@@ -394,6 +394,7 @@ class TestWidgetConsentGetAPI:
             assert result["data"]["status"] == "pending"
             assert result["data"]["can_store_conversation"] is False
 
+
 class TestWidgetConsentPostAPI:
     """API contract tests for POST /widget/consent/{session_id} endpoint."""
 

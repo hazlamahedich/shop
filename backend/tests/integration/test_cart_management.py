@@ -53,7 +53,7 @@ class TestCartManagementIntegration:
                 image_url="http://example.com/image1.jpg",
                 quantity=2,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(UTC).isoformat()
+                added_at=datetime.now(UTC).isoformat(),
             ),
             CartItem(
                 product_id="prod_2",
@@ -63,8 +63,8 @@ class TestCartManagementIntegration:
                 image_url="http://example.com/image2.jpg",
                 quantity=1,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(UTC).isoformat()
-            )
+                added_at=datetime.now(UTC).isoformat(),
+            ),
         ]
 
     @pytest.mark.asyncio
@@ -86,7 +86,7 @@ class TestCartManagementIntegration:
                 price=item.price,
                 image_url=item.image_url,
                 currency_code=item.currency_code.value,
-                quantity=item.quantity
+                quantity=item.quantity,
             )
 
         # Format cart for display
@@ -94,10 +94,7 @@ class TestCartManagementIntegration:
 
         # Create a test cart to format
         test_cart = Cart(
-            items=sample_cart_items,
-            subtotal=109.97,
-            currency_code=CurrencyCode.USD,
-            item_count=3
+            items=sample_cart_items, subtotal=109.97, currency_code=CurrencyCode.USD, item_count=3
         )
 
         message_payload = formatter.format_cart(test_cart, psid)
@@ -111,6 +108,7 @@ class TestCartManagementIntegration:
     async def test_remove_item_updates_cart_display(self, cart_service, mock_redis):
         """Test removing item updates cart display correctly."""
         import json
+
         psid = "test_user_456"
 
         # Mock existing cart with two items
@@ -123,7 +121,7 @@ class TestCartManagementIntegration:
                     "price": 29.99,
                     "imageUrl": "http://example.com/image.jpg",
                     "currencyCode": "USD",
-                    "quantity": 2
+                    "quantity": 2,
                 },
                 {
                     "productId": "prod_2",
@@ -132,13 +130,13 @@ class TestCartManagementIntegration:
                     "price": 49.99,
                     "imageUrl": "http://example.com/image2.jpg",
                     "currencyCode": "USD",
-                    "quantity": 1
-                }
+                    "quantity": 1,
+                },
             ],
             "subtotal": 109.97,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
 
         mock_redis.get.return_value = json.dumps(existing_cart_data)
@@ -155,6 +153,7 @@ class TestCartManagementIntegration:
     async def test_quantity_adjustment_updates_subtotal(self, cart_service, mock_redis):
         """Test quantity adjustment updates subtotal correctly."""
         import json
+
         psid = "test_user_789"
 
         # Mock existing cart
@@ -167,13 +166,13 @@ class TestCartManagementIntegration:
                     "price": 29.99,
                     "imageUrl": "http://example.com/image.jpg",
                     "currencyCode": "USD",
-                    "quantity": 1
+                    "quantity": 1,
                 }
             ],
             "subtotal": 29.99,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
 
         mock_redis.get.return_value = json.dumps(existing_cart_data)
@@ -190,7 +189,7 @@ class TestCartManagementIntegration:
         psid = "test_user_remove"
 
         # Mock the cart service and send service
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Create a mock cart
@@ -202,27 +201,26 @@ class TestCartManagementIntegration:
                         title="Product to Remove",
                         price=29.99,
                         image_url="http://example.com/image.jpg",
-                        quantity=1
+                        quantity=1,
                     )
                 ],
                 subtotal=29.99,
                 currency_code=CurrencyCode.USD,
-                item_count=1
+                item_count=1,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 mock_service_instance.remove_item.return_value = Cart(
-                    items=[],
-                    subtotal=0.0,
-                    currency_code=CurrencyCode.USD,
-                    item_count=0
+                    items=[], subtotal=0.0, currency_code=CurrencyCode.USD, item_count=0
                 )
                 MockCartService.return_value = mock_service_instance
                 MockCartService.MAX_QUANTITY = 10
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -240,12 +238,12 @@ class TestCartManagementIntegration:
                                         "timestamp": 1234567890,
                                         "postback": {
                                             "payload": "remove_item:var_1",
-                                            "title": "Remove"
-                                        }
+                                            "title": "Remove",
+                                        },
                                     }
-                                ]
+                                ],
                             }
-                        ]
+                        ],
                     )
 
                     response = await message_processor.process_postback(webhook_payload)
@@ -262,7 +260,7 @@ class TestCartManagementIntegration:
         """Test increase quantity postback is handled correctly."""
         psid = "test_user_increase"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Create a mock cart
@@ -274,15 +272,15 @@ class TestCartManagementIntegration:
                         title="Test Product",
                         price=29.99,
                         image_url="http://example.com/image.jpg",
-                        quantity=2
+                        quantity=2,
                     )
                 ],
                 subtotal=59.98,
                 currency_code=CurrencyCode.USD,
-                item_count=2
+                item_count=2,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 mock_service_instance.update_quantity.return_value = Cart(
@@ -293,17 +291,19 @@ class TestCartManagementIntegration:
                             title="Test Product",
                             price=29.99,
                             image_url="http://example.com/image.jpg",
-                            quantity=3
+                            quantity=3,
                         )
                     ],
                     subtotal=89.97,
                     currency_code=CurrencyCode.USD,
-                    item_count=3
+                    item_count=3,
                 )
                 MockCartService.return_value = mock_service_instance
                 MockCartService.MAX_QUANTITY = 10
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -320,12 +320,12 @@ class TestCartManagementIntegration:
                                         "timestamp": 1234567890,
                                         "postback": {
                                             "payload": "increase_quantity:var_1",
-                                            "title": "Increase"
-                                        }
+                                            "title": "Increase",
+                                        },
                                     }
-                                ]
+                                ],
                             }
-                        ]
+                        ],
                     )
 
                     response = await message_processor.process_postback(webhook_payload)
@@ -341,7 +341,7 @@ class TestCartManagementIntegration:
         """Test decrease quantity postback is handled correctly."""
         psid = "test_user_decrease"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Create a mock cart
@@ -353,15 +353,15 @@ class TestCartManagementIntegration:
                         title="Test Product",
                         price=29.99,
                         image_url="http://example.com/image.jpg",
-                        quantity=3
+                        quantity=3,
                     )
                 ],
                 subtotal=89.97,
                 currency_code=CurrencyCode.USD,
-                item_count=3
+                item_count=3,
             )
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 mock_service_instance.update_quantity.return_value = Cart(
@@ -372,17 +372,19 @@ class TestCartManagementIntegration:
                             title="Test Product",
                             price=29.99,
                             image_url="http://example.com/image.jpg",
-                            quantity=2
+                            quantity=2,
                         )
                     ],
                     subtotal=59.98,
                     currency_code=CurrencyCode.USD,
-                    item_count=2
+                    item_count=2,
                 )
                 MockCartService.return_value = mock_service_instance
                 MockCartService.MAX_QUANTITY = 10
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -399,12 +401,12 @@ class TestCartManagementIntegration:
                                         "timestamp": 1234567890,
                                         "postback": {
                                             "payload": "decrease_quantity:var_1",
-                                            "title": "Decrease"
-                                        }
+                                            "title": "Decrease",
+                                        },
                                     }
-                                ]
+                                ],
                             }
-                        ]
+                        ],
                     )
 
                     response = await message_processor.process_postback(webhook_payload)
@@ -420,23 +422,20 @@ class TestCartManagementIntegration:
         """Test CART_VIEW intent is routed correctly."""
         psid = "test_user_view"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock empty cart
-            mock_cart = Cart(
-                items=[],
-                subtotal=0.0,
-                currency_code=CurrencyCode.USD,
-                item_count=0
-            )
+            mock_cart = Cart(items=[], subtotal=0.0, currency_code=CurrencyCode.USD, item_count=0)
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -446,6 +445,7 @@ class TestCartManagementIntegration:
                         ExtractedEntities,
                         IntentType,
                     )
+
                     classification = ClassificationResult(
                         intent=IntentType.CART_VIEW,
                         confidence=0.95,
@@ -454,7 +454,7 @@ class TestCartManagementIntegration:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     # Route the response
@@ -484,23 +484,20 @@ class TestCartManagementIntegration:
         """Test empty cart displays friendly message."""
         psid = "test_user_empty"
 
-        with patch.object(message_processor.context_manager, 'get_context') as mock_get_context:
+        with patch.object(message_processor.context_manager, "get_context") as mock_get_context:
             mock_get_context.return_value = {}
 
             # Mock empty cart
-            mock_cart = Cart(
-                items=[],
-                subtotal=0.0,
-                currency_code=CurrencyCode.USD,
-                item_count=0
-            )
+            mock_cart = Cart(items=[], subtotal=0.0, currency_code=CurrencyCode.USD, item_count=0)
 
-            with patch('app.services.messaging.message_processor.CartService') as MockCartService:
+            with patch("app.services.messaging.message_processor.CartService") as MockCartService:
                 mock_service_instance = AsyncMock()
                 mock_service_instance.get_cart.return_value = mock_cart
                 MockCartService.return_value = mock_service_instance
 
-                with patch('app.services.messaging.message_processor.MessengerSendService') as MockSendService:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as MockSendService:
                     mock_send_instance = AsyncMock()
                     MockSendService.return_value = mock_send_instance
 
@@ -510,6 +507,7 @@ class TestCartManagementIntegration:
                         ExtractedEntities,
                         IntentType,
                     )
+
                     classification = ClassificationResult(
                         intent=IntentType.CART_VIEW,
                         confidence=0.95,
@@ -518,7 +516,7 @@ class TestCartManagementIntegration:
                         reasoning="Cart view request",
                         llm_provider="test",
                         model="test-model",
-                        processing_time_ms=50.0
+                        processing_time_ms=50.0,
                     )
 
                     # Route the response

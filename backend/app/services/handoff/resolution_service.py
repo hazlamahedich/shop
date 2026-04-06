@@ -475,9 +475,7 @@ class HandoffResolutionService:
         if conversation.conversation_data is None:
             conversation.conversation_data = {}
         conversation.conversation_data["auto_close_warning_sent"] = True
-        conversation.conversation_data["auto_close_warning_sent_at"] = datetime.now(
-            UTC
-        ).isoformat()
+        conversation.conversation_data["auto_close_warning_sent_at"] = datetime.now(UTC).isoformat()
 
     async def _get_alert_for_conversation(self, conversation_id: int) -> HandoffAlert | None:
         """Get the most recent handoff alert for a conversation."""

@@ -84,9 +84,7 @@ async def test_tutorial_merchant_relationship(db_session: AsyncSession):
 
     # Query via relationship with eager loading
     result = await db_session.execute(
-        select(Merchant)
-        .options(selectinload(Merchant.tutorial))
-        .where(Merchant.id == merchant.id)
+        select(Merchant).options(selectinload(Merchant.tutorial)).where(Merchant.id == merchant.id)
     )
     retrieved_merchant = result.scalar_one()
 
@@ -125,7 +123,16 @@ async def test_tutorial_state_transitions(db_session: AsyncSession):
     # Complete tutorial
     tutorial.completed_at = datetime.utcnow()
     tutorial.current_step = 8  # Updated for 8-step tutorial
-    tutorial.completed_steps = ["step-1", "step-2", "step-3", "step-4", "step-5", "step-6", "step-7", "step-8"]  # All 8 steps
+    tutorial.completed_steps = [
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4",
+        "step-5",
+        "step-6",
+        "step-7",
+        "step-8",
+    ]  # All 8 steps
     await db_session.commit()
     await db_session.refresh(tutorial)
 
@@ -207,10 +214,12 @@ async def test_tutorial_cascade_delete(db_session: AsyncSession):
     tutorial_id = tutorial.id
 
     # Verify FK constraint exists
-    fk_check = await db_session.execute(text("""
+    fk_check = await db_session.execute(
+        text("""
         SELECT 1 FROM information_schema.table_constraints
         WHERE constraint_name = 'tutorials_merchant_id_fkey';
-    """))
+    """)
+    )
     print(f"FK constraint exists during test: {fk_check.scalar_one_or_none()}")
 
     # Delete merchant
@@ -218,9 +227,7 @@ async def test_tutorial_cascade_delete(db_session: AsyncSession):
     await db_session.commit()
 
     # Tutorial should be deleted (CASCADE)
-    result = await db_session.execute(
-        select(Tutorial).where(Tutorial.id == tutorial_id)
-    )
+    result = await db_session.execute(select(Tutorial).where(Tutorial.id == tutorial_id))
     assert result.scalar_one_or_none() is None
 
 

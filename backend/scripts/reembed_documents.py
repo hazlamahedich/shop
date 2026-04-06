@@ -36,8 +36,10 @@ async def reembed_documents(merchant_id: int, db_url: str):
     async with async_session() as db:
         # Get merchant's LLM config for API key
         result = await db.execute(
-            text("SELECT api_key_encrypted, ollama_url FROM llm_configurations WHERE merchant_id = :mid"),
-            {"mid": merchant_id}
+            text(
+                "SELECT api_key_encrypted, ollama_url FROM llm_configurations WHERE merchant_id = :mid"
+            ),
+            {"mid": merchant_id},
         )
         config_row = result.fetchone()
 
@@ -51,8 +53,7 @@ async def reembed_documents(merchant_id: int, db_url: str):
         # Get documents to re-embed
         result = await db.execute(
             select(KnowledgeDocument).where(
-                KnowledgeDocument.merchant_id == merchant_id,
-                KnowledgeDocument.status == "ready"
+                KnowledgeDocument.merchant_id == merchant_id, KnowledgeDocument.status == "ready"
             )
         )
         documents = result.scalars().all()
@@ -107,7 +108,7 @@ async def reembed_documents(merchant_id: int, db_url: str):
                 # Delete existing chunks
                 await db.execute(
                     text("DELETE FROM document_chunks WHERE document_id = :doc_id"),
-                    {"doc_id": doc.id}
+                    {"doc_id": doc.id},
                 )
 
                 # Store new chunks with correct dimension
@@ -127,14 +128,16 @@ async def reembed_documents(merchant_id: int, db_url: str):
 
                 total_chunks += len(chunks)
                 total_docs += 1
-                print(f"  SUCCESS: Stored {len(chunks)} chunks with {embedding_result.dimension} dimensions")
+                print(
+                    f"  SUCCESS: Stored {len(chunks)} chunks with {embedding_result.dimension} dimensions"
+                )
 
             except Exception as e:
                 print(f"  ERROR: {e}")
                 await db.rollback()
                 continue
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("Re-embedding complete!")
         print(f"  Documents processed: {total_docs}")
         print(f"  Total chunks updated: {total_chunks}")

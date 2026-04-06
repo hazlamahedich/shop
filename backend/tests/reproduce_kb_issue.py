@@ -1,4 +1,3 @@
-
 import asyncio
 
 import pytest
@@ -8,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 # Minimal app for reproduction
 app = FastAPI()
 
+
 @app.post("/test-upload")
 async def test_upload(background_tasks: BackgroundTasks):
     async def bg_task():
@@ -16,6 +16,7 @@ async def test_upload(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(bg_task)
     return {"status": "ok"}
+
 
 @pytest.mark.asyncio
 async def test_background_tasks_issue():

@@ -167,11 +167,7 @@ class TestWebhookSecurityIntegration:
         payload = b'{"test": "webhook"}'
 
         # Generate valid signature
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         signature_header = f"sha256={signature}"
 
@@ -191,11 +187,7 @@ class TestWebhookSecurityIntegration:
         payload = b'{"test": "shopify_webhook"}'
 
         # Generate valid HMAC
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         # HMAC verification should work
@@ -215,11 +207,7 @@ class TestWebhookSecurityIntegration:
         payload = b'{"test": "payload"}'
 
         # Generate correct signature
-        correct_sig = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        correct_sig = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Generate wrong signature of same length
         wrong_sig = "x" * len(correct_sig)
@@ -272,11 +260,7 @@ class TestCSRFAndOAuthIntegration:
             # Try callback with invalid state
             response = await client.get(
                 "/integrations/facebook/callback",
-                params={
-                    "code": "test_code",
-                    "state": "invalid_state",
-                    "merchant_id": 123
-                }
+                params={"code": "test_code", "state": "invalid_state", "merchant_id": 123},
             )
 
             # Should fail with state mismatch
@@ -292,9 +276,7 @@ class TestCheckoutURLValidationIntegration:
         from app.services.shopify_storefront import ShopifyStorefrontClient
 
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock HTTP client
@@ -315,9 +297,7 @@ class TestCheckoutURLValidationIntegration:
         from app.services.shopify_storefront import ShopifyStorefrontClient
 
         client = ShopifyStorefrontClient(
-            shop_domain="test.myshopify.com",
-            access_token="test_token",
-            is_testing=False
+            shop_domain="test.myshopify.com", access_token="test_token", is_testing=False
         )
 
         # Mock HTTP client to return 404
@@ -455,11 +435,7 @@ class TestSecurityPerformanceImpact:
         payload = b'{"test": "webhook_payload"}'
 
         # Generate signature
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         # Time verification
@@ -497,6 +473,7 @@ class TestSecurityConfiguration:
 
         # Clear settings cache
         from app.core.config import settings
+
         settings.cache_clear()
 
         setup_security_middleware(mock_app)
@@ -584,10 +561,12 @@ class TestSecurityCompliance:
         monkeypatch.setenv("FACEBOOK_ENCRYPTION_KEY", key)
 
         from app.core.security import get_fernet
+
         fernet = get_fernet()
 
         # Key should be 32 bytes when decoded
         import base64
+
         decoded_key = base64.urlsafe_b64decode(key.encode())
         assert len(decoded_key) == 32
 

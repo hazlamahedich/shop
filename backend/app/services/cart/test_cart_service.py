@@ -58,13 +58,13 @@ class TestCartService:
                     "imageUrl": "https://example.com/image.jpg",
                     "currencyCode": "USD",
                     "quantity": 2,
-                    "addedAt": "2024-01-15T10:00:00Z"
+                    "addedAt": "2024-01-15T10:00:00Z",
                 }
             ],
             "subtotal": 59.98,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:05:00Z"
+            "updatedAt": "2024-01-15T10:05:00Z",
         }
         mock_redis.get.return_value = json.dumps(cart_data)
 
@@ -88,7 +88,7 @@ class TestCartService:
             title="Test Product",
             price=29.99,
             image_url="https://example.com/image.jpg",
-            quantity=1
+            quantity=1,
         )
 
         assert len(cart.items) == 1
@@ -114,7 +114,7 @@ class TestCartService:
             title="Test Product",
             price=29.99,
             image_url="https://example.com/image.jpg",
-            quantity=1
+            quantity=1,
         )
 
         # Second call - return existing cart
@@ -128,13 +128,13 @@ class TestCartService:
                     "imageUrl": "https://example.com/image.jpg",
                     "currencyCode": "USD",
                     "quantity": 1,
-                    "addedAt": "2024-01-15T10:00:00Z"
+                    "addedAt": "2024-01-15T10:00:00Z",
                 }
             ],
             "subtotal": 29.99,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
 
@@ -145,7 +145,7 @@ class TestCartService:
             title="Test Product",
             price=29.99,
             image_url="https://example.com/image.jpg",
-            quantity=1
+            quantity=1,
         )
 
         assert len(cart.items) == 1
@@ -166,13 +166,13 @@ class TestCartService:
                     "imageUrl": "https://example.com/image.jpg",
                     "currencyCode": "USD",
                     "quantity": 9,
-                    "addedAt": "2024-01-15T10:00:00Z"
+                    "addedAt": "2024-01-15T10:00:00Z",
                 }
             ],
             "subtotal": 269.91,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
         mock_redis.setex.return_value = True
@@ -184,7 +184,7 @@ class TestCartService:
             title="Test Product",
             price=29.99,
             image_url="https://example.com/image.jpg",
-            quantity=5  # Try to add 5 more
+            quantity=5,  # Try to add 5 more
         )
 
         # Should cap at MAX_QUANTITY (10)
@@ -202,7 +202,7 @@ class TestCartService:
                     "price": 10.0,
                     "imageUrl": "https://example.com/img1.jpg",
                     "currencyCode": "USD",
-                    "quantity": 2
+                    "quantity": 2,
                 },
                 {
                     "productId": "prod_2",
@@ -211,13 +211,13 @@ class TestCartService:
                     "price": 20.0,
                     "imageUrl": "https://example.com/img2.jpg",
                     "currencyCode": "USD",
-                    "quantity": 1
-                }
+                    "quantity": 1,
+                },
             ],
             "subtotal": 40.0,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
         mock_redis.setex.return_value = True
@@ -240,13 +240,13 @@ class TestCartService:
                     "price": 29.99,
                     "imageUrl": "https://example.com/image.jpg",
                     "currencyCode": "USD",
-                    "quantity": 2
+                    "quantity": 2,
                 }
             ],
             "subtotal": 59.98,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
         mock_redis.setex.return_value = True
@@ -272,11 +272,9 @@ class TestCartService:
     @pytest.mark.asyncio
     async def test_update_quantity_item_not_found(self, cart_service, mock_redis):
         """Test updating quantity of non-existent item."""
-        mock_redis.get.return_value = json.dumps({
-            "items": [],
-            "subtotal": 0.0,
-            "currencyCode": "USD"
-        })
+        mock_redis.get.return_value = json.dumps(
+            {"items": [], "subtotal": 0.0, "currencyCode": "USD"}
+        )
 
         with pytest.raises(APIError) as exc_info:
             await cart_service.update_quantity("test_psid", "var_1", 2)
@@ -315,7 +313,7 @@ class TestCartService:
                 variant_id="var_1",
                 title="Test",
                 price=10.0,
-                image_url="https://example.com/image.jpg"
+                image_url="https://example.com/image.jpg",
             )
 
         assert exc_info.value.code == ErrorCode.CART_ADD_FAILED
@@ -335,7 +333,7 @@ class TestCartService:
             variant_id="var_1",
             title="Test Product",
             price=29.99,
-            image_url="https://example.com/image.jpg"
+            image_url="https://example.com/image.jpg",
         )
         elapsed_ms = (time.time() - start) * 1000
 
@@ -355,7 +353,7 @@ class TestCartService:
             title="Product 1",
             price=10.0,
             image_url="https://example.com/img1.jpg",
-            quantity=2
+            quantity=2,
         )
 
         # Mock returns the cart we just saved
@@ -368,13 +366,13 @@ class TestCartService:
                     "price": 10.0,
                     "imageUrl": "https://example.com/img1.jpg",
                     "currencyCode": "USD",
-                    "quantity": 2
+                    "quantity": 2,
                 }
             ],
             "subtotal": 20.0,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(saved_cart)
 
@@ -386,7 +384,7 @@ class TestCartService:
             title="Product 2",
             price=15.0,
             image_url="https://example.com/img2.jpg",
-            quantity=3
+            quantity=3,
         )
 
         assert len(cart.items) == 2
@@ -404,7 +402,7 @@ class TestCartService:
             variant_id="var_1",
             title="Test Product",
             price=29.99,
-            image_url="https://example.com/image.jpg"
+            image_url="https://example.com/image.jpg",
         )
 
         # Verify setex was called with correct TTL (24 hours)

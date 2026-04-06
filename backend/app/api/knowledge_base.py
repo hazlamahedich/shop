@@ -765,7 +765,9 @@ async def test_rag_query(
                 "context": context,
                 "chunks": [
                     {
-                        "content": chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content,
+                        "content": chunk.content[:200] + "..."
+                        if len(chunk.content) > 200
+                        else chunk.content,
                         "similarity": round(chunk.similarity, 3),
                         "document": {
                             "id": chunk.document_id,

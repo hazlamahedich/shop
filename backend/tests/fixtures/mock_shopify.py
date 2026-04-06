@@ -10,7 +10,7 @@ MOCK_SHOP_SUCCESS = {
     "id": 123456789,
     "name": "Test Store",
     "domain": "test-store.myshopify.com",
-    "email": "owner@test-store.com"
+    "email": "owner@test-store.com",
 }
 
 # Mock response for Storefront token creation
@@ -18,7 +18,7 @@ MOCK_STOREFRONT_TOKEN = {
     "storefront_access_token": {
         "id": 987654321,
         "access_token": "test_storefront_token",
-        "access_scope": "unauthenticated_read_product_listings,unauthenticated_read_checkouts"
+        "access_scope": "unauthenticated_read_product_listings,unauthenticated_read_checkouts",
     }
 }
 
@@ -35,14 +35,14 @@ MOCK_PRODUCTS = {
                         "descriptionHtml": "<p>Test description</p>",
                         "priceRangeV2": {
                             "minVariantPrice": {"amount": "100.00", "currencyCode": "USD"},
-                            "maxVariantPrice": {"amount": "100.00", "currencyCode": "USD"}
+                            "maxVariantPrice": {"amount": "100.00", "currencyCode": "USD"},
                         },
                         "images": {
                             "edges": [
                                 {
                                     "node": {
                                         "url": "https://example.com/product.jpg",
-                                        "altText": "Test product image"
+                                        "altText": "Test product image",
                                     }
                                 }
                             ]
@@ -52,11 +52,11 @@ MOCK_PRODUCTS = {
                                 {
                                     "node": {
                                         "id": "gid://shopify/ProductVariant/1",
-                                        "availableForSale": True
+                                        "availableForSale": True,
                                     }
                                 }
                             ]
-                        }
+                        },
                     }
                 }
             ]
@@ -70,9 +70,9 @@ MOCK_CHECKOUT_RESPONSE = {
         "checkoutCreate": {
             "checkout": {
                 "id": "gid://shopify/Checkout/1",
-                "webUrl": "https://checkout.shopify.com/test"
+                "webUrl": "https://checkout.shopify.com/test",
             },
-            "checkoutUserErrors": []
+            "checkoutUserErrors": [],
         }
     }
 }
@@ -84,7 +84,7 @@ MOCK_WEBHOOK_SUBSCRIPTION = {
         "topic": "orders/create",
         "address": "https://example.com/api/webhooks/shopify",
         "format": "json",
-        "created_at": "2024-01-01T00:00:00Z"
+        "created_at": "2024-01-01T00:00:00Z",
     }
 }
 
@@ -96,15 +96,15 @@ MOCK_WEBHOOK_LIST = {
             "topic": "orders/create",
             "address": "https://example.com/api/webhooks/shopify",
             "format": "json",
-            "created_at": "2024-01-01T00:00:00Z"
+            "created_at": "2024-01-01T00:00:00Z",
         },
         {
             "id": 987654321,
             "topic": "orders/updated",
             "address": "https://example.com/api/webhooks/shopify",
             "format": "json",
-            "created_at": "2024-01-01T00:00:00Z"
-        }
+            "created_at": "2024-01-01T00:00:00Z",
+        },
     ]
 }
 
@@ -122,6 +122,6 @@ MOCK_TOKEN_EXCHANGE = {
         "email_verified": True,
         "account_owner": True,
         "locale": "en",
-        "collaborator": False
-    }
+        "collaborator": False,
+    },
 }

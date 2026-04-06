@@ -18,14 +18,12 @@ router = APIRouter()
 @router.post("/cleanup")
 async def trigger_retention_cleanup(
     dry_run: bool = Query(
-        False,
-        description="If true, only report what would be deleted without actually deleting"
+        False, description="If true, only report what would be deleted without actually deleting"
     ),
     voluntary_days: int | None = Query(
-        None,
-        description="Override voluntary data retention period (default: 30)"
+        None, description="Override voluntary data retention period (default: 30)"
     ),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Manually trigger data retention cleanup (admin only).
 
@@ -54,9 +52,7 @@ async def trigger_retention_cleanup(
         response = await client.post("/api/admin/retention/cleanup?voluntary_days=60")
         ```
     """
-    service = DataRetentionService(
-        voluntary_days=voluntary_days or 30
-    )
+    service = DataRetentionService(voluntary_days=voluntary_days or 30)
 
     results = {
         "dry_run": dry_run,
@@ -71,9 +67,9 @@ async def trigger_retention_cleanup(
 async def get_retention_stats(
     voluntary_days: int | None = Query(
         None,
-        description="Override voluntary data retention period for stats calculation (default: 30)"
+        description="Override voluntary data retention period for stats calculation (default: 30)",
     ),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Get current data retention statistics.
 
@@ -109,9 +105,7 @@ async def get_retention_stats(
         # }
         ```
     """
-    service = DataRetentionService(
-        voluntary_days=voluntary_days or 30
-    )
+    service = DataRetentionService(voluntary_days=voluntary_days or 30)
 
     stats = await service.get_retention_stats(db)
 
@@ -120,17 +114,11 @@ async def get_retention_stats(
 
 @router.get("/conversations-to-delete")
 async def get_conversations_to_delete(
-    limit: int = Query(
-        100,
-        ge=1,
-        le=1000,
-        description="Maximum number of conversations to return"
-    ),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of conversations to return"),
     voluntary_days: int | None = Query(
-        None,
-        description="Override voluntary data retention period (default: 30)"
+        None, description="Override voluntary data retention period (default: 30)"
     ),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Get list of conversations that would be deleted by retention policy.
 
@@ -166,9 +154,7 @@ async def get_conversations_to_delete(
         # }
         ```
     """
-    service = DataRetentionService(
-        voluntary_days=voluntary_days or 30
-    )
+    service = DataRetentionService(voluntary_days=voluntary_days or 30)
 
     conversations = await service.get_conversations_to_delete(db, limit=limit)
 

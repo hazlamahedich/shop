@@ -93,9 +93,7 @@ class TestExportAPI:
         assert "****_123" in csv_content  # Masked customer ID (with underscore)
 
     @pytest.mark.asyncio
-    async def test_export_with_date_filter(
-        self, async_client: AsyncClient, async_session
-    ) -> None:
+    async def test_export_with_date_filter(self, async_client: AsyncClient, async_session) -> None:
         """Test export with date range filter."""
         merchant = Merchant(
             merchant_key="test-export-date",
@@ -177,9 +175,7 @@ class TestExportAPI:
         assert response.headers["X-Export-Count"] == "1"
 
     @pytest.mark.asyncio
-    async def test_export_invalid_merchant_id(
-        self, async_client: AsyncClient
-    ) -> None:
+    async def test_export_invalid_merchant_id(self, async_client: AsyncClient) -> None:
         """Test export with invalid merchant ID returns 422."""
         # FastAPI validates header type before custom logic
         response = await async_client.post(
@@ -191,9 +187,7 @@ class TestExportAPI:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_export_missing_merchant_header(
-        self, async_client: AsyncClient
-    ) -> None:
+    async def test_export_missing_merchant_header(self, async_client: AsyncClient) -> None:
         """Test export without merchant header returns error."""
         response = await async_client.post(
             "/api/conversations/export",
@@ -246,9 +240,7 @@ class TestExportAPI:
         assert response.headers["X-Export-Count"] == "0"
 
     @pytest.mark.asyncio
-    async def test_export_response_headers(
-        self, async_client: AsyncClient, async_session
-    ) -> None:
+    async def test_export_response_headers(self, async_client: AsyncClient, async_session) -> None:
         """Test that export response includes proper headers."""
         merchant = Merchant(
             merchant_key="test-export-headers",
@@ -283,9 +275,7 @@ class TestExportAPI:
         assert "X-Export-Date" in response.headers
 
     @pytest.mark.asyncio
-    async def test_export_content_type(
-        self, async_client: AsyncClient, async_session
-    ) -> None:
+    async def test_export_content_type(self, async_client: AsyncClient, async_session) -> None:
         """Test that export returns correct content type."""
         merchant = Merchant(
             merchant_key="test-export-content-type",
@@ -305,9 +295,7 @@ class TestExportAPI:
         assert response.headers["content-type"] == "text/csv; charset=utf-8"
 
     @pytest.mark.asyncio
-    async def test_export_csv_format(
-        self, async_client: AsyncClient, async_session
-    ) -> None:
+    async def test_export_csv_format(self, async_client: AsyncClient, async_session) -> None:
         """Test that export returns properly formatted CSV."""
         import csv
         from io import StringIO

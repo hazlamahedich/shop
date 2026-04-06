@@ -70,8 +70,7 @@ async def test_generate_oauth_url_valid_domain(db_session, merchant, monkeypatch
     service = ShopifyService(db_session, is_testing=True)
 
     auth_url, state = await service.generate_oauth_url(
-        merchant_id=merchant.id,
-        shop_domain="test-store.myshopify.com"
+        merchant_id=merchant.id, shop_domain="test-store.myshopify.com"
     )
 
     assert "test-store.myshopify.com" in auth_url
@@ -87,8 +86,7 @@ async def test_exchange_code_for_token_testing_mode(db_session, merchant) -> Non
     service = ShopifyService(db_session, is_testing=True)
 
     token_data = await service.exchange_code_for_token(
-        shop_domain="test.myshopify.com",
-        code="test_code"
+        shop_domain="test.myshopify.com", code="test_code"
     )
 
     assert token_data["access_token"] == "test_admin_token"
@@ -108,7 +106,7 @@ async def test_create_shopify_integration(db_session, merchant) -> None:
         shop_name="Test Store",
         admin_token="admin_token",
         storefront_token="storefront_token",
-        scopes=["read_products", "write_orders"]
+        scopes=["read_products", "write_orders"],
     )
 
     assert integration.id is not None
@@ -136,7 +134,7 @@ async def test_create_shopify_integration_duplicate(db_session, merchant) -> Non
         shop_name="Store 1",
         admin_token="token1",
         storefront_token="sf_token1",
-        scopes=["read_products"]
+        scopes=["read_products"],
     )
 
     # Try to create duplicate
@@ -147,7 +145,7 @@ async def test_create_shopify_integration_duplicate(db_session, merchant) -> Non
             shop_name="Store 2",
             admin_token="token2",
             storefront_token="sf_token2",
-            scopes=["read_products"]
+            scopes=["read_products"],
         )
 
     assert exc_info.value.code == ErrorCode.SHOPIFY_ALREADY_CONNECTED
@@ -166,7 +164,7 @@ async def test_get_shopify_integration(db_session, merchant) -> None:
         shop_name="Test Store",
         admin_token="admin_token",
         storefront_token="storefront_token",
-        scopes=["read_products"]
+        scopes=["read_products"],
     )
 
     # Get integration
@@ -200,7 +198,7 @@ async def test_get_shop_domain(db_session, merchant) -> None:
         shop_name="Test Store",
         admin_token="admin_token",
         storefront_token="storefront_token",
-        scopes=["read_products"]
+        scopes=["read_products"],
     )
 
     domain = await service.get_shop_domain(merchant.id)
@@ -234,7 +232,7 @@ async def test_disconnect_shopify(db_session, merchant) -> None:
         shop_name="Test Store",
         admin_token="admin_token",
         storefront_token="storefront_token",
-        scopes=["read_products"]
+        scopes=["read_products"],
     )
 
     # Disconnect

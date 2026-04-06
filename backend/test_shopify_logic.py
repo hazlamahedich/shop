@@ -12,6 +12,7 @@ async def test_logic():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
         from app.core.database import Base
+
         await conn.run_sync(Base.metadata.create_all)
 
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -29,7 +30,9 @@ async def test_logic():
         await db.refresh(merchant)
         print(f"Merchant config: {merchant.config}")
         assert merchant.config["shopify_api_key"] == "my_api_key"
-        assert decrypt_access_token(merchant.config["shopify_api_secret_encrypted"]) == "my_api_secret"
+        assert (
+            decrypt_access_token(merchant.config["shopify_api_secret_encrypted"]) == "my_api_secret"
+        )
         print("Test 1 Passed: Credentials saved & encrypted correctly.")
 
         # Test 2: Prioritize Credentials in generate_oauth_url
@@ -37,6 +40,7 @@ async def test_logic():
         # Actually generate_oauth_url calls settings() directly.
 
         print("Diagnostic Complete.")
+
 
 if __name__ == "__main__":
     asyncio.run(test_logic())

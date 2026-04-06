@@ -246,10 +246,7 @@ async def test_conversation_cost_timestamp_index(db_session: AsyncSession) -> No
     # Query by timestamp range
     result = await db_session.execute(
         select(LLMConversationCost)
-        .where(
-            LLMConversationCost.request_timestamp
-            >= datetime.utcnow() - timedelta(hours=2)
-        )
+        .where(LLMConversationCost.request_timestamp >= datetime.utcnow() - timedelta(hours=2))
         .where(LLMConversationCost.merchant_id == merchant.id)
     )
     costs = result.scalars().all()

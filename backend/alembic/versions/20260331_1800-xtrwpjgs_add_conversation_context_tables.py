@@ -59,9 +59,7 @@ def upgrade() -> None:
         sa.Column("search_history", postgresql.ARRAY(sa.String()), nullable=True),
         # General mode fields
         sa.Column("topics_discussed", postgresql.ARRAY(sa.String()), nullable=True),
-        sa.Column(
-            "documents_referenced", postgresql.ARRAY(sa.Integer()), nullable=True
-        ),
+        sa.Column("documents_referenced", postgresql.ARRAY(sa.Integer()), nullable=True),
         sa.Column("support_issues", postgresql.JSONB(), nullable=True),
         sa.Column("escalation_status", sa.String(length=50), nullable=True),
         # Universal fields
@@ -86,9 +84,7 @@ def upgrade() -> None:
         ["conversation_id"],
     )
     op.create_index("ix_conversation_context_mode", "conversation_context", ["mode"])
-    op.create_index(
-        "ix_conversation_context_expires", "conversation_context", ["expires_at"]
-    )
+    op.create_index("ix_conversation_context_expires", "conversation_context", ["expires_at"])
 
     # Create conversation_turns table
     op.create_table(
@@ -121,16 +117,12 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop conversation_context and conversation_turns tables."""
 
-    op.drop_index(
-        "ix_conversation_turns_conversation", table_name="conversation_turns"
-    )
+    op.drop_index("ix_conversation_turns_conversation", table_name="conversation_turns")
     op.drop_table("conversation_turns")
 
     op.drop_index("ix_conversation_context_expires", table_name="conversation_context")
     op.drop_index("ix_conversation_context_mode", table_name="conversation_context")
-    op.drop_index(
-        "ix_conversation_context_conversation", table_name="conversation_context"
-    )
+    op.drop_index("ix_conversation_context_conversation", table_name="conversation_context")
     op.drop_table("conversation_context")
 
     # Drop enum type

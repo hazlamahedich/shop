@@ -47,17 +47,19 @@ class TestStory27PersistentCartE2E:
                                 "price": 89.99,
                                 "currency_code": "USD",
                                 "available_for_sale": True,
-                                "selected_options": {"Size": "10", "Color": "Red"}
+                                "selected_options": {"Size": "10", "Color": "Red"},
                             }
-                        ]
+                        ],
                     }
                 ],
-                "total_count": 1
+                "total_count": 1,
             }
         }
 
     @pytest.mark.asyncio
-    async def test_e2e_first_visit_opt_in_close_return_cart_restored(self, mock_redis, sample_product_context):
+    async def test_e2e_first_visit_opt_in_close_return_cart_restored(
+        self, mock_redis, sample_product_context
+    ):
         """Test E2E: First visit → opt-in → close → return → cart restored."""
         psid = "test_e2e_first_visit_user"
 
@@ -101,7 +103,7 @@ class TestStory27PersistentCartE2E:
             title="Running Shoes",
             price=89.99,
             image_url="https://example.com/shoes.jpg",
-            quantity=1
+            quantity=1,
         )
 
         assert len(cart.items) == 1, "Cart should have 1 item"
@@ -173,8 +175,7 @@ class TestStory27PersistentCartE2E:
 
         # Cart should not exist (wasn't persisted)
         session_service_new = SessionService(
-            redis_client=mock_redis,
-            consent_service=consent_service
+            redis_client=mock_redis, consent_service=consent_service
         )
         is_returning = await session_service_new.is_returning_shopper(psid)
         assert is_returning is False, "Opted-out user should not be detected as returning"
@@ -186,31 +187,31 @@ class TestStory27PersistentCartE2E:
 
         # Setup mock Redis with proper state tracking
         existing_cart = {
-            "items": [{
-                "productId": "prod_123",
-                "variantId": "var_456",
-                "title": "Running Shoes",
-                "price": 89.99,
-                "imageUrl": "https://example.com/shoes.jpg",
-                "currencyCode": "USD",
-                "quantity": 2,
-                "addedAt": datetime.now(UTC).isoformat()
-            }],
+            "items": [
+                {
+                    "productId": "prod_123",
+                    "variantId": "var_456",
+                    "title": "Running Shoes",
+                    "price": 89.99,
+                    "imageUrl": "https://example.com/shoes.jpg",
+                    "currencyCode": "USD",
+                    "quantity": 2,
+                    "addedAt": datetime.now(UTC).isoformat(),
+                }
+            ],
             "subtotal": 179.98,
             "currencyCode": "USD",
             "itemCount": 1,
             "createdAt": datetime.now(UTC).isoformat(),
-            "updatedAt": datetime.now(UTC).isoformat()
+            "updatedAt": datetime.now(UTC).isoformat(),
         }
 
         stored_data = {
             f"cart:{psid}": json.dumps(existing_cart),
-            f"consent:{psid}": json.dumps({
-                "status": "opted_in",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "psid": psid
-            }),
-            f"order_ref:{psid}": "order_12345"  # Operational data
+            f"consent:{psid}": json.dumps(
+                {"status": "opted_in", "timestamp": datetime.now(UTC).isoformat(), "psid": psid}
+            ),
+            f"order_ref:{psid}": "order_12345",  # Operational data
         }
         deleted_keys = []
 
@@ -299,7 +300,7 @@ class TestStory27PersistentCartE2E:
                 title=title,
                 price=price,
                 image_url=f"https://example.com/{title.lower().replace(' ', '_')}.jpg",
-                quantity=1
+                quantity=1,
             )
 
         # Verify item count
@@ -320,17 +321,22 @@ class TestStory27PersistentCartE2E:
         mock_redis.setex.return_value = True
         mock_redis.exists.return_value = 0
 
-        with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-             patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
-
+        with (
+            patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class,
+            patch(
+                "app.services.messaging.message_processor.MessengerSendService"
+            ) as mock_send_class,
+        ):
             # Mock consent service
             mock_consent = MagicMock()
             mock_consent.get_consent = AsyncMock(return_value=ConsentStatus.PENDING)
-            mock_consent.record_consent = AsyncMock(return_value={
-                "status": ConsentStatus.OPTED_IN,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "psid": psid
-            })
+            mock_consent.record_consent = AsyncMock(
+                return_value={
+                    "status": ConsentStatus.OPTED_IN,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "psid": psid,
+                }
+            )
             mock_consent.can_persist_cart = AsyncMock(return_value=True)
             mock_consent_class.return_value = mock_consent
 
@@ -341,7 +347,9 @@ class TestStory27PersistentCartE2E:
             mock_send_class.return_value = mock_send
 
             # Mock context manager
-            with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+            with patch(
+                "app.services.messaging.message_processor.ConversationContextManager"
+            ) as mock_context_class:
                 mock_context = MagicMock()
                 mock_context.redis = mock_redis
                 mock_context.get_context = AsyncMock(return_value=sample_product_context)
@@ -355,26 +363,30 @@ class TestStory27PersistentCartE2E:
                     psid=psid,
                     product_id="prod_123",
                     variant_id="var_456",
-                    context=sample_product_context
+                    context=sample_product_context,
                 )
 
                 # Verify consent message was sent
                 assert mock_send.send_message.called, "Consent message should be sent"
 
                 # Step 2: Simulate consent response via postback
-                postback_payload = FacebookWebhookPayload(**{
-                    "object": "page",
-                    "entry": [{
-                        "id": "123456",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": psid},
-                            "postback": {
-                                "payload": "CONSENT:YES:prod_123:var_456"
+                postback_payload = FacebookWebhookPayload(
+                    **{
+                        "object": "page",
+                        "entry": [
+                            {
+                                "id": "123456",
+                                "time": 1234567890,
+                                "messaging": [
+                                    {
+                                        "sender": {"id": psid},
+                                        "postback": {"payload": "CONSENT:YES:prod_123:var_456"},
+                                    }
+                                ],
                             }
-                        }]
-                    }]
-                })
+                        ],
+                    }
+                )
 
                 # Mock updated consent status
                 mock_consent.get_consent = AsyncMock(return_value=ConsentStatus.OPTED_IN)
@@ -394,9 +406,10 @@ class TestStory27PersistentCartE2E:
         mock_redis.delete.return_value = 1
         mock_redis.setex.return_value = True
 
-        with patch("app.services.messaging.message_processor.SessionService") as mock_session_class, \
-             patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class:
-
+        with (
+            patch("app.services.messaging.message_processor.SessionService") as mock_session_class,
+            patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class,
+        ):
             # Mock session service
             mock_session = MagicMock()
             mock_session.clear_session = AsyncMock(return_value=None)
@@ -410,7 +423,9 @@ class TestStory27PersistentCartE2E:
             mock_consent_class.return_value = mock_consent
 
             # Mock context manager
-            with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+            with patch(
+                "app.services.messaging.message_processor.ConversationContextManager"
+            ) as mock_context_class:
                 mock_context = MagicMock()
                 mock_context.redis = mock_redis
                 mock_context.get_context = AsyncMock(return_value={})
@@ -427,14 +442,12 @@ class TestStory27PersistentCartE2E:
                     raw_message="forget my preferences",
                     llm_provider="test",
                     model="test",
-                    processing_time_ms=50
+                    processing_time_ms=50,
                 )
 
                 # Route to response
                 response = await processor._route_response(
-                    psid=psid,
-                    classification=classification,
-                    context={}
+                    psid=psid, classification=classification, context={}
                 )
 
                 # Verify forget handler was called
@@ -460,7 +473,7 @@ class TestStory27PersistentCartE2E:
             title="Test Product",
             price=29.99,
             image_url="https://example.com/image.jpg",
-            quantity=1
+            quantity=1,
         )
 
         # Verify setex was called with 24-hour TTL (86400 seconds)
@@ -520,4 +533,6 @@ class TestStory27PersistentCartE2E:
 
         # Verify operational data preserved
         deleted_keys = [call[0][0] for call in mock_redis.delete.call_args_list]
-        assert f"order_ref:{psid}" not in deleted_keys, "Operational order ref should NOT be deleted"
+        assert f"order_ref:{psid}" not in deleted_keys, (
+            "Operational order ref should NOT be deleted"
+        )

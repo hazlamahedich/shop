@@ -34,6 +34,7 @@ secret_key = settings()["SECRET_KEY"]
 if settings()["DEBUG"] and secret_key == "dev-secret-key-DO-NOT-USE-IN-PRODUCTION":
     # Generate a test key for debug mode
     import secrets
+
     secret_key = secrets.token_urlsafe(32)
 
 _csrf: CSRFProtection = init_csrf_protection(secret_key)

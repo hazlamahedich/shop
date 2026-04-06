@@ -149,9 +149,7 @@ class Order(BaseModel):
     total: float = Field(default=0.0, ge=0, description="Order total including tax/shipping")
     currency_code: CurrencyCode = Field(default=CurrencyCode.USD)
     customer_email: str | None = Field(default=None, description="Customer email")
-    shipping_address: dict[str, Any] | None = Field(
-        default=None, description="Shipping address"
-    )
+    shipping_address: dict[str, Any] | None = Field(default=None, description="Shipping address")
     tracking_number: str | None = Field(default=None, description="Shipping tracking number")
     tracking_url: str | None = Field(default=None, description="Tracking URL")
     created_at: datetime | None = Field(default=None)

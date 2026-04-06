@@ -45,7 +45,9 @@ async def setup_test_database(db_session):
         merchant_id = result.fetchone()[0]
 
     # Create test conversation (delete if exists first to avoid conflicts)
-    await db_session.execute(text("DELETE FROM conversations WHERE platform_sender_id = 'test_customer_123'"))
+    await db_session.execute(
+        text("DELETE FROM conversations WHERE platform_sender_id = 'test_customer_123'")
+    )
 
     sql_conversation = f"""
         INSERT INTO conversations (merchant_id, platform, platform_sender_id, status, created_at, updated_at)

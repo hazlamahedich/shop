@@ -24,6 +24,7 @@ from tests.conftest import TestingSessionLocal, test_engine
 def bypass_rate_limit(monkeypatch):
     """Bypass rate limiting in tests."""
     from app.core import rate_limiter
+
     monkeypatch.setattr(rate_limiter.RateLimiter, "is_rate_limited", lambda *args, **kwargs: False)
 
 
@@ -83,11 +84,7 @@ async def test_configure_llm_ollama(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_llm",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_llm", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -116,11 +113,7 @@ async def test_configure_llm_ollama(client_with_db) -> None:
     assert data["data"]["message"] == "LLM provider configured successfully"
 
     # Verify database record created
-    result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == 1
-        )
-    )
+    result = await db.execute(select(LLMConfiguration).where(LLMConfiguration.merchant_id == 1))
     config = result.scalar_one_or_none()
     assert config is not None
     assert config.provider == "ollama"
@@ -134,11 +127,7 @@ async def test_configure_llm_openai(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_openai",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_openai", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -168,11 +157,7 @@ async def test_configure_llm_with_backup(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_backup",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_backup", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -195,11 +180,7 @@ async def test_configure_llm_with_backup(client_with_db) -> None:
     assert data["data"]["provider"] == "openai"
 
     # Verify backup stored
-    result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == 1
-        )
-    )
+    result = await db.execute(select(LLMConfiguration).where(LLMConfiguration.merchant_id == 1))
     config = result.scalar_one_or_none()
     assert config is not None
     assert config.backup_provider == "ollama"
@@ -211,11 +192,7 @@ async def test_configure_llm_duplicate_fails(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and existing config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_duplicate",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_duplicate", platform="facebook")
     db.add(merchant)
 
     existing_config = LLMConfiguration(
@@ -250,11 +227,7 @@ async def test_get_llm_status(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_status",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_status", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -291,11 +264,7 @@ async def test_get_llm_status_not_found(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant without config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_no_config",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_no_config", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -310,11 +279,7 @@ async def test_test_llm_endpoint(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_test_endpoint",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_test_endpoint", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -349,11 +314,7 @@ async def test_update_llm_configuration(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_update",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_update", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -391,11 +352,7 @@ async def test_update_llm_no_fields_fails(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_no_fields",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_no_fields", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -422,11 +379,7 @@ async def test_clear_llm_configuration(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_clear",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_clear", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -448,9 +401,7 @@ async def test_clear_llm_configuration(client_with_db) -> None:
     assert data["data"]["message"] == "LLM configuration cleared"
 
     # Verify deletion
-    result = await db.execute(
-        select(LLMConfiguration).where(LLMConfiguration.id == config_id)
-    )
+    result = await db.execute(select(LLMConfiguration).where(LLMConfiguration.id == config_id))
     deleted_config = result.scalar_one_or_none()
     assert deleted_config is None
 
@@ -493,11 +444,7 @@ async def test_health_check_no_config(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant without config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_no_config_health",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_no_config_health", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -518,11 +465,7 @@ async def test_health_check_with_config(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_health",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_health", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -553,11 +496,7 @@ async def test_api_key_encryption(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_encryption",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_encryption", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -576,11 +515,7 @@ async def test_api_key_encryption(client_with_db) -> None:
     )
 
     # Verify encryption in database
-    result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == 1
-        )
-    )
+    result = await db.execute(select(LLMConfiguration).where(LLMConfiguration.merchant_id == 1))
     config = result.scalar_one_or_none()
 
     assert config is not None
@@ -629,11 +564,7 @@ async def test_update_multiple_fields(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_multi_update",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_multi_update", platform="facebook")
     db.add(merchant)
 
     config = LLMConfiguration(
@@ -668,11 +599,7 @@ async def test_configure_anthropic_provider(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_anthropic",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_anthropic", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -701,11 +628,7 @@ async def test_configure_gemini_provider(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_gemini",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_gemini", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -734,11 +657,7 @@ async def test_configure_glm_provider(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_glm",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_glm", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -767,11 +686,7 @@ async def test_ollama_cost_always_zero(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_ollama_cost",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_ollama_cost", platform="facebook")
     db.add(merchant)
     await db.commit()
 
@@ -789,11 +704,7 @@ async def test_ollama_cost_always_zero(client_with_db) -> None:
     assert response.status_code == 200
 
     # Verify cost is zero in database
-    result = await db.execute(
-        select(LLMConfiguration).where(
-            LLMConfiguration.merchant_id == 1
-        )
-    )
+    result = await db.execute(select(LLMConfiguration).where(LLMConfiguration.merchant_id == 1))
     config = result.scalar_one_or_none()
     assert config is not None
     assert config.total_cost_usd == 0.0
@@ -807,11 +718,7 @@ async def test_test_llm_with_cloud_provider(client_with_db) -> None:
     client, db = client_with_db
 
     # Create merchant and config with OpenAI
-    merchant = Merchant(
-        id=1,
-        merchant_key="test_merchant_openai_test",
-        platform="facebook"
-    )
+    merchant = Merchant(id=1, merchant_key="test_merchant_openai_test", platform="facebook")
     db.add(merchant)
     await db.flush()  # Ensure merchant is inserted first
 

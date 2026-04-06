@@ -51,12 +51,12 @@ class BaseContextExtractor(ABC):
                 # Handle lists of simple types (int, str) and lists of dicts
                 if result[key] and isinstance(result[key][0], dict):
                     # For lists of dicts, compare by specific field (e.g., 'type' or 'id')
-                    existing_keys = self._extract_dict_keys(result[key], 'type')
+                    existing_keys = self._extract_dict_keys(result[key], "type")
                     for item in value:
-                        if isinstance(item, dict) and 'type' in item:
-                            if item['type'] not in existing_keys:
+                        if isinstance(item, dict) and "type" in item:
+                            if item["type"] not in existing_keys:
                                 result[key].append(item)
-                                existing_keys.add(item['type'])
+                                existing_keys.add(item["type"])
                         else:
                             # No type field, just append
                             result[key].append(item)

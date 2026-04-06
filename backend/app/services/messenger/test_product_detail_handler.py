@@ -85,7 +85,9 @@ class TestProductDetailHandler:
     @pytest.fixture
     def handler(self, mock_settings: dict[str, Any]) -> ProductDetailHandler:
         """Create a handler with mocked settings."""
-        with patch("app.services.messenger.product_detail_handler.settings", return_value=mock_settings):
+        with patch(
+            "app.services.messenger.product_detail_handler.settings", return_value=mock_settings
+        ):
             return ProductDetailHandler()
 
     def test_init(self, handler: ProductDetailHandler) -> None:
@@ -299,7 +301,9 @@ class TestProductDetailHandlerEdgeCases:
     @pytest.fixture
     def handler(self, mock_settings: dict[str, Any]) -> ProductDetailHandler:
         """Create a handler with mocked settings."""
-        with patch("app.services.messenger.product_detail_handler.settings", return_value=mock_settings):
+        with patch(
+            "app.services.messenger.product_detail_handler.settings", return_value=mock_settings
+        ):
             return ProductDetailHandler()
 
     def test_format_variant_selection_no_variants(

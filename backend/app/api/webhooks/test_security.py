@@ -33,11 +33,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b'{"test": "payload"}'
 
         # Generate valid signature
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -65,11 +61,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b'{"test": "payload"}'
 
         # Generate SHA1 signature (wrong algorithm)
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha1
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha1).hexdigest()
 
         signature_header = f"sha1={signature}"
 
@@ -82,11 +74,7 @@ class TestFacebookWebhookSignatureVerification:
         payload2 = b'{"test": "payload2"}'
 
         # Generate signature for payload1
-        signature = hmac.new(
-            app_secret.encode(),
-            payload1,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload1, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         # Try to verify payload2 with payload1's signature
@@ -98,11 +86,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b""
 
         # Generate signature for empty payload
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -110,13 +94,9 @@ class TestFacebookWebhookSignatureVerification:
     def test_large_payload_verification(self):
         """Test signature verification with large payload."""
         app_secret = "test_app_secret"
-        payload = b'{"data": "' + b'x' * 10000 + b'"}'
+        payload = b'{"data": "' + b"x" * 10000 + b'"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -127,11 +107,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b'{"test": "payload"}'
 
         # Generate correct signature
-        correct_signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        correct_signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Generate wrong signature of same length
         wrong_signature = "x" * len(correct_signature)
@@ -154,11 +130,7 @@ class TestFacebookWebhookSignatureVerification:
         app_secret = "test_app_secret"
         payload = b'{"test": "payload"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Extra whitespace should cause failure
         signature_header = f"sha256= {signature}"
@@ -169,11 +141,7 @@ class TestFacebookWebhookSignatureVerification:
         app_secret = "test_app_secret"
         payload = b'{"test": "payload"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Uppercase signature should fail
         signature_header = f"sha256={signature.upper()}"
@@ -184,11 +152,7 @@ class TestFacebookWebhookSignatureVerification:
         app_secret = "test_app_secret"
         payload = '{"message": "Hello 世界"}'.encode()
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -203,11 +167,7 @@ class TestShopifyWebhookHMACVerification:
         payload = b'{"test": "payload"}'
 
         # Generate valid HMAC
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         assert verify_shopify_webhook_hmac(payload, hmac_header, api_secret) is True
@@ -241,11 +201,7 @@ class TestShopifyWebhookHMACVerification:
         payload = b'{"test": "payload"}'
 
         # Generate HMAC with secret1
-        hmac_digest = hmac.new(
-            secret1.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(secret1.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         # Try to verify with secret2
@@ -258,11 +214,7 @@ class TestShopifyWebhookHMACVerification:
         payload2 = b'{"test": "payload2"}'
 
         # Generate HMAC for payload1
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload1,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload1, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         # Try to verify payload2 with payload1's HMAC
@@ -287,11 +239,7 @@ class TestShopifyWebhookHMACVerification:
         payload = b'{"test": "payload"}'
 
         # Generate correct HMAC
-        correct_hmac = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        correct_hmac = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         correct_hmac_header = base64.b64encode(correct_hmac).decode()
 
         # Generate wrong HMAC of same length
@@ -315,11 +263,7 @@ class TestShopifyWebhookHMACVerification:
         api_secret = "test_api_secret"
         payload = '{"order": "测试订单"}'.encode()
 
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         assert verify_shopify_webhook_hmac(payload, hmac_header, api_secret) is True
@@ -361,11 +305,7 @@ class TestSignatureEdgeCases:
         app_secret = "test_app_secret"
         payload = b'{"test": "payload\nwith\nnewlines"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -375,11 +315,7 @@ class TestSignatureEdgeCases:
         app_secret = "test_app_secret"
         payload = b'{"test": "!@#$%^&*()_+-=[]{}|;:\'",.<>/?"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -389,11 +325,7 @@ class TestSignatureEdgeCases:
         api_secret = "test_api_secret"
         payload = b'{"test": "payload\nwith\nnewlines"}'
 
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         assert verify_shopify_webhook_hmac(payload, hmac_header, api_secret) is True
@@ -404,12 +336,8 @@ class TestSignatureEdgeCases:
 
         # Test with various payload sizes
         for size in [1, 10, 100, 1000, 10000]:
-            payload = b'{"data": "' + b'x' * size + b'"}'
-            signature = hmac.new(
-                app_secret.encode(),
-                payload,
-                hashlib.sha256
-            ).hexdigest()
+            payload = b'{"data": "' + b"x" * size + b'"}'
+            signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
             signature_header = f"sha256={signature}"
 
             assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -424,11 +352,7 @@ class TestSignatureSecurityProperties:
         payload = b'{"test": "payload"}'
 
         # SHA-256 produces 64 hex characters
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         assert len(signature) == 64  # SHA-256 = 256 bits = 64 hex chars
 
@@ -437,11 +361,7 @@ class TestSignatureSecurityProperties:
         api_secret = "test_api_secret"
         payload = b'{"test": "payload"}'
 
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
 
         # SHA-256 produces 32 bytes
         assert len(hmac_digest) == 32  # SHA-256 = 256 bits = 32 bytes

@@ -20,6 +20,7 @@ from tests.conftest import TestingSessionLocal, test_engine
 # Test merchant fixture data matching merchant table schema
 class TestMerchantData:
     """Test merchant data matching merchant model schema."""
+
     id = 1
     merchant_key = "test-greeting-config"
     platform = "facebook"
@@ -36,21 +37,24 @@ async def test_get_greeting_config_success():
     """Test GET greeting-config returns current configuration."""
     # Create test merchant using proper column names
     async with test_engine.begin() as conn:
-        await conn.execute(text(
-            "INSERT INTO merchants "
-            "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name, custom_greeting, use_custom_greeting) "
-            "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name, :custom_greeting, :use_custom_greeting)"
-        ), {
-            "id": TestMerchantData.id,
-            "merchant_key": TestMerchantData.merchant_key,
-            "platform": TestMerchantData.platform,
-            "merchant_status": TestMerchantData.merchant_status,
-            "personality": TestMerchantData.personality_type.value,
-            "bot_name": TestMerchantData.bot_name,
-            "business_name": TestMerchantData.business_name,
-            "custom_greeting": TestMerchantData.custom_greeting,
-            "use_custom_greeting": TestMerchantData.use_custom_greeting,
-        })
+        await conn.execute(
+            text(
+                "INSERT INTO merchants "
+                "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name, custom_greeting, use_custom_greeting) "
+                "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name, :custom_greeting, :use_custom_greeting)"
+            ),
+            {
+                "id": TestMerchantData.id,
+                "merchant_key": TestMerchantData.merchant_key,
+                "platform": TestMerchantData.platform,
+                "merchant_status": TestMerchantData.merchant_status,
+                "personality": TestMerchantData.personality_type.value,
+                "bot_name": TestMerchantData.bot_name,
+                "business_name": TestMerchantData.business_name,
+                "custom_greeting": TestMerchantData.custom_greeting,
+                "use_custom_greeting": TestMerchantData.use_custom_greeting,
+            },
+        )
         await conn.commit()
 
     # Create client
@@ -107,21 +111,24 @@ async def test_get_greeting_config_response_structure():
     """Test GET greeting-config response has correct envelope structure."""
     # Create test merchant
     async with test_engine.begin() as conn:
-        await conn.execute(text(
-            "INSERT INTO merchants "
-            "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name, custom_greeting, use_custom_greeting) "
-            "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name, :custom_greeting, :use_custom_greeting)"
-        ), {
-            "id": TestMerchantData.id,
-            "merchant_key": TestMerchantData.merchant_key,
-            "platform": TestMerchantData.platform,
-            "merchant_status": TestMerchantData.merchant_status,
-            "personality": TestMerchantData.personality_type.value,
-            "bot_name": TestMerchantData.bot_name,
-            "business_name": TestMerchantData.business_name,
-            "custom_greeting": TestMerchantData.custom_greeting,
-            "use_custom_greeting": TestMerchantData.use_custom_greeting,
-        })
+        await conn.execute(
+            text(
+                "INSERT INTO merchants "
+                "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name, custom_greeting, use_custom_greeting) "
+                "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name, :custom_greeting, :use_custom_greeting)"
+            ),
+            {
+                "id": TestMerchantData.id,
+                "merchant_key": TestMerchantData.merchant_key,
+                "platform": TestMerchantData.platform,
+                "merchant_status": TestMerchantData.merchant_status,
+                "personality": TestMerchantData.personality_type.value,
+                "bot_name": TestMerchantData.bot_name,
+                "business_name": TestMerchantData.business_name,
+                "custom_greeting": TestMerchantData.custom_greeting,
+                "use_custom_greeting": TestMerchantData.use_custom_greeting,
+            },
+        )
         await conn.commit()
 
     # Create client
@@ -159,21 +166,24 @@ async def test_update_greeting_config_custom_greeting_success():
     """Test PUT greeting-config with custom greeting succeeds."""
     # Create test merchant
     async with test_engine.begin() as conn:
-        await conn.execute(text(
-            "INSERT INTO merchants "
-            "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name, custom_greeting, use_custom_greeting) "
-            "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name, :custom_greeting, :use_custom_greeting)"
-        ), {
-            "id": TestMerchantData.id,
-            "merchant_key": TestMerchantData.merchant_key,
-            "platform": TestMerchantData.platform,
-            "merchant_status": TestMerchantData.merchant_status,
-            "personality": TestMerchantData.personality_type.value,
-            "bot_name": TestMerchantData.bot_name,
-            "business_name": TestMerchantData.business_name,
-            "custom_greeting": TestMerchantData.custom_greeting,
-            "use_custom_greeting": TestMerchantData.use_custom_greeting,
-        })
+        await conn.execute(
+            text(
+                "INSERT INTO merchants "
+                "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name, custom_greeting, use_custom_greeting) "
+                "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name, :custom_greeting, :use_custom_greeting)"
+            ),
+            {
+                "id": TestMerchantData.id,
+                "merchant_key": TestMerchantData.merchant_key,
+                "platform": TestMerchantData.platform,
+                "merchant_status": TestMerchantData.merchant_status,
+                "personality": TestMerchantData.personality_type.value,
+                "bot_name": TestMerchantData.bot_name,
+                "business_name": TestMerchantData.business_name,
+                "custom_greeting": TestMerchantData.custom_greeting,
+                "use_custom_greeting": TestMerchantData.use_custom_greeting,
+            },
+        )
         await conn.commit()
 
     # Create client
@@ -217,19 +227,22 @@ async def test_update_greeting_config_empty_greeting_raises_validation_error():
     """Test PUT greeting-config with empty template raises validation error."""
     # Create test merchant
     async with test_engine.begin() as conn:
-        await conn.execute(text(
-            "INSERT INTO merchants "
-            "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name) "
-            "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name)"
-        ), {
-            "id": TestMerchantData.id,
-            "merchant_key": TestMerchantData.merchant_key,
-            "platform": TestMerchantData.platform,
-            "merchant_status": TestMerchantData.merchant_status,
-            "personality": TestMerchantData.personality_type.value,
-            "bot_name": TestMerchantData.bot_name,
-            "business_name": TestMerchantData.business_name,
-        })
+        await conn.execute(
+            text(
+                "INSERT INTO merchants "
+                "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name) "
+                "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name)"
+            ),
+            {
+                "id": TestMerchantData.id,
+                "merchant_key": TestMerchantData.merchant_key,
+                "platform": TestMerchantData.platform,
+                "merchant_status": TestMerchantData.merchant_status,
+                "personality": TestMerchantData.personality_type.value,
+                "bot_name": TestMerchantData.bot_name,
+                "business_name": TestMerchantData.business_name,
+            },
+        )
         await conn.commit()
 
     # Create client
@@ -317,19 +330,22 @@ async def test_put_greeting_config_response_structure():
     """Test PUT greeting-config response has correct envelope structure."""
     # Create test merchant
     async with test_engine.begin() as conn:
-        await conn.execute(text(
-            "INSERT INTO merchants "
-            "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name) "
-            "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name)"
-        ), {
-            "id": TestMerchantData.id,
-            "merchant_key": TestMerchantData.merchant_key,
-            "platform": TestMerchantData.platform,
-            "merchant_status": TestMerchantData.merchant_status,
-            "personality": TestMerchantData.personality_type.value,
-            "bot_name": TestMerchantData.bot_name,
-            "business_name": TestMerchantData.business_name,
-        })
+        await conn.execute(
+            text(
+                "INSERT INTO merchants "
+                "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name) "
+                "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name)"
+            ),
+            {
+                "id": TestMerchantData.id,
+                "merchant_key": TestMerchantData.merchant_key,
+                "platform": TestMerchantData.platform,
+                "merchant_status": TestMerchantData.merchant_status,
+                "personality": TestMerchantData.personality_type.value,
+                "bot_name": TestMerchantData.bot_name,
+                "business_name": TestMerchantData.business_name,
+            },
+        )
         await conn.commit()
 
     # Create client
@@ -349,8 +365,7 @@ async def test_put_greeting_config_response_structure():
         base_url="http://test",
     ) as client:
         response = await client.put(
-            "/api/v1/merchant/greeting-config",
-            json={"greeting_template": "Test greeting"}
+            "/api/v1/merchant/greeting-config", json={"greeting_template": "Test greeting"}
         )
 
     app.dependency_overrides.clear()
@@ -370,19 +385,22 @@ async def test_greeting_config_available_variables_list():
     """Test available_variables contains expected variables."""
     # Create test merchant
     async with test_engine.begin() as conn:
-        await conn.execute(text(
-            "INSERT INTO merchants "
-            "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name) "
-            "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name)"
-        ), {
-            "id": TestMerchantData.id,
-            "merchant_key": TestMerchantData.merchant_key,
-            "platform": TestMerchantData.platform,
-            "merchant_status": TestMerchantData.merchant_status,
-            "personality": TestMerchantData.personality_type.value,
-            "bot_name": TestMerchantData.bot_name,
-            "business_name": TestMerchantData.business_name,
-        })
+        await conn.execute(
+            text(
+                "INSERT INTO merchants "
+                "(id, merchant_key, platform, merchant_status, personality_type, bot_name, business_name) "
+                "VALUES (:id, :merchant_key, :platform, :merchant_status, :personality, :bot_name, :business_name)"
+            ),
+            {
+                "id": TestMerchantData.id,
+                "merchant_key": TestMerchantData.merchant_key,
+                "platform": TestMerchantData.platform,
+                "merchant_status": TestMerchantData.merchant_status,
+                "personality": TestMerchantData.personality_type.value,
+                "bot_name": TestMerchantData.bot_name,
+                "business_name": TestMerchantData.business_name,
+            },
+        )
         await conn.commit()
 
     # Create client
@@ -410,4 +428,8 @@ async def test_greeting_config_available_variables_list():
     data = response.json()
     greeting_data = data["data"]
     assert "available_variables" in greeting_data
-    assert set(greeting_data["available_variables"]) == {"bot_name", "business_name", "business_hours"}
+    assert set(greeting_data["available_variables"]) == {
+        "bot_name",
+        "business_name",
+        "business_hours",
+    }

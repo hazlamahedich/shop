@@ -23,7 +23,9 @@ from app.services.messaging.message_processor import MessageProcessor
 @pytest.mark.asyncio
 async def test_clarification_flow_full_cycle():
     """Test full clarification flow from low confidence to product search."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         # First classification: low confidence, no constraints
         mock_classifier = AsyncMock()
         mock_classification_low = ClassificationResult(
@@ -50,44 +52,56 @@ async def test_clarification_flow_full_cycle():
         # Return low confidence first, then high confidence
         mock_classifier.classify.side_effect = [mock_classification_low, mock_classification_high]
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             # First call: no active clarification
             # Second call: active clarification with 1 attempt
-            mock_context.get_context = AsyncMock(side_effect=[
-                {
-                    "psid": "123456",
-                    "conversation_state": "active",
-                    "clarification": {},
-                },
-                {
-                    "psid": "123456",
-                    "conversation_state": "active",
-                    "clarification": {
-                        "active": True,
-                        "attempt_count": 1,
-                        "questions_asked": ["budget"],
+            mock_context.get_context = AsyncMock(
+                side_effect=[
+                    {
+                        "psid": "123456",
+                        "conversation_state": "active",
+                        "clarification": {},
                     },
-                },
-            ])
+                    {
+                        "psid": "123456",
+                        "conversation_state": "active",
+                        "clarification": {
+                            "active": True,
+                            "attempt_count": 1,
+                            "questions_asked": ["budget"],
+                        },
+                    },
+                ]
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context.update_clarification_state = AsyncMock(return_value=None)
             mock_context.update_search_results = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
-            with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_service_class:
+            with patch(
+                "app.services.messaging.message_processor.MessengerSendService"
+            ) as mock_send_service_class:
                 mock_send_service = MagicMock()
                 mock_send_service.send_message = AsyncMock(return_value=None)
                 mock_send_service.close = AsyncMock(return_value=None)
                 mock_send_service_class.return_value = mock_send_service
 
                 # Mock product formatter to avoid formatting issues
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerProductFormatter"
+                ) as mock_formatter_class:
                     mock_formatter = MagicMock()
-                    mock_formatter.format_product_results = MagicMock(return_value={"text": "Found products"})
+                    mock_formatter.format_product_results = MagicMock(
+                        return_value={"text": "Found products"}
+                    )
                     mock_formatter_class.return_value = mock_formatter
 
-                    with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+                    with patch(
+                        "app.services.messaging.message_processor.ProductSearchService"
+                    ) as mock_search_service_class:
                         mock_search_service = MagicMock()
                         mock_search_service.search_products = AsyncMock(
                             return_value=ProductSearchResult(
@@ -99,19 +113,25 @@ async def test_clarification_flow_full_cycle():
                         )
                         mock_search_service_class.return_value = mock_search_service
 
-                        processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                        processor = MessageProcessor(
+                            classifier=mock_classifier, context_manager=mock_context
+                        )
 
                         # First message: low confidence triggers clarification
                         payload = FacebookWebhookPayload(
                             object="page",
-                            entry=[{
-                                "id": "123456789",
-                                "time": 1234567890,
-                                "messaging": [{
-                                    "sender": {"id": "123456"},
-                                    "message": {"text": "shoes"},
-                                }],
-                            }],
+                            entry=[
+                                {
+                                    "id": "123456789",
+                                    "time": 1234567890,
+                                    "messaging": [
+                                        {
+                                            "sender": {"id": "123456"},
+                                            "message": {"text": "shoes"},
+                                        }
+                                    ],
+                                }
+                            ],
                         )
 
                         response1 = await processor.process_message(payload)
@@ -124,27 +144,35 @@ async def test_clarification_flow_full_cycle():
                         # Second message: clarification response with high confidence
                         payload2 = FacebookWebhookPayload(
                             object="page",
-                            entry=[{
-                                "id": "123456789",
-                                "time": 1234567890,
-                                "messaging": [{
-                                    "sender": {"id": "123456"},
-                                    "message": {"text": "$100 shoes"},
-                                }],
-                            }],
+                            entry=[
+                                {
+                                    "id": "123456789",
+                                    "time": 1234567890,
+                                    "messaging": [
+                                        {
+                                            "sender": {"id": "123456"},
+                                            "message": {"text": "$100 shoes"},
+                                        }
+                                    ],
+                                }
+                            ],
                         )
 
                         response2 = await processor.process_message(payload2)
 
                         # Should proceed to search since confidence improved
                         # Response is the product search summary
-                        assert "found" in response2.text.lower() or "product" in response2.text.lower()
+                        assert (
+                            "found" in response2.text.lower() or "product" in response2.text.lower()
+                        )
 
 
 @pytest.mark.asyncio
 async def test_clarification_flow_max_attempts_fallback():
     """Test fallback to assumptions after max 3 attempts."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.PRODUCT_SEARCH,
@@ -158,36 +186,48 @@ async def test_clarification_flow_max_attempts_fallback():
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             # Context shows 3 attempts already made
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-                "clarification": {
-                    "active": True,
-                    "attempt_count": 3,  # Max attempts reached
-                    "questions_asked": ["budget", "category", "size"],
-                },
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                    "clarification": {
+                        "active": True,
+                        "attempt_count": 3,  # Max attempts reached
+                        "questions_asked": ["budget", "category", "size"],
+                    },
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context.update_clarification_state = AsyncMock(return_value=None)
             mock_context.update_search_results = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
-            with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_service_class:
+            with patch(
+                "app.services.messaging.message_processor.MessengerSendService"
+            ) as mock_send_service_class:
                 mock_send_service = MagicMock()
                 mock_send_service.send_message = AsyncMock(return_value=None)
                 mock_send_service.close = AsyncMock(return_value=None)
                 mock_send_service_class.return_value = mock_send_service
 
                 # Mock product formatter
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerProductFormatter"
+                ) as mock_formatter_class:
                     mock_formatter = MagicMock()
-                    mock_formatter.format_product_results = MagicMock(return_value={"text": "Found products"})
+                    mock_formatter.format_product_results = MagicMock(
+                        return_value={"text": "Found products"}
+                    )
                     mock_formatter_class.return_value = mock_formatter
 
-                    with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+                    with patch(
+                        "app.services.messaging.message_processor.ProductSearchService"
+                    ) as mock_search_service_class:
                         mock_search_service = MagicMock()
                         mock_search_service.search_products = AsyncMock(
                             return_value=ProductSearchResult(
@@ -199,18 +239,24 @@ async def test_clarification_flow_max_attempts_fallback():
                         )
                         mock_search_service_class.return_value = mock_search_service
 
-                        processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                        processor = MessageProcessor(
+                            classifier=mock_classifier, context_manager=mock_context
+                        )
 
                         payload = FacebookWebhookPayload(
                             object="page",
-                            entry=[{
-                                "id": "123456789",
-                                "time": 1234567890,
-                                "messaging": [{
-                                    "sender": {"id": "123456"},
-                                    "message": {"text": "shoes"},
-                                }],
-                            }],
+                            entry=[
+                                {
+                                    "id": "123456789",
+                                    "time": 1234567890,
+                                    "messaging": [
+                                        {
+                                            "sender": {"id": "123456"},
+                                            "message": {"text": "shoes"},
+                                        }
+                                    ],
+                                }
+                            ],
                         )
 
                         response = await processor.process_message(payload)
@@ -218,18 +264,25 @@ async def test_clarification_flow_max_attempts_fallback():
                         # FIX: Fallback flow now returns assumption message (not product search summary)
                         # The assumption message is sent by the webhook handler
                         # Product carousel was sent via _proceed_to_search with suppress_summary=True
-                        assert "options" in response.text.lower() or "shoes" in response.text.lower()
+                        assert (
+                            "options" in response.text.lower() or "shoes" in response.text.lower()
+                        )
                         # Verify product carousel was sent (via _proceed_to_search)
                         assert mock_send_service.send_message.call_count >= 1
                         # The call should be for the product carousel
                         first_call_args = mock_send_service.send_message.call_args_list[0]
-                        first_message = first_call_args[0][1]  # Second positional arg is the message
+                        first_message = first_call_args[0][
+                            1
+                        ]  # Second positional arg is the message
                         if isinstance(first_message, dict):
                             message_text = first_message.get("text", "")
                         else:
                             message_text = str(first_message)
                         # Product carousel was sent (contains "Found products" from our mock)
-                        assert "found products" in message_text.lower() or "shoes" in message_text.lower()
+                        assert (
+                            "found products" in message_text.lower()
+                            or "shoes" in message_text.lower()
+                        )
                         # Clarification state should be cleared
                         mock_context.update_clarification_state.assert_called()
 
@@ -267,21 +320,29 @@ async def test_clarification_state_persistence():
     }
 
     # After user responds, still missing constraints
-    assert await clarification_service.should_fallback_to_assumptions({"clarification": state}) is False
+    assert (
+        await clarification_service.should_fallback_to_assumptions({"clarification": state})
+        is False
+    )
 
     # Update state for second question
     state["attempt_count"] = 2
     state["questions_asked"].append("category")
 
     # Still shouldn't fallback
-    assert await clarification_service.should_fallback_to_assumptions({"clarification": state}) is False
+    assert (
+        await clarification_service.should_fallback_to_assumptions({"clarification": state})
+        is False
+    )
 
     # Update state for third question
     state["attempt_count"] = 3
     state["questions_asked"].append("size")
 
     # Should fallback now
-    assert await clarification_service.should_fallback_to_assumptions({"clarification": state}) is True
+    assert (
+        await clarification_service.should_fallback_to_assumptions({"clarification": state}) is True
+    )
 
 
 @pytest.mark.asyncio
@@ -367,7 +428,9 @@ async def test_clarification_respects_existing_constraints():
     )
 
     # First question should be about size, not budget or category
-    question, constraint = await generator.generate_next_question(classification, questions_asked=[])
+    question, constraint = await generator.generate_next_question(
+        classification, questions_asked=[]
+    )
     assert "budget" not in question.lower()
     assert "category" not in question.lower()
     assert "size" in question.lower()

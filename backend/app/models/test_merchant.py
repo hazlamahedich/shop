@@ -217,8 +217,20 @@ async def test_merchant_personality_index_query(db_session: AsyncSession) -> Non
 
     # Create merchants with different personalities
     merchants = [
-        Merchant(merchant_key=f"test-merchant-personality-query-{i}", platform="fly.io", status="active", personality=personality)
-        for i, personality in enumerate([PersonalityType.FRIENDLY, PersonalityType.PROFESSIONAL, PersonalityType.ENTHUSIASTIC, PersonalityType.FRIENDLY])
+        Merchant(
+            merchant_key=f"test-merchant-personality-query-{i}",
+            platform="fly.io",
+            status="active",
+            personality=personality,
+        )
+        for i, personality in enumerate(
+            [
+                PersonalityType.FRIENDLY,
+                PersonalityType.PROFESSIONAL,
+                PersonalityType.ENTHUSIASTIC,
+                PersonalityType.FRIENDLY,
+            ]
+        )
     ]
 
     for merchant in merchants:

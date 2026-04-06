@@ -91,7 +91,9 @@ class WebhookStatusResponse(BaseSchema):
 
     facebook: FacebookWebhookStatus = Field(description="Facebook webhook status")
     shopify: ShopifyWebhookStatus = Field(description="Shopify webhook status")
-    overall_status: WebhookStatus = Field(description="Overall status: ready, partial, or not_connected")
+    overall_status: WebhookStatus = Field(
+        description="Overall status: ready, partial, or not_connected"
+    )
     can_go_live: bool = Field(description="Whether bot is ready to accept customers")
 
 
@@ -108,7 +110,9 @@ class WebhookTestResponse(BaseSchema):
     delivered_at: str | None = Field(None, description="Delivery timestamp (if applicable)")
     conversation_created: bool | None = Field(None, description="Whether conversation was created")
     test_order_id: str | None = Field(None, description="Shopify test order ID (if applicable)")
-    webhook_received_at: str | None = Field(None, description="Webhook receipt timestamp (if applicable)")
+    webhook_received_at: str | None = Field(
+        None, description="Webhook receipt timestamp (if applicable)"
+    )
     order_stored: bool | None = Field(None, description="Whether order was stored")
     page_id: str | None = Field(None, description="Facebook Page ID (if applicable)")
     shop_domain: str | None = Field(None, description="Shopify shop domain (if applicable)")
@@ -122,7 +126,9 @@ class WebhookResubscribeResponse(BaseSchema):
     """Webhook re-subscription response."""
 
     platform: Platform = Field(description="Platform name: facebook or shopify")
-    status: ResubscribeStatus = Field(description="Re-subscription status: success, partial, or failed")
+    status: ResubscribeStatus = Field(
+        description="Re-subscription status: success, partial, or failed"
+    )
     message: str = Field(description="Human-readable result message")
     topics: list[Any] = Field(default_factory=list, description="Re-subscribed topics with status")
     subscribed_at: str | None = Field(None, description="Re-subscription timestamp")

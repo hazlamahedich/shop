@@ -59,10 +59,12 @@ async def test_abstract_methods_required() -> None:
 
     # Attempting to create a class without implementing abstract methods should fail
     with pytest.raises(TypeError):
+
         class IncompleteService(BaseLLMService):
             @property
             def provider_name(self) -> str:
                 return "test"
+
             # Missing required abstract methods
 
         IncompleteService({}, is_testing=False)

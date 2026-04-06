@@ -28,6 +28,7 @@ from app.main import app
 @pytest.fixture
 def webhook_signature():
     """Generate valid webhook signature for testing."""
+
     def _sign(body: str, app_secret: str) -> str:
         signature = hmac.new(
             app_secret.encode(),
@@ -35,6 +36,7 @@ def webhook_signature():
             hashlib.sha256,
         ).hexdigest()
         return f"sha256={signature}"
+
     return _sign
 
 
@@ -42,17 +44,24 @@ def webhook_signature():
 def valid_webhook_headers(webhook_signature):
     """Headers for valid webhook request (DEPRECATED - generate per request)."""
     app_secret = settings()["FACEBOOK_APP_SECRET"]
-    body = json.dumps({
-        "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "running shoes under $100"},
-            }],
-        }],
-    }, separators=(',', ':'))
+    body = json.dumps(
+        {
+            "object": "page",
+            "entry": [
+                {
+                    "id": "123456789",
+                    "time": 1234567890,
+                    "messaging": [
+                        {
+                            "sender": {"id": "123456"},
+                            "message": {"text": "running shoes under $100"},
+                        }
+                    ],
+                }
+            ],
+        },
+        separators=(",", ":"),
+    )
 
     return {
         "x-hub-signature-256": webhook_signature(body, app_secret),
@@ -69,14 +78,18 @@ async def test_webhook_endpoint_returns_200_on_valid_request():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "running shoes under $100"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "running shoes under $100"},
+                    }
+                ],
+            }
+        ],
     }
 
     # Mock the background task execution to prevent async processing
@@ -84,7 +97,7 @@ async def test_webhook_endpoint_returns_200_on_valid_request():
         mock_process.return_value = None
 
         # Pre-serialize JSON to ensure signature matches
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
 
         # Re-generate signature with exact serialization
         signature = hmac.new(
@@ -97,7 +110,9 @@ async def test_webhook_endpoint_returns_200_on_valid_request():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",
                 content=body,
@@ -118,18 +133,22 @@ async def test_webhook_endpoint_rejects_invalid_signature():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "running shoes"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "running shoes"},
+                    }
+                ],
+            }
+        ],
     }
 
     # Pre-serialize JSON
-    body = json.dumps(payload, separators=(',', ':'))
+    body = json.dumps(payload, separators=(",", ":"))
 
     # Invalid signature (wrong secret)
     signature = hmac.new(
@@ -142,7 +161,9 @@ async def test_webhook_endpoint_rejects_invalid_signature():
         "content-type": "application/json",
     }
 
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.post(
             "/api/webhooks/webhooks/facebook/messenger",
             content=body,
@@ -161,25 +182,31 @@ async def test_webhook_endpoint_rejects_missing_signature():
     """
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "running shoes"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "running shoes"},
+                    }
+                ],
+            }
+        ],
     }
 
     # Pre-serialize JSON
-    body = json.dumps(payload, separators=(',', ':'))
+    body = json.dumps(payload, separators=(",", ":"))
 
     headers = {
         "content-type": "application/json",
         # No x-hub-signature-256 header
     }
 
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.post(
             "/api/webhooks/webhooks/facebook/messenger",
             content=body,
@@ -209,7 +236,9 @@ async def test_webhook_endpoint_rejects_malformed_payload():
         "content-type": "application/json",
     }
 
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.post(
             "/api/webhooks/webhooks/facebook/messenger",
             content=malformed_body,
@@ -228,20 +257,24 @@ async def test_webhook_endpoint_handles_greeting_intent():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "Hi"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "Hi"},
+                    }
+                ],
+            }
+        ],
     }
 
     with patch("app.api.webhooks.facebook.process_webhook_message") as mock_process:
         mock_process.return_value = None
 
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -252,7 +285,9 @@ async def test_webhook_endpoint_handles_greeting_intent():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",
                 content=body,
@@ -275,20 +310,24 @@ async def test_webhook_endpoint_handles_human_handoff():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "human"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "human"},
+                    }
+                ],
+            }
+        ],
     }
 
     with patch("app.api.webhooks.facebook.process_webhook_message") as mock_process:
         mock_process.return_value = None
 
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -299,7 +338,9 @@ async def test_webhook_endpoint_handles_human_handoff():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",
                 content=body,
@@ -319,20 +360,24 @@ async def test_webhook_endpoint_handles_cart_view_intent():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "cart"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "cart"},
+                    }
+                ],
+            }
+        ],
     }
 
     with patch("app.api.webhooks.facebook.process_webhook_message") as mock_process:
         mock_process.return_value = None
 
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -343,7 +388,9 @@ async def test_webhook_endpoint_handles_cart_view_intent():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",
                 content=body,
@@ -363,20 +410,24 @@ async def test_webhook_endpoint_handles_checkout_intent():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "checkout"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "checkout"},
+                    }
+                ],
+            }
+        ],
     }
 
     with patch("app.api.webhooks.facebook.process_webhook_message") as mock_process:
         mock_process.return_value = None
 
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -387,7 +438,9 @@ async def test_webhook_endpoint_handles_checkout_intent():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",
                 content=body,
@@ -407,20 +460,24 @@ async def test_webhook_endpoint_handles_order_tracking_intent():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "track my order"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "track my order"},
+                    }
+                ],
+            }
+        ],
     }
 
     with patch("app.api.webhooks.facebook.process_webhook_message") as mock_process:
         mock_process.return_value = None
 
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -431,7 +488,9 @@ async def test_webhook_endpoint_handles_order_tracking_intent():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",
                 content=body,
@@ -454,7 +513,9 @@ async def test_webhook_verification_get_endpoint():
         "hub.challenge": "test_challenge_123",
     }
 
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.get(
             "/api/webhooks/webhooks/facebook/messenger",
             params=params,
@@ -476,7 +537,9 @@ async def test_webhook_verification_rejects_invalid_token():
         "hub.challenge": "test_challenge_123",
     }
 
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.get(
             "/api/webhooks/webhooks/facebook/messenger",
             params=params,
@@ -498,16 +561,20 @@ async def test_webhook_endpoint_concurrent_requests():
     async def send_request(client, message):
         payload = {
             "object": "page",
-            "entry": [{
-                "id": "123456789",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "123456"},
-                    "message": {"text": message},
-                }],
-            }],
+            "entry": [
+                {
+                    "id": "123456789",
+                    "time": 1234567890,
+                    "messaging": [
+                        {
+                            "sender": {"id": "123456"},
+                            "message": {"text": message},
+                        }
+                    ],
+                }
+            ],
         }
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -525,12 +592,11 @@ async def test_webhook_endpoint_concurrent_requests():
                 headers=headers,
             )
 
-    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # Send 5 concurrent requests
-        tasks = [
-            send_request(client, f"message {i}")
-            for i in range(5)
-        ]
+        tasks = [send_request(client, f"message {i}") for i in range(5)]
         responses = await asyncio.gather(*tasks)
 
         # All should return 200
@@ -548,18 +614,22 @@ async def test_webhook_endpoint_response_time():
     app_secret = settings()["FACEBOOK_APP_SECRET"]
     payload = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "test"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "test"},
+                    }
+                ],
+            }
+        ],
     }
 
     with patch("app.api.webhooks.facebook.process_webhook_message"):
-        body = json.dumps(payload, separators=(',', ':'))
+        body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             app_secret.encode(),
             body.encode(),
@@ -570,7 +640,9 @@ async def test_webhook_endpoint_response_time():
             "content-type": "application/json",
         }
 
-        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             start_time = time.time()
             response = await client.post(
                 "/api/webhooks/webhooks/facebook/messenger",

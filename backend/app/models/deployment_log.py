@@ -54,4 +54,6 @@ class DeploymentLog(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<DeploymentLog(id={self.id}, deployment_id={self.deployment_id}, level={self.level})>"
+        return (
+            f"<DeploymentLog(id={self.id}, deployment_id={self.deployment_id}, level={self.level})>"
+        )

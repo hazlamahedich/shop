@@ -23,9 +23,7 @@ class PaymentBreakdown(BaseModel):
     shipping: Decimal | None = Field(None, description="Shipping cost")
     tax: Decimal | None = Field(None, description="Tax amount")
     discount: Decimal | None = Field(None, description="Total discount amount")
-    discount_codes: list[dict[str, Any]] | None = Field(
-        None, description="Discount codes applied"
-    )
+    discount_codes: list[dict[str, Any]] | None = Field(None, description="Discount codes applied")
     payment_method: str | None = Field(None, description="Payment method used")
     currency: str = Field(default="USD", description="Currency code")
 

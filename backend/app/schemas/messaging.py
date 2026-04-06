@@ -104,9 +104,7 @@ class ClarificationState(BaseModel):
 
     active: bool = Field(False, description="Is clarification flow active?")
     attempt_count: int = Field(0, description="Number of clarification attempts")
-    questions_asked: list[str] = Field(
-        default_factory=list, description="Constraints asked about"
-    )
+    questions_asked: list[str] = Field(default_factory=list, description="Constraints asked about")
     last_question: str | None = Field(None, description="Last question asked")
     original_intent: dict[str, Any] | None = Field(
         None, description="Original intent being clarified"
@@ -125,8 +123,12 @@ class ConversationContext(BaseModel):
     created_at: str | None = Field(None, description="Session creation timestamp")
     last_message_at: str | None = Field(None, description="Last message timestamp")
     message_count: int = Field(0, description="Number of messages in session")
-    previous_intents: list[str] = Field(default_factory=list, description="Previous intent classifications")
-    extracted_entities: dict[str, Any] = Field(default_factory=dict, description="Extracted entities from conversation")
+    previous_intents: list[str] = Field(
+        default_factory=list, description="Previous intent classifications"
+    )
+    extracted_entities: dict[str, Any] = Field(
+        default_factory=dict, description="Extracted entities from conversation"
+    )
     conversation_state: str = Field("active", description="Current conversation state")
     clarification: ClarificationState | None = Field(None, description="Clarification flow state")
 

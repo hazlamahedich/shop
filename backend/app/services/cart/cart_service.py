@@ -83,29 +83,22 @@ class CartService:
                 return Cart(**cart_dict)
             else:
                 # Return empty cart
-                return Cart(
-                    items=[],
-                    subtotal=0.0,
-                    currency_code=CurrencyCode.USD
-                )
+                return Cart(items=[], subtotal=0.0, currency_code=CurrencyCode.USD)
 
         except json.JSONDecodeError as e:
             self.logger.error(
                 "cart_data_corrupted",
                 psid=psid,
                 error=str(e),
-                data_preview=data[:200] if data else None
+                data_preview=data[:200] if data else None,
             )
             raise APIError(
                 ErrorCode.CART_DATA_CORRUPTED,
-                "Cart data is corrupted. Please try clearing your cart."
+                "Cart data is corrupted. Please try clearing your cart.",
             )
         except Exception as e:
             self.logger.error("cart_retrieval_failed", psid=psid, error=str(e))
-            raise APIError(
-                ErrorCode.CART_RETRIEVAL_FAILED,
-                "Failed to retrieve cart"
-            )
+            raise APIError(ErrorCode.CART_RETRIEVAL_FAILED, "Failed to retrieve cart")
 
     async def add_item(
         self,
@@ -149,12 +142,12 @@ class CartService:
                     "cart_currency_mismatch",
                     psid=psid,
                     cart_currency=cart.currency_code.value,
-                    item_currency=item_currency.value
+                    item_currency=item_currency.value,
                 )
                 raise APIError(
                     ErrorCode.CART_CURRENCY_MISMATCH,
                     f"Cannot add {item_currency.value} item to {cart.currency_code.value} cart. "
-                    f"Please clear your cart first or add items in the same currency."
+                    f"Please clear your cart first or add items in the same currency.",
                 )
 
             # Check if item already exists
@@ -166,10 +159,7 @@ class CartService:
 
             if existing_item:
                 # Increment quantity (with max check)
-                new_quantity = min(
-                    existing_item.quantity + quantity,
-                    self.MAX_QUANTITY
-                )
+                new_quantity = min(existing_item.quantity + quantity, self.MAX_QUANTITY)
                 existing_item.quantity = new_quantity
 
                 self.logger.info(
@@ -177,7 +167,7 @@ class CartService:
                     psid=psid,
                     variant_id=variant_id,
                     old_quantity=existing_item.quantity,
-                    new_quantity=new_quantity
+                    new_quantity=new_quantity,
                 )
             else:
                 # Add new item
@@ -189,15 +179,12 @@ class CartService:
                     image_url=image_url,
                     currency_code=CurrencyCode(currency_code),
                     quantity=quantity,
-                    added_at=datetime.now(UTC).isoformat()
+                    added_at=datetime.now(UTC).isoformat(),
                 )
                 cart.items.append(new_item)
 
                 self.logger.info(
-                    "cart_item_added",
-                    psid=psid,
-                    variant_id=variant_id,
-                    quantity=quantity
+                    "cart_item_added", psid=psid, variant_id=variant_id, quantity=quantity
                 )
 
             # Update subtotal
@@ -211,11 +198,7 @@ class CartService:
 
             # Save to Redis with TTL
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
-            await self.redis.setex(
-                cart_key,
-                self.CART_TTL_SECONDS,
-                json.dumps(cart_dict)
-            )
+            await self.redis.setex(cart_key, self.CART_TTL_SECONDS, json.dumps(cart_dict))
 
             return cart
 
@@ -223,10 +206,7 @@ class CartService:
             raise
         except Exception as e:
             self.logger.error("cart_add_item_failed", psid=psid, error=str(e))
-            raise APIError(
-                ErrorCode.CART_ADD_FAILED,
-                "Failed to add item to cart"
-            )
+            raise APIError(ErrorCode.CART_ADD_FAILED, "Failed to add item to cart")
 
     async def remove_item(self, psid: str, variant_id: str) -> Cart:
         """Remove item from cart.
@@ -252,11 +232,7 @@ class CartService:
 
             # Save to Redis
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
-            await self.redis.setex(
-                cart_key,
-                self.CART_TTL_SECONDS,
-                json.dumps(cart_dict)
-            )
+            await self.redis.setex(cart_key, self.CART_TTL_SECONDS, json.dumps(cart_dict))
 
             self.logger.info("cart_item_removed", psid=psid, variant_id=variant_id)
 
@@ -264,10 +240,7 @@ class CartService:
 
         except Exception as e:
             self.logger.error("cart_remove_item_failed", psid=psid, error=str(e))
-            raise APIError(
-                ErrorCode.CART_REMOVE_FAILED,
-                "Failed to remove item from cart"
-            )
+            raise APIError(ErrorCode.CART_REMOVE_FAILED, "Failed to remove item from cart")
 
     async def update_quantity(
         self,
@@ -290,8 +263,7 @@ class CartService:
         """
         if not (1 <= quantity <= self.MAX_QUANTITY):
             raise APIError(
-                ErrorCode.INVALID_QUANTITY,
-                f"Quantity must be between 1 and {self.MAX_QUANTITY}"
+                ErrorCode.INVALID_QUANTITY, f"Quantity must be between 1 and {self.MAX_QUANTITY}"
             )
 
         cart_key = self._get_cart_key(psid)
@@ -309,8 +281,7 @@ class CartService:
 
             if not found:
                 raise APIError(
-                    ErrorCode.ITEM_NOT_FOUND,
-                    f"Item with variant_id {variant_id} not found in cart"
+                    ErrorCode.ITEM_NOT_FOUND, f"Item with variant_id {variant_id} not found in cart"
                 )
 
             # Update subtotal
@@ -319,17 +290,10 @@ class CartService:
 
             # Save to Redis
             cart_dict = cart.model_dump(exclude_none=True, mode="json")
-            await self.redis.setex(
-                cart_key,
-                self.CART_TTL_SECONDS,
-                json.dumps(cart_dict)
-            )
+            await self.redis.setex(cart_key, self.CART_TTL_SECONDS, json.dumps(cart_dict))
 
             self.logger.info(
-                "cart_quantity_updated",
-                psid=psid,
-                variant_id=variant_id,
-                quantity=quantity
+                "cart_quantity_updated", psid=psid, variant_id=variant_id, quantity=quantity
             )
 
             return cart
@@ -338,10 +302,7 @@ class CartService:
             raise
         except Exception as e:
             self.logger.error("cart_update_quantity_failed", psid=psid, error=str(e))
-            raise APIError(
-                ErrorCode.CART_UPDATE_FAILED,
-                "Failed to update cart quantity"
-            )
+            raise APIError(ErrorCode.CART_UPDATE_FAILED, "Failed to update cart quantity")
 
     async def clear_cart(self, psid: str) -> None:
         """Clear all items from cart.
@@ -357,7 +318,4 @@ class CartService:
 
         except Exception as e:
             self.logger.error("cart_clear_failed", psid=psid, error=str(e))
-            raise APIError(
-                ErrorCode.CART_CLEAR_FAILED,
-                "Failed to clear cart"
-            )
+            raise APIError(ErrorCode.CART_CLEAR_FAILED, "Failed to clear cart")

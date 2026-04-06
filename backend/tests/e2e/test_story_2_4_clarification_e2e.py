@@ -21,7 +21,9 @@ from app.services.messaging.message_processor import MessageProcessor
 @pytest.mark.asyncio
 async def test_e2e_clarification_flow_low_confidence():
     """E2E test: Low confidence triggers clarification flow."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.PRODUCT_SEARCH,
@@ -35,36 +37,48 @@ async def test_e2e_clarification_flow_low_confidence():
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-                "clarification": {},  # No active clarification
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                    "clarification": {},  # No active clarification
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context.update_clarification_state = AsyncMock(return_value=None)
             mock_context.update_search_results = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
-            with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_service_class:
+            with patch(
+                "app.services.messaging.message_processor.MessengerSendService"
+            ) as mock_send_service_class:
                 mock_send_service = MagicMock()
                 mock_send_service.send_message = AsyncMock(return_value=None)
                 mock_send_service.close = AsyncMock(return_value=None)
                 mock_send_service_class.return_value = mock_send_service
 
-                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                processor = MessageProcessor(
+                    classifier=mock_classifier, context_manager=mock_context
+                )
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "shoes"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "shoes"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 response = await processor.process_message(payload)
@@ -82,7 +96,9 @@ async def test_e2e_clarification_flow_low_confidence():
 @pytest.mark.asyncio
 async def test_e2e_clarification_flow_confidence_improves():
     """E2E test: Confidence improves after clarification response."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         # First call: low confidence
         mock_classification_low = ClassificationResult(
@@ -107,42 +123,55 @@ async def test_e2e_clarification_flow_confidence_improves():
 
         mock_classifier.classify.side_effect = [mock_classification_low, mock_classification_high]
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
-            mock_context.get_context = AsyncMock(side_effect=[
-                {
-                    "psid": "123456",
-                    "conversation_state": "active",
-                    "clarification": {},
-                },
-                {
-                    "psid": "123456",
-                    "conversation_state": "active",
-                    "clarification": {
-                        "active": True,
-                        "attempt_count": 1,
-                        "questions_asked": ["budget"],
+            mock_context.get_context = AsyncMock(
+                side_effect=[
+                    {
+                        "psid": "123456",
+                        "conversation_state": "active",
+                        "clarification": {},
                     },
-                },
-            ])
+                    {
+                        "psid": "123456",
+                        "conversation_state": "active",
+                        "clarification": {
+                            "active": True,
+                            "attempt_count": 1,
+                            "questions_asked": ["budget"],
+                        },
+                    },
+                ]
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context.update_clarification_state = AsyncMock(return_value=None)
             mock_context.update_search_results = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
-            with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_service_class:
+            with patch(
+                "app.services.messaging.message_processor.MessengerSendService"
+            ) as mock_send_service_class:
                 mock_send_service = MagicMock()
                 mock_send_service.send_message = AsyncMock(return_value=None)
                 mock_send_service.close = AsyncMock(return_value=None)
                 mock_send_service_class.return_value = mock_send_service
 
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class:
+                with patch(
+                    "app.services.messaging.message_processor.MessengerProductFormatter"
+                ) as mock_formatter_class:
                     mock_formatter = MagicMock()
-                    mock_formatter.format_product_results = MagicMock(return_value={"text": "Found products"})
+                    mock_formatter.format_product_results = MagicMock(
+                        return_value={"text": "Found products"}
+                    )
                     mock_formatter_class.return_value = mock_formatter
 
-                    with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+                    with patch(
+                        "app.services.messaging.message_processor.ProductSearchService"
+                    ) as mock_search_service_class:
                         from app.schemas.shopify import ProductSearchResult
+
                         mock_search_service = MagicMock()
                         mock_search_service.search_products = AsyncMock(
                             return_value=ProductSearchResult(
@@ -154,19 +183,25 @@ async def test_e2e_clarification_flow_confidence_improves():
                         )
                         mock_search_service_class.return_value = mock_search_service
 
-                        processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                        processor = MessageProcessor(
+                            classifier=mock_classifier, context_manager=mock_context
+                        )
 
                         # First message: triggers clarification
                         payload1 = FacebookWebhookPayload(
                             object="page",
-                            entry=[{
-                                "id": "123456789",
-                                "time": 1234567890,
-                                "messaging": [{
-                                    "sender": {"id": "123456"},
-                                    "message": {"text": "shoes"},
-                                }],
-                            }],
+                            entry=[
+                                {
+                                    "id": "123456789",
+                                    "time": 1234567890,
+                                    "messaging": [
+                                        {
+                                            "sender": {"id": "123456"},
+                                            "message": {"text": "shoes"},
+                                        }
+                                    ],
+                                }
+                            ],
                         )
 
                         response1 = await processor.process_message(payload1)
@@ -175,22 +210,31 @@ async def test_e2e_clarification_flow_confidence_improves():
                         # Second message: clarification response with high confidence
                         payload2 = FacebookWebhookPayload(
                             object="page",
-                            entry=[{
-                                "id": "123456789",
-                                "time": 1234567890,
-                                "messaging": [{
-                                    "sender": {"id": "123456"},
-                                    "message": {"text": "$100 shoes"},
-                                }],
-                            }],
+                            entry=[
+                                {
+                                    "id": "123456789",
+                                    "time": 1234567890,
+                                    "messaging": [
+                                        {
+                                            "sender": {"id": "123456"},
+                                            "message": {"text": "$100 shoes"},
+                                        }
+                                    ],
+                                }
+                            ],
                         )
 
                         response2 = await processor.process_message(payload2)
                         # Should proceed to product search
-                        assert "found" in response2.text.lower() or "product" in response2.text.lower()
+                        assert (
+                            "found" in response2.text.lower() or "product" in response2.text.lower()
+                        )
                         # Clarification state should be cleared
-                        clear_calls = [call for call in mock_context.update_clarification_state.call_args_list
-                                      if call[0][1].get("active") is False]
+                        clear_calls = [
+                            call
+                            for call in mock_context.update_clarification_state.call_args_list
+                            if call[0][1].get("active") is False
+                        ]
                         assert len(clear_calls) > 0
 
 

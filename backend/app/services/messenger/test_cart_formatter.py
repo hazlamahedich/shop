@@ -39,7 +39,7 @@ class TestCartFormatter:
                 image_url="http://example.com/image1.jpg",
                 quantity=2,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(UTC).isoformat()
+                added_at=datetime.now(UTC).isoformat(),
             ),
             CartItem(
                 product_id="prod_2",
@@ -49,8 +49,8 @@ class TestCartFormatter:
                 image_url="http://example.com/image2.jpg",
                 quantity=1,
                 currency_code=CurrencyCode.USD,
-                added_at=datetime.now(UTC).isoformat()
-            )
+                added_at=datetime.now(UTC).isoformat(),
+            ),
         ]
 
     @pytest.fixture
@@ -62,18 +62,13 @@ class TestCartFormatter:
             currency_code=CurrencyCode.USD,
             item_count=3,
             created_at=datetime.now(UTC).isoformat(),
-            updated_at=datetime.now(UTC).isoformat()
+            updated_at=datetime.now(UTC).isoformat(),
         )
 
     @pytest.fixture
     def empty_cart(self) -> Cart:
         """Create empty cart for testing."""
-        return Cart(
-            items=[],
-            subtotal=0.0,
-            currency_code=CurrencyCode.USD,
-            item_count=0
-        )
+        return Cart(items=[], subtotal=0.0, currency_code=CurrencyCode.USD, item_count=0)
 
     def test_format_cart_with_items(self, formatter: CartFormatter, sample_cart: Cart) -> None:
         """Test formatting cart with multiple items.
@@ -180,12 +175,12 @@ class TestCartFormatter:
                     price=29.99,
                     image_url="http://example.com/image1.jpg",
                     quantity=1,  # At minimum
-                    currency_code=CurrencyCode.USD
+                    currency_code=CurrencyCode.USD,
                 )
             ],
             subtotal=29.99,
             currency_code=CurrencyCode.USD,
-            item_count=1
+            item_count=1,
         )
 
         result = formatter.format_cart(cart, "test_psid")
@@ -211,12 +206,12 @@ class TestCartFormatter:
                     price=25.50,
                     image_url="http://example.com/image.jpg",
                     quantity=2,
-                    currency_code=CurrencyCode.EUR
+                    currency_code=CurrencyCode.EUR,
                 )
             ],
             subtotal=51.00,
             currency_code=CurrencyCode.EUR,
-            item_count=2
+            item_count=2,
         )
 
         result = formatter.format_cart(eur_cart, "test_psid")
@@ -236,12 +231,12 @@ class TestCartFormatter:
                     price=19.99,
                     image_url="http://example.com/image.jpg",
                     quantity=1,
-                    currency_code=CurrencyCode.GBP
+                    currency_code=CurrencyCode.GBP,
                 )
             ],
             subtotal=19.99,
             currency_code=CurrencyCode.GBP,
-            item_count=1
+            item_count=1,
         )
 
         result = formatter.format_cart(gbp_cart, "test_psid")
@@ -269,7 +264,9 @@ class TestCartFormatter:
         assert "checkout" in button_payloads
         assert "continue_shopping" in button_payloads
 
-    def test_button_payloads_include_variant_id(self, formatter: CartFormatter, sample_cart: Cart) -> None:
+    def test_button_payloads_include_variant_id(
+        self, formatter: CartFormatter, sample_cart: Cart
+    ) -> None:
         """Test button payloads correctly reference variant IDs."""
         result = formatter.format_cart(sample_cart, "test_psid")
         elements = result["attachment"]["payload"]["elements"]
@@ -288,7 +285,9 @@ class TestCartFormatter:
         # All buttons should reference var_2
         assert all("var_2" in payload for payload in payloads)
 
-    def test_default_action_links_to_store(self, formatter: CartFormatter, sample_cart: Cart) -> None:
+    def test_default_action_links_to_store(
+        self, formatter: CartFormatter, sample_cart: Cart
+    ) -> None:
         """Test default action links to Shopify store."""
         result = formatter.format_cart(sample_cart, "test_psid")
         elements = result["attachment"]["payload"]["elements"]

@@ -26,9 +26,7 @@ async def test_full_order_confirmation_flow(
         "financial_status": "paid",
         "email": "customer@example.com",
         "created_at": "2026-02-05T10:00:00Z",
-        "note_attributes": [
-            {"name": "psid", "value": "integration_test_psid"}
-        ],
+        "note_attributes": [{"name": "psid", "value": "integration_test_psid"}],
     }
 
     # Create confirmation service
@@ -53,8 +51,7 @@ async def test_full_order_confirmation_flow(
 
     # Verify order reference was stored
     order_ref_calls = [
-        call for call in mock_redis.setex.call_args_list
-        if "order_reference:" in str(call[0][0])
+        call for call in mock_redis.setex.call_args_list if "order_reference:" in str(call[0][0])
     ]
     assert len(order_ref_calls) > 0
 
@@ -75,9 +72,7 @@ async def test_order_update_messaging_tag_usage(
         "financial_status": "paid",
         "email": "customer@example.com",
         "created_at": "2026-02-05T10:00:00Z",
-        "note_attributes": [
-            {"name": "psid", "value": "test_psid"}
-        ],
+        "note_attributes": [{"name": "psid", "value": "test_psid"}],
     }
 
     # Create confirmation service
@@ -112,14 +107,11 @@ async def test_webhook_signature_verification(
     import hashlib
     import hmac
 
-    valid_hmac = hmac.new(
-        api_secret.encode(),
-        test_payload,
-        hashlib.sha256
-    ).digest()
+    valid_hmac = hmac.new(api_secret.encode(), test_payload, hashlib.sha256).digest()
 
     # Base64 encode for comparison
     import base64
+
     valid_hmac_b64 = base64.b64encode(valid_hmac).decode()
 
     # Test with valid signature (format may vary based on implementation)
@@ -140,9 +132,7 @@ async def test_order_reference_storage(
         "financial_status": "paid",
         "email": "customer@example.com",
         "created_at": "2026-02-05T10:00:00Z",
-        "note_attributes": [
-            {"name": "psid", "value": "test_psid"}
-        ],
+        "note_attributes": [{"name": "psid", "value": "test_psid"}],
     }
 
     # Create confirmation service with mock send service
@@ -156,7 +146,8 @@ async def test_order_reference_storage(
 
     # Verify order reference was stored
     order_ref_calls = [
-        call for call in mock_redis.setex.call_args_list
+        call
+        for call in mock_redis.setex.call_args_list
         if "order_reference:test_psid:gid://shopify/Order/123456789" in str(call[0][0])
     ]
 
@@ -187,9 +178,7 @@ async def test_cart_clearing_with_cart_service(
         "financial_status": "paid",
         "email": "customer@example.com",
         "created_at": "2026-02-05T10:00:00Z",
-        "note_attributes": [
-            {"name": "psid", "value": "test_psid"}
-        ],
+        "note_attributes": [{"name": "psid", "value": "test_psid"}],
     }
 
     # Create mock cart service

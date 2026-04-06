@@ -531,9 +531,7 @@ class TestPendingStateTimeout:
     ) -> None:
         """Test that pending state expires after 5 minutes."""
 
-        expired_time = datetime.now(UTC) - timedelta(
-            seconds=PENDING_STATE_TIMEOUT_SECONDS + 60
-        )
+        expired_time = datetime.now(UTC) - timedelta(seconds=PENDING_STATE_TIMEOUT_SECONDS + 60)
         data = {
             PENDING_STATE_KEY: True,
             PENDING_STATE_TIMESTAMP_KEY: expired_time.isoformat(),

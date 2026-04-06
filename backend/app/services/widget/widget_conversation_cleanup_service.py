@@ -126,7 +126,11 @@ class WidgetConversationCleanupService:
                         reason = ""
 
                         # Check if conversation is too old
-                        conv_created_at = conv.created_at.replace(tzinfo=UTC) if conv.created_at.tzinfo is None else conv.created_at
+                        conv_created_at = (
+                            conv.created_at.replace(tzinfo=UTC)
+                            if conv.created_at.tzinfo is None
+                            else conv.created_at
+                        )
                         if conv_created_at < stale_threshold:
                             is_stale = True
                             reason = f"older than {self.STALE_THRESHOLD_HOURS} hours"
@@ -164,7 +168,11 @@ class WidgetConversationCleanupService:
                             conv.status = "closed"
                             conv.handoff_status = "resolved"
 
-                            conv_created_at = conv.created_at.replace(tzinfo=UTC) if conv.created_at.tzinfo is None else conv.created_at
+                            conv_created_at = (
+                                conv.created_at.replace(tzinfo=UTC)
+                                if conv.created_at.tzinfo is None
+                                else conv.created_at
+                            )
                             self.logger.info(
                                 "widget_conversation_closed",
                                 conversation_id=conv.id,

@@ -1,7 +1,6 @@
 """Tests for API dependencies (will be implemented in feature sprints)."""
 
 
-
 class TestAPI:
     """Placeholder for API dependencies tests."""
 

@@ -17,7 +17,7 @@ class TestWebhookSignatureValidation:
         """[P0] Should accept webhook with valid signature."""
         # Mock signature verification to return True
         # Patch at the import location in the webhook module
-        with patch('app.api.webhooks.shopify.verify_shopify_webhook_hmac') as mock_verify:
+        with patch("app.api.webhooks.shopify.verify_shopify_webhook_hmac") as mock_verify:
             mock_verify.return_value = True
 
             response = await async_client.post(
@@ -25,8 +25,8 @@ class TestWebhookSignatureValidation:
                 json={"id": "12345"},
                 headers={
                     "X-Shopify-Hmac-Sha256": "valid-signature",
-                    "X-Shopify-Topic": "orders/create"
-                }
+                    "X-Shopify-Topic": "orders/create",
+                },
             )
 
             # Should accept webhook
@@ -36,7 +36,7 @@ class TestWebhookSignatureValidation:
     async def test_invalid_signature_returns_403(self, async_client):
         """[P0] Should reject webhook with invalid signature."""
         # Mock signature verification to return False
-        with patch('app.api.webhooks.shopify.verify_shopify_webhook_hmac') as mock_verify:
+        with patch("app.api.webhooks.shopify.verify_shopify_webhook_hmac") as mock_verify:
             mock_verify.return_value = False
 
             response = await async_client.post(
@@ -44,8 +44,8 @@ class TestWebhookSignatureValidation:
                 json={"id": "12345"},
                 headers={
                     "X-Shopify-Hmac-Sha256": "invalid-signature",
-                    "X-Shopify-Topic": "orders/create"
-                }
+                    "X-Shopify-Topic": "orders/create",
+                },
             )
 
             assert response.status_code == 403
@@ -54,13 +54,13 @@ class TestWebhookSignatureValidation:
     async def test_missing_signature_returns_403(self, async_client):
         """[P1] Should reject webhook without signature."""
         # Mock signature verification to handle None header gracefully
-        with patch('app.api.webhooks.shopify.verify_shopify_webhook_hmac') as mock_verify:
+        with patch("app.api.webhooks.shopify.verify_shopify_webhook_hmac") as mock_verify:
             mock_verify.return_value = False
 
             response = await async_client.post(
                 "/webhooks/shopify",
                 json={"id": "12345"},
-                headers={"X-Shopify-Topic": "orders/create"}
+                headers={"X-Shopify-Topic": "orders/create"},
             )
 
             # Without HMAC header, verification should fail
@@ -74,18 +74,18 @@ class TestWebhookDLQ:
     async def test_failed_webhook_goes_to_dlq(self, async_client):
         """[P0] Should send failed webhook to DLQ."""
         # Mock the signature verification
-        with patch('app.api.webhooks.shopify.verify_shopify_webhook_hmac') as mock_verify:
+        with patch("app.api.webhooks.shopify.verify_shopify_webhook_hmac") as mock_verify:
             mock_verify.return_value = True
 
             # Mock the DLQ enqueue function
-            with patch('app.api.webhooks.shopify.enqueue_failed_shopify_webhook') as mock_dlq:
+            with patch("app.api.webhooks.shopify.enqueue_failed_shopify_webhook") as mock_dlq:
                 response = await async_client.post(
                     "/webhooks/shopify",
                     json={"id": "12345"},
                     headers={
                         "X-Shopify-Hmac-Sha256": "valid-signature",
-                        "X-Shopify-Topic": "orders/create"
-                    }
+                        "X-Shopify-Topic": "orders/create",
+                    },
                 )
 
                 # Should acknowledge webhook to prevent retry
@@ -95,7 +95,7 @@ class TestWebhookDLQ:
     async def test_dlq_with_redis_unavailable(self, async_client):
         """[P1] Should handle Redis unavailability gracefully."""
         # Mock signature verification
-        with patch('app.api.webhooks.shopify.verify_shopify_webhook_hmac') as mock_verify:
+        with patch("app.api.webhooks.shopify.verify_shopify_webhook_hmac") as mock_verify:
             mock_verify.return_value = True
 
             # Mock Redis as unavailable by removing REDIS_URL
@@ -108,8 +108,8 @@ class TestWebhookDLQ:
                     json={"id": "12345"},
                     headers={
                         "X-Shopify-Hmac-Sha256": "valid-signature",
-                        "X-Shopify-Topic": "orders/create"
-                    }
+                        "X-Shopify-Topic": "orders/create",
+                    },
                 )
 
                 # Should still accept webhook even if DLQ is unavailable
@@ -129,11 +129,7 @@ class TestFacebookWebhookErrors:
         # The endpoint expects 'mode', 'token', 'challenge' params
         response = await async_client.get(
             "/webhooks/facebook",
-            params={
-                "mode": "subscribe",
-                "challenge": "test-challenge",
-                "token": "test_token"
-            }
+            params={"mode": "subscribe", "challenge": "test-challenge", "token": "test_token"},
         )
 
         # Should return challenge for valid verification
@@ -145,11 +141,7 @@ class TestFacebookWebhookErrors:
         """[P1] Should reject webhook with invalid verify token."""
         response = await async_client.get(
             "/webhooks/facebook",
-            params={
-                "mode": "subscribe",
-                "challenge": "test-challenge",
-                "token": "invalid-token"
-            }
+            params={"mode": "subscribe", "challenge": "test-challenge", "token": "invalid-token"},
         )
 
         assert response.status_code == 403
@@ -158,7 +150,7 @@ class TestFacebookWebhookErrors:
     async def test_facebook_message_processing_error(self, async_client):
         """[P0] Should handle message processing errors gracefully."""
         # Mock signature verification at the import location
-        with patch('app.api.webhooks.facebook.verify_webhook_signature') as mock_verify:
+        with patch("app.api.webhooks.facebook.verify_webhook_signature") as mock_verify:
             mock_verify.return_value = True
 
             # The background processing happens asynchronously
@@ -167,16 +159,20 @@ class TestFacebookWebhookErrors:
                 "/webhooks/facebook",
                 json={
                     "object": "page",
-                    "entry": [{
-                        "id": "123456789",
-                        "messaging": [{
-                            "sender": {"id": "123"},
-                            "recipient": {"id": "456"},
-                            "message": {"text": "Hello"}
-                        }]
-                    }]
+                    "entry": [
+                        {
+                            "id": "123456789",
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123"},
+                                    "recipient": {"id": "456"},
+                                    "message": {"text": "Hello"},
+                                }
+                            ],
+                        }
+                    ],
                 },
-                headers={"X-Hub-Signature-256": "valid-signature"}
+                headers={"X-Hub-Signature-256": "valid-signature"},
             )
 
             # Should acknowledge to prevent Facebook retry

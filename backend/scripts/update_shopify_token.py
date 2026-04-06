@@ -10,10 +10,11 @@ To create a storefront token:
 2. Create app or select existing
 3. Configure Storefront API scopes:
    - unauthenticated_read_product_listings
-   - unauthenticated_write_checkouts  
+   - unauthenticated_write_checkouts
    - unauthenticated_read_checkouts
 4. Install app and copy the Storefront access token
 """
+
 import argparse
 import asyncio
 
@@ -48,7 +49,9 @@ async def update_storefront_token(merchant_id: int, storefront_token: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Update Shopify storefront token")
     parser.add_argument("--merchant-id", type=int, required=True, help="Merchant ID")
-    parser.add_argument("--storefront-token", type=str, required=True, help="Storefront access token")
+    parser.add_argument(
+        "--storefront-token", type=str, required=True, help="Storefront access token"
+    )
 
     args = parser.parse_args()
     asyncio.run(update_storefront_token(args.merchant_id, args.storefront_token))

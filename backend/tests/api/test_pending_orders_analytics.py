@@ -92,7 +92,7 @@ async def create_test_orders(async_session):
             "is_test": False,
             "subtotal": 100.0,
             "total": 100.0,
-            "estimated_delivery": now + timedelta(days=2)
+            "estimated_delivery": now + timedelta(days=2),
         },
         # Pending order with estimated delivery later
         {
@@ -103,7 +103,7 @@ async def create_test_orders(async_session):
             "is_test": False,
             "subtotal": 50.0,
             "total": 50.0,
-            "estimated_delivery": now + timedelta(days=5)
+            "estimated_delivery": now + timedelta(days=5),
         },
         # Pending order with NO estimated delivery
         {
@@ -114,7 +114,7 @@ async def create_test_orders(async_session):
             "is_test": False,
             "subtotal": 75.0,
             "total": 75.0,
-            "estimated_delivery": None
+            "estimated_delivery": None,
         },
         # Delivered order (should be excluded)
         {
@@ -125,7 +125,7 @@ async def create_test_orders(async_session):
             "is_test": False,
             "subtotal": 200.0,
             "total": 200.0,
-            "estimated_delivery": now - timedelta(days=1)
+            "estimated_delivery": now - timedelta(days=1),
         },
         # Cancelled order (should be excluded)
         {
@@ -136,7 +136,7 @@ async def create_test_orders(async_session):
             "is_test": False,
             "subtotal": 150.0,
             "total": 150.0,
-            "estimated_delivery": None
+            "estimated_delivery": None,
         },
         # Test order (should be excluded)
         {
@@ -147,7 +147,7 @@ async def create_test_orders(async_session):
             "is_test": True,
             "subtotal": 10.0,
             "total": 10.0,
-            "estimated_delivery": now + timedelta(days=1)
+            "estimated_delivery": now + timedelta(days=1),
         },
         # Other merchant order (should be excluded)
         {
@@ -158,8 +158,8 @@ async def create_test_orders(async_session):
             "is_test": False,
             "subtotal": 0.0,
             "total": 0.0,
-            "estimated_delivery": now + timedelta(days=1)
-        }
+            "estimated_delivery": now + timedelta(days=1),
+        },
     ]
 
     for o in orders:
@@ -172,7 +172,7 @@ async def create_test_orders(async_session):
                 "VALUES (:order_number, :merchant_id, :platform_sender_id, :status, "
                 ":is_test, :subtotal, :total, :estimated_delivery, 'USD', 'operational', :now, :now)"
             ),
-            o
+            o,
         )
 
 
@@ -183,8 +183,7 @@ async def test_get_pending_orders_success(async_client, async_session):
     await async_session.commit()
 
     response = await async_client.get(
-        "/api/v1/analytics/pending-orders?merchant_id=1",
-        headers=auth_headers(1)
+        "/api/v1/analytics/pending-orders?merchant_id=1", headers=auth_headers(1)
     )
 
     assert response.status_code == 200
@@ -194,14 +193,14 @@ async def test_get_pending_orders_success(async_client, async_session):
 
     # Check ordering (earliest estimated delivery first)
     orders = data["items"]
-    assert orders[0]["orderNumber"] == "ORD-001" # 2 days
-    assert orders[1]["orderNumber"] == "ORD-002" # 5 days
-    assert orders[2]["orderNumber"] == "ORD-003" # null
+    assert orders[0]["orderNumber"] == "ORD-001"  # 2 days
+    assert orders[1]["orderNumber"] == "ORD-002"  # 5 days
+    assert orders[2]["orderNumber"] == "ORD-003"  # null
 
     # Check that resolved orders are not included
     order_numbers = [o["orderNumber"] for o in orders]
-    assert "ORD-004" not in order_numbers # Delivered
-    assert "ORD-005" not in order_numbers # Cancelled
+    assert "ORD-004" not in order_numbers  # Delivered
+    assert "ORD-005" not in order_numbers  # Cancelled
 
     # Verify field population
     assert orders[0]["status"] == "processing"
@@ -214,8 +213,7 @@ async def test_get_pending_orders_success(async_client, async_session):
 async def test_get_pending_orders_empty(async_client):
     """Test retrieving pending orders when none exist returns empty list."""
     response = await async_client.get(
-        "/api/v1/analytics/pending-orders?merchant_id=1",
-        headers=auth_headers(1)
+        "/api/v1/analytics/pending-orders?merchant_id=1", headers=auth_headers(1)
     )
 
     assert response.status_code == 200
@@ -231,8 +229,7 @@ async def test_get_pending_orders_pagination(async_client, async_session):
 
     # Get second page (offset 1, limit 1)
     response = await async_client.get(
-        "/api/v1/analytics/pending-orders?merchant_id=1&limit=1&offset=1",
-        headers=auth_headers(1)
+        "/api/v1/analytics/pending-orders?merchant_id=1&limit=1&offset=1", headers=auth_headers(1)
     )
 
     assert response.status_code == 200

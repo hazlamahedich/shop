@@ -74,7 +74,9 @@ class TestVariableSubstitution:
         result = substitute_greeting_variables(template, config)
         assert "GearBot" in result
         # Check that unsubstituted placeholder remains in result
-        assert ("{business_name}" in result or "{business_name}" not in template)  # Missing variable keeps placeholder
+        assert (
+            "{business_name}" in result or "{business_name}" not in template
+        )  # Missing variable keeps placeholder
 
     def test_substitute_with_empty_config(self) -> None:
         """Should handle empty/None config values gracefully."""
@@ -166,11 +168,14 @@ class TestEffectiveGreeting:
 class TestGetDefaultGreeting:
     """Test get_default_greeting function."""
 
-    @pytest.mark.parametrize("personality,expected_contains", [
-        (PersonalityType.FRIENDLY, "Hey"),
-        (PersonalityType.PROFESSIONAL, "Good day"),
-        (PersonalityType.ENTHUSIASTIC, "Hello"),
-    ])
+    @pytest.mark.parametrize(
+        "personality,expected_contains",
+        [
+            (PersonalityType.FRIENDLY, "Hey"),
+            (PersonalityType.PROFESSIONAL, "Good day"),
+            (PersonalityType.ENTHUSIASTIC, "Hello"),
+        ],
+    )
     def test_get_default_greeting_returns_personality_template(
         self, personality: PersonalityType, expected_contains: str
     ) -> None:

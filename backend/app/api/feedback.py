@@ -131,7 +131,7 @@ async def submit_feedback(
         if conversation_id:
             conversation = await db.get(Conversation, conversation_id)
             if conversation:
-                conversation.customer_satisfied = (feedback.rating == "positive")
+                conversation.customer_satisfied = feedback.rating == "positive"
                 logger.info(
                     "Conversation satisfaction updated from feedback",
                     extra={
@@ -184,7 +184,7 @@ async def submit_feedback(
     if conversation_id:
         conversation = await db.get(Conversation, conversation_id)
         if conversation:
-            conversation.customer_satisfied = (feedback.rating == "positive")
+            conversation.customer_satisfied = feedback.rating == "positive"
             logger.info(
                 "Conversation satisfaction updated from feedback",
                 extra={

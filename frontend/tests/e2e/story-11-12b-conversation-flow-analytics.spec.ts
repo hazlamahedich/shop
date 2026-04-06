@@ -2,6 +2,53 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Story 11.12b: Conversation Flow Analytics Dashboard', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            id: 'test-merchant-1',
+            email: 'test@test.com',
+            name: 'Test Merchant',
+            hasStoreConnected: true,
+            onboardingMode: 'ecommerce',
+          },
+          meta: {
+            sessionExpiresAt: new Date(Date.now() + 3600000).toISOString(),
+          },
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      const mockAuthState = {
+        isAuthenticated: true,
+        merchant: {
+          id: 'test-merchant-1',
+          email: 'test@test.com',
+          name: 'Test Merchant',
+          hasStoreConnected: true,
+          onboardingMode: 'ecommerce',
+        },
+        sessionExpiresAt: new Date(Date.now() + 3600000).toISOString(),
+        isLoading: false,
+        error: null,
+      };
+
+      const mockOnboardingState = {
+        state: {
+          completedSteps: ['prerequisites', 'deployment', 'integrations', 'bot-config'],
+          currentPhase: 'complete',
+          personalityConfigured: true,
+          businessInfoConfigured: true,
+        },
+      };
+
+      localStorage.setItem('auth-storage', JSON.stringify({ state: mockAuthState, version: 0 }));
+      localStorage.setItem('onboarding-storage', JSON.stringify(mockOnboardingState));
+    });
+
     await page.route('**/api/v1/analytics/conversation-flow/**', (route) => {
       route.fulfill({
         status: 200,

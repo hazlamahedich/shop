@@ -56,13 +56,13 @@ class TestCartEdgeCases:
                     "price": 29.99,
                     "imageUrl": "http://example.com/image.jpg",
                     "currencyCode": "USD",
-                    "quantity": 1
+                    "quantity": 1,
                 }
             ],
             "subtotal": 29.99,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
         mock_redis.setex.return_value = True
@@ -77,7 +77,7 @@ class TestCartEdgeCases:
                 price=25.00,
                 image_url="http://example.com/image2.jpg",
                 currency_code="EUR",
-                quantity=1
+                quantity=1,
             )
 
         assert exc_info.value.code == ErrorCode.CART_CURRENCY_MISMATCH
@@ -98,7 +98,7 @@ class TestCartEdgeCases:
             price=25.00,
             image_url="http://example.com/image.jpg",
             currency_code="EUR",
-            quantity=1
+            quantity=1,
         )
 
         assert cart.currency_code == CurrencyCode.EUR
@@ -150,12 +150,12 @@ class TestCartEdgeCases:
                     title="Product with No Image",
                     price=29.99,
                     image_url="",  # Empty image URL
-                    quantity=1
+                    quantity=1,
                 )
             ],
             subtotal=29.99,
             currency_code=CurrencyCode.USD,
-            item_count=1
+            item_count=1,
         )
 
         result = formatter.format_cart(cart, "test_psid")
@@ -177,12 +177,12 @@ class TestCartEdgeCases:
                     price=29.99,
                     image_url="",  # Empty string (default value)
                     quantity=1,
-                    currency_code=CurrencyCode.USD
+                    currency_code=CurrencyCode.USD,
                 )
             ],
             subtotal=29.99,
             currency_code=CurrencyCode.USD,
-            item_count=1
+            item_count=1,
         )
 
         result = formatter.format_cart(cart, "test_psid")
@@ -205,12 +205,12 @@ class TestCartEdgeCases:
                     price=29.99,
                     image_url="http://example.com/image.jpg",
                     quantity=10,  # At MAX_QUANTITY
-                    currency_code=CurrencyCode.USD
+                    currency_code=CurrencyCode.USD,
                 )
             ],
             subtotal=299.90,
             currency_code=CurrencyCode.USD,
-            item_count=10
+            item_count=10,
         )
 
         result = formatter.format_cart(cart, "test_psid")
@@ -233,12 +233,12 @@ class TestCartEdgeCases:
                     price=29.99,
                     image_url="http://example.com/image.jpg",
                     quantity=5,  # Below MAX_QUANTITY
-                    currency_code=CurrencyCode.USD
+                    currency_code=CurrencyCode.USD,
                 )
             ],
             subtotal=149.95,
             currency_code=CurrencyCode.USD,
-            item_count=5
+            item_count=5,
         )
 
         result = formatter.format_cart(cart, "test_psid")
@@ -262,12 +262,12 @@ class TestCartEdgeCases:
                     price=29.99,
                     image_url="http://example.com/image.jpg",
                     quantity=10,  # At MAX_QUANTITY
-                    currency_code=CurrencyCode.USD
+                    currency_code=CurrencyCode.USD,
                 )
             ],
             subtotal=299.90,
             currency_code=CurrencyCode.USD,
-            item_count=10
+            item_count=10,
         )
 
         result = formatter.format_cart(cart, "test_psid")
@@ -298,13 +298,13 @@ class TestCartEdgeCases:
                     "price": 29.99,
                     "imageUrl": "http://example.com/image.jpg",
                     "currencyCode": "USD",
-                    "quantity": 1
+                    "quantity": 1,
                 }
             ],
             "subtotal": 29.99,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
         mock_redis.setex.return_value = True
@@ -333,13 +333,13 @@ class TestCartEdgeCases:
                     "price": 29.99,
                     "imageUrl": "http://example.com/image1.jpg",
                     "currencyCode": "USD",
-                    "quantity": 1
+                    "quantity": 1,
                 }
             ],
             "subtotal": 29.99,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(existing_cart_data)
         mock_redis.setex.return_value = True
@@ -353,7 +353,7 @@ class TestCartEdgeCases:
             price=15.00,
             image_url="http://example.com/image2.jpg",
             currency_code="USD",
-            quantity=1
+            quantity=1,
         )
 
         assert len(cart.items) == 2
@@ -370,22 +370,24 @@ class TestCartEdgeCases:
         # Create cart with 15 items (more than typical)
         items = []
         for i in range(15):
-            items.append({
-                "productId": f"prod_{i}",
-                "variantId": f"var_{i}",
-                "title": f"Product {i}",
-                "price": 10.0,
-                "imageUrl": f"http://example.com/image{i}.jpg",
-                "currencyCode": "USD",
-                "quantity": 1
-            })
+            items.append(
+                {
+                    "productId": f"prod_{i}",
+                    "variantId": f"var_{i}",
+                    "title": f"Product {i}",
+                    "price": 10.0,
+                    "imageUrl": f"http://example.com/image{i}.jpg",
+                    "currencyCode": "USD",
+                    "quantity": 1,
+                }
+            )
 
         large_cart_data = {
             "items": items,
             "subtotal": 150.0,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
         mock_redis.get.return_value = json.dumps(large_cart_data)
 

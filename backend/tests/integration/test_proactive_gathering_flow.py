@@ -128,6 +128,7 @@ class TestContextAwareness:
 
 class TestBestEffort:
     """Test best-effort completion when user can't provide all information."""
+
     @pytest.mark.asyncio
     async def test_best_effort_after_2_rounds(
         self, svc: ProactiveGatheringService, gctx: ConversationContext
@@ -153,6 +154,7 @@ class TestBestEffort:
 
 class TestErrorDegradation:
     """Test graceful degradation when extraction fails."""
+
     @pytest.mark.asyncio
     async def test_extract_no_match_fallback(self, svc: ProactiveGatheringService) -> None:
         fields = [
@@ -171,6 +173,7 @@ class TestErrorDegradation:
 
 class TestFaqSkip:
     """Test that FAQ matches take priority over proactive gathering."""
+
     @pytest.mark.asyncio
     async def test_faq_match_skips_gathering(
         self, svc: ProactiveGatheringService, ctx: ConversationContext
@@ -188,6 +191,7 @@ class TestFaqSkip:
 
 class TestMutualExclusion:
     """Test that CLARIFYING state blocks gathering activities."""
+
     @pytest.mark.asyncio
     async def test_clarifying_state_blocks_gathering(
         self, svc: ProactiveGatheringService, ctx: ConversationContext
@@ -213,6 +217,7 @@ class TestMutualExclusion:
 
 class TestExtractThenDetectRemaining:
     """Test that extracted data is correctly removed from missing fields list."""
+
     @pytest.mark.asyncio
     async def test_extract_then_detect_remaining(
         self, svc: ProactiveGatheringService, ctx: ConversationContext

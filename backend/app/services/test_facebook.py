@@ -61,9 +61,7 @@ class TestFacebookServiceOAuth:
         """Test successful code exchange for access token."""
         service = FacebookService(db_session, is_testing=True)
         result = await service.exchange_code_for_token(
-            code="test_code",
-            state="test_state",
-            expected_state="test_state"
+            code="test_code", state="test_state", expected_state="test_state"
         )
 
         assert result["access_token"] == "test_short_lived_token"
@@ -77,9 +75,7 @@ class TestFacebookServiceOAuth:
 
         with pytest.raises(APIError) as exc_info:
             await service.exchange_code_for_token(
-                code="test_code",
-                state="wrong_state",
-                expected_state="correct_state"
+                code="test_code", state="wrong_state", expected_state="correct_state"
             )
 
         assert exc_info.value.code == ErrorCode.FACEBOOK_OAUTH_STATE_MISMATCH
@@ -119,11 +115,7 @@ class TestFacebookServiceOAuth:
         mock_response.text = "Invalid access token"
 
         def raise_for_status():
-            raise HTTPStatusError(
-                "401 Unauthorized",
-                request=mock_request,
-                response=mock_response
-            )
+            raise HTTPStatusError("401 Unauthorized", request=mock_request, response=mock_response)
 
         mock_response.raise_for_status = raise_for_status
         mock_response.json = lambda: {"error": {"message": "Invalid access token"}}

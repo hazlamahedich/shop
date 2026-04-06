@@ -91,9 +91,7 @@ class OfflineFollowUpService:
         """
         from app.models.conversation import Conversation
 
-        threshold_time = datetime.now(UTC) - __import__("datetime").timedelta(
-            hours=hours_threshold
-        )
+        threshold_time = datetime.now(UTC) - __import__("datetime").timedelta(hours=hours_threshold)
 
         result = await self.db.execute(
             select(Conversation).where(
@@ -615,9 +613,7 @@ class OfflineFollowUpService:
         from app.models.message import Message
 
         conversation_data = conversation.conversation_data or {}
-        conversation_data[f"followup_{followup_type}_sent_at"] = datetime.now(
-            UTC
-        ).isoformat()
+        conversation_data[f"followup_{followup_type}_sent_at"] = datetime.now(UTC).isoformat()
         conversation.conversation_data = conversation_data
 
         message = None

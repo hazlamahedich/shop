@@ -23,7 +23,7 @@ class TestLLMResponse:
             intent="product_search",
             confidence=0.95,
             extracted_params={"category": "shoes"},
-            raw_response="Showing shoes"
+            raw_response="Showing shoes",
         )
 
         assert response.intent == "product_search"

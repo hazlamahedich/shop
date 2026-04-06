@@ -1,4 +1,5 @@
 """Test RAG regression to ensure greenlet errors don't resurface."""
+
 import pytest
 import asyncio
 from httpx import AsyncClient, ASGITransport
@@ -27,53 +28,47 @@ async def test_rag_graduation_question():
     # Create test client
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Step 1: Create session
-        session_response = await client.post(
-            "/api/v1/widget/session",
-            json={"merchant_id": "1"}
-        )
+        session_response = await client.post("/api/v1/widget/session", json={"merchant_id": "1"})
         assert session_response.status_code == 200
         session_data = session_response.json()
         session_id = session_data["data"]["sessionId"]
 
         # Step 2: Send greeting
         greeting_response = await client.post(
-            "/api/v1/widget/message",
-            json={
-                "session_id": session_id,
-                "message": "hello"
-            }
+            "/api/v1/widget/message", json={"session_id": session_id, "message": "hello"}
         )
         assert greeting_response.status_code == 200
 
         # Step 3: Ask about graduation (the critical RAG test)
         graduation_response = await client.post(
             "/api/v1/widget/message",
-            json={
-                "session_id": session_id,
-                "message": "where did he graduate"
-            }
+            json={"session_id": session_id, "message": "where did he graduate"},
         )
 
         # Must succeed without greenlet errors
-        assert graduation_response.status_code == 200, \
+        assert graduation_response.status_code == 200, (
             f"Expected 200, got {graduation_response.status_code}: {graduation_response.text}"
+        )
 
         response_data = graduation_response.json()
         content = response_data["data"]["content"].lower()
         sources = response_data["data"].get("sources")
 
         # Verify RAG worked
-        assert "ateneo" in content or "university" in content, \
+        assert "ateneo" in content or "university" in content, (
             f"RAG failed to find university info. Response: {content}"
+        )
 
         # Verify sources are provided (proves RAG was used)
-        assert sources is not None and len(sources) > 0, \
+        assert sources is not None and len(sources) > 0, (
             "RAG sources not provided - retrieval may have failed"
+        )
 
         # Verify the correct document was retrieved
         source_titles = [s.get("title", "") for s in sources]
-        assert any("resume" in title.lower() for title in source_titles), \
+        assert any("resume" in title.lower() for title in source_titles), (
             f"Wrong document retrieved. Expected resume, got: {source_titles}"
+        )
 
 
 @pytest.mark.asyncio
@@ -90,10 +85,7 @@ async def test_rag_concurrent_requests():
         # Create 5 sessions
         session_ids = []
         for _ in range(5):
-            response = await client.post(
-                "/api/v1/widget/session",
-                json={"merchant_id": "1"}
-            )
+            response = await client.post("/api/v1/widget/session", json={"merchant_id": "1"})
             assert response.status_code == 200
             session_ids.append(response.json()["data"]["sessionId"])
 
@@ -101,26 +93,21 @@ async def test_rag_concurrent_requests():
         async def send_query(session_id: str):
             response = await client.post(
                 "/api/v1/widget/message",
-                json={
-                    "session_id": session_id,
-                    "message": "what is his education background"
-                }
+                json={"session_id": session_id, "message": "what is his education background"},
             )
             return response
 
         # Execute all queries concurrently
-        responses = await asyncio.gather(*[
-            send_query(sid) for sid in session_ids
-        ])
+        responses = await asyncio.gather(*[send_query(sid) for sid in session_ids])
 
         # All should succeed
         for i, response in enumerate(responses):
-            assert response.status_code == 200, \
-                f"Concurrent query {i} failed: {response.text}"
+            assert response.status_code == 200, f"Concurrent query {i} failed: {response.text}"
             content = response.json()["data"]["content"].lower()
             # Each should find education info
-            assert "education" in content or "university" in content or "ateneo" in content, \
+            assert "education" in content or "university" in content or "ateneo" in content, (
                 f"Concurrent query {i} didn't find education info"
+            )
 
 
 @pytest.mark.asyncio
@@ -134,45 +121,34 @@ async def test_rag_multiple_queries_same_session():
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Create session
-        response = await client.post(
-            "/api/v1/widget/session",
-            json={"merchant_id": "1"}
-        )
+        response = await client.post("/api/v1/widget/session", json={"merchant_id": "1"})
         session_id = response.json()["data"]["sessionId"]
 
         # Send multiple RAG queries sequentially
-        queries = [
-            "where did he graduate",
-            "what university did he attend",
-            "education background"
-        ]
+        queries = ["where did he graduate", "what university did he attend", "education background"]
 
         for i, query in enumerate(queries):
             response = await client.post(
-                "/api/v1/widget/message",
-                json={
-                    "session_id": session_id,
-                    "message": query
-                }
+                "/api/v1/widget/message", json={"session_id": session_id, "message": query}
             )
 
-            assert response.status_code == 200, \
-                f"Query {i+1} '{query}' failed: {response.text}"
+            assert response.status_code == 200, f"Query {i + 1} '{query}' failed: {response.text}"
 
             content = response.json()["data"]["content"].lower()
             sources = response.json()["data"].get("sources")
 
             # Verify RAG worked for each query
-            assert sources is not None and len(sources) > 0, \
-                f"Query {i+1} '{query}' has no sources (RAG failed)"
+            assert sources is not None and len(sources) > 0, (
+                f"Query {i + 1} '{query}' has no sources (RAG failed)"
+            )
 
             # At least one should mention Ateneo specifically
             if i == 0:  # First query should be specific
-                assert "ateneo" in content, \
-                    f"Query {i+1} should mention Ateneo: {content}"
+                assert "ateneo" in content, f"Query {i + 1} should mention Ateneo: {content}"
 
 
 if __name__ == "__main__":
     # Run tests locally
     import sys
+
     pytest.main([__file__, "-v", "-s"] + sys.argv[1:])

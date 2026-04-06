@@ -41,9 +41,7 @@ def sample_shopify_response() -> list[dict[str, Any]]:
             "productType": "Footwear",
             "tags": ["running", "shoes", "nike"],
             "vendor": "Nike",
-            "priceRangeV2": {
-                "minVariantPrice": {"amount": "89.99", "currencyCode": "USD"}
-            },
+            "priceRangeV2": {"minVariantPrice": {"amount": "89.99", "currencyCode": "USD"}},
             "images": {
                 "edges": [
                     {
@@ -81,9 +79,7 @@ def sample_shopify_response() -> list[dict[str, Any]]:
             "productType": "Footwear",
             "tags": ["walking", "shoes", "adidas"],
             "vendor": "Adidas",
-            "priceRangeV2": {
-                "minVariantPrice": {"amount": "69.99", "currencyCode": "USD"}
-            },
+            "priceRangeV2": {"minVariantPrice": {"amount": "69.99", "currencyCode": "USD"}},
             "images": {"edges": []},
             "variants": {
                 "edges": [

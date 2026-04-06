@@ -25,9 +25,7 @@ from app.services.llm.openai_service import OpenAIService
 class TestLLMCostTrackingIntegration:
     """Test automatic LLM cost tracking integration."""
 
-    async def test_track_llm_request_openai(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_track_llm_request_openai(self, async_session: AsyncSession) -> None:
         """Test tracking OpenAI LLM request."""
         # Create a mock LLM response (OpenAI)
         response = LLMResponse(
@@ -68,9 +66,7 @@ class TestLLMCostTrackingIntegration:
 
         await async_session.flush()
 
-    async def test_track_llm_request_ollama(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_track_llm_request_ollama(self, async_session: AsyncSession) -> None:
         """Test tracking Ollama LLM request (should be free)."""
         # Create a mock LLM response (Ollama)
         response = LLMResponse(
@@ -99,9 +95,7 @@ class TestLLMCostTrackingIntegration:
 
         await async_session.flush()
 
-    async def test_track_llm_request_anthropic(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_track_llm_request_anthropic(self, async_session: AsyncSession) -> None:
         """Test tracking Anthropic LLM request."""
         response = LLMResponse(
             content="Test response",
@@ -156,9 +150,7 @@ class TestLLMCostTrackingIntegration:
 
         await async_session.flush()
 
-    async def test_cost_tracking_wrapper(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_cost_tracking_wrapper(self, async_session: AsyncSession) -> None:
         """Test CostTrackingLLMWrapper with actual LLM service."""
         # Create OpenAI service in test mode
         config = {"api_key": "test-key", "model": "gpt-4o-mini"}
@@ -191,9 +183,7 @@ class TestLLMCostTrackingIntegration:
         assert costs["requestCount"] == 1
         assert costs["totalCostUsd"] >= 0  # Test responses have minimal tokens
 
-    async def test_cost_tracking_router(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_cost_tracking_router(self, async_session: AsyncSession) -> None:
         """Test CostTrackingLLMRouter with failover."""
         # Create LLM router config
         config = {
@@ -259,9 +249,7 @@ class TestLLMCostTrackingIntegration:
 
         await async_session.flush()
 
-    async def test_track_llm_request_merchant_isolation(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_track_llm_request_merchant_isolation(self, async_session: AsyncSession) -> None:
         """Test that cost tracking respects merchant isolation."""
         response = LLMResponse(
             content="Test response",
@@ -308,9 +296,7 @@ class TestLLMCostTrackingIntegration:
         )
         assert costs_2["requestCount"] == 1
 
-    async def test_cost_tracking_wrapper_disabled(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_cost_tracking_wrapper_disabled(self, async_session: AsyncSession) -> None:
         """Test CostTrackingLLMWrapper with tracking disabled."""
         config = {"api_key": "test-key", "model": "gpt-4o-mini"}
         openai_service = OpenAIService(config, is_testing=True)

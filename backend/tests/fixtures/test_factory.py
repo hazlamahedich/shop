@@ -1,6 +1,5 @@
 """Tests for test data factories."""
 
-
 from tests.fixtures.factory import (
     CartFactory,
     ConversationFactory,
@@ -31,11 +30,7 @@ class TestUserFactory:
 
     def test_create_user_with_custom_values(self):
         """Test creating user with custom values."""
-        factory = UserFactory(
-            email="custom@example.com",
-            name="Custom User",
-            is_active=False
-        )
+        factory = UserFactory(email="custom@example.com", name="Custom User", is_active=False)
         user = factory.to_dict()
 
         assert user["email"] == "custom@example.com"
@@ -60,11 +55,7 @@ class TestProductFactory:
 
     def test_create_product_with_custom_values(self):
         """Test creating product with custom values."""
-        factory = ProductFactory(
-            title="Custom Shoe",
-            price=99.99,
-            category="footwear"
-        )
+        factory = ProductFactory(title="Custom Shoe", price=99.99, category="footwear")
         product = factory.to_dict()
 
         assert product["title"] == "Custom Shoe"
@@ -89,10 +80,7 @@ class TestCartFactory:
     def test_create_cart_with_items(self):
         """Test creating cart with items."""
         factory = CartFactory(
-            items=[
-                {"product_id": "123", "quantity": 2},
-                {"product_id": "456", "quantity": 1}
-            ]
+            items=[{"product_id": "123", "quantity": 2}, {"product_id": "456", "quantity": 1}]
         )
         cart = factory.to_dict()
 

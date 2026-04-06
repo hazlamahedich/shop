@@ -62,7 +62,6 @@ async def opt_out(
             "merchant_id": merchant_id,
         }
 
-
     consent_service = ConversationConsentService(db=db)
 
     result = await consent_service.record_conversation_consent(

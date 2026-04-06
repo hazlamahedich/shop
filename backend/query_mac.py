@@ -17,9 +17,10 @@ async def main():
             else:
                 items = items_str
             for item in items:
-                title = item.get('title', '')
-                if title and 'mac' in title.lower():
+                title = item.get("title", "")
+                if title and "mac" in title.lower():
                     print("Found mac product:", item)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

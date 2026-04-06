@@ -89,7 +89,10 @@ class TestCostTrackingAPI:
         """Test cost summary with no data."""
         # Explicit cleanup: delete any existing cost records for merchant_id=1
         from sqlalchemy import delete
-        await async_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+        await async_session.execute(
+            delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+        )
         await async_session.commit()
 
         response = await async_client.get(
@@ -108,7 +111,10 @@ class TestCostTrackingAPI:
         """Test cost summary with actual cost data."""
         # Explicit cleanup: delete any existing cost records for merchant_id=1
         from sqlalchemy import delete
-        await async_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+        await async_session.execute(
+            delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+        )
         await async_session.commit()
 
         # Create cost records
@@ -145,7 +151,10 @@ class TestCostTrackingAPI:
         """Test cost summary with date filtering."""
         # Explicit cleanup: delete any existing cost records for merchant_id=1
         from sqlalchemy import delete
-        await async_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+        await async_session.execute(
+            delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+        )
         await async_session.commit()
 
         # Create cost records on different dates
@@ -270,6 +279,7 @@ class TestCostTrackingAPI:
         """Test merchant isolation in cost summary."""
         # Explicit cleanup: delete any existing cost records for both merchants
         from sqlalchemy import delete
+
         await async_session.execute(delete(LLMConversationCost))
         await async_session.commit()
 

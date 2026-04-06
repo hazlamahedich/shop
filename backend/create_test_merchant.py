@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent / 'backend'))
+sys.path.insert(0, str(Path(__file__).parent / "backend"))
 
-os.environ['DATABASE_URL'] = 'postgresql+asyncpg://shop_user:shop_password@localhost:5432/shop_db'
-os.environ['SECRET_KEY'] = 'dev-secret-key-DO-NOT-USE-IN-PRODUCTION'
+os.environ["DATABASE_URL"] = "postgresql+asyncpg://shop_user:shop_password@localhost:5432/shop_db"
+os.environ["SECRET_KEY"] = "dev-secret-key-DO-NOT-USE-IN-PRODUCTION"
 
 from app.core.auth import hash_password
 from app.core.database import async_session
@@ -23,9 +23,7 @@ async def create_test_merchant():
         from sqlalchemy import select
 
         # Check if merchant already exists
-        result = await db.execute(
-            select(Merchant).where(Merchant.email == 'e2e-test@example.com')
-        )
+        result = await db.execute(select(Merchant).where(Merchant.email == "e2e-test@example.com"))
         existing = result.scalars().first()
 
         if existing:

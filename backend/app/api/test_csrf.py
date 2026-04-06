@@ -103,16 +103,13 @@ class TestCSRFTokenRefreshEndpoint:
         set_cookie = get_response.headers.get("set-cookie", "")
         if "csrf_token=" in set_cookie:
             # Extract the cookie value (format: csrf_token=<value>; ...)
-            match = re.search(r'csrf_token=([^;]+)', set_cookie)
+            match = re.search(r"csrf_token=([^;]+)", set_cookie)
             if match:
                 cookies["csrf_token"] = match.group(1)
 
         # Then refresh it with the cookie from the get request
         # Note: httpx with ASGI transport doesn't auto-forward cookies
-        refresh_response = await async_client.post(
-            "/api/v1/csrf-token/refresh",
-            cookies=cookies
-        )
+        refresh_response = await async_client.post("/api/v1/csrf-token/refresh", cookies=cookies)
         assert refresh_response.status_code == 200
 
         new_data = refresh_response.json()
@@ -171,7 +168,8 @@ class TestCSRFTokenValidateEndpoint:
         if "csrf_token=" in set_cookie:
             # Extract the cookie value (format: csrf_token=<value>; ...)
             import re
-            match = re.search(r'csrf_token=([^;]+)', set_cookie)
+
+            match = re.search(r"csrf_token=([^;]+)", set_cookie)
             if match:
                 cookies["csrf_token"] = match.group(1)
 
@@ -182,9 +180,7 @@ class TestCSRFTokenValidateEndpoint:
 
         # Test with just the header (will return false since no cookie)
         validate_response = await async_client.get(
-            "/api/v1/csrf-token/validate",
-            headers={"X-CSRF-Token": token},
-            cookies=cookies
+            "/api/v1/csrf-token/validate", headers={"X-CSRF-Token": token}, cookies=cookies
         )
 
         assert validate_response.status_code == 200
@@ -206,8 +202,7 @@ class TestCSRFTokenValidateEndpoint:
     async def test_validate_csrf_token_invalid(self, async_client):
         """Test validation with invalid token."""
         response = await async_client.get(
-            "/api/v1/csrf-token/validate",
-            headers={"X-CSRF-Token": "invalid-token"}
+            "/api/v1/csrf-token/validate", headers={"X-CSRF-Token": "invalid-token"}
         )
 
         assert response.status_code == 200
@@ -225,16 +220,12 @@ class TestCSRFRateLimiting:
         # Make 10 successful requests (X-Test-Mode: false enables rate limiting in test mode)
         for _ in range(10):
             response = await async_client.get(
-                "/api/v1/csrf-token",
-                headers={"X-Test-Mode": "false"}
+                "/api/v1/csrf-token", headers={"X-Test-Mode": "false"}
             )
             assert response.status_code == 200
 
         # 11th request should be rate limited
-        response = await async_client.get(
-            "/api/v1/csrf-token",
-            headers={"X-Test-Mode": "false"}
-        )
+        response = await async_client.get("/api/v1/csrf-token", headers={"X-Test-Mode": "false"})
         assert response.status_code == 429
 
         data = response.json()
@@ -249,21 +240,19 @@ class TestCSRFRateLimiting:
         for _ in range(10):
             response = await async_client.get(
                 "/api/v1/csrf-token",
-                headers={"X-Forwarded-For": "192.168.1.1", "X-Test-Mode": "false"}
+                headers={"X-Forwarded-For": "192.168.1.1", "X-Test-Mode": "false"},
             )
             assert response.status_code == 200
 
         # 11th request from same IP is rate limited
         response = await async_client.get(
-            "/api/v1/csrf-token",
-            headers={"X-Forwarded-For": "192.168.1.1", "X-Test-Mode": "false"}
+            "/api/v1/csrf-token", headers={"X-Forwarded-For": "192.168.1.1", "X-Test-Mode": "false"}
         )
         assert response.status_code == 429
 
         # Different IP can still make requests
         response = await async_client.get(
-            "/api/v1/csrf-token",
-            headers={"X-Forwarded-For": "192.168.1.2", "X-Test-Mode": "false"}
+            "/api/v1/csrf-token", headers={"X-Forwarded-For": "192.168.1.2", "X-Test-Mode": "false"}
         )
         assert response.status_code == 200
 
@@ -272,10 +261,7 @@ class TestCSRFRateLimiting:
         """Test that rate limit is bypassed in test mode."""
         # Make more than 10 requests with test mode header
         for _ in range(15):
-            response = await async_client.get(
-                "/api/v1/csrf-token",
-                headers={"X-Test-Mode": "true"}
-            )
+            response = await async_client.get("/api/v1/csrf-token", headers={"X-Test-Mode": "true"})
             # Should not be rate limited
             assert response.status_code == 200
 
@@ -286,16 +272,12 @@ class TestCSRFRateLimiting:
         # X-Test-Mode: false enables rate limiting in test mode
         for _ in range(10):
             response = await async_client.get(
-                "/api/v1/csrf-token",
-                headers={"X-Test-Mode": "false"}
+                "/api/v1/csrf-token", headers={"X-Test-Mode": "false"}
             )
             assert response.status_code == 200
 
         # 11th get request is rate limited
-        response = await async_client.get(
-            "/api/v1/csrf-token",
-            headers={"X-Test-Mode": "false"}
-        )
+        response = await async_client.get("/api/v1/csrf-token", headers={"X-Test-Mode": "false"})
         assert response.status_code == 429
 
         # But refresh should still work (different rate limit key or no limit)
@@ -362,8 +344,7 @@ class TestCSRFErrorHandling:
     async def test_csrf_validate_handles_malformed_header(self, async_client):
         """Test that validate endpoint handles malformed headers."""
         response = await async_client.get(
-            "/api/v1/csrf-token/validate",
-            headers={"X-CSRF-Token": ""}
+            "/api/v1/csrf-token/validate", headers={"X-CSRF-Token": ""}
         )
 
         # Should return 200 with valid=false

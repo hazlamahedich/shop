@@ -73,7 +73,9 @@ class TestStartDeployment:
     """Tests for POST /api/deployment/start endpoint."""
 
     @pytest.mark.asyncio
-    async def test_start_deployment_returns_202(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_returns_202(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that starting a deployment returns 202 Accepted."""
         response = await client.post(
             "/api/deployment/start",
@@ -83,7 +85,9 @@ class TestStartDeployment:
         assert response.status_code == status.HTTP_202_ACCEPTED
 
     @pytest.mark.asyncio
-    async def test_start_deployment_returns_deployment_id(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_returns_deployment_id(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that starting a deployment returns a unique deployment ID."""
         response = await client.post(
             "/api/deployment/start",
@@ -96,7 +100,9 @@ class TestStartDeployment:
         assert isinstance(data["data"]["deploymentId"], str)
 
     @pytest.mark.asyncio
-    async def test_start_deployment_returns_merchant_key(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_returns_merchant_key(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that starting a deployment returns a merchant key."""
         response = await client.post(
             "/api/deployment/start",
@@ -109,7 +115,9 @@ class TestStartDeployment:
         assert data["data"]["merchantKey"].startswith("shop-")
 
     @pytest.mark.asyncio
-    async def test_start_deployment_returns_pending_status(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_returns_pending_status(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that starting a deployment returns pending status."""
         response = await client.post(
             "/api/deployment/start",
@@ -121,7 +129,9 @@ class TestStartDeployment:
         assert data["data"]["status"] == "pending"
 
     @pytest.mark.asyncio
-    async def test_start_deployment_returns_estimated_time(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_returns_estimated_time(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that starting a deployment returns estimated time."""
         response = await client.post(
             "/api/deployment/start",
@@ -134,7 +144,9 @@ class TestStartDeployment:
         assert data["data"]["estimatedSeconds"] == 900
 
     @pytest.mark.asyncio
-    async def test_start_deployment_accepts_all_platforms(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_accepts_all_platforms(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that all supported platforms are accepted."""
         platforms = ["flyio", "railway", "render"]
 
@@ -146,7 +158,9 @@ class TestStartDeployment:
             assert response.status_code == status.HTTP_202_ACCEPTED
 
     @pytest.mark.asyncio
-    async def test_start_deployment_rejects_invalid_platform(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_rejects_invalid_platform(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that invalid platform is rejected."""
         response = await client.post(
             "/api/deployment/start",
@@ -156,7 +170,9 @@ class TestStartDeployment:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.asyncio
-    async def test_start_deployment_requires_platform(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_start_deployment_requires_platform(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that platform is required."""
         response = await client.post(
             "/api/deployment/start",
@@ -170,14 +186,18 @@ class TestGetDeploymentStatus:
     """Tests for GET /api/deployment/status/{deployment_id} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_status_returns_404_for_unknown_deployment(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_get_status_returns_404_for_unknown_deployment(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that getting status of unknown deployment returns 404."""
         response = await client.get(f"/api/deployment/status/{uuid4()}")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_get_status_returns_deployment_state(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_get_status_returns_deployment_state(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that getting status returns deployment state."""
         # Start a deployment first
         start_response = await client.post(
@@ -195,7 +215,9 @@ class TestGetDeploymentStatus:
         assert data["data"]["deploymentId"] == deployment_id
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_progress(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_get_status_includes_progress(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that status includes progress percentage."""
         # Start a deployment
         start_response = await client.post(
@@ -212,7 +234,9 @@ class TestGetDeploymentStatus:
         assert isinstance(data["data"]["progress"], int)
 
     @pytest.mark.asyncio
-    async def test_get_status_includes_logs(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_get_status_includes_logs(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that status includes deployment logs."""
         # Start a deployment
         start_response = await client.post(
@@ -233,14 +257,18 @@ class TestCancelDeployment:
     """Tests for POST /api/deployment/cancel/{deployment_id} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_cancel_deployment_returns_404_for_unknown_deployment(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_cancel_deployment_returns_404_for_unknown_deployment(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that cancelling unknown deployment returns 404."""
         response = await client.post(f"/api/deployment/cancel/{uuid4()}")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     @pytest.mark.asyncio
-    async def test_cancel_deployment_sets_cancelled_status(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_cancel_deployment_sets_cancelled_status(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that cancelling deployment sets status to cancelled."""
         # Start a deployment
         start_response = await client.post(
@@ -302,7 +330,9 @@ class TestDeploymentProgressStream:
     """Tests for GET /api/deployment/progress/{deployment_id} SSE endpoint."""
 
     @pytest.mark.asyncio
-    async def test_progress_stream_returns_sse_content_type(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_progress_stream_returns_sse_content_type(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that progress stream returns text/event-stream content type."""
         # Start a deployment
         start_response = await client.post(
@@ -317,7 +347,9 @@ class TestDeploymentProgressStream:
         assert response.headers["content-type"] == "text/event-stream"
 
     @pytest.mark.asyncio
-    async def test_progress_stream_sends_done_on_completion(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_progress_stream_sends_done_on_completion(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that progress stream sends [DONE] when deployment completes."""
         # Start a deployment
         start_response = await client.post(
@@ -342,7 +374,9 @@ class TestStepProgressMapping:
     """
 
     @pytest.mark.asyncio
-    async def test_step_progress_handles_enum_values(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_step_progress_handles_enum_values(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that step progress handles enum values (snake_case)."""
 
         from app.models.deployment_log import DeploymentLog as DeploymentLogModel
@@ -392,7 +426,9 @@ class TestStepProgressMapping:
         assert data["data"]["progress"] == 100
 
     @pytest.mark.asyncio
-    async def test_step_progress_handles_script_output(self, client: AsyncClient, clear_deployments: None) -> None:
+    async def test_step_progress_handles_script_output(
+        self, client: AsyncClient, clear_deployments: None
+    ) -> None:
         """Test that step progress handles script output (Title Case with spaces).
 
         This addresses DEFER-1.2-1: Ensure script output like "Prerequisites",

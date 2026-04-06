@@ -294,7 +294,10 @@ async def test_get_cost_summary_empty(db_session):
     from sqlalchemy import delete
 
     from app.models.llm_conversation_cost import LLMConversationCost
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     summary = await service.get_cost_summary(
@@ -320,7 +323,10 @@ async def test_get_cost_summary_with_data(db_session):
     from sqlalchemy import delete
 
     from app.models.llm_conversation_cost import LLMConversationCost
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Create cost records for multiple conversations
@@ -390,7 +396,10 @@ async def test_get_cost_summary_with_date_range(db_session):
 
     # Explicit cleanup: delete any existing cost records for merchant_id=1
     from sqlalchemy import delete
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Create cost records on different dates
@@ -449,7 +458,10 @@ async def test_calculate_daily_costs_multiple_days(db_session):
 
     # Explicit cleanup: delete any existing cost records for merchant_id=1
     from sqlalchemy import delete
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Create records across 3 days
@@ -498,6 +510,7 @@ async def test_merchant_isolation_cost_summary(db_session):
 
     # Explicit cleanup: delete any existing cost records for both merchants
     from sqlalchemy import delete
+
     await db_session.execute(delete(LLMConversationCost))
     await db_session.commit()
 

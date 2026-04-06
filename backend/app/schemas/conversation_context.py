@@ -15,9 +15,7 @@ from pydantic.alias_generators import to_camel
 class ConversationContextResponse(BaseModel):
     """Conversation context response with mode-aware fields."""
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, from_attributes=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
 
     id: int
     conversation_id: int
@@ -62,9 +60,7 @@ class ContextSummary(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     summary: str = Field(..., description="Summarized context")
-    key_points: list[str] = Field(
-        ..., description="Key points extracted from conversation"
-    )
+    key_points: list[str] = Field(..., description="Key points extracted from conversation")
     active_constraints: dict = Field(..., description="Active constraints/conversations")
     original_turns: int | None = Field(None, description="Number of turns summarized")
     summarized_at: datetime | None = Field(None, description="When summarization occurred")
@@ -73,9 +69,7 @@ class ContextSummary(BaseModel):
 class ConversationTurnResponse(BaseModel):
     """Conversation turn response."""
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, from_attributes=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
 
     id: int
     conversation_id: int

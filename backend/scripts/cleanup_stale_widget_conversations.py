@@ -36,14 +36,14 @@ async def main():
     print(f"  Closed:     {stats['closed']}")
     print(f"  Errors:     {stats['errors']}")
 
-    if stats['closed'] > 0:
+    if stats["closed"] > 0:
         print(f"\n✓ Successfully closed {stats['closed']} stale conversations")
-    elif stats['stale'] == 0:
+    elif stats["stale"] == 0:
         print("\n✓ No stale conversations found")
     else:
         print(f"\n⚠ Found {stats['stale']} stale but couldn't close them")
 
-    if stats['errors'] > 0:
+    if stats["errors"] > 0:
         print(f"\n⚠ Encountered {stats['errors']} errors")
 
 

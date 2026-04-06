@@ -1,4 +1,5 @@
 """OpenAPI schema generation script for pre-commit hook."""
+
 import json
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ sys.path.insert(0, str(backend_dir))
 def generate_openapi() -> int:
     try:
         from app.main import app
+
         spec = app.openapi()
         output_path = backend_dir / "openapi.json"
         output_path.write_text(json.dumps(spec, indent=2))

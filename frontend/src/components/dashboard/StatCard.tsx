@@ -130,7 +130,7 @@ export function StatCard({
       {/* Expand button */}
       {expandable && (
         <button
-          className="absolute top-4 right-4 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/30 hover:text-white/60 transition-all"
+          className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/30 hover:text-white/60 transition-all"
           onClick={(e) => {
             e.stopPropagation();
             setIsExpanded(!isExpanded);

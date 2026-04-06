@@ -49,17 +49,12 @@ async def show_stats() -> None:
         avg_confidence = result.scalar()
 
         # Unique queries
-        result = await session.execute(
-            select(func.count(func.distinct(RAGQueryLog.query)))
-        )
+        result = await session.execute(select(func.count(func.distinct(RAGQueryLog.query))))
         unique_queries = result.scalar()
 
         # Top merchants
         result = await session.execute(
-            select(
-                RAGQueryLog.merchant_id,
-                func.count(RAGQueryLog.id).label("count")
-            )
+            select(RAGQueryLog.merchant_id, func.count(RAGQueryLog.id).label("count"))
             .group_by(RAGQueryLog.merchant_id)
             .order_by(func.count(RAGQueryLog.id).desc())
             .limit(5)
@@ -76,21 +71,24 @@ async def show_stats() -> None:
 
         # Date range
         result = await session.execute(
-            select(
-                func.min(RAGQueryLog.created_at),
-                func.max(RAGQueryLog.created_at)
-            )
+            select(func.min(RAGQueryLog.created_at), func.max(RAGQueryLog.created_at))
         )
         min_date, max_date = result.first()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("RAG Query Log Statistics")
-        print("="*60)
+        print("=" * 60)
         print(f"\nTotal Queries: {total}")
         print(f"Unique Queries: {unique_queries}")
-        print(f"Matched: {matched} ({matched/total*100 if total > 0 else 0:.1f}%)")
-        print(f"No Match: {total - matched} ({(total-matched)/total*100 if total > 0 else 0:.1f}%)")
-        print(f"Average Confidence: {avg_confidence:.3f}" if avg_confidence else "Average Confidence: N/A")
+        print(f"Matched: {matched} ({matched / total * 100 if total > 0 else 0:.1f}%)")
+        print(
+            f"No Match: {total - matched} ({(total - matched) / total * 100 if total > 0 else 0:.1f}%)"
+        )
+        print(
+            f"Average Confidence: {avg_confidence:.3f}"
+            if avg_confidence
+            else "Average Confidence: N/A"
+        )
         print(f"\nLast 24 Hours: {last_24h} queries")
         print(f"\nDate Range:")
         print(f"  Earliest: {min_date}" if min_date else "  Earliest: N/A")
@@ -101,16 +99,14 @@ async def show_stats() -> None:
             for merchant_id, count in top_merchants:
                 print(f"  Merchant {merchant_id}: {count} queries")
 
-        print("\n" + "="*60 + "\n")
+        print("\n" + "=" * 60 + "\n")
 
 
 async def show_recent(limit: int = 20) -> None:
     """Show recent RAG query logs."""
     async with get_session_factory()() as session:
         result = await session.execute(
-            select(RAGQueryLog)
-            .order_by(RAGQueryLog.created_at.desc())
-            .limit(limit)
+            select(RAGQueryLog).order_by(RAGQueryLog.created_at.desc()).limit(limit)
         )
         logs = result.scalars().all()
 
@@ -119,22 +115,24 @@ async def show_recent(limit: int = 20) -> None:
             return
 
         print(f"\nRecent {len(logs)} RAG Query Logs:")
-        print("="*80)
+        print("=" * 80)
 
         for log in logs:
             query_preview = log.query[:60] + "..." if len(log.query) > 60 else log.query
             status = "✓ MATCH" if log.matched else "✗ NO MATCH"
             confidence = f"{log.confidence:.2f}" if log.confidence else "N/A"
 
-            print(f"\n[{log.created_at.strftime('%Y-%m-%d %H:%M:%S')}] "
-                  f"Merchant {log.merchant_id} - {status}")
+            print(
+                f"\n[{log.created_at.strftime('%Y-%m-%d %H:%M:%S')}] "
+                f"Merchant {log.merchant_id} - {status}"
+            )
             print(f"  Confidence: {confidence}")
             print(f"  Query: {query_preview}")
 
             if log.sources:
                 print(f"  Sources: {len(log.sources)} document(s)")
 
-        print("\n" + "="*80 + "\n")
+        print("\n" + "=" * 80 + "\n")
 
 
 async def show_top_queries(days: int = 7, limit: int = 10) -> None:
@@ -146,7 +144,7 @@ async def show_top_queries(days: int = 7, limit: int = 10) -> None:
             select(
                 RAGQueryLog.query,
                 func.count(RAGQueryLog.id).label("count"),
-                func.avg(RAGQueryLog.confidence).label("avg_confidence")
+                func.avg(RAGQueryLog.confidence).label("avg_confidence"),
             )
             .where(RAGQueryLog.created_at >= cutoff)
             .group_by(RAGQueryLog.query)
@@ -160,7 +158,7 @@ async def show_top_queries(days: int = 7, limit: int = 10) -> None:
             return
 
         print(f"\nTop {len(queries)} Queries (Last {days} days):")
-        print("="*80)
+        print("=" * 80)
 
         for query, count, avg_conf in queries:
             query_preview = query[:50] + "..." if len(query) > 50 else query
@@ -168,7 +166,7 @@ async def show_top_queries(days: int = 7, limit: int = 10) -> None:
             print(f"\n[{count}x] {query_preview}")
             print(f"  Avg Confidence: {conf_str}")
 
-        print("\n" + "="*80 + "\n")
+        print("\n" + "=" * 80 + "\n")
 
 
 async def watch_new_logs(interval: int = 30) -> None:
@@ -178,9 +176,7 @@ async def watch_new_logs(interval: int = 30) -> None:
 
     last_id = 0
     async with get_session_factory()() as session:
-        result = await session.execute(
-            select(func.max(RAGQueryLog.id))
-        )
+        result = await session.execute(select(func.max(RAGQueryLog.id)))
         last_id = result.scalar() or 0
 
     try:
@@ -201,9 +197,11 @@ async def watch_new_logs(interval: int = 30) -> None:
                         status = "✓" if log.matched else "✗"
                         confidence = f"{log.confidence:.2f}" if log.confidence else "N/A"
 
-                        print(f"[{log.created_at.strftime('%H:%M:%S')}] "
-                              f"Merchant {log.merchant_id} {status} "
-                              f"(conf: {confidence})")
+                        print(
+                            f"[{log.created_at.strftime('%H:%M:%S')}] "
+                            f"Merchant {log.merchant_id} {status} "
+                            f"(conf: {confidence})"
+                        )
                         print(f"  Query: {query_preview}")
 
                         last_id = max(last_id, log.id)
@@ -218,14 +216,12 @@ async def check_alerts(threshold_hours: int = 24) -> None:
     """Check for alerts based on inactivity."""
     async with get_session_factory()() as session:
         # Check last log time
-        result = await session.execute(
-            select(func.max(RAGQueryLog.created_at))
-        )
+        result = await session.execute(select(func.max(RAGQueryLog.created_at)))
         last_log_time = result.scalar()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("RAG Query Log Alerts")
-        print("="*60)
+        print("=" * 60)
 
         if not last_log_time:
             print("\n⚠️  WARNING: No RAG query logs found in database!")
@@ -250,54 +246,29 @@ async def check_alerts(threshold_hours: int = 24) -> None:
             else:
                 print("\n✓ RAG logging is active")
 
-        print("\n" + "="*60 + "\n")
+        print("\n" + "=" * 60 + "\n")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Monitor RAG query logs for real-time analytics"
-    )
+    parser = argparse.ArgumentParser(description="Monitor RAG query logs for real-time analytics")
+    parser.add_argument("--stats", action="store_true", help="Show current statistics")
+    parser.add_argument("--recent", action="store_true", help="Show recent query logs")
+    parser.add_argument("--top", action="store_true", help="Show top queries")
     parser.add_argument(
-        "--stats",
-        action="store_true",
-        help="Show current statistics"
+        "--days", type=int, default=7, help="Number of days for top queries (default: 7)"
     )
+    parser.add_argument("--watch", action="store_true", help="Watch for new logs in real-time")
     parser.add_argument(
-        "--recent",
-        action="store_true",
-        help="Show recent query logs"
-    )
-    parser.add_argument(
-        "--top",
-        action="store_true",
-        help="Show top queries"
-    )
-    parser.add_argument(
-        "--days",
-        type=int,
-        default=7,
-        help="Number of days for top queries (default: 7)"
-    )
-    parser.add_argument(
-        "--watch",
-        action="store_true",
-        help="Watch for new logs in real-time"
-    )
-    parser.add_argument(
-        "--monitor",
-        action="store_true",
-        help="Run continuous monitoring with alerts"
+        "--monitor", action="store_true", help="Run continuous monitoring with alerts"
     )
     parser.add_argument(
         "--interval",
         type=int,
         default=60,
-        help="Check interval in seconds for monitor mode (default: 60)"
+        help="Check interval in seconds for monitor mode (default: 60)",
     )
     parser.add_argument(
-        "--alerts",
-        action="store_true",
-        help="Check for alerts (inactivity warnings)"
+        "--alerts", action="store_true", help="Check for alerts (inactivity warnings)"
     )
 
     args = parser.parse_args()

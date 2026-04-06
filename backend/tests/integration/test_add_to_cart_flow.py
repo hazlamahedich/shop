@@ -46,12 +46,12 @@ class TestAddToCartFlow:
                                 "price": 89.99,
                                 "currency_code": "USD",
                                 "available_for_sale": True,
-                                "selected_options": {"Size": "10", "Color": "Red"}
+                                "selected_options": {"Size": "10", "Color": "Red"},
                             }
-                        ]
+                        ],
                     }
                 ],
-                "total_count": 1
+                "total_count": 1,
             }
         }
 
@@ -65,19 +65,23 @@ class TestAddToCartFlow:
         mock_redis.setex.return_value = True
 
         # Create webhook payload with postback
-        payload = FacebookWebhookPayload(**{
-            "object": "page",
-            "entry": [{
-                "id": "123456",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "test_psid_123"},
-                    "postback": {
-                        "payload": "ADD_TO_CART:prod_123:var_456"
+        payload = FacebookWebhookPayload(
+            **{
+                "object": "page",
+                "entry": [
+                    {
+                        "id": "123456",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "test_psid_123"},
+                                "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                            }
+                        ],
                     }
-                }]
-            }]
-        })
+                ],
+            }
+        )
 
         # Mock context manager to return product search results
         with patch(
@@ -104,39 +108,45 @@ class TestAddToCartFlow:
         """Test adding duplicate item increments quantity."""
         # Existing cart with one item
         existing_cart = {
-            "items": [{
-                "productId": "prod_123",
-                "variantId": "var_456",
-                "title": "Running Shoes",
-                "price": 89.99,
-                "imageUrl": "https://example.com/shoes.jpg",
-                "currencyCode": "USD",
-                "quantity": 1,
-                "addedAt": "2024-01-15T10:00:00Z"
-            }],
+            "items": [
+                {
+                    "productId": "prod_123",
+                    "variantId": "var_456",
+                    "title": "Running Shoes",
+                    "price": 89.99,
+                    "imageUrl": "https://example.com/shoes.jpg",
+                    "currencyCode": "USD",
+                    "quantity": 1,
+                    "addedAt": "2024-01-15T10:00:00Z",
+                }
+            ],
             "subtotal": 89.99,
             "currencyCode": "USD",
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
 
         mock_redis.get.return_value = json.dumps(existing_cart)
         mock_redis.setex.return_value = True
 
         # Create webhook payload with postback
-        payload = FacebookWebhookPayload(**{
-            "object": "page",
-            "entry": [{
-                "id": "123456",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "test_psid_123"},
-                    "postback": {
-                        "payload": "ADD_TO_CART:prod_123:var_456"
+        payload = FacebookWebhookPayload(
+            **{
+                "object": "page",
+                "entry": [
+                    {
+                        "id": "123456",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "test_psid_123"},
+                                "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                            }
+                        ],
                     }
-                }]
-            }]
-        })
+                ],
+            }
+        )
 
         # Mock context manager to return product search results
         with patch(
@@ -155,9 +165,7 @@ class TestAddToCartFlow:
         assert "Running Shoes" in response.text
 
     @pytest.mark.asyncio
-    async def test_add_to_cart_out_of_stock(
-        self, mock_redis, sample_product_search_context
-    ):
+    async def test_add_to_cart_out_of_stock(self, mock_redis, sample_product_search_context):
         """Test add to cart fails for out of stock items."""
         # Modify product to be out of stock
         out_of_stock_context = {
@@ -174,28 +182,32 @@ class TestAddToCartFlow:
                                 "price": 89.99,
                                 "currency_code": "USD",
                                 "available_for_sale": False,  # Out of stock
-                                "selected_options": {"Size": "10", "Color": "Red"}
+                                "selected_options": {"Size": "10", "Color": "Red"},
                             }
-                        ]
+                        ],
                     }
                 ]
             }
         }
 
         # Create webhook payload
-        payload = FacebookWebhookPayload(**{
-            "object": "page",
-            "entry": [{
-                "id": "123456",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "test_psid_123"},
-                    "postback": {
-                        "payload": "ADD_TO_CART:prod_123:var_456"
+        payload = FacebookWebhookPayload(
+            **{
+                "object": "page",
+                "entry": [
+                    {
+                        "id": "123456",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "test_psid_123"},
+                                "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                            }
+                        ],
                     }
-                }]
-            }]
-        })
+                ],
+            }
+        )
 
         # Mock context manager
         with patch(
@@ -214,19 +226,23 @@ class TestAddToCartFlow:
     async def test_add_to_cart_invalid_postback_format(self):
         """Test invalid postback format is handled gracefully."""
         # Create webhook payload with invalid postback
-        payload = FacebookWebhookPayload(**{
-            "object": "page",
-            "entry": [{
-                "id": "123456",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "test_psid_123"},
-                    "postback": {
-                        "payload": "INVALID_FORMAT"
+        payload = FacebookWebhookPayload(
+            **{
+                "object": "page",
+                "entry": [
+                    {
+                        "id": "123456",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "test_psid_123"},
+                                "postback": {"payload": "INVALID_FORMAT"},
+                            }
+                        ],
                     }
-                }]
-            }]
-        })
+                ],
+            }
+        )
 
         processor = MessageProcessor()
         response = await processor.process_postback(payload)
@@ -235,24 +251,26 @@ class TestAddToCartFlow:
         assert "didn't understand" in response.text
 
     @pytest.mark.asyncio
-    async def test_add_to_cart_product_not_found(
-        self, mock_redis, sample_product_search_context
-    ):
+    async def test_add_to_cart_product_not_found(self, mock_redis, sample_product_search_context):
         """Test add to cart when product is not in context."""
         # Create webhook payload with non-existent product
-        payload = FacebookWebhookPayload(**{
-            "object": "page",
-            "entry": [{
-                "id": "123456",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "test_psid_123"},
-                    "postback": {
-                        "payload": "ADD_TO_CART:prod_999:var_999"
+        payload = FacebookWebhookPayload(
+            **{
+                "object": "page",
+                "entry": [
+                    {
+                        "id": "123456",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "test_psid_123"},
+                                "postback": {"payload": "ADD_TO_CART:prod_999:var_999"},
+                            }
+                        ],
                     }
-                }]
-            }]
-        })
+                ],
+            }
+        )
 
         # Mock context manager
         with patch(
@@ -268,9 +286,7 @@ class TestAddToCartFlow:
         assert "couldn't find" in response.text
 
     @pytest.mark.asyncio
-    async def test_cart_persists_across_operations(
-        self, cart_service, mock_redis
-    ):
+    async def test_cart_persists_across_operations(self, cart_service, mock_redis):
         """Test cart data persists correctly across operations."""
         mock_redis.get.return_value = None
         mock_redis.setex.return_value = True
@@ -283,7 +299,7 @@ class TestAddToCartFlow:
             title="Test Product",
             price=29.99,
             image_url="https://example.com/image.jpg",
-            quantity=2
+            quantity=2,
         )
 
         assert cart.items[0].quantity == 2

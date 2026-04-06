@@ -78,7 +78,9 @@ class TestAuthFlow:
         assert "detail" in data
         assert "invalid" in data["detail"]["message"].lower()
 
-    async def test_session_persistence_across_requests(self, async_client: AsyncClient, db_session: AsyncSession):
+    async def test_session_persistence_across_requests(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ):
         """Test that session persists across multiple requests."""
         # Create merchant
         password_hash = hash_password("TestPass123")
@@ -104,7 +106,9 @@ class TestAuthFlow:
             assert response.status_code == 200
             assert response.json()["data"]["merchant"]["email"] == "test2@example.com"
 
-    async def test_token_refresh_extends_session(self, async_client: AsyncClient, db_session: AsyncSession):
+    async def test_token_refresh_extends_session(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ):
         """Test that token refresh extends session expiration."""
         # Create merchant
         password_hash = hash_password("TestPass123")
@@ -138,7 +142,9 @@ class TestAuthFlow:
         # while original was issued at login time
         assert new_expires_at is not None
 
-    async def test_logout_invalidates_session(self, async_client: AsyncClient, db_session: AsyncSession):
+    async def test_logout_invalidates_session(
+        self, async_client: AsyncClient, db_session: AsyncSession
+    ):
         """Test that logout invalidates the session in database."""
         # Create merchant
         password_hash = hash_password("TestPass123")
@@ -206,10 +212,7 @@ class TestAuthFlow:
         # Send multiple logout requests concurrently
         import asyncio
 
-        tasks = [
-            async_client.post("/api/v1/auth/logout")
-            for _ in range(5)
-        ]
+        tasks = [async_client.post("/api/v1/auth/logout") for _ in range(5)]
 
         responses = await asyncio.gather(*tasks)
 

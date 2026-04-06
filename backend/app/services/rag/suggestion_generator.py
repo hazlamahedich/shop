@@ -314,9 +314,7 @@ Example: ["What are your business hours?", "How can I contact support?", "Do you
 
             # Extract capitalized phrases (potential entities)
             # This includes: Product Names, Company Names, Locations, etc.
-            matches = re.findall(
-                r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b|\b[A-Z]{2,}\b", content
-            )
+            matches = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b|\b[A-Z]{2,}\b", content)
 
             for match in matches:
                 entity = match.strip()
@@ -414,9 +412,7 @@ Example: ["What are your business hours?", "How can I contact support?", "Do you
 
         return valid_suggestions[: self.config.max_suggestions]
 
-    def _suggestion_contains_valid_entities(
-        self, suggestion: str, entities: set[str]
-    ) -> bool:
+    def _suggestion_contains_valid_entities(self, suggestion: str, entities: set[str]) -> bool:
         """Check if suggestion contains any valid entities from chunks.
 
         Args:
@@ -517,7 +513,9 @@ Example: ["What are your business hours?", "How can I contact support?", "Do you
 
             # Pattern 1: "Q:" or "Question:" prefix (stop at "A:" or "Answer:")
             q_pattern = re.findall(
-                r"^(?:Q[:\s]|Question[:\s])\s*(.+?)(?:\s+A[:\s]|\s+Answer[:\s]|$)", content, re.MULTILINE | re.IGNORECASE
+                r"^(?:Q[:\s]|Question[:\s])\s*(.+?)(?:\s+A[:\s]|\s+Answer[:\s]|$)",
+                content,
+                re.MULTILINE | re.IGNORECASE,
             )
             for match in q_pattern:
                 question = match.strip()

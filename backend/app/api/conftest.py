@@ -11,6 +11,7 @@ def reset_rate_limiter_state():
     persists between tests. This fixture resets that state before each test.
     """
     from app.core.rate_limiter import RateLimiter
+
     RateLimiter.reset_all()
     yield
     # Clean up after test

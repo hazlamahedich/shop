@@ -18,5 +18,6 @@ async def main():
         products = await client.list_products(first=5)
         print("First 5 products:", products)
 
+
 if __name__ == "__main__":
     asyncio.run(main())

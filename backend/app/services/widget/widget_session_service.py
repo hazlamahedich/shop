@@ -281,7 +281,7 @@ class WidgetSessionService:
                         select(Conversation).where(
                             Conversation.platform_sender_id == session_id,
                             Conversation.platform == "widget",
-                            Conversation.status == "active"
+                            Conversation.status == "active",
                         )
                     )
                     conversation = result.scalars().first()

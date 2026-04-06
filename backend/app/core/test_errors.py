@@ -1,6 +1,5 @@
 """Tests for error handling and error codes."""
 
-
 from app.core.errors import (
     APIError,
     AuthenticationError,
@@ -63,7 +62,7 @@ class TestAPIError:
         error = APIError(
             ErrorCode.VALIDATION_ERROR,
             "Validation failed",
-            details={"field": "email", "reason": "invalid format"}
+            details={"field": "email", "reason": "invalid format"},
         )
         result = error.to_dict()
 
@@ -91,7 +90,7 @@ class TestValidationError:
         """Test validation error with field details."""
         error = ValidationError(
             "Multiple validation errors",
-            fields={"email": "Invalid email", "age": "Must be positive"}
+            fields={"email": "Invalid email", "age": "Must be positive"},
         )
         result = error.to_dict()
 

@@ -17,6 +17,7 @@ async def test_shopify_authorize_endpoint(async_client: AsyncClient, monkeypatch
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     # Mock config
     def mock_settings():
         return {
@@ -29,7 +30,7 @@ async def test_shopify_authorize_endpoint(async_client: AsyncClient, monkeypatch
 
     response = await async_client.get(
         "/api/integrations/shopify/authorize",
-        params={"merchant_id": 1, "shop_domain": "test-store.myshopify.com"}
+        params={"merchant_id": 1, "shop_domain": "test-store.myshopify.com"},
     )
 
     assert response.status_code == 200
@@ -48,7 +49,7 @@ async def test_shopify_authorize_invalid_domain(async_client: AsyncClient) -> No
     """
     response = await async_client.get(
         "/api/integrations/shopify/authorize",
-        params={"merchant_id": 1, "shop_domain": "invalid.com"}
+        params={"merchant_id": 1, "shop_domain": "invalid.com"},
     )
 
     assert response.status_code == 400
@@ -64,8 +65,7 @@ async def test_shopify_status_not_connected(async_client: AsyncClient) -> None:
         async_client: Test HTTP client
     """
     response = await async_client.get(
-        "/api/integrations/shopify/status",
-        params={"merchant_id": 999}
+        "/api/integrations/shopify/status", params={"merchant_id": 999}
     )
 
     assert response.status_code == 200
@@ -81,8 +81,7 @@ async def test_shopify_disconnect_not_connected(async_client: AsyncClient) -> No
         async_client: Test HTTP client
     """
     response = await async_client.delete(
-        "/api/integrations/shopify/disconnect",
-        params={"merchant_id": 999}
+        "/api/integrations/shopify/disconnect", params={"merchant_id": 999}
     )
 
     assert response.status_code == 400
@@ -98,8 +97,7 @@ async def test_shopify_test_webhook_not_connected(async_client: AsyncClient) -> 
         async_client: Test HTTP client
     """
     response = await async_client.post(
-        "/api/integrations/shopify/test-webhook",
-        params={"merchant_id": 999}
+        "/api/integrations/shopify/test-webhook", params={"merchant_id": 999}
     )
 
     assert response.status_code == 400

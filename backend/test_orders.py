@@ -13,5 +13,6 @@ async def main():
         for o in orders:
             print(f"Order ID: {o.id}, merchant_id: {o.merchant_id}, is_test: {o.is_test}")
 
+
 if __name__ == "__main__":
     asyncio.run(main())

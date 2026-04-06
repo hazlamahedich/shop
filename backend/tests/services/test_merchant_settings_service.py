@@ -4,7 +4,6 @@ Story 3-6: Budget Cap Configuration
 Tests budget validation, recommendation calculation, and error handling.
 """
 
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,8 +96,9 @@ class TestGetBudgetRecommendation:
         from app.models.llm_conversation_cost import LLMConversationCost
 
         result = await async_session.execute(
-            select(func.sum(LLMConversationCost.total_cost_usd))
-            .where(LLMConversationCost.merchant_id == merchant.id)
+            select(func.sum(LLMConversationCost.total_cost_usd)).where(
+                LLMConversationCost.merchant_id == merchant.id
+            )
         )
         actual_total = result.scalar() or 0
 
@@ -127,9 +127,7 @@ class TestGetBudgetRecommendation:
         assert "30" in recommendation.rationale
 
     @pytest.mark.asyncio
-    async def test_recommendation_without_cost_data(
-        self, async_session: AsyncSession
-    ):
+    async def test_recommendation_without_cost_data(self, async_session: AsyncSession):
         """Test budget recommendation without cost data (new merchant)."""
         merchant_id = 999  # No cost records for this merchant
 
@@ -149,9 +147,7 @@ class TestGetBudgetRecommendation:
         assert "$50.00" in recommendation.rationale
 
     @pytest.mark.asyncio
-    async def test_recommendation_to_dict_conversion(
-        self, async_session: AsyncSession
-    ):
+    async def test_recommendation_to_dict_conversion(self, async_session: AsyncSession):
         """Test BudgetRecommendation.to_dict() method."""
         merchant_id = 1
         recommendation = await get_budget_recommendation(

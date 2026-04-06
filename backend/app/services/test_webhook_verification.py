@@ -224,9 +224,7 @@ async def test_test_facebook_webhook_success(
     db_session.add(fb_integration)
     await db_session.commit()
 
-    with patch(
-        "app.services.webhook_verification.decrypt_access_token"
-    ) as mock_decrypt:
+    with patch("app.services.webhook_verification.decrypt_access_token") as mock_decrypt:
         mock_decrypt.return_value = "decrypted_token"
 
         result = await verification_service.test_facebook_webhook()
@@ -280,16 +278,12 @@ async def test_test_shopify_webhook_success(
     db_session.add(shopify_integration)
     await db_session.commit()
 
-    with patch(
-        "app.services.webhook_verification.ShopifyAdminClient"
-    ) as mock_client:
+    with patch("app.services.webhook_verification.ShopifyAdminClient") as mock_client:
         mock_instance = AsyncMock()
         mock_instance.verify_webhook_subscription.return_value = True
         mock_client.return_value = mock_instance
 
-        with patch(
-            "app.services.webhook_verification.decrypt_access_token"
-        ) as mock_decrypt:
+        with patch("app.services.webhook_verification.decrypt_access_token") as mock_decrypt:
             mock_decrypt.return_value = "decrypted_token"
 
             result = await verification_service.test_shopify_webhook()
@@ -336,9 +330,7 @@ async def test_resubscribe_facebook_webhook_success(
             return_value=mock_response
         )
 
-        with patch(
-            "app.services.webhook_verification.decrypt_access_token"
-        ) as mock_decrypt:
+        with patch("app.services.webhook_verification.decrypt_access_token") as mock_decrypt:
             mock_decrypt.return_value = "decrypted_token"
 
             result = await verification_service.resubscribe_facebook_webhook()
@@ -378,16 +370,12 @@ async def test_resubscribe_shopify_webhook_success(
     db_session.add(shopify_integration)
     await db_session.commit()
 
-    with patch(
-        "app.services.webhook_verification.ShopifyAdminClient"
-    ) as mock_client:
+    with patch("app.services.webhook_verification.ShopifyAdminClient") as mock_client:
         mock_instance = AsyncMock()
         mock_instance.subscribe_webhook.return_value = True
         mock_client.return_value = mock_instance
 
-        with patch(
-            "app.services.webhook_verification.decrypt_access_token"
-        ) as mock_decrypt:
+        with patch("app.services.webhook_verification.decrypt_access_token") as mock_decrypt:
             mock_decrypt.return_value = "decrypted_token"
 
             result = await verification_service.resubscribe_shopify_webhook()
@@ -402,9 +390,7 @@ async def test_diagnose_webhook_failure_facebook(
     verification_service: WebhookVerificationService,
 ) -> None:
     """Test diagnosing Facebook webhook failure."""
-    result = await verification_service.diagnose_webhook_failure(
-        "facebook", "Invalid access token"
-    )
+    result = await verification_service.diagnose_webhook_failure("facebook", "Invalid access token")
 
     assert result["platform"] == "facebook"
     assert result["error"] == "Invalid access token"
@@ -437,9 +423,7 @@ async def test_diagnose_webhook_failure_shopify_timeout(
     verification_service: WebhookVerificationService,
 ) -> None:
     """Test diagnosing Shopify webhook timeout failure."""
-    result = await verification_service.diagnose_webhook_failure(
-        "shopify", "Connection timeout"
-    )
+    result = await verification_service.diagnose_webhook_failure("shopify", "Connection timeout")
 
     assert result["platform"] == "shopify"
     assert len(result["troubleshootingSteps"]) > 0

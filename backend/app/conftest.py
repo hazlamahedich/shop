@@ -46,7 +46,6 @@ def get_shared_session_factory():
     """Get or create shared session factory."""
     global _shared_session_factory
     if _shared_session_factory is None:
-
         _shared_session_factory = async_sessionmaker(
             bind=get_shared_test_engine(),
             expire_on_commit=False,

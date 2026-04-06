@@ -3,7 +3,6 @@
 Tests pattern detection for 290+ international carriers.
 """
 
-
 from app.services.carrier.carrier_patterns import (
     CarrierPattern,
     CarrierRegion,

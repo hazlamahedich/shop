@@ -58,6 +58,7 @@ class CheckoutService:
         if redis_client is None:
             # Create default Redis client (Async)
             from app.core.config import settings
+
             config = settings()
             redis_url = config.get("REDIS_URL", "redis://localhost:6379/0")
             self.redis = redis.from_url(redis_url, decode_responses=True)
@@ -123,10 +124,7 @@ class CheckoutService:
         # Build line items for Shopify
         line_items = []
         for item in cart.items:
-            line_items.append({
-                "variant_id": item.variant_id,
-                "quantity": item.quantity
-            })
+            line_items.append({"variant_id": item.variant_id, "quantity": item.quantity})
 
         self.logger.info(
             "checkout_generation_started",
@@ -144,8 +142,7 @@ class CheckoutService:
                 # Generate checkout URL via Shopify
                 # Note: client.create_checkout_url performs HTTP HEAD validation
                 checkout_url = await self.shopify_client.create_checkout_url(
-                    line_items,
-                    custom_attributes=custom_attributes
+                    line_items, custom_attributes=custom_attributes
                 )
 
                 # Store checkout token for cart preservation
@@ -166,7 +163,11 @@ class CheckoutService:
                     )
 
                 # Mask token for logging (Issue #6)
-                masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if checkout_token and len(checkout_token) > 8 else "tok_***"
+                masked_token = (
+                    f"{checkout_token[:4]}...{checkout_token[-4:]}"
+                    if checkout_token and len(checkout_token) > 8
+                    else "tok_***"
+                )
 
                 self.logger.info(
                     "checkout_generation_success",
@@ -185,14 +186,17 @@ class CheckoutService:
 
             except APIError as e:
                 last_error = e
-                if e.code == ErrorCode.SHOPIFY_CHECKOUT_URL_INVALID and attempt < self.MAX_RETRY_ATTEMPTS:
+                if (
+                    e.code == ErrorCode.SHOPIFY_CHECKOUT_URL_INVALID
+                    and attempt < self.MAX_RETRY_ATTEMPTS
+                ):
                     # Retry on validation failure with backoff
                     self.logger.warning(
                         "checkout_validation_failed_retry",
                         psid=psid,
                         retry_count=attempt,
                         max_retries=self.MAX_RETRY_ATTEMPTS,
-                        backoff=self.RETRY_BACKOFF_SECONDS
+                        backoff=self.RETRY_BACKOFF_SECONDS,
                     )
                     await asyncio.sleep(self.RETRY_BACKOFF_SECONDS)
                     continue
@@ -205,7 +209,9 @@ class CheckoutService:
             "checkout_generation_failed",
             psid=psid,
             error=str(last_error) if last_error else "Unknown error",
-            error_code=last_error.code.value if last_error and isinstance(last_error.code, ErrorCode) else None,
+            error_code=last_error.code.value
+            if last_error and isinstance(last_error.code, ErrorCode)
+            else None,
             retry_count=attempt,
         )
 
@@ -232,8 +238,8 @@ class CheckoutService:
             # Issue #3: Robust extraction using urlparse
             path = urlparse(checkout_url).path
             # Handle potential trailing slashes
-            path = path.rstrip('/')
-            token = path.split('/')[-1]
+            path = path.rstrip("/")
+            token = path.split("/")[-1]
 
             # Basic validation: Token should be reasonably long
             if len(token) > 5:
@@ -278,7 +284,11 @@ class CheckoutService:
         )
 
         # Issue #6: Mask token in logs
-        masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if len(checkout_token) > 8 else "tok_***"
+        masked_token = (
+            f"{checkout_token[:4]}...{checkout_token[-4:]}"
+            if len(checkout_token) > 8
+            else "tok_***"
+        )
         self.logger.info(
             "checkout_token_stored",
             psid=psid,
@@ -316,7 +326,11 @@ class CheckoutService:
         )
 
         # Mask token in logs
-        masked_token = f"{checkout_token[:4]}...{checkout_token[-4:]}" if len(checkout_token) > 8 else "tok_***"
+        masked_token = (
+            f"{checkout_token[:4]}...{checkout_token[-4:]}"
+            if len(checkout_token) > 8
+            else "tok_***"
+        )
         self.logger.info(
             "checkout_token_reverse_lookup_stored",
             psid=psid,

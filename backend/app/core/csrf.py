@@ -27,6 +27,7 @@ from starlette.datastructures import Headers
 
 class CSRFTokenError(Exception):
     """CSRF token validation error."""
+
     pass
 
 
@@ -212,10 +213,7 @@ def get_csrf_protection() -> CSRFProtection:
     """
     global _csrf_protection
     if _csrf_protection is None:
-        raise ValueError(
-            "CSRF protection not initialized. "
-            "Call init_csrf_protection() first."
-        )
+        raise ValueError("CSRF protection not initialized. Call init_csrf_protection() first.")
     return _csrf_protection
 
 

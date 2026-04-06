@@ -101,9 +101,7 @@ async def create_test_merchant(
         )
 
     # Check if merchant already exists
-    result = await db.execute(
-        select(Merchant).where(Merchant.email == data.email)
-    )
+    result = await db.execute(select(Merchant).where(Merchant.email == data.email))
     existing = result.scalars().first()
 
     if existing:
@@ -205,15 +203,11 @@ async def clear_test_sessions(
 
     if email:
         # Delete sessions for specific merchant
-        result = await db.execute(
-            select(Merchant).where(Merchant.email == email)
-        )
+        result = await db.execute(select(Merchant).where(Merchant.email == email))
         merchant = result.scalars().first()
 
         if merchant:
-            await db.execute(
-                delete(Session).where(Session.merchant_id == merchant.id)
-            )
+            await db.execute(delete(Session).where(Session.merchant_id == merchant.id))
     else:
         # Delete all sessions (use with caution)
         await db.execute(delete(Session))
@@ -262,9 +256,7 @@ async def cleanup_test_data(
     await db.execute(delete(Session))
 
     # Delete all test merchants (those with test_ prefix in merchant_key)
-    await db.execute(
-        delete(Merchant).where(Merchant.merchant_key.like("test_%"))
-    )
+    await db.execute(delete(Merchant).where(Merchant.merchant_key.like("test_%")))
 
     await db.commit()
 

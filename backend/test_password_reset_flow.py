@@ -125,9 +125,7 @@ async def test_password_reset_flow():
         # Check password was changed
         from app.core.auth import verify_password
 
-        result = await db.execute(
-            Merchant.__table__.select().where(Merchant.id == merchant.id)
-        )
+        result = await db.execute(Merchant.__table__.select().where(Merchant.id == merchant.id))
         updated_merchant = result.fetchone()
 
         if verify_password(new_password, updated_merchant[12]):  # password_hash
@@ -138,9 +136,7 @@ async def test_password_reset_flow():
 
         # Check token was marked as used
         result = await db.execute(
-            PasswordResetToken.__table__.select().where(
-                PasswordResetToken.id == reset_record.id
-            )
+            PasswordResetToken.__table__.select().where(PasswordResetToken.id == reset_record.id)
         )
         final_token = result.fetchone()
 

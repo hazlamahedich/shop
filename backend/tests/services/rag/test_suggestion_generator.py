@@ -617,7 +617,9 @@ class TestSuggestionGeneratorValidation:
 
         assert generator._chunks_are_high_quality(chunks) is False
 
-    def test_chunks_are_low_quality_with_low_similarity(self, generator: SuggestionGenerator) -> None:
+    def test_chunks_are_low_quality_with_low_similarity(
+        self, generator: SuggestionGenerator
+    ) -> None:
         """Test that low similarity chunks fail quality check."""
         chunks = [
             RetrievedChunk(
@@ -677,7 +679,9 @@ class TestSuggestionGeneratorValidation:
 
         assert len(valid) == 2
 
-    def test_validate_suggestions_with_invalid_entities(self, generator: SuggestionGenerator) -> None:
+    def test_validate_suggestions_with_invalid_entities(
+        self, generator: SuggestionGenerator
+    ) -> None:
         """Test that suggestions with hallucinated entities are rejected."""
         chunks = [
             RetrievedChunk(
@@ -695,7 +699,9 @@ class TestSuggestionGeneratorValidation:
 
         assert len(valid) == 0
 
-    def test_faq_suggestions_extracted_from_faq_documents(self, generator: SuggestionGenerator) -> None:
+    def test_faq_suggestions_extracted_from_faq_documents(
+        self, generator: SuggestionGenerator
+    ) -> None:
         """Test that questions are extracted from FAQ documents."""
         chunks = [
             RetrievedChunk(
@@ -767,7 +773,9 @@ class TestSuggestionGeneratorValidation:
         mock_llm.chat.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_hallucinated_suggestions_are_filtered_out(self, generator: SuggestionGenerator) -> None:
+    async def test_hallucinated_suggestions_are_filtered_out(
+        self, generator: SuggestionGenerator
+    ) -> None:
         """Test that LLM suggestions with hallucinated entities are filtered out."""
         from unittest.mock import AsyncMock
 

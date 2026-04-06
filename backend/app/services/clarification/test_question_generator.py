@@ -22,9 +22,7 @@ async def test_question_generation_budget_first():
     classification = ClassificationResult(
         intent=IntentType.PRODUCT_SEARCH,
         confidence=0.60,
-        entities=ExtractedEntities(
-            color="red", brand="nike"
-        ),  # Missing budget, category, size
+        entities=ExtractedEntities(color="red", brand="nike"),  # Missing budget, category, size
         raw_message="red nike",
         reasoning="Missing constraints",
         llm_provider="test",
@@ -50,9 +48,7 @@ async def test_question_generation_category_second():
     classification = ClassificationResult(
         intent=IntentType.PRODUCT_SEARCH,
         confidence=0.60,
-        entities=ExtractedEntities(
-            budget=100, color="red", brand="nike"
-        ),  # Missing category, size
+        entities=ExtractedEntities(budget=100, color="red", brand="nike"),  # Missing category, size
         raw_message="$100 red nike",
         reasoning="Missing category",
         llm_provider="test",
@@ -82,9 +78,7 @@ async def test_question_generation_size_third():
     classification = ClassificationResult(
         intent=IntentType.PRODUCT_SEARCH,
         confidence=0.60,
-        entities=ExtractedEntities(
-            budget=100, category="shoes", color="red"
-        ),  # Missing size
+        entities=ExtractedEntities(budget=100, category="shoes", color="red"),  # Missing size
         raw_message="$100 shoes red",
         reasoning="Missing size",
         llm_provider="test",

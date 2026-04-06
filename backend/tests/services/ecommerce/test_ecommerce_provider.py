@@ -35,6 +35,7 @@ from app.services.ecommerce.provider_factory import (
 
 # ==================== StoreNotConnectedError Tests ====================
 
+
 class TestStoreNotConnectedError:
     """Tests for StoreNotConnectedError exception."""
 
@@ -60,6 +61,7 @@ class TestStoreNotConnectedError:
 
 
 # ==================== Data Model Tests ====================
+
 
 class TestProductVariant:
     """Tests for ProductVariant model."""
@@ -202,6 +204,7 @@ class TestOrder:
 
 # ==================== NullStoreProvider Tests ====================
 
+
 class TestNullStoreProvider:
     """Tests for NullStoreProvider."""
 
@@ -251,6 +254,7 @@ class TestNullStoreProvider:
 
 
 # ==================== MockStoreProvider Tests ====================
+
 
 class TestMockStoreProvider:
     """Tests for MockStoreProvider."""
@@ -373,6 +377,7 @@ class TestMockStoreProvider:
 
 # ==================== Provider Factory Tests ====================
 
+
 class TestProviderFactory:
     """Tests for provider factory functions."""
 
@@ -411,6 +416,7 @@ class TestProviderFactory:
 
 
 # ==================== Integration Tests ====================
+
 
 class TestECommerceIntegration:
     """Integration tests for e-commerce abstraction."""

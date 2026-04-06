@@ -88,7 +88,7 @@ async def export_conversations(
         generate(),
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": f"attachment; filename=\"{filename}\"",
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Export-Count": str(export_count),
             "X-Export-Date": datetime.utcnow().isoformat() + "Z",
         },

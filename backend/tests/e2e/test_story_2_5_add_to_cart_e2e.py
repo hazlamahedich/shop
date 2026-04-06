@@ -44,9 +44,9 @@ class TestStory25AddToCartE2E:
                             "price": 89.99,
                             "currency_code": "USD",
                             "available_for_sale": True,
-                            "selected_options": {"Size": "10", "Color": "Red"}
+                            "selected_options": {"Size": "10", "Color": "Red"},
                         }
-                    ]
+                    ],
                 },
                 {
                     "id": "prod_789",
@@ -60,14 +60,14 @@ class TestStory25AddToCartE2E:
                             "price": 29.99,
                             "currency_code": "USD",
                             "available_for_sale": True,
-                            "selected_options": {"Size": "M", "Color": "Blue"}
+                            "selected_options": {"Size": "M", "Color": "Blue"},
                         }
-                    ]
-                }
+                    ],
+                },
             ],
             "total_count": 2,
             "search_params": {"query": "shoes"},
-            "search_time_ms": 150
+            "search_time_ms": 150,
         }
 
     @pytest.mark.asyncio
@@ -81,9 +81,9 @@ class TestStory25AddToCartE2E:
             "app.services.messaging.message_processor.ConversationContextManager"
         ) as mock_context_mgr:
             mock_instance = mock_context_mgr.return_value
-            mock_instance.get_context = AsyncMock(return_value={
-                "last_search_results": sample_product_search_results
-            })
+            mock_instance.get_context = AsyncMock(
+                return_value={"last_search_results": sample_product_search_results}
+            )
             # Mock Redis client - get returns None (empty cart), setex returns True
             mock_redis = MagicMock()
             mock_redis.get.return_value = None
@@ -91,21 +91,26 @@ class TestStory25AddToCartE2E:
             mock_instance.redis = mock_redis
 
             # Create postback payload from button tap
-            payload = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid_123"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_123:var_456"
+            payload = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid_123"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             from app.services.messaging.message_processor import MessageProcessor
+
             processor = MessageProcessor()
             response = await processor.process_postback(payload)
 
@@ -122,14 +127,16 @@ class TestStory25AddToCartE2E:
         # Mock intent classifier to return CART_ADD intent
         from app.services.intent import ClassificationResult, ExtractedEntities, IntentType
 
-        with patch(
-            "app.services.messaging.message_processor.ConversationContextManager"
-        ) as mock_context_mgr, \
-             patch("app.services.intent.IntentClassifier.classify") as mock_classify:
+        with (
+            patch(
+                "app.services.messaging.message_processor.ConversationContextManager"
+            ) as mock_context_mgr,
+            patch("app.services.intent.IntentClassifier.classify") as mock_classify,
+        ):
             mock_instance = mock_context_mgr.return_value
-            mock_instance.get_context = AsyncMock(return_value={
-                "last_search_results": sample_product_search_results
-            })
+            mock_instance.get_context = AsyncMock(
+                return_value={"last_search_results": sample_product_search_results}
+            )
             # Mock Redis client - get returns None (empty cart), setex returns True
             mock_redis = MagicMock()
             mock_redis.get.return_value = None
@@ -146,23 +153,30 @@ class TestStory25AddToCartE2E:
                 raw_message="add to cart",
                 llm_provider="test_provider",
                 model="test_model",
-                processing_time_ms=50.0
+                processing_time_ms=50.0,
             )
 
             # Create message payload
-            payload = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid_123"},
-                        "message": {"text": "add to cart"}
-                    }]
-                }]
-            })
+            payload = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid_123"},
+                                    "message": {"text": "add to cart"},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            )
 
             from app.services.messaging.message_processor import MessageProcessor
+
             processor = MessageProcessor()
             response = await processor.process_message(payload)
 
@@ -180,49 +194,55 @@ class TestStory25AddToCartE2E:
         """Test E2E: Adding same product twice increments quantity."""
         # Prepare existing cart data
         existing_cart_dict = {
-            "items": [{
-                "productId": "prod_123",
-                "variantId": "var_456",
-                "title": "Running Shoes",
-                "price": 89.99,
-                "imageUrl": "https://cdn.shopify.com/shoes.jpg",
-                "currencyCode": "USD",
-                "quantity": 1,
-                "addedAt": "2024-01-15T10:00:00Z"
-            }],
+            "items": [
+                {
+                    "productId": "prod_123",
+                    "variantId": "var_456",
+                    "title": "Running Shoes",
+                    "price": 89.99,
+                    "imageUrl": "https://cdn.shopify.com/shoes.jpg",
+                    "currencyCode": "USD",
+                    "quantity": 1,
+                    "addedAt": "2024-01-15T10:00:00Z",
+                }
+            ],
             "subtotal": 89.99,
             "currencyCode": "USD",
             "itemCount": 1,
             "createdAt": "2024-01-15T10:00:00Z",
-            "updatedAt": "2024-01-15T10:00:00Z"
+            "updatedAt": "2024-01-15T10:00:00Z",
         }
 
         with patch(
             "app.services.messaging.message_processor.ConversationContextManager"
         ) as mock_context_mgr:
             mock_instance = mock_context_mgr.return_value
-            mock_instance.get_context = AsyncMock(return_value={
-                "last_search_results": sample_product_search_results
-            })
+            mock_instance.get_context = AsyncMock(
+                return_value={"last_search_results": sample_product_search_results}
+            )
             # Mock Redis client - get returns existing cart, setex returns True
             mock_redis = MagicMock()
             mock_redis.get.return_value = json.dumps(existing_cart_dict)
             mock_redis.setex.return_value = True
             mock_instance.redis = mock_redis
 
-            payload = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid_123"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_123:var_456"
+            payload = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid_123"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             from app.services.messaging.message_processor import MessageProcessor
 
@@ -249,9 +269,9 @@ class TestStory25AddToCartE2E:
                                 "price": 89.99,
                                 "currency_code": "USD",
                                 "available_for_sale": False,  # Out of stock
-                                "selected_options": {"Size": "10", "Color": "Red"}
+                                "selected_options": {"Size": "10", "Color": "Red"},
                             }
-                        ]
+                        ],
                     }
                 ]
             }
@@ -263,21 +283,26 @@ class TestStory25AddToCartE2E:
             mock_instance = mock_context_mgr.return_value
             mock_instance.get_context = AsyncMock(return_value=out_of_stock_results)
 
-            payload = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid_123"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_123:var_456"
+            payload = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid_123"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             from app.services.messaging.message_processor import MessageProcessor
+
             processor = MessageProcessor()
             response = await processor.process_postback(payload)
 
@@ -304,7 +329,7 @@ class TestStory25AddToCartE2E:
             variant_id="var_1",
             title="Test Product",
             price=29.99,
-            image_url="https://example.com/image.jpg"
+            image_url="https://example.com/image.jpg",
         )
 
         # Verify setex was called with 24-hour TTL
@@ -329,9 +354,9 @@ class TestStory25AddToCartE2E:
                                 "id": "var_1",
                                 "price": 29.99,
                                 "currency_code": "USD",
-                                "available_for_sale": True
+                                "available_for_sale": True,
                             }
-                        ]
+                        ],
                     }
                 ]
             }
@@ -343,21 +368,26 @@ class TestStory25AddToCartE2E:
             mock_instance = mock_context_mgr.return_value
             mock_instance.get_context = AsyncMock(return_value=mock_results)
 
-            payload = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_1:var_1"
+            payload = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_1:var_1"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             from app.services.messaging.message_processor import MessageProcessor
+
             processor = MessageProcessor()
 
             start = time.time()
@@ -374,9 +404,9 @@ class TestStory25AddToCartE2E:
             "app.services.messaging.message_processor.ConversationContextManager"
         ) as mock_context_mgr:
             mock_instance = mock_context_mgr.return_value
-            mock_instance.get_context = AsyncMock(return_value={
-                "last_search_results": sample_product_search_results
-            })
+            mock_instance.get_context = AsyncMock(
+                return_value={"last_search_results": sample_product_search_results}
+            )
             # Mock Redis client - get returns None (empty cart), setex returns True
             mock_redis = MagicMock()
             mock_redis.get.return_value = None
@@ -384,40 +414,49 @@ class TestStory25AddToCartE2E:
             mock_instance.redis = mock_redis
 
             from app.services.messaging.message_processor import MessageProcessor
+
             processor = MessageProcessor()
 
             # Add first product
-            payload1 = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_123:var_456"
+            payload1 = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_123:var_456"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             response1 = await processor.process_postback(payload1)
             assert "Running Shoes" in response1.text
 
             # Add second product
-            payload2 = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_789:var_101"
+            payload2 = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_789:var_101"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             response2 = await processor.process_postback(payload2)
             assert "Sport T-Shirt" in response2.text
@@ -430,25 +469,28 @@ class TestStory25AddToCartE2E:
             "app.services.messaging.message_processor.ConversationContextManager"
         ) as mock_context_mgr:
             mock_instance = mock_context_mgr.return_value
-            mock_instance.get_context = AsyncMock(return_value={
-                "last_search_results": {}
-            })
+            mock_instance.get_context = AsyncMock(return_value={"last_search_results": {}})
 
-            payload = FacebookWebhookPayload(**{
-                "object": "page",
-                "entry": [{
-                    "id": "123456",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "test_psid"},
-                        "postback": {
-                            "payload": "ADD_TO_CART:prod_1:var_1"
+            payload = FacebookWebhookPayload(
+                **{
+                    "object": "page",
+                    "entry": [
+                        {
+                            "id": "123456",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "test_psid"},
+                                    "postback": {"payload": "ADD_TO_CART:prod_1:var_1"},
+                                }
+                            ],
                         }
-                    }]
-                }]
-            })
+                    ],
+                }
+            )
 
             from app.services.messaging.message_processor import MessageProcessor
+
             processor = MessageProcessor()
             response = await processor.process_postback(payload)
 

@@ -56,9 +56,7 @@ class RetentionLogsListResponse(BaseModel):
 
 @router.get("/retention-logs", response_model=RetentionLogsListResponse)
 async def get_retention_logs(
-    merchant_id: int | None = Query(
-        None, alias="merchantId", description="Filter by merchant ID"
-    ),
+    merchant_id: int | None = Query(None, alias="merchantId", description="Filter by merchant ID"),
     start_date: datetime | None = Query(
         None, alias="startDate", description="Filter logs after this date"
     ),

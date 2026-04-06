@@ -37,9 +37,7 @@ class TestOrderConfirmationService:
         return AsyncMock(spec=MessengerSendService)
 
     @pytest.fixture
-    def order_confirmation_service(
-        self, mock_redis, mock_cart_service, mock_send_service
-    ):
+    def order_confirmation_service(self, mock_redis, mock_cart_service, mock_send_service):
         """Create order confirmation service with mocked dependencies."""
         return OrderConfirmationService(
             redis_client=mock_redis,
@@ -57,9 +55,7 @@ class TestOrderConfirmationService:
             "financial_status": "paid",
             "email": "customer@example.com",
             "created_at": "2026-02-05T10:00:00Z",
-            "note_attributes": [
-                {"name": "psid", "value": "test_psid_12345"}
-            ],
+            "note_attributes": [{"name": "psid", "value": "test_psid_12345"}],
         }
 
     @pytest.mark.asyncio
@@ -113,9 +109,7 @@ class TestOrderConfirmationService:
             "financial_status": "pending",  # Not paid
             "email": "customer@example.com",
             "created_at": "2026-02-05T10:00:00Z",
-            "note_attributes": [
-                {"name": "psid", "value": "test_psid_12345"}
-            ],
+            "note_attributes": [{"name": "psid", "value": "test_psid_12345"}],
         }
 
         # Process order confirmation
@@ -149,9 +143,7 @@ class TestOrderConfirmationService:
         """Test PSID extraction from attributes (GraphQL/Plus)."""
         # Use attributes instead of note_attributes
         sample_paid_order_payload["note_attributes"] = []
-        sample_paid_order_payload["attributes"] = [
-            {"key": "psid", "value": "test_psid_graphql"}
-        ]
+        sample_paid_order_payload["attributes"] = [{"key": "psid", "value": "test_psid_graphql"}]
 
         # Process order confirmation
         result = await order_confirmation_service.process_order_confirmation(
@@ -179,9 +171,7 @@ class TestOrderConfirmationService:
         }
 
         # Process order confirmation
-        result = await order_confirmation_service.process_order_confirmation(
-            payload_no_psid
-        )
+        result = await order_confirmation_service.process_order_confirmation(payload_no_psid)
 
         # Verify skipped
         assert result.status == "skipped"
@@ -244,7 +234,8 @@ class TestOrderConfirmationService:
 
         # Find the order reference storage call
         order_ref_calls = [
-            call for call in mock_redis.setex.call_args_list
+            call
+            for call in mock_redis.setex.call_args_list
             if "order_reference:" in str(call[0][0])
         ]
 
@@ -266,9 +257,7 @@ class TestOrderConfirmationService:
     ):
         """Test confirmation message contains required elements."""
         # Process order confirmation
-        await order_confirmation_service.process_order_confirmation(
-            sample_paid_order_payload
-        )
+        await order_confirmation_service.process_order_confirmation(sample_paid_order_payload)
 
         # Get the sent message
         call_kwargs = mock_send_service.send_message.call_args.kwargs
@@ -309,13 +298,12 @@ class TestOrderConfirmationService:
     ):
         """Test that order reference is stored with 365-day TTL."""
         # Process order confirmation
-        await order_confirmation_service.process_order_confirmation(
-            sample_paid_order_payload
-        )
+        await order_confirmation_service.process_order_confirmation(sample_paid_order_payload)
 
         # Verify TTL is 365 days (31536000 seconds)
         order_ref_calls = [
-            call for call in mock_redis.setex.call_args_list
+            call
+            for call in mock_redis.setex.call_args_list
             if "order_reference:" in str(call[0][0])
         ]
 

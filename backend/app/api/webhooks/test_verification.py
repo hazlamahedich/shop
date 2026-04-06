@@ -157,9 +157,7 @@ async def test_test_facebook_webhook_success(
     db_session.add(fb_integration)
     await db_session.commit()
 
-    with patch(
-        "app.services.webhook_verification.decrypt_access_token"
-    ):
+    with patch("app.services.webhook_verification.decrypt_access_token"):
         response = await async_client.post(
             f"/webhooks/verification/test-facebook?merchant_id={merchant.id}"
         )
@@ -212,16 +210,12 @@ async def test_test_shopify_webhook_success(
     db_session.add(shopify_integration)
     await db_session.commit()
 
-    with patch(
-        "app.services.webhook_verification.ShopifyAdminClient"
-    ) as mock_client:
+    with patch("app.services.webhook_verification.ShopifyAdminClient") as mock_client:
         mock_instance = AsyncMock()
         mock_instance.verify_webhook_subscription.return_value = True
         mock_client.return_value = mock_instance
 
-        with patch(
-            "app.services.webhook_verification.decrypt_access_token"
-        ):
+        with patch("app.services.webhook_verification.decrypt_access_token"):
             response = await async_client.post(
                 f"/webhooks/verification/test-shopify?merchant_id={merchant.id}"
             )
@@ -275,13 +269,9 @@ async def test_resubscribe_facebook_webhook_success(
     with patch("httpx.AsyncClient") as mock_httpx:
         mock_response = AsyncMock()
         mock_response.raise_for_status = AsyncMock()
-        mock_httpx.return_value.__aenter__.return_value.post = AsyncMock(
-            return_value=mock_response
-        )
+        mock_httpx.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
 
-        with patch(
-            "app.services.webhook_verification.decrypt_access_token"
-        ):
+        with patch("app.services.webhook_verification.decrypt_access_token"):
             response = await async_client.post(
                 f"/webhooks/verification/resubscribe-facebook?merchant_id={merchant.id}"
             )
@@ -332,16 +322,12 @@ async def test_resubscribe_shopify_webhook_success(
     db_session.add(shopify_integration)
     await db_session.commit()
 
-    with patch(
-        "app.services.webhook_verification.ShopifyAdminClient"
-    ) as mock_client:
+    with patch("app.services.webhook_verification.ShopifyAdminClient") as mock_client:
         mock_instance = AsyncMock()
         mock_instance.subscribe_webhook.return_value = True
         mock_client.return_value = mock_instance
 
-        with patch(
-            "app.services.webhook_verification.decrypt_access_token"
-        ):
+        with patch("app.services.webhook_verification.decrypt_access_token"):
             response = await async_client.post(
                 f"/webhooks/verification/resubscribe-shopify?merchant_id={merchant.id}"
             )

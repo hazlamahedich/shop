@@ -214,6 +214,7 @@ def is_encrypted(value: str) -> bool:
         # Fernet format: Version(1) || Timestamp(8) || IV(16) || Ciphertext(N*16) || HMAC(32)
         # Minimum: 1 + 8 + 16 + 16 + 32 = 73 bytes (with 1 block of ciphertext)
         import base64
+
         decoded = base64.urlsafe_b64decode(value.encode())
 
         # Fernet tokens have minimum length of 73 bytes

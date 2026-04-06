@@ -241,7 +241,10 @@ class TestMetadataEncryption:
 
         encrypted = encrypt_metadata(metadata)
 
-        assert encrypted["voluntary_memory"]["preferences"] != metadata["voluntary_memory"]["preferences"]
+        assert (
+            encrypted["voluntary_memory"]["preferences"]
+            != metadata["voluntary_memory"]["preferences"]
+        )
         assert encrypted["voluntary_memory"]["history"] != metadata["voluntary_memory"]["history"]
         assert encrypted["source"] == metadata["source"]  # Unchanged
 
@@ -279,8 +282,14 @@ class TestMetadataEncryption:
         encrypted = encrypt_metadata(original_metadata)
         decrypted = decrypt_metadata(encrypted)
 
-        assert decrypted["voluntary_memory"]["preferences"] == original_metadata["voluntary_memory"]["preferences"]
-        assert decrypted["voluntary_memory"]["history"] == original_metadata["voluntary_memory"]["history"]
+        assert (
+            decrypted["voluntary_memory"]["preferences"]
+            == original_metadata["voluntary_memory"]["preferences"]
+        )
+        assert (
+            decrypted["voluntary_memory"]["history"]
+            == original_metadata["voluntary_memory"]["history"]
+        )
         assert decrypted["source"] == original_metadata["source"]
 
     def test_encrypt_empty_metadata(self, monkeypatch):
@@ -483,7 +492,10 @@ class TestEdgeCases:
         decrypted = decrypt_metadata(encrypted)
 
         # Check sensitive fields are encrypted/decrypted
-        assert decrypted["voluntary_memory"]["preferences"] == metadata["voluntary_memory"]["preferences"]
+        assert (
+            decrypted["voluntary_memory"]["preferences"]
+            == metadata["voluntary_memory"]["preferences"]
+        )
         assert decrypted["voluntary_memory"]["history"] == metadata["voluntary_memory"]["history"]
         assert decrypted["user_input"] == metadata["user_input"]
         # Nested non-sensitive should be unchanged

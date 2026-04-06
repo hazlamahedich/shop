@@ -17,6 +17,7 @@ from app.models.conversation_context import ConversationContext
 @pytest.fixture
 async def client(async_client):
     """Use async_client with test mode header for auth bypass and CSRF tokens."""
+
     # Wrap the client to add X-Test-Mode header to all requests
     class TestClientWrapper:
         def __init__(self, client):
@@ -37,7 +38,8 @@ async def client(async_client):
             if "csrf_token=" in set_cookie:
                 # Parse the cookie value (simple extraction)
                 import re
-                match = re.search(r'csrf_token=([^;]+)', set_cookie)
+
+                match = re.search(r"csrf_token=([^;]+)", set_cookie)
                 if match:
                     self.csrf_cookies["csrf_token"] = match.group(1)
 

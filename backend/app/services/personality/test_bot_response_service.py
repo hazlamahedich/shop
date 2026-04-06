@@ -378,7 +378,9 @@ class TestBotNameIntegration:
         assert "!!!" in greeting
 
     @pytest.mark.asyncio
-    async def test_get_greeting_without_bot_name_uses_fallback(self, db_session: AsyncSession) -> None:
+    async def test_get_greeting_without_bot_name_uses_fallback(
+        self, db_session: AsyncSession
+    ) -> None:
         """Test greeting without bot name uses generic fallback (Story 1.12 AC 3)."""
         merchant = Merchant(
             merchant_key="test-bot-name-fallback",
@@ -400,7 +402,9 @@ class TestBotNameIntegration:
         assert "Test Store" in greeting
 
     @pytest.mark.asyncio
-    async def test_get_greeting_without_business_name_uses_fallback(self, db_session: AsyncSession) -> None:
+    async def test_get_greeting_without_business_name_uses_fallback(
+        self, db_session: AsyncSession
+    ) -> None:
         """Test greeting without business name uses generic fallback (Story 1.12 AC 3)."""
         merchant = Merchant(
             merchant_key="test-business-name-fallback",
@@ -422,7 +426,9 @@ class TestBotNameIntegration:
         assert "the store" in greeting
 
     @pytest.mark.asyncio
-    async def test_get_greeting_empty_bot_name_uses_fallback(self, db_session: AsyncSession) -> None:
+    async def test_get_greeting_empty_bot_name_uses_fallback(
+        self, db_session: AsyncSession
+    ) -> None:
         """Test greeting with empty bot_name string uses fallback (Story 1.12 AC 3)."""
         merchant = Merchant(
             merchant_key="test-empty-bot-name",
@@ -464,7 +470,9 @@ class TestBotNameIntegration:
         assert "I'm GearBot" in prompt or "I am GearBot" in prompt
 
     @pytest.mark.asyncio
-    async def test_get_system_prompt_without_bot_name_no_instruction(self, db_session: AsyncSession) -> None:
+    async def test_get_system_prompt_without_bot_name_no_instruction(
+        self, db_session: AsyncSession
+    ) -> None:
         """Test system prompt without bot name has no name instruction (Story 1.12 AC 3)."""
         merchant = Merchant(
             merchant_key="test-prompt-no-bot-name",
@@ -485,7 +493,9 @@ class TestBotNameIntegration:
         assert "I'm" not in prompt or "I'm" not in prompt or "I am" not in prompt
 
     @pytest.mark.asyncio
-    async def test_custom_greeting_overrides_bot_name_template(self, db_session: AsyncSession) -> None:
+    async def test_custom_greeting_overrides_bot_name_template(
+        self, db_session: AsyncSession
+    ) -> None:
         """Test custom greeting takes precedence over bot name template (Story 1.12 AC 3)."""
         custom_greeting = "Welcome to Alex's Awesome Shop!!! How can I help you today?"
         merchant = Merchant(

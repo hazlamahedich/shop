@@ -24,6 +24,7 @@ async def test_shopify_oauth_state_validation(async_client: AsyncClient, monkeyp
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     def mock_settings():
         return {
             "SHOPIFY_API_KEY": "test_api_key",
@@ -36,7 +37,7 @@ async def test_shopify_oauth_state_validation(async_client: AsyncClient, monkeyp
     # Generate OAuth URL and capture state
     response = await async_client.get(
         "/api/integrations/shopify/authorize",
-        params={"merchant_id": 1, "shop_domain": "test-store.myshopify.com"}
+        params={"merchant_id": 1, "shop_domain": "test-store.myshopify.com"},
     )
 
     assert response.status_code == 200
@@ -59,12 +60,15 @@ async def test_shopify_oauth_callback_success(async_client: AsyncClient, monkeyp
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     def mock_settings():
         return {
             "SHOPIFY_API_KEY": "test_api_key",
             "SHOPIFY_API_SECRET": "test_secret",
             "SHOPIFY_REDIRECT_URI": "https://example.com/callback",
-            "SHOPIFY_ENCRYPTION_KEY": base64.urlsafe_b64encode(b"32-byte-key-for-fernet-1234567890abc"),
+            "SHOPIFY_ENCRYPTION_KEY": base64.urlsafe_b64encode(
+                b"32-byte-key-for-fernet-1234567890abc"
+            ),
             "IS_TESTING": True,
         }
 
@@ -85,16 +89,10 @@ async def test_shopify_oauth_callback_success(async_client: AsyncClient, monkeyp
     }
 
     with patch("httpx.AsyncClient.post") as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: mock_token_response
-        )
+        mock_post.return_value = AsyncMock(status_code=200, json=lambda: mock_token_response)
 
         with patch("httpx.AsyncClient.get") as mock_get:
-            mock_get.return_value = AsyncMock(
-                status_code=200,
-                json=lambda: mock_shop_response
-            )
+            mock_get.return_value = AsyncMock(status_code=200, json=lambda: mock_shop_response)
 
             response = await async_client.get(
                 "/api/integrations/shopify/callback",
@@ -102,8 +100,8 @@ async def test_shopify_oauth_callback_success(async_client: AsyncClient, monkeyp
                     "shop": "test-store.myshopify.com",
                     "code": "test_auth_code",
                     "state": "valid_state_uuid",
-                    "hmac": "test_hmac"
-                }
+                    "hmac": "test_hmac",
+                },
             )
 
     # Verify callback was processed
@@ -111,7 +109,9 @@ async def test_shopify_oauth_callback_success(async_client: AsyncClient, monkeyp
 
 
 @pytest.mark.asyncio
-async def test_shopify_oauth_callback_state_mismatch(async_client: AsyncClient, monkeypatch) -> None:
+async def test_shopify_oauth_callback_state_mismatch(
+    async_client: AsyncClient, monkeypatch
+) -> None:
     """Test OAuth callback with invalid state parameter (CSRF attack).
 
     P0 - Security Critical: Detects CSRF attacks during OAuth flow.
@@ -120,6 +120,7 @@ async def test_shopify_oauth_callback_state_mismatch(async_client: AsyncClient, 
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     def mock_settings():
         return {
             "SHOPIFY_API_KEY": "test_api_key",
@@ -136,8 +137,8 @@ async def test_shopify_oauth_callback_state_mismatch(async_client: AsyncClient, 
             "shop": "test-store.myshopify.com",
             "code": "test_auth_code",
             "state": "malicious_state",  # Invalid state
-            "hmac": "test_hmac"
-        }
+            "hmac": "test_hmac",
+        },
     )
 
     # Should reject invalid state
@@ -156,6 +157,7 @@ async def test_shopify_oauth_denied(async_client: AsyncClient, monkeypatch) -> N
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     def mock_settings():
         return {
             "SHOPIFY_API_KEY": "test_api_key",
@@ -170,8 +172,8 @@ async def test_shopify_oauth_denied(async_client: AsyncClient, monkeypatch) -> N
         params={
             "shop": "test-store.myshopify.com",
             "state": "valid_state",
-            "error": "access_denied"
-        }
+            "error": "access_denied",
+        },
     )
 
     # Response may be 400/422 for validation error or proper error handling
@@ -179,7 +181,12 @@ async def test_shopify_oauth_denied(async_client: AsyncClient, monkeypatch) -> N
     data = response.json()
     # Check for either error message or validation error
     error_str = str(data).lower()
-    assert "denied" in error_str or "access" in error_str or "error" in error_str or "missing" in error_str
+    assert (
+        "denied" in error_str
+        or "access" in error_str
+        or "error" in error_str
+        or "missing" in error_str
+    )
 
 
 @pytest.mark.asyncio
@@ -193,6 +200,7 @@ async def test_shopify_storefront_token_creation(async_client: AsyncClient, monk
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     def mock_settings():
         return {
             "SHOPIFY_API_KEY": "test_api_key",
@@ -207,24 +215,19 @@ async def test_shopify_storefront_token_creation(async_client: AsyncClient, monk
         "storefront_access_token": {
             "id": 987654321,
             "access_token": "test_storefront_token",
-            "access_scope": "unauthenticated_read_product_listings,unauthenticated_read_checkouts"
+            "access_scope": "unauthenticated_read_product_listings,unauthenticated_read_checkouts",
         }
     }
 
     with patch("httpx.AsyncClient.post") as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: mock_token_response
-        )
+        mock_post.return_value = AsyncMock(status_code=200, json=lambda: mock_token_response)
 
         # Token creation is part of the OAuth flow
         # This test verifies the service method works correctly
         from app.services.shopify_admin import ShopifyAdminClient
 
         client = ShopifyAdminClient(
-            shop_domain="test-store.myshopify.com",
-            access_token="test_admin_token",
-            is_testing=True
+            shop_domain="test-store.myshopify.com", access_token="test_admin_token", is_testing=True
         )
 
         token = await client.create_storefront_access_token(title="test-token")
@@ -246,7 +249,9 @@ async def test_shopify_token_encryption(async_client: AsyncClient, monkeypatch) 
 
     def mock_settings():
         return {
-            "SHOPIFY_ENCRYPTION_KEY": base64.urlsafe_b64encode(b"32-byte-key-for-fernet-1234567890abc"),
+            "SHOPIFY_ENCRYPTION_KEY": base64.urlsafe_b64encode(
+                b"32-byte-key-for-fernet-1234567890abc"
+            ),
             "IS_TESTING": True,
         }
 
@@ -276,6 +281,7 @@ async def test_shopify_insufficient_permissions(async_client: AsyncClient, monke
         async_client: Test HTTP client
         monkeypatch: pytest monkeypatch fixture
     """
+
     def mock_settings():
         return {
             "SHOPIFY_API_KEY": "test_api_key",
@@ -292,18 +298,15 @@ async def test_shopify_insufficient_permissions(async_client: AsyncClient, monke
     }
 
     with patch("httpx.AsyncClient.post") as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: mock_token_response
-        )
+        mock_post.return_value = AsyncMock(status_code=200, json=lambda: mock_token_response)
 
         response = await async_client.get(
             "/api/integrations/shopify/callback",
             params={
                 "shop": "test-store.myshopify.com",
                 "code": "test_auth_code",
-                "state": "valid_state"
-            }
+                "state": "valid_state",
+            },
         )
 
     # Should detect missing permissions

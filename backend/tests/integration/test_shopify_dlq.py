@@ -27,10 +27,7 @@ async def test_shopify_webhook_dlq_enqueue(async_client: AsyncClient) -> None:
 
     with patch("redis.from_url", return_value=mock_redis):
         # Simulate webhook processing failure
-        webhook_data = {
-            "id": "123456789",
-            "financial_status": "paid"
-        }
+        webhook_data = {"id": "123456789", "financial_status": "paid"}
         topic = "orders/create"
         error = "Connection timeout"
 
@@ -40,7 +37,7 @@ async def test_shopify_webhook_dlq_enqueue(async_client: AsyncClient) -> None:
             "topic": topic,
             "error": error,
             "attempts": 0,
-            "timestamp": "2024-01-01T00:00:00Z"
+            "timestamp": "2024-01-01T00:00:00Z",
         }
 
         mock_redis.rpush = AsyncMock()
@@ -62,16 +59,14 @@ async def test_shopify_webhook_retry_exponential_backoff(async_client: AsyncClie
     from app.services.shopify_admin import ShopifyAdminClient
 
     client = ShopifyAdminClient(
-        shop_domain="test-store.myshopify.com",
-        access_token="test_admin_token",
-        is_testing=True
+        shop_domain="test-store.myshopify.com", access_token="test_admin_token", is_testing=True
     )
 
     # Test exponential backoff calculation
     # Attempt 1: 1 second (2^0)
     # Attempt 2: 2 seconds (2^1)
     # Attempt 3: 4 seconds (2^2)
-    backoff_delays = [2 ** i for i in range(3)]
+    backoff_delays = [2**i for i in range(3)]
 
     assert backoff_delays == [1, 2, 4]
 
@@ -100,7 +95,9 @@ async def test_shopify_webhook_max_retries(async_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_shopify_webhook_replay_attack_prevention(async_client: AsyncClient, monkeypatch) -> None:
+async def test_shopify_webhook_replay_attack_prevention(
+    async_client: AsyncClient, monkeypatch
+) -> None:
     """Test webhook replay attack prevention via timestamp validation.
 
     P1 - High Priority: Prevents webhook replay attacks.
@@ -130,18 +127,11 @@ async def test_shopify_webhook_replay_attack_prevention(async_client: AsyncClien
     # Old webhook payload (1 hour old)
     old_timestamp = (datetime.utcnow() - timedelta(hours=1)).isoformat()
 
-    payload = {
-        "id": "123456789",
-        "processed_at": old_timestamp
-    }
+    payload = {"id": "123456789", "processed_at": old_timestamp}
     raw_payload = json.dumps(payload).encode()
 
     # Generate valid HMAC
-    computed_hmac = hmac.new(
-        b"test_secret",
-        raw_payload,
-        hashlib.sha256
-    ).digest()
+    computed_hmac = hmac.new(b"test_secret", raw_payload, hashlib.sha256).digest()
     signature = base64.b64encode(computed_hmac).decode()
 
     headers = {
@@ -151,9 +141,7 @@ async def test_shopify_webhook_replay_attack_prevention(async_client: AsyncClien
     }
 
     response = await async_client.post(
-        "/api/webhooks/shopify",
-        content=raw_payload,
-        headers=headers
+        "/api/webhooks/shopify", content=raw_payload, headers=headers
     )
 
     # Should accept or reject based on timestamp validation
@@ -185,11 +173,7 @@ async def test_shopify_webhook_async_processing(async_client: AsyncClient, monke
     raw_payload = json.dumps(payload).encode()
 
     # Generate valid HMAC
-    computed_hmac = hmac.new(
-        b"test_secret",
-        raw_payload,
-        hashlib.sha256
-    ).digest()
+    computed_hmac = hmac.new(b"test_secret", raw_payload, hashlib.sha256).digest()
     signature = base64.b64encode(computed_hmac).decode()
 
     headers = {
@@ -199,9 +183,7 @@ async def test_shopify_webhook_async_processing(async_client: AsyncClient, monke
     }
 
     response = await async_client.post(
-        "/api/webhooks/shopify",
-        content=raw_payload,
-        headers=headers
+        "/api/webhooks/shopify", content=raw_payload, headers=headers
     )
 
     # Should return immediately (async processing) or 404 if shop not found
@@ -212,7 +194,9 @@ async def test_shopify_webhook_async_processing(async_client: AsyncClient, monke
 
 
 @pytest.mark.asyncio
-async def test_shopify_webhook_concurrent_processing(async_client: AsyncClient, monkeypatch) -> None:
+async def test_shopify_webhook_concurrent_processing(
+    async_client: AsyncClient, monkeypatch
+) -> None:
     """Test that multiple webhooks can be processed concurrently.
 
     P2 - Medium Priority: High-volume webhook handling.
@@ -238,11 +222,7 @@ async def test_shopify_webhook_concurrent_processing(async_client: AsyncClient, 
         payload = {"id": f"order_{i}"}
         raw_payload = json.dumps(payload).encode()
 
-        computed_hmac = hmac.new(
-            b"test_secret",
-            raw_payload,
-            hashlib.sha256
-        ).digest()
+        computed_hmac = hmac.new(b"test_secret", raw_payload, hashlib.sha256).digest()
         signature = base64.b64encode(computed_hmac).decode()
 
         headers = {
@@ -251,11 +231,7 @@ async def test_shopify_webhook_concurrent_processing(async_client: AsyncClient, 
             "X-Shopify-Shop-Domain": "test.myshopify.com",
         }
 
-        task = async_client.post(
-            "/webhooks/shopify",
-            content=raw_payload,
-            headers=headers
-        )
+        task = async_client.post("/webhooks/shopify", content=raw_payload, headers=headers)
         tasks.append(task)
 
     # All should succeed

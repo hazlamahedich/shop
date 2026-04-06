@@ -1,4 +1,5 @@
 """Test colocation validation script for pre-commit hook."""
+
 import sys
 from pathlib import Path
 

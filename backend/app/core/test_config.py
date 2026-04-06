@@ -90,7 +90,9 @@ class TestConfig:
     def test_cors_origins_parsing(self, monkeypatch):
         """Test CORS origins are parsed correctly."""
         settings.cache_clear()
-        monkeypatch.setenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://example.com")
+        monkeypatch.setenv(
+            "CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://example.com"
+        )
 
         cfg = settings()
         assert len(cfg["CORS_ORIGINS"]) == 3

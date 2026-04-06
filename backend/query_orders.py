@@ -13,5 +13,6 @@ async def main():
         for items in items_lists:
             print(items)
 
+
 if __name__ == "__main__":
     asyncio.run(main())

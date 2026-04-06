@@ -227,16 +227,16 @@ class TestExtendedTemplates:
     def test_ecommerce_templates_have_natural_variants(self):
         for constraint in QuestionGenerator.QUESTION_PRIORITY:
             templates = QuestionGenerator.QUESTION_TEMPLATES[constraint]
-            assert (
-                len(templates) >= 3
-            ), f"Expected >=3 templates for {constraint}, got {len(templates)}"
+            assert len(templates) >= 3, (
+                f"Expected >=3 templates for {constraint}, got {len(templates)}"
+            )
 
     def test_general_templates_have_natural_variants(self):
         for constraint in QuestionGenerator.GENERAL_QUESTION_PRIORITY:
             templates = QuestionGenerator.GENERAL_MODE_TEMPLATES[constraint]
-            assert (
-                len(templates) >= 3
-            ), f"Expected >=3 templates for {constraint}, got {len(templates)}"
+            assert len(templates) >= 3, (
+                f"Expected >=3 templates for {constraint}, got {len(templates)}"
+            )
 
     def test_first_templates_unchanged_for_backward_compat(self):
         assert QuestionGenerator.QUESTION_TEMPLATES["budget"][0] == ("What's your budget for this?")

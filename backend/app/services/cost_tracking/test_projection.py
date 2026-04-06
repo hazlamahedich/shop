@@ -18,11 +18,14 @@ async def test_get_projection_with_sufficient_data(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -73,11 +76,14 @@ async def test_get_projection_insufficient_data(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -124,11 +130,14 @@ async def test_get_projection_first_day_of_month(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -172,11 +181,14 @@ async def test_get_projection_zero_spend(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -199,12 +211,15 @@ async def test_get_projection_high_daily_spend(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
 
     from app.models.merchant import Merchant
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -243,6 +258,8 @@ async def test_get_projection_high_daily_spend(db_session):
     assert projection_data["monthlySpend"] == 80.0
     assert projection_data["daysSoFar"] == 10
     assert projection_data["dailyAverage"] == 8.0
-    assert projection_data["projectedSpend"] == pytest.approx(8.0 * projection_data["daysInMonth"], rel=0.1)
+    assert projection_data["projectedSpend"] == pytest.approx(
+        8.0 * projection_data["daysInMonth"], rel=0.1
+    )
     assert projection_data["projectionAvailable"] is True
     assert projection_data["projectedExceedsBudget"] is True

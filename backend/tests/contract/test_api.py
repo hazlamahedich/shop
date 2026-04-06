@@ -9,6 +9,7 @@ import pytest
 try:
     import schemathesis
     from schemathesis import Case
+
     SCHEMATHESIS_AVAILABLE = True
 except ImportError:
     SCHEMATHESIS_AVAILABLE = False
@@ -16,6 +17,7 @@ except ImportError:
 # Try importing the app - may not exist yet
 try:
     from app.main import app
+
     APP_AVAILABLE = True
 except ImportError:
     APP_AVAILABLE = False
@@ -54,6 +56,7 @@ class TestAPIContract:
         """Test health endpoint conforms to schema."""
         if schema and "paths" in schema.schema:
             if "/health" in schema.schema["paths"]:
+
                 @schema.parametrize(endpoint="/health")
                 async def test_health(case: Case):
                     response = await case.call_asgi()
@@ -65,6 +68,7 @@ class TestAPIContract:
     async def test_no_server_errors(self, schema):
         """Test that no endpoints return 500 errors."""
         if schema and "paths" in schema.schema:
+
             @schema.parametrize()
             async def test_no_500(case: Case):
                 response = await case.call_asgi()
@@ -76,6 +80,7 @@ class TestAPIContract:
     async def test_content_type_conformance(self, schema):
         """Test that responses match declared content types."""
         if schema and "paths" in schema.schema:
+
             @schema.parametrize()
             async def test_content_type(case: Case):
                 response = await case.call_asgi()

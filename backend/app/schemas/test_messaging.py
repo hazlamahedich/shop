@@ -30,10 +30,12 @@ def test_facebook_entry_schema():
     entry = FacebookEntry(
         id="123456789",
         time=1234567890,
-        messaging=[{
-            "sender": {"id": "123456"},
-            "message": {"text": "test"},
-        }],
+        messaging=[
+            {
+                "sender": {"id": "123456"},
+                "message": {"text": "test"},
+            }
+        ],
     )
 
     assert entry.id == "123456789"
@@ -45,14 +47,18 @@ def test_facebook_webhook_payload_schema():
     """Test Facebook webhook payload schema validation."""
     payload = FacebookWebhookPayload(
         object="page",
-        entry=[{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "test message"},
-            }],
-        }],
+        entry=[
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "test message"},
+                    }
+                ],
+            }
+        ],
     )
 
     assert payload.object == "page"
@@ -64,14 +70,18 @@ def test_facebook_webhook_payload_properties():
     """Test Facebook webhook payload convenience properties."""
     payload = FacebookWebhookPayload(
         object="page",
-        entry=[{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "987654"},
-                "message": {"text": "hello"},
-            }],
-        }],
+        entry=[
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "987654"},
+                        "message": {"text": "hello"},
+                    }
+                ],
+            }
+        ],
     )
 
     assert payload.sender_id == "987654"
@@ -82,14 +92,18 @@ def test_facebook_webhook_payload_empty_message():
     """Test webhook payload with missing message text."""
     payload = FacebookWebhookPayload(
         object="page",
-        entry=[{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {},  # No text field
-            }],
-        }],
+        entry=[
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {},  # No text field
+                    }
+                ],
+            }
+        ],
     )
 
     assert payload.message_text is None
@@ -157,14 +171,18 @@ def test_facebook_payload_camel_case_alias():
     # Test with camelCase input
     payload_data = {
         "object": "page",
-        "entry": [{
-            "id": "123456789",
-            "time": 1234567890,
-            "messaging": [{
-                "sender": {"id": "123456"},
-                "message": {"text": "test"},
-            }],
-        }],
+        "entry": [
+            {
+                "id": "123456789",
+                "time": 1234567890,
+                "messaging": [
+                    {
+                        "sender": {"id": "123456"},
+                        "message": {"text": "test"},
+                    }
+                ],
+            }
+        ],
     }
 
     payload = FacebookWebhookPayload(**payload_data)

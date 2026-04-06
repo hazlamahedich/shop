@@ -28,6 +28,7 @@ class GreetingConfigUpdate(BaseModel):
         greeting_template: Optional custom greeting message
         use_custom_greeting: Boolean flag to enable custom greeting
     """
+
     greeting_template: str | None = Field(
         default=None,
         max_length=500,
@@ -49,6 +50,7 @@ class GreetingConfigResponse(BaseModel):
         default_template: Default greeting template for personality type
         available_variables: List of available placeholder variables
     """
+
     greeting_template: str | None = Field(
         default=None,
         description="Current greeting template",
@@ -79,6 +81,7 @@ class GreetingEnvelope(BaseModel):
         data: GreetingConfigResponse
         meta: Response metadata
     """
+
     data: GreetingConfigResponse
     meta: MetaData
 

@@ -145,7 +145,9 @@ async def test_get_prerequisite_state_not_found(async_client: AsyncClient) -> No
 
 
 @pytest.mark.asyncio
-async def test_upsert_prerequisite_state_create(async_client: AsyncClient, db_session: AsyncSession) -> None:
+async def test_upsert_prerequisite_state_create(
+    async_client: AsyncClient, db_session: AsyncSession
+) -> None:
     """Test POST /prerequisites creates new state."""
     # Create a merchant first
     merchant = Merchant(
@@ -180,7 +182,9 @@ async def test_upsert_prerequisite_state_create(async_client: AsyncClient, db_se
 
 
 @pytest.mark.asyncio
-async def test_upsert_prerequisite_state_complete(async_client: AsyncClient, db_session: AsyncSession) -> None:
+async def test_upsert_prerequisite_state_complete(
+    async_client: AsyncClient, db_session: AsyncSession
+) -> None:
     """Test POST /prerequisites with all complete sets completed_at."""
     # Create a merchant first
     merchant = Merchant(
@@ -209,7 +213,9 @@ async def test_upsert_prerequisite_state_complete(async_client: AsyncClient, db_
 
 
 @pytest.mark.asyncio
-async def test_upsert_prerequisite_state_update(async_client: AsyncClient, db_session: AsyncSession) -> None:
+async def test_upsert_prerequisite_state_update(
+    async_client: AsyncClient, db_session: AsyncSession
+) -> None:
     """Test POST /prerequisites updates existing state."""
     # Create a merchant first
     merchant = Merchant(
@@ -285,7 +291,9 @@ async def test_sync_prerequisite_state(async_client: AsyncClient, db_session: As
 
 
 @pytest.mark.asyncio
-async def test_delete_prerequisite_state(async_client: AsyncClient, db_session: AsyncSession) -> None:
+async def test_delete_prerequisite_state(
+    async_client: AsyncClient, db_session: AsyncSession
+) -> None:
     """Test DELETE /prerequisites removes state."""
     # Create a merchant first
     merchant = Merchant(
@@ -316,7 +324,9 @@ async def test_delete_prerequisite_state(async_client: AsyncClient, db_session: 
     assert data["data"]["deleted"] is True
 
     # Verify it's gone
-    get_response = await async_client.get(f"/api/onboarding/prerequisites?merchant_id={merchant_id}")
+    get_response = await async_client.get(
+        f"/api/onboarding/prerequisites?merchant_id={merchant_id}"
+    )
     get_data = get_response.json()
     assert get_data["data"] is None
 
@@ -368,7 +378,9 @@ async def test_get_after_create(async_client: AsyncClient, db_session: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_get_prerequisite_state_after_update(async_client: AsyncClient, db_session: AsyncSession) -> None:
+async def test_get_prerequisite_state_after_update(
+    async_client: AsyncClient, db_session: AsyncSession
+) -> None:
     """Test GET /prerequisites returns updated state after modification."""
     # Create a merchant first
     merchant = Merchant(

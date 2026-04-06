@@ -95,19 +95,18 @@ class TestCheckoutServicePSIDTracking:
 
         # Args are passed as positional: (line_items, custom_attributes)
         line_items = call_args[0][0]
-        custom_attributes = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("custom_attributes")
+        custom_attributes = (
+            call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("custom_attributes")
+        )
 
         # Verify custom_attributes contains PSID
         assert custom_attributes is not None, "custom_attributes should be passed to Shopify"
         assert any(
-            attr.get("key") == "psid" and attr.get("value") == psid
-            for attr in custom_attributes
+            attr.get("key") == "psid" and attr.get("value") == psid for attr in custom_attributes
         ), "PSID should be in custom_attributes"
 
     @pytest.mark.asyncio
-    async def test_checkout_token_reverse_lookup_stored(
-        self, checkout_service, sample_cart
-    ):
+    async def test_checkout_token_reverse_lookup_stored(self, checkout_service, sample_cart):
         """Test that checkout token reverse lookup is stored in Redis (Story 2.9)."""
         psid = "test_psid_12345"
         checkout_token = "ABC123XYZ"
@@ -144,19 +143,19 @@ class TestCheckoutServicePSIDTracking:
 
         # Store reverse lookup (this would be done during checkout)
         reverse_lookup_key = f"checkout_token_lookup:{checkout_token}"
-        reverse_lookup_data = json.dumps({"psid": psid, "created_at": datetime.now(UTC).isoformat()})
+        reverse_lookup_data = json.dumps(
+            {"psid": psid, "created_at": datetime.now(UTC).isoformat()}
+        )
 
         await checkout_service.redis.setex(
             reverse_lookup_key,
             24 * 60 * 60,  # 24 hours
-            reverse_lookup_data
+            reverse_lookup_data,
         )
 
         # Verify reverse lookup was stored
         checkout_service.redis.setex.assert_called_with(
-            reverse_lookup_key,
-            24 * 60 * 60,
-            reverse_lookup_data
+            reverse_lookup_key, 24 * 60 * 60, reverse_lookup_data
         )
 
     @pytest.mark.asyncio
@@ -181,7 +180,8 @@ class TestCheckoutServicePSIDTracking:
 
         # Verify reverse lookup was created (checkout_token_lookup:{token})
         reverse_lookup_calls = [
-            call for call in checkout_service.redis.setex.call_args_list
+            call
+            for call in checkout_service.redis.setex.call_args_list
             if "checkout_token_lookup:" in str(call[0][0])
         ]
 

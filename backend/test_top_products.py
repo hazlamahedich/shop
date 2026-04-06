@@ -22,7 +22,10 @@ async def main():
         top_products = await service.get_top_products(merchant.id, days=30)
 
         for p in top_products:
-            print(f"ID: {p['product_id']} | Title: {p['title']} | Qty: {p['quantity']} | Rev: {p['revenue']}")
+            print(
+                f"ID: {p['product_id']} | Title: {p['title']} | Qty: {p['quantity']} | Rev: {p['revenue']}"
+            )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -36,7 +36,9 @@ async def create_first_time_user():
             print(f"  Password: {password}")
             print(f"  Merchant Key: {existing.merchant_key}")
             print()
-            print("To reset this account to first-time user, delete the row from DB and re-run this script.")
+            print(
+                "To reset this account to first-time user, delete the row from DB and re-run this script."
+            )
             return
 
         # Create first-time merchant with minimal setup

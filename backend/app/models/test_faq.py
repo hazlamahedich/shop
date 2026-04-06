@@ -46,7 +46,10 @@ async def test_faq_creation(db_session: AsyncSession) -> None:
     assert faq.id is not None
     assert faq.merchant_id == merchant.id
     assert faq.question == "What are your shipping options?"
-    assert faq.answer == "We offer free shipping on orders over $50. Standard shipping takes 3-5 business days."
+    assert (
+        faq.answer
+        == "We offer free shipping on orders over $50. Standard shipping takes 3-5 business days."
+    )
     assert faq.keywords == "shipping, delivery, how long"
     assert faq.order_index == 1
 

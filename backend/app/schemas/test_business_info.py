@@ -5,7 +5,6 @@ Story 1.11: Business Info & FAQ Configuration
 Tests Pydantic schema validation for business information.
 """
 
-
 import pytest
 from pydantic import ValidationError
 

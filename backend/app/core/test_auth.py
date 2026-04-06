@@ -234,6 +234,7 @@ class TestJWTValidation:
         )
 
         from jose import jwt as jose_jwt
+
         expired_token = jose_jwt.encode(
             payload.to_dict(), settings()["SECRET_KEY"], algorithm="HS256"
         )

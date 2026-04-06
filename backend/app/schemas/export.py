@@ -106,8 +106,7 @@ class ConversationExportRequest(BaseSchema):
         invalid = [s for s in v if s not in VALID_STATUS_VALUES]
         if invalid:
             raise ValueError(
-                f"Invalid status values: {invalid}. "
-                f"Valid values: {', '.join(VALID_STATUS_VALUES)}"
+                f"Invalid status values: {invalid}. Valid values: {', '.join(VALID_STATUS_VALUES)}"
             )
         return v
 

@@ -19,7 +19,7 @@ class TestCartItem:
             variant_id="gid://shopify/ProductVariant/456",
             title="Test Product",
             price=29.99,
-            image_url="https://example.com/image.jpg"
+            image_url="https://example.com/image.jpg",
         )
 
         assert item.product_id == "gid://shopify/Product/123"
@@ -41,7 +41,7 @@ class TestCartItem:
             image_url="https://example.com/full.jpg",
             currency_code=CurrencyCode.EUR,
             quantity=3,
-            added_at="2024-01-15T10:30:00Z"
+            added_at="2024-01-15T10:30:00Z",
         )
 
         assert item.quantity == 3
@@ -58,7 +58,7 @@ class TestCartItem:
                 variant_id="var_1",
                 title="Invalid Product",
                 price=0,
-                image_url="https://example.com/image.jpg"
+                image_url="https://example.com/image.jpg",
             )
 
         with pytest.raises(ValidationError):
@@ -67,7 +67,7 @@ class TestCartItem:
                 variant_id="var_1",
                 title="Negative Price",
                 price=-10.0,
-                image_url="https://example.com/image.jpg"
+                image_url="https://example.com/image.jpg",
             )
 
     def test_cart_item_quantity_validation(self):
@@ -79,7 +79,7 @@ class TestCartItem:
             title="Test",
             price=10.0,
             image_url="https://example.com/image.jpg",
-            quantity=1
+            quantity=1,
         )
         assert item.quantity == 1
 
@@ -90,7 +90,7 @@ class TestCartItem:
                 title="Test",
                 price=10.0,
                 image_url="https://example.com/image.jpg",
-                quantity=0
+                quantity=0,
             )
 
         # Maximum boundary
@@ -100,7 +100,7 @@ class TestCartItem:
             title="Test",
             price=10.0,
             image_url="https://example.com/image.jpg",
-            quantity=10
+            quantity=10,
         )
         assert item.quantity == 10
 
@@ -111,7 +111,7 @@ class TestCartItem:
                 title="Test",
                 price=10.0,
                 image_url="https://example.com/image.jpg",
-                quantity=11
+                quantity=11,
             )
 
     def test_cart_item_camel_case_serialization(self):
@@ -121,7 +121,7 @@ class TestCartItem:
             variant_id="var_1",
             title="Test Product",
             price=29.99,
-            image_url="https://example.com/image.jpg"
+            image_url="https://example.com/image.jpg",
         )
 
         data = item.model_dump(by_alias=True)
@@ -156,7 +156,7 @@ class TestCart:
                 title="Product 1",
                 price=10.0,
                 image_url="https://example.com/img1.jpg",
-                quantity=2
+                quantity=2,
             ),
             CartItem(
                 product_id="prod_2",
@@ -164,8 +164,8 @@ class TestCart:
                 title="Product 2",
                 price=20.0,
                 image_url="https://example.com/img2.jpg",
-                quantity=1
-            )
+                quantity=1,
+            ),
         ]
 
         cart = Cart(items=items, subtotal=40.0)
@@ -184,7 +184,7 @@ class TestCart:
                 title="Product 1",
                 price=10.0,
                 image_url="https://example.com/img1.jpg",
-                quantity=3
+                quantity=3,
             ),
             CartItem(
                 product_id="prod_2",
@@ -192,8 +192,8 @@ class TestCart:
                 title="Product 2",
                 price=20.0,
                 image_url="https://example.com/img2.jpg",
-                quantity=2
-            )
+                quantity=2,
+            ),
         ]
 
         cart = Cart(items=items)
@@ -222,7 +222,7 @@ class TestCart:
                 variant_id="var_1",
                 title="Product 1",
                 price=10.0,
-                image_url="https://example.com/img1.jpg"
+                image_url="https://example.com/img1.jpg",
             )
         ]
 
@@ -248,7 +248,7 @@ class TestCart:
                 variant_id="var_1",
                 title="Product 1",
                 price=10.0,
-                image_url="https://example.com/img1.jpg"
+                image_url="https://example.com/img1.jpg",
             )
         ]
         cart = Cart(items=items)

@@ -57,7 +57,9 @@ class RetrievalService:
     Performance Target: <500ms end-to-end (embed + search)
     """
 
-    SIMILARITY_THRESHOLD = 0.3  # Minimum similarity score (lowered for better recall, fixes location queries)
+    SIMILARITY_THRESHOLD = (
+        0.3  # Minimum similarity score (lowered for better recall, fixes location queries)
+    )
     TOP_K_DEFAULT = 7  # Default number of chunks to retrieve (increased from 5 for better context)
     RETRIEVAL_TIMEOUT_MS = 500  # Timeout for retrieval
 
@@ -136,7 +138,7 @@ class RetrievalService:
             session_result = self.session_factory()
 
             # Handle both AsyncSession and context manager
-            if hasattr(session_result, '__aenter__'):
+            if hasattr(session_result, "__aenter__"):
                 # It's a context manager
                 async with session_result as db:
                     return await self._execute_search_and_log(
@@ -393,7 +395,7 @@ class RetrievalService:
         """
         if db is None:
             session_result = self.session_factory()
-            if hasattr(session_result, '__aenter__'):
+            if hasattr(session_result, "__aenter__"):
                 async with session_result as db:
                     return await self._check_document_access_impl(
                         db=db,

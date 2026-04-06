@@ -23,9 +23,7 @@ class TestSessionModel:
 
     def test_session_create_returns_instance(self):
         """Creating session should return Session instance."""
-        session = Session.create(
-            merchant_id=1, token_hash="hash123", hours=24
-        )
+        session = Session.create(merchant_id=1, token_hash="hash123", hours=24)
         assert isinstance(session, Session)
         assert session.merchant_id == 1
         assert session.token_hash == "hash123"
@@ -81,18 +79,14 @@ class TestSessionValidation:
 
     def test_is_valid_expired_session(self):
         """Expired session should be invalid."""
-        session = Session.create(
-            merchant_id=1, token_hash="hash123", hours=24
-        )
+        session = Session.create(merchant_id=1, token_hash="hash123", hours=24)
         # Set expiration to past
         session.expires_at = datetime.utcnow() - timedelta(hours=1)
         assert session.is_valid() is False
 
     def test_is_valid_revoked_and_expired(self):
         """Revoked and expired session should be invalid."""
-        session = Session.create(
-            merchant_id=1, token_hash="hash123", hours=24
-        )
+        session = Session.create(merchant_id=1, token_hash="hash123", hours=24)
         session.revoke()
         session.expires_at = datetime.utcnow() - timedelta(hours=1)
         assert session.is_valid() is False
@@ -166,9 +160,7 @@ class TestSessionDatabase:
         await db_session.commit()
         await db_session.refresh(session)
 
-        result = await db_session.execute(
-            select(Session).where(Session.id == session.id)
-        )
+        result = await db_session.execute(select(Session).where(Session.id == session.id))
         retrieved = result.scalars().first()
 
         assert retrieved is not None
@@ -176,9 +168,7 @@ class TestSessionDatabase:
         assert retrieved.token_hash == "hash123"
 
     @pytest.mark.asyncio
-    async def test_session_retrieved_by_merchant_id(
-        self, db_session: AsyncSession
-    ):
+    async def test_session_retrieved_by_merchant_id(self, db_session: AsyncSession):
         """Sessions should be retrievable by merchant_id (index test)."""
         session1 = Session.create(merchant_id=1, token_hash="hash1", hours=24)
         session2 = Session.create(merchant_id=1, token_hash="hash2", hours=24)
@@ -186,17 +176,13 @@ class TestSessionDatabase:
         db_session.add_all([session1, session2])
         await db_session.commit()
 
-        result = await db_session.execute(
-            select(Session).where(Session.merchant_id == 1)
-        )
+        result = await db_session.execute(select(Session).where(Session.merchant_id == 1))
         sessions = result.scalars().all()
 
         assert len(sessions) == 2
 
     @pytest.mark.asyncio
-    async def test_session_retrieved_by_token_hash(
-        self, db_session: AsyncSession
-    ):
+    async def test_session_retrieved_by_token_hash(self, db_session: AsyncSession):
         """Session should be retrievable by token_hash (index test)."""
         session = Session.create(merchant_id=1, token_hash="hash123", hours=24)
 
@@ -204,9 +190,7 @@ class TestSessionDatabase:
         await db_session.commit()
         await db_session.refresh(session)
 
-        result = await db_session.execute(
-            select(Session).where(Session.token_hash == "hash123")
-        )
+        result = await db_session.execute(select(Session).where(Session.token_hash == "hash123"))
         retrieved = result.scalars().first()
 
         assert retrieved is not None
@@ -228,8 +212,6 @@ class TestSessionDatabase:
         assert session.revoked is True
 
         # Verify via query
-        result = await db_session.execute(
-            select(Session).where(Session.id == session.id)
-        )
+        result = await db_session.execute(select(Session).where(Session.id == session.id))
         retrieved = result.scalars().first()
         assert retrieved.revoked is True

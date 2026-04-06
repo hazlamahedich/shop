@@ -12,13 +12,14 @@ Changes:
 3. Create index for common query pattern
 4. Migrate existing Shopify merchants to 'shopify' value
 """
+
 import sqlalchemy as sa
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '016_add_store_provider'
-down_revision = '015_add_use_custom_greeting'
+revision = "016_add_store_provider"
+down_revision = "015_add_use_custom_greeting"
 branch_labels = None
 depends_on = None
 
@@ -27,20 +28,20 @@ def upgrade() -> None:
     """Add store_provider column and migrate existing Shopify merchants."""
     # Add the column with default 'none' and NOT NULL constraint
     op.add_column(
-        'merchants',
+        "merchants",
         sa.Column(
-            'store_provider',
+            "store_provider",
             sa.String(20),
             nullable=False,
-            server_default='none',
+            server_default="none",
         ),
     )
 
     # Create index for the store_provider column
     op.create_index(
-        'idx_merchants_store_provider',
-        'merchants',
-        ['store_provider'],
+        "idx_merchants_store_provider",
+        "merchants",
+        ["store_provider"],
     )
 
     # Migrate existing merchants with Shopify integrations to 'shopify'
@@ -57,5 +58,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Remove store_provider column."""
-    op.drop_index('idx_merchants_store_provider', 'merchants')
-    op.drop_column('merchants', 'store_provider')
+    op.drop_index("idx_merchants_store_provider", "merchants")
+    op.drop_column("merchants", "store_provider")

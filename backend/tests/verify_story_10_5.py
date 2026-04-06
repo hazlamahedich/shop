@@ -1,4 +1,3 @@
-
 import asyncio
 
 from sqlalchemy import select, update
@@ -25,7 +24,7 @@ async def verify_contact_options():
         contact_options = [
             {"type": "phone", "label": "Call Support", "value": "+1234567890"},
             {"type": "email", "label": "Email Us", "value": "support@example.com"},
-            {"type": "custom", "label": "Help Center", "value": "https://help.example.com"}
+            {"type": "custom", "label": "Help Center", "value": "https://help.example.com"},
         ]
 
         await db.execute(
@@ -47,6 +46,7 @@ async def verify_contact_options():
             return
 
         print("SUCCESS: Database persistence verified.")
+
 
 if __name__ == "__main__":
     asyncio.run(verify_contact_options())

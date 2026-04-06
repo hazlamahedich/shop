@@ -57,6 +57,7 @@ async def test_webhook_signature_valid():
         # Compute valid signature
         import hashlib
         import hmac
+
         expected_sig = hmac.new(
             app_secret.encode(),
             raw_body,
@@ -75,6 +76,7 @@ async def test_webhook_signature_valid():
 @pytest.mark.asyncio
 async def test_webhook_signature_invalid():
     """Test invalid webhook signature verification."""
+
     class MockRequest:
         headers = {"x-hub-signature-256": "sha256=invalid_signature"}
 
@@ -92,6 +94,7 @@ async def test_webhook_signature_invalid():
 @pytest.mark.asyncio
 async def test_webhook_signature_missing():
     """Test missing webhook signature."""
+
     class MockRequest:
         headers = {}
 
@@ -157,16 +160,19 @@ async def test_facebook_messenger_webhook_valid():
 
             payload_data = {
                 "object": "page",
-                "entry": [{
-                    "id": "123456789",
-                    "time": 1234567890,
-                    "messaging": [{
-                        "sender": {"id": "123456"},
-                        "message": {"text": "test message"},
-                    }],
-                }],
+                "entry": [
+                    {
+                        "id": "123456789",
+                        "time": 1234567890,
+                        "messaging": [
+                            {
+                                "sender": {"id": "123456"},
+                                "message": {"text": "test message"},
+                            }
+                        ],
+                    }
+                ],
             }
-
 
             class MockRequest:
                 async def body(self):
@@ -197,7 +203,6 @@ async def test_facebook_messenger_webhook_invalid_signature():
             "entry": [],
         }
 
-
         class MockRequest:
             async def body(self):
                 return json.dumps(payload_data).encode()
@@ -221,7 +226,6 @@ async def test_facebook_messenger_webhook_invalid_payload():
     """Test webhook with invalid payload raises 400."""
     with patch("app.api.webhooks.facebook.verify_facebook_webhook_signature") as mock_verify:
         mock_verify.return_value = True
-
 
         class MockRequest:
             async def body(self):
@@ -256,14 +260,18 @@ async def test_process_webhook_message():
 
         payload = FacebookWebhookPayload(
             object="page",
-            entry=[{
-                "id": "123456789",
-                "time": 1234567890,
-                "messaging": [{
-                    "sender": {"id": "123456"},
-                    "message": {"text": "test message"},
-                }],
-            }],
+            entry=[
+                {
+                    "id": "123456789",
+                    "time": 1234567890,
+                    "messaging": [
+                        {
+                            "sender": {"id": "123456"},
+                            "message": {"text": "test message"},
+                        }
+                    ],
+                }
+            ],
         )
 
         with patch("app.api.webhooks.facebook.send_messenger_response") as mock_send:

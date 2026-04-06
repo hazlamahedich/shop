@@ -435,6 +435,7 @@ class TestCSRFProtectionSingleton:
         """Test that getting protection before init raises error."""
         # Reset singleton
         import app.core.csrf
+
         app.core.csrf._csrf_protection = None
 
         with pytest.raises(ValueError, match="CSRF protection not initialized"):
@@ -444,6 +445,7 @@ class TestCSRFProtectionSingleton:
         """Test that init creates and returns instance."""
         # Reset singleton
         import app.core.csrf
+
         app.core.csrf._csrf_protection = None
 
         csrf = init_csrf_protection("test-secret-key-12345678901234567890")
@@ -455,6 +457,7 @@ class TestCSRFProtectionSingleton:
         """Test that get returns same instance."""
         # Reset singleton
         import app.core.csrf
+
         app.core.csrf._csrf_protection = None
 
         csrf1 = init_csrf_protection("test-secret-key-12345678901234567890")

@@ -71,12 +71,14 @@ class PrerequisiteChecklist(Base):
     @property
     def is_complete(self) -> bool:
         """Check if all prerequisites are complete."""
-        return all([
-            self.has_cloud_account,
-            self.has_facebook_account,
-            self.has_shopify_access,
-            self.has_llm_provider_choice,
-        ])
+        return all(
+            [
+                self.has_cloud_account,
+                self.has_facebook_account,
+                self.has_shopify_access,
+                self.has_llm_provider_choice,
+            ]
+        )
 
     def update_completed_at(self) -> None:
         """Update completed_at timestamp if all prerequisites are complete.

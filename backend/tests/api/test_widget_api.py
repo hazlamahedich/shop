@@ -17,7 +17,6 @@ import pytest
 os.environ["IS_TESTING"] = "true"
 
 
-
 class TestWidgetSessionAPI:
     """API contract tests for /widget/session endpoint."""
 

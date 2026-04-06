@@ -75,7 +75,8 @@ async def test_complete_user_flow_checkout_to_confirmation(
 
     # Verify reverse lookup was created
     reverse_lookup_calls = [
-        call for call in mock_redis.setex.call_args_list
+        call
+        for call in mock_redis.setex.call_args_list
         if "checkout_token_lookup:" in str(call[0][0])
     ]
     assert len(reverse_lookup_calls) > 0
@@ -88,9 +89,7 @@ async def test_complete_user_flow_checkout_to_confirmation(
         "financial_status": "paid",
         "email": "customer@example.com",
         "created_at": datetime.now(UTC).isoformat(),
-        "note_attributes": [
-            {"name": "psid", "value": psid}
-        ],
+        "note_attributes": [{"name": "psid", "value": psid}],
     }
 
     # Reset mock get to return None for idempotency check
@@ -232,14 +231,17 @@ async def test_webhook_signature_verification_e2e(
     """Test webhook signature verification (Story 2.9 AC 3)."""
 
     # Create mock request with valid webhook
-    test_payload = json.dumps({
-        "id": "gid://shopify/Order/123",
-        "order_number": 1001,
-        "financial_status": "paid",
-    })
+    test_payload = json.dumps(
+        {
+            "id": "gid://shopify/Order/123",
+            "order_number": 1001,
+            "financial_status": "paid",
+        }
+    )
 
     # Generate HMAC signature
     from app.core.config import settings
+
     config = settings()
     api_secret = config.get("SHOPIFY_API_SECRET", "test_secret")
 
@@ -247,11 +249,7 @@ async def test_webhook_signature_verification_e2e(
     import hashlib
     import hmac
 
-    signature = hmac.new(
-        api_secret.encode(),
-        test_payload.encode(),
-        hashlib.sha256
-    ).digest()
+    signature = hmac.new(api_secret.encode(), test_payload.encode(), hashlib.sha256).digest()
     signature_b64 = base64.b64encode(signature).decode()
 
     # Mock request
@@ -328,6 +326,7 @@ def mock_redis():
 def mock_shopify_client():
     """Create mock Shopify client."""
     from app.services.shopify_storefront import ShopifyStorefrontClient
+
     mock_client = MagicMock(spec=ShopifyStorefrontClient)
     mock_client.create_checkout_url = AsyncMock(
         return_value="https://checkout.shopify.com/test_token"

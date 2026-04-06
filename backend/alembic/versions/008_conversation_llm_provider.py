@@ -10,13 +10,14 @@ This enables accurate cost tracking per conversation when providers are switched
 
 Story: 3.4 - LLM Provider Switching
 """
+
 import sqlalchemy as sa
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '008_conversation_llm_provider'
-down_revision = '007_conversation_search_indexes'
+revision = "008_conversation_llm_provider"
+down_revision = "007_conversation_search_indexes"
 branch_labels = None
 depends_on = None
 
@@ -28,23 +29,23 @@ def upgrade() -> None:
     # This tracks which LLM provider (ollama, openai, anthropic, gemini, glm)
     # was used for each conversation for accurate cost tracking
     op.add_column(
-        'conversations',
+        "conversations",
         sa.Column(
-            'llm_provider',
+            "llm_provider",
             sa.String(50),
             nullable=True,
-            comment='LLM provider used for this conversation (e.g., ollama, openai, anthropic)'
-        )
+            comment="LLM provider used for this conversation (e.g., ollama, openai, anthropic)",
+        ),
     )
 
     # Create index on llm_provider for efficient queries
     # This supports filtering conversations by provider for cost analysis
     op.create_index(
-        'ix_conversations_llm_provider',
-        'conversations',
-        ['llm_provider'],
+        "ix_conversations_llm_provider",
+        "conversations",
+        ["llm_provider"],
         unique=False,
-        if_not_exists=True
+        if_not_exists=True,
     )
 
     # Note: Existing conversations will have NULL llm_provider
@@ -56,7 +57,7 @@ def downgrade() -> None:
     """Remove llm_provider column and index from conversations table."""
 
     # Drop the index first
-    op.drop_index('ix_conversations_llm_provider', table_name='conversations')
+    op.drop_index("ix_conversations_llm_provider", table_name="conversations")
 
     # Drop the column
-    op.drop_column('conversations', 'llm_provider')
+    op.drop_column("conversations", "llm_provider")

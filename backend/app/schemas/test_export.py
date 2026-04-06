@@ -29,9 +29,7 @@ class TestConversationExportRequest:
 
     def test_valid_date_format(self) -> None:
         """Test valid ISO 8601 date format."""
-        request = ConversationExportRequest(
-            date_from="2026-02-01", date_to="2026-02-28"
-        )
+        request = ConversationExportRequest(date_from="2026-02-01", date_to="2026-02-28")
         assert request.date_from == "2026-02-01"
         assert request.date_to == "2026-02-28"
 

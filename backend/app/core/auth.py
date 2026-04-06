@@ -263,9 +263,7 @@ def validate_jwt(token: str, secret_key: str | None = None) -> JWTPayload:
         previous_key = settings().get("JWT_SECRET_PREVIOUS")
         if previous_key:
             try:
-                payload_dict = jwt.decode(
-                    token, previous_key, algorithms=[JWT_ALGORITHM]
-                )
+                payload_dict = jwt.decode(token, previous_key, algorithms=[JWT_ALGORITHM])
                 return JWTPayload.from_dict(payload_dict)
             except JWTError:
                 pass  # Fall through to error below
@@ -280,9 +278,7 @@ def validate_jwt(token: str, secret_key: str | None = None) -> JWTPayload:
         )
 
 
-def authenticate_merchant(
-    email: str, password: str, stored_hash: str, merchant_id: int
-) -> bool:
+def authenticate_merchant(email: str, password: str, stored_hash: str, merchant_id: int) -> bool:
     """Authenticate merchant with email and password.
 
     Args:
@@ -348,9 +344,8 @@ async def get_current_merchant(
 
         # Fetch and return the full Merchant object
         from app.models.merchant import Merchant
-        result = await db.execute(
-            select(Merchant).where(Merchant.id == merchant_id)
-        )
+
+        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
         merchant = result.scalar_one_or_none()
 
         if not merchant:
@@ -368,12 +363,12 @@ async def get_current_merchant(
         raise
     except Exception:
         raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error_code": ErrorCode.AUTH_FAILED,
-                    "message": "Invalid authentication token",
-                },
-            )
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": ErrorCode.AUTH_FAILED,
+                "message": "Invalid authentication token",
+            },
+        )
 
 
 # Initialize: Validate SECRET_KEY on import

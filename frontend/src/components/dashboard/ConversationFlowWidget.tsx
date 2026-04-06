@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  TrendingUp,
-  TrendingDown,
   Activity,
   AlertTriangle,
   MessageSquare,
@@ -24,6 +22,28 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'context', label: 'Context', icon: <Layers size={14} /> },
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiData = any;
+
+function getNestedData(raw: ApiData): ApiData {
+  if (!raw) return null;
+  if (raw.data && typeof raw.data === 'object') return raw.data;
+  const rest: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (k !== 'has_data' && k !== 'message') rest[k] = v;
+  }
+  if (raw.has_data === true && Object.keys(rest).length > 0) return rest;
+  return raw.data ?? null;
+}
+
+function getTotalConversations(raw: ApiData): number {
+  if (!raw) return 0;
+  if (raw.total_conversations != null) return raw.total_conversations;
+  if (raw.data?.totalConversations != null) return raw.data.totalConversations;
+  if (raw.data?.total_conversations != null) return raw.data.total_conversations;
+  return 0;
+}
+
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-white/30">
@@ -35,6 +55,14 @@ function EmptyState({ message }: { message: string }) {
 
 export function ConversationFlowWidget() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+
+  const { data: overviewData, isLoading: overviewLoading } = useQuery({
+    queryKey: ['analytics', 'conversation-flow', 'overview'],
+    queryFn: () => analyticsService.getConversationFlowOverview(),
+    refetchInterval: 600_000,
+    staleTime: 300_000,
+    retry: false,
+  });
 
   const { data: lengthData, isLoading: lengthLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'length-distribution'],
@@ -78,12 +106,13 @@ export function ConversationFlowWidget() {
     staleTime: 300_000,
   });
 
-  const isLoading = lengthLoading || clarificationLoading || frictionLoading || sentimentLoading || handoffLoading || contextLoading;
+  const isLoading =
+    overviewLoading || lengthLoading || clarificationLoading || frictionLoading || sentimentLoading || handoffLoading || contextLoading;
 
   const currentData = (() => {
     switch (activeTab) {
       case 'overview':
-        return lengthData;
+        return overviewData?.has_data ? overviewData : lengthData;
       case 'clarification':
         return clarificationData;
       case 'friction':
@@ -102,45 +131,54 @@ export function ConversationFlowWidget() {
   const hasData = currentData?.has_data === true;
 
   const renderOverviewTab = () => {
-    if (!lengthData?.has_data) {
-      return <EmptyState message="No conversation data yet. Data will appear once customers start chatting." />;
+    const raw = overviewData?.has_data ? overviewData : lengthData;
+    if (!raw?.has_data) {
+      return <EmptyState message="No conversation data available" />;
     }
-    const d = lengthData.data;
+    const d = getNestedData(raw);
+    if (!d) return <EmptyState message="No conversation data available" />;
+
+    const avgTurns = d.avgTurns ?? d.average_turns ?? d.avgTurnsByMode?.[0]?.avgTurns ?? '—';
+    const p90Turns = d.p90Turns ?? d.p90_turns ?? '—';
+    const totalConversations = d.totalConversations ?? d.total_conversations ?? 0;
+
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Turns
             </div>
-            <div className="text-lg font-black text-[#00f5d4]">{d.avgTurns}</div>
-          </div>
-          <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-            <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
-              Median
-            </div>
-            <div className="text-lg font-black text-purple-400">{d.medianTurns}</div>
+            <div className="text-lg font-black text-[#00f5d4]">{avgTurns}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               P90
             </div>
-            <div className="text-lg font-black text-amber-400">{d.p90Turns}</div>
+            <div className="text-lg font-black text-amber-400">{p90Turns}</div>
           </div>
         </div>
+        {d.completion_rate != null && (
+          <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+            <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              Completion Rate
+            </div>
+            <div className="text-lg font-black text-[#00f5d4]">{Math.round((d.completion_rate ?? d.completionRate ?? 0) * 100)}%</div>
+          </div>
+        )}
         {d.byMode && d.byMode.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               By Mode
             </div>
-            {d.byMode.map((m) => (
+            {(d.byMode as Array<Record<string, any>>).map((m: Record<string, any>) => (
               <div
-                key={m.mode}
+                key={String(m.mode)}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
-                <span className="text-[10px] text-white/40 capitalize">{m.mode}</span>
+                <span className="text-[10px] text-white/40 capitalize">{String(m.mode)}</span>
                 <span className="text-[10px] font-black text-[#00f5d4]">
-                  {m.avgTurns} avg / {m.conversationCount} convs
+                  {m.avgTurns ?? m.average_turns} avg / {m.conversationCount ?? m.conversation_count} convs
                 </span>
               </div>
             ))}
@@ -152,17 +190,17 @@ export function ConversationFlowWidget() {
               Daily Trend
             </div>
             <div className="h-16 flex items-end gap-[2px]">
-              {d.dailyTrend.slice(-14).map((day) => (
+              {(d.dailyTrend as Array<Record<string, any>>).slice(-14).map((day: Record<string, any>) => (
                 <div
-                  key={day.date}
+                  key={String(day.date)}
                   className="flex-1 flex flex-col items-center gap-1"
-                  title={`${day.date}: ${day.avgTurns} avg turns`}
+                  title={`${day.date}: ${day.avgTurns ?? day.average_turns} avg turns`}
                 >
                   <div
                     className="w-full bg-[#00f5d4]/20 rounded-t"
-                    style={{ height: `${Math.max(4, day.avgTurns * 10)}%` }}
+                    style={{ height: `${Math.max(4, (day.avgTurns ?? day.average_turns ?? 0) * 10)}%` }}
                   />
-                  <span className="text-[8px] text-white/20">{day.date?.slice(5)}</span>
+                  <span className="text-[8px] text-white/20">{String(day.date ?? '').slice(5)}</span>
                 </div>
               ))}
             </div>
@@ -174,9 +212,11 @@ export function ConversationFlowWidget() {
 
   const renderClarificationTab = () => {
     if (!clarificationData?.has_data) {
-      return <EmptyState message="No clarification patterns found in this period" />;
+      return <EmptyState message="No data available" />;
     }
-    const d = clarificationData.data;
+    const d = getNestedData(clarificationData);
+    if (!d) return <EmptyState message="No data available" />;
+
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
@@ -184,13 +224,13 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Depth
             </div>
-            <div className="text-lg font-black text-[#00f5d4]">{d.avgClarificationDepth}</div>
+            <div className="text-lg font-black text-[#00f5d4]">{d.avgClarificationDepth ?? d.avg_clarification_depth}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Success Rate
             </div>
-            <div className="text-lg font-black text-purple-400">{d.clarificationSuccessRate}%</div>
+            <div className="text-lg font-black text-purple-400">{d.clarificationSuccessRate ?? d.clarification_success_rate}%</div>
           </div>
         </div>
         {d.topSequences && d.topSequences.length > 0 && (
@@ -198,12 +238,12 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Top Sequences
             </div>
-            {d.topSequences.map((seq) => (
+            {(d.topSequences as Array<Record<string, any>>).map((seq: Record<string, any>) => (
               <div
-                key={seq.sequence}
+                key={String(seq.sequence)}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
-                <span className="text-[10px] text-white/40">{seq.sequence}</span>
+                <span className="text-[10px] text-white/40">{String(seq.sequence)}</span>
                 <span className="text-[10px] font-black text-[#00f5d4]">{seq.count}</span>
               </div>
             ))}
@@ -215,23 +255,25 @@ export function ConversationFlowWidget() {
 
   const renderFrictionTab = () => {
     if (!frictionData?.has_data) {
-      return <EmptyState message="No significant friction points detected" />;
+      return <EmptyState message="No data available" />;
     }
-    const d = frictionData.data;
+    const d = getNestedData(frictionData);
+    if (!d) return <EmptyState message="No data available" />;
+
     return (
       <div className="space-y-3">
         <div className="bg-white/5 rounded-lg p-3 border border-white/10">
           <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
-            Conversations Analyzed
+            Friction
           </div>
-          <div className="text-lg font-black text-[#00f5d4]">{d.totalConversationsAnalyzed}</div>
+          <div className="text-lg font-black text-[#00f5d4]">{d.totalConversationsAnalyzed ?? d.total_conversations_analyzed}</div>
         </div>
         {d.frictionPoints && d.frictionPoints.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Friction Points
             </div>
-            {d.frictionPoints.map((fp, idx) => (
+            {(d.frictionPoints as Array<Record<string, any>>).map((fp: Record<string, any>, idx: number) => (
               <div key={idx} className="space-y-1 py-2 px-3 border border-white/5 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-white/40">{fp.intent}</span>
@@ -240,10 +282,10 @@ export function ConversationFlowWidget() {
                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-500/30 rounded"
-                    style={{ width: `${Math.min(100, fp.frequency * 20)}%` }}
+                    style={{ width: `${Math.min(100, (fp.frequency ?? 0) * 20)}%` }}
                   />
                 </div>
-                <div className="text-[9px] text-white/20 uppercase">{fp.type.replace('_', ' ')}</div>
+                <div className="text-[9px] text-white/20 uppercase">{String(fp.type ?? '').replace('_', ' ')}</div>
               </div>
             ))}
           </div>
@@ -254,13 +296,15 @@ export function ConversationFlowWidget() {
 
   const renderSentimentTab = () => {
     if (!sentimentData?.has_data) {
-      return <EmptyState message="No sentiment data available for this period" />;
+      return <EmptyState message="No data available" />;
     }
-    const d = sentimentData.data;
+    const d = getNestedData(sentimentData);
+    if (!d) return <EmptyState message="No data available" />;
+
     return (
       <div className="space-y-3">
         {d.stages &&
-          Object.entries(d.stages).map(([stage, sentiments]) => (
+          Object.entries(d.stages as Record<string, Record<string, number>>).map(([stage, sentiments]) => (
             <div key={stage} className="space-y-2">
               <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
                 {stage}
@@ -269,17 +313,17 @@ export function ConversationFlowWidget() {
                 {Object.entries(sentiments).map(([sentiment, count]) => (
                   <div key={sentiment} className="flex justify-between items-center py-1 px-2">
                     <span className="text-[10px] text-white/40 capitalize">{sentiment}</span>
-                    <span className="text-[10px] font-black text-purple-400">{count}</span>
+                    <span className="text-[10px] font-black text-purple-400">{String(count)}</span>
                   </div>
                 ))}
               </div>
             </div>
           ))}
-        {d.totalNegativeShifts > 0 && (
+        {(d.totalNegativeShifts ?? d.total_negative_shifts ?? 0) > 0 && (
           <div className="mt-3 bg-rose-500/10 rounded-lg p-3 border border-rose-500/20">
             <AlertTriangle size={10} className="inline" />
             <span className="text-[10px] text-white/40">
-              {' '}{d.totalNegativeShifts} negative sentiment shifts detected
+              {' '}{d.totalNegativeShifts ?? d.total_negative_shifts} negative sentiment shifts detected
             </span>
           </div>
         )}
@@ -289,9 +333,11 @@ export function ConversationFlowWidget() {
 
   const renderHandoffTab = () => {
     if (!handoffData?.has_data) {
-      return <EmptyState message="No handoff conversations in this period" />;
+      return <EmptyState message="No data available" />;
     }
-    const d = handoffData.data;
+    const d = getNestedData(handoffData);
+    if (!d) return <EmptyState message="No data available" />;
+
     return (
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -299,13 +345,13 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Before Handoff
             </div>
-            <div className="text-lg font-black text-rose-400">{d.avgHandoffLength}</div>
+            <div className="text-lg font-black text-rose-400">{d.avgHandoffLength ?? d.avg_handoff_length}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Resolved
             </div>
-            <div className="text-lg font-black text-[#00f5d4]">{d.avgResolvedLength}</div>
+            <div className="text-lg font-black text-[#00f5d4]">{d.avgResolvedLength ?? d.avg_resolved_length}</div>
           </div>
         </div>
         {d.topTriggers && d.topTriggers.length > 0 && (
@@ -313,9 +359,9 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Top Handoff Triggers
             </div>
-            {d.topTriggers.map((t) => (
+            {(d.topTriggers as Array<Record<string, any>>).map((t: Record<string, any>) => (
               <div
-                key={t.intent}
+                key={String(t.intent)}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
                 <span className="text-[10px] text-white/40">{t.intent}</span>
@@ -329,10 +375,10 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Handoff Rate by Intent
             </div>
-            {d.handoffRatePerIntent.map((h) => (
-              <div key={h.intent} className="flex justify-between items-center py-1.5 px-2 border-b border-white/5">
+            {(d.handoffRatePerIntent as Array<Record<string, any>>).map((h: Record<string, any>) => (
+              <div key={String(h.intent)} className="flex justify-between items-center py-1.5 px-2 border-b border-white/5">
                 <span className="text-[10px] text-white/40">{h.intent}</span>
-                <span className="text-[10px] font-black text-rose-400">{h.handoffRate}%</span>
+                <span className="text-[10px] font-black text-rose-400">{h.handoffRate ?? h.handoff_rate}%</span>
               </div>
             ))}
           </div>
@@ -342,11 +388,11 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1">
               Anonymized Excerpts
             </div>
-            <p className="text-[9px] text-white/20 italic">{d.privacyNote}</p>
-            {d.anonymizedExcerpts.map((ex, i) => (
+            <p className="text-[9px] text-white/20 italic">{d.privacyNote ?? d.privacy_note}</p>
+            {(d.anonymizedExcerpts as Array<Record<string, any>>).map((ex: Record<string, any>, i: number) => (
               <div key={i} className="py-1 px-2 border-b border-white/5">
-                <span className="text-[10px] text-white/40">&quot;{ex.anonymizedMessage}&quot;</span>
-                <span className="text-[10px] text-white/30 ml-2">{ex.intentDetected ?? 'N/A'}</span>
+                <span className="text-[10px] text-white/40">&quot;{ex.anonymizedMessage ?? ex.anonymized_message}&quot;</span>
+                <span className="text-[10px] text-white/30 ml-2">{ex.intentDetected ?? ex.intent_detected ?? 'N/A'}</span>
               </div>
             ))}
           </div>
@@ -357,29 +403,31 @@ export function ConversationFlowWidget() {
 
   const renderContextTab = () => {
     if (!contextData?.has_data) {
-      return <EmptyState message="No context utilization data available" />;
+      return <EmptyState message="No data available" />;
     }
-    const d = contextData.data;
+    const d = getNestedData(contextData);
+    if (!d) return <EmptyState message="No data available" />;
+
     return (
       <div className="space-y-3">
         <div className="bg-white/5 rounded-lg p-3 border border-white/10">
           <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
             Utilization Rate
           </div>
-          <div className="text-lg font-black text-[#00f5d4]">{d.utilizationRate}%</div>
+          <div className="text-lg font-black text-[#00f5d4]">{d.utilizationRate ?? d.utilization_rate}%</div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               With Context
             </div>
-            <div className="text-sm font-black text-purple-400">{d.turnsWithContext}</div>
+            <div className="text-sm font-black text-purple-400">{d.turnsWithContext ?? d.turns_with_context}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Total Turns
             </div>
-            <div className="text-sm font-black text-white/40">{d.totalTurns}</div>
+            <div className="text-sm font-black text-white/40">{d.totalTurns ?? d.total_turns}</div>
           </div>
         </div>
         {d.byMode && d.byMode.length > 0 && (
@@ -387,22 +435,22 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               By Mode
             </div>
-            {d.byMode.map((m) => (
+            {(d.byMode as Array<Record<string, any>>).map((m: Record<string, any>) => (
               <div
-                key={m.mode}
+                key={String(m.mode)}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
-                <span className="text-[10px] text-white/40 capitalize">{m.mode}</span>
-                <span className="text-[10px] font-black text-[#00f5d4]">{m.utilizationRate}%</span>
+                <span className="text-[10px] text-white/40 capitalize">{String(m.mode)}</span>
+                <span className="text-[10px] font-black text-[#00f5d4]">{m.utilizationRate ?? m.utilization_rate}%</span>
               </div>
             ))}
           </div>
         )}
-        {d.improvementOpportunities > 0 && (
+        {(d.improvementOpportunities ?? d.improvement_opportunities ?? 0) > 0 && (
           <div className="mt-3 bg-amber-500/10 rounded-lg p-3 border border-amber-500/20">
             <AlertTriangle size={10} className="inline" />
             <span className="text-[10px] text-white/40">
-              {' '}{d.improvementOpportunities} conversations with less than 50% context utilization
+              {' '}{d.improvementOpportunities ?? d.improvement_opportunities} conversations with less than 50% context utilization
             </span>
           </div>
         )}
@@ -427,12 +475,12 @@ export function ConversationFlowWidget() {
     }
   };
 
+  const displayTotal = getTotalConversations(overviewData) || getTotalConversations(lengthData);
+
   return (
     <StatCard
       title="Flow Analytics"
-      value={
-        isLoading ? '...' : hasData ? `${lengthData?.data?.totalConversations ?? 0} convs` : 'NODES'
-      }
+      value={isLoading ? '...' : hasData ? `${displayTotal} convs` : '—'}
       subValue="CONVERSATION_FLOW"
       icon={<Activity size={18} />}
       accentColor="purple"

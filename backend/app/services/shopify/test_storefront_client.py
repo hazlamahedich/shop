@@ -120,20 +120,19 @@ class TestShopifyStorefrontClient:
     def test_init_with_custom_settings(self) -> None:
         """Test client initialization with custom settings."""
         client = ShopifyStorefrontClient(
-            access_token="custom_token",
-            store_url="https://custom-shop.myshopify.com"
+            access_token="custom_token", store_url="https://custom-shop.myshopify.com"
         )
 
         assert client.access_token == "custom_token"
         assert client.store_url == "https://custom-shop.myshopify.com"
         assert client.base_url == "https://custom-shop.myshopify.com/api/2024-01/graphql.json"
 
-    def test_build_product_search_query_no_filters(self, storefront_client: ShopifyStorefrontClient) -> None:
+    def test_build_product_search_query_no_filters(
+        self, storefront_client: ShopifyStorefrontClient
+    ) -> None:
         """Test building query with no filters."""
         query = storefront_client._build_product_search_query(
-            category=None,
-            max_price=None,
-            first=5
+            category=None, max_price=None, first=5
         )
 
         assert "products(first: 5)" in query
@@ -143,46 +142,46 @@ class TestShopifyStorefrontClient:
         assert "variants" in query
         assert "images" in query
 
-    def test_build_product_search_query_with_category(self, storefront_client: ShopifyStorefrontClient) -> None:
+    def test_build_product_search_query_with_category(
+        self, storefront_client: ShopifyStorefrontClient
+    ) -> None:
         """Test building query with category filter."""
         query = storefront_client._build_product_search_query(
-            category="shoes",
-            max_price=None,
-            first=5
+            category="shoes", max_price=None, first=5
         )
 
         assert 'tag:"shoes"' in query
         assert "query:" in query
 
-    def test_build_product_search_query_with_price(self, storefront_client: ShopifyStorefrontClient) -> None:
+    def test_build_product_search_query_with_price(
+        self, storefront_client: ShopifyStorefrontClient
+    ) -> None:
         """Test building query with price filter."""
         query = storefront_client._build_product_search_query(
-            category=None,
-            max_price=100.0,
-            first=5
+            category=None, max_price=100.0, first=5
         )
 
         assert "price:<=100.0" in query
         assert "query:" in query
 
-    def test_build_product_search_query_with_size(self, storefront_client: ShopifyStorefrontClient) -> None:
+    def test_build_product_search_query_with_size(
+        self, storefront_client: ShopifyStorefrontClient
+    ) -> None:
         """Test building query - size filtering is post-processing only."""
         query = storefront_client._build_product_search_query(
-            category=None,
-            max_price=None,
-            first=5
+            category=None, max_price=None, first=5
         )
 
         # Size filtering happens in post-processing (service layer), not in query
         # so query should not have size filter
         assert "size" not in query.lower() or "Size" in query
 
-    def test_build_product_search_query_combined_filters(self, storefront_client: ShopifyStorefrontClient) -> None:
+    def test_build_product_search_query_combined_filters(
+        self, storefront_client: ShopifyStorefrontClient
+    ) -> None:
         """Test building query with multiple filters."""
         query = storefront_client._build_product_search_query(
-            category="shoes",
-            max_price=150.0,
-            first=10
+            category="shoes", max_price=150.0, first=10
         )
 
         assert 'tag:"shoes"' in query
@@ -201,14 +200,11 @@ class TestShopifyStorefrontClient:
             "post",
             new_callable=AsyncMock,
             return_value=MagicMock(
-                json=lambda: sample_shopify_response,
-                raise_for_status=MagicMock()
-            )
+                json=lambda: sample_shopify_response, raise_for_status=MagicMock()
+            ),
         ):
             products = await storefront_client.search_products(
-                category="shoes",
-                max_price=100.0,
-                first=5
+                category="shoes", max_price=100.0, first=5
             )
 
             assert len(products) == 1
@@ -222,22 +218,13 @@ class TestShopifyStorefrontClient:
         storefront_client: ShopifyStorefrontClient,
     ) -> None:
         """Test search with no results."""
-        empty_response = {
-            "data": {
-                "products": {
-                    "edges": []
-                }
-            }
-        }
+        empty_response = {"data": {"products": {"edges": []}}}
 
         with patch.object(
             storefront_client.client,
             "post",
             new_callable=AsyncMock,
-            return_value=MagicMock(
-                json=lambda: empty_response,
-                raise_for_status=MagicMock()
-            )
+            return_value=MagicMock(json=lambda: empty_response, raise_for_status=MagicMock()),
         ):
             products = await storefront_client.search_products(first=5)
 
@@ -255,9 +242,8 @@ class TestShopifyStorefrontClient:
             "post",
             new_callable=AsyncMock,
             return_value=MagicMock(
-                json=lambda: sample_shopify_error_response,
-                raise_for_status=MagicMock()
-            )
+                json=lambda: sample_shopify_error_response, raise_for_status=MagicMock()
+            ),
         ):
             with pytest.raises(APIError) as exc_info:
                 await storefront_client.search_products(first=5)
@@ -279,10 +265,8 @@ class TestShopifyStorefrontClient:
             "post",
             new_callable=AsyncMock,
             side_effect=HTTPStatusError(
-                "Server error",
-                request=MagicMock(),
-                response=mock_response
-            )
+                "Server error", request=MagicMock(), response=mock_response
+            ),
         ):
             with pytest.raises(APIError) as exc_info:
                 await storefront_client.search_products(first=5)
@@ -299,7 +283,7 @@ class TestShopifyStorefrontClient:
             storefront_client.client,
             "post",
             new_callable=AsyncMock,
-            side_effect=TimeoutException("Request timeout")
+            side_effect=TimeoutException("Request timeout"),
         ):
             with pytest.raises(APIError) as exc_info:
                 await storefront_client.search_products(first=5)
@@ -319,15 +303,11 @@ class TestShopifyStorefrontClient:
             "post",
             new_callable=AsyncMock,
             return_value=MagicMock(
-                json=lambda: sample_shopify_response,
-                raise_for_status=MagicMock()
-            )
+                json=lambda: sample_shopify_response, raise_for_status=MagicMock()
+            ),
         ):
             # Client no longer accepts size parameter - filtering in service layer
-            products = await storefront_client.search_products(
-                category="shoes",
-                first=5
-            )
+            products = await storefront_client.search_products(category="shoes", first=5)
 
             # Client should return all products, service layer filters by size
             assert len(products) >= 0
@@ -391,9 +371,7 @@ class TestShopifyStorefrontClientIntegration:
                 }
             }
 
-            respx.post(shopify_url).mock(
-                return_value=httpx.Response(200, json=response_data)
-            )
+            respx.post(shopify_url).mock(return_value=httpx.Response(200, json=response_data))
 
             products = await client.search_products(category="test", first=5)
 

@@ -29,13 +29,9 @@ class TestCSVExportService:
         return CSVExportService()
 
     @pytest.mark.asyncio
-    async def test_empty_csv_generation(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_empty_csv_generation(self, service: CSVExportService, async_session) -> None:
         """Test CSV generation with no conversations."""
-        csv_content, count = await service.generate_conversations_csv(
-            async_session, merchant_id=1
-        )
+        csv_content, count = await service.generate_conversations_csv(async_session, merchant_id=1)
 
         assert count == 0
         assert csv_content.startswith(UTF8_BOM)
@@ -72,20 +68,14 @@ class TestCSVExportService:
     @pytest.mark.asyncio
     async def test_utf8_bom_included(self, service: CSVExportService, async_session) -> None:
         """Test that CSV includes UTF-8 BOM for Excel compatibility."""
-        csv_content, _ = await service.generate_conversations_csv(
-            async_session, merchant_id=1
-        )
+        csv_content, _ = await service.generate_conversations_csv(async_session, merchant_id=1)
 
         assert csv_content.startswith(UTF8_BOM)
 
     @pytest.mark.asyncio
-    async def test_crlf_line_endings(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_crlf_line_endings(self, service: CSVExportService, async_session) -> None:
         """Test that CSV uses CRLF line endings for Excel compatibility."""
-        csv_content, _ = await service.generate_conversations_csv(
-            async_session, merchant_id=1
-        )
+        csv_content, _ = await service.generate_conversations_csv(async_session, merchant_id=1)
 
         # Should have CRLF (\r\n) line endings
         # Count CRLF vs LF only
@@ -97,9 +87,7 @@ class TestCSVExportService:
         assert crlf_count >= 1  # At least header row
 
     @pytest.mark.asyncio
-    async def test_date_filter(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_date_filter(self, service: CSVExportService, async_session) -> None:
         """Test CSV export with date range filter."""
         # Create merchant
         merchant = Merchant(
@@ -144,9 +132,7 @@ class TestCSVExportService:
         assert "****ser1" not in csv_content  # Masked ID (last 4 of "user1")
 
     @pytest.mark.asyncio
-    async def test_status_filter(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_status_filter(self, service: CSVExportService, async_session) -> None:
         """Test CSV export with status filter."""
         merchant = Merchant(
             merchant_key="test-shop-status-filter",
@@ -184,9 +170,7 @@ class TestCSVExportService:
         assert "****ser1" in csv_content  # Masked ID (last 4 of "user1")
 
     @pytest.mark.asyncio
-    async def test_handoff_filter(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_handoff_filter(self, service: CSVExportService, async_session) -> None:
         """Test CSV export with handoff filter."""
         merchant = Merchant(
             merchant_key="test-shop-handoff-filter",
@@ -232,9 +216,7 @@ class TestCSVExportService:
         assert "****ser2" in csv_content  # Masked ID (last 4 of "user2")
 
     @pytest.mark.asyncio
-    async def test_customer_id_masking(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_customer_id_masking(self, service: CSVExportService, async_session) -> None:
         """Test that customer IDs are properly masked in CSV."""
         merchant = Merchant(
             merchant_key="test-shop-masking",
@@ -300,9 +282,7 @@ class TestCSVExportService:
         assert "2026-02-07 10:30:45" in dates
 
     @pytest.mark.asyncio
-    async def test_csv_quoting_and_escaping(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_csv_quoting_and_escaping(self, service: CSVExportService, async_session) -> None:
         """Test CSV quoting and escaping for special characters."""
         merchant = Merchant(
             merchant_key="test-shop-quoting",
@@ -370,9 +350,7 @@ class TestCSVExportService:
         assert "0.0000" in csv_content
 
     @pytest.mark.asyncio
-    async def test_merchant_isolation(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_merchant_isolation(self, service: CSVExportService, async_session) -> None:
         """Test that export only includes conversations for specified merchant."""
         # Create two merchants
         merchant1 = Merchant(
@@ -457,9 +435,7 @@ class TestCSVExportService:
         assert count == 1
 
     @pytest.mark.asyncio
-    async def test_export_limit_error(
-        self, service: CSVExportService, async_session
-    ) -> None:
+    async def test_export_limit_error(self, service: CSVExportService, async_session) -> None:
         """Test that export raises error when exceeding limit."""
 
         merchant = Merchant(

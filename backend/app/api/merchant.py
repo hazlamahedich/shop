@@ -1251,7 +1251,6 @@ async def update_merchant_mode(
             f"Failed to update mode: {str(e)}",
         )
 
-
     logger.info(
         "merchant_mode_changed",
         merchant_id=merchant_id,

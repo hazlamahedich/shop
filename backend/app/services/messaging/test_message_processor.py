@@ -25,7 +25,9 @@ def mock_consent_service():
     """Mock consent service."""
     service = MagicMock()
     service.get_consent = AsyncMock(return_value="pending")
-    service.record_consent = AsyncMock(return_value={"status": "opted_in", "timestamp": "2024-01-01T00:00:00Z", "psid": "test"})
+    service.record_consent = AsyncMock(
+        return_value={"status": "opted_in", "timestamp": "2024-01-01T00:00:00Z", "psid": "test"}
+    )
     service.revoke_consent = AsyncMock(return_value=None)
     return service
 
@@ -44,7 +46,9 @@ def mock_session_service(mock_consent_service):
 @pytest.mark.asyncio
 async def test_process_message_product_search(mock_session_service):
     """Test processing product search message."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         # Mock classifier
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
@@ -59,28 +63,39 @@ async def test_process_message_product_search(mock_session_service):
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "created_at": None,
-                "last_message_at": None,
-                "message_count": 0,
-                "previous_intents": [],
-                "extracted_entities": {},
-                "conversation_state": "active",
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "created_at": None,
+                    "last_message_at": None,
+                    "message_count": 0,
+                    "previous_intents": [],
+                    "extracted_entities": {},
+                    "conversation_state": "active",
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context.update_search_results = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
             # Mock the messenger services used in Story 2.3
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_class, \
-                 patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
-                 patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
-
+            with (
+                patch(
+                    "app.services.messaging.message_processor.ProductSearchService"
+                ) as mock_search_class,
+                patch(
+                    "app.services.messaging.message_processor.MessengerProductFormatter"
+                ) as mock_formatter_class,
+                patch(
+                    "app.services.messaging.message_processor.MessengerSendService"
+                ) as mock_send_class,
+            ):
                 # Mock search result
                 from app.schemas.shopify import (
                     CurrencyCode,
@@ -89,6 +104,7 @@ async def test_process_message_product_search(mock_session_service):
                     ProductSearchResult,
                     ProductVariant,
                 )
+
                 mock_search_result = ProductSearchResult(
                     products=[
                         Product(
@@ -126,10 +142,12 @@ async def test_process_message_product_search(mock_session_service):
                         "type": "template",
                         "payload": {
                             "template_type": "generic",
-                            "elements": [{
-                                "title": "Running Shoes",
-                                "image_url": "https://example.com/test.jpg",
-                            }],
+                            "elements": [
+                                {
+                                    "title": "Running Shoes",
+                                    "image_url": "https://example.com/test.jpg",
+                                }
+                            ],
                         },
                     },
                 }
@@ -142,25 +160,37 @@ async def test_process_message_product_search(mock_session_service):
                 mock_send_class.return_value = mock_send_service
 
                 # Mock ConsentService and SessionService
-                with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                     patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+                with (
+                    patch(
+                        "app.services.messaging.message_processor.ConsentService"
+                    ) as mock_consent_class,
+                    patch(
+                        "app.services.messaging.message_processor.SessionService"
+                    ) as mock_session_class,
+                ):
                     mock_consent = MagicMock()
                     mock_consent.get_consent = AsyncMock(return_value="pending")
                     mock_consent_class.return_value = mock_consent
                     mock_session_class.return_value = mock_session_service
 
-                    processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                    processor = MessageProcessor(
+                        classifier=mock_classifier, context_manager=mock_context
+                    )
 
                     payload = FacebookWebhookPayload(
                         object="page",
-                        entry=[{
-                            "id": "123456789",
-                            "time": 1234567890,
-                            "messaging": [{
-                                "sender": {"id": "123456"},
-                                "message": {"text": "running shoes under $100"},
-                            }],
-                        }],
+                        entry=[
+                            {
+                                "id": "123456789",
+                                "time": 1234567890,
+                                "messaging": [
+                                    {
+                                        "sender": {"id": "123456"},
+                                        "message": {"text": "running shoes under $100"},
+                                    }
+                                ],
+                            }
+                        ],
                     )
 
                     response = await processor.process_message(payload)
@@ -174,7 +204,9 @@ async def test_process_message_product_search(mock_session_service):
 @pytest.mark.asyncio
 async def test_process_message_greeting(mock_session_service):
     """Test processing greeting message."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.GREETING,
@@ -188,37 +220,53 @@ async def test_process_message_greeting(mock_session_service):
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
             # Mock ConsentService and SessionService
-            with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                 patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+            with (
+                patch(
+                    "app.services.messaging.message_processor.ConsentService"
+                ) as mock_consent_class,
+                patch(
+                    "app.services.messaging.message_processor.SessionService"
+                ) as mock_session_class,
+            ):
                 mock_consent = MagicMock()
                 mock_consent.get_consent = AsyncMock(return_value="pending")
                 mock_consent_class.return_value = mock_consent
                 mock_session_class.return_value = mock_session_service
 
-                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                processor = MessageProcessor(
+                    classifier=mock_classifier, context_manager=mock_context
+                )
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "Hi there"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "Hi there"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 response = await processor.process_message(payload)
@@ -230,7 +278,9 @@ async def test_process_message_greeting(mock_session_service):
 @pytest.mark.asyncio
 async def test_process_message_low_confidence(mock_session_service):
     """Test processing message with low confidence (clarification flow)."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.PRODUCT_SEARCH,
@@ -244,53 +294,75 @@ async def test_process_message_low_confidence(mock_session_service):
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-                "clarification": {},  # No active clarification
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                    "clarification": {},  # No active clarification
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context.update_clarification_state = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
             # Mock the MessengerSendService to avoid actual Facebook API calls
-            with patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_service_class:
+            with patch(
+                "app.services.messaging.message_processor.MessengerSendService"
+            ) as mock_send_service_class:
                 mock_send_service = MagicMock()
                 mock_send_service.send_message = AsyncMock(return_value=None)
                 mock_send_service.close = AsyncMock(return_value=None)
                 mock_send_service_class.return_value = mock_send_service
 
                 # Mock QuestionGenerator
-                with patch("app.services.messaging.message_processor.QuestionGenerator") as mock_qg_class:
+                with patch(
+                    "app.services.messaging.message_processor.QuestionGenerator"
+                ) as mock_qg_class:
                     mock_qg = MagicMock()
                     # FIX: generate_next_question now returns tuple (question, constraint)
-                    mock_qg.generate_next_question = AsyncMock(return_value=("What's your budget for this?", "budget"))
+                    mock_qg.generate_next_question = AsyncMock(
+                        return_value=("What's your budget for this?", "budget")
+                    )
                     mock_qg_class.return_value = mock_qg
 
                     # Mock ConsentService and SessionService
-                    with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                         patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+                    with (
+                        patch(
+                            "app.services.messaging.message_processor.ConsentService"
+                        ) as mock_consent_class,
+                        patch(
+                            "app.services.messaging.message_processor.SessionService"
+                        ) as mock_session_class,
+                    ):
                         mock_consent = MagicMock()
                         mock_consent.get_consent = AsyncMock(return_value="pending")
                         mock_consent_class.return_value = mock_consent
                         mock_session_class.return_value = mock_session_service
 
-                        processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                        processor = MessageProcessor(
+                            classifier=mock_classifier, context_manager=mock_context
+                        )
 
                         payload = FacebookWebhookPayload(
                             object="page",
-                            entry=[{
-                                "id": "123456789",
-                                "time": 1234567890,
-                                "messaging": [{
-                                    "sender": {"id": "123456"},
-                                    "message": {"text": "something"},
-                                }],
-                            }],
+                            entry=[
+                                {
+                                    "id": "123456789",
+                                    "time": 1234567890,
+                                    "messaging": [
+                                        {
+                                            "sender": {"id": "123456"},
+                                            "message": {"text": "something"},
+                                        }
+                                    ],
+                                }
+                            ],
                         )
 
                         response = await processor.process_message(payload)
@@ -307,7 +379,9 @@ async def test_process_message_low_confidence(mock_session_service):
 @pytest.mark.asyncio
 async def test_process_message_cart_view(mock_session_service):
     """Test processing cart view request."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.CART_VIEW,
@@ -321,37 +395,53 @@ async def test_process_message_cart_view(mock_session_service):
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
             # Mock ConsentService and SessionService
-            with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                 patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+            with (
+                patch(
+                    "app.services.messaging.message_processor.ConsentService"
+                ) as mock_consent_class,
+                patch(
+                    "app.services.messaging.message_processor.SessionService"
+                ) as mock_session_class,
+            ):
                 mock_consent = MagicMock()
                 mock_consent.get_consent = AsyncMock(return_value="pending")
                 mock_consent_class.return_value = mock_consent
                 mock_session_class.return_value = mock_session_service
 
-                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                processor = MessageProcessor(
+                    classifier=mock_classifier, context_manager=mock_context
+                )
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "Show me my cart"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "Show me my cart"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 response = await processor.process_message(payload)
@@ -363,7 +453,9 @@ async def test_process_message_cart_view(mock_session_service):
 @pytest.mark.asyncio
 async def test_process_message_human_handoff(mock_session_service):
     """Test processing human handoff request."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.HUMAN_HANDOFF,
@@ -377,37 +469,53 @@ async def test_process_message_human_handoff(mock_session_service):
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
             # Mock ConsentService and SessionService
-            with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                 patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+            with (
+                patch(
+                    "app.services.messaging.message_processor.ConsentService"
+                ) as mock_consent_class,
+                patch(
+                    "app.services.messaging.message_processor.SessionService"
+                ) as mock_session_class,
+            ):
                 mock_consent = MagicMock()
                 mock_consent.get_consent = AsyncMock(return_value="pending")
                 mock_consent_class.return_value = mock_consent
                 mock_session_class.return_value = mock_session_service
 
-                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                processor = MessageProcessor(
+                    classifier=mock_classifier, context_manager=mock_context
+                )
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "Talk to a person"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "Talk to a person"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 response = await processor.process_message(payload)
@@ -419,41 +527,59 @@ async def test_process_message_human_handoff(mock_session_service):
 @pytest.mark.asyncio
 async def test_process_message_error_handling(mock_session_service):
     """Test error handling in message processing."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         # Make classifier raise exception
         mock_classifier = AsyncMock()
         mock_classifier.classify.side_effect = Exception("Classification failed")
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                }
+            )
             mock_context_class.return_value = mock_context
 
             # Mock ConsentService and SessionService
-            with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                 patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+            with (
+                patch(
+                    "app.services.messaging.message_processor.ConsentService"
+                ) as mock_consent_class,
+                patch(
+                    "app.services.messaging.message_processor.SessionService"
+                ) as mock_session_class,
+            ):
                 mock_consent = MagicMock()
                 mock_consent.get_consent = AsyncMock(return_value="pending")
                 mock_consent_class.return_value = mock_consent
                 mock_session_class.return_value = mock_session_service
 
-                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                processor = MessageProcessor(
+                    classifier=mock_classifier, context_manager=mock_context
+                )
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "test"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "test"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 response = await processor.process_message(payload)
@@ -465,7 +591,9 @@ async def test_process_message_error_handling(mock_session_service):
 @pytest.mark.asyncio
 async def test_process_message_unknown_intent(mock_session_service):
     """Test processing unknown intent."""
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
         mock_classifier = AsyncMock()
         mock_classification = ClassificationResult(
             intent=IntentType.UNKNOWN,
@@ -479,40 +607,58 @@ async def test_process_message_unknown_intent(mock_session_service):
 
         mock_classifier.classify.return_value = mock_classification
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context = MagicMock()
             mock_redis = MagicMock()
             mock_context.redis = mock_redis
-            mock_context.get_context = AsyncMock(return_value={
-                "psid": "123456",
-                "conversation_state": "active",
-            })
+            mock_context.get_context = AsyncMock(
+                return_value={
+                    "psid": "123456",
+                    "conversation_state": "active",
+                }
+            )
             mock_context.update_classification = AsyncMock(return_value=None)
             mock_context_class.return_value = mock_context
 
             # Mock ConsentService and SessionService
-            with patch("app.services.messaging.message_processor.ConsentService") as mock_consent_class, \
-                 patch("app.services.messaging.message_processor.SessionService") as mock_session_class:
+            with (
+                patch(
+                    "app.services.messaging.message_processor.ConsentService"
+                ) as mock_consent_class,
+                patch(
+                    "app.services.messaging.message_processor.SessionService"
+                ) as mock_session_class,
+            ):
                 mock_consent = MagicMock()
                 mock_consent.get_consent = AsyncMock(return_value="pending")
                 mock_consent_class.return_value = mock_consent
                 mock_session_class.return_value = mock_session_service
 
-                processor = MessageProcessor(classifier=mock_classifier, context_manager=mock_context)
+                processor = MessageProcessor(
+                    classifier=mock_classifier, context_manager=mock_context
+                )
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "xyzabc"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "xyzabc"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 response = await processor.process_message(payload)
 
                 assert isinstance(response, MessengerResponse)
-                assert "not sure" in response.text.lower() or "more details" in response.text.lower()
+                assert (
+                    "not sure" in response.text.lower() or "more details" in response.text.lower()
+                )

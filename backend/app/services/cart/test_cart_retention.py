@@ -77,11 +77,9 @@ class TestCartRetentionService:
         psid = "test_psid_123"
         created_at = datetime.now(UTC) - timedelta(days=15)
 
-        timestamp_data = json.dumps({
-            "psid": psid,
-            "extended_at": created_at.isoformat(),
-            "retention_days": 30
-        })
+        timestamp_data = json.dumps(
+            {"psid": psid, "extended_at": created_at.isoformat(), "retention_days": 30}
+        )
 
         mock_redis.get.return_value = timestamp_data
 
@@ -115,17 +113,17 @@ class TestCartRetentionService:
         old_cart_time = datetime.now(UTC) - timedelta(days=35)
         recent_cart_time = datetime.now(UTC) - timedelta(days=15)
 
-        old_timestamp = json.dumps({
-            "psid": "old_psid",
-            "extended_at": old_cart_time.isoformat(),
-            "retention_days": 30
-        })
+        old_timestamp = json.dumps(
+            {"psid": "old_psid", "extended_at": old_cart_time.isoformat(), "retention_days": 30}
+        )
 
-        recent_timestamp = json.dumps({
-            "psid": "recent_psid",
-            "extended_at": recent_cart_time.isoformat(),
-            "retention_days": 30
-        })
+        recent_timestamp = json.dumps(
+            {
+                "psid": "recent_psid",
+                "extended_at": recent_cart_time.isoformat(),
+                "retention_days": 30,
+            }
+        )
 
         # Mock Redis scan to return our test keys
         def mock_scan(cursor=0, match=None, count=None):
@@ -133,7 +131,7 @@ class TestCartRetentionService:
                 # First call: return keys and new cursor (0 means done)
                 return 0, [
                     "cart_extended_timestamp:old_psid",
-                    "cart_extended_timestamp:recent_psid"
+                    "cart_extended_timestamp:recent_psid",
                 ]
             return 0, []
 
@@ -162,6 +160,7 @@ class TestCartRetentionService:
     @pytest.mark.asyncio
     async def test_cleanup_handles_invalid_timestamp(self, retention_service, mock_redis):
         """Test cleanup handles invalid timestamp data gracefully."""
+
         # Mock Redis scan to return a key with invalid data
         def mock_scan(cursor=0, match=None, count=None):
             if cursor == "0":
@@ -191,6 +190,7 @@ class TestCartRetentionService:
     @pytest.mark.asyncio
     async def test_cleanup_with_pagination(self, retention_service, mock_redis):
         """Test cleanup handles paginated scan results."""
+
         # Setup mock data for pagination
         def mock_scan(cursor=0, match=None, count=None):
             # Return 100 keys, then paginate
@@ -203,11 +203,13 @@ class TestCartRetentionService:
 
         def mock_get(key):
             # Return recent timestamp (should not be deleted)
-            return json.dumps({
-                "psid": key.split(":")[-1],
-                "extended_at": datetime.now(UTC).isoformat(),
-                "retention_days": 30
-            })
+            return json.dumps(
+                {
+                    "psid": key.split(":")[-1],
+                    "extended_at": datetime.now(UTC).isoformat(),
+                    "retention_days": 30,
+                }
+            )
 
         mock_redis.scan.side_effect = mock_scan
         mock_redis.get.side_effect = mock_get
@@ -224,10 +226,9 @@ class TestCartRetentionService:
         """Test the wrapper function for background job compatibility."""
         with patch("app.services.cart.cart_retention.CartRetentionService") as mock_class:
             mock_service = MagicMock()
-            mock_service.cleanup_expired_extended_carts = AsyncMock(return_value={
-                "scanned": 10,
-                "removed": 2
-            })
+            mock_service.cleanup_expired_extended_carts = AsyncMock(
+                return_value={"scanned": 10, "removed": 2}
+            )
             mock_class.return_value = mock_service
 
             result = await run_cart_retention_cleanup()

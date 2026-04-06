@@ -56,7 +56,10 @@ async def test_product_search_intent_routes_to_product_service():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -75,14 +78,19 @@ async def test_product_search_intent_routes_to_product_service():
         async def mock_update_search_results(psid, results):
             update_calls.append(("search_results", results))
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update_classification
             mock_context_mgr.update_search_results.side_effect = mock_update_search_results
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -91,9 +99,14 @@ async def test_product_search_intent_routes_to_product_service():
                 mock_search_service_class.return_value = mock_search_service
 
                 # Mock Story 2.3 Messenger services
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
-                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
-
+                with (
+                    patch(
+                        "app.services.messaging.message_processor.MessengerProductFormatter"
+                    ) as mock_formatter_class,
+                    patch(
+                        "app.services.messaging.message_processor.MessengerSendService"
+                    ) as mock_send_class,
+                ):
                     # Mock formatter
                     mock_formatter = MagicMock()
                     mock_formatter.format_product_results.return_value = {
@@ -115,14 +128,18 @@ async def test_product_search_intent_routes_to_product_service():
 
                     payload = FacebookWebhookPayload(
                         object="page",
-                        entry=[{
-                            "id": "123456789",
-                            "time": 1234567890,
-                            "messaging": [{
-                                "sender": {"id": "123456"},
-                                "message": {"text": "running shoes"},
-                            }],
-                        }],
+                        entry=[
+                            {
+                                "id": "123456789",
+                                "time": 1234567890,
+                                "messaging": [
+                                    {
+                                        "sender": {"id": "123456"},
+                                        "message": {"text": "running shoes"},
+                                    }
+                                ],
+                            }
+                        ],
                     )
 
                     processor = MessageProcessor()
@@ -188,7 +205,10 @@ async def test_product_search_response_formatting():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -202,14 +222,19 @@ async def test_product_search_response_formatting():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -218,9 +243,14 @@ async def test_product_search_response_formatting():
                 mock_search_service_class.return_value = mock_search_service
 
                 # Mock Story 2.3 Messenger services
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
-                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
-
+                with (
+                    patch(
+                        "app.services.messaging.message_processor.MessengerProductFormatter"
+                    ) as mock_formatter_class,
+                    patch(
+                        "app.services.messaging.message_processor.MessengerSendService"
+                    ) as mock_send_class,
+                ):
                     # Mock formatter
                     mock_formatter = MagicMock()
                     mock_formatter.format_product_results.return_value = {
@@ -245,14 +275,18 @@ async def test_product_search_response_formatting():
 
                     payload = FacebookWebhookPayload(
                         object="page",
-                        entry=[{
-                            "id": "123456789",
-                            "time": 1234567890,
-                            "messaging": [{
-                                "sender": {"id": "123456"},
-                                "message": {"text": "show me shoes"},
-                            }],
-                        }],
+                        entry=[
+                            {
+                                "id": "123456789",
+                                "time": 1234567890,
+                                "messaging": [
+                                    {
+                                        "sender": {"id": "123456"},
+                                        "message": {"text": "show me shoes"},
+                                    }
+                                ],
+                            }
+                        ],
                     )
 
                     processor = MessageProcessor()
@@ -289,7 +323,10 @@ async def test_empty_product_search_results():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -303,14 +340,19 @@ async def test_empty_product_search_results():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -320,14 +362,18 @@ async def test_empty_product_search_results():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "shoes under $10"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "shoes under $10"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()
@@ -356,7 +402,10 @@ async def test_product_search_error_handling():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -370,14 +419,19 @@ async def test_product_search_error_handling():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search_error(entities):
                     raise APIError(
                         code="SHOPIFY_API_ERROR",
@@ -390,14 +444,18 @@ async def test_product_search_error_handling():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "running shoes"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "running shoes"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()
@@ -446,7 +504,10 @@ async def test_search_results_update_conversation_context():
 
     search_results_stored = {"value": None}
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -463,14 +524,19 @@ async def test_search_results_update_conversation_context():
         async def mock_update_search_results(psid, results):
             search_results_stored["value"] = results
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update_classification
             mock_context_mgr.update_search_results.side_effect = mock_update_search_results
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -480,14 +546,18 @@ async def test_search_results_update_conversation_context():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "test"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "test"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()
@@ -536,7 +606,10 @@ async def test_product_search_with_all_entity_types():
 
     entities_passed_to_search = {"value": None}
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -550,14 +623,19 @@ async def test_product_search_with_all_entity_types():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     entities_passed_to_search["value"] = entities
                     return mock_search_result
@@ -568,14 +646,18 @@ async def test_product_search_with_all_entity_types():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": "123456"},
-                            "message": {"text": "red Nike shoes size 9 under $100"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": "123456"},
+                                    "message": {"text": "red Nike shoes size 9 under $100"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()
@@ -601,8 +683,8 @@ async def test_product_search_more_than_three_results():
         products.append(
             Product(
                 id=f"gid://shopify/Product/{i}",
-                title=f"Product {i+1}",
-                description=f"Description {i+1}",
+                title=f"Product {i + 1}",
+                description=f"Description {i + 1}",
                 price=10.0 * (i + 1),
                 currency="USD",
                 available_for_sale=True,
@@ -630,7 +712,10 @@ async def test_product_search_more_than_three_results():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -644,14 +729,19 @@ async def test_product_search_more_than_three_results():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -660,9 +750,14 @@ async def test_product_search_more_than_three_results():
                 mock_search_service_class.return_value = mock_search_service
 
                 # Mock Story 2.3 Messenger services
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
-                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
-
+                with (
+                    patch(
+                        "app.services.messaging.message_processor.MessengerProductFormatter"
+                    ) as mock_formatter_class,
+                    patch(
+                        "app.services.messaging.message_processor.MessengerSendService"
+                    ) as mock_send_class,
+                ):
                     # Mock formatter - returns elements for 5 products
                     mock_formatter = MagicMock()
                     mock_formatter.format_product_results.return_value = {
@@ -670,9 +765,7 @@ async def test_product_search_more_than_three_results():
                             "type": "template",
                             "payload": {
                                 "template_type": "generic",
-                                "elements": [
-                                    {"title": f"Product {i+1}"} for i in range(5)
-                                ],
+                                "elements": [{"title": f"Product {i + 1}"} for i in range(5)],
                             },
                         },
                     }
@@ -686,14 +779,18 @@ async def test_product_search_more_than_three_results():
 
                     payload = FacebookWebhookPayload(
                         object="page",
-                        entry=[{
-                            "id": "123456789",
-                            "time": 1234567890,
-                            "messaging": [{
-                                "sender": {"id": "123456"},
-                                "message": {"text": "show me products"},
-                            }],
-                        }],
+                        entry=[
+                            {
+                                "id": "123456789",
+                                "time": 1234567890,
+                                "messaging": [
+                                    {
+                                        "sender": {"id": "123456"},
+                                        "message": {"text": "show me products"},
+                                    }
+                                ],
+                            }
+                        ],
                     )
 
                     processor = MessageProcessor()
@@ -743,7 +840,10 @@ async def test_description_truncation_in_response():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -757,14 +857,19 @@ async def test_description_truncation_in_response():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -773,9 +878,14 @@ async def test_description_truncation_in_response():
                 mock_search_service_class.return_value = mock_search_service
 
                 # Mock Story 2.3 Messenger services
-                with patch("app.services.messaging.message_processor.MessengerProductFormatter") as mock_formatter_class, \
-                     patch("app.services.messaging.message_processor.MessengerSendService") as mock_send_class:
-
+                with (
+                    patch(
+                        "app.services.messaging.message_processor.MessengerProductFormatter"
+                    ) as mock_formatter_class,
+                    patch(
+                        "app.services.messaging.message_processor.MessengerSendService"
+                    ) as mock_send_class,
+                ):
                     # Mock formatter - verifies truncation in formatted result
                     mock_formatter = MagicMock()
                     formatted_payload = {
@@ -786,7 +896,9 @@ async def test_description_truncation_in_response():
                                 "elements": [
                                     {
                                         "title": "Test Product",
-                                        "subtitle": long_description[:100] + "..." if len(long_description) > 100 else long_description,
+                                        "subtitle": long_description[:100] + "..."
+                                        if len(long_description) > 100
+                                        else long_description,
                                     }
                                 ],
                             },
@@ -803,14 +915,18 @@ async def test_description_truncation_in_response():
 
                     payload = FacebookWebhookPayload(
                         object="page",
-                        entry=[{
-                            "id": "123456789",
-                            "time": 1234567890,
-                            "messaging": [{
-                                "sender": {"id": "123456"},
-                                "message": {"text": "test"},
-                            }],
-                        }],
+                        entry=[
+                            {
+                                "id": "123456789",
+                                "time": 1234567890,
+                                "messaging": [
+                                    {
+                                        "sender": {"id": "123456"},
+                                        "message": {"text": "test"},
+                                    }
+                                ],
+                            }
+                        ],
                     )
 
                     processor = MessageProcessor()
@@ -819,7 +935,9 @@ async def test_description_truncation_in_response():
                     # After Story 2.3, verify formatter was called with long description
                     mock_formatter.format_product_results.assert_called_once()
                     # Verify the formatted subtitle is truncated
-                    formatted_subtitle = formatted_payload["attachment"]["payload"]["elements"][0]["subtitle"]
+                    formatted_subtitle = formatted_payload["attachment"]["payload"]["elements"][0][
+                        "subtitle"
+                    ]
                     assert "..." in formatted_subtitle
                     assert len(formatted_subtitle) <= 103  # 100 + "..."
 
@@ -847,7 +965,10 @@ async def test_search_result_recipient_id_matches_sender():
         processing_time_ms=100,
     )
 
-    with patch("app.services.messaging.message_processor.IntentClassifier") as mock_classifier_class:
+    with patch(
+        "app.services.messaging.message_processor.IntentClassifier"
+    ) as mock_classifier_class:
+
         async def mock_classify(message, context=None):
             return mock_result
 
@@ -863,14 +984,19 @@ async def test_search_result_recipient_id_matches_sender():
         async def mock_update(psid, data):
             pass
 
-        with patch("app.services.messaging.message_processor.ConversationContextManager") as mock_context_class:
+        with patch(
+            "app.services.messaging.message_processor.ConversationContextManager"
+        ) as mock_context_class:
             mock_context_mgr = AsyncMock()
             mock_context_mgr.get_context.side_effect = mock_get_context
             mock_context_mgr.update_classification.side_effect = mock_update
             mock_context_mgr.update_search_results.side_effect = mock_update
             mock_context_class.return_value = mock_context_mgr
 
-            with patch("app.services.messaging.message_processor.ProductSearchService") as mock_search_service_class:
+            with patch(
+                "app.services.messaging.message_processor.ProductSearchService"
+            ) as mock_search_service_class:
+
                 async def mock_search(entities):
                     return mock_search_result
 
@@ -880,14 +1006,18 @@ async def test_search_result_recipient_id_matches_sender():
 
                 payload = FacebookWebhookPayload(
                     object="page",
-                    entry=[{
-                        "id": "123456789",
-                        "time": 1234567890,
-                        "messaging": [{
-                            "sender": {"id": test_psid},
-                            "message": {"text": "test"},
-                        }],
-                    }],
+                    entry=[
+                        {
+                            "id": "123456789",
+                            "time": 1234567890,
+                            "messaging": [
+                                {
+                                    "sender": {"id": test_psid},
+                                    "message": {"text": "test"},
+                                }
+                            ],
+                        }
+                    ],
                 )
 
                 processor = MessageProcessor()

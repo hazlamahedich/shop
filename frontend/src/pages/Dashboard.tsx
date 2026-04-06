@@ -41,6 +41,7 @@ import { QuestionCategoriesWidget } from '../components/dashboard/QuestionCatego
 import { FailedQueriesWidget } from '../components/dashboard/FailedQueriesWidget';
 import { PerformanceAlertsWidget } from '../components/dashboard/PerformanceAlertsWidget';
 import { QuickActionsWidget } from '../components/dashboard/QuickActionsWidget';
+import { ConversationFlowWidget } from '../components/dashboard/ConversationFlowWidget';
 
 // NEW: Narrative flow components
 import { NarrativeSection } from '../components/dashboard/NarrativeSection';
@@ -164,6 +165,7 @@ const Dashboard = () => {
                   <KnowledgeBaseWidget />
                 </div>
                 <ConversationOverviewWidget />
+                <ConversationFlowWidget />
               </NarrativeSection>
 
               <NarrativeFlowConnector />
@@ -236,6 +238,7 @@ const Dashboard = () => {
                       </div>
                       <PeakHoursHeatmapWidget />
                     </div>
+                    <ConversationFlowWidget />
                   </NarrativeSection>
 
                   <NarrativeFlowConnector />

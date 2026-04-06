@@ -126,9 +126,7 @@ async def test_facebook_webhook(
     except APIError as e:
         # Include troubleshooting steps in error response
         service = WebhookVerificationService(merchant_id=merchant_id, db=db)
-        diagnosis = await service.diagnose_webhook_failure(
-            "facebook", str(e.message)
-        )
+        diagnosis = await service.diagnose_webhook_failure("facebook", str(e.message))
 
         raise HTTPException(
             status_code=400,
@@ -184,9 +182,7 @@ async def test_shopify_webhook(
     except APIError as e:
         # Include troubleshooting steps in error response
         service = WebhookVerificationService(merchant_id=merchant_id, db=db)
-        diagnosis = await service.diagnose_webhook_failure(
-            "shopify", str(e.message)
-        )
+        diagnosis = await service.diagnose_webhook_failure("shopify", str(e.message))
 
         raise HTTPException(
             status_code=400,

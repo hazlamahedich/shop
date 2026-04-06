@@ -21,8 +21,7 @@ async def test_facebook_oauth_state_validation(async_client: AsyncClient) -> Non
     """
     # Generate OAuth URL
     response = await async_client.get(
-        "/api/integrations/facebook/authorize",
-        params={"merchant_id": 1}
+        "/api/integrations/facebook/authorize", params={"merchant_id": 1}
     )
 
     assert response.status_code == 200
@@ -47,8 +46,8 @@ async def test_facebook_callback_state_mismatch(async_client: AsyncClient) -> No
         "/api/integrations/facebook/callback",
         params={
             "state": "malicious_state",  # Invalid state
-            "code": "test_auth_code"
-        }
+            "code": "test_auth_code",
+        },
     )
 
     # Should reject invalid state
@@ -70,8 +69,8 @@ async def test_facebook_callback_permission_denied(async_client: AsyncClient) ->
             "state": "valid_state",
             "error": "access_denied",
             "error_code": "200",
-            "error_description": "Permissions error"
-        }
+            "error_description": "Permissions error",
+        },
     )
 
     # Should return 422 (Unprocessable) or 400 for denied
@@ -121,9 +120,7 @@ async def test_facebook_page_verification(async_client: AsyncClient) -> None:
         service = FacebookService(db=db, is_testing=True)
 
         # Should return dict with page info in test mode
-        result = await service.verify_page_access(
-            access_token="test_token"
-        )
+        result = await service.verify_page_access(access_token="test_token")
 
         assert isinstance(result, dict)
         break  # Only need one db session
@@ -140,8 +137,7 @@ async def test_facebook_rate_limiting(async_client: AsyncClient) -> None:
     """
     # First request may succeed or be rate limited depending on previous test runs
     response1 = await async_client.get(
-        "/api/integrations/facebook/authorize",
-        params={"merchant_id": 1}
+        "/api/integrations/facebook/authorize", params={"merchant_id": 1}
     )
     # Rate limiter may be active from previous tests
     assert response1.status_code in [200, 429]
@@ -149,8 +145,7 @@ async def test_facebook_rate_limiting(async_client: AsyncClient) -> None:
     # Rapid second request to same merchant may be rate limited
     # (implementation dependent)
     response2 = await async_client.get(
-        "/api/integrations/facebook/authorize",
-        params={"merchant_id": 1}
+        "/api/integrations/facebook/authorize", params={"merchant_id": 1}
     )
     # May return 200 or 429 depending on rate limiter
     assert response2.status_code in [200, 429]

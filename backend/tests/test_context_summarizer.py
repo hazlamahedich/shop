@@ -43,10 +43,12 @@ class MockLLMService(BaseLLMService):
 
         # Default mock response
         return LLMResponse(
-            content=json.dumps({
-                "key_points": ["Customer looking for red shoes under $100"],
-                "active_constraints": {"budget_max": 100, "color": "red"}
-            }),
+            content=json.dumps(
+                {
+                    "key_points": ["Customer looking for red shoes under $100"],
+                    "active_constraints": {"budget_max": 100, "color": "red"},
+                }
+            ),
             tokens_used=50,
             model="mock-model",
             provider="mock",
@@ -77,18 +79,20 @@ class TestContextSummarizerService:
         """Test summarizing e-commerce context."""
         # Setup: Mock LLM response
         mock_response = LLMResponse(
-            content=json.dumps({
-                "key_points": [
-                    "Customer looking for red running shoes under $100",
-                    "Prefers Nike brand, size 10"
-                ],
-                "active_constraints": {
-                    "budget_max": 100,
-                    "brand": "Nike",
-                    "size": "10",
-                    "color": "red"
+            content=json.dumps(
+                {
+                    "key_points": [
+                        "Customer looking for red running shoes under $100",
+                        "Prefers Nike brand, size 10",
+                    ],
+                    "active_constraints": {
+                        "budget_max": 100,
+                        "brand": "Nike",
+                        "size": "10",
+                        "color": "red",
+                    },
                 }
-            }),
+            ),
             tokens_used=50,
             model="mock-model",
             provider="mock",
@@ -100,12 +104,7 @@ class TestContextSummarizerService:
             "mode": "ecommerce",
             "turn_count": 5,
             "viewed_products": [123, 456, 789],
-            "constraints": {
-                "budget_max": 100,
-                "size": "10",
-                "color": "red",
-                "brand": "Nike"
-            },
+            "constraints": {"budget_max": 100, "size": "10", "color": "red", "brand": "Nike"},
             "search_history": ["running shoes", "nike", "under $100"],
         }
 
@@ -126,17 +125,16 @@ class TestContextSummarizerService:
         """Test summarizing general mode context."""
         # Setup: Mock LLM response
         mock_response = LLMResponse(
-            content=json.dumps({
-                "key_points": [
-                    "Customer has login issues",
-                    "Referenced KB article 123",
-                    "Low frustration detected"
-                ],
-                "active_constraints": {
-                    "escalation_status": "low",
-                    "active_issues": ["login"]
+            content=json.dumps(
+                {
+                    "key_points": [
+                        "Customer has login issues",
+                        "Referenced KB article 123",
+                        "Low frustration detected",
+                    ],
+                    "active_constraints": {"escalation_status": "low", "active_issues": ["login"]},
                 }
-            }),
+            ),
             tokens_used=50,
             model="mock-model",
             provider="mock",
@@ -149,9 +147,7 @@ class TestContextSummarizerService:
             "turn_count": 3,
             "topics_discussed": ["login", "password", "authentication"],
             "documents_referenced": [123, 456],
-            "support_issues": [
-                {"type": "login", "status": "pending"}
-            ],
+            "support_issues": [{"type": "login", "status": "pending"}],
             "escalation_status": "low",
         }
 
@@ -170,12 +166,12 @@ class TestContextSummarizerService:
         """Test parsing LLM response with markdown code blocks."""
         # Setup: Mock response with markdown
         mock_response = LLMResponse(
-            content='''```json
+            content="""```json
 {
     "key_points": ["Customer wants size 10 shoes"],
     "active_constraints": {"size": "10"}
 }
-```''',
+```""",
             tokens_used=30,
             model="mock-model",
             provider="mock",
@@ -233,12 +229,7 @@ class TestContextSummarizerService:
             "mode": "ecommerce",
             "turn_count": 5,
             "viewed_products": [123, 456, 789],
-            "constraints": {
-                "budget_max": 100,
-                "brand": "Nike",
-                "size": "10",
-                "color": "red"
-            },
+            "constraints": {"budget_max": 100, "brand": "Nike", "size": "10", "color": "red"},
         }
 
         # Execute without LLM service (will use fallback)
@@ -262,7 +253,7 @@ class TestContextSummarizerService:
             "documents_referenced": [123, 456],
             "support_issues": [
                 {"type": "login", "status": "pending"},
-                {"type": "billing", "status": "resolved"}
+                {"type": "billing", "status": "resolved"},
             ],
             "escalation_status": "medium",
         }
@@ -278,6 +269,7 @@ class TestContextSummarizerService:
     @pytest.mark.asyncio
     async def test_llm_error_handling(self, mock_llm_service, mock_db_session):
         """Test graceful handling of LLM errors."""
+
         # Setup: Mock LLM that raises exception
         async def failing_chat(*args, **kwargs):
             raise Exception("LLM service unavailable")
@@ -328,7 +320,7 @@ class TestContextSummarizerService:
         context = {
             "mode": "ecommerce",
             "viewed_products": [123, 456],
-            "constraints": {"budget_max": 100}
+            "constraints": {"budget_max": 100},
         }
 
         prompt = summarizer._build_user_prompt(context, "ecommerce")
@@ -341,12 +333,12 @@ class TestContextSummarizerService:
         """Test parsing JSON from markdown code blocks."""
         summarizer = ContextSummarizerService(db=mock_db_session)
 
-        llm_response = '''```json
+        llm_response = """```json
 {
     "key_points": ["Test point"],
     "active_constraints": {"test": "value"}
 }
-```'''
+```"""
 
         context = {"mode": "ecommerce", "turn_count": 1}
 
@@ -364,11 +356,7 @@ class TestContextSummarizerService:
             "mode": "ecommerce",
             "turn_count": 3,
             "viewed_products": [111, 222, 333],
-            "constraints": {
-                "budget_max": 50,
-                "brand": "Adidas",
-                "size": "9"
-            }
+            "constraints": {"budget_max": 50, "brand": "Adidas", "size": "9"},
         }
 
         summary = summarizer._fallback_summary(context)
@@ -388,7 +376,7 @@ class TestContextSummarizerService:
             "topics_discussed": ["login", "password"],
             "documents_referenced": [123],
             "support_issues": [{"type": "login", "status": "pending"}],
-            "escalation_status": "high"
+            "escalation_status": "high",
         }
 
         summary = summarizer._fallback_summary(context)
@@ -413,10 +401,7 @@ class TestSummarizationIntegration:
 
         # Setup: Mock response
         mock_response = LLMResponse(
-            content=json.dumps({
-                "key_points": ["Summary test"],
-                "active_constraints": {}
-            }),
+            content=json.dumps({"key_points": ["Summary test"], "active_constraints": {}}),
             tokens_used=20,
             model="mock",
             provider="mock",
@@ -449,7 +434,7 @@ class TestSummarizationIntegration:
         large_context = {
             "turn_count": 2,  # Not 5 turns
             "data": "x" * 2000,  # But > 1KB
-            "mode": "ecommerce"
+            "mode": "ecommerce",
         }
 
         should_summarize = await service.should_summarize(large_context)

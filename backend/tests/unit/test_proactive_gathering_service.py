@@ -424,9 +424,9 @@ class TestRegexPatterns:
 
     def test_size_pattern_rejects_bare_numbers(self) -> None:
         for text in ("$100", "under 50", "200", "budget is $80", "around 150 dollars"):
-            assert (
-                _SIZE_PATTERN.search(text) is None
-            ), f"_SIZE_PATTERN should not match bare number in: {text!r}"
+            assert _SIZE_PATTERN.search(text) is None, (
+                f"_SIZE_PATTERN should not match bare number in: {text!r}"
+            )
 
     def test_order_number_pattern(self) -> None:
         assert _ORDER_NUMBER_PATTERN.search("#1234") is not None

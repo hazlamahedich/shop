@@ -54,10 +54,12 @@ class DataDeletionService:
             select(DataDeletionRequest).where(
                 DataDeletionRequest.customer_id == customer_id,
                 DataDeletionRequest.platform == platform,
-                DataDeletionRequest.status.in_([
-                    DeletionStatus.PENDING,
-                    DeletionStatus.PROCESSING,
-                ]),
+                DataDeletionRequest.status.in_(
+                    [
+                        DeletionStatus.PENDING,
+                        DeletionStatus.PROCESSING,
+                    ]
+                ),
             )
         )
         existing = result.scalars().first()
@@ -167,17 +169,13 @@ class DataDeletionService:
             if conversation_ids:
                 # Delete messages
                 msg_result = await self.db.execute(
-                    delete(Message).where(
-                        Message.conversation_id.in_(conversation_ids)
-                    )
+                    delete(Message).where(Message.conversation_id.in_(conversation_ids))
                 )
                 deleted["messages"] = msg_result.rowcount or 0
 
                 # 2. Delete conversations
                 conv_delete_result = await self.db.execute(
-                    delete(Conversation).where(
-                        Conversation.id.in_(conversation_ids)
-                    )
+                    delete(Conversation).where(Conversation.id.in_(conversation_ids))
                 )
                 deleted["conversations"] = conv_delete_result.rowcount or 0
             else:

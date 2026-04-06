@@ -136,9 +136,7 @@ class OrderConfirmationService:
         self.logger.warning("psid_not_found_in_order_attributes")
         return None
 
-    async def _check_idempotency(
-        self, psid: str, order_id: str
-    ) -> OrderConfirmationResult | None:
+    async def _check_idempotency(self, psid: str, order_id: str) -> OrderConfirmationResult | None:
         """Check if order has already been confirmed.
 
         Args:

@@ -272,8 +272,6 @@ class TestMessageModel:
         await db_session.flush()
 
         # Verify message is also deleted
-        result = await db_session.execute(
-            select(Message).where(Message.id == message_id)
-        )
+        result = await db_session.execute(select(Message).where(Message.id == message_id))
         found = result.scalars().first()
         assert found is None

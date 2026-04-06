@@ -114,6 +114,7 @@ class TestDataDeletionAPI:
 
             # Create deletion request
             from app.services.data_deletion import DataDeletionService
+
             service = DataDeletionService(db)
             request = await service.request_deletion(customer_id, platform)
 
@@ -127,9 +128,7 @@ class TestDataDeletionAPI:
             # Verify deletion (if tables exist)
             try:
                 conv_result = await db.execute(
-                    select(Conversation).where(
-                        Conversation.platform_sender_id == customer_id
-                    )
+                    select(Conversation).where(Conversation.platform_sender_id == customer_id)
                 )
                 conversation = conv_result.scalars().first()
                 # If conversation exists, it should have been deleted

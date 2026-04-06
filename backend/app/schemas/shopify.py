@@ -29,10 +29,7 @@ class ProductVariant(BaseModel):
     product_id: str = Field(description="Parent product ID")
     title: str = Field(description="Variant title (e.g., 'Size 8, Red')")
     price: float = Field(description="Variant price")
-    currency_code: CurrencyCode = Field(
-        default=CurrencyCode.USD,
-        description="Price currency code"
-    )
+    currency_code: CurrencyCode = Field(default=CurrencyCode.USD, description="Price currency code")
     available_for_sale: bool = Field(default=False, description="Is variant in stock")
     selected_options: dict[str, str] = Field(
         default_factory=dict, description="Variant options (size, color, etc.)"
@@ -71,22 +68,10 @@ class Product(BaseModel):
     tags: list[str] = Field(default_factory=list, description="Product tags")
     vendor: str | None = Field(None, description="Product vendor/brand")
     price: float = Field(description="Product price (min variant price)")
-    currency_code: CurrencyCode = Field(
-        default=CurrencyCode.USD,
-        description="Price currency code"
-    )
-    images: list[ProductImage] = Field(
-        default_factory=list,
-        description="Product images"
-    )
-    variants: list[ProductVariant] = Field(
-        default_factory=list,
-        description="Product variants"
-    )
-    relevance_score: float = Field(
-        default=0.0,
-        description="Search relevance score"
-    )
+    currency_code: CurrencyCode = Field(default=CurrencyCode.USD, description="Price currency code")
+    images: list[ProductImage] = Field(default_factory=list, description="Product images")
+    variants: list[ProductVariant] = Field(default_factory=list, description="Product variants")
+    relevance_score: float = Field(default=0.0, description="Search relevance score")
     total_inventory: int | None = Field(None, description="Total inventory across variants")
     tracks_inventory: bool = Field(default=True, description="Whether inventory is tracked")
 
@@ -102,11 +87,9 @@ class ProductSearchResult(BaseModel):
     products: list[Product] = Field(description="Ranked product results")
     total_count: int = Field(description="Total results count")
     search_params: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Search parameters used"
+        default_factory=dict, description="Search parameters used"
     )
     has_alternatives: bool = Field(
-        default=False,
-        description="Whether alternative suggestions are available"
+        default=False, description="Whether alternative suggestions are available"
     )
     search_time_ms: float | None = Field(None, description="Search time in milliseconds")

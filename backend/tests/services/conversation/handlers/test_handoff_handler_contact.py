@@ -3,7 +3,6 @@
 Story 10-5: Contact Card Widget
 """
 
-
 from app.models.merchant import Merchant
 from app.services.conversation.handlers.handoff_handler import HandoffHandler
 

@@ -53,9 +53,7 @@ class TestDeploymentAPI:
     @pytest.fixture
     def valid_deployment_request(self):
         """Valid deployment request data."""
-        return {
-            "platform": "flyio"
-        }
+        return {"platform": "flyio"}
 
     @pytest.fixture
     def deployment_request_with_prerequisites(self):
@@ -66,16 +64,14 @@ class TestDeploymentAPI:
                 "cloudAccount": True,
                 "facebookAccount": True,
                 "shopifyAccess": True,
-                "llmProviderChoice": True
-            }
+                "llmProviderChoice": True,
+            },
         }
 
     @pytest.fixture
     def invalid_platform_request(self):
         """Invalid platform request data."""
-        return {
-            "platform": "invalid_platform"
-        }
+        return {"platform": "invalid_platform"}
 
     @pytest.fixture
     def empty_request(self):
@@ -127,21 +123,27 @@ class TestDeploymentAPI:
 
     # Test POST /start endpoint
     @pytest.mark.asyncio
-    async def test_start_deployment_happy_path(self, test_client, async_session, valid_deployment_request):
+    async def test_start_deployment_happy_path(
+        self, test_client, async_session, valid_deployment_request
+    ):
         """Test successful deployment start."""
+
         # Mock the background deployment task to avoid session issues
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             # Mock the script path
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
             mock_script_path.return_value = mock_path
 
-            response = await test_client.post("/api/deployment/start", json=valid_deployment_request)
+            response = await test_client.post(
+                "/api/deployment/start", json=valid_deployment_request
+            )
 
             # Verify response
             assert response.status_code == status.HTTP_202_ACCEPTED
@@ -165,16 +167,20 @@ class TestDeploymentAPI:
             assert deployment_data["estimatedSeconds"] == 900
 
     @pytest.mark.asyncio
-    async def test_start_deployment_with_prerequisites(self, test_client, async_session, deployment_request_with_prerequisites):
+    async def test_start_deployment_with_prerequisites(
+        self, test_client, async_session, deployment_request_with_prerequisites
+    ):
         """Test deployment start with prerequisites."""
+
         # Mock background task to prevent session issues
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             # Mock dependencies - but NOT create_merchant (it creates real DB record)
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
@@ -182,7 +188,9 @@ class TestDeploymentAPI:
             test_merchant_key = "shop-prereq123"
             mock_gen_key.return_value = test_merchant_key
 
-            response = await test_client.post("/api/deployment/start", json=deployment_request_with_prerequisites)
+            response = await test_client.post(
+                "/api/deployment/start", json=deployment_request_with_prerequisites
+            )
 
             assert response.status_code == status.HTTP_202_ACCEPTED
             data = response.json()
@@ -194,6 +202,7 @@ class TestDeploymentAPI:
             # Verify prerequisites were migrated (check DB)
             from app.models.merchant import Merchant
             from app.models.onboarding import PrerequisiteChecklist
+
             result = await async_session.execute(
                 select(Merchant).where(Merchant.merchant_key == test_merchant_key)
             )
@@ -202,7 +211,9 @@ class TestDeploymentAPI:
 
             # Check prerequisites were migrated
             prereq_result = await async_session.execute(
-                select(PrerequisiteChecklist).where(PrerequisiteChecklist.merchant_id == merchant.id)
+                select(PrerequisiteChecklist).where(
+                    PrerequisiteChecklist.merchant_id == merchant.id
+                )
             )
             prereq = prereq_result.scalars().first()
             assert prereq is not None
@@ -238,7 +249,9 @@ class TestDeploymentAPI:
         assert "Platform field is required" in data["message"]
 
     @pytest.mark.asyncio
-    async def test_start_deployment_invalid_platform(self, test_client, async_session, invalid_platform_request):
+    async def test_start_deployment_invalid_platform(
+        self, test_client, async_session, invalid_platform_request
+    ):
         """Test deployment start with invalid platform value."""
         response = await test_client.post("/api/deployment/start", json=invalid_platform_request)
 
@@ -249,12 +262,15 @@ class TestDeploymentAPI:
         assert "Invalid platform value" in data["message"]
 
     @pytest.mark.asyncio
-    async def test_start_deployment_rate_limit_exceeded(self, test_client, async_session, valid_deployment_request):
+    async def test_start_deployment_rate_limit_exceeded(
+        self, test_client, async_session, valid_deployment_request
+    ):
         """Test deployment start rate limiting."""
         # Create a recent deployment to trigger rate limit
         # The rate limit checks for ANY merchant with pending/active status
         # created within the last 10 minutes
         from app.models.merchant import Merchant
+
         recent_merchant = Merchant(
             merchant_key="shop-recent",
             platform="flyio",
@@ -278,8 +294,11 @@ class TestDeploymentAPI:
             pytest.skip("Rate limit check not triggered - may need different setup")
 
     @pytest.mark.asyncio
-    async def test_start_deployment_script_not_found(self, test_client, async_session, valid_deployment_request):
+    async def test_start_deployment_script_not_found(
+        self, test_client, async_session, valid_deployment_request
+    ):
         """Test deployment start when script is not found."""
+
         # Mock the background task to prevent it from actually running
         # The script check happens in background, but we can't easily test that
         # So we just verify the endpoint accepts the request
@@ -287,8 +306,10 @@ class TestDeploymentAPI:
             # Don't actually run anything
             return None
 
-        with patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-            response = await test_client.post("/api/deployment/start", json=valid_deployment_request)
+        with patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment):
+            response = await test_client.post(
+                "/api/deployment/start", json=valid_deployment_request
+            )
 
             # The endpoint accepts the request (background task runs separately)
             assert response.status_code == status.HTTP_202_ACCEPTED
@@ -301,12 +322,13 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST (required for foreign key constraint)
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-test123",
             platform="flyio",
             status="active",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -357,12 +379,13 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-inprogress",
             platform="railway",
             status="active",  # Use 'active' for in-progress deployments (has logs but not complete)
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -400,12 +423,13 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-failed",
             platform="render",
             status="failed",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -440,12 +464,13 @@ class TestDeploymentAPI:
 
         # Create merchant
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-stream123",
             platform="flyio",
             status="active",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -465,7 +490,9 @@ class TestDeploymentAPI:
         await async_session.commit()
 
         # Make streaming request
-        async with test_client.stream("GET", f"/api/deployment/progress/{deployment_id}") as response:
+        async with test_client.stream(
+            "GET", f"/api/deployment/progress/{deployment_id}"
+        ) as response:
             assert response.status_code == status.HTTP_200_OK
 
             # Check headers
@@ -502,7 +529,9 @@ class TestDeploymentAPI:
         """Test streaming for non-existent deployment."""
         deployment_id = str(uuid4())
 
-        async with test_client.stream("GET", f"/api/deployment/progress/{deployment_id}") as response:
+        async with test_client.stream(
+            "GET", f"/api/deployment/progress/{deployment_id}"
+        ) as response:
             assert response.status_code == status.HTTP_200_OK
 
             # Read error event
@@ -520,12 +549,13 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-stream-progress",
             platform="railway",
             status="pending",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -545,10 +575,12 @@ class TestDeploymentAPI:
         await async_session.commit()
 
         # Test streaming (stream will timeout after 15 minutes max)
-        with patch('app.api.deployment.asyncio.sleep') as mock_sleep:
+        with patch("app.api.deployment.asyncio.sleep") as mock_sleep:
             mock_sleep.return_value = asyncio.sleep(0.01)  # Fast forward
 
-            async with test_client.stream("GET", f"/api/deployment/progress/{deployment_id}") as response:
+            async with test_client.stream(
+                "GET", f"/api/deployment/progress/{deployment_id}"
+            ) as response:
                 assert response.status_code == status.HTTP_200_OK
 
                 # Read events until completion or timeout
@@ -586,12 +618,13 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-cancel123",
             platform="flyio",
             status="pending",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -612,7 +645,7 @@ class TestDeploymentAPI:
 
         # Mock subprocess
         mock_process = AsyncMock()
-        with patch('app.api.deployment._active_subprocesses', {deployment_id: mock_process}):
+        with patch("app.api.deployment._active_subprocesses", {deployment_id: mock_process}):
             response = await test_client.post(f"/api/deployment/cancel/{deployment_id}")
 
         assert response.status_code == status.HTTP_200_OK
@@ -635,6 +668,7 @@ class TestDeploymentAPI:
 
         # Verify cancellation log was created
         from sqlalchemy import select
+
         result = await async_session.execute(
             select(DeploymentLogModel)
             .where(DeploymentLogModel.deployment_id == deployment_id)
@@ -668,6 +702,7 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST
         from app.models.merchant import Merchant
+
         # Use "failed" status which is NOT in ("pending", "active")
         # so the API will reject the cancellation
         merchant = Merchant(
@@ -675,7 +710,7 @@ class TestDeploymentAPI:
             platform="railway",
             status="failed",  # This status is NOT cancellable
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -710,12 +745,13 @@ class TestDeploymentAPI:
 
         # Create merchant FIRST
         from app.models.merchant import Merchant
+
         merchant = Merchant(
             merchant_key="shop-timeout",
             platform="flyio",
             status="pending",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
         )
         async_session.add(merchant)
         await async_session.flush()  # Get the actual ID
@@ -738,7 +774,7 @@ class TestDeploymentAPI:
         mock_process = AsyncMock()
         mock_process.terminate.side_effect = Exception("Terminate failed")
 
-        with patch('app.api.deployment._active_subprocesses', {deployment_id: mock_process}):
+        with patch("app.api.deployment._active_subprocesses", {deployment_id: mock_process}):
             response = await test_client.post(f"/api/deployment/cancel/{deployment_id}")
 
         # Should still succeed despite timeout error
@@ -749,17 +785,21 @@ class TestDeploymentAPI:
 
     # Test edge cases and error conditions
     @pytest.mark.asyncio
-    async def test_deployment_response_structure_validation(self, test_client, async_session, valid_deployment_request):
+    async def test_deployment_response_structure_validation(
+        self, test_client, async_session, valid_deployment_request
+    ):
         """Test response structure validation for all endpoints."""
+
         # Mock background task to prevent session issues
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment.DeploymentService.migrate_prerequisites') as mock_migrate, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment.DeploymentService.migrate_prerequisites") as mock_migrate,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             # Mock dependencies
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
@@ -769,7 +809,9 @@ class TestDeploymentAPI:
             mock_migrate.return_value = None
 
             # Test start endpoint response
-            response = await test_client.post("/api/deployment/start", json=valid_deployment_request)
+            response = await test_client.post(
+                "/api/deployment/start", json=valid_deployment_request
+            )
             data = response.json()
 
             # Verify all required fields are present
@@ -793,6 +835,7 @@ class TestDeploymentAPI:
 
             # Get the real merchant created by the API call
             from app.models.merchant import Merchant
+
             result = await async_session.execute(
                 select(Merchant).where(Merchant.merchant_key == test_merchant_key)
             )
@@ -811,22 +854,36 @@ class TestDeploymentAPI:
             assert "meta" in status_data
 
             status_deployment = status_data["data"]
-            status_required_fields = ["deploymentId", "merchantKey", "status", "platform", "progress", "logs"]
+            status_required_fields = [
+                "deploymentId",
+                "merchantKey",
+                "status",
+                "platform",
+                "progress",
+                "logs",
+            ]
             for field in status_required_fields:
                 assert field in status_deployment, f"Missing field in status: {field}"
 
     @pytest.mark.asyncio
-    async def test_deployment_timeout_handling(self, test_client, async_session, valid_deployment_request):
+    async def test_deployment_timeout_handling(
+        self, test_client, async_session, valid_deployment_request
+    ):
         """Test deployment timeout error handling."""
+
         # Note: Timeout happens in background task, so endpoint returns 202
         # The actual timeout would be logged in deployment logs
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment.asyncio.create_task', side_effect=lambda coro: mock_run_deployment()):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch(
+                "app.api.deployment.asyncio.create_task",
+                side_effect=lambda coro: mock_run_deployment(),
+            ),
+        ):
             # Mock the script path
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
@@ -836,7 +893,9 @@ class TestDeploymentAPI:
             test_merchant_key = "shop-timeout123"
             mock_gen_key.return_value = test_merchant_key
 
-            response = await test_client.post("/api/deployment/start", json=valid_deployment_request)
+            response = await test_client.post(
+                "/api/deployment/start", json=valid_deployment_request
+            )
 
             # The endpoint accepts the request; timeout would be handled in background
             assert response.status_code == status.HTTP_202_ACCEPTED
@@ -844,14 +903,16 @@ class TestDeploymentAPI:
     @pytest.mark.asyncio
     async def test_platform_flyio(self, test_client, async_session):
         """Test flyio platform deployment."""
+
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment.DeploymentService.migrate_prerequisites') as mock_migrate, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment.DeploymentService.migrate_prerequisites") as mock_migrate,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
             mock_script_path.return_value = mock_path
@@ -870,14 +931,16 @@ class TestDeploymentAPI:
     @pytest.mark.asyncio
     async def test_platform_railway(self, test_client, async_session):
         """Test railway platform deployment."""
+
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment.DeploymentService.migrate_prerequisites') as mock_migrate, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment.DeploymentService.migrate_prerequisites") as mock_migrate,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
             mock_script_path.return_value = mock_path
@@ -896,14 +959,16 @@ class TestDeploymentAPI:
     @pytest.mark.asyncio
     async def test_platform_render(self, test_client, async_session):
         """Test render platform deployment."""
+
         async def mock_run_deployment(*args, **kwargs):
             return None
 
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment.DeploymentService.migrate_prerequisites') as mock_migrate, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment.DeploymentService.migrate_prerequisites") as mock_migrate,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
             mock_script_path.return_value = mock_path
@@ -920,17 +985,21 @@ class TestDeploymentAPI:
             assert data["data"]["merchantKey"] == test_merchant_key
 
     @pytest.mark.asyncio
-    async def test_database_transaction_rollback(self, test_client, async_session, valid_deployment_request):
+    async def test_database_transaction_rollback(
+        self, test_client, async_session, valid_deployment_request
+    ):
         """Test that database operations are rolled back on failure."""
+
         # Mock background task
         async def mock_run_deployment(*args, **kwargs):
             return None
 
         # Mock generate_merchant_key to get predictable key
-        with patch('app.api.deployment.DeploymentService.generate_merchant_key') as mock_gen_key, \
-             patch('app.api.deployment._get_script_path') as mock_script_path, \
-             patch('app.api.deployment._run_deployment_script', side_effect=mock_run_deployment):
-
+        with (
+            patch("app.api.deployment.DeploymentService.generate_merchant_key") as mock_gen_key,
+            patch("app.api.deployment._get_script_path") as mock_script_path,
+            patch("app.api.deployment._run_deployment_script", side_effect=mock_run_deployment),
+        ):
             # Mock dependencies
             mock_path = Mock(spec=Path)
             mock_path.exists.return_value = True
@@ -938,13 +1007,16 @@ class TestDeploymentAPI:
             test_merchant_key = "shop-rollback123"
             mock_gen_key.return_value = test_merchant_key
 
-            response = await test_client.post("/api/deployment/start", json=valid_deployment_request)
+            response = await test_client.post(
+                "/api/deployment/start", json=valid_deployment_request
+            )
 
             # Should succeed
             assert response.status_code == status.HTTP_202_ACCEPTED
 
             # Verify merchant was created (since we didn't actually have an error)
             from app.models.merchant import Merchant
+
             result = await async_session.execute(
                 select(Merchant).where(Merchant.merchant_key == test_merchant_key)
             )

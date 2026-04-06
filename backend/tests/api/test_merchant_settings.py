@@ -12,7 +12,9 @@ class TestMerchantSettingsEndpoint:
     """Tests for PATCH /api/merchant/settings endpoint."""
 
     @pytest.mark.asyncio
-    async def test_update_budget_cap_with_valid_value(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_update_budget_cap_with_valid_value(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test updating budget cap with a valid positive number."""
         # Create a merchant first
         merchant = make_merchant(merchant_key="test-budget-1", platform="facebook")
@@ -36,7 +38,9 @@ class TestMerchantSettingsEndpoint:
         assert budget_cap == 100.50
 
     @pytest.mark.asyncio
-    async def test_update_budget_cap_with_zero_fails(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_update_budget_cap_with_zero_fails(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test that zero budget cap returns validation error."""
         merchant = make_merchant(merchant_key="test-budget-zero", platform="facebook")
         async_session.add(merchant)
@@ -56,7 +60,9 @@ class TestMerchantSettingsEndpoint:
         assert "error_code" in data or "message" in data or "detail" in data
 
     @pytest.mark.asyncio
-    async def test_update_budget_cap_with_negative_fails(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_update_budget_cap_with_negative_fails(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test that negative budget cap returns validation error."""
         merchant = make_merchant(merchant_key="test-budget-negative", platform="facebook")
         async_session.add(merchant)
@@ -76,7 +82,9 @@ class TestMerchantSettingsEndpoint:
         assert "error_code" in data or "message" in data or "detail" in data
 
     @pytest.mark.asyncio
-    async def test_update_budget_cap_with_null_removes_limit(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_update_budget_cap_with_null_removes_limit(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test that null budget cap removes the limit."""
         merchant = make_merchant(merchant_key="test-budget-null", platform="facebook")
         async_session.add(merchant)
@@ -97,7 +105,9 @@ class TestMerchantSettingsEndpoint:
         assert budget_cap is None
 
     @pytest.mark.asyncio
-    async def test_update_budget_cap_missing_field(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_update_budget_cap_missing_field(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test that missing budget_cap field is handled correctly."""
         merchant = make_merchant(merchant_key="test-budget-missing", platform="facebook")
         async_session.add(merchant)
@@ -118,7 +128,9 @@ class TestBudgetRecommendationEndpoint:
     """Tests for GET /api/merchant/budget-recommendation endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_budget_recommendation(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_get_budget_recommendation(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test getting budget recommendation."""
         merchant = make_merchant(merchant_key="test-budget-rec", platform="facebook")
         async_session.add(merchant)
@@ -154,7 +166,9 @@ class TestBudgetRecommendationEndpoint:
         assert isinstance(projected, (int, float))
 
     @pytest.mark.asyncio
-    async def test_get_budget_recommendation_without_cost_data(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_get_budget_recommendation_without_cost_data(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test getting budget recommendation when merchant has no cost history."""
         # Use a fresh merchant with no cost data
         merchant = make_merchant(merchant_key="test-budget-no-cost", platform="facebook")
@@ -177,7 +191,9 @@ class TestBudgetRecommendationEndpoint:
         assert recommended_budget == 50.0  # Default recommendation
 
     @pytest.mark.asyncio
-    async def test_budget_recommendation_with_cost_data(self, async_session, async_client: AsyncClient, make_cost_records):
+    async def test_budget_recommendation_with_cost_data(
+        self, async_session, async_client: AsyncClient, make_cost_records
+    ):
         """Test budget recommendation with existing cost data."""
         from app.models.merchant import Merchant
 
@@ -229,7 +245,9 @@ class TestMerchantSettingsIsolation:
     """Tests for merchant isolation in budget settings."""
 
     @pytest.mark.asyncio
-    async def test_merchant_can_only_update_own_budget(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_merchant_can_only_update_own_budget(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test that merchants can only modify their own budget."""
         # Create two merchants
         merchant1 = make_merchant(merchant_key="test-isolation-1", platform="facebook")
@@ -260,7 +278,9 @@ class TestMerchantSettingsIsolation:
         assert response2.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_get_merchant_settings_returns_correct_merchant_data(self, async_session, async_client: AsyncClient, make_merchant):
+    async def test_get_merchant_settings_returns_correct_merchant_data(
+        self, async_session, async_client: AsyncClient, make_merchant
+    ):
         """Test that GET settings returns data for the authenticated merchant."""
         merchant = make_merchant(merchant_key="test-settings-get", platform="facebook")
         async_session.add(merchant)

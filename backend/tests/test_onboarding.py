@@ -1,6 +1,5 @@
 """Tests for onboarding ORM model."""
 
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 

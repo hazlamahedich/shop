@@ -18,7 +18,9 @@ async def test_get_monthly_spend_below_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
@@ -67,11 +69,14 @@ async def test_get_monthly_spend_medium_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -117,11 +122,14 @@ async def test_get_monthly_spend_high_budget(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap to $100
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -167,11 +175,14 @@ async def test_get_monthly_spend_null_budget_cap(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Remove budget cap
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -217,11 +228,14 @@ async def test_get_monthly_spend_no_cost_data(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap
     from sqlalchemy import select
+
     result = await db_session.execute(select(Merchant).where(Merchant.id == 1))
     merchant = result.scalars().first()
     if merchant:
@@ -246,7 +260,9 @@ async def test_get_monthly_spend_month_boundary(db_session):
     service = CostTrackingService()
 
     # Clean up existing data
-    await db_session.execute(delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1))
+    await db_session.execute(
+        delete(LLMConversationCost).where(LLMConversationCost.merchant_id == 1)
+    )
     await db_session.commit()
 
     # Set budget cap

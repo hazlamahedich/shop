@@ -121,9 +121,7 @@ class TestCheckoutService:
         assert checkout_service.redis.setex.called
 
     @pytest.mark.asyncio
-    async def test_generate_checkout_url_empty_cart(
-        self, checkout_service, mock_cart_service
-    ):
+    async def test_generate_checkout_url_empty_cart(self, checkout_service, mock_cart_service):
         """Test checkout with empty cart."""
         # Mock empty cart
         empty_cart = Cart(
@@ -253,9 +251,7 @@ class TestCheckoutService:
         assert token is None  # Token too short (< 5 chars)
 
     @pytest.mark.asyncio
-    async def test_store_checkout_token(
-        self, checkout_service, sample_cart
-    ):
+    async def test_store_checkout_token(self, checkout_service, sample_cart):
         """Test checkout token storage in Redis."""
         checkout_token = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
         checkout_url = f"https://checkout.shopify.com/{checkout_token}"

@@ -89,9 +89,7 @@ class TestMessengerSendService:
         """Test successful message sending."""
         with respx.mock:
             # Mock Facebook Send API success response
-            request = respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(
+            request = respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                 return_value=httpx.Response(
                     200,
                     json={"message_id": "mid.msg_123"},
@@ -112,9 +110,7 @@ class TestMessengerSendService:
         """Test handling of Facebook API error response."""
         with respx.mock:
             # Mock Facebook error response
-            respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(
+            respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                 return_value=httpx.Response(
                     200,
                     json={
@@ -141,9 +137,7 @@ class TestMessengerSendService:
         """Test handling of invalid recipient (404)."""
         with respx.mock:
             # Mock 404 response
-            respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(
+            respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                 return_value=httpx.Response(
                     404,
                     json={"error": "Invalid PSID"},
@@ -164,9 +158,7 @@ class TestMessengerSendService:
         """Test handling of rate limit (429)."""
         with respx.mock:
             # Mock 429 response
-            respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(
+            respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                 return_value=httpx.Response(
                     429,
                     json={"error": "Rate limited"},
@@ -187,9 +179,9 @@ class TestMessengerSendService:
         """Test handling of timeout."""
         with respx.mock:
             # Mock timeout
-            respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(side_effect=httpx.TimeoutException("Request timed out"))
+            respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
+                side_effect=httpx.TimeoutException("Request timed out")
+            )
 
             with pytest.raises(APIError) as exc_info:
                 await send_service.send_message("test_psid", sample_message_payload)
@@ -206,9 +198,9 @@ class TestMessengerSendService:
         """Test handling of network error."""
         with respx.mock:
             # Mock network error
-            respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(side_effect=httpx.RequestError("Network error"))
+            respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
+                side_effect=httpx.RequestError("Network error")
+            )
 
             with pytest.raises(APIError) as exc_info:
                 await send_service.send_message("test_psid", sample_message_payload)
@@ -239,9 +231,7 @@ class TestMessengerSendService:
         """Test that access token is included in request."""
         with respx.mock:
             # Capture request
-            request = respx.post(
-                "https://graph.facebook.com/v19.0/me/messages"
-            ).mock(
+            request = respx.post("https://graph.facebook.com/v19.0/me/messages").mock(
                 return_value=httpx.Response(
                     200,
                     json={"message_id": "mid.msg_123"},

@@ -148,8 +148,9 @@ class TestTokenEncryption:
 
         # Reset the cached fernet instance
         import app.core.security
-        if hasattr(app.core.security, '_fernet_instance'):
-            delattr(app.core.security, '_fernet_instance')
+
+        if hasattr(app.core.security, "_fernet_instance"):
+            delattr(app.core.security, "_fernet_instance")
 
         fernet1 = get_fernet()
         fernet2 = get_fernet()
@@ -168,11 +169,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b'{"test": "payload"}'
 
         # Generate valid signature
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         signature_header = f"sha256={signature}"
 
@@ -201,11 +198,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b'{"test": "payload"}'
 
         # Generate SHA1 signature (wrong algorithm)
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha1
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha1).hexdigest()
 
         signature_header = f"sha1={signature}"
 
@@ -218,11 +211,7 @@ class TestFacebookWebhookSignatureVerification:
         payload2 = b'{"test": "payload2"}'
 
         # Generate signature for payload1
-        signature = hmac.new(
-            app_secret.encode(),
-            payload1,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload1, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         # Try to verify payload2 with payload1's signature
@@ -234,11 +223,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b""
 
         # Generate signature for empty payload
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -246,13 +231,9 @@ class TestFacebookWebhookSignatureVerification:
     def test_large_payload_verification(self):
         """Test signature verification with large payload."""
         app_secret = "test_app_secret"
-        payload = b'{"data": "' + b'x' * 10000 + b'"}'
+        payload = b'{"data": "' + b"x" * 10000 + b'"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -263,11 +244,7 @@ class TestFacebookWebhookSignatureVerification:
         payload = b'{"test": "payload"}'
 
         # Generate correct signature
-        correct_signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        correct_signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Generate wrong signature of same length
         wrong_signature = "x" * len(correct_signature)
@@ -290,11 +267,7 @@ class TestFacebookWebhookSignatureVerification:
         app_secret = "test_app_secret"
         payload = b'{"test": "payload"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Extra whitespace should cause failure
         signature_header = f"sha256= {signature}"
@@ -305,11 +278,7 @@ class TestFacebookWebhookSignatureVerification:
         app_secret = "test_app_secret"
         payload = b'{"test": "payload"}'
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Uppercase signature should fail
         signature_header = f"sha256={signature.upper()}"
@@ -320,11 +289,7 @@ class TestFacebookWebhookSignatureVerification:
         app_secret = "test_app_secret"
         payload = '{"message": "Hello 世界"}'.encode()
 
-        signature = hmac.new(
-            app_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(app_secret.encode(), payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         assert verify_webhook_signature(payload, signature_header, app_secret) is True
@@ -339,11 +304,7 @@ class TestShopifyWebhookHMACVerification:
         payload = b'{"test": "payload"}'
 
         # Generate valid HMAC
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         assert verify_shopify_webhook_hmac(payload, hmac_header, api_secret) is True
@@ -377,11 +338,7 @@ class TestShopifyWebhookHMACVerification:
         payload = b'{"test": "payload"}'
 
         # Generate HMAC with secret1
-        hmac_digest = hmac.new(
-            secret1.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(secret1.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         # Try to verify with secret2
@@ -394,11 +351,7 @@ class TestShopifyWebhookHMACVerification:
         payload2 = b'{"test": "payload2"}'
 
         # Generate HMAC for payload1
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload1,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload1, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         # Try to verify payload2 with payload1's HMAC
@@ -423,11 +376,7 @@ class TestShopifyWebhookHMACVerification:
         payload = b'{"test": "payload"}'
 
         # Generate correct HMAC
-        correct_hmac = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        correct_hmac = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         correct_hmac_header = base64.b64encode(correct_hmac).decode()
 
         # Generate wrong HMAC of same length
@@ -451,11 +400,7 @@ class TestShopifyWebhookHMACVerification:
         api_secret = "test_api_secret"
         payload = '{"order": "测试订单"}'.encode()
 
-        hmac_digest = hmac.new(
-            api_secret.encode(),
-            payload,
-            hashlib.sha256
-        ).digest()
+        hmac_digest = hmac.new(api_secret.encode(), payload, hashlib.sha256).digest()
         hmac_header = base64.b64encode(hmac_digest).decode()
 
         assert verify_shopify_webhook_hmac(payload, hmac_header, api_secret) is True
@@ -537,7 +482,7 @@ class TestOAuthStateGeneration:
         mock_redis = MagicMock()
         mock_redis.get.return_value = None  # Simulate expired/missing key
 
-        with patch('app.core.security.get_redis_client', return_value=mock_redis):
+        with patch("app.core.security.get_redis_client", return_value=mock_redis):
             validated_id = validate_oauth_state("expired_state")
             assert validated_id is None
 
@@ -628,7 +573,7 @@ class TestWebhookVerifyTokenGeneration:
         # Should contain alphanumeric, hyphens, or underscores
         has_alpha = any(c.isalpha() for c in token)
         has_digit = any(c.isdigit() for c in token)
-        has_special = any(c in '-_' for c in token)
+        has_special = any(c in "-_" for c in token)
 
         # At least some variety
         assert has_alpha or has_digit
@@ -657,6 +602,7 @@ class TestRedisClient:
 
         # Reset cached client
         import app.core.security
+
         app.core.security._redis_client = None
 
         client = get_redis_client()
@@ -668,12 +614,13 @@ class TestRedisClient:
 
         # Reset cached client
         import app.core.security
+
         app.core.security._redis_client = None
 
         # Should return None or raise error depending on implementation
         client = get_redis_client()
         # Current implementation catches exceptions and returns None
-        assert client is None or hasattr(client, 'ping')
+        assert client is None or hasattr(client, "ping")
 
 
 class TestStateStorage:
@@ -685,7 +632,7 @@ class TestStateStorage:
         mock_redis.get.return_value = "123"
         mock_redis.delete.return_value = 1
 
-        with patch('app.core.security.get_redis_client', return_value=mock_redis):
+        with patch("app.core.security.get_redis_client", return_value=mock_redis):
             store_oauth_state("test_state", 123, ttl=600)
             merchant_id = validate_oauth_state("test_state")
 
@@ -698,7 +645,7 @@ class TestStateStorage:
         """Test storing state with custom TTL."""
         mock_redis = MagicMock()
 
-        with patch('app.core.security.get_redis_client', return_value=mock_redis):
+        with patch("app.core.security.get_redis_client", return_value=mock_redis):
             store_oauth_state("test_state", 123, ttl=300)
 
             mock_redis.setex.assert_called_once_with("oauth_state:test_state", 300, "123")
@@ -708,14 +655,14 @@ class TestStateStorage:
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
 
-        with patch('app.core.security.get_redis_client', return_value=mock_redis):
+        with patch("app.core.security.get_redis_client", return_value=mock_redis):
             merchant_id = validate_oauth_state("nonexistent_state")
 
             assert merchant_id is None
 
     def test_state_storage_fallback_to_memory(self):
         """Test fallback to in-memory storage when Redis unavailable."""
-        with patch('app.core.security.get_redis_client', return_value=None):
+        with patch("app.core.security.get_redis_client", return_value=None):
             store_oauth_state("test_state", 123, ttl=600)
             merchant_id = validate_oauth_state("test_state")
 
@@ -725,7 +672,7 @@ class TestStateStorage:
         """Test that in-memory storage respects TTL."""
         import time
 
-        with patch('app.core.security.get_redis_client', return_value=None):
+        with patch("app.core.security.get_redis_client", return_value=None):
             # Store state with 1 second TTL
             store_oauth_state("test_state", 123, ttl=1)
 

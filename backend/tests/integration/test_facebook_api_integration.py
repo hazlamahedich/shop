@@ -74,7 +74,9 @@ class TestFacebookOAuthFlow:
         await db_session.flush()
 
         # Query with the actual merchant_id we just created
-        response = await async_client.get(f"/api/integrations/facebook/status?merchant_id={merchant.id}")
+        response = await async_client.get(
+            f"/api/integrations/facebook/status?merchant_id={merchant.id}"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -85,7 +87,9 @@ class TestFacebookOAuthFlow:
     @pytest.mark.asyncio
     async def test_disconnect_not_connected(self, async_client):
         """Test disconnect when Facebook not connected."""
-        response = await async_client.delete("/api/integrations/facebook/disconnect?merchant_id=999")
+        response = await async_client.delete(
+            "/api/integrations/facebook/disconnect?merchant_id=999"
+        )
 
         # Should return error (400 or 404 depending on implementation)
         assert response.status_code in (400, 404)
@@ -109,7 +113,7 @@ class TestFacebookWebhookEndpoints:
                 "hub.mode": "subscribe",
                 "hub.challenge": "challenge_value",
                 "hub.verify_token": "test_token",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -127,7 +131,7 @@ class TestFacebookWebhookEndpoints:
                 "hub.mode": "subscribe",
                 "hub.challenge": "challenge_value",
                 "hub.verify_token": "wrong_token",
-            }
+            },
         )
 
         assert response.status_code == 403
@@ -145,33 +149,33 @@ class TestFacebookWebhookEndpoints:
         # Create webhook payload
         payload = {
             "object": "page",
-            "entry": [{
-                "id": "123456789",
-                "time": 1458692752478,
-                "messaging": [{
-                    "sender": {"id": "111111111"},
-                    "recipient": {"id": "123456789"},
-                    "timestamp": 1458692752478,
-                    "message": {
-                        "mid": "mid.1457764197618:41d102a3e1ae206a38",
-                        "text": "hello, world!",
-                    }
-                }]
-            }]
+            "entry": [
+                {
+                    "id": "123456789",
+                    "time": 1458692752478,
+                    "messaging": [
+                        {
+                            "sender": {"id": "111111111"},
+                            "recipient": {"id": "123456789"},
+                            "timestamp": 1458692752478,
+                            "message": {
+                                "mid": "mid.1457764197618:41d102a3e1ae206a38",
+                                "text": "hello, world!",
+                            },
+                        }
+                    ],
+                }
+            ],
         }
 
         raw_payload = json.dumps(payload).encode()
-        signature = hmac.new(
-            b"test_secret",
-            raw_payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(b"test_secret", raw_payload, hashlib.sha256).hexdigest()
         signature_header = f"sha256={signature}"
 
         response = await async_client.post(
             "/api/webhooks/facebook",
             content=raw_payload,
-            headers={"X-Hub-Signature-256": signature_header}
+            headers={"X-Hub-Signature-256": signature_header},
         )
 
         assert response.status_code == 200
@@ -187,7 +191,7 @@ class TestFacebookWebhookEndpoints:
         response = await async_client.post(
             "/api/webhooks/facebook",
             content=b'{"test": "payload"}',
-            headers={"X-Hub-Signature-256": "sha256=invalid_signature"}
+            headers={"X-Hub-Signature-256": "sha256=invalid_signature"},
         )
 
         assert response.status_code == 403
@@ -208,6 +212,8 @@ class TestFacebookWebhookTesting:
     @pytest.mark.asyncio
     async def test_resubscribe_webhook_not_connected(self, async_client):
         """Test webhook resubscribe when not connected."""
-        response = await async_client.post("/api/integrations/facebook/resubscribe-webhook?merchant_id=1")
+        response = await async_client.post(
+            "/api/integrations/facebook/resubscribe-webhook?merchant_id=1"
+        )
 
         assert response.status_code in (400, 404)

@@ -167,7 +167,11 @@ class TestGeneralModeHandoff:
                     mock_redis_from_url.return_value = mock_redis_client
 
                     # Mock helper methods to avoid database calls
-                    with patch.object(service, "_get_handoff_message", return_value="I'll connect you with a human agent."):
+                    with patch.object(
+                        service,
+                        "_get_handoff_message",
+                        return_value="I'll connect you with a human agent.",
+                    ):
                         with patch.object(service, "_update_conversation_handoff_status"):
                             # Mock handoff handler to return a response
                             with patch.object(
@@ -263,7 +267,11 @@ class TestGeneralModeHandoff:
                     mock_redis_from_url.return_value = mock_redis_client
 
                     # Mock helper methods to avoid database calls
-                    with patch.object(service, "_get_handoff_message", return_value="I'll connect you with a human agent."):
+                    with patch.object(
+                        service,
+                        "_get_handoff_message",
+                        return_value="I'll connect you with a human agent.",
+                    ):
                         with patch.object(service, "_update_conversation_handoff_status"):
                             # Mock handoff handler to return a response
                             with patch.object(

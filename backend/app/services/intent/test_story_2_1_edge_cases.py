@@ -44,12 +44,14 @@ async def test_varied_phrasing_product_search():
         results = []
         for phrase in test_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": "product_search",
-                "confidence": 0.90,
-                "entities": {"category": "shoes", "constraints": {"type": "running"}},
-                "reasoning": "Product search for running shoes"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": "product_search",
+                    "confidence": 0.90,
+                    "entities": {"category": "shoes", "constraints": {"type": "running"}},
+                    "reasoning": "Product search for running shoes",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -74,18 +76,20 @@ async def test_multi_constraint_extraction():
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.92,
-            "entities": {
-                "category": "shoes",
-                "budget": 150.0,
-                "size": "9",
-                "color": "red",
-                "brand": "Nike"
-            },
-            "reasoning": "Product search with multiple constraints"
-        })
+        mock_response.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.92,
+                "entities": {
+                    "category": "shoes",
+                    "budget": 150.0,
+                    "size": "9",
+                    "color": "red",
+                    "brand": "Nike",
+                },
+                "reasoning": "Product search with multiple constraints",
+            }
+        )
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -121,12 +125,14 @@ async def test_budget_extraction_variations():
 
         for phrase, expected_budget in budget_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": "product_search",
-                "confidence": 0.90,
-                "entities": {"category": "shoes", "budget": expected_budget},
-                "reasoning": "Product search with budget"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": "product_search",
+                    "confidence": 0.90,
+                    "entities": {"category": "shoes", "budget": expected_budget},
+                    "reasoning": "Product search with budget",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -148,12 +154,14 @@ async def test_ambiguity_detection_low_confidence():
         mock_router = AsyncMock()
         mock_response = AsyncMock()
         # Low confidence should trigger clarification
-        mock_response.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.65,
-            "entities": {"category": None},
-            "reasoning": "Vague request, unclear category"
-        })
+        mock_response.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.65,
+                "entities": {"category": None},
+                "reasoning": "Vague request, unclear category",
+            }
+        )
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -178,23 +186,27 @@ async def test_conversation_context_clarification_flow():
 
         # First message establishes context
         mock_response1 = AsyncMock()
-        mock_response1.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.90,
-            "entities": {"category": "shoes"},
-            "reasoning": "Product search for shoes"
-        })
+        mock_response1.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.90,
+                "entities": {"category": "shoes"},
+                "reasoning": "Product search for shoes",
+            }
+        )
         mock_response1.provider = "test"
         mock_response1.model = "test-model"
 
         # Second message (ambiguous) uses context
         mock_response2 = AsyncMock()
-        mock_response2.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.88,
-            "entities": {"category": "shoes", "size": "8"},
-            "reasoning": "Using context: clarifying size for shoes"
-        })
+        mock_response2.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.88,
+                "entities": {"category": "shoes", "size": "8"},
+                "reasoning": "Using context: clarifying size for shoes",
+            }
+        )
         mock_response2.provider = "test"
         mock_response2.model = "test-model"
 
@@ -209,7 +221,7 @@ async def test_conversation_context_clarification_flow():
         context = {
             "previous_intent": "product_search",
             "extracted_entities": {"category": "shoes"},
-            "missing_constraints": ["size"]
+            "missing_constraints": ["size"],
         }
         result2 = await classifier.classify("size 8", conversation_context=context)
 
@@ -228,12 +240,14 @@ async def test_response_time_under_one_second():
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.95,
-            "entities": {"category": "shoes", "budget": 100.0},
-            "reasoning": "Clear product search"
-        })
+        mock_response.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.95,
+                "entities": {"category": "shoes", "budget": 100.0},
+                "reasoning": "Clear product search",
+            }
+        )
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -247,7 +261,9 @@ async def test_response_time_under_one_second():
         processing_time = end_time - start_time
 
         assert result.intent == IntentType.PRODUCT_SEARCH
-        assert processing_time < 1.0, f"Response time {processing_time}s exceeds 1 second requirement"
+        assert processing_time < 1.0, (
+            f"Response time {processing_time}s exceeds 1 second requirement"
+        )
         # Verify processing_time_ms is recorded
         assert result.processing_time_ms > 0
 
@@ -273,12 +289,14 @@ async def test_all_intents_classifiable():
 
         for phrase, expected_intent in intent_examples:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": expected_intent,
-                "confidence": 0.90,
-                "entities": {},
-                "reasoning": f"Classified as {expected_intent}"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": expected_intent,
+                    "confidence": 0.90,
+                    "entities": {},
+                    "reasoning": f"Classified as {expected_intent}",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -298,12 +316,14 @@ async def test_unknown_intent_fallback():
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = json.dumps({
-            "intent": "unknown",
-            "confidence": 0.30,
-            "entities": {},
-            "reasoning": "Unable to classify, input is unclear"
-        })
+        mock_response.content = json.dumps(
+            {
+                "intent": "unknown",
+                "confidence": 0.30,
+                "entities": {},
+                "reasoning": "Unable to classify, input is unclear",
+            }
+        )
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -325,19 +345,17 @@ async def test_constraints_dictionary_extraction():
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.91,
-            "entities": {
-                "category": "shoes",
-                "constraints": {
-                    "type": "running",
-                    "usage": "marathon",
-                    "terrain": "road"
-                }
-            },
-            "reasoning": "Product search with multiple constraint types"
-        })
+        mock_response.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.91,
+                "entities": {
+                    "category": "shoes",
+                    "constraints": {"type": "running", "usage": "marathon", "terrain": "road"},
+                },
+                "reasoning": "Product search with multiple constraint types",
+            }
+        )
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -371,12 +389,14 @@ async def test_human_handoff_keywords():
 
         for phrase in handoff_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": "human_handoff",
-                "confidence": 0.95,
-                "entities": {},
-                "reasoning": "Human handoff request detected"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": "human_handoff",
+                    "confidence": 0.95,
+                    "entities": {},
+                    "reasoning": "Human handoff request detected",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -408,12 +428,14 @@ async def test_cart_related_intents():
 
         for phrase, expected_intent in cart_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": expected_intent,
-                "confidence": 0.95,
-                "entities": {},
-                "reasoning": f"Cart-related intent: {expected_intent}"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": expected_intent,
+                    "confidence": 0.95,
+                    "entities": {},
+                    "reasoning": f"Cart-related intent: {expected_intent}",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -444,12 +466,14 @@ async def test_order_tracking_phrases():
 
         for phrase in order_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": "order_tracking",
-                "confidence": 0.92,
-                "entities": {},
-                "reasoning": "Order tracking inquiry"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": "order_tracking",
+                    "confidence": 0.92,
+                    "entities": {},
+                    "reasoning": "Order tracking inquiry",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -476,12 +500,14 @@ async def test_color_entity_extraction():
 
         for phrase, expected_color in color_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": "product_search",
-                "confidence": 0.90,
-                "entities": {"category": "shoes", "color": expected_color},
-                "reasoning": "Product search with color"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": "product_search",
+                    "confidence": 0.90,
+                    "entities": {"category": "shoes", "color": expected_color},
+                    "reasoning": "Product search with color",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -507,12 +533,14 @@ async def test_brand_entity_extraction():
 
         for phrase, expected_brand in brand_phrases:
             mock_response = AsyncMock()
-            mock_response.content = json.dumps({
-                "intent": "product_search",
-                "confidence": 0.90,
-                "entities": {"category": "shoes", "brand": expected_brand},
-                "reasoning": "Product search with brand"
-            })
+            mock_response.content = json.dumps(
+                {
+                    "intent": "product_search",
+                    "confidence": 0.90,
+                    "entities": {"category": "shoes", "brand": expected_brand},
+                    "reasoning": "Product search with brand",
+                }
+            )
             mock_response.provider = "test"
             mock_response.model = "test-model"
             mock_router.chat.return_value = mock_response
@@ -529,12 +557,14 @@ async def test_context_formatting_empty_context():
     with patch("app.services.intent.intent_classifier.LLMRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = json.dumps({
-            "intent": "product_search",
-            "confidence": 0.90,
-            "entities": {"category": "shoes"},
-            "reasoning": "Product search"
-        })
+        mock_response.content = json.dumps(
+            {
+                "intent": "product_search",
+                "confidence": 0.90,
+                "entities": {"category": "shoes"},
+                "reasoning": "Product search",
+            }
+        )
         mock_response.provider = "test"
         mock_response.model = "test-model"
         mock_router.chat.return_value = mock_response
@@ -666,7 +696,7 @@ async def test_extracted_entities_optional_fields():
         size="large",
         color="black",
         brand="Sony",
-        constraints={"type": "wireless", "feature": "noise_canceling"}
+        constraints={"type": "wireless", "feature": "noise_canceling"},
     )
     assert entities_full.category == "electronics"
     assert entities_full.budget == 500.0

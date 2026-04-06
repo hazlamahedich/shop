@@ -32,7 +32,7 @@ from app.services.ecommerce.provider_factory import (
 # Mark all tests in this file as not needing database
 pytestmark = pytest.mark.skipif(
     False,  # Never skip, but don't use async fixtures
-    reason="These tests don't need database"
+    reason="These tests don't need database",
 )
 
 
@@ -125,6 +125,7 @@ class TestGetProviderForMerchant:
         import importlib
 
         import app.services.ecommerce.provider_factory as pf
+
         importlib.reload(pf)
 
         provider = pf.get_provider_for_merchant(None)
@@ -139,6 +140,7 @@ class TestGetProviderForMerchant:
         import importlib
 
         import app.services.ecommerce.provider_factory as pf
+
         importlib.reload(pf)
 
         provider = pf.get_provider_for_merchant(None)
@@ -153,6 +155,7 @@ class TestGetProviderForMerchant:
         import importlib
 
         import app.services.ecommerce.provider_factory as pf
+
         importlib.reload(pf)
 
         provider = pf.get_provider_for_merchant(None)
@@ -167,6 +170,7 @@ class TestGetProviderForMerchant:
         import importlib
 
         import app.services.ecommerce.provider_factory as pf
+
         importlib.reload(pf)
 
         mock_merchant = MagicMock()

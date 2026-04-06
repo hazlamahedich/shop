@@ -154,9 +154,7 @@ async def test_webhook_verification_log_query_by_merchant(
 
     # Query logs for merchant 1
     result = await db_session.execute(
-        select(WebhookVerificationLog).where(
-            WebhookVerificationLog.merchant_id == merchant1.id
-        )
+        select(WebhookVerificationLog).where(WebhookVerificationLog.merchant_id == merchant1.id)
     )
     merchant_logs = result.scalars().all()
 
@@ -206,9 +204,7 @@ async def test_webhook_verification_log_query_by_platform(
 
     # Query logs for facebook platform
     result = await db_session.execute(
-        select(WebhookVerificationLog).where(
-            WebhookVerificationLog.platform == "facebook"
-        )
+        select(WebhookVerificationLog).where(WebhookVerificationLog.platform == "facebook")
     )
     facebook_logs = result.scalars().all()
 

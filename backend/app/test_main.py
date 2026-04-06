@@ -1,6 +1,5 @@
 """Tests for main FastAPI application."""
 
-
 from app.main import app
 
 
