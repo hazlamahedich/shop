@@ -55,12 +55,26 @@ interface LLMState {
 }
 
 const API_BASE = '/api/llm';
-const MERCHANT_ID = '1';
+
+function getDevMerchantId(): string {
+  try {
+    const stored = localStorage.getItem('shop_auth_state');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.merchant?.id) {
+        return String(parsed.merchant.id);
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return import.meta.env?.VITE_MERCHANT_ID || '1';
+}
 
 function getHeaders(csrfToken?: string): HeadersInit {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    'X-Merchant-Id': MERCHANT_ID,
+    'X-Merchant-Id': getDevMerchantId(),
   };
   if (csrfToken) {
     headers['X-CSRF-Token'] = csrfToken;

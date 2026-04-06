@@ -60,7 +60,20 @@ export const getApiBase = () => {
 
 const API_BASE_URL = getApiBase();
 
-const DEV_MERCHANT_ID = import.meta.env?.VITE_MERCHANT_ID || '1';
+function getDevMerchantId(): string {
+  try {
+    const stored = localStorage.getItem('shop_auth_state');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.merchant?.id) {
+        return String(parsed.merchant.id);
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return import.meta.env?.VITE_MERCHANT_ID || '1';
+}
 
 interface ApiEnvelope<T> {
   data: T;
@@ -111,7 +124,7 @@ class ApiClient {
 
     // Add X-Merchant-Id header in development mode for auth bypass
     if (import.meta.env?.DEV) {
-      headers.set('X-Merchant-Id', DEV_MERCHANT_ID);
+      headers.set('X-Merchant-Id', getDevMerchantId());
       headers.set('X-Test-Mode', 'true');
     }
 

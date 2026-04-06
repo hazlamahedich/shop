@@ -260,6 +260,17 @@ class ShopifyAdminClient(ShopifyBaseClient):
                 if status_filter and p.get("status") != status_filter:
                     continue
 
+                # Log first product details for debugging
+                if not products:
+                    logger.info(
+                        "first_shopify_product_debug",
+                        product_id=p.get("id"),
+                        title=p.get("title"),
+                        images_count=len(p.get("images", [])),
+                        has_images=bool(p.get("images")),
+                        first_image=p.get("images", [{}])[0].get("src") if p.get("images") else None,
+                    )
+
                 images = p.get("images", [])
                 variants = p.get("variants", [])
 
@@ -280,6 +291,16 @@ class ShopifyAdminClient(ShopifyBaseClient):
                 image_url = None
                 if images:
                     image_url = images[0].get("src")
+
+                # Debug logging for image extraction
+                logger.info(
+                    "product_image_extraction",
+                    product_id=p.get("id"),
+                    product_title=p.get("title"),
+                    images_count=len(images),
+                    has_image=bool(image_url),
+                    image_url=image_url,
+                )
 
                 variant_id = None
                 if variants:

@@ -6,6 +6,7 @@ import { getDashboardWebSocketService, closeDashboardWebSocket } from '../../ser
 import { StatCard } from './StatCard';
 import { DonutGauge } from '../charts/DonutChart';
 import { MiniAreaChart } from '../charts/AreaChart';
+import { useAuthStore } from '../../stores/authStore';
 
 interface KnowledgeEffectivenessData {
   totalQueries: number;
@@ -39,7 +40,7 @@ export function KnowledgeEffectivenessWidget() {
 
   useEffect(() => {
     // Get merchant ID from environment or use default
-    const merchantId = parseInt(import.meta.env?.VITE_MERCHANT_ID || '1', 10);
+    const merchantId = useAuthStore.getState().merchant?.id ?? parseInt(import.meta.env?.VITE_MERCHANT_ID || '1', 10);
     const wsService = getDashboardWebSocketService(merchantId);
 
     // Connect to WebSocket

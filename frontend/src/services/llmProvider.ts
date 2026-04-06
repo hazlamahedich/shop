@@ -98,8 +98,18 @@ function getAuthToken(): string | null {
   return localStorage.getItem('auth_token');
 }
 
-/** Get dev merchant ID for testing */
 function getDevMerchantId(): string {
+  try {
+    const stored = localStorage.getItem('shop_auth_state');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.merchant?.id) {
+        return String(parsed.merchant.id);
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
   return import.meta.env?.VITE_MERCHANT_ID || '1';
 }
 

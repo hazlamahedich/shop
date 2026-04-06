@@ -569,7 +569,7 @@ class UnifiedConversationService:
                             ):
                                 self.logger.info(
                                     "general_mode_ecommerce_fallback",
-                                    merchant_id=merchant.id,
+                                    merchant_id=merchant_id,
                                     intent=intent_name,
                                 )
                                 handler = self.general_mode_fallback_handler
@@ -765,8 +765,10 @@ class UnifiedConversationService:
                         error_code=ErrorCode.SENTIMENT_ADAPTATION_FAILED,
                     )
 
-            # Capture merchant_id before persistence (which may rollback and expire objects)
+            # Capture merchant attributes before persistence (which may rollback and expire objects)
             merchant_id_for_log = context.merchant_id
+            merchant_onboarding_mode = merchant.onboarding_mode
+            merchant_personality = merchant.personality
 
             res = await self._persist_conversation_message(
                 db=db,
@@ -792,13 +794,13 @@ class UnifiedConversationService:
                 confidence=confidence,
                 processing_time_ms=processing_time_ms,
                 intent_name=intent_name,
-                mode=merchant.onboarding_mode,
+                mode=merchant_onboarding_mode,
             )
 
             # Detect and record knowledge gaps
             await self._detect_and_record_knowledge_gap(
                 db=db,
-                merchant=merchant,
+                merchant_id=merchant_id_for_log,
                 conversation_id=conversation_id,
                 user_message=message,
                 bot_response=response.message if response else "",
@@ -1798,7 +1800,7 @@ class UnifiedConversationService:
                 return None
 
         try:
-            from app.models.conversation import Conversation
+            from app.models.conversation import Conversation, DataTier
             from app.models.message import Message
 
             result = await db.execute(
@@ -2841,7 +2843,7 @@ class UnifiedConversationService:
     async def _detect_and_record_knowledge_gap(
         self,
         db: AsyncSession,
-        merchant: Merchant,
+        merchant_id: int,
         conversation_id: int | None,
         user_message: str,
         bot_response: str,

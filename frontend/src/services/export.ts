@@ -115,19 +115,20 @@ export const exportService = {
    * @returns Merchant ID or undefined
    */
   getCurrentMerchantId(): string | undefined {
-    // Try environment variable first (for development)
-    // @ts-ignore - VITE_ env variables are injected by Vite
-    if (import.meta.env?.VITE_MERCHANT_ID) {
-      // @ts-ignore
-      return import.meta.env.VITE_MERCHANT_ID;
+    try {
+      const stored = localStorage.getItem('shop_auth_state');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.merchant?.id) {
+          return String(parsed.merchant.id);
+        }
+      }
+    } catch {
+      // Ignore parse errors
     }
 
-    // Try localStorage
-    try {
-      const stored = localStorage.getItem('merchant_id');
-      if (stored) return stored;
-    } catch {
-      // Ignore localStorage errors
+    if (import.meta.env?.VITE_MERCHANT_ID) {
+      return import.meta.env.VITE_MERCHANT_ID;
     }
 
     return undefined;

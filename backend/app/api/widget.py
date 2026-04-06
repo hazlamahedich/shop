@@ -985,6 +985,17 @@ async def widget_search(
             for p in products[:10]
         ]
 
+        # Log first product for debugging
+        if products:
+            logger.info(
+                "widget_search_first_product_debug",
+                merchant_id=merchant.id,
+                first_product_id=products[0].get("id"),
+                first_product_title=products[0].get("title"),
+                first_product_image_url=products[0].get("image_url"),
+                has_image_url=bool(products[0].get("image_url")),
+            )
+
         search_time_ms = (time.time() - start_time) * 1000
 
         logger.info(
