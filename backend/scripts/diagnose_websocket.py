@@ -70,7 +70,7 @@ async def diagnose_websocket_connections():
             )
             async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(
                     select(Conversation).where(Conversation.platform_sender_id == session_id)
                 )

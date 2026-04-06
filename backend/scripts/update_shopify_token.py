@@ -26,7 +26,7 @@ from app.models.shopify_integration import ShopifyIntegration
 
 
 async def update_storefront_token(merchant_id: int, storefront_token: str):
-    async with async_session() as db:
+    async with async_session()() as db:
         result = await db.execute(
             select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == merchant_id)
         )

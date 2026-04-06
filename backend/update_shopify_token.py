@@ -46,7 +46,7 @@ async def update_shopify_token():
         print("Exiting.")
         return
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # Get current integration
         result = await db.execute(
             select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == 4)

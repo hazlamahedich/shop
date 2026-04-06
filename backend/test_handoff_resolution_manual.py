@@ -258,7 +258,7 @@ async def main():
     merchant_ids = []
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             # Test 1: Basic functionality
             print("\n" + "=" * 60)
             print("TEST 1: Basic Resolution Message Generation")

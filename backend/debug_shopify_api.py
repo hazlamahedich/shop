@@ -17,7 +17,7 @@ from app.models.shopify_integration import ShopifyIntegration
 
 async def test_shopify_admin_api():
     """Test Shopify Admin API directly."""
-    async with async_session() as db:
+    async with async_session()() as db:
         # Get Shopify integration
         result = await db.execute(
             select(ShopifyIntegration).where(ShopifyIntegration.merchant_id == 4)

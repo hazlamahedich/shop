@@ -136,7 +136,7 @@ def schedule_handoff_resolution_task(scheduler: Any) -> None:
     from app.core.database import async_session
 
     async def job() -> dict[str, Any]:
-        async with async_session() as db:
+        async with async_session()() as db:
             return await process_handoff_resolutions(db)
 
     scheduler.add_job(

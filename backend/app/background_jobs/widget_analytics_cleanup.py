@@ -20,7 +20,7 @@ async def cleanup_widget_analytics():
 
     logger.info("Starting widget analytics cleanup job")
 
-    async with async_session() as db:
+    async with async_session()() as db:
         service = WidgetAnalyticsService(db)
         deleted = await service.cleanup_old_events(days=retention_days)
         logger.info("Deleted widget analytics events", count=deleted)

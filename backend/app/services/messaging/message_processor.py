@@ -220,7 +220,7 @@ class MessageProcessor:
             from app.core.database import async_session
             from app.models.merchant import Merchant
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(select(Merchant).where(Merchant.id == self.merchant_id))
                 merchant = result.scalars().first()
                 if merchant and merchant.personality:
@@ -261,7 +261,7 @@ class MessageProcessor:
             from app.core.database import async_session
             from app.models.merchant import Merchant
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(select(Merchant).where(Merchant.id == self.merchant_id))
                 merchant = result.scalars().first()
 
@@ -365,7 +365,7 @@ class MessageProcessor:
             from app.core.database import async_session
             from app.models.conversation import Conversation
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(
                     select(Conversation)
                     .where(
@@ -404,7 +404,7 @@ class MessageProcessor:
             from app.core.database import async_session
             from app.models.conversation import Conversation
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(
                     select(Conversation)
                     .where(
@@ -463,7 +463,7 @@ class MessageProcessor:
             from app.core.database import async_session
             from app.models.merchant import Merchant, PersonalityType
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 # Get merchant with personality and LLM config
                 merchant_result = await db.execute(
                     select(Merchant).where(Merchant.id == self.merchant_id)
@@ -1833,7 +1833,7 @@ class MessageProcessor:
 
             order_tracking = self._get_order_tracking_service()
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(
                     select(Conversation).where(
                         Conversation.merchant_id == self.merchant_id,

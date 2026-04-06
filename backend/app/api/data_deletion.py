@@ -152,7 +152,7 @@ async def _process_deletion_background(request_id: int) -> None:
     Args:
         request_id: Deletion request ID
     """
-    async with async_session() as db:
+    async with async_session()() as db:
         try:
             service = DataDeletionService(db)
             deleted = await service.process_deletion(request_id)

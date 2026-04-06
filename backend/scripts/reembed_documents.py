@@ -33,7 +33,7 @@ async def reembed_documents(merchant_id: int, db_url: str):
     engine = create_async_engine(db_url)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # Get merchant's LLM config for API key
         result = await db.execute(
             text(

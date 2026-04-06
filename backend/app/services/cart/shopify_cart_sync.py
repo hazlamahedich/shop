@@ -88,7 +88,7 @@ class ShopifyCartSync:
             from app.core.database import async_session
             from app.services.shopify_oauth import ShopifyService
 
-            async with async_session() as session:
+            async with async_session()() as session:
                 shopify_service = ShopifyService(session)
                 integration = await shopify_service.get_shopify_integration(self.merchant_id)
 

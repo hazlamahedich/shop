@@ -581,7 +581,7 @@ async def main():
     print("=" * 60)
     print()
 
-    async with async_session() as db:
+    async with async_session()() as db:
         if args.reset:
             print("Resetting demo account...")
             await clear_demo_data(db)

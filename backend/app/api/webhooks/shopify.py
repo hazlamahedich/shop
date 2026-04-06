@@ -67,7 +67,7 @@ async def shopify_webhook_receive(
     api_secret = config.get("SHOPIFY_API_SECRET")
 
     if not api_secret:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration).where(
                     ShopifyIntegration.shop_domain == x_shopify_shop_domain
@@ -212,7 +212,7 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
     )
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -280,7 +280,7 @@ async def handle_order_updated(payload: dict, shop_domain: str, log) -> None:
     log.info("shopify_order_updated", order_id=order_id, financial_status=financial_status)
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -341,7 +341,7 @@ async def handle_order_fulfilled(payload: dict, shop_domain: str, log) -> None:
     log.info("shopify_order_fulfilled", order_id=order_id, tracking_numbers=tracking_numbers)
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -437,7 +437,7 @@ async def handle_fulfillment_event(payload: dict, shop_domain: str, log, topic: 
         return
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -523,7 +523,7 @@ async def handle_refund_created(payload: dict, shop_domain: str, log) -> None:
         return
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -736,7 +736,7 @@ async def _fetch_cogs_async(
         return
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration).where(ShopifyIntegration.shop_domain == shop_domain)
             )
@@ -835,7 +835,7 @@ async def handle_order_cancelled(payload: dict, shop_domain: str, log) -> None:
         return
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -981,7 +981,7 @@ async def handle_product_created(payload: dict, shop_domain: str, log) -> None:
     )
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -1030,7 +1030,7 @@ async def handle_product_updated(payload: dict, shop_domain: str, log) -> None:
     )
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -1077,7 +1077,7 @@ async def handle_product_deleted(payload: dict, shop_domain: str, log) -> None:
     )
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -1127,7 +1127,7 @@ async def handle_inventory_level_updated(payload: dict, shop_domain: str, log) -
     )
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain
@@ -1311,7 +1311,7 @@ async def handle_customer_created(payload: dict, shop_domain: str, log) -> None:
         return
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             result = await db.execute(
                 select(ShopifyIntegration.merchant_id).where(
                     ShopifyIntegration.shop_domain == shop_domain

@@ -95,7 +95,7 @@ class ShopifyStoreProvider(ECommerceProvider):
             if self._db_session is None:
                 from app.core.database import async_session
 
-                async with async_session() as session:
+                async with async_session()() as session:
                     await self._init_with_session(session)
             else:
                 await self._init_with_session(self._db_session)

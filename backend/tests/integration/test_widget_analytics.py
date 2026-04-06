@@ -23,7 +23,7 @@ async def db_session():
     """Create database session for tests."""
     from app.core.database import async_session
 
-    async with async_session() as session:
+    async with async_session()() as session:
         yield session
 
 

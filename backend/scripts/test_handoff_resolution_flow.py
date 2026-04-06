@@ -48,7 +48,7 @@ async def test_handoff_resolution_flow():
     engine = create_async_engine("postgresql+asyncpg://developer:developer@localhost:5432/shop_dev")
     async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-    async with async_session() as db:
+    async with async_session()() as db:
         merchant_id = 6
 
         # Step 1: Find or create a widget conversation

@@ -11,7 +11,7 @@ from app.models.merchant import Merchant
 
 
 async def find_branding():
-    async with async_session() as db:
+    async with async_session()() as db:
         result = await db.execute(select(Merchant))
         merchants = result.scalars().all()
 

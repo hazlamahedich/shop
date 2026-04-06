@@ -19,7 +19,7 @@ from app.models.order import Order
 
 async def update_orders():
     """Update test orders with product IDs and estimated delivery."""
-    async with async_session() as db:
+    async with async_session()() as db:
         result = await db.execute(select(Order).where(Order.order_number.in_(["1003", "1234"])))
         orders = result.scalars().all()
 

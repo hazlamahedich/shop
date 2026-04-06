@@ -104,7 +104,7 @@ async def backfill_logs(
     Returns:
         Number of log entries created
     """
-    async with async_session() as session:
+    async with async_session()() as session:
         messages = await get_user_messages(session, merchant_id)
 
         if not messages:
@@ -157,7 +157,7 @@ async def backfill_logs(
 
 async def show_stats() -> None:
     """Show current RAG query log statistics."""
-    async with async_session() as session:
+    async with async_session()() as session:
         result = await session.execute(text("SELECT COUNT(*) FROM rag_query_logs"))
         total = result.scalar()
 

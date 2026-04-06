@@ -59,7 +59,7 @@ class PollingScheduler:
             List of merchant IDs to poll
         """
         try:
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(
                     select(ShopifyIntegration.merchant_id)
                     .where(ShopifyIntegration.admin_api_verified.is_(True))
@@ -97,7 +97,7 @@ class PollingScheduler:
             if not merchant_ids:
                 return
 
-            async with async_session() as db:
+            async with async_session()() as db:
                 results = await self.polling_service.poll_all_merchants(
                     merchant_ids=merchant_ids,
                     db=db,

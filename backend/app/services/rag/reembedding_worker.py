@@ -48,7 +48,7 @@ async def reembed_all_documents(merchant_id: int) -> None:
     Args:
         merchant_id: Merchant ID whose documents to re-embed
     """
-    async with async_session() as db:
+    async with async_session()() as db:
         try:
             merchant = await _get_merchant_with_config(db, merchant_id)
             if not merchant:

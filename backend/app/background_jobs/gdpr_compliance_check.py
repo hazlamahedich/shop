@@ -46,7 +46,7 @@ async def run_gdpr_compliance_check() -> dict:
     }
 
     try:
-        async with async_session() as db:
+        async with async_session()() as db:
             monitor = GDPRComplianceMonitor()
             status = await monitor.check_compliance_status(db)
 

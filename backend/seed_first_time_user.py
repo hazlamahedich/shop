@@ -25,7 +25,7 @@ async def create_first_time_user():
     email = "firsttime@test.com"
     password = "FirstTime123"
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # Check if merchant already exists
         result = await db.execute(select(Merchant).where(Merchant.email == email))
         existing = result.scalars().first()

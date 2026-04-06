@@ -18,7 +18,7 @@ from app.services.handoff.handoff_flow_service import HandoffFlowService
 async def main():
     print("Starting Handoff Verification Script...")
 
-    async with async_session() as session:
+    async with async_session()() as session:
         # 1. Get the demo merchant
         result = await session.execute(select(Merchant).where(Merchant.email == "demo@shopbot.ai"))
         merchant = result.scalars().first()

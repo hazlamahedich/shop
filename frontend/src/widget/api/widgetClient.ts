@@ -45,12 +45,16 @@ function getApiBaseUrl(): string {
 export const getWidgetApiBase = () => getApiBaseUrl();
 
 export class WidgetApiException extends Error {
+  public readonly errorCode: number;
+
   constructor(
     public code: number,
-    message: string
+    message: string,
+    errorCode?: number,
   ) {
     super(message);
     this.name = 'WidgetApiException';
+    this.errorCode = errorCode ?? code;
   }
 }
 
@@ -86,9 +90,8 @@ export class WidgetApiClient {
     try {
       const url = `${getWidgetApiBase()}${endpoint}`;
 
-      // Add timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(url, {
         ...options,
@@ -104,7 +107,11 @@ export class WidgetApiClient {
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         const error = parseApiError(data);
-        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+        throw new WidgetApiException(
+          response.status,
+          error.message || `HTTP ${response.status}`,
+          error.error_code,
+        );
       }
 
       return response.json();
@@ -590,7 +597,11 @@ export class WidgetApiClient {
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         const error = parseApiError(data);
-        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+        throw new WidgetApiException(
+          response.status,
+          error.message || `HTTP ${response.status}`,
+          error.error_code,
+        );
       }
 
       const data = await response.json();
@@ -643,7 +654,11 @@ export class WidgetApiClient {
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         const error = parseApiError(data);
-        throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+        throw new WidgetApiException(
+          response.status,
+          error.message || `HTTP ${response.status}`,
+          error.error_code,
+        );
       }
 
       const data = await response.json();

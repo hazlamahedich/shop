@@ -8,7 +8,7 @@ from app.services.analytics.aggregated_analytics_service import AggregatedAnalyt
 
 
 async def main():
-    async with async_session() as db:
+    async with async_session()() as db:
         # Get the first merchant
         result = await db.execute(select(Merchant).limit(1))
         merchant = result.scalar_one_or_none()

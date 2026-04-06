@@ -38,7 +38,7 @@ from app.services.conversation.unified_conversation_service import UnifiedConver
 
 async def get_merchant() -> Merchant | None:
     """Get merchant with business_hours_config loaded."""
-    async with async_session() as db:
+    async with async_session()() as db:
         result = await db.execute(select(Merchant).where(Merchant.id == 1))
         return result.scalars().first()
 
@@ -47,7 +47,7 @@ async def cleanup_test_data(session_id_prefix: str) -> None:
     """Clean up test data from previous runs."""
     from app.models.message import Message
 
-    async with async_session() as db:
+    async with async_session()() as db:
         conv_result = await db.execute(
             select(Conversation).where(
                 Conversation.platform_sender_id.startswith(session_id_prefix)
@@ -81,7 +81,7 @@ async def run_single_test(test_num: int, message: str, merchant_id: int, session
         "datetime_error": False,
     }
 
-    async with async_session() as db:
+    async with async_session()() as db:
         try:
             service = UnifiedConversationService(db=db)
             context = ConversationContext(

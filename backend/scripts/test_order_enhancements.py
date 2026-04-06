@@ -18,7 +18,7 @@ from app.services.shopify.product_service import get_products_by_ids
 
 async def test_order_status():
     """Test order status response with product images and delivery."""
-    async with async_session() as db:
+    async with async_session()() as db:
         tracking_service = OrderTrackingService()
 
         result = await tracking_service.track_order_by_number(

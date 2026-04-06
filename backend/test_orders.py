@@ -7,7 +7,7 @@ from app.models.order import Order
 
 
 async def main():
-    async with async_session() as db:
+    async with async_session()() as db:
         result = await db.execute(select(Order).limit(10))
         orders = result.scalars().all()
         for o in orders:

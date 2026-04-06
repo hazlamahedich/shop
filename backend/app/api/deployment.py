@@ -175,7 +175,7 @@ async def _run_deployment_script(
 
     # Create a new database session for this background task
     # This avoids concurrent operations error with the request's session
-    async with async_session() as db:
+    async with async_session()() as db:
         script_path = _get_script_path(platform)
         deployment_start_time = datetime.utcnow()
         _active_deployments[deployment_id] = deployment_start_time

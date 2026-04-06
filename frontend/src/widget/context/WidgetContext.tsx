@@ -12,6 +12,7 @@ import type {
 } from '../types/widget';
 import { createWidgetError } from '../types/errors';
 import { shopifyCartClient } from '../api/shopifyCartClient';
+import { WidgetApiException } from '../api/widgetClient';
 import { 
   safeStorage, 
   SESSION_KEY, 
@@ -30,6 +31,12 @@ import {
   setStoredTheme,
   type CachedMessage,
 } from '../utils/storage';
+
+const SESSION_ERROR_CODES = new Set([12001, 12002]);
+
+function isSessionError(error: unknown): boolean {
+  return error instanceof WidgetApiException && SESSION_ERROR_CODES.has(error.errorCode);
+}
 
 const initialConsentState: ConsentState = {
   promptShown: false,
@@ -507,18 +514,25 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
     []
   );
 
+  const recoverSession = React.useCallback(
+    async () => {
+      safeStorage.remove(SESSION_KEY);
+      const visitorId = getVisitorId() || undefined;
+      const newSession = await createSession(visitorId);
+      dispatch({ type: 'SET_SESSION', payload: newSession });
+      safeStorage.set(SESSION_KEY, newSession.sessionId);
+      return newSession.sessionId;
+    },
+    [createSession],
+  );
+
   const sendMessage = React.useCallback(
     async (content: string) => {
       if (!content.trim()) return;
 
       let currentSessionId = state.session?.sessionId;
       if (!currentSessionId || !isValidSessionId(currentSessionId)) {
-        safeStorage.remove(SESSION_KEY);
-        const visitorId = getVisitorId() || undefined;
-        const newSession = await createSession(visitorId);
-        dispatch({ type: 'SET_SESSION', payload: newSession });
-        safeStorage.set(SESSION_KEY, newSession.sessionId);
-        currentSessionId = newSession.sessionId;
+        currentSessionId = await recoverSession();
       }
 
       lastActionRef.current = { type: 'sendMessage', payload: content };
@@ -538,6 +552,16 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
           const { widgetClient } = await import('../api/widgetClient');
           await widgetClient.sendMessage(currentSessionId!, content, { streaming: 'true' });
         } catch (error) {
+          if (isSessionError(error)) {
+            try {
+              currentSessionId = await recoverSession();
+              const { widgetClient } = await import('../api/widgetClient');
+              await widgetClient.sendMessage(currentSessionId, content, { streaming: 'true' });
+              return;
+            } catch {
+              // fall through to error display
+            }
+          }
           addError(error, { action: 'Try Again' });
         }
       } else {
@@ -556,13 +580,33 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
             syncCartToShopify(botMessage.cart);
           }
         } catch (error) {
+          if (isSessionError(error)) {
+            try {
+              currentSessionId = await recoverSession();
+              const { widgetClient } = await import('../api/widgetClient');
+              const botMessage = await widgetClient.sendMessage(currentSessionId, content);
+              dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
+
+              if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+                consentPromptShownRef.current = true;
+                dispatch({ type: 'SET_CONSENT_PROMPT_SHOWN', payload: true });
+              }
+
+              if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+                syncCartToShopify(botMessage.cart);
+              }
+              return;
+            } catch {
+              // fall through to error display
+            }
+          }
           addError(error, { action: 'Try Again' });
         } finally {
           dispatch({ type: 'SET_TYPING', payload: false });
         }
       }
     },
-    [state.session, state.connectionStatus, state.isStreaming, addError, createSession, syncCartToShopify]
+    [state.session, state.connectionStatus, state.isStreaming, addError, syncCartToShopify, recoverSession]
   );
 
   const addToCart = React.useCallback(
@@ -574,17 +618,21 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         
         let sessionId = state.session?.sessionId;
         
-        // Validate session ID format
         if (!sessionId || !isValidSessionId(sessionId)) {
-          safeStorage.remove(SESSION_KEY);
-          const visitorId = getVisitorId() || undefined;
-          const newSession = await createSession(visitorId);
-          dispatch({ type: 'SET_SESSION', payload: newSession });
-          safeStorage.set(SESSION_KEY, newSession.sessionId);
-          sessionId = newSession.sessionId;
+          sessionId = await recoverSession();
         }
 
-        const updatedCart = await widgetClient.addToCart(sessionId, product, 1);
+        let updatedCart;
+        try {
+          updatedCart = await widgetClient.addToCart(sessionId, product, 1);
+        } catch (error) {
+          if (isSessionError(error)) {
+            sessionId = await recoverSession();
+            updatedCart = await widgetClient.addToCart(sessionId, product, 1);
+          } else {
+            throw error;
+          }
+        }
 
         if (shopifyCartClient.isOnShopify() && product.variantId) {
           try {
@@ -609,7 +657,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         setAddingProductId(null);
       }
     },
-    [state.session, addError, createSession]
+    [state.session, addError, recoverSession]
   );
 
   const removeFromCart = React.useCallback(
@@ -622,17 +670,21 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         
         let sessionId = state.session?.sessionId;
         
-        // Validate session ID format
         if (!sessionId || !isValidSessionId(sessionId)) {
-          safeStorage.remove(SESSION_KEY);
-          const visitorId = getVisitorId() || undefined;
-          const newSession = await createSession(visitorId);
-          dispatch({ type: 'SET_SESSION', payload: newSession });
-          safeStorage.set(SESSION_KEY, newSession.sessionId);
-          sessionId = newSession.sessionId;
+          sessionId = await recoverSession();
         }
 
-        const updatedCart = await widgetClient.removeFromCart(sessionId, variantId);
+        let updatedCart;
+        try {
+          updatedCart = await widgetClient.removeFromCart(sessionId, variantId);
+        } catch (error) {
+          if (isSessionError(error)) {
+            sessionId = await recoverSession();
+            updatedCart = await widgetClient.removeFromCart(sessionId, variantId);
+          } else {
+            throw error;
+          }
+        }
 
         const removedItem = state.messages
           .flatMap(m => m.cart?.items || [])
@@ -664,7 +716,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         setRemovingItemId(null);
       }
     },
-    [state.session, state.messages, addError, createSession]
+    [state.session, state.messages, addError, recoverSession]
   );
 
   const checkout = React.useCallback(async () => {

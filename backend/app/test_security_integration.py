@@ -322,7 +322,7 @@ class TestDataDeletionAndRetentionIntegration:
         from app.models.data_deletion_request import DeletionStatus
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
 
             # Request deletion
@@ -340,7 +340,7 @@ class TestDataDeletionAndRetentionIntegration:
         from app.core.database import async_session
         from app.services.data_retention import DataRetentionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataRetentionService(voluntary_days=30)
 
             # Get retention stats
@@ -361,7 +361,7 @@ class TestDataDeletionAndRetentionIntegration:
         from app.models.data_deletion_request import DeletionStatus
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
             request = await service.request_deletion("thirty_day_test", "facebook")
 

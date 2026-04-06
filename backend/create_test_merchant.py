@@ -19,7 +19,7 @@ from app.models.merchant import Merchant
 
 async def create_test_merchant():
     """Create a test merchant account."""
-    async with async_session() as db:
+    async with async_session()() as db:
         from sqlalchemy import select
 
         # Check if merchant already exists

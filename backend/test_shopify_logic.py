@@ -17,7 +17,7 @@ async def test_logic():
 
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    async with async_session() as db:
+    async with async_session()() as db:
         service = ShopifyService(db, is_testing=True)
 
         # Test 1: Save Credentials

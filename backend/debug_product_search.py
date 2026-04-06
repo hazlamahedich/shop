@@ -21,7 +21,7 @@ from app.services.shopify_admin import ShopifyAdminClient
 
 async def debug_product_search():
     """Debug product search for merchant 4."""
-    async with async_session() as db:
+    async with async_session()() as db:
         # Get merchant 4
         result = await db.execute(select(Merchant).where(Merchant.id == 4))
         merchant = result.scalar_one_or_none()

@@ -23,7 +23,7 @@ from app.models.message import Message
 
 async def create_missing_alerts():
     """Create missing HandoffAlert records for handoff conversations."""
-    async with async_session() as db:
+    async with async_session()() as db:
         # Find all handoff conversations without alerts
         result = await db.execute(
             select(Conversation).where(

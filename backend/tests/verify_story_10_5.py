@@ -9,7 +9,7 @@ from app.models.merchant import Merchant
 async def verify_contact_options():
     print("Starting verification for Story 10-5: Contact Card Widget")
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # 1. Find a test merchant (or use ID 1)
         result = await db.execute(select(Merchant).order_by(Merchant.id).limit(1))
         merchant = result.scalars().first()

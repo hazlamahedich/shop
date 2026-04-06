@@ -20,7 +20,7 @@ async def create_test_merchant():
     email = "test@test.com"
     password = "Test12345"
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # Check if merchant already exists
         result = await db.execute(select(Merchant).where(Merchant.email == email))
         existing = result.scalars().first()

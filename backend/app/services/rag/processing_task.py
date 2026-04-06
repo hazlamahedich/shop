@@ -117,7 +117,7 @@ async def process_document_background(document_id: int, merchant_id: int) -> Pro
                 merchant_id=merchant_id,
             )
     """
-    async with async_session() as db:
+    async with async_session()() as db:
         try:
             # Get merchant and their LLM config
             merchant_config = await get_merchant_llm_config(db, merchant_id)

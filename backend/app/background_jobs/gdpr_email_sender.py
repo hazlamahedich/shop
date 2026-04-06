@@ -108,7 +108,7 @@ async def send_pending_gdpr_emails(db: AsyncSession | None = None) -> dict:
     if db:
         await process_with_session(db)
     else:
-        async with async_session() as session:
+        async with async_session()() as session:
             await process_with_session(session)
 
     logger.info("processing_pending_gdpr_emails_completed", **stats)

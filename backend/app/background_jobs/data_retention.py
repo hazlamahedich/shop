@@ -65,7 +65,7 @@ async def run_retention_cleanup() -> dict:
     max_retries = 3
     retry_delay_seconds = 10
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # Retry loop for voluntary data cleanup
         for attempt in range(max_retries):
             try:
@@ -151,7 +151,7 @@ async def _run_handoff_followup() -> dict:
     Returns:
         Dictionary with follow-up processing results
     """
-    async with async_session() as db:
+    async with async_session()() as db:
         return await process_handoff_followups(db)
 
 
@@ -163,7 +163,7 @@ async def _run_queued_notifications() -> dict:
     Returns:
         Dictionary with notification processing results
     """
-    async with async_session() as db:
+    async with async_session()() as db:
         return await process_queued_notifications(db)
 
 
@@ -176,7 +176,7 @@ async def _run_handoff_resolution() -> dict:
     Returns:
         Dictionary with resolution processing results
     """
-    async with async_session() as db:
+    async with async_session()() as db:
         return await process_handoff_resolutions(db)
 
 

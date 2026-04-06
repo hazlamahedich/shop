@@ -23,7 +23,7 @@ async def verify_retention():
     engine = create_async_engine(DATABASE_URL)
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    async with async_session() as session:
+    async with async_session()() as session:
         # 1. Setup Test Data
         merchant_id = 1
         now = datetime.now(UTC)

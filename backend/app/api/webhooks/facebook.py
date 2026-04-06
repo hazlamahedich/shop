@@ -114,7 +114,7 @@ async def process_webhook_message(
 
     if page_id:
         try:
-            async with async_session() as db:
+            async with async_session()() as db:
                 result = await db.execute(
                     select(FacebookIntegration.merchant_id).where(
                         FacebookIntegration.page_id == page_id

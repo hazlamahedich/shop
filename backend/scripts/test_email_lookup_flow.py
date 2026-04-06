@@ -21,7 +21,7 @@ from app.services.conversation.unified_conversation_service import UnifiedConver
 
 async def test_email_lookup_flow():
     """Test the complete email lookup flow."""
-    async with async_session() as db:
+    async with async_session()() as db:
         service = UnifiedConversationService()
 
         # Step 1: Ask for order status

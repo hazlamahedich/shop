@@ -11,7 +11,7 @@ from app.models.merchant import Merchant
 
 
 async def fix_merchants():
-    async with async_session() as db:
+    async with async_session()() as db:
         result = await db.execute(select(Merchant))
         merchants = result.scalars().all()
 

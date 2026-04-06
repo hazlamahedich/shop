@@ -25,7 +25,7 @@ class TestDataDeletionAPI:
     @pytest.fixture
     async def test_merchant(self):
         """Create test merchant."""
-        async with async_session() as db:
+        async with async_session()() as db:
             merchant = Merchant(
                 merchant_key="test-shop-deletion",
                 platform="facebook",
@@ -41,7 +41,7 @@ class TestDataDeletionAPI:
     @pytest.fixture
     async def test_conversation(self, test_merchant):
         """Create test conversation with messages."""
-        async with async_session() as db:
+        async with async_session()() as db:
             # Create conversation
             conversation = Conversation(
                 merchant_id=test_merchant,
@@ -108,7 +108,7 @@ class TestDataDeletionAPI:
     @pytest.mark.asyncio
     async def test_deletion_processes_conversations_and_messages(self, test_conversation):
         """Test that deletion removes conversations and messages."""
-        async with async_session() as db:
+        async with async_session()() as db:
             customer_id = test_conversation["customer_id"]
             platform = test_conversation["platform"]
 
@@ -143,7 +143,7 @@ class TestDataDeletionAPI:
         """Test that deletion status updates after processing."""
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
             request = await service.request_deletion("status_test_customer", "facebook")
 
@@ -167,7 +167,7 @@ class TestDataDeletionAPI:
         """Test that deletion creates proper audit trail."""
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
             request = await service.request_deletion("audit_test_customer", "facebook")
 
@@ -201,7 +201,7 @@ class TestDataDeletionAPI:
         from app.core.errors import APIError
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
             request = await service.request_deletion("completed_test", "facebook")
 
@@ -223,7 +223,7 @@ class TestDataDeletionAPI:
         """Test retrieving pending deletion requests."""
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
 
             # Create multiple pending requests
@@ -243,7 +243,7 @@ class TestDataDeletionAPI:
         """Test that deletion requests track timing for 30-day compliance."""
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
             request = await service.request_deletion("thirty_day_test", "facebook")
 
@@ -272,7 +272,7 @@ class TestDataDeletionAPI:
         from app.core.errors import APIError
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
 
             # First request should succeed
@@ -290,7 +290,7 @@ class TestDataDeletionAPI:
         """Test deletion when user has no conversations/messages."""
         from app.services.data_deletion import DataDeletionService
 
-        async with async_session() as db:
+        async with async_session()() as db:
             service = DataDeletionService(db)
 
             # Customer with no data

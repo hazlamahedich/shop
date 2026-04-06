@@ -105,7 +105,7 @@ async def create_merchant(email: str, password: str) -> Merchant:
     if not is_valid:
         raise ValueError("Password requirements not met: " + ", ".join(errors))
 
-    async with async_session() as db:
+    async with async_session()() as db:
         # Check if email already exists
         result = await db.execute(select(Merchant).where(Merchant.email == email))
         existing = result.scalars().first()

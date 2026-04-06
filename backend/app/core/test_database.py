@@ -27,7 +27,7 @@ class TestDatabase:
     @pytest.mark.asyncio
     async def test_session_creation(self):
         """Test creating a database session."""
-        async with async_session() as session:
+        async with async_session()() as session:
             assert session is not None
             # Session should be usable for queries
             # (actual queries will fail without real database)
@@ -40,7 +40,7 @@ class TestDatabase:
     @pytest.mark.asyncio
     async def test_session_is_async(self):
         """Test that session is truly async."""
-        async with async_session() as session:
+        async with async_session()() as session:
             # Check session has async methods
             assert hasattr(session, "execute")
             assert hasattr(session, "commit")
@@ -59,6 +59,6 @@ class TestDatabaseIntegration:
     @pytest.mark.asyncio
     async def test_session_expiration_config(self):
         """Test that session expiration is disabled."""
-        async with async_session() as session:
+        async with async_session()() as session:
             # expire_on_commit should be False for async
             assert session.expire_on_commit is False
