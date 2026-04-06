@@ -358,7 +358,7 @@ const Settings = () => {
           {(showFacebookConfig || showShopifyConfig) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               {showFacebookConfig && !facebookConnection.connected && (
-                  <div className="glass-panel rounded-2xl p-6 border-blue-500/20 animate-in fade-in slide-in-from-top-4">
+                  <div className="glass-panel rounded-2xl p-6 border-blue-500/20 animate-in fade-in slide-in-from-top-4 md:col-start-1">
                     <form onSubmit={handleSaveFacebookCredentials} className="space-y-4">
                       <div>
                         <Label htmlFor="facebook-app-id" className="text-sm font-medium text-white mb-2 block">Meta App ID</Label>
@@ -366,7 +366,7 @@ const Settings = () => {
                           id="facebook-app-id"
                           value={facebookAppId}
                           onChange={(e) => setFacebookAppId(e.target.value)}
-                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
+                          className="flex-1 bg-black border-gray-600 text-white placeholder:text-gray-400 focus:ring-primary-container/30 focus:border-primary-container h-11"
                         />
                       </div>
                       <div>
@@ -376,7 +376,7 @@ const Settings = () => {
                           type="password"
                           value={facebookAppSecret}
                           onChange={(e) => setFacebookAppSecret(e.target.value)}
-                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
+                          className="flex-1 bg-black border-gray-600 text-white placeholder:text-gray-400 focus:ring-primary-container/30 focus:border-primary-container h-11"
                         />
                       </div>
                       <Button type="submit" disabled={isSavingFacebook || !facebookAppId || !facebookAppSecret} className="w-full bg-blue-600 hover:bg-blue-500 text-white h-11">
@@ -386,7 +386,7 @@ const Settings = () => {
                   </div>
               )}
               {showShopifyConfig && !shopifyConnection.connected && (
-                  <div className="glass-panel rounded-2xl p-6 border-primary-container/20 animate-in fade-in slide-in-from-top-4">
+                  <div className="glass-panel rounded-2xl p-6 border-primary-container/20 animate-in fade-in slide-in-from-top-4 md:col-start-1">
                     <form onSubmit={handleSaveShopifyCredentials} className="space-y-4">
                       <div>
                         <Label htmlFor="shopify-api-key" className="text-sm font-medium text-white mb-2 block">Shopify Client ID</Label>
@@ -394,7 +394,7 @@ const Settings = () => {
                           id="shopify-api-key"
                           value={shopifyApiKey}
                           onChange={(e) => setShopifyApiKey(e.target.value)}
-                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
+                          className="flex-1 bg-black border-gray-600 text-white placeholder:text-gray-400 focus:ring-primary-container/30 focus:border-primary-container h-11"
                         />
                       </div>
                       <div>
@@ -404,7 +404,7 @@ const Settings = () => {
                           type="password"
                           value={shopifyApiSecret}
                           onChange={(e) => setShopifyApiSecret(e.target.value)}
-                          className="bg-surface-container border-white/10 text-white mt-1 h-11"
+                          className="flex-1 bg-black border-gray-600 text-white placeholder:text-gray-400 focus:ring-primary-container/30 focus:border-primary-container h-11"
                         />
                       </div>
                       <Button type="submit" disabled={isSavingShopify || !shopifyApiKey || !shopifyApiSecret} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white h-11">
