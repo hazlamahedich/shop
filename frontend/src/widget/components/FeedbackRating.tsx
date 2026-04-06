@@ -130,15 +130,21 @@ export function FeedbackRating({
 
   // WCAG AA compliant colors (minimum 4.5:1 contrast ratio)
   const getButtonStyle = (isSelected: boolean) => {
-    if (isSelected) {
-      return {
-        backgroundColor: theme.primaryColor,
-        borderColor: theme.primaryColor,
-      };
-    }
+    const bgColor = isSelected
+      ? theme.primaryColor
+      : isDarkMode
+        ? 'rgba(255, 255, 255, 0.08)'
+        : 'rgba(0, 0, 0, 0.04)';
+
+    const border = isSelected
+      ? `1px solid ${theme.primaryColor}`
+      : isDarkMode
+        ? '1px solid rgba(255, 255, 255, 0.2)'
+        : '1px solid rgba(0, 0, 0, 0.1)';
+
     return {
-      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+      backgroundColor: bgColor,
+      border,
     };
   };
 
@@ -153,36 +159,95 @@ export function FeedbackRating({
        role="group"
        aria-label="Rate this response"
        className={`feedback-rating${isDarkMode ? ' feedback-rating--dark' : ''}`}
+       style={{
+         display: 'flex',
+         flexDirection: 'column',
+         gap: '8px',
+       }}
      >
-       <button
-         data-testid="feedback-up"
-         type="button"
-         role="button"
-         aria-label="Rate as helpful"
-         aria-pressed={rating === 'positive'}
-         disabled={isSubmitting}
-         onClick={() => handleRatingClick('positive')}
-         onKeyDown={(e) => handleKeyDown(e, 'positive')}
-         className={`feedback-button${rating === 'positive' ? ' feedback-button--selected' : ''}`}
-         style={getButtonStyle(rating === 'positive')}
+       <div
+         style={{
+           fontSize: '12px',
+           fontWeight: 500,
+           color: theme.textColor,
+           opacity: 0.85,
+           textAlign: 'center',
+           marginBottom: '4px',
+         }}
        >
-         <ThumbsUpIcon className="feedback-button-icon" color={getIconColor(rating === 'positive')} />
-       </button>
+         Was this helpful?
+       </div>
+       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+         <button
+           data-testid="feedback-up"
+           type="button"
+           role="button"
+           aria-label="Rate as helpful"
+           aria-pressed={rating === 'positive'}
+           disabled={isSubmitting}
+           onClick={() => handleRatingClick('positive')}
+           onKeyDown={(e) => handleKeyDown(e, 'positive')}
+           className={`feedback-button${rating === 'positive' ? ' feedback-button--selected' : ''}`}
+           style={{
+             ...getButtonStyle(rating === 'positive'),
+             display: 'flex',
+             alignItems: 'center',
+             gap: '6px',
+             padding: '8px 12px',
+             borderRadius: '8px',
+             border: '1px solid',
+             cursor: isSubmitting ? 'not-allowed' : 'pointer',
+             opacity: isSubmitting ? 0.5 : 1,
+             transition: 'all 0.2s ease',
+           }}
+         >
+           <ThumbsUpIcon className="feedback-button-icon" color={getIconColor(rating === 'positive')} />
+           <span
+             style={{
+               fontSize: '13px',
+               fontWeight: 500,
+               color: getIconColor(rating === 'positive'),
+             }}
+           >
+             Yes
+           </span>
+         </button>
 
-       <button
-         data-testid="feedback-down"
-         type="button"
-         role="button"
-         aria-label="Rate as not helpful"
-         aria-pressed={rating === 'negative'}
-         disabled={isSubmitting}
-         onClick={() => handleRatingClick('negative')}
-         onKeyDown={(e) => handleKeyDown(e, 'negative')}
-         className={`feedback-button${rating === 'negative' ? ' feedback-button--selected' : ''}`}
-         style={getButtonStyle(rating === 'negative')}
-       >
-         <ThumbsDownIcon className="feedback-button-icon" color={getIconColor(rating === 'negative')} />
-       </button>
+         <button
+           data-testid="feedback-down"
+           type="button"
+           role="button"
+           aria-label="Rate as not helpful"
+           aria-pressed={rating === 'negative'}
+           disabled={isSubmitting}
+           onClick={() => handleRatingClick('negative')}
+           onKeyDown={(e) => handleKeyDown(e, 'negative')}
+           className={`feedback-button${rating === 'negative' ? ' feedback-button--selected' : ''}`}
+           style={{
+             ...getButtonStyle(rating === 'negative'),
+             display: 'flex',
+             alignItems: 'center',
+             gap: '6px',
+             padding: '8px 12px',
+             borderRadius: '8px',
+             border: '1px solid',
+             cursor: isSubmitting ? 'not-allowed' : 'pointer',
+             opacity: isSubmitting ? 0.5 : 1,
+             transition: 'all 0.2s ease',
+           }}
+         >
+           <ThumbsDownIcon className="feedback-button-icon" color={getIconColor(rating === 'negative')} />
+           <span
+             style={{
+               fontSize: '13px',
+               fontWeight: 500,
+               color: getIconColor(rating === 'negative'),
+             }}
+           >
+             No
+           </span>
+         </button>
+       </div>
 
       {showCommentForm && (
         <div

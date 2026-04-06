@@ -61,6 +61,33 @@ describe('FeedbackRating', () => {
       expect(screen.getByTestId('feedback-down')).toBeInTheDocument();
     });
 
+    it('renders "Was this helpful?" heading above buttons', () => {
+      render(
+        <FeedbackRating
+          messageId="msg-1"
+          feedbackEnabled={true}
+          theme={mockTheme}
+          onSubmit={mockOnSubmit}
+        />
+      );
+
+      expect(screen.getByText('Was this helpful?')).toBeInTheDocument();
+    });
+
+    it('renders "Yes" and "No" labels on buttons', () => {
+      render(
+        <FeedbackRating
+          messageId="msg-1"
+          feedbackEnabled={true}
+          theme={mockTheme}
+          onSubmit={mockOnSubmit}
+        />
+      );
+
+      expect(screen.getByText('Yes')).toBeInTheDocument();
+      expect(screen.getByText('No')).toBeInTheDocument();
+    });
+
     it('renders nothing when feedbackEnabled is false', () => {
       const { container } = render(
         <FeedbackRating
