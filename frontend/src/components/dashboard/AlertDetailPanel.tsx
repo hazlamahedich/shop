@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, ArrowRight, TrendingDown, Users, Cpu, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { X, ArrowRight, TrendingDown, Users, Cpu, AlertTriangle, CheckCircle, Clock, ShieldAlert, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -9,7 +9,7 @@ interface AlertDetailPanelProps {
   onClose: () => void;
   onDismiss?: () => void;
   alertId: string;
-  alertType: 'handoff' | 'bot-quality' | 'conversion-drop';
+  alertType: 'handoff' | 'bot-quality' | 'conversion-drop' | 'payment-issue';
   severity: AlertSeverity;
   data?: Record<string, unknown>;
   timestamp?: string;
@@ -83,6 +83,8 @@ export function AlertDetailPanel({
         return <BotQualityAlertContent data={data} onClose={onClose} />;
       case 'conversion-drop':
         return <ConversionDropContent data={data} onClose={onClose} />;
+      case 'payment-issue':
+        return <PaymentIssueContent data={data} onClose={onClose} />;
       default:
         return null;
     }
@@ -120,6 +122,7 @@ export function AlertDetailPanel({
                 {alertType === 'handoff' && 'INTERCEPT REQUIRED'}
                 {alertType === 'bot-quality' && 'NEURAL LINK DEGRADED'}
                 {alertType === 'conversion-drop' && 'FUNNEL LEAKAGE'}
+                {alertType === 'payment-issue' && 'PAYMENT ALERT'}
               </h2>
               <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider mt-0.5">
                 {severity.toUpperCase()} PRIORITY
@@ -463,6 +466,102 @@ function MetricRow({
     <div className="flex items-center justify-between">
       <span className="text-xs text-white/60">{label}</span>
       <span className={`text-sm font-black ${statusColors[status]}`}>{value}</span>
+    </div>
+  );
+}
+
+function PaymentIssueContent({
+  data,
+  onClose,
+}: {
+  data?: Record<string, unknown>;
+  onClose: () => void;
+}) {
+  const openDisputes = (data?.openDisputes as number) ?? 0;
+  const pendingDisputes = (data?.pendingDisputes as number) ?? 0;
+  const totalAtRisk = (data?.totalAtRisk as number) ?? 0;
+  const pendingOrders = (data?.pendingOrders as number) ?? 0;
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-white/60 text-xs leading-relaxed">
+          <span className="text-white font-bold">{openDisputes + pendingDisputes} dispute(s)</span>
+          {pendingOrders > 0 && (
+            <>
+              {' '}and <span className="text-white font-bold">{pendingOrders} unpaid order(s)</span>
+            </>
+          )}
+          {' '}require your attention. Payment issues can impact revenue and customer trust.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+          <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider mb-1">
+            Open Disputes
+          </p>
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={14} className="text-rose-400" />
+            <p className="text-2xl font-black text-rose-400">{openDisputes}</p>
+          </div>
+        </div>
+        <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+          <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider mb-1">
+            Amount at Risk
+          </p>
+          <p className="text-2xl font-black text-rose-400">{formatCurrency(totalAtRisk)}</p>
+        </div>
+        {pendingDisputes > 0 && (
+          <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+            <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider mb-1">
+              Pending Inquiries
+            </p>
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="text-yellow-400" />
+              <p className="text-2xl font-black text-yellow-400">{pendingDisputes}</p>
+            </div>
+          </div>
+        )}
+        {pendingOrders > 0 && (
+          <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+            <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider mb-1">
+              Unpaid Orders
+            </p>
+            <div className="flex items-center gap-2">
+              <CreditCard size={14} className="text-amber-400" />
+              <p className="text-2xl font-black text-amber-400">{pendingOrders}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-[10px] text-white/40 font-black uppercase tracking-widest">
+          Recommended Actions
+        </p>
+        <div className="space-y-2">
+          {openDisputes > 0 && (
+            <div className="flex items-start gap-3 text-white/60 text-xs">
+              <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 flex-shrink-0" />
+              <span>Review chargeback details in Shopify admin and submit evidence before the deadline</span>
+            </div>
+          )}
+          {pendingOrders > 0 && (
+            <div className="flex items-start gap-3 text-white/60 text-xs">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+              <span>Follow up with customers who have unpaid orders to complete payment</span>
+            </div>
+          )}
+          <div className="flex items-start gap-3 text-white/60 text-xs">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00f5d4] mt-1.5 flex-shrink-0" />
+            <span>Monitor payment issue trends to identify recurring problems</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

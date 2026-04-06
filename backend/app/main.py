@@ -25,6 +25,7 @@ from app.api.bot_config import router as bot_config_router
 from app.api.business_hours import router as business_hours_router
 from app.api.business_info import router as business_info_router
 from app.api.carriers import router as carriers_router
+from app.api.disputes import router as disputes_router
 from app.api.consent import router as consent_router
 from app.api.conversations import router as conversation_router
 from app.api.conversation_context import router as conversation_context_router
@@ -509,6 +510,7 @@ app.include_router(feedback_router, tags=["feedback"])
 app.include_router(faq_click_router, prefix="/api/v1/widget", tags=["faq-click"])
 # Epic 6: Carrier Configuration API
 app.include_router(carriers_router, tags=["carriers"])
+app.include_router(disputes_router, prefix="/api/v1", tags=["disputes"])
 # Epic 8: Knowledge Base API
 app.include_router(knowledge_base_router, prefix="/api", tags=["knowledge-base"])
 # These will be added as features are implemented:

@@ -24,6 +24,7 @@ import { TopTopicsWidget } from '../components/dashboard/TopTopicsWidget';
 import { RevenueWidget } from '../components/dashboard/RevenueWidget';
 import { AICostWidget } from '../components/dashboard/AICostWidget';
 import { PendingOrdersWidget } from '../components/dashboard/PendingOrdersWidget';
+import { PaymentIssuesWidget } from '../components/dashboard/PaymentIssuesWidget';
 import { BenchmarkComparisonWidget } from '../components/dashboard/BenchmarkComparisonWidget';
 import { CustomerSentimentWidget } from '../components/dashboard/CustomerSentimentWidget';
 import { ResponseTimeWidget } from '../components/dashboard/ResponseTimeWidget';
@@ -198,6 +199,9 @@ const Dashboard = () => {
                   <HandoffQueueWidget />
                   <BotQualityWidget />
                 </div>
+                <div className="mt-6">
+                  <PaymentIssuesWidget />
+                </div>
               </NarrativeSection>
             </div>
           ) : (
@@ -256,6 +260,9 @@ const Dashboard = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                       <HandoffQueueWidget />
                       <AlertsWidget />
+                    </div>
+                    <div className="mt-6">
+                      <PaymentIssuesWidget />
                     </div>
                   </NarrativeSection>
 

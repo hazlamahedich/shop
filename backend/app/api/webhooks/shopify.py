@@ -177,6 +177,8 @@ async def process_shopify_webhook(
             await handle_checkout_created(payload, shop_domain, log)
         elif topic == "checkouts/update":
             await handle_checkout_updated(payload, shop_domain, log)
+        elif topic == "disputes/create":
+            await handle_dispute_created(payload, shop_domain, log)
         else:
             log.warning("shopify_webhook_unknown_topic", topic=topic)
 
@@ -576,6 +578,96 @@ async def handle_refund_created(payload: dict, shop_domain: str, log) -> None:
             "shopify_refund_event_failed",
             refund_id=refund_id,
             order_id=order_id,
+            error=str(e),
+        )
+        raise
+
+
+async def handle_dispute_created(payload: dict, shop_domain: str, log) -> None:
+    """Handle disputes/create webhook from Shopify.
+
+    Stores dispute/chargeback data for merchant dashboard alerts.
+
+    Args:
+        payload: Dispute payload from Shopify
+        shop_domain: Shopify shop domain
+        log: Structlog logger
+    """
+    from decimal import Decimal
+
+    from app.models.shopify_integration import ShopifyIntegration
+    from app.services.dispute_service import DisputeService
+
+    shopify_dispute_id = payload.get("id")
+    amount = payload.get("amount", "0")
+    currency = payload.get("currency", "USD")
+    reason = payload.get("reason")
+    dispute_status = payload.get("status", "open")
+    evidence_due_by_str = payload.get("evidence_due_by")
+    shopify_order_id = (
+        payload.get("order", {}).get("id") if isinstance(payload.get("order"), dict) else None
+    )
+
+    log.info(
+        "shopify_dispute_created",
+        dispute_id=shopify_dispute_id,
+        amount=amount,
+        currency=currency,
+        reason=reason,
+        status=dispute_status,
+    )
+
+    try:
+        async with async_session()() as db:
+            result = await db.execute(
+                select(ShopifyIntegration.merchant_id).where(
+                    ShopifyIntegration.shop_domain == shop_domain
+                )
+            )
+            integration = result.scalar_one_or_none()
+
+            if not integration:
+                log.warning(
+                    "shopify_dispute_no_integration",
+                    shop_domain=shop_domain,
+                )
+                return
+
+            merchant_id = integration.merchant_id
+
+            evidence_due_by = None
+            if evidence_due_by_str:
+                from datetime import datetime
+
+                try:
+                    evidence_due_by = datetime.fromisoformat(
+                        evidence_due_by_str.replace("Z", "+00:00")
+                    )
+                except (ValueError, TypeError):
+                    pass
+
+            service = DisputeService(db)
+            await service.upsert_dispute(
+                merchant_id=merchant_id,
+                shopify_dispute_id=str(shopify_dispute_id),
+                amount=Decimal(str(amount)),
+                currency=currency,
+                reason=reason,
+                status=dispute_status,
+                evidence_due_by=evidence_due_by,
+                shopify_order_id=str(shopify_order_id) if shopify_order_id else None,
+            )
+            await db.commit()
+            log.info(
+                "shopify_dispute_stored",
+                dispute_id=shopify_dispute_id,
+                merchant_id=merchant_id,
+            )
+
+    except Exception as e:
+        log.error(
+            "shopify_dispute_event_failed",
+            dispute_id=shopify_dispute_id,
             error=str(e),
         )
         raise

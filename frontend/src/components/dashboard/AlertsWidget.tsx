@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle, ArrowRight, Users, TrendingDown, Cpu, RotateCcw, Clock } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
 import { handoffAlertsService } from '../../services/handoffAlerts';
+import { disputeService } from '../../services/disputeService';
 import { StatCard } from './StatCard';
 import { AlertDetailPanel } from './AlertDetailPanel';
 
@@ -12,7 +13,7 @@ const ALERT_TIMESTAMPS_KEY = 'alert_timestamps';
 interface DismissedAlert {
   id: string;
   dismissedAt: string;
-  alertType: 'handoff' | 'bot-quality' | 'conversion-drop';
+  alertType: 'handoff' | 'bot-quality' | 'conversion-drop' | 'payment-issue';
   severity: 'critical' | 'warning' | 'info';
   message: string;
 }
@@ -30,7 +31,7 @@ interface AlertItem {
   action?: {
     label: string;
   };
-  alertType: 'handoff' | 'bot-quality' | 'conversion-drop';
+  alertType: 'handoff' | 'bot-quality' | 'conversion-drop' | 'payment-issue';
   icon: React.ReactNode;
   timestamp?: string;
 }
@@ -105,7 +106,7 @@ function AlertRow({
 export function AlertsWidget() {
   const [selectedAlert, setSelectedAlert] = useState<{
     id: string;
-    alertType: 'handoff' | 'bot-quality' | 'conversion-drop';
+    alertType: 'handoff' | 'bot-quality' | 'conversion-drop' | 'payment-issue';
     severity: AlertSeverity;
     data?: Record<string, unknown>;
   } | null>(null);
@@ -189,6 +190,16 @@ export function AlertsWidget() {
     staleTime: 30_000,
   });
 
+  const { data: paymentIssues } = useQuery({
+    queryKey: ['payment-issues'],
+    queryFn: async () => {
+      const response = await disputeService.getPaymentIssues();
+      return response.data;
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
   const alerts: AlertItem[] = [];
 
   const unreadHandoffs = handoffData?.unreadCount ?? 0;
@@ -196,6 +207,7 @@ export function AlertsWidget() {
   const botCriticalAlertId = 'bot-critical';
   const botWarningAlertId = 'bot-warning';
   const conversionAlertId = 'conversion-drop';
+  const paymentAlertId = 'payment-issues';
 
   // Update timestamps for active alerts
   if (unreadHandoffs > 0 && !alertTimestamps[handoffAlertId]) {
@@ -211,6 +223,11 @@ export function AlertsWidget() {
   const firstStageDropoff = funnelData?.stages?.[0]?.dropoffPercent;
   if (firstStageDropoff != null && firstStageDropoff > 30 && !alertTimestamps[conversionAlertId]) {
     updateAlertTimestamp(conversionAlertId);
+  }
+  const piData = paymentIssues as { disputes?: { open_count?: number; pending_count?: number; total_at_risk?: number; lost_count?: number }; pending_orders?: { count?: number } } | null;
+  const paymentIssueCount = (piData?.disputes?.open_count ?? 0) + (piData?.disputes?.pending_count ?? 0) + (piData?.pending_orders?.count ?? 0);
+  if (paymentIssueCount > 0 && !alertTimestamps[paymentAlertId]) {
+    updateAlertTimestamp(paymentAlertId);
   }
 
   if (unreadHandoffs > 0 && !dismissedAlerts.has(handoffAlertId)) {
@@ -259,6 +276,21 @@ export function AlertsWidget() {
     });
   }
 
+  if (paymentIssueCount > 0 && !dismissedAlerts.has(paymentAlertId)) {
+    const hasOpenDisputes = (piData?.disputes?.open_count ?? 0) > 0;
+    alerts.push({
+      id: paymentAlertId,
+      alertType: 'payment-issue',
+      severity: hasOpenDisputes ? 'critical' : 'warning',
+      message: hasOpenDisputes
+        ? `CHARGEBACK_ALERT: ${piData?.disputes?.open_count ?? 0}_OPEN`
+        : `PAYMENT_FLAG: ${paymentIssueCount}_ISSUES`,
+      action: { label: 'REVIEW' },
+      icon: createIcon(AlertTriangle, 14),
+      timestamp: alertTimestamps[paymentAlertId],
+    });
+  }
+
   const handleAlertClick = (alert: AlertItem) => {
     const alertData: Record<string, unknown> = {};
 
@@ -272,6 +304,13 @@ export function AlertsWidget() {
       alertData.totalConversations = botQuality?.totalConversations;
     } else if (alert.alertType === 'conversion-drop') {
       alertData.firstStageDropoff = firstStageDropoff;
+    } else if (alert.alertType === 'payment-issue') {
+      alertData.openDisputes = piData?.disputes?.open_count ?? 0;
+      alertData.pendingDisputes = piData?.disputes?.pending_count ?? 0;
+      alertData.totalAtRisk = piData?.disputes?.total_at_risk ?? 0;
+      alertData.pendingOrders = piData?.pending_orders?.count ?? 0;
+    } else if (alert.alertType === 'payment-issue') {
+      alertData.paymentIssues = piData;
     }
 
     setSelectedAlert({
