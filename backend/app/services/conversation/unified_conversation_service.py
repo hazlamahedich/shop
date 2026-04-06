@@ -779,6 +779,7 @@ class UnifiedConversationService:
                 intent=intent_name,
                 confidence=confidence,
                 cart=response.cart,
+                response_metadata=response.metadata,
             )
 
             conversation_id = None
@@ -1763,6 +1764,7 @@ class UnifiedConversationService:
         intent: str,
         confidence: float,
         cart: dict | None = None,
+        response_metadata: dict | None = None,
     ) -> tuple[int, int] | None:
         """Persist conversation and messages to database.
 
@@ -1855,6 +1857,21 @@ class UnifiedConversationService:
                 if conversation.conversation_data is None:
                     conversation.conversation_data = {}
                 conversation.conversation_data["cart"] = cart
+
+            if response_metadata:
+                customer_identity_keys = {
+                    "customer_email",
+                    "customer_first_name",
+                    "customer_last_name",
+                    "customer_phone",
+                    "customer_profile_id",
+                    "device_linked_at",
+                }
+                if conversation.conversation_data is None:
+                    conversation.conversation_data = {}
+                for key in customer_identity_keys:
+                    if key in response_metadata:
+                        conversation.conversation_data[key] = response_metadata[key]
 
             conversation.updated_at = datetime.utcnow()
 

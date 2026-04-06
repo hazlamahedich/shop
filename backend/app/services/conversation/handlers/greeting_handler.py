@@ -63,6 +63,9 @@ class GreetingHandler(BaseHandler):
         business_name = merchant.business_name or "our store"
         is_returning = context.is_returning_shopper
 
+        conversation_data = context.conversation_data or {}
+        customer_first_name = conversation_data.get("customer_first_name")
+
         # Fetch pinned products to showcase
         pinned_products = await self._get_greeting_pinned_products(db, merchant)
 
@@ -76,21 +79,81 @@ class GreetingHandler(BaseHandler):
                 },
             )
             if is_returning:
-                greeting_text = f"Welcome back! {greeting_text}"
+                name_prefix = (
+                    f"Welcome back, {customer_first_name}!"
+                    if customer_first_name
+                    else "Welcome back!"
+                )
+                greeting_text = f"{name_prefix} {greeting_text}"
         else:
             personality_type: PersonalityType = merchant.personality or PersonalityType.FRIENDLY
 
-            if is_returning:
+            if customer_first_name:
+                if is_returning:
+                    greeting_prompts = {
+                        PersonalityType.FRIENDLY: (
+                            f"Welcome back, {customer_first_name}! "
+                            "Great to see you again. What can I help you find today?"
+                        ),
+                        PersonalityType.PROFESSIONAL: (
+                            f"Welcome back, {customer_first_name}. "
+                            "I trust your previous experience was satisfactory. "
+                            "How may I assist you today?"
+                        ),
+                        PersonalityType.ENTHUSIASTIC: (
+                            f"You're back, {customer_first_name}! "
+                            f"Welcome back to {business_name}! "
+                            "I'm SO happy to see you again! Ready to find something amazing?"
+                        ),
+                    }
+                else:
+                    greeting_prompts = {
+                        PersonalityType.FRIENDLY: (
+                            f"Hi {customer_first_name}! I'm {bot_name}, "
+                            f"your assistant at {business_name}. "
+                            "How can I help you find something great today?"
+                        ),
+                        PersonalityType.PROFESSIONAL: (
+                            f"Hello {customer_first_name}, I'm {bot_name} "
+                            f"at {business_name}. "
+                            "I'm here to assist you with your shopping needs. How may I help you?"
+                        ),
+                        PersonalityType.ENTHUSIASTIC: (
+                            f"Hey {customer_first_name}! Welcome to {business_name}! "
+                            f"I'm {bot_name}, and I'm SO excited to help you shop! "
+                            "What are you looking for today?"
+                        ),
+                    }
+            elif is_returning:
                 greeting_prompts = {
-                    PersonalityType.FRIENDLY: f"Welcome back to {business_name}! Great to see you again. What can I help you find today?",
-                    PersonalityType.PROFESSIONAL: f"Welcome back to {business_name}. I trust your previous experience was satisfactory. How may I assist you today?",
-                    PersonalityType.ENTHUSIASTIC: f"You're back! Welcome back to {business_name}! I'm SO happy to see you again! Ready to find something amazing?",
+                    PersonalityType.FRIENDLY: (
+                        f"Welcome back to {business_name}! "
+                        "Great to see you again. What can I help you find today?"
+                    ),
+                    PersonalityType.PROFESSIONAL: (
+                        f"Welcome back to {business_name}. "
+                        "I trust your previous experience was satisfactory. "
+                        "How may I assist you today?"
+                    ),
+                    PersonalityType.ENTHUSIASTIC: (
+                        f"You're back! Welcome back to {business_name}! "
+                        "I'm SO happy to see you again! Ready to find something amazing?"
+                    ),
                 }
             else:
                 greeting_prompts = {
-                    PersonalityType.FRIENDLY: f"Hi there! I'm {bot_name}, your assistant at {business_name}. How can I help you find something great today?",
-                    PersonalityType.PROFESSIONAL: f"Hello, I'm {bot_name} at {business_name}. I'm here to assist you with your shopping needs. How may I help you?",
-                    PersonalityType.ENTHUSIASTIC: f"Hey! Welcome to {business_name}! I'm {bot_name}, and I'm SO excited to help you shop! What are you looking for today?",
+                    PersonalityType.FRIENDLY: (
+                        f"Hi there! I'm {bot_name}, your assistant at {business_name}. "
+                        "How can I help you find something great today?"
+                    ),
+                    PersonalityType.PROFESSIONAL: (
+                        f"Hello, I'm {bot_name} at {business_name}. "
+                        "I'm here to assist you with your shopping needs. How may I help you?"
+                    ),
+                    PersonalityType.ENTHUSIASTIC: (
+                        f"Hey! Welcome to {business_name}! I'm {bot_name}, "
+                        "and I'm SO excited to help you shop! What are you looking for today?"
+                    ),
                 }
             greeting_text = greeting_prompts.get(
                 personality_type,
@@ -112,6 +175,7 @@ class GreetingHandler(BaseHandler):
             bot_name=bot_name,
             use_custom=merchant.use_custom_greeting,
             is_returning_shopper=is_returning,
+            has_customer_name=bool(customer_first_name),
             featured_products_count=len(pinned_products) if pinned_products else 0,
         )
 

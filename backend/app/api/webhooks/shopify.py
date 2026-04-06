@@ -230,6 +230,8 @@ async def handle_order_created(payload: dict, shop_domain: str, log) -> None:
                     db_order_id=order.id,
                 )
 
+                await _upsert_customer_profile_and_link(db, payload, order, merchant_id, log)
+
     except Exception as e:
         log.error(
             "shopify_order_storage_failed",
@@ -306,6 +308,8 @@ async def handle_order_updated(payload: dict, shop_domain: str, log) -> None:
                 db_order_id=order.id,
                 status=order.status,
             )
+
+            await _upsert_customer_profile_and_link(db, payload, order, merchant_id, log)
 
     except Exception as e:
         log.error(

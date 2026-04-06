@@ -259,11 +259,42 @@ class OrderHandler(BaseHandler):
             lookup_type=result.lookup_type.value if result.lookup_type else "unknown",
         )
 
+        conversation_data = context.conversation_data or {}
+        updated_data = conversation_data.copy()
+
+        first_order = orders[0]
+        if first_order.customer_email:
+            profile = await customer_service.find_by_email(
+                db=db,
+                merchant_id=merchant.id,
+                email=first_order.customer_email,
+            )
+            if not profile:
+                profile = await customer_service.upsert_customer_profile(
+                    db=db,
+                    merchant_id=merchant.id,
+                    email=first_order.customer_email,
+                    phone=first_order.customer_phone,
+                    first_name=first_order.customer_first_name,
+                    last_name=first_order.customer_last_name,
+                )
+            try:
+                updated_data = await customer_service.link_device_to_profile(
+                    db=db,
+                    profile=profile,
+                    platform_sender_id=context.platform_sender_id or context.session_id,
+                    conversation_data=conversation_data,
+                )
+            except Exception as e:
+                logger.warning("device_link_failed_after_order_lookup", error=str(e))
+                updated_data["customer_email"] = first_order.customer_email
+
         return ConversationResponse(
             message=response_text,
             intent="order_tracking",
             confidence=1.0,
             order=order_dict,
+            metadata=updated_data,
         )
 
     async def _handle_cross_device_email_lookup(
@@ -302,6 +333,17 @@ class OrderHandler(BaseHandler):
             merchant_id=merchant.id,
             email=email,
         )
+
+        if not profile and orders:
+            first_order = orders[0]
+            profile = await customer_service.upsert_customer_profile(
+                db=db,
+                merchant_id=merchant.id,
+                email=email,
+                phone=first_order.customer_phone,
+                first_name=first_order.customer_first_name,
+                last_name=first_order.customer_last_name,
+            )
 
         if not orders and not profile:
             return ConversationResponse(
