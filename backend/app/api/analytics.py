@@ -19,6 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.services.analytics.aggregated_analytics_service import AggregatedAnalyticsService
+from app.services.analytics.conversation_flow_analytics_service import (
+    ConversationFlowAnalyticsService,
+)
 from app.services.analytics.widget_analytics_service import WidgetAnalyticsService
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -703,3 +706,105 @@ async def get_quick_actions(
     service = AggregatedAnalyticsService(db)
     data = await service.get_quick_actions(merchant_id)
     return data
+
+
+# ────────────────────────────────────────────────────────────────
+# Conversation Flow Analytics (Story 11.12b)
+# ────────────────────────────────────────────────────────────────
+
+
+@router.get("/conversation-flow/length-distribution")
+async def get_conversation_flow_length_distribution(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get conversation length distribution metrics.
+
+    Story 11.12b: Conversation length distribution (AC1)
+
+    Returns avg/median/P90 turns counts, grouped by mode, daily trend.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_conversation_length_distribution(merchant_id, days)
+
+
+@router.get("/conversation-flow/clarification-patterns")
+async def get_conversation_flow_clarification_patterns(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get clarification pattern analysis.
+
+    Story 11.12b: Clarification patterns (AC2)
+    Returns most common clarification sequences, depth, success rate.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_clarification_patterns(merchant_id, days)
+
+
+@router.get("/conversation-flow/friction-points")
+async def get_conversation_flow_friction_points(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get friction point detection.
+
+    Story 11.12b: Friction points (AC3)
+    Returns drop-off intents, repeated intents, processing time outliers.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_friction_points(merchant_id, days)
+
+
+@router.get("/conversation-flow/sentiment-stages")
+async def get_conversation_flow_sentiment_stages(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get sentiment distribution by conversation stage.
+
+    Story 11.12b: Sentiment stages (AC4)
+    Returns sentiment counts for early/mid/late stages, negative shift detection.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_sentiment_distribution_by_stage(merchant_id, days)
+
+
+@router.get("/conversation-flow/handoff-correlation")
+async def get_conversation_flow_handoff_correlation(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get handoff correlation analysis.
+
+    Story 11.12b: Handoff correlation (AC5)
+    Returns top handoff triggers, avg conversation length, handoff rate per intent.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_handoff_correlation(merchant_id, days)
+
+
+@router.get("/conversation-flow/context-utilization")
+async def get_conversation_flow_context_utilization(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get context utilization metrics.
+
+    Story 11.12b: Context utilization (AC6)
+    Returns utilization rate by mode, low utilization conversations.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_context_utilization(merchant_id, days)

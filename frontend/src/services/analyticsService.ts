@@ -434,6 +434,48 @@ export const analyticsService = {
     return response as unknown as FaqUsageData;
   },
 
+  async getConversationFlowLengthDistribution(days = 30): Promise<ConversationFlowLengthDistribution> {
+    const response = await apiClient.get<ConversationFlowLengthDistribution>(
+      `/api/v1/analytics/conversation-flow/length-distribution?days=${days}`
+    );
+    return response as unknown as ConversationFlowLengthDistribution;
+  },
+
+  async getConversationFlowClarificationPatterns(days = 30): Promise<ConversationFlowClarificationPatterns> {
+    const response = await apiClient.get<ConversationFlowClarificationPatterns>(
+      `/api/v1/analytics/conversation-flow/clarification-patterns?days=${days}`
+    );
+    return response as unknown as ConversationFlowClarificationPatterns;
+  },
+
+  async getConversationFlowFrictionPoints(days = 30): Promise<ConversationFlowFrictionPoints> {
+    const response = await apiClient.get<ConversationFlowFrictionPoints>(
+      `/api/v1/analytics/conversation-flow/friction-points?days=${days}`
+    );
+    return response as unknown as ConversationFlowFrictionPoints;
+  },
+
+  async getConversationFlowSentimentStages(days = 30): Promise<ConversationFlowSentimentStages> {
+    const response = await apiClient.get<ConversationFlowSentimentStages>(
+      `/api/v1/analytics/conversation-flow/sentiment-stages?days=${days}`
+    );
+    return response as unknown as ConversationFlowSentimentStages;
+  },
+
+  async getConversationFlowHandoffCorrelation(days = 30): Promise<ConversationFlowHandoffCorrelation> {
+    const response = await apiClient.get<ConversationFlowHandoffCorrelation>(
+      `/api/v1/analytics/conversation-flow/handoff-correlation?days=${days}`
+    );
+    return response as unknown as ConversationFlowHandoffCorrelation;
+  },
+
+  async getConversationFlowContextUtilization(days = 30): Promise<ConversationFlowContextUtilization> {
+    const response = await apiClient.get<ConversationFlowContextUtilization>(
+      `/api/v1/analytics/conversation-flow/context-utilization?days=${days}`
+    );
+    return response as unknown as ConversationFlowContextUtilization;
+  },
+
   // ────────────────────────────────────────────────────────────────
   // Answer Performance Dashboard APIs
   // ────────────────────────────────────────────────────────────────

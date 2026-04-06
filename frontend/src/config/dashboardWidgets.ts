@@ -35,12 +35,13 @@ export const WIDGET_CONFIG = {
   alerts: { modes: ['general', 'ecommerce'] as const, name: 'Alerts', view: 'business' as const },
   handoff_queue: { modes: ['general', 'ecommerce'] as const, name: 'Handoff Queue', view: 'business' as const },
   conversation_overview: { modes: ['general', 'ecommerce'] as const, name: 'Conversation Overview', view: 'business' as const },
+  conversation_flow: { modes: ['ecommerce', 'general'] as const, name: 'Conversation Flow', view: 'business' as const },
   peak_hours: { modes: ['general', 'ecommerce'] as const, name: 'Peak Hours', view: 'business' as const },
 } as const;
 
 export type WidgetId = keyof typeof WIDGET_CONFIG;
-export type OnboardingMode = 'general' | 'ecommerce';
-export type DashboardView = 'business' | 'answers';
+export type OnboardingMode = 'general' | 'ecommerce'
+export type DashboardView = 'business' | 'answers'
 
 export function isWidgetVisible(
   widgetId: WidgetId,
@@ -48,17 +49,17 @@ export function isWidgetVisible(
   view?: DashboardView
 ): boolean {
   if (!mode) return true; // Graceful degradation - show all if mode undefined
-  const config = WIDGET_CONFIG[widgetId];
-  if (!config) return false;
+  const config = WIDGET_CONFIG[widgetId]
+  if (!config) return false
 
   // Check mode compatibility
-  const modeMatch = (config.modes as readonly OnboardingMode[]).includes(mode);
-  if (!modeMatch) return false;
+  const modeMatch = (config.modes as readonly OnboardingMode[]).includes(mode)
+  if (!modeMatch) return false
 
   // Check view compatibility (if view is specified)
   if (view && 'view' in config) {
-    return config.view === view;
+    return config.view === view
   }
 
-  return true;
+  return true
 }

@@ -39,5 +39,8 @@ export { BenchmarkComparisonWidget } from './BenchmarkComparisonWidget';
 export { GeographicSnapshotWidget } from './GeographicSnapshotWidget';
 export { PeakHoursHeatmapWidget } from './PeakHoursHeatmapWidget';
 
+// Conversation Analytics
+export { ConversationFlowWidget } from './ConversationFlowWidget';
+
 // Utilities
 export { Sparkline } from './Sparkline';
