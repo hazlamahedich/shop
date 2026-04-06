@@ -147,3 +147,138 @@ export interface QueryPerformanceMetrics {
   trend: number[];
   lastUpdated: string;
 }
+
+// ────────────────────────────────────────────────────────────────
+// Conversation Flow Analytics Types (Story 11.12b)
+// ────────────────────────────────────────────────────────────────
+
+export interface ConversationFlowEnvelope<T> {
+  has_data: boolean;
+  data?: T;
+  message?: string;
+  period_days?: number;
+}
+
+export interface ConversationFlowOverviewData {
+  total_conversations: number;
+  average_turns: number;
+  completion_rate: number | null;
+  by_mode: ConversationFlowModeEntry[];
+  daily_trend: ConversationFlowDailyTrend[];
+}
+
+export interface ConversationFlowLengthDistributionData {
+  avg_turns: number;
+  median_turns: number;
+  p90_turns: number;
+  total_conversations: number;
+  length_distribution: { turn_count: number; conversation_count: number }[];
+  by_mode: ConversationFlowModeEntry[];
+  daily_trend: ConversationFlowDailyTrend[];
+}
+
+export interface ConversationFlowModeEntry {
+  mode: string;
+  avg_turns: number;
+  conversation_count: number;
+}
+
+export interface ConversationFlowDailyTrend {
+  date: string;
+  total_turns: number;
+  total_conversations: number;
+  avg_turns: number;
+}
+
+export interface ConversationFlowClarificationData {
+  top_sequences: { sequence: string; count: number }[];
+  avg_clarification_depth: number;
+  clarification_success_rate: number;
+  total_clarifying_conversations: number;
+}
+
+export interface ConversationFlowFrictionData {
+  friction_points: ConversationFlowFrictionPoint[];
+  drop_off_intents: { intent: string; count: number }[];
+  repeated_intents: { intent: string; count: number }[];
+  processing_time_p90_ms: number;
+  slow_turns_count: number;
+  total_conversations_analyzed: number;
+}
+
+export interface ConversationFlowFrictionPoint {
+  type: 'drop_off' | 'repeated_intent';
+  intent: string;
+  frequency: number;
+}
+
+export interface ConversationFlowSentimentData {
+  stages: Record<string, Record<string, number>>;
+  negative_shifts: ConversationFlowNegativeShift[];
+  total_negative_shifts: number;
+}
+
+export interface ConversationFlowNegativeShift {
+  conversation_id: number;
+  early_negative_rate: number;
+  late_negative_rate: number;
+  intent_at_shift: string;
+}
+
+export interface ConversationFlowHandoffData {
+  top_triggers: { intent: string; count: number }[];
+  avg_handoff_length: number;
+  avg_resolved_length: number;
+  handoff_rate_per_intent: ConversationFlowHandoffRate[];
+  anonymized_excerpts: ConversationFlowAnonymizedExcerpt[];
+  privacy_note: string;
+  total_handoff_conversations: number;
+}
+
+export interface ConversationFlowHandoffRate {
+  intent: string;
+  handoff_count: number;
+  total_count: number;
+  handoff_rate: number;
+}
+
+export interface ConversationFlowAnonymizedExcerpt {
+  anonymized_message: string;
+  intent_detected: string;
+}
+
+export interface ConversationFlowContextData {
+  utilization_rate: number;
+  total_turns: number;
+  turns_with_context: number;
+  by_mode: ConversationFlowContextModeEntry[];
+  low_utilization_conversations: ConversationFlowLowUtilization[];
+  improvement_opportunities: number;
+}
+
+export interface ConversationFlowContextModeEntry {
+  mode: string;
+  total_turns: number;
+  turns_with_context: number;
+  utilization_rate: number;
+}
+
+export interface ConversationFlowLowUtilization {
+  conversation_id: number;
+  total_turns: number;
+  context_turns: number;
+  utilization_rate: number;
+}
+
+export type ConversationFlowOverviewResponse =
+  ConversationFlowEnvelope<ConversationFlowOverviewData>;
+export type ConversationFlowLengthDistributionResponse =
+  ConversationFlowEnvelope<ConversationFlowLengthDistributionData>;
+export type ConversationFlowClarificationResponse =
+  ConversationFlowEnvelope<ConversationFlowClarificationData>;
+export type ConversationFlowFrictionResponse =
+  ConversationFlowEnvelope<ConversationFlowFrictionData>;
+export type ConversationFlowSentimentResponse =
+  ConversationFlowEnvelope<ConversationFlowSentimentData>;
+export type ConversationFlowHandoffResponse = ConversationFlowEnvelope<ConversationFlowHandoffData>;
+export type ConversationFlowContextResponse = ConversationFlowEnvelope<ConversationFlowContextData>;

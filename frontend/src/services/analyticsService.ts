@@ -15,7 +15,14 @@ import type {
   TopQuestionsResponse,
   CustomerFeedbackMetrics,
   DocumentPerformanceResponse,
-  HighImpactImprovementsResponse
+  HighImpactImprovementsResponse,
+  ConversationFlowOverviewResponse,
+  ConversationFlowLengthDistributionResponse,
+  ConversationFlowClarificationResponse,
+  ConversationFlowFrictionResponse,
+  ConversationFlowSentimentResponse,
+  ConversationFlowHandoffResponse,
+  ConversationFlowContextResponse,
 } from '../types/analytics';
 
 // ────────────────────────────────────────────────────────────────
@@ -245,9 +252,7 @@ export const analyticsService = {
    * All data is tier=ANONYMIZED with no PII. 30-day window.
    */
   async getSummary(): Promise<AnonymizedSummaryResponse> {
-    const response = await apiClient.get<AnonymizedSummaryResponse>(
-      '/api/v1/analytics/summary'
-    );
+    const response = await apiClient.get<AnonymizedSummaryResponse>('/api/v1/analytics/summary');
     return response as unknown as AnonymizedSummaryResponse;
   },
 
@@ -279,16 +284,12 @@ export const analyticsService = {
   },
 
   async getPeakHours(days = 30): Promise<unknown> {
-    const response = await apiClient.get(
-      `/api/v1/analytics/peak-hours?days=${days}`
-    );
+    const response = await apiClient.get(`/api/v1/analytics/peak-hours?days=${days}`);
     return response as unknown;
   },
 
   async getConversionFunnel(days = 30): Promise<unknown> {
-    const response = await apiClient.get(
-      `/api/v1/analytics/conversion-funnel?days=${days}`
-    );
+    const response = await apiClient.get(`/api/v1/analytics/conversion-funnel?days=${days}`);
     return response as unknown;
   },
 
@@ -300,16 +301,12 @@ export const analyticsService = {
   },
 
   async getBenchmarks(days = 30): Promise<unknown> {
-    const response = await apiClient.get(
-      `/api/v1/analytics/benchmarks?days=${days}`
-    );
+    const response = await apiClient.get(`/api/v1/analytics/benchmarks?days=${days}`);
     return response as unknown;
   },
 
   async getSentimentTrend(days = 30): Promise<unknown> {
-    const response = await apiClient.get(
-      `/api/v1/analytics/sentiment-trend?days=${days}`
-    );
+    const response = await apiClient.get(`/api/v1/analytics/sentiment-trend?days=${days}`);
     return response as unknown;
   },
 
@@ -360,7 +357,10 @@ export const analyticsService = {
   // Feedback Analytics (Story 10-4)
   // ────────────────────────────────────────────────────────────────
 
-  async getFeedbackAnalytics(startDate?: string, endDate?: string): Promise<FeedbackAnalyticsResponse> {
+  async getFeedbackAnalytics(
+    startDate?: string,
+    endDate?: string
+  ): Promise<FeedbackAnalyticsResponse> {
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
@@ -400,9 +400,7 @@ export const analyticsService = {
   },
 
   async getQuestionCategories(days = 30): Promise<any> {
-    const response = await apiClient.get(
-      `/api/v1/analytics/question-categories?days=${days}`
-    );
+    const response = await apiClient.get(`/api/v1/analytics/question-categories?days=${days}`);
     return response as unknown;
   },
 
@@ -414,73 +412,71 @@ export const analyticsService = {
   },
 
   async getPerformanceAlerts(days = 1): Promise<any> {
-    const response = await apiClient.get(
-      `/api/v1/analytics/performance-alerts?days=${days}`
-    );
+    const response = await apiClient.get(`/api/v1/analytics/performance-alerts?days=${days}`);
     return response as unknown;
   },
 
   async getQuickActions(): Promise<any> {
-    const response = await apiClient.get(
-      '/api/v1/analytics/quick-actions'
-    );
+    const response = await apiClient.get('/api/v1/analytics/quick-actions');
     return response as unknown;
   },
 
   async getFaqUsage(days = 30): Promise<FaqUsageData> {
-    const response = await apiClient.get<FaqUsageData>(
-      `/api/v1/analytics/faq-usage?days=${days}`
-    );
+    const response = await apiClient.get<FaqUsageData>(`/api/v1/analytics/faq-usage?days=${days}`);
     return response as unknown as FaqUsageData;
   },
 
-  async getConversationFlowOverview(days = 30): Promise<any> {
-    const response = await apiClient.get<any>(
+  async getConversationFlowOverview(days = 30): Promise<ConversationFlowOverviewResponse> {
+    const response = await apiClient.get<ConversationFlowOverviewResponse>(
       `/api/v1/analytics/conversation-flow/overview?days=${days}`
     );
-    return response as any;
+    return response as unknown as ConversationFlowOverviewResponse;
   },
 
-  async getConversationFlowLengthDistribution(days = 30): Promise<ConversationFlowLengthDistribution> {
-    const response = await apiClient.get<ConversationFlowLengthDistribution>(
+  async getConversationFlowLengthDistribution(
+    days = 30
+  ): Promise<ConversationFlowLengthDistributionResponse> {
+    const response = await apiClient.get<ConversationFlowLengthDistributionResponse>(
       `/api/v1/analytics/conversation-flow/length-distribution?days=${days}`
     );
-    return response as unknown as ConversationFlowLengthDistribution;
+    return response as unknown as ConversationFlowLengthDistributionResponse;
   },
 
-  async getConversationFlowClarificationPatterns(days = 30): Promise<ConversationFlowClarificationPatterns> {
-    const response = await apiClient.get<ConversationFlowClarificationPatterns>(
+  async getConversationFlowClarificationPatterns(
+    days = 30
+  ): Promise<ConversationFlowClarificationResponse> {
+    const response = await apiClient.get<ConversationFlowClarificationResponse>(
       `/api/v1/analytics/conversation-flow/clarification-patterns?days=${days}`
     );
-    return response as unknown as ConversationFlowClarificationPatterns;
+    return response as unknown as ConversationFlowClarificationResponse;
   },
 
-  async getConversationFlowFrictionPoints(days = 30): Promise<ConversationFlowFrictionPoints> {
-    const response = await apiClient.get<ConversationFlowFrictionPoints>(
+  async getConversationFlowFrictionPoints(days = 30): Promise<ConversationFlowFrictionResponse> {
+    const response = await apiClient.get<ConversationFlowFrictionResponse>(
       `/api/v1/analytics/conversation-flow/friction-points?days=${days}`
     );
-    return response as unknown as ConversationFlowFrictionPoints;
+    return response as unknown as ConversationFlowFrictionResponse;
   },
 
-  async getConversationFlowSentimentStages(days = 30): Promise<ConversationFlowSentimentStages> {
-    const response = await apiClient.get<ConversationFlowSentimentStages>(
+  async getConversationFlowSentimentStages(days = 30): Promise<ConversationFlowSentimentResponse> {
+    const response = await apiClient.get<ConversationFlowSentimentResponse>(
       `/api/v1/analytics/conversation-flow/sentiment-stages?days=${days}`
     );
-    return response as unknown as ConversationFlowSentimentStages;
+    return response as unknown as ConversationFlowSentimentResponse;
   },
 
-  async getConversationFlowHandoffCorrelation(days = 30): Promise<ConversationFlowHandoffCorrelation> {
-    const response = await apiClient.get<ConversationFlowHandoffCorrelation>(
+  async getConversationFlowHandoffCorrelation(days = 30): Promise<ConversationFlowHandoffResponse> {
+    const response = await apiClient.get<ConversationFlowHandoffResponse>(
       `/api/v1/analytics/conversation-flow/handoff-correlation?days=${days}`
     );
-    return response as unknown as ConversationFlowHandoffCorrelation;
+    return response as unknown as ConversationFlowHandoffResponse;
   },
 
-  async getConversationFlowContextUtilization(days = 30): Promise<ConversationFlowContextUtilization> {
-    const response = await apiClient.get<ConversationFlowContextUtilization>(
+  async getConversationFlowContextUtilization(days = 30): Promise<ConversationFlowContextResponse> {
+    const response = await apiClient.get<ConversationFlowContextResponse>(
       `/api/v1/analytics/conversation-flow/context-utilization?days=${days}`
     );
-    return response as unknown as ConversationFlowContextUtilization;
+    return response as unknown as ConversationFlowContextResponse;
   },
 
   // ────────────────────────────────────────────────────────────────
@@ -575,7 +571,7 @@ export interface TopTopic {
   trend: 'up' | 'down' | 'stable' | 'new';
 }
 
- export interface TopTopicsResponse {
+export interface TopTopicsResponse {
   topics: TopTopic[];
   lastUpdated: string;
   period: {
@@ -652,4 +648,3 @@ export interface ResponseTimeDistributionData {
     };
   };
 }
-

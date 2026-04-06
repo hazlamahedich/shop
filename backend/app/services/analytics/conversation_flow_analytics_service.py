@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -39,6 +40,51 @@ class ConversationFlowAnalyticsService:
             .where(Conversation.merchant_id == merchant_id)
             .where(ConversationTurn.created_at >= cutoff)
         )
+
+    async def get_overview(self, merchant_id: int, days: int = 30) -> dict[str, Any]:
+        """Overview: Aggregated summary combining key metrics from all sub-analyses."""
+        try:
+            length_data = await self.get_conversation_length_distribution(merchant_id, days)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+            total_result = await self.db.execute(
+                select(func.count(func.distinct(Conversation.id)))
+                .where(Conversation.merchant_id == merchant_id)
+                .where(Conversation.created_at >= cutoff)
+            )
+            total_conversations = total_result.scalar() or 0
+
+            if total_conversations == 0 and not length_data.get("has_data"):
+                return {
+                    "has_data": False,
+                    "message": "No conversation data available for this period.",
+                }
+
+            overview: dict[str, Any] = {
+                "has_data": True,
+                "data": {
+                    "total_conversations": total_conversations,
+                    "average_turns": length_data.get("data", {}).get("avg_turns", 0),
+                    "completion_rate": None,
+                    "by_mode": length_data.get("data", {}).get("by_mode", []),
+                    "daily_trend": length_data.get("data", {}).get("daily_trend", []),
+                },
+                "period_days": days,
+            }
+            return overview
+
+        except Exception as e:
+            logger.error(
+                "conversation_flow_overview_failed",
+                merchant_id=merchant_id,
+                days=days,
+                error=str(e),
+                error_code=7120,
+            )
+            return {
+                "has_data": False,
+                "message": "Unable to compute conversation flow overview.",
+            }
 
     async def get_conversation_length_distribution(
         self, merchant_id: int, days: int = 30
@@ -144,11 +190,15 @@ class ConversationFlowAnalyticsService:
             ]
 
             sorted_counts = sorted(
-                [row["turn_count"] for row in length_distribution] * 1,
-                key=lambda x: x,
+                [row["turn_count"] for row in length_distribution],
             )
-            mid = len(sorted_counts) // 2
-            median_turns = float(sorted_counts[mid]) if sorted_counts else 0
+            median_turns = 0.0
+            if sorted_counts:
+                n = len(sorted_counts)
+                if n % 2 == 0:
+                    median_turns = round((sorted_counts[n // 2 - 1] + sorted_counts[n // 2]) / 2, 1)
+                else:
+                    median_turns = float(sorted_counts[n // 2])
 
             return {
                 "has_data": True,
@@ -197,8 +247,6 @@ class ConversationFlowAnalyticsService:
                     "has_data": False,
                     "message": "No clarification patterns found in this period.",
                 }
-
-            from collections import defaultdict
 
             intent_chains: dict[str, list[str]] = defaultdict(list)
             conv_turns: dict[int, list[Any]] = defaultdict(list)
@@ -290,11 +338,17 @@ class ConversationFlowAnalyticsService:
                     "message": "No significant friction points detected.",
                 }
 
-            from collections import defaultdict
-
             conv_turns: dict[int, list[Any]] = defaultdict(list)
             for turn in all_turns:
                 conv_turns[turn.conversation_id].append(turn)
+
+            closed_conv_ids_result = await self.db.execute(
+                select(Conversation.id)
+                .where(Conversation.merchant_id == merchant_id)
+                .where(Conversation.status == "closed")
+                .where(Conversation.id.in_([t.conversation_id for t in all_turns]))
+            )
+            closed_conv_ids: set[int] = {row[0] for row in closed_conv_ids_result.all()}
 
             drop_off_intents: dict[str, int] = defaultdict(int)
             repeated_intents: dict[str, int] = defaultdict(int)
@@ -308,14 +362,7 @@ class ConversationFlowAnalyticsService:
                     if pt is not None:
                         processing_times.append(pt)
 
-                closed_conv_ids_result = await self.db.execute(
-                    select(Conversation.id)
-                    .where(Conversation.id == conv_id)
-                    .where(Conversation.status == "closed")
-                )
-                is_closed = closed_conv_ids_result.first() is not None
-
-                if is_closed and sorted_turns:
+                if conv_id in closed_conv_ids and sorted_turns:
                     last_intent = sorted_turns[-1].intent_detected
                     if last_intent:
                         drop_off_intents[last_intent] += 1
@@ -525,12 +572,16 @@ class ConversationFlowAnalyticsService:
             trigger_result = await self.db.execute(
                 select(
                     last_turns_before_handoff.c.intent_detected,
-                    func.count().label("trigger_count"),
+                    func.count(func.distinct(last_turns_before_handoff.c.conversation_id)).label(
+                        "trigger_count"
+                    ),
                 )
                 .where(last_turns_before_handoff.c.rn <= 3)
                 .where(last_turns_before_handoff.c.intent_detected != None)  # noqa: E711
                 .group_by(last_turns_before_handoff.c.intent_detected)
-                .order_by(func.count().desc())
+                .order_by(
+                    func.count(func.distinct(last_turns_before_handoff.c.conversation_id)).desc()
+                )
                 .limit(5)
             )
             top_triggers = [
@@ -546,20 +597,6 @@ class ConversationFlowAnalyticsService:
                 .where(ConversationTurn.created_at >= cutoff)
             )
             avg_handoff_length = handoff_length_result.scalar()
-
-            resolved_turn_count_sub = (
-                select(
-                    ConversationTurn.conversation_id,
-                    func.count(ConversationTurn.id).label("turn_count"),
-                )
-                .join(Conversation, ConversationTurn.conversation_id == Conversation.id)
-                .where(Conversation.merchant_id == merchant_id)
-                .where(Conversation.handoff_status == "none")
-                .where(ConversationTurn.created_at >= cutoff)
-                .group_by(ConversationTurn.conversation_id)
-                .subquery()
-            )
-            await self.db.execute(select(func.avg(resolved_turn_count_sub.c.turn_count)))
 
             handoff_count_result = await self.db.execute(
                 select(func.count(func.distinct(Conversation.id)))
@@ -702,7 +739,8 @@ class ConversationFlowAnalyticsService:
                 .where(Conversation.merchant_id == merchant_id)
                 .where(ConversationTurn.created_at >= cutoff)
                 .where(
-                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean() == True  # noqa: E712
+                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean()
+                    == True  # noqa: E712
                 )
             )
             turns_with_context = with_context_result.scalar() or 0
@@ -733,7 +771,8 @@ class ConversationFlowAnalyticsService:
                 .where(ConversationTurn.created_at >= cutoff)
                 .where(mode_expr != None)  # noqa: E711
                 .where(
-                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean() == True  # noqa: E712
+                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean()
+                    == True  # noqa: E712
                 )
                 .group_by(mode_expr)
             )

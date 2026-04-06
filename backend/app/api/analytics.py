@@ -713,6 +713,22 @@ async def get_quick_actions(
 # ────────────────────────────────────────────────────────────────
 
 
+@router.get("/conversation-flow/overview")
+async def get_conversation_flow_overview(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get conversation flow overview summary.
+
+    Story 11.12b: Overview combining key metrics from all sub-analyses.
+    Returns total conversations, average turns, by mode, daily trend.
+    """
+    merchant_id = _get_merchant_id_from_request(request)
+    service = ConversationFlowAnalyticsService(db)
+    return await service.get_overview(merchant_id, days)
+
+
 @router.get("/conversation-flow/length-distribution")
 async def get_conversation_flow_length_distribution(
     request: Request,

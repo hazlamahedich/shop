@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
@@ -9,6 +9,15 @@ import {
   Layers,
 } from 'lucide-react';
 import { analyticsService } from '../../services/analyticsService';
+import type {
+  ConversationFlowOverviewData,
+  ConversationFlowLengthDistributionData,
+  ConversationFlowClarificationData,
+  ConversationFlowFrictionData,
+  ConversationFlowSentimentData,
+  ConversationFlowHandoffData,
+  ConversationFlowContextData,
+} from '../../types/analytics';
 import { StatCard } from './StatCard';
 
 type TabId = 'overview' | 'clarification' | 'friction' | 'sentiment' | 'handoff' | 'context';
@@ -22,28 +31,6 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'context', label: 'Context', icon: <Layers size={14} /> },
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ApiData = any;
-
-function getNestedData(raw: ApiData): ApiData {
-  if (!raw) return null;
-  if (raw.data && typeof raw.data === 'object') return raw.data;
-  const rest: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (k !== 'has_data' && k !== 'message') rest[k] = v;
-  }
-  if (raw.has_data === true && Object.keys(rest).length > 0) return rest;
-  return raw.data ?? null;
-}
-
-function getTotalConversations(raw: ApiData): number {
-  if (!raw) return 0;
-  if (raw.total_conversations != null) return raw.total_conversations;
-  if (raw.data?.totalConversations != null) return raw.data.totalConversations;
-  if (raw.data?.total_conversations != null) return raw.data.total_conversations;
-  return 0;
-}
-
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-white/30">
@@ -53,8 +40,37 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+const VISITED_TABS_KEY = 'conversation-flow-visited-tabs';
+
+function useVisitedTabs() {
+  const [visited, setVisited] = useState<Set<TabId>>(() => {
+    try {
+      const stored = localStorage.getItem(VISITED_TABS_KEY);
+      return stored ? new Set<TabId>(JSON.parse(stored) as TabId[]) : new Set<TabId>(['overview']);
+    } catch {
+      return new Set<TabId>(['overview']);
+    }
+  });
+
+  const markVisited = (tab: TabId) => {
+    setVisited((prev) => {
+      const next = new Set(prev);
+      next.add(tab);
+      try {
+        localStorage.setItem(VISITED_TABS_KEY, JSON.stringify([...next]));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  return { visited, markVisited };
+}
+
 export function ConversationFlowWidget() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const { visited, markVisited } = useVisitedTabs();
 
   const { data: overviewData, isLoading: overviewLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'overview'],
@@ -67,6 +83,7 @@ export function ConversationFlowWidget() {
   const { data: lengthData, isLoading: lengthLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'length-distribution'],
     queryFn: () => analyticsService.getConversationFlowLengthDistribution(),
+    enabled: visited.has('overview'),
     refetchInterval: 600_000,
     staleTime: 300_000,
   });
@@ -74,6 +91,7 @@ export function ConversationFlowWidget() {
   const { data: clarificationData, isLoading: clarificationLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'clarification-patterns'],
     queryFn: () => analyticsService.getConversationFlowClarificationPatterns(),
+    enabled: visited.has('clarification'),
     refetchInterval: 600_000,
     staleTime: 300_000,
   });
@@ -81,6 +99,7 @@ export function ConversationFlowWidget() {
   const { data: frictionData, isLoading: frictionLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'friction-points'],
     queryFn: () => analyticsService.getConversationFlowFrictionPoints(),
+    enabled: visited.has('friction'),
     refetchInterval: 600_000,
     staleTime: 300_000,
   });
@@ -88,6 +107,7 @@ export function ConversationFlowWidget() {
   const { data: sentimentData, isLoading: sentimentLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'sentiment-stages'],
     queryFn: () => analyticsService.getConversationFlowSentimentStages(),
+    enabled: visited.has('sentiment'),
     refetchInterval: 600_000,
     staleTime: 300_000,
   });
@@ -95,6 +115,7 @@ export function ConversationFlowWidget() {
   const { data: handoffData, isLoading: handoffLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'handoff-correlation'],
     queryFn: () => analyticsService.getConversationFlowHandoffCorrelation(),
+    enabled: visited.has('handoff'),
     refetchInterval: 600_000,
     staleTime: 300_000,
   });
@@ -102,45 +123,52 @@ export function ConversationFlowWidget() {
   const { data: contextData, isLoading: contextLoading } = useQuery({
     queryKey: ['analytics', 'conversation-flow', 'context-utilization'],
     queryFn: () => analyticsService.getConversationFlowContextUtilization(),
+    enabled: visited.has('context'),
     refetchInterval: 600_000,
     staleTime: 300_000,
   });
 
-  const isLoading =
-    overviewLoading || lengthLoading || clarificationLoading || frictionLoading || sentimentLoading || handoffLoading || contextLoading;
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab);
+    markVisited(tab);
+  };
 
-  const currentData = (() => {
+  const tabLoading = useMemo(() => {
     switch (activeTab) {
       case 'overview':
-        return overviewData?.has_data ? overviewData : lengthData;
+        return overviewLoading || (visited.has('overview') && lengthLoading);
       case 'clarification':
-        return clarificationData;
+        return clarificationLoading;
       case 'friction':
-        return frictionData;
+        return frictionLoading;
       case 'sentiment':
-        return sentimentData;
+        return sentimentLoading;
       case 'handoff':
-        return handoffData;
+        return handoffLoading;
       case 'context':
-        return contextData;
-      default:
-        return lengthData;
+        return contextLoading;
     }
-  })();
-
-  const hasData = currentData?.has_data === true;
+  }, [
+    activeTab,
+    overviewLoading,
+    lengthLoading,
+    clarificationLoading,
+    frictionLoading,
+    sentimentLoading,
+    handoffLoading,
+    contextLoading,
+    visited,
+  ]);
 
   const renderOverviewTab = () => {
-    const raw = overviewData?.has_data ? overviewData : lengthData;
-    if (!raw?.has_data) {
+    const overview = overviewData?.has_data ? overviewData.data : lengthData?.data;
+    if (!overview) {
       return <EmptyState message="No conversation data available" />;
     }
-    const d = getNestedData(raw);
-    if (!d) return <EmptyState message="No conversation data available" />;
+    const d: ConversationFlowOverviewData | ConversationFlowLengthDistributionData = overview;
 
-    const avgTurns = d.avgTurns ?? d.average_turns ?? d.avgTurnsByMode?.[0]?.avgTurns ?? '—';
-    const p90Turns = d.p90Turns ?? d.p90_turns ?? '—';
-    const totalConversations = d.totalConversations ?? d.total_conversations ?? 0;
+    const avgTurns = 'avg_turns' in d ? d.avg_turns : 'average_turns' in d ? d.average_turns : '—';
+    const p90Turns = 'p90_turns' in d ? d.p90_turns : '—';
 
     return (
       <div className="space-y-4">
@@ -152,55 +180,55 @@ export function ConversationFlowWidget() {
             <div className="text-lg font-black text-[#00f5d4]">{avgTurns}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-            <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
-              P90
-            </div>
+            <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">P90</div>
             <div className="text-lg font-black text-amber-400">{p90Turns}</div>
           </div>
         </div>
-        {d.completion_rate != null && (
+        {'completion_rate' in d && d.completion_rate != null && (
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Completion Rate
             </div>
-            <div className="text-lg font-black text-[#00f5d4]">{Math.round((d.completion_rate ?? d.completionRate ?? 0) * 100)}%</div>
+            <div className="text-lg font-black text-[#00f5d4]">
+              {Math.round(d.completion_rate * 100)}%
+            </div>
           </div>
         )}
-        {d.byMode && d.byMode.length > 0 && (
+        {d.by_mode && d.by_mode.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               By Mode
             </div>
-            {(d.byMode as Array<Record<string, any>>).map((m: Record<string, any>) => (
+            {d.by_mode.map((m) => (
               <div
-                key={String(m.mode)}
+                key={m.mode}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
-                <span className="text-[10px] text-white/40 capitalize">{String(m.mode)}</span>
+                <span className="text-[10px] text-white/40 capitalize">{m.mode}</span>
                 <span className="text-[10px] font-black text-[#00f5d4]">
-                  {m.avgTurns ?? m.average_turns} avg / {m.conversationCount ?? m.conversation_count} convs
+                  {m.avg_turns} avg / {m.conversation_count} convs
                 </span>
               </div>
             ))}
           </div>
         )}
-        {d.dailyTrend && d.dailyTrend.length > 0 && (
+        {d.daily_trend && d.daily_trend.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Daily Trend
             </div>
             <div className="h-16 flex items-end gap-[2px]">
-              {(d.dailyTrend as Array<Record<string, any>>).slice(-14).map((day: Record<string, any>) => (
+              {d.daily_trend.slice(-14).map((day) => (
                 <div
-                  key={String(day.date)}
+                  key={day.date}
                   className="flex-1 flex flex-col items-center gap-1"
-                  title={`${day.date}: ${day.avgTurns ?? day.average_turns} avg turns`}
+                  title={`${day.date}: ${day.avg_turns} avg turns`}
                 >
                   <div
                     className="w-full bg-[#00f5d4]/20 rounded-t"
-                    style={{ height: `${Math.max(4, (day.avgTurns ?? day.average_turns ?? 0) * 10)}%` }}
+                    style={{ height: `${Math.max(4, day.avg_turns * 10)}%` }}
                   />
-                  <span className="text-[8px] text-white/20">{String(day.date ?? '').slice(5)}</span>
+                  <span className="text-[8px] text-white/20">{day.date.slice(5)}</span>
                 </div>
               ))}
             </div>
@@ -211,11 +239,10 @@ export function ConversationFlowWidget() {
   };
 
   const renderClarificationTab = () => {
-    if (!clarificationData?.has_data) {
+    if (!clarificationData?.has_data || !clarificationData.data) {
       return <EmptyState message="No data available" />;
     }
-    const d = getNestedData(clarificationData);
-    if (!d) return <EmptyState message="No data available" />;
+    const d: ConversationFlowClarificationData = clarificationData.data;
 
     return (
       <div className="space-y-4">
@@ -224,26 +251,28 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Depth
             </div>
-            <div className="text-lg font-black text-[#00f5d4]">{d.avgClarificationDepth ?? d.avg_clarification_depth}</div>
+            <div className="text-lg font-black text-[#00f5d4]">{d.avg_clarification_depth}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Success Rate
             </div>
-            <div className="text-lg font-black text-purple-400">{d.clarificationSuccessRate ?? d.clarification_success_rate}%</div>
+            <div className="text-lg font-black text-purple-400">
+              {d.clarification_success_rate}%
+            </div>
           </div>
         </div>
-        {d.topSequences && d.topSequences.length > 0 && (
+        {d.top_sequences.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Top Sequences
             </div>
-            {(d.topSequences as Array<Record<string, any>>).map((seq: Record<string, any>) => (
+            {d.top_sequences.map((seq) => (
               <div
-                key={String(seq.sequence)}
+                key={seq.sequence}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
-                <span className="text-[10px] text-white/40">{String(seq.sequence)}</span>
+                <span className="text-[10px] text-white/40">{seq.sequence}</span>
                 <span className="text-[10px] font-black text-[#00f5d4]">{seq.count}</span>
               </div>
             ))}
@@ -254,11 +283,10 @@ export function ConversationFlowWidget() {
   };
 
   const renderFrictionTab = () => {
-    if (!frictionData?.has_data) {
+    if (!frictionData?.has_data || !frictionData.data) {
       return <EmptyState message="No data available" />;
     }
-    const d = getNestedData(frictionData);
-    if (!d) return <EmptyState message="No data available" />;
+    const d: ConversationFlowFrictionData = frictionData.data;
 
     return (
       <div className="space-y-3">
@@ -266,14 +294,14 @@ export function ConversationFlowWidget() {
           <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
             Friction
           </div>
-          <div className="text-lg font-black text-[#00f5d4]">{d.totalConversationsAnalyzed ?? d.total_conversations_analyzed}</div>
+          <div className="text-lg font-black text-[#00f5d4]">{d.total_conversations_analyzed}</div>
         </div>
-        {d.frictionPoints && d.frictionPoints.length > 0 && (
+        {d.friction_points.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Friction Points
             </div>
-            {(d.frictionPoints as Array<Record<string, any>>).map((fp: Record<string, any>, idx: number) => (
+            {d.friction_points.map((fp, idx) => (
               <div key={idx} className="space-y-1 py-2 px-3 border border-white/5 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-white/40">{fp.intent}</span>
@@ -282,10 +310,12 @@ export function ConversationFlowWidget() {
                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-500/30 rounded"
-                    style={{ width: `${Math.min(100, (fp.frequency ?? 0) * 20)}%` }}
+                    style={{ width: `${Math.min(100, fp.frequency * 20)}%` }}
                   />
                 </div>
-                <div className="text-[9px] text-white/20 uppercase">{String(fp.type ?? '').replace('_', ' ')}</div>
+                <div className="text-[9px] text-white/20 uppercase">
+                  {fp.type.replace('_', ' ')}
+                </div>
               </div>
             ))}
           </div>
@@ -295,35 +325,34 @@ export function ConversationFlowWidget() {
   };
 
   const renderSentimentTab = () => {
-    if (!sentimentData?.has_data) {
+    if (!sentimentData?.has_data || !sentimentData.data) {
       return <EmptyState message="No data available" />;
     }
-    const d = getNestedData(sentimentData);
-    if (!d) return <EmptyState message="No data available" />;
+    const d: ConversationFlowSentimentData = sentimentData.data;
 
     return (
       <div className="space-y-3">
-        {d.stages &&
-          Object.entries(d.stages as Record<string, Record<string, number>>).map(([stage, sentiments]) => (
-            <div key={stage} className="space-y-2">
-              <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
-                {stage}
-              </div>
-              <div className="space-y-1">
-                {Object.entries(sentiments).map(([sentiment, count]) => (
-                  <div key={sentiment} className="flex justify-between items-center py-1 px-2">
-                    <span className="text-[10px] text-white/40 capitalize">{sentiment}</span>
-                    <span className="text-[10px] font-black text-purple-400">{String(count)}</span>
-                  </div>
-                ))}
-              </div>
+        {Object.entries(d.stages).map(([stage, sentiments]) => (
+          <div key={stage} className="space-y-2">
+            <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
+              {stage}
             </div>
-          ))}
-        {(d.totalNegativeShifts ?? d.total_negative_shifts ?? 0) > 0 && (
+            <div className="space-y-1">
+              {Object.entries(sentiments).map(([sentiment, count]) => (
+                <div key={sentiment} className="flex justify-between items-center py-1 px-2">
+                  <span className="text-[10px] text-white/40 capitalize">{sentiment}</span>
+                  <span className="text-[10px] font-black text-purple-400">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {d.total_negative_shifts > 0 && (
           <div className="mt-3 bg-rose-500/10 rounded-lg p-3 border border-rose-500/20">
             <AlertTriangle size={10} className="inline" />
             <span className="text-[10px] text-white/40">
-              {' '}{d.totalNegativeShifts ?? d.total_negative_shifts} negative sentiment shifts detected
+              {' '}
+              {d.total_negative_shifts} negative sentiment shifts detected
             </span>
           </div>
         )}
@@ -332,11 +361,10 @@ export function ConversationFlowWidget() {
   };
 
   const renderHandoffTab = () => {
-    if (!handoffData?.has_data) {
+    if (!handoffData?.has_data || !handoffData.data) {
       return <EmptyState message="No data available" />;
     }
-    const d = getNestedData(handoffData);
-    if (!d) return <EmptyState message="No data available" />;
+    const d: ConversationFlowHandoffData = handoffData.data;
 
     return (
       <div className="space-y-3">
@@ -345,23 +373,23 @@ export function ConversationFlowWidget() {
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Before Handoff
             </div>
-            <div className="text-lg font-black text-rose-400">{d.avgHandoffLength ?? d.avg_handoff_length}</div>
+            <div className="text-lg font-black text-rose-400">{d.avg_handoff_length}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Avg Resolved
             </div>
-            <div className="text-lg font-black text-[#00f5d4]">{d.avgResolvedLength ?? d.avg_resolved_length}</div>
+            <div className="text-lg font-black text-[#00f5d4]">{d.avg_resolved_length}</div>
           </div>
         </div>
-        {d.topTriggers && d.topTriggers.length > 0 && (
+        {d.top_triggers.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Top Handoff Triggers
             </div>
-            {(d.topTriggers as Array<Record<string, any>>).map((t: Record<string, any>) => (
+            {d.top_triggers.map((t) => (
               <div
-                key={String(t.intent)}
+                key={t.intent}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
                 <span className="text-[10px] text-white/40">{t.intent}</span>
@@ -370,29 +398,34 @@ export function ConversationFlowWidget() {
             ))}
           </div>
         )}
-        {d.handoffRatePerIntent && d.handoffRatePerIntent.length > 0 && (
+        {d.handoff_rate_per_intent.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               Handoff Rate by Intent
             </div>
-            {(d.handoffRatePerIntent as Array<Record<string, any>>).map((h: Record<string, any>) => (
-              <div key={String(h.intent)} className="flex justify-between items-center py-1.5 px-2 border-b border-white/5">
+            {d.handoff_rate_per_intent.map((h) => (
+              <div
+                key={h.intent}
+                className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
+              >
                 <span className="text-[10px] text-white/40">{h.intent}</span>
-                <span className="text-[10px] font-black text-rose-400">{h.handoffRate ?? h.handoff_rate}%</span>
+                <span className="text-[10px] font-black text-rose-400">{h.handoff_rate}%</span>
               </div>
             ))}
           </div>
         )}
-        {d.anonymizedExcerpts && d.anonymizedExcerpts.length > 0 && (
+        {d.anonymized_excerpts.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-1">
               Anonymized Excerpts
             </div>
-            <p className="text-[9px] text-white/20 italic">{d.privacyNote ?? d.privacy_note}</p>
-            {(d.anonymizedExcerpts as Array<Record<string, any>>).map((ex: Record<string, any>, i: number) => (
+            <p className="text-[9px] text-white/20 italic">{d.privacy_note}</p>
+            {d.anonymized_excerpts.map((ex, i) => (
               <div key={i} className="py-1 px-2 border-b border-white/5">
-                <span className="text-[10px] text-white/40">&quot;{ex.anonymizedMessage ?? ex.anonymized_message}&quot;</span>
-                <span className="text-[10px] text-white/30 ml-2">{ex.intentDetected ?? ex.intent_detected ?? 'N/A'}</span>
+                <span className="text-[10px] text-white/40">
+                  &quot;{ex.anonymized_message}&quot;
+                </span>
+                <span className="text-[10px] text-white/30 ml-2">{ex.intent_detected}</span>
               </div>
             ))}
           </div>
@@ -402,11 +435,10 @@ export function ConversationFlowWidget() {
   };
 
   const renderContextTab = () => {
-    if (!contextData?.has_data) {
+    if (!contextData?.has_data || !contextData.data) {
       return <EmptyState message="No data available" />;
     }
-    const d = getNestedData(contextData);
-    if (!d) return <EmptyState message="No data available" />;
+    const d: ConversationFlowContextData = contextData.data;
 
     return (
       <div className="space-y-3">
@@ -414,43 +446,44 @@ export function ConversationFlowWidget() {
           <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
             Utilization Rate
           </div>
-          <div className="text-lg font-black text-[#00f5d4]">{d.utilizationRate ?? d.utilization_rate}%</div>
+          <div className="text-lg font-black text-[#00f5d4]">{d.utilization_rate}%</div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               With Context
             </div>
-            <div className="text-sm font-black text-purple-400">{d.turnsWithContext ?? d.turns_with_context}</div>
+            <div className="text-sm font-black text-purple-400">{d.turns_with_context}</div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 border border-white/10">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider">
               Total Turns
             </div>
-            <div className="text-sm font-black text-white/40">{d.totalTurns ?? d.total_turns}</div>
+            <div className="text-sm font-black text-white/40">{d.total_turns}</div>
           </div>
         </div>
-        {d.byMode && d.byMode.length > 0 && (
+        {d.by_mode.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-wider mb-2">
               By Mode
             </div>
-            {(d.byMode as Array<Record<string, any>>).map((m: Record<string, any>) => (
+            {d.by_mode.map((m) => (
               <div
-                key={String(m.mode)}
+                key={m.mode}
                 className="flex justify-between items-center py-1.5 px-2 border-b border-white/5"
               >
-                <span className="text-[10px] text-white/40 capitalize">{String(m.mode)}</span>
-                <span className="text-[10px] font-black text-[#00f5d4]">{m.utilizationRate ?? m.utilization_rate}%</span>
+                <span className="text-[10px] text-white/40 capitalize">{m.mode}</span>
+                <span className="text-[10px] font-black text-[#00f5d4]">{m.utilization_rate}%</span>
               </div>
             ))}
           </div>
         )}
-        {(d.improvementOpportunities ?? d.improvement_opportunities ?? 0) > 0 && (
+        {d.improvement_opportunities > 0 && (
           <div className="mt-3 bg-amber-500/10 rounded-lg p-3 border border-amber-500/20">
             <AlertTriangle size={10} className="inline" />
             <span className="text-[10px] text-white/40">
-              {' '}{d.improvementOpportunities ?? d.improvement_opportunities} conversations with less than 50% context utilization
+              {' '}
+              {d.improvement_opportunities} conversations with less than 50% context utilization
             </span>
           </div>
         )}
@@ -475,16 +508,17 @@ export function ConversationFlowWidget() {
     }
   };
 
-  const displayTotal = getTotalConversations(overviewData) || getTotalConversations(lengthData);
+  const displayTotal =
+    overviewData?.data?.total_conversations ?? lengthData?.data?.total_conversations ?? 0;
 
   return (
     <StatCard
       title="Flow Analytics"
-      value={isLoading ? '...' : hasData ? `${displayTotal} convs` : '—'}
+      value={tabLoading ? '...' : displayTotal > 0 ? `${displayTotal} convs` : '—'}
       subValue="CONVERSATION_FLOW"
       icon={<Activity size={18} />}
       accentColor="purple"
-      isLoading={isLoading}
+      isLoading={tabLoading}
       expandable
       data-testid="conversation-flow-widget"
     >
@@ -492,7 +526,7 @@ export function ConversationFlowWidget() {
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] transition-colors ${
               activeTab === tab.id
                 ? 'text-[#00f5d4] bg-[#00f5d4]/10 border border-[#00f5d4]/20'

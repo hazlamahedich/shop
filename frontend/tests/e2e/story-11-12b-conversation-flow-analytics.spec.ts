@@ -202,9 +202,14 @@ test.describe('Story 11.12b: Conversation Flow Analytics Dashboard', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           has_data: true,
-          average_turns: 5.2,
-          total_conversations: 150,
-          completion_rate: 0.87,
+          data: {
+            total_conversations: 150,
+            average_turns: 5.2,
+            completion_rate: 0.87,
+            by_mode: [],
+            daily_trend: [],
+          },
+          period_days: 30,
         }),
       });
     });

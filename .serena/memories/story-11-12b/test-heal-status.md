@@ -1,6 +1,8 @@
 # Story 11.12b: Conversation Flow Analytics Dashboard — Test Heal
 
-## Status: COMPLETE (12/12 tests passing)
+## Status: COMPLETE (12/12 E2E + 32 unit + 17 integration tests passing)
+
+## Implementation Review: Addressed (10/10 issues fixed)
 
 ## Test File
 `frontend/tests/e2e/story-11-12b-conversation-flow-analytics.spec.ts`
@@ -34,3 +36,29 @@
 5. **AC10 z-index**: Expand button intercepted by icon div. Fixed with `z-10`.
 6. **AC11 strict mode**: `text=150` matched two elements. Removed Total stat cell from overview grid.
 7. **AC0 strict mode**: `'NO DATA'` card value matched the test regex `/No (conversation |data )?(data|available|conversation data)/i`. Playwright's `isVisible()` threw strict mode violation when matching 7 elements. Changed card value to `'—'`.
+
+## Implementation Review Fixes (Party Mode — Winston, Amelia, Murat)
+
+### P0 Fixes
+1. **Missing `/conversation-flow/overview` API endpoint**: Added `get_overview()` service method (error code 7120) + GET route in `analytics.py`. Frontend was calling a non-existent endpoint on every dashboard load.
+2. **N+1 query in `get_friction_points()`**: Replaced per-conversation `SELECT` loop (1 query per conversation) with single batch query fetching all closed conversation IDs upfront, then `set` membership check.
+
+### P1 Fixes
+3. **Dead code in `get_handoff_correlation()`**: Removed unused `resolved_turn_count_sub` subquery + its execution (was built and run but result never used).
+4. **Phantom TypeScript types**: Defined 16 proper interfaces in `types/analytics.ts` (`ConversationFlowEnvelope<T>`, data interfaces for all 6 tabs, response type aliases). Replaced all `any` casts in `analyticsService.ts`.
+5. **Lazy-loaded tab queries**: Non-overview tabs now only fetch when user clicks the tab via `useVisitedTabs` hook + `enabled` flag. Initial requests reduced from 7 to 2.
+6. **Removed `getNestedData()` hack**: Widget now accesses typed `response.data` directly instead of normalizing snake_case/camelCase defensively.
+
+### P2 Fixes
+7. **Median calculation**: Fixed for even-length lists (now averages two middle values). Removed no-op `* 1`.
+8. **Handoff rate exceeding 100%**: Changed `func.count()` to `func.count(func.distinct(...conversation_id))` so each conversation counts once.
+9. **E2E mock data shape**: AC11 mock now uses correct envelope `{has_data: true, data: {...}, period_days: 30}` matching real API.
+
+### P3 Fixes
+10. **Moved `from collections import defaultdict`** to top-level imports (was inside function bodies × 2).
+
+### Verification
+- 32 backend unit tests pass
+- 17 integration tests pass
+- 12 E2E tests pass
+- 0 new TS/ESLint errors
