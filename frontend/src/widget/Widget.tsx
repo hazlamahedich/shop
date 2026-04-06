@@ -182,6 +182,89 @@ function WidgetInner({ theme }: WidgetInnerProps) {
   return (
     <>
       <style>{`
+        /* CSS ISOLATION: Protect widget from parent page styles */
+        .shopbot-widget-root {
+          font-family: var(--widget-font, Inter, sans-serif) !important;
+          font-size: var(--widget-font-size, 14px) !important;
+          color: var(--widget-text, #1f2937) !important;
+          line-height: 1.5 !important;
+          text-shadow: none !important;
+        }
+
+        /* Reset common inherited properties that cause conflicts */
+        .shopbot-widget-root *,
+        .shopbot-widget-root *::before,
+        .shopbot-widget-root *::after {
+          box-sizing: border-box !important;
+        }
+
+        /* Quick Reply Button Contrast Fix */
+        .shopbot-widget-root .quick-reply-button {
+          color: var(--widget-primary, #6366f1) !important;
+          border-color: var(--widget-primary, #6366f1) !important;
+          background-color: transparent !important;
+          font-weight: 500 !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .shopbot-widget-root .quick-reply-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1) !important;
+        }
+
+        /* Typing Indicator Visibility Fix */
+        .shopbot-widget-root .typing-indicator {
+          color: var(--widget-text, #1f2937) !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .shopbot-widget-root .typing-dot {
+          background-color: var(--widget-primary, #6366f1) !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+
+        /* FAQ Quick Buttons Visibility Fix */
+        .shopbot-widget-root .faq-quick-button {
+          color: var(--widget-primary, #6366f1) !important;
+          border-color: var(--widget-primary, #6366f1) !important;
+          background-color: transparent !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .shopbot-widget-root .faq-quick-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1) !important;
+        }
+
+        /* Message visibility */
+        .shopbot-widget-root .message-bubble {
+          color: var(--widget-text, #1f2937) !important;
+          opacity: 1 !important;
+        }
+        .shopbot-widget-root .message-bubble--bot {
+          background-color: var(--widget-bot-bubble, #f3f4f6) !important;
+        }
+        .shopbot-widget-root .message-bubble--user {
+          background-color: var(--widget-user-bubble, #6366f1) !important;
+          color: white !important;
+        }
+
+        /* Input visibility */
+        .shopbot-widget-root input,
+        .shopbot-widget-root textarea {
+          color: var(--widget-text, #1f2937) !important;
+          background-color: white !important;
+          opacity: 1 !important;
+        }
+        .shopbot-widget-root input::placeholder,
+        .shopbot-widget-root textarea::placeholder {
+          color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Button visibility */
+        .shopbot-widget-root button {
+          color: inherit !important;
+        }
+
         .shopbot-widget-root * {
           box-sizing: border-box;
         }

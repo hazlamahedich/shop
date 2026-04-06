@@ -7379,3876 +7379,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
     subscribeToCartUpdates,
     subscribeToCartEvents
   };
-  const safeStorage = {
-    get: (key) => {
-      try {
-        return sessionStorage.getItem(key);
-      } catch {
-        return null;
-      }
-    },
-    set: (key, value) => {
-      try {
-        sessionStorage.setItem(key, value);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    remove: (key) => {
-      try {
-        sessionStorage.removeItem(key);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-  };
-  const safeLocalStorage = {
-    get: (key) => {
-      try {
-        return localStorage.getItem(key);
-      } catch {
-        return null;
-      }
-    },
-    set: (key, value) => {
-      try {
-        localStorage.setItem(key, value);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    remove: (key) => {
-      try {
-        localStorage.removeItem(key);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-  };
-  const SESSION_KEY = "widget_session_id";
-  const MERCHANT_KEY = "widget_merchant_id";
-  const VISITOR_KEY = "widget_visitor_id";
-  const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
-  function getVisitorId() {
-    const stored = safeLocalStorage.get(VISITOR_KEY);
-    if (!stored) return null;
-    try {
-      const parsed = JSON.parse(stored);
-      const createdAt = new Date(parsed.createdAt).getTime();
-      const now = Date.now();
-      if (now - createdAt < VISITOR_MAX_AGE_MS) {
-        return parsed.visitorId;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }
-  function clearVisitorId() {
-    safeLocalStorage.remove(VISITOR_KEY);
-  }
-  const MESSAGE_CACHE_PREFIX = "widget_msg_cache_";
-  const MESSAGE_CACHE_META_PREFIX = "widget_msg_meta_";
-  const MESSAGE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
-  function cacheMessages(sessionId, messages) {
-    try {
-      const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
-      const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
-      const now = Date.now();
-      const meta = {
-        sessionId,
-        createdAt: new Date(now).toISOString(),
-        expiresAt: new Date(now + MESSAGE_CACHE_TTL_MS).toISOString()
-      };
-      safeLocalStorage.set(cacheKey, JSON.stringify(messages));
-      safeLocalStorage.set(metaKey, JSON.stringify(meta));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function clearMessageCache(sessionId) {
-    const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
-    const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
-    safeLocalStorage.remove(cacheKey);
-    safeLocalStorage.remove(metaKey);
-  }
-  const POSITION_KEY_PREFIX = "shopbot-widget-position-";
-  function isValidPosition(position) {
-    if (!position || typeof position !== "object") return false;
-    const pos = position;
-    return typeof pos.x === "number" && typeof pos.y === "number" && !isNaN(pos.x) && !isNaN(pos.y);
-  }
-  function isPositionWithinViewport(position) {
-    if (typeof window === "undefined") return true;
-    const padding = 10;
-    const width = 380;
-    const height = 600;
-    return position.x >= 0 && position.x <= window.innerWidth - width - padding && position.y >= 0 && position.y <= window.innerHeight - height - padding;
-  }
-  function getStoredPosition(merchantId) {
-    const key = POSITION_KEY_PREFIX + merchantId;
-    const saved = safeLocalStorage.get(key);
-    if (!saved) return null;
-    try {
-      const parsed = JSON.parse(saved);
-      if (!isValidPosition(parsed)) return null;
-      if (!isPositionWithinViewport(parsed)) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  }
-  function setStoredPosition(merchantId, position) {
-    if (!isValidPosition(position)) return false;
-    const key = POSITION_KEY_PREFIX + merchantId;
-    return safeLocalStorage.set(key, JSON.stringify(position));
-  }
-  function saveWidgetPosition(position) {
-    return safeLocalStorage.set("shopbot_widget_position", JSON.stringify(position));
-  }
-  const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  function isValidSessionId(sessionId) {
-    if (!sessionId || typeof sessionId !== "string") return false;
-    return UUID_V4_PATTERN.test(sessionId.trim());
-  }
-  const THEME_KEY_PREFIX = "shopbot-widget-theme-";
-  function getStoredTheme(merchantId) {
-    const key = THEME_KEY_PREFIX + merchantId;
-    const stored = safeLocalStorage.get(key);
-    if (stored === "light" || stored === "dark" || stored === "auto") {
-      return stored;
-    }
-    return null;
-  }
-  function setStoredTheme(merchantId, mode) {
-    const key = THEME_KEY_PREFIX + merchantId;
-    return safeLocalStorage.set(key, mode);
-  }
-  const initialConsentState = {
-    promptShown: false,
-    canStoreConversation: false,
-    status: "pending"
-  };
-  const initialState = {
-    isOpen: false,
-    isLoading: false,
-    isTyping: false,
-    session: null,
-    messages: [],
-    config: null,
-    error: null,
-    errors: [],
-    connectionStatus: "disconnected",
-    consentState: initialConsentState,
-    position: null,
-    isDragging: false,
-    isMinimized: false,
-    unreadCount: 0,
-    themeMode: "auto",
-    faqQuickButtons: []
-  };
-  function widgetReducer(state, action) {
-    switch (action.type) {
-      case "SET_OPEN":
-        return { ...state, isOpen: action.payload };
-      case "SET_LOADING":
-        return { ...state, isLoading: action.payload };
-      case "SET_TYPING":
-        return { ...state, isTyping: action.payload };
-      case "SET_SESSION":
-        return { ...state, session: action.payload };
-      case "ADD_MESSAGE": {
-        const newUnreadCount = state.isMinimized && action.payload.sender !== "user" ? state.unreadCount + 1 : state.unreadCount;
-        return { ...state, messages: [...state.messages, action.payload], unreadCount: newUnreadCount };
-      }
-      case "SET_MESSAGES":
-        return { ...state, messages: action.payload };
-      case "SET_CONFIG":
-        return { ...state, config: action.payload };
-      case "SET_ERROR":
-        return { ...state, error: action.payload };
-      case "CLEAR_ERROR":
-        return { ...state, error: null };
-      case "ADD_WIDGET_ERROR":
-        return { ...state, errors: [...state.errors, action.payload] };
-      case "DISMISS_WIDGET_ERROR":
-        return {
-          ...state,
-          errors: state.errors.map((e) => e.id === action.payload ? { ...e, dismissed: true } : e)
-        };
-      case "CLEAR_WIDGET_ERRORS":
-        return { ...state, errors: [] };
-      case "SET_CONNECTION_STATUS":
-        return { ...state, connectionStatus: action.payload };
-      case "SET_CONSENT_STATE":
-        return { ...state, consentState: action.payload };
-      case "SET_CONSENT_PROMPT_SHOWN":
-        return { ...state, consentState: { ...state.consentState, promptShown: action.payload } };
-      case "SET_POSITION":
-        return { ...state, position: action.payload };
-      case "SET_DRAGGING":
-        return { ...state, isDragging: action.payload };
-      case "TOGGLE_MINIMIZED":
-        return { ...state, isMinimized: !state.isMinimized, unreadCount: !state.isMinimized ? 0 : state.unreadCount };
-      case "SET_UNREAD_COUNT":
-        return { ...state, unreadCount: action.payload };
-      case "SET_THEME_MODE":
-        return { ...state, themeMode: action.payload };
-      case "SET_FAQ_QUICK_BUTTONS":
-        return { ...state, faqQuickButtons: action.payload };
-      case "UPDATE_MESSAGE_FEEDBACK":
-        return {
-          ...state,
-          messages: state.messages.map(
-            (msg) => msg.messageId === action.payload.messageId ? { ...msg, userRating: action.payload.rating } : msg
-          )
-        };
-      case "RESET":
-        return initialState;
-      default:
-        return state;
-    }
-  }
-  const WidgetContext = reactExports.createContext(null);
-  function useWidgetContext() {
-    const context = reactExports.useContext(WidgetContext);
-    if (!context) {
-      throw new Error("useWidgetContext must be used within a WidgetProvider");
-    }
-    return context;
-  }
-  function WidgetProvider({ children, merchantId, initialSessionId }) {
-    var _a2, _b, _c, _d, _e;
-    const [state, dispatch] = reactExports.useReducer(widgetReducer, initialState);
-    const [addingProductId, setAddingProductId] = reactExports.useState(null);
-    const [removingItemId, setRemovingItemId] = reactExports.useState(null);
-    const [isCheckingOut, setIsCheckingOut] = reactExports.useState(false);
-    const lastActionRef = reactExports.useRef(null);
-    const greetingShownRef = reactExports.useRef(false);
-    const consentPromptShownRef = reactExports.useRef(false);
-    const lastCachedLengthRef = reactExports.useRef(0);
-    const isInitializingRef = reactExports.useRef(false);
-    const validatePosition2 = reactExports.useCallback((pos) => {
-      const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
-      const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
-      const isXValid = pos.x >= -300 && pos.x <= vWidth - 80;
-      const isYValid = pos.y >= -50 && pos.y <= vHeight - 80;
-      const isValid = isXValid && isYValid;
-      console.log("[WidgetContext] Position validation:", {
-        pos,
-        viewport: `${vWidth}x${vHeight}`,
-        isValid
-      });
-      return isValid;
-    }, []);
-    reactExports.useEffect(() => {
-      const storedTheme = getStoredTheme(merchantId);
-      if (storedTheme && storedTheme !== state.themeMode) {
-        dispatch({ type: "SET_THEME_MODE", payload: storedTheme });
-      }
-    }, [merchantId, state.themeMode, dispatch]);
-    reactExports.useEffect(() => {
-      var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || state.messages.length === 0) {
-        return;
-      }
-      if (state.messages.length !== lastCachedLengthRef.current) {
-        lastCachedLengthRef.current = state.messages.length;
-        cacheMessages(state.session.sessionId, state.messages);
-      }
-    }, [state.messages, (_a2 = state.session) == null ? void 0 : _a2.sessionId]);
-    const addError = reactExports.useCallback(
-      (error, context) => {
-        const widgetError = createWidgetError(error, context);
-        dispatch({ type: "ADD_WIDGET_ERROR", payload: widgetError });
-        dispatch({ type: "SET_ERROR", payload: widgetError.message });
-        console.error("[Widget Error]", widgetError);
-      },
-      []
-    );
-    const dismissError = reactExports.useCallback((errorId) => {
-      dispatch({ type: "DISMISS_WIDGET_ERROR", payload: errorId });
-    }, []);
-    const clearErrors = reactExports.useCallback(() => {
-      dispatch({ type: "CLEAR_WIDGET_ERRORS" });
-      dispatch({ type: "CLEAR_ERROR" });
-    }, []);
-    const {
-      createSession,
-      getSession,
-      endSession: endWidgetSession
-    } = reactExports.useMemo(
-      () => ({
-        createSession: async (visitorId) => {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          return widgetClient2.createSession(merchantId, visitorId);
-        },
-        getSession: async (sessionId) => {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          return widgetClient2.getSession(sessionId);
-        },
-        endSession: async (sessionId) => {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          return widgetClient2.endSession(sessionId);
-        }
-      }),
-      [merchantId]
-    );
-    const initWidget2 = reactExports.useCallback(
-      async (mId) => {
-        console.log("[WidgetContext] initWidget called with merchantId:", mId);
-        if (!mId) {
-          console.log("[WidgetContext] No merchantId provided, returning");
-          return;
-        }
-        if (isInitializingRef.current) {
-          console.log("[WidgetContext] Already initializing, skipping duplicate call");
-          return;
-        }
-        if (state.config && state.config.merchantId === mId) {
-          console.log("[WidgetContext] Skipping initWidget - already initialized");
-          return;
-        }
-        isInitializingRef.current = true;
-        dispatch({ type: "SET_LOADING", payload: true });
-        dispatch({ type: "CLEAR_ERROR" });
-        try {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          console.log("[WidgetContext] Fetching config for merchant:", mId);
-          const config2 = await widgetClient2.getConfig(mId);
-          console.log("[WidgetContext] Config loaded:", config2);
-          console.log("[WidgetContext] Config onboardingMode:", config2.onboardingMode);
-          dispatch({ type: "SET_CONFIG", payload: config2 });
-          if (config2.onboardingMode === "general") {
-            console.log("[WidgetContext] onboardingMode is general, fetching FAQ buttons");
-            widgetClient2.getFaqButtons(mId).then((faqButtons) => {
-              console.log("[WidgetContext] FAQ buttons loaded:", faqButtons);
-              dispatch({ type: "SET_FAQ_QUICK_BUTTONS", payload: faqButtons });
-            }).catch((error) => {
-              console.warn("[WidgetContext] Failed to fetch FAQ buttons:", error);
-            });
-          } else {
-            console.log("[WidgetContext] onboardingMode is NOT general:", config2.onboardingMode);
-          }
-          shopifyCartClient.setShopDomain(config2.shopDomain);
-          const storedTheme = getStoredTheme(merchantId);
-          dispatch({ type: "SET_THEME_MODE", payload: storedTheme || "auto" });
-          console.log("[WidgetContext] Viewport at position load:", window.innerWidth, "x", window.innerHeight);
-          const savedPosition = getStoredPosition(merchantId);
-          console.log("[WidgetContext] Stored Position found:", savedPosition);
-          if (savedPosition && validatePosition2(savedPosition)) {
-            console.log("[WidgetContext] Using valid stored position:", savedPosition);
-            dispatch({ type: "SET_POSITION", payload: savedPosition });
-          } else {
-            console.log("[WidgetContext] No valid stored position, using default theme placement");
-            dispatch({ type: "SET_POSITION", payload: null });
-          }
-          let sessionId = initialSessionId;
-          if (!sessionId) {
-            console.log("[WidgetContext] Creating new session...");
-            const session2 = await widgetClient2.createSession(mId);
-            console.log("[WidgetContext] Session created:", session2);
-            dispatch({ type: "SET_SESSION", payload: session2 });
-            safeStorage.set(SESSION_KEY, session2.sessionId);
-            safeStorage.set(MERCHANT_KEY, merchantId);
-          } else {
-            console.log("[WidgetContext] Loading existing conversation history for session:", sessionId);
-            const messages = await widgetClient2.getHistory(session.sessionId);
-            console.log("[WidgetContext] History loaded:", (messages == null ? void 0 : messages.length) || 0, "messages");
-            dispatch({ type: "SET_MESSAGES", payload: messages });
-            if (messages.length > 0) {
-              greetingShownRef.current = true;
-            }
-          }
-          console.log("[WidgetContext] ✅ Initialization complete, clearing loading state");
-          dispatch({ type: "SET_LOADING", payload: false });
-          isInitializingRef.current = false;
-        } catch (error) {
-          console.error("[WidgetContext] initWidget error:", error);
-          addError(error, { actions: "Retry" });
-          dispatch({ type: "SET_LOADING", payload: false });
-          isInitializingRef.current = false;
-        }
-      },
-      [merchantId, state.config]
-    );
-    const toggleChat = reactExports.useCallback(() => {
-      dispatch({ type: "SET_OPEN", payload: !state.isOpen });
-    }, [state.isOpen]);
-    const recordConsent = reactExports.useCallback(
-      async (consented) => {
-        var _a3;
-        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
-        try {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          const visitorId = getVisitorId() || void 0;
-          await widgetClient2.recordConsent(state.session.sessionId, consented, visitorId);
-          const newConsentState = {
-            promptShown: true,
-            canStoreConversation: consented,
-            status: consented ? "opted_in" : "opted_out"
-          };
-          dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
-        } catch (error) {
-          console.error("[WidgetContext] recordConsent error:", error);
-          addError(error, { action: "Try Again" });
-        }
-      },
-      [(_b = state.session) == null ? void 0 : _b.sessionId, addError, dispatch]
-    );
-    const syncCartToShopify = reactExports.useCallback(
-      async (cart) => {
-        if (!shopifyCartClient.isOnShopify()) return;
-        try {
-          if (!cart.items || cart.items.length === 0) {
-            await shopifyCartClient.clearCart();
-          } else {
-            const shopifyCart = await shopifyCartClient.getCart();
-            const shopifyVariantIds = new Set(
-              shopifyCart.items.map((item) => String(item.variant_id))
-            );
-            for (const item of cart.items) {
-              if (item.variantId && !shopifyVariantIds.has(String(item.variantId))) {
-                await shopifyCartClient.addToCart(item.variantId, item.quantity);
-              }
-            }
-          }
-        } catch (shopifyError) {
-        }
-      },
-      []
-    );
-    const sendMessage = reactExports.useCallback(
-      async (content) => {
-        var _a3;
-        if (!content.trim()) return;
-        let currentSessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-        if (!currentSessionId || !isValidSessionId(currentSessionId)) {
-          safeStorage.remove(SESSION_KEY);
-          const visitorId = getVisitorId() || void 0;
-          const newSession = await createSession(visitorId);
-          dispatch({ type: "SET_SESSION", payload: newSession });
-          safeStorage.set(SESSION_KEY, newSession.sessionId);
-          currentSessionId = newSession.sessionId;
-        }
-        lastActionRef.current = { type: "sendMessage", payload: content };
-        const userMessage = {
-          messageId: crypto.randomUUID(),
-          content,
-          sender: "user",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        dispatch({ type: "ADD_MESSAGE", payload: userMessage });
-        dispatch({ type: "SET_TYPING", payload: true });
-        try {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          const botMessage = await widgetClient2.sendMessage(currentSessionId, content);
-          console.log("[WidgetContext] Bot message received:", {
-            hasConsentPrompt: botMessage.consent_prompt_required,
-            consentPromptValue: botMessage.consent_prompt_required,
-            messageKeys: Object.keys(botMessage)
-          });
-          dispatch({ type: "ADD_MESSAGE", payload: botMessage });
-          if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
-            console.log("[WidgetContext] Setting consent prompt shown");
-            consentPromptShownRef.current = true;
-            dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
-          }
-          if (shopifyCartClient.isOnShopify() && botMessage.cart) {
-            syncCartToShopify(botMessage.cart);
-          }
-        } catch (error) {
-          addError(error, { action: "Try Again" });
-        } finally {
-          dispatch({ type: "SET_TYPING", payload: false });
-        }
-      },
-      [state.session, addError, createSession, syncCartToShopify]
-    );
-    const addToCart2 = reactExports.useCallback(
-      async (product) => {
-        var _a3;
-        lastActionRef.current = { type: "addToCart", payload: product };
-        setAddingProductId(product.id);
-        try {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-          if (!sessionId || !isValidSessionId(sessionId)) {
-            safeStorage.remove(SESSION_KEY);
-            const visitorId = getVisitorId() || void 0;
-            const newSession = await createSession(visitorId);
-            dispatch({ type: "SET_SESSION", payload: newSession });
-            safeStorage.set(SESSION_KEY, newSession.sessionId);
-            sessionId = newSession.sessionId;
-          }
-          const updatedCart = await widgetClient2.addToCart(sessionId, product, 1);
-          if (shopifyCartClient.isOnShopify() && product.variantId) {
-            try {
-              await shopifyCartClient.addToCart(product.variantId, 1);
-            } catch (shopifyError) {
-            }
-          }
-          const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
-          const confirmationMessage = {
-            messageId: crypto.randomUUID(),
-            content: `Added "${product.title}" to your cart!
-
-Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.`,
-            sender: "bot",
-            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-            cart: updatedCart
-          };
-          dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
-        } catch (error) {
-          addError(error, { action: "Try Again" });
-        } finally {
-          setAddingProductId(null);
-        }
-      },
-      [state.session, addError, createSession]
-    );
-    const removeFromCart2 = reactExports.useCallback(
-      async (variantId) => {
-        var _a3;
-        if (!variantId) return;
-        setRemovingItemId(variantId);
-        try {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-          if (!sessionId || !isValidSessionId(sessionId)) {
-            safeStorage.remove(SESSION_KEY);
-            const visitorId = getVisitorId() || void 0;
-            const newSession = await createSession(visitorId);
-            dispatch({ type: "SET_SESSION", payload: newSession });
-            safeStorage.set(SESSION_KEY, newSession.sessionId);
-            sessionId = newSession.sessionId;
-          }
-          const updatedCart = await widgetClient2.removeFromCart(sessionId, variantId);
-          const removedItem = state.messages.flatMap((m2) => {
-            var _a4;
-            return ((_a4 = m2.cart) == null ? void 0 : _a4.items) || [];
-          }).find((item) => item.variantId === variantId);
-          const itemTitle = (removedItem == null ? void 0 : removedItem.title) || "Item";
-          const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
-          const confirmationMessage = {
-            messageId: crypto.randomUUID(),
-            content: updatedCart.itemCount > 0 ? `Removed "${itemTitle}" from your cart.
-
-Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.` : `Removed "${itemTitle}" from your cart.
-
-Your cart is now empty.`,
-            sender: "bot",
-            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-            cart: updatedCart
-          };
-          dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
-          if (shopifyCartClient.isOnShopify()) {
-            try {
-              await shopifyCartClient.removeFromCart(variantId);
-            } catch (shopifyError) {
-            }
-          }
-        } catch (error) {
-          addError(error, { action: "Try Again" });
-        } finally {
-          setRemovingItemId(null);
-        }
-      },
-      [state.session, state.messages, addError, createSession]
-    );
-    const checkout = reactExports.useCallback(async () => {
-      var _a3, _b2;
-      lastActionRef.current = { type: "checkout" };
-      setIsCheckingOut(true);
-      try {
-        const shopDomain = (_a3 = state.config) == null ? void 0 : _a3.shopDomain;
-        if (!shopDomain) {
-          throw new Error("Shop domain not configured");
-        }
-        const messagesWithCart = state.messages.filter((m2) => m2.cart && m2.cart.items.length > 0);
-        const latestCart = messagesWithCart.length > 0 ? messagesWithCart[messagesWithCart.length - 1].cart : null;
-        if (!latestCart || latestCart.items.length === 0) {
-          throw new Error("Your cart is empty");
-        }
-        const validItems = latestCart.items.filter((item) => item.variantId && item.quantity > 0);
-        if (validItems.length === 0) {
-          throw new Error("No valid items in cart");
-        }
-        const cartItems = validItems.map((item) => `${item.variantId}:${item.quantity}`).join(",");
-        const checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
-        window.open(checkoutUrl, "_blank");
-        const confirmationMessage = {
-          messageId: crypto.randomUUID(),
-          content: "Opening checkout in a new tab...",
-          sender: "bot",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-          checkoutUrl
-        };
-        dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
-      } catch (error) {
-        addError(error, {
-          action: "Try Again",
-          fallbackUrl: ((_b2 = state.config) == null ? void 0 : _b2.shopDomain) ? `https://${state.config.shopDomain}/cart` : void 0
-        });
-      } finally {
-        setIsCheckingOut(false);
-      }
-    }, [state.config, state.messages, addError]);
-    reactExports.useEffect(() => {
-      var _a3;
-      if (state.isOpen && state.messages.length === 0 && ((_a3 = state.config) == null ? void 0 : _a3.welcomeMessage) && !greetingShownRef.current) {
-        greetingShownRef.current = true;
-        const greetingMessage = {
-          messageId: crypto.randomUUID(),
-          content: state.config.welcomeMessage,
-          sender: "bot",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-          feedbackEnabled: false
-        };
-        dispatch({ type: "ADD_MESSAGE", payload: greetingMessage });
-      }
-    }, [state.isOpen, state.messages.length, (_c = state.config) == null ? void 0 : _c.welcomeMessage]);
-    reactExports.useEffect(() => {
-      var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !state.isOpen) return;
-      let cleanup = null;
-      const connectWebSocket = async () => {
-        const { connectWidgetWebSocket: connectWidgetWebSocket2, isWebSocketSupported: isWebSocketSupported2 } = await Promise.resolve().then(() => widgetWsClient);
-        if (!isWebSocketSupported2()) {
-          dispatch({ type: "SET_CONNECTION_STATUS", payload: "error" });
-          return;
-        }
-        cleanup = connectWidgetWebSocket2(state.session.sessionId, {
-          onMessage: (event) => {
-            if (event.type === "merchant_message") {
-              const data = event.data;
-              const merchantMessage = {
-                messageId: `merchant-${data.id}`,
-                content: data.content,
-                sender: "merchant",
-                createdAt: data.createdAt
-              };
-              dispatch({ type: "ADD_MESSAGE", payload: merchantMessage });
-            } else if (event.type === "handoff_resolved") {
-              const data = event.data;
-              const resolutionMessage = {
-                messageId: `resolution-${data.id}`,
-                content: data.content,
-                sender: "bot",
-                createdAt: data.createdAt,
-                contactOptions: data.contactOptions
-              };
-              dispatch({ type: "ADD_MESSAGE", payload: resolutionMessage });
-            }
-          },
-          onStatusChange: (status) => {
-            dispatch({ type: "SET_CONNECTION_STATUS", payload: status });
-          },
-          onError: () => {
-          }
-        });
-      };
-      connectWebSocket();
-      return () => {
-        if (cleanup) cleanup();
-      };
-    }, [(_d = state.session) == null ? void 0 : _d.sessionId, state.isOpen, state.session]);
-    reactExports.useEffect(() => {
-      var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
-      Promise.resolve().then(() => analytics).then(({ widgetAnalytics: widgetAnalytics2 }) => {
-        widgetAnalytics2.initialize({
-          merchantId: parseInt(merchantId, 10),
-          sessionId: state.session.sessionId
-        });
-      });
-    }, [(_e = state.session) == null ? void 0 : _e.sessionId, merchantId, state.session]);
-    const retryLastAction = reactExports.useCallback(() => {
-      if (!lastActionRef.current) return;
-      const { type, payload } = lastActionRef.current;
-      switch (type) {
-        case "initWidget":
-          initWidget2(merchantId);
-          break;
-        case "sendMessage":
-          if (typeof payload === "string") sendMessage(payload);
-          break;
-        case "addToCart":
-          if (payload) addToCart2(payload);
-          break;
-        case "checkout":
-          checkout();
-          break;
-      }
-    }, [initWidget2, sendMessage, addToCart2, checkout, merchantId]);
-    const endSession = reactExports.useCallback(async () => {
-      var _a3;
-      if (((_a3 = state.session) == null ? void 0 : _a3.sessionId) && isValidSessionId(state.session.sessionId)) {
-        try {
-          await endWidgetSession(state.session.sessionId);
-        } catch {
-        }
-      }
-      safeStorage.remove(SESSION_KEY);
-      safeStorage.remove(MERCHANT_KEY);
-      dispatch({ type: "RESET" });
-    }, [state.session, endWidgetSession]);
-    const forgetPreferences = reactExports.useCallback(async () => {
-      var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
-      try {
-        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-        const visitorId = getVisitorId() || void 0;
-        const result = await widgetClient2.forgetPreferences(state.session.sessionId, visitorId);
-        if (result.clearVisitorId) {
-          clearVisitorId();
-        }
-        const newConsentState = {
-          promptShown: false,
-          canStoreConversation: false,
-          status: "pending"
-        };
-        dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
-      } catch (error) {
-        addError(error, { action: "Try Again" });
-      }
-    }, [state.session, addError]);
-    const clearHistory = reactExports.useCallback(async () => {
-      var _a3;
-      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
-      try {
-        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-        await widgetClient2.clearMessageHistory(state.session.sessionId);
-        clearMessageCache(state.session.sessionId);
-        dispatch({ type: "SET_MESSAGES", payload: [] });
-        greetingShownRef.current = false;
-        console.info("[WidgetContext] History cleared", { sessionId: state.session.sessionId });
-      } catch (error) {
-        addError(error, { action: "Try Again" });
-      }
-    }, [state.session, addError]);
-    const updatePosition = reactExports.useCallback((position) => {
-      dispatch({ type: "SET_POSITION", payload: position });
-      saveWidgetPosition(position);
-      setStoredPosition(merchantId, position);
-    }, [merchantId]);
-    const toggleMinimized = reactExports.useCallback(() => {
-      dispatch({ type: "TOGGLE_MINIMIZED" });
-    }, []);
-    const setThemeMode = reactExports.useCallback((mode) => {
-      dispatch({ type: "SET_THEME_MODE", payload: mode });
-      setStoredTheme(merchantId, mode);
-    }, [merchantId, dispatch]);
-    const value = reactExports.useMemo(
-      () => ({
-        state,
-        dispatch,
-        toggleChat,
-        sendMessage,
-        endSession,
-        initWidget: initWidget2,
-        merchantId,
-        addToCart: addToCart2,
-        removeFromCart: removeFromCart2,
-        checkout,
-        addingProductId,
-        removingItemId,
-        isCheckingOut,
-        addError,
-        dismissError,
-        clearErrors,
-        retryLastAction,
-        connectionStatus: state.connectionStatus,
-        recordConsent,
-        forgetPreferences,
-        clearHistory,
-        updatePosition,
-        toggleMinimized,
-        setThemeMode
-      }),
-      [
-        state,
-        toggleChat,
-        sendMessage,
-        endSession,
-        initWidget2,
-        merchantId,
-        addToCart2,
-        removeFromCart2,
-        checkout,
-        addingProductId,
-        removingItemId,
-        isCheckingOut,
-        addError,
-        dismissError,
-        clearErrors,
-        retryLastAction,
-        recordConsent,
-        forgetPreferences,
-        clearHistory,
-        updatePosition,
-        toggleMinimized,
-        setThemeMode
-      ]
-    );
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetContext.Provider, { value, children });
-  }
-  function useReducedMotion() {
-    const [prefersReducedMotion, setPrefersReducedMotion] = reactExports.useState(false);
-    reactExports.useEffect(() => {
-      if (typeof window === "undefined") return;
-      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-      setPrefersReducedMotion(mediaQuery.matches);
-      const handleChange = (event) => {
-        setPrefersReducedMotion(event.matches);
-      };
-      mediaQuery.addEventListener("change", handleChange);
-      return () => {
-        mediaQuery.removeEventListener("change", handleChange);
-      };
-    }, []);
-    return prefersReducedMotion;
-  }
-  const STORAGE_KEY = "widget_analytics_queue";
-  const DEFAULT_BATCH_SIZE = 10;
-  const DEFAULT_FLUSH_INTERVAL = 3e4;
-  class WidgetAnalyticsImpl {
-    constructor() {
-      __publicField(this, "merchantId", null);
-      __publicField(this, "sessionId", null);
-      __publicField(this, "batchSize", DEFAULT_BATCH_SIZE);
-      __publicField(this, "flushInterval", DEFAULT_FLUSH_INTERVAL);
-      __publicField(this, "flushTimer", null);
-      __publicField(this, "_isInitialized", false);
-      __publicField(this, "reducedMotion", false);
-      this.checkReducedMotion();
-    }
-    checkReducedMotion() {
-      if (typeof window !== "undefined" && window.matchMedia) {
-        const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-        this.reducedMotion = mediaQuery.matches;
-        mediaQuery.addEventListener("change", (e) => {
-          this.reducedMotion = e.matches;
-        });
-      }
-    }
-    get isInitialized() {
-      return this._isInitialized;
-    }
-    initialize(config2) {
-      if (this._isInitialized) {
-        return;
-      }
-      this.merchantId = config2.merchantId;
-      this.sessionId = config2.sessionId;
-      this.batchSize = config2.batchSize ?? DEFAULT_BATCH_SIZE;
-      this.flushInterval = config2.flushInterval ?? DEFAULT_FLUSH_INTERVAL;
-      this._isInitialized = true;
-      this.setupFlushListeners();
-      this.startFlushTimer();
-    }
-    setupFlushListeners() {
-      if (typeof document === "undefined") {
-        return;
-      }
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") {
-          this.flush();
-        }
-      });
-      window.addEventListener("pagehide", () => {
-        this.flush();
-      });
-    }
-    startFlushTimer() {
-      if (this.flushTimer) {
-        clearTimeout(this.flushTimer);
-      }
-      this.flushTimer = setTimeout(() => {
-        this.flush();
-        this.startFlushTimer();
-      }, this.flushInterval);
-    }
-    track(type, metadata) {
-      if (!this._isInitialized || !this.sessionId) {
-        console.warn("[WidgetAnalytics] Not initialized or missing sessionId");
-        return;
-      }
-      const event = {
-        type,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        session_id: this.sessionId,
-        metadata: {
-          ...metadata,
-          reducedMotion: this.reducedMotion
-        }
-      };
-      const queue = this.getQueue();
-      queue.push(event);
-      if (queue.length >= this.batchSize) {
-        this.flush();
-      } else {
-        this.saveQueue(queue);
-      }
-    }
-    getQueuedEvents() {
-      return this.getQueue();
-    }
-    getQueue() {
-      if (typeof sessionStorage === "undefined") {
-        return [];
-      }
-      try {
-        const stored = sessionStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          return JSON.parse(stored);
-        }
-      } catch {
-      }
-      return [];
-    }
-    saveQueue(queue) {
-      if (typeof sessionStorage === "undefined") {
-        return;
-      }
-      try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-      } catch {
-      }
-    }
-    clearQueue() {
-      if (typeof sessionStorage === "undefined") {
-        return;
-      }
-      try {
-        sessionStorage.removeItem(STORAGE_KEY);
-      } catch {
-      }
-    }
-    async flush() {
-      const queue = this.getQueue();
-      if (queue.length === 0) {
-        return 0;
-      }
-      this.clearQueue();
-      try {
-        const { flushWidgetAnalyticsEvents: flushWidgetAnalyticsEvents2 } = await Promise.resolve().then(() => analyticsService$1);
-        const result = await flushWidgetAnalyticsEvents2({
-          merchant_id: this.merchantId,
-          events: queue
-        });
-        return result.accepted;
-      } catch (error) {
-        console.error("[WidgetAnalytics] Flush failed:", error);
-        this.saveQueue(queue);
-        return 0;
-      }
-    }
-    updateSessionId(sessionId) {
-      this.sessionId = sessionId;
-    }
-    destroy() {
-      if (this.flushTimer) {
-        clearTimeout(this.flushTimer);
-        this.flushTimer = null;
-      }
-      this._isInitialized = false;
-      this.merchantId = null;
-      this.sessionId = null;
-      this.clearQueue();
-    }
-    isReducedMotion() {
-      return this.reducedMotion;
-    }
-  }
-  const widgetAnalytics = new WidgetAnalyticsImpl();
-  function trackWidgetOpen() {
-    widgetAnalytics.track("widget_open", {
-      url: typeof window !== "undefined" ? window.location.href : void 0
-    });
-  }
-  function trackMessageSend(messageLength) {
-    widgetAnalytics.track("message_send", {
-      messageLength
-    });
-  }
-  function trackQuickReplyClick(label) {
-    widgetAnalytics.track("quick_reply_click", {
-      label
-    });
-  }
-  function trackVoiceInput(durationMs, success) {
-    widgetAnalytics.track("voice_input", {
-      durationMs,
-      success
-    });
-  }
-  function trackProactiveTrigger(triggerType, engaged) {
-    widgetAnalytics.track("proactive_trigger", {
-      triggerType,
-      engaged
-    });
-  }
-  function trackCarouselEngagement(action, productId) {
-    widgetAnalytics.track("carousel_engagement", {
-      action,
-      productId
-    });
-  }
-  function logContactInteraction(contactType, action) {
-    widgetAnalytics.track("quick_reply_click", {
-      contactType,
-      action,
-      label: `contact_${contactType}`
-    });
-  }
-  const analytics = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    logContactInteraction,
-    trackCarouselEngagement,
-    trackMessageSend,
-    trackProactiveTrigger,
-    trackQuickReplyClick,
-    trackVoiceInput,
-    trackWidgetOpen,
-    widgetAnalytics
-  }, Symbol.toStringTag, { value: "Module" }));
-  function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0 }) {
-    const [isHovered, setIsHovered] = reactExports.useState(false);
-    const reducedMotion = useReducedMotion();
-    const positionStyle = theme.position === "bottom-left" ? { left: 20 } : { right: 20 };
-    const handleClick = () => {
-      if (!isOpen) {
-        trackWidgetOpen();
-      }
-      onClick();
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        handleClick();
-      }
-    };
-    const handleMouseEnter = () => {
-      setIsHovered(true);
-      if (onPrefetch) {
-        onPrefetch();
-      }
-    };
-    const handleMouseLeave = () => {
-      setIsHovered(false);
-    };
-    const showBadge = !isOpen && unreadCount > 0;
-    const shouldScale = isHovered && !reducedMotion;
-    const bubbleTransform = shouldScale ? "scale(1.05)" : "scale(1)";
-    const bubbleBoxShadow = isHovered ? "0 6px 16px rgba(0, 0, 0, 0.2)" : "0 4px 12px rgba(0, 0, 0, 0.15)";
-    const shouldPulse = showBadge && !reducedMotion;
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "button",
-      {
-        type: "button",
-        className: `shopbot-chat-bubble ${showBadge ? "has-unread" : ""}`,
-        "data-testid": "chat-bubble",
-        onClick: handleClick,
-        onKeyDown: handleKeyDown,
-        onMouseEnter: handleMouseEnter,
-        onMouseLeave: handleMouseLeave,
-        "aria-label": isOpen ? "Close chat" : "Open chat",
-        "aria-expanded": isOpen,
-        style: {
-          position: "fixed",
-          bottom: 20,
-          ...positionStyle,
-          backgroundColor: theme.primaryColor,
-          borderRadius: "50%",
-          width: 60,
-          height: 60,
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: bubbleBoxShadow,
-          transition: reducedMotion ? "none" : "transform 200ms ease, box-shadow 200ms ease",
-          transform: bubbleTransform,
-          zIndex: 2147483647,
-          willChange: reducedMotion ? "auto" : "transform"
-        },
-        children: [
-          isOpen ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "svg",
-            {
-              width: "24",
-              height: "24",
-              viewBox: "0 0 24 24",
-              fill: "none",
-              stroke: "white",
-              strokeWidth: "2",
-              strokeLinecap: "round",
-              strokeLinejoin: "round",
-              "aria-hidden": "true",
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
-              ]
-            }
-          ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "svg",
-            {
-              width: "24",
-              height: "24",
-              viewBox: "0 0 24 24",
-              fill: "none",
-              stroke: "white",
-              strokeWidth: "2",
-              strokeLinecap: "round",
-              strokeLinejoin: "round",
-              "aria-hidden": "true",
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
-            }
-          ),
-          showBadge && /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              "data-testid": "bubble-badge",
-              className: "bubble-badge",
-              style: {
-                position: "absolute",
-                top: -5,
-                right: -5,
-                backgroundColor: "#ef4444",
-                color: "white",
-                borderRadius: "50%",
-                minWidth: 20,
-                height: 20,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "0 4px",
-                animationName: shouldPulse ? "badge-pulse" : "none",
-                animationDuration: shouldPulse ? "1s" : "0ms",
-                animationTimingFunction: "ease-in-out",
-                animationIterationCount: "infinite",
-                willChange: reducedMotion ? "auto" : "transform"
-              },
-              children: unreadCount > 99 ? "99+" : unreadCount
-            }
-          )
-        ]
-      }
-    );
-  }
-  class WidgetErrorBoundary extends reactExports.Component {
-    constructor() {
-      super(...arguments);
-      __publicField(this, "state", {
-        hasError: false,
-        error: null,
-        errorInfo: null,
-        retryCount: 0
-      });
-      __publicField(this, "handleRetry", () => {
-        var _a2, _b;
-        this.setState((prev) => ({
-          hasError: false,
-          error: null,
-          errorInfo: null,
-          retryCount: prev.retryCount + 1
-        }));
-        (_b = (_a2 = this.props).onRetry) == null ? void 0 : _b.call(_a2);
-      });
-      __publicField(this, "handleRefresh", () => {
-        window.location.reload();
-      });
-    }
-    static getDerivedStateFromError(error) {
-      return { hasError: true, error };
-    }
-    componentDidCatch(error, errorInfo) {
-      var _a2, _b;
-      this.setState({ errorInfo });
-      console.error("Widget Error:", error, errorInfo);
-      (_b = (_a2 = this.props).onError) == null ? void 0 : _b.call(_a2, error, errorInfo);
-    }
-    render() {
-      var _a2, _b, _c, _d;
-      if (this.state.hasError) {
-        if (this.props.fallback) {
-          return this.props.fallback;
-        }
-        const { error, errorInfo, retryCount } = this.state;
-        const isChunkError = ((_a2 = error == null ? void 0 : error.message) == null ? void 0 : _a2.includes("ChunkLoadError")) || ((_b = error == null ? void 0 : error.message) == null ? void 0 : _b.includes("Loading chunk"));
-        const isNetworkError = ((_c = error == null ? void 0 : error.message) == null ? void 0 : _c.includes("Network")) || ((_d = error == null ? void 0 : error.message) == null ? void 0 : _d.includes("Failed to fetch"));
-        return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "div",
-          {
-            role: "alert",
-            "aria-live": "assertive",
-            className: "widget-error-boundary",
-            style: {
-              padding: "24px",
-              textAlign: "center",
-              fontFamily: "system-ui, -apple-system, sans-serif",
-              backgroundColor: "#fef2f2",
-              borderRadius: "12px",
-              border: "1px solid #fecaca",
-              maxWidth: "400px",
-              margin: "16px auto"
-            },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "div",
-                {
-                  className: "widget-error-boundary__icon",
-                  style: {
-                    width: "48px",
-                    height: "48px",
-                    margin: "0 auto 16px",
-                    backgroundColor: "#fee2e2",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  },
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                    "svg",
-                    {
-                      width: "24",
-                      height: "24",
-                      viewBox: "0 0 24 24",
-                      fill: "none",
-                      stroke: "#dc2626",
-                      strokeWidth: "2",
-                      strokeLinecap: "round",
-                      strokeLinejoin: "round",
-                      children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "8", x2: "12", y2: "12" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })
-                      ]
-                    }
-                  )
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "h3",
-                {
-                  className: "widget-error-boundary__title",
-                  style: {
-                    margin: "0 0 8px",
-                    fontSize: "16px",
-                    fontWeight: 600,
-                    color: "#1f2937"
-                  },
-                  children: isChunkError ? "Update Available" : isNetworkError ? "Connection Error" : "Something went wrong"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "p",
-                {
-                  className: "widget-error-boundary__message",
-                  style: {
-                    margin: "0 0 20px",
-                    fontSize: "14px",
-                    color: "#6b7280",
-                    lineHeight: 1.5
-                  },
-                  children: isChunkError ? "A new version is available. Please refresh to get the latest updates." : isNetworkError ? "Unable to connect to the server. Please check your connection." : "The chat encountered an unexpected error. Please try again."
-                }
-              ),
-              this.props.showDetails && error && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "details",
-                {
-                  className: "widget-error-boundary__details",
-                  style: {
-                    marginBottom: "16px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    color: "#6b7280"
-                  },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "summary",
-                      {
-                        style: {
-                          cursor: "pointer",
-                          marginBottom: "8px"
-                        },
-                        children: "Error Details"
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                      "pre",
-                      {
-                        style: {
-                          backgroundColor: "#f3f4f6",
-                          padding: "12px",
-                          borderRadius: "6px",
-                          overflow: "auto",
-                          maxHeight: "120px",
-                          margin: 0
-                        },
-                        children: [
-                          error.toString(),
-                          (errorInfo == null ? void 0 : errorInfo.componentStack) && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                            "\n\nComponent Stack:",
-                            errorInfo.componentStack
-                          ] })
-                        ]
-                      }
-                    )
-                  ]
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  className: "widget-error-boundary__actions",
-                  style: {
-                    display: "flex",
-                    gap: "12px",
-                    justifyContent: "center"
-                  },
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        type: "button",
-                        onClick: this.handleRetry,
-                        className: "widget-error-boundary__retry",
-                        style: {
-                          padding: "10px 20px",
-                          fontSize: "14px",
-                          fontWeight: 500,
-                          backgroundColor: "#6366f1",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          transition: "background-color 0.2s"
-                        },
-                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "#4f46e5",
-                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "#6366f1",
-                        children: isChunkError || isNetworkError ? "Try Again" : "Retry"
-                      }
-                    ),
-                    (isChunkError || retryCount >= 2) && /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "button",
-                      {
-                        type: "button",
-                        onClick: this.handleRefresh,
-                        className: "widget-error-boundary__refresh",
-                        style: {
-                          padding: "10px 20px",
-                          fontSize: "14px",
-                          fontWeight: 500,
-                          backgroundColor: "transparent",
-                          color: "#6366f1",
-                          border: "1px solid #6366f1",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          transition: "background-color 0.2s"
-                        },
-                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "#eef2ff",
-                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
-                        children: "Refresh Page"
-                      }
-                    )
-                  ]
-                }
-              ),
-              retryCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "p",
-                {
-                  className: "widget-error-boundary__retry-count",
-                  style: {
-                    marginTop: "12px",
-                    fontSize: "12px",
-                    color: "#9ca3af"
-                  },
-                  children: [
-                    "Retry attempts: ",
-                    retryCount
-                  ]
-                }
-              )
-            ]
-          }
-        );
-      }
-      return this.props.children;
-    }
-  }
-  function LoadingSpinner() {
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        style: {
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "20px",
-          width: "100%",
-          height: "100%",
-          minHeight: "200px"
-        },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              style: {
-                width: "24px",
-                height: "24px",
-                border: "2px solid #e5e7eb",
-                borderTopColor: "#6366f1",
-                borderRadius: "50%",
-                animation: "widget-spin 0.8s linear infinite"
-              }
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `@keyframes widget-spin { to { transform: rotate(360deg); } }` })
-        ]
-      }
-    );
-  }
-  var focusTrapReact = { exports: {} };
-  /*!
-  * tabbable 6.4.0
-  * @license MIT, https://github.com/focus-trap/tabbable/blob/master/LICENSE
-  */
-  var candidateSelectors = ["input:not([inert]):not([inert] *)", "select:not([inert]):not([inert] *)", "textarea:not([inert]):not([inert] *)", "a[href]:not([inert]):not([inert] *)", "button:not([inert]):not([inert] *)", "[tabindex]:not(slot):not([inert]):not([inert] *)", "audio[controls]:not([inert]):not([inert] *)", "video[controls]:not([inert]):not([inert] *)", '[contenteditable]:not([contenteditable="false"]):not([inert]):not([inert] *)', "details>summary:first-of-type:not([inert]):not([inert] *)", "details:not([inert]):not([inert] *)"];
-  var candidateSelector = /* @__PURE__ */ candidateSelectors.join(",");
-  var NoElement = typeof Element === "undefined";
-  var matches = NoElement ? function() {
-  } : Element.prototype.matches || Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
-  var getRootNode = !NoElement && Element.prototype.getRootNode ? function(element) {
-    var _element$getRootNode;
-    return element === null || element === void 0 ? void 0 : (_element$getRootNode = element.getRootNode) === null || _element$getRootNode === void 0 ? void 0 : _element$getRootNode.call(element);
-  } : function(element) {
-    return element === null || element === void 0 ? void 0 : element.ownerDocument;
-  };
-  var _isInert = function isInert(node, lookUp) {
-    var _node$getAttribute;
-    if (lookUp === void 0) {
-      lookUp = true;
-    }
-    var inertAtt = node === null || node === void 0 ? void 0 : (_node$getAttribute = node.getAttribute) === null || _node$getAttribute === void 0 ? void 0 : _node$getAttribute.call(node, "inert");
-    var inert = inertAtt === "" || inertAtt === "true";
-    var result = inert || lookUp && node && // closest does not exist on shadow roots, so we fall back to a manual
-    // lookup upward, in case it is not defined.
-    (typeof node.closest === "function" ? node.closest("[inert]") : _isInert(node.parentNode));
-    return result;
-  };
-  var isContentEditable = function isContentEditable2(node) {
-    var _node$getAttribute2;
-    var attValue = node === null || node === void 0 ? void 0 : (_node$getAttribute2 = node.getAttribute) === null || _node$getAttribute2 === void 0 ? void 0 : _node$getAttribute2.call(node, "contenteditable");
-    return attValue === "" || attValue === "true";
-  };
-  var getCandidates = function getCandidates2(el2, includeContainer, filter) {
-    if (_isInert(el2)) {
-      return [];
-    }
-    var candidates = Array.prototype.slice.apply(el2.querySelectorAll(candidateSelector));
-    if (includeContainer && matches.call(el2, candidateSelector)) {
-      candidates.unshift(el2);
-    }
-    candidates = candidates.filter(filter);
-    return candidates;
-  };
-  var _getCandidatesIteratively = function getCandidatesIteratively(elements, includeContainer, options) {
-    var candidates = [];
-    var elementsToCheck = Array.from(elements);
-    while (elementsToCheck.length) {
-      var element = elementsToCheck.shift();
-      if (_isInert(element, false)) {
-        continue;
-      }
-      if (element.tagName === "SLOT") {
-        var assigned = element.assignedElements();
-        var content = assigned.length ? assigned : element.children;
-        var nestedCandidates = _getCandidatesIteratively(content, true, options);
-        if (options.flatten) {
-          candidates.push.apply(candidates, nestedCandidates);
-        } else {
-          candidates.push({
-            scopeParent: element,
-            candidates: nestedCandidates
-          });
-        }
-      } else {
-        var validCandidate = matches.call(element, candidateSelector);
-        if (validCandidate && options.filter(element) && (includeContainer || !elements.includes(element))) {
-          candidates.push(element);
-        }
-        var shadowRoot = element.shadowRoot || // check for an undisclosed shadow
-        typeof options.getShadowRoot === "function" && options.getShadowRoot(element);
-        var validShadowRoot = !_isInert(shadowRoot, false) && (!options.shadowRootFilter || options.shadowRootFilter(element));
-        if (shadowRoot && validShadowRoot) {
-          var _nestedCandidates = _getCandidatesIteratively(shadowRoot === true ? element.children : shadowRoot.children, true, options);
-          if (options.flatten) {
-            candidates.push.apply(candidates, _nestedCandidates);
-          } else {
-            candidates.push({
-              scopeParent: element,
-              candidates: _nestedCandidates
-            });
-          }
-        } else {
-          elementsToCheck.unshift.apply(elementsToCheck, element.children);
-        }
-      }
-    }
-    return candidates;
-  };
-  var hasTabIndex = function hasTabIndex2(node) {
-    return !isNaN(parseInt(node.getAttribute("tabindex"), 10));
-  };
-  var getTabIndex = function getTabIndex2(node) {
-    if (!node) {
-      throw new Error("No node provided");
-    }
-    if (node.tabIndex < 0) {
-      if ((/^(AUDIO|VIDEO|DETAILS)$/.test(node.tagName) || isContentEditable(node)) && !hasTabIndex(node)) {
-        return 0;
-      }
-    }
-    return node.tabIndex;
-  };
-  var getSortOrderTabIndex = function getSortOrderTabIndex2(node, isScope) {
-    var tabIndex = getTabIndex(node);
-    if (tabIndex < 0 && isScope && !hasTabIndex(node)) {
-      return 0;
-    }
-    return tabIndex;
-  };
-  var sortOrderedTabbables = function sortOrderedTabbables2(a, b) {
-    return a.tabIndex === b.tabIndex ? a.documentOrder - b.documentOrder : a.tabIndex - b.tabIndex;
-  };
-  var isInput = function isInput2(node) {
-    return node.tagName === "INPUT";
-  };
-  var isHiddenInput = function isHiddenInput2(node) {
-    return isInput(node) && node.type === "hidden";
-  };
-  var isDetailsWithSummary = function isDetailsWithSummary2(node) {
-    var r2 = node.tagName === "DETAILS" && Array.prototype.slice.apply(node.children).some(function(child) {
-      return child.tagName === "SUMMARY";
-    });
-    return r2;
-  };
-  var getCheckedRadio = function getCheckedRadio2(nodes, form) {
-    for (var i = 0; i < nodes.length; i++) {
-      if (nodes[i].checked && nodes[i].form === form) {
-        return nodes[i];
-      }
-    }
-  };
-  var isTabbableRadio = function isTabbableRadio2(node) {
-    if (!node.name) {
-      return true;
-    }
-    var radioScope = node.form || getRootNode(node);
-    var queryRadios = function queryRadios2(name) {
-      return radioScope.querySelectorAll('input[type="radio"][name="' + name + '"]');
-    };
-    var radioSet;
-    if (typeof window !== "undefined" && typeof window.CSS !== "undefined" && typeof window.CSS.escape === "function") {
-      radioSet = queryRadios(window.CSS.escape(node.name));
-    } else {
-      try {
-        radioSet = queryRadios(node.name);
-      } catch (err) {
-        console.error("Looks like you have a radio button with a name attribute containing invalid CSS selector characters and need the CSS.escape polyfill: %s", err.message);
-        return false;
-      }
-    }
-    var checked = getCheckedRadio(radioSet, node.form);
-    return !checked || checked === node;
-  };
-  var isRadio = function isRadio2(node) {
-    return isInput(node) && node.type === "radio";
-  };
-  var isNonTabbableRadio = function isNonTabbableRadio2(node) {
-    return isRadio(node) && !isTabbableRadio(node);
-  };
-  var isNodeAttached = function isNodeAttached2(node) {
-    var _nodeRoot;
-    var nodeRoot = node && getRootNode(node);
-    var nodeRootHost = (_nodeRoot = nodeRoot) === null || _nodeRoot === void 0 ? void 0 : _nodeRoot.host;
-    var attached = false;
-    if (nodeRoot && nodeRoot !== node) {
-      var _nodeRootHost, _nodeRootHost$ownerDo, _node$ownerDocument;
-      attached = !!((_nodeRootHost = nodeRootHost) !== null && _nodeRootHost !== void 0 && (_nodeRootHost$ownerDo = _nodeRootHost.ownerDocument) !== null && _nodeRootHost$ownerDo !== void 0 && _nodeRootHost$ownerDo.contains(nodeRootHost) || node !== null && node !== void 0 && (_node$ownerDocument = node.ownerDocument) !== null && _node$ownerDocument !== void 0 && _node$ownerDocument.contains(node));
-      while (!attached && nodeRootHost) {
-        var _nodeRoot2, _nodeRootHost2, _nodeRootHost2$ownerD;
-        nodeRoot = getRootNode(nodeRootHost);
-        nodeRootHost = (_nodeRoot2 = nodeRoot) === null || _nodeRoot2 === void 0 ? void 0 : _nodeRoot2.host;
-        attached = !!((_nodeRootHost2 = nodeRootHost) !== null && _nodeRootHost2 !== void 0 && (_nodeRootHost2$ownerD = _nodeRootHost2.ownerDocument) !== null && _nodeRootHost2$ownerD !== void 0 && _nodeRootHost2$ownerD.contains(nodeRootHost));
-      }
-    }
-    return attached;
-  };
-  var isZeroArea = function isZeroArea2(node) {
-    var _node$getBoundingClie = node.getBoundingClientRect(), width = _node$getBoundingClie.width, height = _node$getBoundingClie.height;
-    return width === 0 && height === 0;
-  };
-  var isHidden = function isHidden2(node, _ref) {
-    var displayCheck = _ref.displayCheck, getShadowRoot = _ref.getShadowRoot;
-    if (displayCheck === "full-native") {
-      if ("checkVisibility" in node) {
-        var visible = node.checkVisibility({
-          // Checking opacity might be desirable for some use cases, but natively,
-          // opacity zero elements _are_ focusable and tabbable.
-          checkOpacity: false,
-          opacityProperty: false,
-          contentVisibilityAuto: true,
-          visibilityProperty: true,
-          // This is an alias for `visibilityProperty`. Contemporary browsers
-          // support both. However, this alias has wider browser support (Chrome
-          // >= 105 and Firefox >= 106, vs. Chrome >= 121 and Firefox >= 122), so
-          // we include it anyway.
-          checkVisibilityCSS: true
-        });
-        return !visible;
-      }
-    }
-    if (getComputedStyle(node).visibility === "hidden") {
-      return true;
-    }
-    var isDirectSummary = matches.call(node, "details>summary:first-of-type");
-    var nodeUnderDetails = isDirectSummary ? node.parentElement : node;
-    if (matches.call(nodeUnderDetails, "details:not([open]) *")) {
-      return true;
-    }
-    if (!displayCheck || displayCheck === "full" || // full-native can run this branch when it falls through in case
-    // Element#checkVisibility is unsupported
-    displayCheck === "full-native" || displayCheck === "legacy-full") {
-      if (typeof getShadowRoot === "function") {
-        var originalNode = node;
-        while (node) {
-          var parentElement = node.parentElement;
-          var rootNode = getRootNode(node);
-          if (parentElement && !parentElement.shadowRoot && getShadowRoot(parentElement) === true) {
-            return isZeroArea(node);
-          } else if (node.assignedSlot) {
-            node = node.assignedSlot;
-          } else if (!parentElement && rootNode !== node.ownerDocument) {
-            node = rootNode.host;
-          } else {
-            node = parentElement;
-          }
-        }
-        node = originalNode;
-      }
-      if (isNodeAttached(node)) {
-        return !node.getClientRects().length;
-      }
-      if (displayCheck !== "legacy-full") {
-        return true;
-      }
-    } else if (displayCheck === "non-zero-area") {
-      return isZeroArea(node);
-    }
-    return false;
-  };
-  var isDisabledFromFieldset = function isDisabledFromFieldset2(node) {
-    if (/^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(node.tagName)) {
-      var parentNode = node.parentElement;
-      while (parentNode) {
-        if (parentNode.tagName === "FIELDSET" && parentNode.disabled) {
-          for (var i = 0; i < parentNode.children.length; i++) {
-            var child = parentNode.children.item(i);
-            if (child.tagName === "LEGEND") {
-              return matches.call(parentNode, "fieldset[disabled] *") ? true : !child.contains(node);
-            }
-          }
-          return true;
-        }
-        parentNode = parentNode.parentElement;
-      }
-    }
-    return false;
-  };
-  var isNodeMatchingSelectorFocusable = function isNodeMatchingSelectorFocusable2(options, node) {
-    if (node.disabled || isHiddenInput(node) || isHidden(node, options) || // For a details element with a summary, the summary element gets the focus
-    isDetailsWithSummary(node) || isDisabledFromFieldset(node)) {
-      return false;
-    }
-    return true;
-  };
-  var isNodeMatchingSelectorTabbable = function isNodeMatchingSelectorTabbable2(options, node) {
-    if (isNonTabbableRadio(node) || getTabIndex(node) < 0 || !isNodeMatchingSelectorFocusable(options, node)) {
-      return false;
-    }
-    return true;
-  };
-  var isShadowRootTabbable = function isShadowRootTabbable2(shadowHostNode) {
-    var tabIndex = parseInt(shadowHostNode.getAttribute("tabindex"), 10);
-    if (isNaN(tabIndex) || tabIndex >= 0) {
-      return true;
-    }
-    return false;
-  };
-  var _sortByOrder = function sortByOrder(candidates) {
-    var regularTabbables = [];
-    var orderedTabbables = [];
-    candidates.forEach(function(item, i) {
-      var isScope = !!item.scopeParent;
-      var element = isScope ? item.scopeParent : item;
-      var candidateTabindex = getSortOrderTabIndex(element, isScope);
-      var elements = isScope ? _sortByOrder(item.candidates) : element;
-      if (candidateTabindex === 0) {
-        isScope ? regularTabbables.push.apply(regularTabbables, elements) : regularTabbables.push(element);
-      } else {
-        orderedTabbables.push({
-          documentOrder: i,
-          tabIndex: candidateTabindex,
-          item,
-          isScope,
-          content: elements
-        });
-      }
-    });
-    return orderedTabbables.sort(sortOrderedTabbables).reduce(function(acc, sortable) {
-      sortable.isScope ? acc.push.apply(acc, sortable.content) : acc.push(sortable.content);
-      return acc;
-    }, []).concat(regularTabbables);
-  };
-  var tabbable = function tabbable2(container, options) {
-    options = options || {};
-    var candidates;
-    if (options.getShadowRoot) {
-      candidates = _getCandidatesIteratively([container], options.includeContainer, {
-        filter: isNodeMatchingSelectorTabbable.bind(null, options),
-        flatten: false,
-        getShadowRoot: options.getShadowRoot,
-        shadowRootFilter: isShadowRootTabbable
-      });
-    } else {
-      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorTabbable.bind(null, options));
-    }
-    return _sortByOrder(candidates);
-  };
-  var focusable = function focusable2(container, options) {
-    options = options || {};
-    var candidates;
-    if (options.getShadowRoot) {
-      candidates = _getCandidatesIteratively([container], options.includeContainer, {
-        filter: isNodeMatchingSelectorFocusable.bind(null, options),
-        flatten: true,
-        getShadowRoot: options.getShadowRoot
-      });
-    } else {
-      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorFocusable.bind(null, options));
-    }
-    return candidates;
-  };
-  var isTabbable = function isTabbable2(node, options) {
-    options = options || {};
-    if (!node) {
-      throw new Error("No node provided");
-    }
-    if (matches.call(node, candidateSelector) === false) {
-      return false;
-    }
-    return isNodeMatchingSelectorTabbable(options, node);
-  };
-  var focusableCandidateSelector = /* @__PURE__ */ candidateSelectors.concat("iframe:not([inert]):not([inert] *)").join(",");
-  var isFocusable$1 = function isFocusable2(node, options) {
-    options = options || {};
-    if (!node) {
-      throw new Error("No node provided");
-    }
-    if (matches.call(node, focusableCandidateSelector) === false) {
-      return false;
-    }
-    return isNodeMatchingSelectorFocusable(options, node);
-  };
-  const index_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    focusable,
-    getTabIndex,
-    isFocusable: isFocusable$1,
-    isTabbable,
-    tabbable
-  }, Symbol.toStringTag, { value: "Module" }));
-  /*!
-  * focus-trap 8.0.0
-  * @license MIT, https://github.com/focus-trap/focus-trap/blob/master/LICENSE
-  */
-  function _arrayLikeToArray(r2, a) {
-    (null == a || a > r2.length) && (a = r2.length);
-    for (var e = 0, n2 = Array(a); e < a; e++) n2[e] = r2[e];
-    return n2;
-  }
-  function _arrayWithoutHoles(r2) {
-    if (Array.isArray(r2)) return _arrayLikeToArray(r2);
-  }
-  function asyncGeneratorStep(n2, t2, e, r2, o, a, c) {
-    try {
-      var i = n2[a](c), u2 = i.value;
-    } catch (n3) {
-      return void e(n3);
-    }
-    i.done ? t2(u2) : Promise.resolve(u2).then(r2, o);
-  }
-  function _asyncToGenerator(n2) {
-    return function() {
-      var t2 = this, e = arguments;
-      return new Promise(function(r2, o) {
-        var a = n2.apply(t2, e);
-        function _next(n3) {
-          asyncGeneratorStep(a, r2, o, _next, _throw, "next", n3);
-        }
-        function _throw(n3) {
-          asyncGeneratorStep(a, r2, o, _next, _throw, "throw", n3);
-        }
-        _next(void 0);
-      });
-    };
-  }
-  function _createForOfIteratorHelper(r2, e) {
-    var t2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
-    if (!t2) {
-      if (Array.isArray(r2) || (t2 = _unsupportedIterableToArray(r2)) || e) {
-        t2 && (r2 = t2);
-        var n2 = 0, F2 = function() {
-        };
-        return {
-          s: F2,
-          n: function() {
-            return n2 >= r2.length ? {
-              done: true
-            } : {
-              done: false,
-              value: r2[n2++]
-            };
-          },
-          e: function(r3) {
-            throw r3;
-          },
-          f: F2
-        };
-      }
-      throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-    }
-    var o, a = true, u2 = false;
-    return {
-      s: function() {
-        t2 = t2.call(r2);
-      },
-      n: function() {
-        var r3 = t2.next();
-        return a = r3.done, r3;
-      },
-      e: function(r3) {
-        u2 = true, o = r3;
-      },
-      f: function() {
-        try {
-          a || null == t2.return || t2.return();
-        } finally {
-          if (u2) throw o;
-        }
-      }
-    };
-  }
-  function _defineProperty$1(e, r2, t2) {
-    return (r2 = _toPropertyKey$1(r2)) in e ? Object.defineProperty(e, r2, {
-      value: t2,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    }) : e[r2] = t2, e;
-  }
-  function _iterableToArray(r2) {
-    if ("undefined" != typeof Symbol && null != r2[Symbol.iterator] || null != r2["@@iterator"]) return Array.from(r2);
-  }
-  function _nonIterableSpread() {
-    throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-  }
-  function ownKeys(e, r2) {
-    var t2 = Object.keys(e);
-    if (Object.getOwnPropertySymbols) {
-      var o = Object.getOwnPropertySymbols(e);
-      r2 && (o = o.filter(function(r3) {
-        return Object.getOwnPropertyDescriptor(e, r3).enumerable;
-      })), t2.push.apply(t2, o);
-    }
-    return t2;
-  }
-  function _objectSpread2(e) {
-    for (var r2 = 1; r2 < arguments.length; r2++) {
-      var t2 = null != arguments[r2] ? arguments[r2] : {};
-      r2 % 2 ? ownKeys(Object(t2), true).forEach(function(r3) {
-        _defineProperty$1(e, r3, t2[r3]);
-      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t2)) : ownKeys(Object(t2)).forEach(function(r3) {
-        Object.defineProperty(e, r3, Object.getOwnPropertyDescriptor(t2, r3));
-      });
-    }
-    return e;
-  }
-  function _regenerator() {
-    /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
-    var e, t2, r2 = "function" == typeof Symbol ? Symbol : {}, n2 = r2.iterator || "@@iterator", o = r2.toStringTag || "@@toStringTag";
-    function i(r3, n3, o2, i2) {
-      var c2 = n3 && n3.prototype instanceof Generator ? n3 : Generator, u3 = Object.create(c2.prototype);
-      return _regeneratorDefine(u3, "_invoke", function(r4, n4, o3) {
-        var i3, c3, u4, f3 = 0, p2 = o3 || [], y2 = false, G2 = {
-          p: 0,
-          n: 0,
-          v: e,
-          a: d,
-          f: d.bind(e, 4),
-          d: function(t3, r5) {
-            return i3 = t3, c3 = 0, u4 = e, G2.n = r5, a;
-          }
-        };
-        function d(r5, n5) {
-          for (c3 = r5, u4 = n5, t2 = 0; !y2 && f3 && !o4 && t2 < p2.length; t2++) {
-            var o4, i4 = p2[t2], d2 = G2.p, l2 = i4[2];
-            r5 > 3 ? (o4 = l2 === n5) && (u4 = i4[(c3 = i4[4]) ? 5 : (c3 = 3, 3)], i4[4] = i4[5] = e) : i4[0] <= d2 && ((o4 = r5 < 2 && d2 < i4[1]) ? (c3 = 0, G2.v = n5, G2.n = i4[1]) : d2 < l2 && (o4 = r5 < 3 || i4[0] > n5 || n5 > l2) && (i4[4] = r5, i4[5] = n5, G2.n = l2, c3 = 0));
-          }
-          if (o4 || r5 > 1) return a;
-          throw y2 = true, n5;
-        }
-        return function(o4, p3, l2) {
-          if (f3 > 1) throw TypeError("Generator is already running");
-          for (y2 && 1 === p3 && d(p3, l2), c3 = p3, u4 = l2; (t2 = c3 < 2 ? e : u4) || !y2; ) {
-            i3 || (c3 ? c3 < 3 ? (c3 > 1 && (G2.n = -1), d(c3, u4)) : G2.n = u4 : G2.v = u4);
-            try {
-              if (f3 = 2, i3) {
-                if (c3 || (o4 = "next"), t2 = i3[o4]) {
-                  if (!(t2 = t2.call(i3, u4))) throw TypeError("iterator result is not an object");
-                  if (!t2.done) return t2;
-                  u4 = t2.value, c3 < 2 && (c3 = 0);
-                } else 1 === c3 && (t2 = i3.return) && t2.call(i3), c3 < 2 && (u4 = TypeError("The iterator does not provide a '" + o4 + "' method"), c3 = 1);
-                i3 = e;
-              } else if ((t2 = (y2 = G2.n < 0) ? u4 : r4.call(n4, G2)) !== a) break;
-            } catch (t3) {
-              i3 = e, c3 = 1, u4 = t3;
-            } finally {
-              f3 = 1;
-            }
-          }
-          return {
-            value: t2,
-            done: y2
-          };
-        };
-      }(r3, o2, i2), true), u3;
-    }
-    var a = {};
-    function Generator() {
-    }
-    function GeneratorFunction() {
-    }
-    function GeneratorFunctionPrototype() {
-    }
-    t2 = Object.getPrototypeOf;
-    var c = [][n2] ? t2(t2([][n2]())) : (_regeneratorDefine(t2 = {}, n2, function() {
-      return this;
-    }), t2), u2 = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c);
-    function f2(e2) {
-      return Object.setPrototypeOf ? Object.setPrototypeOf(e2, GeneratorFunctionPrototype) : (e2.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine(e2, o, "GeneratorFunction")), e2.prototype = Object.create(u2), e2;
-    }
-    return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine(u2, "constructor", GeneratorFunctionPrototype), _regeneratorDefine(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine(u2), _regeneratorDefine(u2, o, "Generator"), _regeneratorDefine(u2, n2, function() {
-      return this;
-    }), _regeneratorDefine(u2, "toString", function() {
-      return "[object Generator]";
-    }), (_regenerator = function() {
-      return {
-        w: i,
-        m: f2
-      };
-    })();
-  }
-  function _regeneratorDefine(e, r2, n2, t2) {
-    var i = Object.defineProperty;
-    try {
-      i({}, "", {});
-    } catch (e2) {
-      i = 0;
-    }
-    _regeneratorDefine = function(e2, r3, n3, t3) {
-      function o(r4, n4) {
-        _regeneratorDefine(e2, r4, function(e3) {
-          return this._invoke(r4, n4, e3);
-        });
-      }
-      r3 ? i ? i(e2, r3, {
-        value: n3,
-        enumerable: !t3,
-        configurable: !t3,
-        writable: !t3
-      }) : e2[r3] = n3 : (o("next", 0), o("throw", 1), o("return", 2));
-    }, _regeneratorDefine(e, r2, n2, t2);
-  }
-  function _toConsumableArray(r2) {
-    return _arrayWithoutHoles(r2) || _iterableToArray(r2) || _unsupportedIterableToArray(r2) || _nonIterableSpread();
-  }
-  function _toPrimitive$1(t2, r2) {
-    if ("object" != typeof t2 || !t2) return t2;
-    var e = t2[Symbol.toPrimitive];
-    if (void 0 !== e) {
-      var i = e.call(t2, r2);
-      if ("object" != typeof i) return i;
-      throw new TypeError("@@toPrimitive must return a primitive value.");
-    }
-    return ("string" === r2 ? String : Number)(t2);
-  }
-  function _toPropertyKey$1(t2) {
-    var i = _toPrimitive$1(t2, "string");
-    return "symbol" == typeof i ? i : i + "";
-  }
-  function _unsupportedIterableToArray(r2, a) {
-    if (r2) {
-      if ("string" == typeof r2) return _arrayLikeToArray(r2, a);
-      var t2 = {}.toString.call(r2).slice(8, -1);
-      return "Object" === t2 && r2.constructor && (t2 = r2.constructor.name), "Map" === t2 || "Set" === t2 ? Array.from(r2) : "Arguments" === t2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t2) ? _arrayLikeToArray(r2, a) : void 0;
-    }
-  }
-  var activeFocusTraps = {
-    // Returns the trap from the top of the stack.
-    getActiveTrap: function getActiveTrap(trapStack) {
-      if ((trapStack === null || trapStack === void 0 ? void 0 : trapStack.length) > 0) {
-        return trapStack[trapStack.length - 1];
-      }
-      return null;
-    },
-    // Pauses the currently active trap, then adds a new trap to the stack.
-    activateTrap: function activateTrap(trapStack, trap) {
-      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
-      if (trap !== activeTrap) {
-        activeFocusTraps.pauseTrap(trapStack);
-      }
-      var trapIndex = trapStack.indexOf(trap);
-      if (trapIndex === -1) {
-        trapStack.push(trap);
-      } else {
-        trapStack.splice(trapIndex, 1);
-        trapStack.push(trap);
-      }
-    },
-    // Removes the trap from the top of the stack, then unpauses the next trap down.
-    deactivateTrap: function deactivateTrap(trapStack, trap) {
-      var trapIndex = trapStack.indexOf(trap);
-      if (trapIndex !== -1) {
-        trapStack.splice(trapIndex, 1);
-      }
-      activeFocusTraps.unpauseTrap(trapStack);
-    },
-    // Pauses the trap at the top of the stack.
-    pauseTrap: function pauseTrap(trapStack) {
-      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
-      activeTrap === null || activeTrap === void 0 || activeTrap._setPausedState(true);
-    },
-    // Unpauses the trap at the top of the stack.
-    unpauseTrap: function unpauseTrap(trapStack) {
-      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
-      if (activeTrap && !activeTrap._isManuallyPaused()) {
-        activeTrap._setPausedState(false);
-      }
-    }
-  };
-  var isSelectableInput = function isSelectableInput2(node) {
-    return node.tagName && node.tagName.toLowerCase() === "input" && typeof node.select === "function";
-  };
-  var isEscapeEvent = function isEscapeEvent2(e) {
-    return (e === null || e === void 0 ? void 0 : e.key) === "Escape" || (e === null || e === void 0 ? void 0 : e.key) === "Esc" || (e === null || e === void 0 ? void 0 : e.keyCode) === 27;
-  };
-  var isTabEvent = function isTabEvent2(e) {
-    return (e === null || e === void 0 ? void 0 : e.key) === "Tab" || (e === null || e === void 0 ? void 0 : e.keyCode) === 9;
-  };
-  var isKeyForward = function isKeyForward2(e) {
-    return isTabEvent(e) && !e.shiftKey;
-  };
-  var isKeyBackward = function isKeyBackward2(e) {
-    return isTabEvent(e) && e.shiftKey;
-  };
-  var delay = function delay2(fn) {
-    return setTimeout(fn, 0);
-  };
-  var valueOrHandler = function valueOrHandler2(value) {
-    for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-      params[_key - 1] = arguments[_key];
-    }
-    return typeof value === "function" ? value.apply(void 0, params) : value;
-  };
-  var getActualTarget = function getActualTarget2(event) {
-    return event.target.shadowRoot && typeof event.composedPath === "function" ? event.composedPath()[0] : event.target;
-  };
-  var internalTrapStack = [];
-  var createFocusTrap$1 = function createFocusTrap2(elements, userOptions) {
-    var doc = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.document) || document;
-    var trapStack = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.trapStack) || internalTrapStack;
-    var config2 = _objectSpread2({
-      returnFocusOnDeactivate: true,
-      escapeDeactivates: true,
-      delayInitialFocus: true,
-      isolateSubtrees: false,
-      isKeyForward,
-      isKeyBackward
-    }, userOptions);
-    var state = {
-      // containers given to createFocusTrap()
-      /** @type {Array<HTMLElement>} */
-      containers: [],
-      // list of objects identifying tabbable nodes in `containers` in the trap
-      // NOTE: it's possible that a group has no tabbable nodes if nodes get removed while the trap
-      //  is active, but the trap should never get to a state where there isn't at least one group
-      //  with at least one tabbable node in it (that would lead to an error condition that would
-      //  result in an error being thrown)
-      /** @type {Array<{
-       *    container: HTMLElement,
-       *    tabbableNodes: Array<HTMLElement>, // empty if none
-       *    focusableNodes: Array<HTMLElement>, // empty if none
-       *    posTabIndexesFound: boolean,
-       *    firstTabbableNode: HTMLElement|undefined,
-       *    lastTabbableNode: HTMLElement|undefined,
-       *    firstDomTabbableNode: HTMLElement|undefined,
-       *    lastDomTabbableNode: HTMLElement|undefined,
-       *    nextTabbableNode: (node: HTMLElement, forward: boolean) => HTMLElement|undefined
-       *  }>}
-       */
-      containerGroups: [],
-      // same order/length as `containers` list
-      // references to objects in `containerGroups`, but only those that actually have
-      //  tabbable nodes in them
-      // NOTE: same order as `containers` and `containerGroups`, but __not necessarily__
-      //  the same length
-      tabbableGroups: [],
-      // references to nodes that are siblings to the ancestors of this trap's containers.
-      /** @type {Set<HTMLElement>} */
-      adjacentElements: /* @__PURE__ */ new Set(),
-      // references to nodes that were inert or aria-hidden before the trap was activated.
-      /** @type {Set<HTMLElement>} */
-      alreadySilent: /* @__PURE__ */ new Set(),
-      nodeFocusedBeforeActivation: null,
-      mostRecentlyFocusedNode: null,
-      active: false,
-      paused: false,
-      manuallyPaused: false,
-      // timer ID for when delayInitialFocus is true and initial focus in this trap
-      //  has been delayed during activation
-      delayInitialFocusTimer: void 0,
-      // the most recent KeyboardEvent for the configured nav key (typically [SHIFT+]TAB), if any
-      recentNavEvent: void 0
-    };
-    var trap;
-    var getOption = function getOption2(configOverrideOptions, optionName, configOptionName) {
-      return configOverrideOptions && configOverrideOptions[optionName] !== void 0 ? configOverrideOptions[optionName] : config2[configOptionName || optionName];
-    };
-    var findContainerIndex = function findContainerIndex2(element, event) {
-      var composedPath = typeof (event === null || event === void 0 ? void 0 : event.composedPath) === "function" ? event.composedPath() : void 0;
-      return state.containerGroups.findIndex(function(_ref) {
-        var container = _ref.container, tabbableNodes = _ref.tabbableNodes;
-        return container.contains(element) || // fall back to explicit tabbable search which will take into consideration any
-        //  web components if the `tabbableOptions.getShadowRoot` option was used for
-        //  the trap, enabling shadow DOM support in tabbable (`Node.contains()` doesn't
-        //  look inside web components even if open)
-        (composedPath === null || composedPath === void 0 ? void 0 : composedPath.includes(container)) || tabbableNodes.find(function(node) {
-          return node === element;
-        });
-      });
-    };
-    var getNodeForOption = function getNodeForOption2(optionName) {
-      var _ref2 = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref2$hasFallback = _ref2.hasFallback, hasFallback = _ref2$hasFallback === void 0 ? false : _ref2$hasFallback, _ref2$params = _ref2.params, params = _ref2$params === void 0 ? [] : _ref2$params;
-      var optionValue = config2[optionName];
-      if (typeof optionValue === "function") {
-        optionValue = optionValue.apply(void 0, _toConsumableArray(params));
-      }
-      if (optionValue === true) {
-        optionValue = void 0;
-      }
-      if (!optionValue) {
-        if (optionValue === void 0 || optionValue === false) {
-          return optionValue;
-        }
-        throw new Error("`".concat(optionName, "` was specified but was not a node, or did not return a node"));
-      }
-      var node = optionValue;
-      if (typeof optionValue === "string") {
-        try {
-          node = doc.querySelector(optionValue);
-        } catch (err) {
-          throw new Error("`".concat(optionName, '` appears to be an invalid selector; error="').concat(err.message, '"'));
-        }
-        if (!node) {
-          if (!hasFallback) {
-            throw new Error("`".concat(optionName, "` as selector refers to no known node"));
-          }
-        }
-      }
-      return node;
-    };
-    var getInitialFocusNode = function getInitialFocusNode2() {
-      var node = getNodeForOption("initialFocus", {
-        hasFallback: true
-      });
-      if (node === false) {
-        return false;
-      }
-      if (node === void 0 || node && !isFocusable$1(node, config2.tabbableOptions)) {
-        if (findContainerIndex(doc.activeElement) >= 0) {
-          node = doc.activeElement;
-        } else {
-          var firstTabbableGroup = state.tabbableGroups[0];
-          var firstTabbableNode = firstTabbableGroup && firstTabbableGroup.firstTabbableNode;
-          node = firstTabbableNode || getNodeForOption("fallbackFocus");
-        }
-      } else if (node === null) {
-        node = getNodeForOption("fallbackFocus");
-      }
-      if (!node) {
-        throw new Error("Your focus-trap needs to have at least one focusable element");
-      }
-      return node;
-    };
-    var updateTabbableNodes = function updateTabbableNodes2() {
-      state.containerGroups = state.containers.map(function(container) {
-        var tabbableNodes = tabbable(container, config2.tabbableOptions);
-        var focusableNodes = focusable(container, config2.tabbableOptions);
-        var firstTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[0] : void 0;
-        var lastTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[tabbableNodes.length - 1] : void 0;
-        var firstDomTabbableNode = focusableNodes.find(function(node) {
-          return isTabbable(node);
-        });
-        var lastDomTabbableNode = focusableNodes.slice().reverse().find(function(node) {
-          return isTabbable(node);
-        });
-        var posTabIndexesFound = !!tabbableNodes.find(function(node) {
-          return getTabIndex(node) > 0;
-        });
-        return {
-          container,
-          tabbableNodes,
-          focusableNodes,
-          /** True if at least one node with positive `tabindex` was found in this container. */
-          posTabIndexesFound,
-          /** First tabbable node in container, __tabindex__ order; `undefined` if none. */
-          firstTabbableNode,
-          /** Last tabbable node in container, __tabindex__ order; `undefined` if none. */
-          lastTabbableNode,
-          // NOTE: DOM order is NOT NECESSARILY "document position" order, but figuring that out
-          //  would require more than just https://developer.mozilla.org/en-US/docs/Web/API/Node/compareDocumentPosition
-          //  because that API doesn't work with Shadow DOM as well as it should (@see
-          //  https://github.com/whatwg/dom/issues/320) and since this first/last is only needed, so far,
-          //  to address an edge case related to positive tabindex support, this seems like a much easier,
-          //  "close enough most of the time" alternative for positive tabindexes which should generally
-          //  be avoided anyway...
-          /** First tabbable node in container, __DOM__ order; `undefined` if none. */
-          firstDomTabbableNode,
-          /** Last tabbable node in container, __DOM__ order; `undefined` if none. */
-          lastDomTabbableNode,
-          /**
-           * Finds the __tabbable__ node that follows the given node in the specified direction,
-           *  in this container, if any.
-           * @param {HTMLElement} node
-           * @param {boolean} [forward] True if going in forward tab order; false if going
-           *  in reverse.
-           * @returns {HTMLElement|undefined} The next tabbable node, if any.
-           */
-          nextTabbableNode: function nextTabbableNode(node) {
-            var forward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : true;
-            var nodeIdx = tabbableNodes.indexOf(node);
-            if (nodeIdx < 0) {
-              if (forward) {
-                return focusableNodes.slice(focusableNodes.indexOf(node) + 1).find(function(el2) {
-                  return isTabbable(el2);
-                });
-              }
-              return focusableNodes.slice(0, focusableNodes.indexOf(node)).reverse().find(function(el2) {
-                return isTabbable(el2);
-              });
-            }
-            return tabbableNodes[nodeIdx + (forward ? 1 : -1)];
-          }
-        };
-      });
-      state.tabbableGroups = state.containerGroups.filter(function(group) {
-        return group.tabbableNodes.length > 0;
-      });
-      if (state.tabbableGroups.length <= 0 && !getNodeForOption("fallbackFocus")) {
-        throw new Error("Your focus-trap must have at least one container with at least one tabbable node in it at all times");
-      }
-      if (state.containerGroups.find(function(g) {
-        return g.posTabIndexesFound;
-      }) && state.containerGroups.length > 1) {
-        throw new Error("At least one node with a positive tabindex was found in one of your focus-trap's multiple containers. Positive tabindexes are only supported in single-container focus-traps.");
-      }
-    };
-    var _getActiveElement = function getActiveElement(el2) {
-      var activeElement = el2.activeElement;
-      if (!activeElement) {
-        return;
-      }
-      if (activeElement.shadowRoot && activeElement.shadowRoot.activeElement !== null) {
-        return _getActiveElement(activeElement.shadowRoot);
-      }
-      return activeElement;
-    };
-    var _tryFocus = function tryFocus(node) {
-      if (node === false) {
-        return;
-      }
-      if (node === _getActiveElement(document)) {
-        return;
-      }
-      if (!node || !node.focus) {
-        _tryFocus(getInitialFocusNode());
-        return;
-      }
-      node.focus({
-        preventScroll: !!config2.preventScroll
-      });
-      state.mostRecentlyFocusedNode = node;
-      if (isSelectableInput(node)) {
-        node.select();
-      }
-    };
-    var getReturnFocusNode = function getReturnFocusNode2(previousActiveElement) {
-      var node = getNodeForOption("setReturnFocus", {
-        params: [previousActiveElement]
-      });
-      return node ? node : node === false ? false : previousActiveElement;
-    };
-    var findNextNavNode = function findNextNavNode2(_ref3) {
-      var target = _ref3.target, event = _ref3.event, _ref3$isBackward = _ref3.isBackward, isBackward = _ref3$isBackward === void 0 ? false : _ref3$isBackward;
-      target = target || getActualTarget(event);
-      updateTabbableNodes();
-      var destinationNode = null;
-      if (state.tabbableGroups.length > 0) {
-        var containerIndex = findContainerIndex(target, event);
-        var containerGroup = containerIndex >= 0 ? state.containerGroups[containerIndex] : void 0;
-        if (containerIndex < 0) {
-          if (isBackward) {
-            destinationNode = state.tabbableGroups[state.tabbableGroups.length - 1].lastTabbableNode;
-          } else {
-            destinationNode = state.tabbableGroups[0].firstTabbableNode;
-          }
-        } else if (isBackward) {
-          var startOfGroupIndex = state.tabbableGroups.findIndex(function(_ref4) {
-            var firstTabbableNode = _ref4.firstTabbableNode;
-            return target === firstTabbableNode;
-          });
-          if (startOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target, false))) {
-            startOfGroupIndex = containerIndex;
-          }
-          if (startOfGroupIndex >= 0) {
-            var destinationGroupIndex = startOfGroupIndex === 0 ? state.tabbableGroups.length - 1 : startOfGroupIndex - 1;
-            var destinationGroup = state.tabbableGroups[destinationGroupIndex];
-            destinationNode = getTabIndex(target) >= 0 ? destinationGroup.lastTabbableNode : destinationGroup.lastDomTabbableNode;
-          } else if (!isTabEvent(event)) {
-            destinationNode = containerGroup.nextTabbableNode(target, false);
-          }
-        } else {
-          var lastOfGroupIndex = state.tabbableGroups.findIndex(function(_ref5) {
-            var lastTabbableNode = _ref5.lastTabbableNode;
-            return target === lastTabbableNode;
-          });
-          if (lastOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target))) {
-            lastOfGroupIndex = containerIndex;
-          }
-          if (lastOfGroupIndex >= 0) {
-            var _destinationGroupIndex = lastOfGroupIndex === state.tabbableGroups.length - 1 ? 0 : lastOfGroupIndex + 1;
-            var _destinationGroup = state.tabbableGroups[_destinationGroupIndex];
-            destinationNode = getTabIndex(target) >= 0 ? _destinationGroup.firstTabbableNode : _destinationGroup.firstDomTabbableNode;
-          } else if (!isTabEvent(event)) {
-            destinationNode = containerGroup.nextTabbableNode(target);
-          }
-        }
-      } else {
-        destinationNode = getNodeForOption("fallbackFocus");
-      }
-      return destinationNode;
-    };
-    var checkPointerDown = function checkPointerDown2(e) {
-      var target = getActualTarget(e);
-      if (findContainerIndex(target, e) >= 0) {
-        return;
-      }
-      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
-        trap.deactivate({
-          // NOTE: by setting `returnFocus: false`, deactivate() will do nothing,
-          //  which will result in the outside click setting focus to the node
-          //  that was clicked (and if not focusable, to "nothing"); by setting
-          //  `returnFocus: true`, we'll attempt to re-focus the node originally-focused
-          //  on activation (or the configured `setReturnFocus` node), whether the
-          //  outside click was on a focusable node or not
-          returnFocus: config2.returnFocusOnDeactivate
-        });
-        return;
-      }
-      if (valueOrHandler(config2.allowOutsideClick, e)) {
-        return;
-      }
-      e.preventDefault();
-    };
-    var checkFocusIn = function checkFocusIn2(event) {
-      var target = getActualTarget(event);
-      var targetContained = findContainerIndex(target, event) >= 0;
-      if (targetContained || target instanceof Document) {
-        if (targetContained) {
-          state.mostRecentlyFocusedNode = target;
-        }
-      } else {
-        event.stopImmediatePropagation();
-        var nextNode;
-        var navAcrossContainers = true;
-        if (state.mostRecentlyFocusedNode) {
-          if (getTabIndex(state.mostRecentlyFocusedNode) > 0) {
-            var mruContainerIdx = findContainerIndex(state.mostRecentlyFocusedNode);
-            var tabbableNodes = state.containerGroups[mruContainerIdx].tabbableNodes;
-            if (tabbableNodes.length > 0) {
-              var mruTabIdx = tabbableNodes.findIndex(function(node) {
-                return node === state.mostRecentlyFocusedNode;
-              });
-              if (mruTabIdx >= 0) {
-                if (config2.isKeyForward(state.recentNavEvent)) {
-                  if (mruTabIdx + 1 < tabbableNodes.length) {
-                    nextNode = tabbableNodes[mruTabIdx + 1];
-                    navAcrossContainers = false;
-                  }
-                } else {
-                  if (mruTabIdx - 1 >= 0) {
-                    nextNode = tabbableNodes[mruTabIdx - 1];
-                    navAcrossContainers = false;
-                  }
-                }
-              }
-            }
-          } else {
-            if (!state.containerGroups.some(function(g) {
-              return g.tabbableNodes.some(function(n2) {
-                return getTabIndex(n2) > 0;
-              });
-            })) {
-              navAcrossContainers = false;
-            }
-          }
-        } else {
-          navAcrossContainers = false;
-        }
-        if (navAcrossContainers) {
-          nextNode = findNextNavNode({
-            // move FROM the MRU node, not event-related node (which will be the node that is
-            //  outside the trap causing the focus escape we're trying to fix)
-            target: state.mostRecentlyFocusedNode,
-            isBackward: config2.isKeyBackward(state.recentNavEvent)
-          });
-        }
-        if (nextNode) {
-          _tryFocus(nextNode);
-        } else {
-          _tryFocus(state.mostRecentlyFocusedNode || getInitialFocusNode());
-        }
-      }
-      state.recentNavEvent = void 0;
-    };
-    var checkKeyNav = function checkKeyNav2(event) {
-      var isBackward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : false;
-      state.recentNavEvent = event;
-      var destinationNode = findNextNavNode({
-        event,
-        isBackward
-      });
-      if (destinationNode) {
-        if (isTabEvent(event)) {
-          event.preventDefault();
-        }
-        _tryFocus(destinationNode);
-      }
-    };
-    var checkTabKey = function checkTabKey2(event) {
-      if (config2.isKeyForward(event) || config2.isKeyBackward(event)) {
-        checkKeyNav(event, config2.isKeyBackward(event));
-      }
-    };
-    var checkEscapeKey = function checkEscapeKey2(event) {
-      if (isEscapeEvent(event) && valueOrHandler(config2.escapeDeactivates, event) !== false) {
-        event.preventDefault();
-        trap.deactivate();
-      }
-    };
-    var checkClick = function checkClick2(e) {
-      var target = getActualTarget(e);
-      if (findContainerIndex(target, e) >= 0) {
-        return;
-      }
-      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
-        return;
-      }
-      if (valueOrHandler(config2.allowOutsideClick, e)) {
-        return;
-      }
-      e.preventDefault();
-      e.stopImmediatePropagation();
-    };
-    var addListeners = function addListeners2() {
-      if (!state.active) {
-        return Promise.resolve();
-      }
-      activeFocusTraps.activateTrap(trapStack, trap);
-      var promise;
-      if (config2.delayInitialFocus) {
-        promise = new Promise(function(resolve) {
-          state.delayInitialFocusTimer = delay(function() {
-            _tryFocus(getInitialFocusNode());
-            resolve();
-          });
-        });
-      } else {
-        promise = Promise.resolve();
-        _tryFocus(getInitialFocusNode());
-      }
-      doc.addEventListener("focusin", checkFocusIn, true);
-      doc.addEventListener("mousedown", checkPointerDown, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("touchstart", checkPointerDown, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("click", checkClick, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("keydown", checkTabKey, {
-        capture: true,
-        passive: false
-      });
-      doc.addEventListener("keydown", checkEscapeKey);
-      return promise;
-    };
-    var collectAdjacentElements = function collectAdjacentElements2(containers) {
-      if (state.active && !state.paused) {
-        trap._setSubtreeIsolation(false);
-      }
-      state.adjacentElements.clear();
-      state.alreadySilent.clear();
-      var containerAncestors = /* @__PURE__ */ new Set();
-      var adjacentElements = /* @__PURE__ */ new Set();
-      var _iterator = _createForOfIteratorHelper(containers), _step;
-      try {
-        for (_iterator.s(); !(_step = _iterator.n()).done; ) {
-          var container = _step.value;
-          containerAncestors.add(container);
-          var insideShadowRoot = typeof ShadowRoot !== "undefined" && container.getRootNode() instanceof ShadowRoot;
-          var current = container;
-          while (current) {
-            containerAncestors.add(current);
-            var parent = current.parentElement;
-            var siblings = [];
-            if (parent) {
-              siblings = parent.children;
-            } else if (!parent && insideShadowRoot) {
-              siblings = current.getRootNode().children;
-              parent = current.getRootNode().host;
-              insideShadowRoot = typeof ShadowRoot !== "undefined" && parent.getRootNode() instanceof ShadowRoot;
-            }
-            var _iterator2 = _createForOfIteratorHelper(siblings), _step2;
-            try {
-              for (_iterator2.s(); !(_step2 = _iterator2.n()).done; ) {
-                var child = _step2.value;
-                adjacentElements.add(child);
-              }
-            } catch (err) {
-              _iterator2.e(err);
-            } finally {
-              _iterator2.f();
-            }
-            current = parent;
-          }
-        }
-      } catch (err) {
-        _iterator.e(err);
-      } finally {
-        _iterator.f();
-      }
-      containerAncestors.forEach(function(el2) {
-        adjacentElements["delete"](el2);
-      });
-      state.adjacentElements = adjacentElements;
-    };
-    var removeListeners = function removeListeners2() {
-      if (!state.active) {
-        return;
-      }
-      doc.removeEventListener("focusin", checkFocusIn, true);
-      doc.removeEventListener("mousedown", checkPointerDown, true);
-      doc.removeEventListener("touchstart", checkPointerDown, true);
-      doc.removeEventListener("click", checkClick, true);
-      doc.removeEventListener("keydown", checkTabKey, true);
-      doc.removeEventListener("keydown", checkEscapeKey);
-      return trap;
-    };
-    var checkDomRemoval = function checkDomRemoval2(mutations) {
-      var isFocusedNodeRemoved = mutations.some(function(mutation) {
-        var removedNodes = Array.from(mutation.removedNodes);
-        return removedNodes.some(function(node) {
-          return node === state.mostRecentlyFocusedNode;
-        });
-      });
-      if (isFocusedNodeRemoved) {
-        _tryFocus(getInitialFocusNode());
-      }
-    };
-    var mutationObserver = typeof window !== "undefined" && "MutationObserver" in window ? new MutationObserver(checkDomRemoval) : void 0;
-    var updateObservedNodes = function updateObservedNodes2() {
-      if (!mutationObserver) {
-        return;
-      }
-      mutationObserver.disconnect();
-      if (state.active && !state.paused) {
-        state.containers.map(function(container) {
-          mutationObserver.observe(container, {
-            subtree: true,
-            childList: true
-          });
-        });
-      }
-    };
-    trap = {
-      get active() {
-        return state.active;
-      },
-      get paused() {
-        return state.paused;
-      },
-      activate: function activate(activateOptions) {
-        if (state.active) {
-          return this;
-        }
-        var onActivate = getOption(activateOptions, "onActivate");
-        var onPostActivate = getOption(activateOptions, "onPostActivate");
-        var checkCanFocusTrap = getOption(activateOptions, "checkCanFocusTrap");
-        var preexistingTrap = activeFocusTraps.getActiveTrap(trapStack);
-        var revertState = false;
-        if (preexistingTrap && !preexistingTrap.paused) {
-          var _preexistingTrap$_set;
-          (_preexistingTrap$_set = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set === void 0 || _preexistingTrap$_set.call(preexistingTrap, false);
-          revertState = true;
-        }
-        try {
-          if (!checkCanFocusTrap) {
-            updateTabbableNodes();
-          }
-          state.active = true;
-          state.paused = false;
-          state.nodeFocusedBeforeActivation = _getActiveElement(doc);
-          onActivate === null || onActivate === void 0 || onActivate();
-          var finishActivation = /* @__PURE__ */ function() {
-            var _ref6 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee() {
-              return _regenerator().w(function(_context) {
-                while (1) switch (_context.n) {
-                  case 0:
-                    if (checkCanFocusTrap) {
-                      updateTabbableNodes();
-                    }
-                    _context.n = 1;
-                    return addListeners();
-                  case 1:
-                    trap._setSubtreeIsolation(true);
-                    updateObservedNodes();
-                    onPostActivate === null || onPostActivate === void 0 || onPostActivate();
-                  case 2:
-                    return _context.a(2);
-                }
-              }, _callee);
-            }));
-            return function finishActivation2() {
-              return _ref6.apply(this, arguments);
-            };
-          }();
-          if (checkCanFocusTrap) {
-            checkCanFocusTrap(state.containers.concat()).then(finishActivation, finishActivation);
-            return this;
-          }
-          finishActivation();
-        } catch (error) {
-          if (preexistingTrap === activeFocusTraps.getActiveTrap(trapStack) && revertState) {
-            var _preexistingTrap$_set2;
-            (_preexistingTrap$_set2 = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set2 === void 0 || _preexistingTrap$_set2.call(preexistingTrap, true);
-          }
-          throw error;
-        }
-        return this;
-      },
-      deactivate: function deactivate(deactivateOptions) {
-        if (!state.active) {
-          return this;
-        }
-        var options = _objectSpread2({
-          onDeactivate: config2.onDeactivate,
-          onPostDeactivate: config2.onPostDeactivate,
-          checkCanReturnFocus: config2.checkCanReturnFocus
-        }, deactivateOptions);
-        clearTimeout(state.delayInitialFocusTimer);
-        state.delayInitialFocusTimer = void 0;
-        if (!state.paused) {
-          trap._setSubtreeIsolation(false);
-        }
-        state.alreadySilent.clear();
-        removeListeners();
-        state.active = false;
-        state.paused = false;
-        updateObservedNodes();
-        activeFocusTraps.deactivateTrap(trapStack, trap);
-        var onDeactivate = getOption(options, "onDeactivate");
-        var onPostDeactivate = getOption(options, "onPostDeactivate");
-        var checkCanReturnFocus = getOption(options, "checkCanReturnFocus");
-        var returnFocus = getOption(options, "returnFocus", "returnFocusOnDeactivate");
-        onDeactivate === null || onDeactivate === void 0 || onDeactivate();
-        var finishDeactivation = function finishDeactivation2() {
-          delay(function() {
-            if (returnFocus) {
-              _tryFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation));
-            }
-            onPostDeactivate === null || onPostDeactivate === void 0 || onPostDeactivate();
-          });
-        };
-        if (returnFocus && checkCanReturnFocus) {
-          checkCanReturnFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation)).then(finishDeactivation, finishDeactivation);
-          return this;
-        }
-        finishDeactivation();
-        return this;
-      },
-      pause: function pause(pauseOptions) {
-        if (!state.active) {
-          return this;
-        }
-        state.manuallyPaused = true;
-        return this._setPausedState(true, pauseOptions);
-      },
-      unpause: function unpause(unpauseOptions) {
-        if (!state.active) {
-          return this;
-        }
-        state.manuallyPaused = false;
-        if (trapStack[trapStack.length - 1] !== this) {
-          return this;
-        }
-        return this._setPausedState(false, unpauseOptions);
-      },
-      updateContainerElements: function updateContainerElements(containerElements) {
-        var elementsAsArray = [].concat(containerElements).filter(Boolean);
-        state.containers = elementsAsArray.map(function(element) {
-          return typeof element === "string" ? doc.querySelector(element) : element;
-        });
-        if (config2.isolateSubtrees) {
-          collectAdjacentElements(state.containers);
-        }
-        if (state.active) {
-          updateTabbableNodes();
-          if (!state.paused) {
-            trap._setSubtreeIsolation(true);
-          }
-        }
-        updateObservedNodes();
-        return this;
-      }
-    };
-    Object.defineProperties(trap, {
-      _isManuallyPaused: {
-        value: function value() {
-          return state.manuallyPaused;
-        }
-      },
-      _setPausedState: {
-        value: function value(paused, options) {
-          if (state.paused === paused) {
-            return this;
-          }
-          state.paused = paused;
-          if (paused) {
-            var onPause = getOption(options, "onPause");
-            var onPostPause = getOption(options, "onPostPause");
-            onPause === null || onPause === void 0 || onPause();
-            removeListeners();
-            trap._setSubtreeIsolation(false);
-            updateObservedNodes();
-            onPostPause === null || onPostPause === void 0 || onPostPause();
-          } else {
-            var onUnpause = getOption(options, "onUnpause");
-            var onPostUnpause = getOption(options, "onPostUnpause");
-            onUnpause === null || onUnpause === void 0 || onUnpause();
-            var finishUnpause = /* @__PURE__ */ function() {
-              var _ref7 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee2() {
-                return _regenerator().w(function(_context2) {
-                  while (1) switch (_context2.n) {
-                    case 0:
-                      updateTabbableNodes();
-                      _context2.n = 1;
-                      return addListeners();
-                    case 1:
-                      trap._setSubtreeIsolation(true);
-                      updateObservedNodes();
-                      onPostUnpause === null || onPostUnpause === void 0 || onPostUnpause();
-                    case 2:
-                      return _context2.a(2);
-                  }
-                }, _callee2);
-              }));
-              return function finishUnpause2() {
-                return _ref7.apply(this, arguments);
-              };
-            }();
-            finishUnpause();
-          }
-          return this;
-        }
-      },
-      _setSubtreeIsolation: {
-        value: function value(isEnabled) {
-          if (config2.isolateSubtrees) {
-            state.adjacentElements.forEach(function(el2) {
-              var _el$getAttribute;
-              if (isEnabled) {
-                switch (config2.isolateSubtrees) {
-                  case "aria-hidden":
-                    if (el2.ariaHidden === "true" || ((_el$getAttribute = el2.getAttribute("aria-hidden")) === null || _el$getAttribute === void 0 ? void 0 : _el$getAttribute.toLowerCase()) === "true") {
-                      state.alreadySilent.add(el2);
-                    }
-                    el2.setAttribute("aria-hidden", "true");
-                    break;
-                  default:
-                    if (el2.inert || el2.hasAttribute("inert")) {
-                      state.alreadySilent.add(el2);
-                    }
-                    el2.setAttribute("inert", true);
-                    break;
-                }
-              } else {
-                if (state.alreadySilent.has(el2)) ;
-                else {
-                  switch (config2.isolateSubtrees) {
-                    case "aria-hidden":
-                      el2.removeAttribute("aria-hidden");
-                      break;
-                    default:
-                      el2.removeAttribute("inert");
-                      break;
-                  }
-                }
-              }
-            });
-          }
-        }
-      }
-    });
-    trap.updateContainerElements(elements);
-    return trap;
-  };
-  const focusTrap_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    createFocusTrap: createFocusTrap$1
-  }, Symbol.toStringTag, { value: "Module" }));
-  const require$$1 = /* @__PURE__ */ getAugmentedNamespace(focusTrap_esm);
-  const require$$2 = /* @__PURE__ */ getAugmentedNamespace(index_esm);
-  function _typeof(o) {
-    "@babel/helpers - typeof";
-    return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
-      return typeof o2;
-    } : function(o2) {
-      return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
-    }, _typeof(o);
-  }
-  var _exec$, _exec;
-  function _classCallCheck(a, n2) {
-    if (!(a instanceof n2)) throw new TypeError("Cannot call a class as a function");
-  }
-  function _defineProperties(e, r2) {
-    for (var t2 = 0; t2 < r2.length; t2++) {
-      var o = r2[t2];
-      o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey(o.key), o);
-    }
-  }
-  function _createClass(e, r2, t2) {
-    return r2 && _defineProperties(e.prototype, r2), Object.defineProperty(e, "prototype", { writable: false }), e;
-  }
-  function _callSuper(t2, o, e) {
-    return o = _getPrototypeOf(o), _possibleConstructorReturn(t2, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], _getPrototypeOf(t2).constructor) : o.apply(t2, e));
-  }
-  function _possibleConstructorReturn(t2, e) {
-    if (e && ("object" == _typeof(e) || "function" == typeof e)) return e;
-    if (void 0 !== e) throw new TypeError("Derived constructors may only return object or undefined");
-    return _assertThisInitialized(t2);
-  }
-  function _assertThisInitialized(e) {
-    if (void 0 === e) throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
-    return e;
-  }
-  function _isNativeReflectConstruct() {
-    try {
-      var t2 = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function() {
-      }));
-    } catch (t3) {
-    }
-    return (_isNativeReflectConstruct = function _isNativeReflectConstruct2() {
-      return !!t2;
-    })();
-  }
-  function _getPrototypeOf(t2) {
-    return _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function(t3) {
-      return t3.__proto__ || Object.getPrototypeOf(t3);
-    }, _getPrototypeOf(t2);
-  }
-  function _inherits(t2, e) {
-    if ("function" != typeof e && null !== e) throw new TypeError("Super expression must either be null or a function");
-    t2.prototype = Object.create(e && e.prototype, { constructor: { value: t2, writable: true, configurable: true } }), Object.defineProperty(t2, "prototype", { writable: false }), e && _setPrototypeOf(t2, e);
-  }
-  function _setPrototypeOf(t2, e) {
-    return _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function(t3, e2) {
-      return t3.__proto__ = e2, t3;
-    }, _setPrototypeOf(t2, e);
-  }
-  function _defineProperty(e, r2, t2) {
-    return (r2 = _toPropertyKey(r2)) in e ? Object.defineProperty(e, r2, { value: t2, enumerable: true, configurable: true, writable: true }) : e[r2] = t2, e;
-  }
-  function _toPropertyKey(t2) {
-    var i = _toPrimitive(t2, "string");
-    return "symbol" == _typeof(i) ? i : i + "";
-  }
-  function _toPrimitive(t2, r2) {
-    if ("object" != _typeof(t2) || !t2) return t2;
-    var e = t2[Symbol.toPrimitive];
-    if (void 0 !== e) {
-      var i = e.call(t2, r2);
-      if ("object" != _typeof(i)) return i;
-      throw new TypeError("@@toPrimitive must return a primitive value.");
-    }
-    return ("string" === r2 ? String : Number)(t2);
-  }
-  var React = reactExports;
-  var _require = require$$1, createFocusTrap = _require.createFocusTrap;
-  var _require2 = require$$2, isFocusable = _require2.isFocusable;
-  var reactVerMajor = parseInt((_exec$ = (_exec = /^(\d+)\./.exec(React.version)) === null || _exec === void 0 ? void 0 : _exec[1]) !== null && _exec$ !== void 0 ? _exec$ : 0, 10);
-  var FocusTrap = /* @__PURE__ */ function(_React$Component) {
-    function FocusTrap2(props) {
-      var _this;
-      _classCallCheck(this, FocusTrap2);
-      _this = _callSuper(this, FocusTrap2, [props]);
-      _defineProperty(_this, "getNodeForOption", function(optionName2) {
-        var _this$internalOptions;
-        var optionValue = (_this$internalOptions = this.internalOptions[optionName2]) !== null && _this$internalOptions !== void 0 ? _this$internalOptions : this.originalOptions[optionName2];
-        if (typeof optionValue === "function") {
-          for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-            params[_key - 1] = arguments[_key];
-          }
-          optionValue = optionValue.apply(void 0, params);
-        }
-        if (optionValue === true) {
-          optionValue = void 0;
-        }
-        if (!optionValue) {
-          if (optionValue === void 0 || optionValue === false) {
-            return optionValue;
-          }
-          throw new Error("`".concat(optionName2, "` was specified but was not a node, or did not return a node"));
-        }
-        var node = optionValue;
-        if (typeof optionValue === "string") {
-          var _this$getDocument;
-          node = (_this$getDocument = this.getDocument()) === null || _this$getDocument === void 0 ? void 0 : _this$getDocument.querySelector(optionValue);
-          if (!node) {
-            throw new Error("`".concat(optionName2, "` as selector refers to no known node"));
-          }
-        }
-        return node;
-      });
-      _this.handleDeactivate = _this.handleDeactivate.bind(_this);
-      _this.handlePostDeactivate = _this.handlePostDeactivate.bind(_this);
-      _this.handleClickOutsideDeactivates = _this.handleClickOutsideDeactivates.bind(_this);
-      _this.internalOptions = {
-        // We need to hijack the returnFocusOnDeactivate option,
-        // because React can move focus into the element before we arrived at
-        // this lifecycle hook (e.g. with autoFocus inputs). So the component
-        // captures the previouslyFocusedElement in componentWillMount,
-        // then (optionally) returns focus to it in componentWillUnmount.
-        returnFocusOnDeactivate: false,
-        // the rest of these are also related to deactivation of the trap, and we
-        //  need to use them and control them as well
-        checkCanReturnFocus: null,
-        onDeactivate: _this.handleDeactivate,
-        onPostDeactivate: _this.handlePostDeactivate,
-        // we need to special-case this setting as well so that we can know if we should
-        //  NOT return focus if the trap gets auto-deactivated as the result of an
-        //  outside click (otherwise, we'll always think we should return focus because
-        //  of how we manage that flag internally here)
-        clickOutsideDeactivates: _this.handleClickOutsideDeactivates
-      };
-      _this.originalOptions = {
-        // because of the above `internalOptions`, we maintain our own flag for
-        //  this option, and default it to `true` because that's focus-trap's default
-        returnFocusOnDeactivate: true,
-        // because of the above `internalOptions`, we keep these separate since
-        //  they're part of the deactivation process which we configure (internally) to
-        //  be shared between focus-trap and focus-trap-react
-        onDeactivate: null,
-        onPostDeactivate: null,
-        checkCanReturnFocus: null,
-        // the user's setting, defaulted to false since focus-trap defaults this to false
-        clickOutsideDeactivates: false
-      };
-      var focusTrapOptions = props.focusTrapOptions;
-      for (var optionName in focusTrapOptions) {
-        if (!Object.prototype.hasOwnProperty.call(focusTrapOptions, optionName)) {
-          continue;
-        }
-        if (optionName === "returnFocusOnDeactivate" || optionName === "onDeactivate" || optionName === "onPostDeactivate" || optionName === "checkCanReturnFocus" || optionName === "clickOutsideDeactivates") {
-          _this.originalOptions[optionName] = focusTrapOptions[optionName];
-          continue;
-        }
-        _this.internalOptions[optionName] = focusTrapOptions[optionName];
-      }
-      _this.outsideClick = null;
-      _this.focusTrapElements = props.containerElements || [];
-      _this.updatePreviousElement();
-      return _this;
-    }
-    _inherits(FocusTrap2, _React$Component);
-    return _createClass(FocusTrap2, [{
-      key: "getDocument",
-      value: function getDocument() {
-        return this.props.focusTrapOptions.document || (typeof document !== "undefined" ? document : void 0);
-      }
-    }, {
-      key: "getReturnFocusNode",
-      value: function getReturnFocusNode() {
-        var node = this.getNodeForOption("setReturnFocus", this.previouslyFocusedElement);
-        return node ? node : node === false ? false : this.previouslyFocusedElement;
-      }
-      /** Update the previously focused element with the currently focused element. */
-    }, {
-      key: "updatePreviousElement",
-      value: function updatePreviousElement() {
-        var currentDocument = this.getDocument();
-        if (currentDocument) {
-          this.previouslyFocusedElement = currentDocument.activeElement;
-        }
-      }
-    }, {
-      key: "deactivateTrap",
-      value: function deactivateTrap() {
-        if (!this.focusTrap || !this.focusTrap.active) {
-          return;
-        }
-        this.focusTrap.deactivate({
-          // NOTE: we never let the trap return the focus since we do that ourselves
-          returnFocus: false,
-          // we'll call this in our own post deactivate handler so make sure the trap doesn't
-          //  do it prematurely
-          checkCanReturnFocus: null,
-          // let it call the user's original deactivate handler, if any, instead of
-          //  our own which calls back into this function
-          onDeactivate: this.originalOptions.onDeactivate
-          // NOTE: for post deactivate, don't specify anything so that it calls the
-          //  onPostDeactivate handler specified on `this.internalOptions`
-          //  which will always be our own `handlePostDeactivate()` handler, which
-          //  will finish things off by calling the user's provided onPostDeactivate
-          //  handler, if any, at the right time
-          // onPostDeactivate: NOTHING
-        });
-      }
-    }, {
-      key: "handleClickOutsideDeactivates",
-      value: function handleClickOutsideDeactivates(event) {
-        var allowDeactivation = typeof this.originalOptions.clickOutsideDeactivates === "function" ? this.originalOptions.clickOutsideDeactivates.call(null, event) : this.originalOptions.clickOutsideDeactivates;
-        if (allowDeactivation) {
-          this.outsideClick = {
-            target: event.target,
-            allowDeactivation
-          };
-        }
-        return allowDeactivation;
-      }
-    }, {
-      key: "handleDeactivate",
-      value: function handleDeactivate() {
-        if (this.originalOptions.onDeactivate) {
-          this.originalOptions.onDeactivate.call(null);
-        }
-        this.deactivateTrap();
-      }
-    }, {
-      key: "handlePostDeactivate",
-      value: function handlePostDeactivate() {
-        var _this2 = this;
-        var finishDeactivation = function finishDeactivation2() {
-          var returnFocusNode = _this2.getReturnFocusNode();
-          var canReturnFocus = !!// did the consumer allow it?
-          (_this2.originalOptions.returnFocusOnDeactivate && // can we actually focus the node?
-          returnFocusNode !== null && returnFocusNode !== void 0 && returnFocusNode.focus && // was there an outside click that allowed deactivation?
-          (!_this2.outsideClick || // did the consumer allow deactivation when the outside node was clicked?
-          _this2.outsideClick.allowDeactivation && // is the outside node NOT focusable (implying that it did NOT receive focus
-          //  as a result of the click-through) -- in which case do NOT restore focus
-          //  to `returnFocusNode` because focus should remain on the outside node
-          !isFocusable(_this2.outsideClick.target, _this2.internalOptions.tabbableOptions)));
-          var _this2$internalOption = _this2.internalOptions.preventScroll, preventScroll = _this2$internalOption === void 0 ? false : _this2$internalOption;
-          if (canReturnFocus) {
-            returnFocusNode.focus({
-              preventScroll
-            });
-          }
-          if (_this2.originalOptions.onPostDeactivate) {
-            _this2.originalOptions.onPostDeactivate.call(null);
-          }
-          _this2.outsideClick = null;
-        };
-        if (this.originalOptions.checkCanReturnFocus) {
-          this.originalOptions.checkCanReturnFocus.call(null, this.getReturnFocusNode()).then(finishDeactivation, finishDeactivation);
-        } else {
-          finishDeactivation();
-        }
-      }
-    }, {
-      key: "setupFocusTrap",
-      value: function setupFocusTrap() {
-        if (this.focusTrap) {
-          if (this.props.active && !this.focusTrap.active) {
-            this.focusTrap.activate();
-            if (this.props.paused) {
-              this.focusTrap.pause();
-            }
-          }
-        } else {
-          var nodesExist = this.focusTrapElements.some(Boolean);
-          if (nodesExist) {
-            this.focusTrap = this.props._createFocusTrap(this.focusTrapElements, this.internalOptions);
-            if (this.props.active) {
-              this.focusTrap.activate();
-            }
-            if (this.props.paused) {
-              this.focusTrap.pause();
-            }
-          }
-        }
-      }
-    }, {
-      key: "componentDidMount",
-      value: function componentDidMount() {
-        if (this.props.active) {
-          this.setupFocusTrap();
-        }
-      }
-    }, {
-      key: "componentDidUpdate",
-      value: function componentDidUpdate(prevProps) {
-        if (this.focusTrap) {
-          if (prevProps.containerElements !== this.props.containerElements) {
-            this.focusTrap.updateContainerElements(this.props.containerElements);
-          }
-          var hasActivated = !prevProps.active && this.props.active;
-          var hasDeactivated = prevProps.active && !this.props.active;
-          var hasPaused = !prevProps.paused && this.props.paused;
-          var hasUnpaused = prevProps.paused && !this.props.paused;
-          if (hasActivated) {
-            this.updatePreviousElement();
-            this.focusTrap.activate();
-          }
-          if (hasDeactivated) {
-            this.deactivateTrap();
-            return;
-          }
-          if (hasPaused) {
-            this.focusTrap.pause();
-          }
-          if (hasUnpaused) {
-            this.focusTrap.unpause();
-          }
-        } else {
-          if (prevProps.containerElements !== this.props.containerElements) {
-            this.focusTrapElements = this.props.containerElements;
-          }
-          if (this.props.active) {
-            this.updatePreviousElement();
-            this.setupFocusTrap();
-          }
-        }
-      }
-    }, {
-      key: "componentWillUnmount",
-      value: function componentWillUnmount() {
-        this.deactivateTrap();
-      }
-    }, {
-      key: "render",
-      value: function render() {
-        var _this3 = this;
-        var child = this.props.children ? React.Children.only(this.props.children) : void 0;
-        if (child) {
-          if (child.type && child.type === React.Fragment) {
-            throw new Error("A focus-trap cannot use a Fragment as its child container. Try replacing it with a <div> element.");
-          }
-          var callbackRef = function callbackRef2(element) {
-            var containerElements = _this3.props.containerElements;
-            if (child) {
-              if (reactVerMajor >= 19) {
-                if (typeof child.props.ref === "function") {
-                  child.props.ref(element);
-                } else if (child.props.ref) {
-                  child.props.ref.current = element;
-                }
-              } else {
-                if (typeof child.ref === "function") {
-                  child.ref(element);
-                } else if (child.ref) {
-                  child.ref.current = element;
-                }
-              }
-            }
-            _this3.focusTrapElements = containerElements ? containerElements : [element];
-          };
-          var childWithRef = React.cloneElement(child, {
-            ref: callbackRef
-          });
-          return childWithRef;
-        }
-        return null;
-      }
-    }]);
-  }(React.Component);
-  FocusTrap.defaultProps = {
-    active: true,
-    paused: false,
-    focusTrapOptions: {},
-    _createFocusTrap: createFocusTrap
-  };
-  focusTrapReact.exports = FocusTrap;
-  focusTrapReact.exports.FocusTrap = FocusTrap;
-  var focusTrapReactExports = focusTrapReact.exports;
-  const FocusTrap$1 = /* @__PURE__ */ getDefaultExportFromCjs(focusTrapReactExports);
-  function CloseIcon() {
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "svg",
-      {
-        width: "20",
-        height: "20",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "2",
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", x2: "6", y1: "6", y2: "18" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", x2: "18", y1: "6", y2: "18" })
-        ]
-      }
-    );
-  }
-  function ChatIcon() {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "svg",
-      {
-        width: "20",
-        height: "20",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "2",
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
-      }
-    );
-  }
-  function ProactiveModal({
-    trigger,
-    isOpen,
-    onAction,
-    onDismiss,
-    theme
-  }) {
-    const modalRef = reactExports.useRef(null);
-    const previousActiveElement = reactExports.useRef(null);
-    reactExports.useEffect(() => {
-      if (isOpen) {
-        previousActiveElement.current = document.activeElement;
-      }
-    }, [isOpen]);
-    reactExports.useEffect(() => {
-      if (!isOpen && previousActiveElement.current) {
-        previousActiveElement.current.focus();
-      }
-    }, [isOpen]);
-    reactExports.useEffect(() => {
-      const handleEscape = (e) => {
-        if (e.key === "Escape" && isOpen) {
-          onDismiss();
-        }
-      };
-      document.addEventListener("keydown", handleEscape);
-      return () => document.removeEventListener("keydown", handleEscape);
-    }, [isOpen, onDismiss]);
-    if (!isOpen || !trigger) {
-      return null;
-    }
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(FocusTrap$1, { active: isOpen, focusTrapOptions: { initialFocus: false }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        ref: modalRef,
-        "data-testid": "proactive-modal",
-        role: "dialog",
-        "aria-modal": "true",
-        "aria-live": "assertive",
-        "aria-labelledby": "proactive-title",
-        "aria-describedby": "proactive-message",
-        className: "proactive-modal-overlay",
-        onClick: (e) => {
-          if (e.target === e.currentTarget) onDismiss();
-        },
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "proactive-modal-container", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              "data-testid": "proactive-dismiss-button",
-              type: "button",
-              className: "proactive-modal-close",
-              onClick: onDismiss,
-              "aria-label": "Close proactive message",
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseIcon, {})
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "proactive-modal-icon", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChatIcon, {}) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "h2",
-            {
-              id: "proactive-title",
-              "data-testid": "proactive-title",
-              className: "proactive-modal-title",
-              children: "Need Help?"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "p",
-            {
-              id: "proactive-message",
-              "data-testid": "proactive-message",
-              className: "proactive-modal-message",
-              children: trigger.message
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "proactive-modal-actions", children: trigger.actions.map((action, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              "data-testid": `proactive-action-button-${index}`,
-              type: "button",
-              className: `proactive-action-button ${index === 0 ? "" : "proactive-action-secondary"}`,
-              onClick: () => {
-                trackProactiveTrigger(trigger.type, true);
-                onAction(action);
-              },
-              style: index === 0 && (theme == null ? void 0 : theme.primaryColor) ? { backgroundColor: theme.primaryColor } : void 0,
-              children: action.text
-            },
-            index
-          )) })
-        ] })
-      }
-    ) });
-  }
-  const DEFAULT_CAROUSEL_CONFIG = {
-    visibleCards: { mobile: 2, desktop: 3 },
-    cardWidth: 140,
-    cardGap: 12,
-    scrollDuration: 300
-  };
-  const DEFAULT_VOICE_CONFIG = {
-    enabled: true,
-    language: "en-US",
-    continuous: false,
-    interimResults: true
-  };
-  const DEFAULT_PROACTIVE_CONFIG = {
-    enabled: true,
-    triggers: [
-      {
-        type: "exit_intent",
-        enabled: true,
-        message: "Wait! Before you go, can we help you find something?",
-        actions: [
-          { text: "Get Help", prePopulatedMessage: "I need help finding a product." },
-          { text: "No thanks" }
-        ],
-        cooldown: 30
-      },
-      {
-        type: "time_on_page",
-        enabled: true,
-        threshold: 30,
-        message: "Finding what you need? Our assistant can help!",
-        actions: [
-          { text: "Chat Now", prePopulatedMessage: "Hi! Can you help me?" },
-          { text: "Not now" }
-        ],
-        cooldown: 60
-      },
-      {
-        type: "scroll_depth",
-        enabled: true,
-        threshold: 50,
-        message: "Looks like you're browsing! Need any recommendations?",
-        actions: [
-          { text: "Yes, please!", prePopulatedMessage: "Can you recommend some products?" },
-          { text: "No thanks" }
-        ],
-        cooldown: 30
-      },
-      {
-        type: "product_view",
-        enabled: true,
-        threshold: 3,
-        message: "I noticed you've viewed several products. Can I help you decide?",
-        actions: [
-          { text: "Compare Products", prePopulatedMessage: "Can you help me compare products?" },
-          { text: "Not now" }
-        ],
-        cooldown: 60
-      }
-    ]
-  };
-  const COOLDOWN_STORAGE_KEY = "widget-proactive-cooldown";
-  const DISMISSED_STORAGE_KEY = "widget-proactive-dismissed";
-  function getCooldowns() {
-    if (typeof window === "undefined") return {};
-    try {
-      const stored = sessionStorage.getItem(COOLDOWN_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  }
-  function setCooldown(type, minutes) {
-    if (typeof window === "undefined") return;
-    try {
-      const cooldowns = getCooldowns();
-      cooldowns[type] = Date.now() + minutes * 60 * 1e3;
-      sessionStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
-    } catch {
-    }
-  }
-  function isInCooldown(type) {
-    const cooldowns = getCooldowns();
-    return cooldowns[type] !== void 0 && cooldowns[type] > Date.now();
-  }
-  function getDismissedTriggers() {
-    if (typeof window === "undefined") return /* @__PURE__ */ new Set();
-    try {
-      const stored = sessionStorage.getItem(DISMISSED_STORAGE_KEY);
-      return stored ? new Set(JSON.parse(stored)) : /* @__PURE__ */ new Set();
-    } catch {
-      return /* @__PURE__ */ new Set();
-    }
-  }
-  function setDismissedTrigger(type) {
-    if (typeof window === "undefined") return;
-    try {
-      const dismissed = getDismissedTriggers();
-      dismissed.add(type);
-      sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissed]));
-    } catch {
-    }
-  }
-  function useProactiveTriggers(options = {}) {
-    const {
-      config: config2 = DEFAULT_PROACTIVE_CONFIG,
-      onTrigger,
-      productViewCount = 0,
-      cartHasItems = false
-    } = options;
-    const [activeTrigger, setActiveTrigger] = reactExports.useState(null);
-    const [dismissedTriggers, setDismissedTriggersState] = reactExports.useState(
-      getDismissedTriggers
-    );
-    const pageLoadTime = reactExports.useRef(Date.now());
-    const hasFiredRef = reactExports.useRef(/* @__PURE__ */ new Set());
-    const triggers = reactExports.useMemo(() => {
-      return config2.enabled ? config2.triggers.filter((t2) => t2.enabled) : [];
-    }, [config2]);
-    const fireTrigger = reactExports.useCallback(
-      (trigger) => {
-        const type = trigger.type;
-        if (hasFiredRef.current.has(type)) return;
-        if (dismissedTriggers.has(type)) return;
-        if (isInCooldown(type)) return;
-        hasFiredRef.current.add(type);
-        setCooldown(type, trigger.cooldown);
-        setActiveTrigger(trigger);
-        onTrigger == null ? void 0 : onTrigger(trigger);
-      },
-      [dismissedTriggers, onTrigger]
-    );
-    const triggerProactive = reactExports.useCallback(
-      (type) => {
-        const trigger = triggers.find((t2) => t2.type === type);
-        if (trigger) {
-          fireTrigger(trigger);
-        }
-      },
-      [triggers, fireTrigger]
-    );
-    const dismissTrigger = reactExports.useCallback(() => {
-      if (activeTrigger) {
-        setDismissedTrigger(activeTrigger.type);
-        setDismissedTriggersState((prev) => /* @__PURE__ */ new Set([...prev, activeTrigger.type]));
-      }
-      setActiveTrigger(null);
-    }, [activeTrigger]);
-    const resetTrigger = reactExports.useCallback((type) => {
-      hasFiredRef.current.delete(type);
-      try {
-        const cooldowns = getCooldowns();
-        delete cooldowns[type];
-        sessionStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
-        const dismissed = getDismissedTriggers();
-        dismissed.delete(type);
-        sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissed]));
-        setDismissedTriggersState(new Set(dismissed));
-      } catch {
-      }
-    }, []);
-    reactExports.useEffect(() => {
-      const exitIntentTrigger = triggers.find((t2) => t2.type === "exit_intent");
-      if (!exitIntentTrigger) return;
-      const handleMouseLeave = (e) => {
-        if (e.clientY <= 0 && !hasFiredRef.current.has("exit_intent")) {
-          fireTrigger(exitIntentTrigger);
-        }
-      };
-      document.addEventListener("mouseleave", handleMouseLeave);
-      return () => document.removeEventListener("mouseleave", handleMouseLeave);
-    }, [triggers, fireTrigger]);
-    reactExports.useEffect(() => {
-      const timeTrigger = triggers.find((t2) => t2.type === "time_on_page");
-      if (!timeTrigger || !timeTrigger.threshold) return;
-      const thresholdMs = timeTrigger.threshold * 1e3;
-      const elapsed = Date.now() - pageLoadTime.current;
-      const remaining = thresholdMs - elapsed;
-      if (remaining <= 0) {
-        fireTrigger(timeTrigger);
-        return;
-      }
-      const timerId = setTimeout(() => {
-        fireTrigger(timeTrigger);
-      }, remaining);
-      return () => clearTimeout(timerId);
-    }, [triggers, fireTrigger]);
-    reactExports.useEffect(() => {
-      const scrollTrigger = triggers.find((t2) => t2.type === "scroll_depth");
-      if (!scrollTrigger || !scrollTrigger.threshold) return;
-      let ticking = false;
-      const handleScroll = () => {
-        if (ticking) return;
-        if (hasFiredRef.current.has("scroll_depth")) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-          const scrollTop = window.scrollY;
-          const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-          const scrollPercent = docHeight > 0 ? scrollTop / docHeight * 100 : 0;
-          if (scrollPercent >= scrollTrigger.threshold) {
-            fireTrigger(scrollTrigger);
-          }
-          ticking = false;
-        });
-      };
-      window.addEventListener("scroll", handleScroll, { passive: true });
-      return () => window.removeEventListener("scroll", handleScroll);
-    }, [triggers, fireTrigger]);
-    reactExports.useEffect(() => {
-      const productViewTrigger = triggers.find((t2) => t2.type === "product_view");
-      if (!productViewTrigger || !productViewTrigger.threshold) return;
-      if (productViewCount >= productViewTrigger.threshold && !hasFiredRef.current.has("product_view")) {
-        fireTrigger(productViewTrigger);
-      }
-    }, [productViewCount, triggers, fireTrigger]);
-    reactExports.useEffect(() => {
-      const cartTrigger = triggers.find((t2) => t2.type === "cart_abandonment");
-      if (!cartTrigger) return;
-      const handleMouseLeave = (e) => {
-        if (e.clientY <= 0) {
-          if (cartHasItems && !hasFiredRef.current.has("cart_abandonment")) {
-            fireTrigger(cartTrigger);
-          }
-        }
-      };
-      const handleBeforeUnload = () => {
-        if (cartHasItems && !hasFiredRef.current.has("cart_abandonment")) {
-          setCooldown("cart_abandonment", cartTrigger.cooldown);
-          setDismissedTrigger("cart_abandonment");
-          hasFiredRef.current.add("cart_abandonment");
-        }
-      };
-      document.addEventListener("mouseleave", handleMouseLeave);
-      window.addEventListener("beforeunload", handleBeforeUnload);
-      return () => {
-        document.removeEventListener("mouseleave", handleMouseLeave);
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-      };
-    }, [cartHasItems, triggers, fireTrigger]);
-    return {
-      activeTrigger,
-      dismissedTriggers,
-      triggerProactive,
-      dismissTrigger,
-      resetTrigger,
-      isActive: activeTrigger !== null
-    };
-  }
-  const DEFAULT_THEME = {
-    primaryColor: "#6366f1",
-    backgroundColor: "#ffffff",
-    textColor: "#1f2937",
-    botBubbleColor: "#f3f4f6",
-    userBubbleColor: "#6366f1",
-    position: "bottom-right",
-    borderRadius: 16,
-    width: 380,
-    height: 600,
-    fontFamily: "Inter, sans-serif",
-    fontSize: 14
-  };
-  const THEME_CONSTRAINTS = {
-    borderRadius: { min: 0, max: 24 },
-    width: { min: 280, max: 600 },
-    height: { min: 400, max: 900 },
-    fontSize: { min: 12, max: 20 }
-  };
-  function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-  }
-  function sanitizeColor(color) {
-    if (/^#[0-9a-fA-F]{6}$/.test(color)) {
-      return color;
-    }
-    return "#6366f1";
-  }
-  function sanitizeFontFamily(font) {
-    return font.replace(/[<>"']/g, "");
-  }
-  function validatePosition(position) {
-    if (position === "bottom-left") return "bottom-left";
-    return "bottom-right";
-  }
-  function sanitizeTheme(theme) {
-    const sanitized = {};
-    if (theme.primaryColor !== void 0) sanitized.primaryColor = sanitizeColor(theme.primaryColor);
-    if (theme.backgroundColor !== void 0) sanitized.backgroundColor = sanitizeColor(theme.backgroundColor);
-    if (theme.textColor !== void 0) sanitized.textColor = sanitizeColor(theme.textColor);
-    if (theme.botBubbleColor !== void 0) sanitized.botBubbleColor = sanitizeColor(theme.botBubbleColor);
-    if (theme.userBubbleColor !== void 0) sanitized.userBubbleColor = sanitizeColor(theme.userBubbleColor);
-    if (theme.position !== void 0) sanitized.position = validatePosition(theme.position);
-    if (typeof theme.borderRadius === "number") {
-      sanitized.borderRadius = clamp(
-        theme.borderRadius,
-        THEME_CONSTRAINTS.borderRadius.min,
-        THEME_CONSTRAINTS.borderRadius.max
-      );
-    }
-    if (typeof theme.width === "number") {
-      sanitized.width = clamp(theme.width, THEME_CONSTRAINTS.width.min, THEME_CONSTRAINTS.width.max);
-    }
-    if (typeof theme.height === "number") {
-      sanitized.height = clamp(
-        theme.height,
-        THEME_CONSTRAINTS.height.min,
-        THEME_CONSTRAINTS.height.max
-      );
-    }
-    if (theme.fontFamily !== void 0) sanitized.fontFamily = sanitizeFontFamily(theme.fontFamily);
-    if (typeof theme.fontSize === "number") {
-      sanitized.fontSize = clamp(
-        theme.fontSize,
-        THEME_CONSTRAINTS.fontSize.min,
-        THEME_CONSTRAINTS.fontSize.max
-      );
-    }
-    return sanitized;
-  }
-  function mergeThemes(merchantTheme, embedOverrides) {
-    const sanitizedMerchant = merchantTheme ? sanitizeTheme(merchantTheme) : {};
-    const sanitizedEmbed = embedOverrides ? sanitizeTheme(embedOverrides) : {};
-    return {
-      ...DEFAULT_THEME,
-      ...sanitizedMerchant,
-      ...sanitizedEmbed
-    };
-  }
-  function useThemeDetection() {
-    const [systemTheme, setSystemTheme] = reactExports.useState(() => {
-      if (typeof window === "undefined") {
-        return "light";
-      }
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    });
-    reactExports.useEffect(() => {
-      if (typeof window === "undefined") {
-        return;
-      }
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = (e) => {
-        setSystemTheme(e.matches ? "dark" : "light");
-      };
-      setSystemTheme(mediaQuery.matches ? "dark" : "light");
-      mediaQuery.addEventListener("change", handleChange);
-      return () => {
-        mediaQuery.removeEventListener("change", handleChange);
-      };
-    }, []);
-    return {
-      systemTheme,
-      isDark: systemTheme === "dark"
-    };
-  }
-  function GlassmorphismChatWindow({
-    themeMode,
-    systemTheme,
-    children
-  }) {
-    const activeTheme = themeMode === "auto" ? systemTheme : themeMode;
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `glassmorphism-wrapper ${activeTheme}-mode`, children });
-  }
-  const modeIcons = {
-    light: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "svg",
-      {
-        width: "18",
-        height: "18",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "2",
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": "true",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "5" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "1", x2: "12", y2: "3" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "21", x2: "12", y2: "23" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.22", y1: "4.22", x2: "5.64", y2: "5.64" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18.36", y1: "18.36", x2: "19.78", y2: "19.78" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "1", y1: "12", x2: "3", y2: "12" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "21", y1: "12", x2: "23", y2: "12" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.22", y1: "19.78", x2: "5.64", y2: "18.36" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18.36", y1: "5.64", x2: "19.78", y2: "4.22" })
-        ]
-      }
-    ),
-    dark: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "svg",
-      {
-        width: "18",
-        height: "18",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "2",
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": "true",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" })
-      }
-    ),
-    auto: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "svg",
-      {
-        width: "18",
-        height: "18",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "2",
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": "true",
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 3v5h-5" })
-        ]
-      }
-    )
-  };
-  const modeDescriptions = {
-    light: "Light theme",
-    dark: "Dark theme",
-    auto: "Auto (follows system)"
-  };
-  function ThemeToggle({ themeMode, onToggle }) {
-    const ariaLabel = `Theme: ${modeDescriptions[themeMode]}. Click to change.`;
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "button",
-      {
-        type: "button",
-        onClick: onToggle,
-        className: "shopbot-theme-toggle",
-        "aria-label": ariaLabel,
-        title: modeDescriptions[themeMode],
-        children: modeIcons[themeMode]
-      }
-    );
-  }
-  function getNextThemeMode(current) {
-    const cycle = ["light", "dark", "auto"];
-    const currentIndex = cycle.indexOf(current);
-    const nextIndex = (currentIndex + 1) % cycle.length;
-    return cycle[nextIndex];
-  }
-  const positioningStyles = `
-.draggable-chat-window {
-  position: absolute;
-  transition: left 200ms ease-out, top 200ms ease-out;
-  will-change: left, top;
-}
-
-.draggable-chat-window.dragging {
-  transition: none;
-  user-select: none;
-}
-
-.chat-header-drag-handle {
-  cursor: grab;
-  touch-action: none;
-}
-
-.chat-header-drag-handle:active {
-  cursor: grabbing;
-}
-
-@supports (padding: env(safe-area-inset-bottom)) {
-  .draggable-chat-window {
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
-}
-
-@media (max-width: 767px) {
-  .draggable-chat-window {
-    position: fixed;
-    left: 5% !important;
-    top: 15% !important;
-    width: 90%;
-    height: 80%;
-    transition: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .draggable-chat-window {
-    transition: none !important;
-  }
-}
-`;
   function $constructor(name, initializer2, params) {
     function init(inst, def) {
       if (!inst._zod) {
@@ -15653,10 +11783,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }
   const getWidgetApiBase = () => getApiBaseUrl();
   class WidgetApiException extends Error {
-    constructor(code, message) {
+    constructor(code, message, errorCode) {
       super(message);
+      __publicField(this, "errorCode");
       this.code = code;
       this.name = "WidgetApiException";
+      this.errorCode = errorCode ?? code;
     }
   }
   function parseApiError(data) {
@@ -15701,7 +11833,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (!response.ok) {
           const data = await response.json().catch(() => null);
           const error = parseApiError(data);
-          throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+          throw new WidgetApiException(
+            response.status,
+            error.message || `HTTP ${response.status}`,
+            error.error_code
+          );
         }
         return response.json();
       } catch (error) {
@@ -15777,12 +11913,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         expired: data.data.expired || false
       };
     }
-    async sendMessage(sessionId, message) {
+    async sendMessage(sessionId, message, options) {
       var _a2, _b;
       try {
+        const requestBody = { session_id: sessionId, message };
+        if (options == null ? void 0 : options.streaming) {
+          requestBody.streaming = options.streaming;
+        }
         const data = await this.request("/message", {
           method: "POST",
-          body: JSON.stringify({ session_id: sessionId, message })
+          body: JSON.stringify(requestBody)
         });
         const rawData = data.data;
         const parsed = WidgetMessageSchema.safeParse(data.data);
@@ -16115,7 +12255,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (!response.ok) {
           const data2 = await response.json().catch(() => null);
           const error = parseApiError(data2);
-          throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+          throw new WidgetApiException(
+            response.status,
+            error.message || `HTTP ${response.status}`,
+            error.error_code
+          );
         }
         const data = await response.json();
         return {
@@ -16158,12 +12302,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (!response.ok) {
           const data2 = await response.json().catch(() => null);
           const error = parseApiError(data2);
-          throw new WidgetApiException(response.status, error.message || `HTTP ${response.status}`);
+          throw new WidgetApiException(
+            response.status,
+            error.message || `HTTP ${response.status}`,
+            error.error_code
+          );
         }
         const data = await response.json();
+        const responseData = data.data || data;
         return {
-          success: data.data.success,
-          clickId: data.data.clickId
+          success: responseData.success,
+          clickId: responseData.click_id || responseData.clickId
         };
       } catch (error) {
         if (error instanceof WidgetApiException) {
@@ -16187,1664 +12336,4037 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     getWidgetApiBase,
     widgetClient
   }, Symbol.toStringTag, { value: "Module" }));
-  const ChatWindow$2 = reactExports.lazy(() => Promise.resolve().then(() => ChatWindow$1));
-  function WidgetInner({ theme }) {
-    var _a2, _b, _c, _d, _e;
-    const {
-      state,
-      dispatch,
-      toggleChat,
-      initWidget: initWidget2,
-      sendMessage,
-      merchantId,
-      addToCart: addToCart2,
-      removeFromCart: removeFromCart2,
-      checkout,
-      addingProductId,
-      removingItemId,
-      isCheckingOut,
-      dismissError,
-      retryLastAction,
-      recordConsent,
-      clearHistory,
-      toggleMinimized,
-      setThemeMode
-    } = useWidgetContext();
-    const { systemTheme } = useThemeDetection();
-    const merchantTheme = (_a2 = state.config) == null ? void 0 : _a2.theme;
-    const mergedTheme = reactExports.useMemo(
-      () => mergeThemes(merchantTheme, theme),
-      [merchantTheme, theme]
-    );
-    const [prePopulatedMessage, setPrePopulatedMessage] = reactExports.useState(null);
-    const productViewCount = reactExports.useMemo(() => {
-      const productIds = /* @__PURE__ */ new Set();
-      state.messages.forEach((m2) => {
-        var _a3;
-        (_a3 = m2.products) == null ? void 0 : _a3.forEach((p2) => {
-          const id2 = p2.id || p2.variantId;
-          if (id2) productIds.add(id2);
-        });
-      });
-      return productIds.size;
-    }, [state.messages]);
-    const proactiveConfig = ((_b = state.config) == null ? void 0 : _b.proactiveEngagementConfig) ?? DEFAULT_PROACTIVE_CONFIG;
-    const cartHasItems = reactExports.useMemo(() => {
-      return state.messages.some((m2) => {
-        var _a3, _b2;
-        return (((_b2 = (_a3 = m2.cart) == null ? void 0 : _a3.items) == null ? void 0 : _b2.length) ?? 0) > 0;
-      });
-    }, [state.messages]);
-    const {
-      activeTrigger,
-      dismissTrigger: dismissProactive,
-      isActive: isProactiveActive
-    } = useProactiveTriggers({
-      config: proactiveConfig,
-      productViewCount,
-      cartHasItems
-    });
-    const handleProactiveAction = reactExports.useCallback(
-      (action) => {
-        if (action.prePopulatedMessage) {
-          setPrePopulatedMessage(action.prePopulatedMessage);
-        }
-        if (!state.isOpen) {
-          toggleChat();
-        }
-        dismissProactive();
-      },
-      [state.isOpen, toggleChat, dismissProactive]
-    );
-    reactExports.useEffect(() => {
-      if (prePopulatedMessage && state.isOpen) {
-        const timer = setTimeout(() => {
-          setPrePopulatedMessage(null);
-        }, 100);
-        return () => clearTimeout(timer);
+  const safeStorage = {
+    get: (key) => {
+      try {
+        return sessionStorage.getItem(key);
+      } catch {
+        return null;
       }
-    }, [prePopulatedMessage, state.isOpen]);
-    const handleThemeToggle = reactExports.useCallback(() => {
-      const nextMode = getNextThemeMode(state.themeMode);
-      setThemeMode(nextMode);
-    }, [state.themeMode, setThemeMode]);
-    const handleFeedbackSubmit = reactExports.useCallback(
-      async (messageId, rating, comment) => {
-        var _a3;
-        const sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-        if (!sessionId) {
-          console.error("[Widget] Cannot submit feedback: no session ID");
-          return;
-        }
-        try {
-          await widgetClient.submitFeedback(messageId, rating, sessionId, merchantId, comment);
-          dispatch({ type: "UPDATE_MESSAGE_FEEDBACK", payload: { messageId, rating } });
-        } catch (error) {
-          console.error("[Widget] Failed to submit feedback:", error);
-          throw error;
-        }
-      },
-      [(_c = state.session) == null ? void 0 : _c.sessionId, merchantId, dispatch]
-    );
-    const handleFaqButtonClick = reactExports.useCallback(
-      async (button) => {
-        var _a3;
-        const sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
-        if (!sessionId) {
-          console.error("[Widget] Cannot track FAQ click: no session ID");
-          await sendMessage(button.question);
-          return;
-        }
-        try {
-          widgetClient.trackFaqClick(button.id, sessionId, merchantId).catch((error) => {
-            console.error("[Widget] Failed to track FAQ click:", error);
-          });
-        } catch (error) {
-          console.error("[Widget] FAQ click tracking error:", error);
-        }
-        await sendMessage(button.question);
-      },
-      [(_d = state.session) == null ? void 0 : _d.sessionId, merchantId, sendMessage]
-    );
-    const prefetchChatWindow = reactExports.useCallback(() => {
-      Promise.resolve().then(() => ChatWindow$1);
-    }, []);
-    reactExports.useEffect(() => {
-      console.log("[Widget.tsx] useEffect triggered, calling initWidget for merchantId:", merchantId);
-      initWidget2(merchantId);
-    }, [merchantId]);
-    const handleBubbleClick = reactExports.useCallback(() => {
-      if (state.isMinimized) {
-        toggleMinimized();
-      } else {
-        toggleChat();
+    },
+    set: (key, value) => {
+      try {
+        sessionStorage.setItem(key, value);
+        return true;
+      } catch {
+        return false;
       }
-    }, [state.isMinimized, toggleMinimized, toggleChat]);
-    console.log("[Widget] Rendering WidgetInner:", {
-      merchantId,
-      isOpen: state.isOpen,
-      isMinimized: state.isMinimized,
-      isLoading: state.isLoading,
-      position: state.position,
-      themePosition: mergedTheme.position,
-      viewport: `${window.innerWidth}x${window.innerHeight}`
-    });
-    return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
-        .shopbot-widget-root * {
-          box-sizing: border-box;
-        }
-        .shopbot-chat-bubble:hover {
-          transform: scale(1.05);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
-        }
-        .shopbot-chat-bubble:active {
-          transform: scale(0.95);
-        }
-        .shopbot-chat-window {
-          animation: shopbot-slideUp 0.2s ease-out;
-        }
-        .shopbot-chat-window.dragging {
-          animation: none;
-        }
-        @keyframes shopbot-slideUp {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes shopbot-pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
-        }
-        .shopbot-chat-bubble.has-unread {
-          animation: shopbot-pulse 2s ease-in-out infinite;
-        }
-        .chat-header-drag-handle {
-          cursor: grab;
-        }
-        .chat-header-drag-handle:active {
-          cursor: grabbing;
-        }
-        
-        .shopbot-chat-window.is-default-position {
-          position: fixed !important;
-          bottom: 90px !important;
-          right: ${mergedTheme.position === "bottom-left" ? "auto" : "20px"} !important;
-          left: ${mergedTheme.position === "bottom-left" ? "20px" : "auto"} !important;
-          top: auto !important;
-          transform: none !important;
-        }
-
-        @media (max-width: 767px) {
-          .shopbot-chat-window.is-default-position {
-            bottom: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            border-radius: 0 !important;
-          }
-        }
-        
-        /* Smart Positioning Styles */
-        ${positioningStyles}
-        
-        /* Glassmorphism Styles */
-        .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
-          background: rgba(15, 23, 42, 0.8) !important;
-          -webkit-backdrop-filter: blur(16px);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .chat-header {
-          background: rgba(15, 23, 42, 0.6) !important;
-          -webkit-backdrop-filter: blur(8px);
-          backdrop-filter: blur(8px);
-        }
-        .glassmorphism-wrapper.dark-mode .message-timestamp {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.light-mode .shopbot-chat-window {
-          background: rgba(255, 255, 255, 0.7) !important;
-          -webkit-backdrop-filter: blur(16px);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(0, 0, 0, 0.05);
-          color: #1e293b !important;
-        }
-        .glassmorphism-wrapper.light-mode .chat-header {
-          background: rgba(255, 255, 255, 0.5) !important;
-          -webkit-backdrop-filter: blur(8px);
-          backdrop-filter: blur(8px);
-        }
-        .glassmorphism-wrapper.light-mode .message-timestamp {
-          color: #64748b !important;
-        }
-        .glassmorphism-wrapper .shopbot-chat-window,
-        .glassmorphism-wrapper .shopbot-chat-window * {
-          transition: background 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .glassmorphism-wrapper .shopbot-chat-window,
-          .glassmorphism-wrapper .shopbot-chat-window * {
-            transition: none !important;
-            animation: none !important;
-          }
-        }
-        @supports not (backdrop-filter: blur(1px)) {
-          .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
-            background: rgba(15, 23, 42, 0.95);
-          }
-          .glassmorphism-wrapper.light-mode .shopbot-chat-window {
-            background: rgba(255, 255, 255, 0.95);
-          }
-        }
-        .shopbot-theme-toggle {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          background: rgba(255, 255, 255, 0.2);
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          color: white;
-          transition: background 0.15s ease;
-          padding: 0;
-        }
-        .shopbot-theme-toggle:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
-        .shopbot-theme-toggle:focus-visible {
-          outline: 2px solid rgba(255, 255, 255, 0.5);
-          outline-offset: 2px;
-        }
-        .shopbot-theme-toggle svg {
-          width: 18px;
-          height: 18px;
-        }
-        
-        /* Product Carousel Styles */
-        .product-carousel {
-          display: flex;
-          overflow-x: auto;
-          scroll-snap-type: x mandatory;
-          scroll-behavior: smooth;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          gap: 12px;
-          padding: 4px 0;
-          margin: 0 -4px;
-        }
-        .product-carousel::-webkit-scrollbar {
-          display: none;
-        }
-        .carousel-card {
-          scroll-snap-align: start;
-          flex-shrink: 0;
-          width: 140px;
-          border-radius: 8px;
-          background: #ffffff;
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-          transition: transform 200ms ease, box-shadow 200ms ease;
-          cursor: pointer;
-        }
-        .carousel-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-        }
-        .carousel-card:focus-visible {
-          outline: 2px solid var(--widget-primary, #6366f1);
-          outline-offset: 2px;
-        }
-        .carousel-card-image {
-          position: relative;
-          width: 100%;
-          padding-bottom: 100%;
-          background: #f1f5f9;
-          overflow: hidden;
-        }
-        .carousel-card-image img {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: opacity 200ms ease;
-        }
-        .carousel-card-image img.loading {
-          opacity: 0;
-        }
-        .carousel-card-skeleton {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-          background-size: 200% 100%;
-          animation: skeleton-shimmer 1.5s infinite;
-        }
-        @keyframes skeleton-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        .carousel-card-content {
-          padding: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .carousel-card-title {
-          font-size: 13px;
-          font-weight: 500;
-          line-height: 1.3;
-          color: #1e293b;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          margin: 0;
-          min-height: 34px;
-        }
-        .carousel-card-price {
-          font-size: 14px;
-          font-weight: 600;
-          color: #6366f1;
-          margin: 0;
-        }
-        .carousel-card-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          padding: 6px 8px;
-          margin-top: 4px;
-          font-size: 12px;
-          font-weight: 500;
-          color: white;
-          background: #6366f1;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          transition: background 150ms ease, opacity 150ms ease;
-        }
-        .carousel-card-button:hover {
-          background: #4f46e5;
-        }
-        .carousel-card-button:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        .carousel-card-button:focus-visible {
-          outline: 2px solid #6366f1;
-          outline-offset: 2px;
-        }
-        .carousel-arrows {
-          position: absolute;
-          top: 50%;
-          left: 0;
-          right: 0;
-          transform: translateY(-50%);
-          display: flex;
-          justify-content: space-between;
-          pointer-events: none;
-          padding: 0 4px;
-          opacity: 0;
-          transition: opacity 200ms ease;
-        }
-        .product-carousel-wrapper:hover .carousel-arrows {
-          opacity: 1;
-        }
-        .carousel-arrow {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          background: #ffffff;
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          border-radius: 50%;
-          cursor: pointer;
-          pointer-events: auto;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          transition: background 150ms ease, box-shadow 150ms ease;
-          color: #1e293b;
-        }
-        .carousel-arrow:hover {
-          background: #f8fafc;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        .carousel-arrow:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-        .carousel-arrow:focus-visible {
-          outline: 2px solid #6366f1;
-          outline-offset: 2px;
-        }
-        .carousel-dots {
-          display: flex;
-          justify-content: center;
-          gap: 6px;
-          padding: 8px 0 4px;
-        }
-        .carousel-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: rgba(0, 0, 0, 0.2);
-          border: none;
-          padding: 0;
-          cursor: pointer;
-          transition: background 150ms ease, transform 150ms ease;
-        }
-        .carousel-dot:hover {
-          background: rgba(0, 0, 0, 0.4);
-        }
-        .carousel-dot.active {
-          width: 10px;
-          height: 10px;
-          background: #6366f1;
-        }
-        .carousel-dot:focus-visible {
-          outline: 2px solid #6366f1;
-          outline-offset: 2px;
-        }
-        .product-carousel-wrapper {
-          position: relative;
-          width: 100%;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .carousel-card:hover {
-            transform: none;
-          }
-          .product-carousel {
-            scroll-behavior: auto;
-          }
-          .carousel-card-skeleton {
-            animation: none;
-          }
-          .carousel-card,
-          .carousel-arrow,
-          .carousel-dot,
-          .carousel-card-image img,
-          .carousel-arrows {
-            transition: none;
-          }
-        }
-        
-        /* Quick Reply Buttons Styles */
-        .quick-reply-buttons {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          padding: 8px 16px;
-        }
-        .quick-reply-button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          min-height: 44px;
-          min-width: 44px;
-          padding: 10px 16px;
-          border: 1px solid var(--widget-primary, #6366f1);
-          border-radius: 20px;
-          background-color: transparent;
-          color: var(--widget-primary, #6366f1);
-          font-weight: 500;
-          font-size: 14px;
-          cursor: pointer;
-          transition: transform 100ms ease, background-color 150ms ease, opacity 150ms ease, border-color 150ms ease;
-          white-space: nowrap;
-        }
-        .quick-reply-button:hover:not(:disabled) {
-          background-color: rgba(99, 102, 241, 0.1);
-        }
-        .quick-reply-button:active:not(:disabled) {
-          transform: scale(0.95);
-          background-color: rgba(99, 102, 241, 0.15);
-        }
-        .quick-reply-button:focus-visible {
-          outline: 2px solid var(--widget-primary, #6366f1);
-          outline-offset: 2px;
-        }
-        .quick-reply-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        @media (max-width: 479px) {
-          .quick-reply-buttons {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-          }
-          .quick-reply-button {
-            width: 100%;
-          }
-        }
-        @media (min-width: 480px) {
-          .quick-reply-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .quick-reply-button {
-            transition: none;
-          }
-          .quick-reply-button:active:not(:disabled) {
-            transform: none;
-          }
-        }
-        
-        /* Voice Input Styles */
-        .voice-input-container {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .voice-input-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 44px;
-          height: 44px;
-          min-width: 44px;
-          min-height: 44px;
-          border: none;
-          border-radius: 50%;
-          background-color: var(--widget-primary, #6366f1);
-          color: white;
-          cursor: pointer;
-          transition: background-color 150ms ease, opacity 150ms ease;
-        }
-        .voice-input-button:hover:not(:disabled) {
-          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
-        }
-        .voice-input-button:active:not(:disabled) {
-          transform: scale(0.95);
-        }
-        .voice-input-button:focus-visible {
-          outline: 2px solid var(--widget-primary, #6366f1);
-          outline-offset: 2px;
-        }
-        .voice-input-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .voice-input-button.listening {
-          background-color: #ef4444;
-          animation: voice-pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes voice-pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-          50% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-        }
-        .voice-input-button.processing {
-          background-color: var(--widget-primary, #6366f1);
-        }
-        .voice-input-button.error {
-          background-color: #ef4444;
-        }
-        .waveform-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          height: 24px;
-        }
-        .waveform-bar {
-          width: 3px;
-          height: 24px;
-          background-color: white;
-          border-radius: 2px;
-          animation: waveform-pulse 1s ease-in-out infinite;
-        }
-        .waveform-bar:nth-child(1) { animation-delay: 0s; }
-        .waveform-bar:nth-child(2) { animation-delay: 0.15s; }
-        .waveform-bar:nth-child(3) { animation-delay: 0.3s; }
-        .waveform-bar:nth-child(4) { animation-delay: 0.15s; }
-        .waveform-bar:nth-child(5) { animation-delay: 0s; }
-        @keyframes waveform-pulse {
-          0%, 100% { transform: scaleY(0.5); }
-          50% { transform: scaleY(1); }
-        }
-        .voice-interim-transcript {
-          font-style: italic;
-          color: #6b7280;
-          font-size: 14px;
-          padding: 4px 12px;
-          min-height: 24px;
-        }
-        .voice-error-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background-color: #fef2f2;
-          border: 1px solid #fecaca;
-          border-radius: 8px;
-          color: #dc2626;
-          font-size: 13px;
-        }
-        .voice-cancel-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border: none;
-          border-radius: 50%;
-          background-color: #f3f4f6;
-          color: #6b7280;
-          cursor: pointer;
-          transition: background-color 150ms ease;
-        }
-        .voice-cancel-button:hover {
-          background-color: #e5e7eb;
-        }
-        .voice-cancel-button:focus-visible {
-          outline: 2px solid var(--widget-primary, #6366f1);
-          outline-offset: 2px;
-        }
-        .voice-spinner {
-          width: 24px;
-          height: 24px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: white;
-          border-radius: 50%;
-          animation: voice-spin 0.8s linear infinite;
-        }
-        @keyframes voice-spin {
-          to { transform: rotate(360deg); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .voice-input-button,
-          .voice-cancel-button,
-          .waveform-bar,
-          .voice-spinner {
-            animation: none !important;
-            transition: none !important;
-          }
-          .voice-input-button:active:not(:disabled) {
-            transform: none;
-          }
-          .voice-input-button.listening {
-            animation: none;
-          }
-          .waveform-bar {
-            transform: scaleY(0.75);
-          }
-        }
-        
-        /* Proactive Modal Styles */
-        .proactive-modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 2147483646;
-          animation: proactive-fade-in 0.2s ease-out;
-        }
-        .proactive-modal-container {
-          background-color: var(--widget-bg, #ffffff);
-          border-radius: var(--widget-radius, 16px);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-          max-width: 400px;
-          width: 90%;
-          padding: 24px;
-          position: relative;
-          color: var(--widget-text, #1f2937);
-          animation: proactive-scale-in 0.2s ease-out;
-        }
-        .proactive-modal-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 48px;
-          height: 48px;
-          margin: 0 auto 16px;
-          border-radius: 50%;
-          background-color: var(--widget-primary, #6366f1);
-          color: white;
-        }
-        @keyframes proactive-fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes proactive-scale-in {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .proactive-modal-close {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          width: 32px;
-          height: 32px;
-          min-width: 32px;
-          min-height: 32px;
-          border: none;
-          border-radius: 50%;
-          background-color: transparent;
-          color: var(--widget-text, #6b7280);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background-color 150ms ease;
-        }
-        .proactive-modal-close:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-        .proactive-modal-close:focus-visible {
-          outline: 2px solid var(--widget-primary, #6366f1);
-          outline-offset: 2px;
-        }
-        .proactive-modal-title {
-          font-size: 18px;
-          font-weight: 600;
-          margin: 0 0 12px 0;
-          padding-right: 32px;
-          color: inherit;
-        }
-        .proactive-modal-message {
-          font-size: 14px;
-          line-height: 1.5;
-          margin: 0 0 20px 0;
-          color: inherit;
-        }
-        .proactive-modal-actions {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .proactive-action-button {
-          flex: 1;
-          min-width: 100px;
-          min-height: 44px;
-          padding: 12px 16px;
-          border: 1px solid var(--widget-primary, #6366f1);
-          border-radius: 8px;
-          background-color: var(--widget-primary, #6366f1);
-          color: white;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 150ms ease, transform 100ms ease;
-        }
-        .proactive-action-button:hover:not(:disabled) {
-          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
-        }
-        .proactive-action-button:active:not(:disabled) {
-          transform: scale(0.95);
-        }
-        .proactive-action-button:focus-visible {
-          outline: 2px solid var(--widget-primary, #6366f1);
-          outline-offset: 2px;
-        }
-        .proactive-action-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .proactive-action-button.proactive-action-secondary {
-          background-color: transparent;
-          color: var(--widget-primary, #6366f1);
-        }
-        .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
-          background-color: rgba(99, 102, 241, 0.1);
-        }
-        @media (max-width: 479px) {
-          .proactive-modal-container {
-            max-width: 90%;
-            padding: 20px;
-            margin: 16px;
-          }
-          .proactive-modal-actions {
-            flex-direction: column;
-          }
-          .proactive-action-button {
-            width: 100%;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .proactive-modal-overlay,
-          .proactive-modal-container {
-            animation: none;
-          }
-          .proactive-modal-close,
-          .proactive-action-button {
-            transition: none;
-          }
-          .proactive-action-button:active:not(:disabled) {
-            transform: none;
-          }
-        }
-        
-        /* Message Grouping Styles */
-        /* NOTE: These inline styles are the primary implementation. External CSS in
-         * message-grouping.css + injectMessageGroupingStyles() are prepared for future
-         * Shadow DOM support but not currently used (widget renders to regular DOM). */
-        .message-group {
-          margin-bottom: 12px;
-        }
-        .message-group__row {
-          display: flex;
-          align-items: flex-end;
-          gap: 8px;
-        }
-        .message-group__row--user {
-          flex-direction: row-reverse;
-        }
-        .message-group__avatar {
-          flex-shrink: 0;
-        }
-        .message-group__content {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          max-width: 75%;
-        }
-        .message-bubble {
-          padding: 10px 14px;
-          word-break: break-word;
-          animation: message-fade-in 0.2s ease-out;
-        }
-        .message-bubble--first.message-bubble--bot {
-          border-radius: 16px 16px 16px 4px;
-        }
-        .message-bubble--first.message-bubble--user {
-          border-radius: 16px 16px 4px 16px;
-        }
-        .message-bubble--middle.message-bubble--bot,
-        .message-bubble--middle.message-bubble--user {
-          border-radius: 4px;
-        }
-        .message-bubble--last.message-bubble--bot {
-          border-radius: 4px 4px 16px 16px;
-        }
-        .message-bubble--last.message-bubble--user {
-          border-radius: 16px 4px 4px 16px;
-        }
-        .message-bubble--single.message-bubble--bot,
-        .message-bubble--single.message-bubble--user {
-          border-radius: 16px;
-        }
-        .message-bubble--system {
-          background-color: transparent;
-          color: var(--widget-text);
-          opacity: 0.7;
-          font-size: 12px;
-          text-align: center;
-          padding: 4px 8px;
-        }
-        .message-bubble__sender {
-          font-size: 11px;
-          font-weight: 600;
-          margin-bottom: 4px;
-          opacity: 0.8;
-        }
-        .message-bubble__content {
-          white-space: pre-wrap;
-          word-break: break-word;
-        }
-        .message-bubble__timestamp {
-          font-size: 10px;
-          color: var(--widget-text);
-          opacity: 0.5;
-          margin-top: 2px;
-        }
-        .message-bubble__timestamp--user {
-          text-align: right;
-          margin-right: 4px;
-        }
-        .message-bubble__timestamp--bot {
-          text-align: left;
-          margin-left: 4px;
-        }
-        .message-bubble__rich-content {
-          max-width: 100%;
-          margin-top: 8px;
-        }
-        @keyframes message-fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        /* Animation Keyframes for Microinteractions */
-        @keyframes typing-dot-bounce {
-          0%, 60%, 100% {
-            transform: translateY(0);
-          }
-          30% {
-            transform: translateY(-8px);
-          }
-        }
-        
-        @keyframes message-send {
-          0% {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        @keyframes ripple {
-          0% {
-            transform: translate(-50%, -50%) scale(0);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(4);
-            opacity: 0;
-          }
-        }
-        
-        @keyframes checkmark-draw {
-          0% {
-            stroke-dashoffset: 24;
-          }
-          100% {
-            stroke-dashoffset: 0;
-          }
-        }
-        
-        @keyframes badge-pulse {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.1);
-          }
-        }
-        
-        @media (prefers-reduced-motion: reduce) {
-          .message-bubble {
-            animation: none;
-          }
-          .typing-dot,
-          .bubble-badge,
-          .ripple-effect {
-            animation: none !important;
-          }
-        }
-        
-        /* Feedback Rating Styles */
-        .feedback-rating {
-          display: flex;
-          gap: 8px;
-          margin-top: 8px;
-          padding: 0 12px;
-          flex-shrink: 0;
-        }
-
-        .feedback-button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 44px;
-          min-height: 44px;
-          padding: 10px;
-          border: 1.5px solid rgba(0, 0, 0, 0.15);
-          border-radius: 22px;
-          background-color: rgba(0, 0, 0, 0.03);
-          color: #4b5563;
-          cursor: pointer;
-          transition: all 150ms ease;
-        }
-
-        .feedback-button-icon {
-          width: 22px;
-          height: 22px;
-          fill: none;
-          stroke: currentColor;
-          stroke-width: 2;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          transition: fill 150ms ease, stroke 150ms ease;
-        }
-
-        .feedback-button--selected .feedback-button-icon {
-          fill: currentColor;
-        }
-
-        .feedback-button:hover {
-          background-color: rgba(0, 0, 0, 0.08);
-          border-color: rgba(0, 0, 0, 0.25);
-          transform: scale(1.05);
-        }
-
-        .feedback-button:active {
-          transform: scale(0.95);
-        }
-
-        .feedback-button:focus {
-          outline: none;
-          box-shadow: 0 0 0 3px var(--widget-primary, #4f46e5);
-        }
-
-        .feedback-button--selected {
-          background-color: var(--widget-primary, #4f46e5);
-          color: #ffffff;
-          border-color: var(--widget-primary, #4f46e5);
-        }
-
-        .feedback-button--selected:hover {
-          background-color: var(--widget-primary, #4f46e5);
-          opacity: 0.9;
-        }
-
-        .feedback-button:disabled {
-          cursor: wait;
-          opacity: 0.5;
-        }
-
-        .feedback-rating--dark .feedback-button {
-          color: rgba(255, 255, 255, 0.85);
-          border-color: rgba(255, 255, 255, 0.2);
-          background-color: rgba(255, 255, 255, 0.05);
-        }
-
-        .feedback-rating--dark .feedback-button:hover {
-          background-color: rgba(255, 255, 255, 0.15);
-          border-color: rgba(255, 255, 255, 0.35);
-        }
-
-        .feedback-comment-form {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          padding: 8px;
-          background-color: rgba(0, 0, 0, 0.02);
-          border-radius: 12px;
-          flex: 1;
-          max-width: 300px;
-        }
-
-        .feedback-rating--dark .feedback-comment-form {
-          background-color: rgba(255, 255, 255, 0.05);
-        }
-
-        .feedback-comment-label {
-          font-size: 12px;
-          color: var(--widget-text, #1f2937);
-        }
-
-        .feedback-comment-textarea {
-          width: 100%;
-          padding: 8px;
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          border-radius: 8px;
-          background-color: white;
-          color: var(--widget-text, #1f2937);
-          font-family: var(--widget-font, inherit);
-          font-size: 14px;
-          resize: none;
-        }
-
-        .feedback-rating--dark .feedback-comment-textarea {
-          border-color: rgba(255, 255, 255, 0.2);
-          background-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .feedback-comment-actions {
-          display: flex;
-          gap: 8px;
-          justify-content: flex-end;
-        }
-
-        .feedback-comment-skip {
-          padding: 6px 12px;
-          border: none;
-          border-radius: 6px;
-          background-color: transparent;
-          color: var(--widget-text, #1f2937);
-          font-size: 14px;
-          cursor: pointer;
-          opacity: 0.7;
-        }
-
-        .feedback-comment-skip:hover {
-          opacity: 1;
-        }
-
-        .feedback-comment-submit {
-          padding: 6px 12px;
-          border: none;
-          border-radius: 6px;
-          background-color: var(--widget-primary, #4f46e5);
-          color: white;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-        }
-
-        .feedback-comment-submit:hover {
-          opacity: 0.9;
-        }
-
-        .feedback-comment-count {
-          font-size: 11px;
-          color: var(--widget-text, #1f2937);
-          opacity: 0.6;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .feedback-button {
-            transition: none;
-          }
-        }
-      ` }),
-      state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
-        position: "fixed",
-        bottom: 20,
-        right: mergedTheme.position === "bottom-left" ? void 0 : 20,
-        left: mergedTheme.position === "bottom-left" ? 20 : void 0,
-        width: 60,
-        height: 60,
-        borderRadius: "50%",
-        backgroundColor: mergedTheme.primaryColor,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 2147483647
-      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          ChatBubble,
-          {
-            isOpen: state.isOpen && !state.isMinimized,
-            onClick: handleBubbleClick,
-            theme: mergedTheme,
-            onPrefetch: prefetchChatWindow,
-            unreadCount: state.unreadCount
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          ProactiveModal,
-          {
-            trigger: activeTrigger,
-            isOpen: isProactiveActive && !state.isOpen,
-            onAction: handleProactiveAction,
-            onDismiss: dismissProactive,
-            theme: {
-              primaryColor: mergedTheme.primaryColor,
-              backgroundColor: mergedTheme.backgroundColor,
-              textColor: mergedTheme.textColor
-            }
-          }
-        ),
-        state.isOpen && !state.isMinimized && /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "fixed", bottom: 100, right: 20, zIndex: 2147483647 }, children: "Failed to load chat." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          GlassmorphismChatWindow,
-          {
-            themeMode: state.themeMode,
-            systemTheme,
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-              ChatWindow$2,
-              {
-                isOpen: state.isOpen && !state.isMinimized,
-                onClose: toggleChat,
-                theme: mergedTheme,
-                config: state.config,
-                messages: state.messages,
-                isTyping: state.isTyping,
-                onSendMessage: sendMessage,
-                error: state.error,
-                errors: state.errors,
-                onDismissError: dismissError,
-                onRetryError: retryLastAction,
-                onAddToCart: addToCart2,
-                onRemoveFromCart: removeFromCart2,
-                onCheckout: checkout,
-                addingProductId,
-                removingItemId,
-                isCheckingOut,
-                sessionId: (_e = state.session) == null ? void 0 : _e.sessionId,
-                connectionStatus: state.connectionStatus,
-                consentState: state.consentState,
-                onRecordConsent: recordConsent,
-                onClearHistory: clearHistory,
-                position: state.position,
-                isDragging: state.isDragging,
-                isMinimized: state.isMinimized,
-                onDragStart: () => {
-                },
-                onMinimize: toggleMinimized,
-                themeMode: state.themeMode,
-                onThemeToggle: handleThemeToggle,
-                faqQuickButtons: state.faqQuickButtons,
-                onFaqButtonClick: handleFaqButtonClick,
-                onFeedbackSubmit: handleFeedbackSubmit
-              }
-            )
-          }
-        ) }) })
-      ] })
-    ] });
-  }
-  function Widget({ merchantId, theme, initialSessionId }) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetProvider, { merchantId, initialSessionId, children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetInner, { theme }) }) });
-  }
-  let capturedScript = null;
-  let widgetRoot = null;
-  let widgetContainer = null;
-  const MERCHANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
-  function isValidMerchantId(id2) {
-    if (!id2 || typeof id2 !== "string") return false;
-    return MERCHANT_ID_PATTERN.test(id2);
-  }
-  function getConfig() {
-    var _a2, _b;
-    if ((_a2 = window.ShopBotConfig) == null ? void 0 : _a2.merchantId) {
-      return window.ShopBotConfig;
+    },
+    remove: (key) => {
+      try {
+        sessionStorage.removeItem(key);
+        return true;
+      } catch {
+        return false;
+      }
     }
-    if ((_b = capturedScript == null ? void 0 : capturedScript.dataset) == null ? void 0 : _b.merchantId) {
-      let theme;
-      if (capturedScript.dataset.theme) {
-        try {
-          theme = JSON.parse(capturedScript.dataset.theme);
-        } catch {
-        }
+  };
+  const safeLocalStorage = {
+    get: (key) => {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
       }
-      return {
-        merchantId: capturedScript.dataset.merchantId,
-        theme
+    },
+    set: (key, value) => {
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    remove: (key) => {
+      try {
+        localStorage.removeItem(key);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  };
+  const SESSION_KEY = "widget_session_id";
+  const MERCHANT_KEY = "widget_merchant_id";
+  const VISITOR_KEY = "widget_visitor_id";
+  const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
+  function getVisitorId() {
+    const stored = safeLocalStorage.get(VISITOR_KEY);
+    if (!stored) return null;
+    try {
+      const parsed = JSON.parse(stored);
+      const createdAt = new Date(parsed.createdAt).getTime();
+      const now = Date.now();
+      if (now - createdAt < VISITOR_MAX_AGE_MS) {
+        return parsed.visitorId;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+  function clearVisitorId() {
+    safeLocalStorage.remove(VISITOR_KEY);
+  }
+  const MESSAGE_CACHE_PREFIX = "widget_msg_cache_";
+  const MESSAGE_CACHE_META_PREFIX = "widget_msg_meta_";
+  const MESSAGE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1e3;
+  function cacheMessages(sessionId, messages) {
+    try {
+      const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+      const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+      const now = Date.now();
+      const meta = {
+        sessionId,
+        createdAt: new Date(now).toISOString(),
+        expiresAt: new Date(now + MESSAGE_CACHE_TTL_MS).toISOString()
       };
+      safeLocalStorage.set(cacheKey, JSON.stringify(messages));
+      safeLocalStorage.set(metaKey, JSON.stringify(meta));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function clearMessageCache(sessionId) {
+    const cacheKey = MESSAGE_CACHE_PREFIX + sessionId;
+    const metaKey = MESSAGE_CACHE_META_PREFIX + sessionId;
+    safeLocalStorage.remove(cacheKey);
+    safeLocalStorage.remove(metaKey);
+  }
+  const POSITION_KEY_PREFIX = "shopbot-widget-position-";
+  function isValidPosition(position) {
+    if (!position || typeof position !== "object") return false;
+    const pos = position;
+    return typeof pos.x === "number" && typeof pos.y === "number" && !isNaN(pos.x) && !isNaN(pos.y);
+  }
+  function isPositionWithinViewport(position) {
+    if (typeof window === "undefined") return true;
+    const padding = 10;
+    const width = 380;
+    const height = 600;
+    return position.x >= 0 && position.x <= window.innerWidth - width - padding && position.y >= 0 && position.y <= window.innerHeight - height - padding;
+  }
+  function getStoredPosition(merchantId) {
+    const key = POSITION_KEY_PREFIX + merchantId;
+    const saved = safeLocalStorage.get(key);
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      if (!isValidPosition(parsed)) return null;
+      if (!isPositionWithinViewport(parsed)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+  function setStoredPosition(merchantId, position) {
+    if (!isValidPosition(position)) return false;
+    const key = POSITION_KEY_PREFIX + merchantId;
+    return safeLocalStorage.set(key, JSON.stringify(position));
+  }
+  function saveWidgetPosition(position) {
+    return safeLocalStorage.set("shopbot_widget_position", JSON.stringify(position));
+  }
+  const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function isValidSessionId(sessionId) {
+    if (!sessionId || typeof sessionId !== "string") return false;
+    return UUID_V4_PATTERN.test(sessionId.trim());
+  }
+  const THEME_KEY_PREFIX = "shopbot-widget-theme-";
+  function getStoredTheme(merchantId) {
+    const key = THEME_KEY_PREFIX + merchantId;
+    const stored = safeLocalStorage.get(key);
+    if (stored === "light" || stored === "dark" || stored === "auto") {
+      return stored;
     }
     return null;
   }
-  function initWidget() {
-    if (widgetContainer && widgetRoot) {
-      return;
-    }
-    const config2 = getConfig();
-    if (!(config2 == null ? void 0 : config2.merchantId)) {
-      return;
-    }
-    if (!isValidMerchantId(config2.merchantId)) {
-      return;
-    }
-    widgetContainer = document.createElement("div");
-    widgetContainer.id = "shopbot-widget-root";
-    document.body.appendChild(widgetContainer);
-    widgetRoot = createRoot(widgetContainer);
-    widgetRoot.render(
-      reactExports.createElement(Widget, {
-        merchantId: config2.merchantId,
-        theme: config2.theme,
-        initialSessionId: config2.sessionId
-      })
-    );
+  function setStoredTheme(merchantId, mode) {
+    const key = THEME_KEY_PREFIX + merchantId;
+    return safeLocalStorage.set(key, mode);
   }
-  function unmountWidget() {
-    if (widgetRoot) {
-      widgetRoot.unmount();
-      widgetRoot = null;
-    }
-    if (widgetContainer) {
-      widgetContainer.remove();
-      widgetContainer = null;
-    }
+  const SESSION_ERROR_CODES = /* @__PURE__ */ new Set([12001, 12002]);
+  function isSessionError(error) {
+    return error instanceof WidgetApiException && SESSION_ERROR_CODES.has(error.errorCode);
   }
-  function isWidgetMounted() {
-    return widgetContainer !== null && widgetRoot !== null;
-  }
-  if (document.currentScript instanceof HTMLScriptElement) {
-    capturedScript = document.currentScript;
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initWidget);
-  } else {
-    initWidget();
-  }
-  if (typeof window !== "undefined") {
-    window.ShopBotWidget = {
-      version: "0.2.0",
-      init: initWidget,
-      unmount: unmountWidget,
-      isMounted: isWidgetMounted
-    };
-  }
-  function getWsBaseUrl() {
-    const apiBase = getWidgetApiBase();
-    try {
-      const url = new URL(apiBase);
-      return url.origin.replace(/^http/, "ws");
-    } catch {
-      return apiBase.replace(/^http/, "ws").replace(/\/api\/v1\/widget$/, "");
-    }
-  }
-  function connectWidgetWebSocket(sessionId, options = {}) {
-    const {
-      onMessage,
-      onStatusChange,
-      onError,
-      reconnectInterval = 3e3,
-      maxReconnectAttempts = 10
-    } = options;
-    let ws = null;
-    let reconnectAttempts = 0;
-    let isClosed = false;
-    let heartbeatTimer = null;
-    let reconnectTimer = null;
-    const updateStatus = (status) => {
-      console.warn("[WS] Status:", status);
-      onStatusChange == null ? void 0 : onStatusChange(status);
-    };
-    const clearTimers = () => {
-      if (heartbeatTimer) {
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = null;
+  const initialConsentState = {
+    promptShown: false,
+    canStoreConversation: false,
+    status: "pending"
+  };
+  const initialState = {
+    isOpen: false,
+    isLoading: false,
+    isTyping: false,
+    session: null,
+    messages: [],
+    config: null,
+    error: null,
+    errors: [],
+    connectionStatus: "disconnected",
+    consentState: initialConsentState,
+    position: null,
+    isDragging: false,
+    isMinimized: false,
+    unreadCount: 0,
+    themeMode: "auto",
+    faqQuickButtons: [],
+    isStreaming: false,
+    streamingMessageId: null,
+    streamingContent: "",
+    streamingError: null
+  };
+  function widgetReducer(state, action) {
+    switch (action.type) {
+      case "SET_OPEN":
+        return { ...state, isOpen: action.payload };
+      case "SET_LOADING":
+        return { ...state, isLoading: action.payload };
+      case "SET_TYPING":
+        return { ...state, isTyping: action.payload };
+      case "SET_SESSION":
+        return { ...state, session: action.payload };
+      case "ADD_MESSAGE": {
+        const newUnreadCount = state.isMinimized && action.payload.sender !== "user" ? state.unreadCount + 1 : state.unreadCount;
+        return { ...state, messages: [...state.messages, action.payload], unreadCount: newUnreadCount };
       }
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
+      case "SET_MESSAGES":
+        return { ...state, messages: action.payload };
+      case "SET_CONFIG":
+        return { ...state, config: action.payload };
+      case "SET_ERROR":
+        return { ...state, error: action.payload };
+      case "CLEAR_ERROR":
+        return { ...state, error: null };
+      case "ADD_WIDGET_ERROR":
+        return { ...state, errors: [...state.errors, action.payload] };
+      case "DISMISS_WIDGET_ERROR":
+        return {
+          ...state,
+          errors: state.errors.map((e) => e.id === action.payload ? { ...e, dismissed: true } : e)
+        };
+      case "CLEAR_WIDGET_ERRORS":
+        return { ...state, errors: [] };
+      case "SET_CONNECTION_STATUS":
+        return { ...state, connectionStatus: action.payload };
+      case "SET_CONSENT_STATE":
+        return { ...state, consentState: action.payload };
+      case "SET_CONSENT_PROMPT_SHOWN":
+        return { ...state, consentState: { ...state.consentState, promptShown: action.payload } };
+      case "SET_POSITION":
+        return { ...state, position: action.payload };
+      case "SET_DRAGGING":
+        return { ...state, isDragging: action.payload };
+      case "TOGGLE_MINIMIZED":
+        return { ...state, isMinimized: !state.isMinimized, unreadCount: !state.isMinimized ? 0 : state.unreadCount };
+      case "SET_UNREAD_COUNT":
+        return { ...state, unreadCount: action.payload };
+      case "SET_THEME_MODE":
+        return { ...state, themeMode: action.payload };
+      case "SET_FAQ_QUICK_BUTTONS":
+        return { ...state, faqQuickButtons: action.payload };
+      case "UPDATE_MESSAGE_FEEDBACK":
+        return {
+          ...state,
+          messages: state.messages.map(
+            (msg) => msg.messageId === action.payload.messageId ? { ...msg, userRating: action.payload.rating } : msg
+          )
+        };
+      case "START_STREAMING": {
+        const streamingMessage = {
+          messageId: action.payload.messageId,
+          content: "",
+          sender: "bot",
+          createdAt: action.payload.createdAt,
+          isStreaming: true
+        };
+        const newUnreadCount = state.isMinimized ? state.unreadCount + 1 : state.unreadCount;
+        return {
+          ...state,
+          isStreaming: true,
+          streamingMessageId: action.payload.messageId,
+          streamingContent: "",
+          streamingError: null,
+          isTyping: false,
+          messages: [...state.messages, streamingMessage],
+          unreadCount: newUnreadCount
+        };
       }
-    };
-    const startHeartbeat = () => {
-      heartbeatTimer = setInterval(() => {
-        if ((ws == null ? void 0 : ws.readyState) === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
-          console.warn("[WS] Heartbeat ping sent");
-        }
-      }, 25e3);
-    };
-    const connect = () => {
-      if (isClosed) return;
-      console.warn("[WS] ========== WIDGET WS CLIENT v20260308-12-00 ==========");
-      const wsBaseUrl = getWsBaseUrl();
-      const url = `${wsBaseUrl}/ws/widget/${sessionId}`;
-      console.warn("[WS] Connecting to:", url);
-      updateStatus("connecting");
-      try {
-        ws = new WebSocket(url);
-      } catch (error) {
-        console.warn("[WS] Failed to create WebSocket:", error);
-        updateStatus("error");
-        scheduleReconnect();
+      case "UPDATE_STREAMING_MESSAGE": {
+        if (state.streamingMessageId !== action.payload.messageId) return state;
+        const updatedContent = state.streamingContent + action.payload.token;
+        return {
+          ...state,
+          streamingContent: updatedContent,
+          messages: state.messages.map(
+            (msg) => msg.messageId === action.payload.messageId ? { ...msg, content: updatedContent } : msg
+          )
+        };
+      }
+      case "FINISH_STREAMING_MESSAGE": {
+        const finalMessage = action.payload;
+        return {
+          ...state,
+          isStreaming: false,
+          streamingMessageId: null,
+          streamingContent: "",
+          streamingError: null,
+          messages: state.messages.map(
+            (msg) => msg.messageId === finalMessage.messageId ? { ...finalMessage, isStreaming: false } : msg
+          )
+        };
+      }
+      case "STREAMING_ERROR": {
+        return {
+          ...state,
+          isStreaming: false,
+          streamingMessageId: null,
+          streamingContent: "",
+          streamingError: action.payload.error,
+          messages: state.messages.map(
+            (msg) => msg.messageId === action.payload.messageId ? { ...msg, isStreaming: false } : msg
+          )
+        };
+      }
+      case "RESET":
+        return initialState;
+      default:
+        return state;
+    }
+  }
+  const WidgetContext = reactExports.createContext(null);
+  function useWidgetContext() {
+    const context = reactExports.useContext(WidgetContext);
+    if (!context) {
+      throw new Error("useWidgetContext must be used within a WidgetProvider");
+    }
+    return context;
+  }
+  function WidgetProvider({ children, merchantId, initialSessionId }) {
+    var _a2, _b, _c, _d, _e;
+    const [state, dispatch] = reactExports.useReducer(widgetReducer, initialState);
+    const [addingProductId, setAddingProductId] = reactExports.useState(null);
+    const [removingItemId, setRemovingItemId] = reactExports.useState(null);
+    const [isCheckingOut, setIsCheckingOut] = reactExports.useState(false);
+    const lastActionRef = reactExports.useRef(null);
+    const greetingShownRef = reactExports.useRef(false);
+    const consentPromptShownRef = reactExports.useRef(false);
+    const lastCachedLengthRef = reactExports.useRef(0);
+    const isInitializingRef = reactExports.useRef(false);
+    const initRequestIdRef = reactExports.useRef(null);
+    const validatePosition2 = reactExports.useCallback((pos) => {
+      const vWidth = window.innerWidth > 0 ? window.innerWidth : 1280;
+      const vHeight = window.innerHeight > 0 ? window.innerHeight : 720;
+      const isXValid = pos.x >= -300 && pos.x <= vWidth - 80;
+      const isYValid = pos.y >= -50 && pos.y <= vHeight - 80;
+      const isValid = isXValid && isYValid;
+      console.log("[WidgetContext] Position validation:", {
+        pos,
+        viewport: `${vWidth}x${vHeight}`,
+        isValid
+      });
+      return isValid;
+    }, []);
+    reactExports.useEffect(() => {
+      const storedTheme = getStoredTheme(merchantId);
+      if (storedTheme && storedTheme !== state.themeMode) {
+        dispatch({ type: "SET_THEME_MODE", payload: storedTheme });
+      }
+    }, [merchantId, state.themeMode, dispatch]);
+    reactExports.useEffect(() => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || state.messages.length === 0) {
         return;
       }
-      ws.onopen = () => {
-        console.warn("[WS] Connection opened");
-        reconnectAttempts = 0;
-        updateStatus("connected");
-        startHeartbeat();
-      };
-      ws.onmessage = (event) => {
-        console.warn("[WS] onmessage triggered, data type:", typeof event.data);
+      if (state.messages.length !== lastCachedLengthRef.current) {
+        lastCachedLengthRef.current = state.messages.length;
+        cacheMessages(state.session.sessionId, state.messages);
+      }
+    }, [state.messages, (_a2 = state.session) == null ? void 0 : _a2.sessionId]);
+    const addError = reactExports.useCallback(
+      (error, context) => {
+        const widgetError = createWidgetError(error, context);
+        dispatch({ type: "ADD_WIDGET_ERROR", payload: widgetError });
+        dispatch({ type: "SET_ERROR", payload: widgetError.message });
+        console.error("[Widget Error]", widgetError);
+      },
+      []
+    );
+    const dismissError = reactExports.useCallback((errorId) => {
+      dispatch({ type: "DISMISS_WIDGET_ERROR", payload: errorId });
+    }, []);
+    const clearErrors = reactExports.useCallback(() => {
+      dispatch({ type: "CLEAR_WIDGET_ERRORS" });
+      dispatch({ type: "CLEAR_ERROR" });
+    }, []);
+    const {
+      createSession,
+      getSession,
+      endSession: endWidgetSession
+    } = reactExports.useMemo(
+      () => ({
+        createSession: async (visitorId) => {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          return widgetClient2.createSession(merchantId, visitorId);
+        },
+        getSession: async (sessionId) => {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          return widgetClient2.getSession(sessionId);
+        },
+        endSession: async (sessionId) => {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          return widgetClient2.endSession(sessionId);
+        }
+      }),
+      [merchantId]
+    );
+    const initWidget2 = reactExports.useCallback(
+      async (mId) => {
+        console.log("[WidgetContext] initWidget called with merchantId:", mId);
+        if (!mId) {
+          console.log("[WidgetContext] No merchantId provided, returning");
+          return;
+        }
+        const requestId = `init-${Date.now()}-${Math.random()}`;
+        console.log("[WidgetContext] Request ID:", requestId);
+        if (initRequestIdRef.current && initRequestIdRef.current !== requestId) {
+          console.log("[WidgetContext] Superseded by request:", initRequestIdRef.current, ", aborting");
+          return;
+        }
+        initRequestIdRef.current = requestId;
+        console.log("[WidgetContext] Set as active request:", requestId);
+        if (state.config && state.config.merchantId === mId && !isInitializingRef.current) {
+          console.log("[WidgetContext] Skipping initWidget - already initialized");
+          return;
+        }
+        isInitializingRef.current = true;
+        dispatch({ type: "SET_LOADING", payload: true });
+        dispatch({ type: "CLEAR_ERROR" });
         try {
-          if (event.data === "pong") {
-            console.warn("[WS] Heartbeat pong received");
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          console.log("[WidgetContext] Fetching config for merchant:", mId);
+          const config2 = await widgetClient2.getConfig(mId);
+          if (initRequestIdRef.current !== requestId) {
+            console.log("[WidgetContext] Config fetch superseded by request:", initRequestIdRef.current);
             return;
           }
-          console.warn("[WS] Parsing JSON...");
-          const parsed = JSON.parse(event.data);
-          console.warn("[WS] Message received:", parsed);
-          console.warn("[WS] Message type:", parsed.type);
-          if (parsed.type === "ping") {
-            console.warn("[WS] Handling ping, responding with pong");
-            if ((ws == null ? void 0 : ws.readyState) === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: "pong" }));
-            }
-            return;
-          }
-          if (parsed.type === "pong") {
-            console.warn("[WS] Handling pong, ignoring");
-            return;
-          }
-          console.warn("[WS] Not ping/pong, checking onMessage callback...");
-          console.warn("[WS] onMessage exists:", !!onMessage);
-          console.warn("[WS] onMessage type:", typeof onMessage);
-          if (onMessage) {
-            console.warn("[WS] Calling onMessage with:", parsed);
-            try {
-              onMessage(parsed);
-              console.warn("[WS] onMessage call completed successfully");
-            } catch (callbackError) {
-              console.error("[WS] Error in onMessage callback:", callbackError);
-            }
+          console.log("[WidgetContext] Config loaded:", config2);
+          console.log("[WidgetContext] Config onboardingMode:", config2.onboardingMode);
+          dispatch({ type: "SET_CONFIG", payload: config2 });
+          if (config2.onboardingMode === "general") {
+            console.log("[WidgetContext] onboardingMode is general, fetching FAQ buttons");
+            widgetClient2.getFaqButtons(mId).then((faqButtons) => {
+              console.log("[WidgetContext] FAQ buttons loaded:", faqButtons);
+              dispatch({ type: "SET_FAQ_QUICK_BUTTONS", payload: faqButtons });
+            }).catch((error) => {
+              console.warn("[WidgetContext] Failed to fetch FAQ buttons:", error);
+            });
           } else {
-            console.warn("[WS] ⚠️ onMessage callback is undefined!");
-            console.warn("[WS] Available callbacks:", {
-              onMessage: typeof onMessage,
-              onStatusChange: typeof onStatusChange,
-              onError: typeof onError
+            console.log("[WidgetContext] onboardingMode is NOT general:", config2.onboardingMode);
+          }
+          shopifyCartClient.setShopDomain(config2.shopDomain);
+          const storedTheme = getStoredTheme(merchantId);
+          dispatch({ type: "SET_THEME_MODE", payload: storedTheme || "auto" });
+          console.log("[WidgetContext] Viewport at position load:", window.innerWidth, "x", window.innerHeight);
+          const savedPosition = getStoredPosition(merchantId);
+          console.log("[WidgetContext] Stored Position found:", savedPosition);
+          if (savedPosition && validatePosition2(savedPosition)) {
+            console.log("[WidgetContext] Using valid stored position:", savedPosition);
+            dispatch({ type: "SET_POSITION", payload: savedPosition });
+          } else {
+            console.log("[WidgetContext] No valid stored position, using default theme placement");
+            dispatch({ type: "SET_POSITION", payload: null });
+          }
+          let sessionId = initialSessionId;
+          if (!sessionId) {
+            console.log("[WidgetContext] Creating new session...");
+            const session2 = await widgetClient2.createSession(mId);
+            if (initRequestIdRef.current !== requestId) {
+              console.log("[WidgetContext] Session creation superseded by request:", initRequestIdRef.current);
+              return;
+            }
+            console.log("[WidgetContext] Session created:", session2);
+            dispatch({ type: "SET_SESSION", payload: session2 });
+            safeStorage.set(SESSION_KEY, session2.sessionId);
+            safeStorage.set(MERCHANT_KEY, merchantId);
+          } else {
+            console.log("[WidgetContext] Loading existing conversation history for session:", sessionId);
+            const messages = await widgetClient2.getHistory(session.sessionId);
+            console.log("[WidgetContext] History loaded:", (messages == null ? void 0 : messages.length) || 0, "messages");
+            dispatch({ type: "SET_MESSAGES", payload: messages });
+            if (messages.length > 0) {
+              greetingShownRef.current = true;
+            }
+          }
+          console.log("[WidgetContext] ✅ Initialization complete, clearing loading state");
+          dispatch({ type: "SET_LOADING", payload: false });
+          isInitializingRef.current = false;
+          initRequestIdRef.current = null;
+        } catch (error) {
+          console.error("[WidgetContext] initWidget error:", error);
+          addError(error, { actions: "Retry" });
+          dispatch({ type: "SET_LOADING", payload: false });
+          isInitializingRef.current = false;
+          initRequestIdRef.current = null;
+        }
+      },
+      [merchantId, state.config]
+    );
+    const toggleChat = reactExports.useCallback(() => {
+      dispatch({ type: "SET_OPEN", payload: !state.isOpen });
+    }, [state.isOpen]);
+    const recordConsent = reactExports.useCallback(
+      async (consented) => {
+        var _a3;
+        if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
+        try {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          const visitorId = getVisitorId() || void 0;
+          await widgetClient2.recordConsent(state.session.sessionId, consented, visitorId);
+          const newConsentState = {
+            promptShown: true,
+            canStoreConversation: consented,
+            status: consented ? "opted_in" : "opted_out"
+          };
+          dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
+        } catch (error) {
+          console.error("[WidgetContext] recordConsent error:", error);
+          addError(error, { action: "Try Again" });
+        }
+      },
+      [(_b = state.session) == null ? void 0 : _b.sessionId, addError, dispatch]
+    );
+    const syncCartToShopify = reactExports.useCallback(
+      async (cart) => {
+        if (!shopifyCartClient.isOnShopify()) return;
+        try {
+          if (!cart.items || cart.items.length === 0) {
+            await shopifyCartClient.clearCart();
+          } else {
+            const shopifyCart = await shopifyCartClient.getCart();
+            const shopifyVariantIds = new Set(
+              shopifyCart.items.map((item) => String(item.variant_id))
+            );
+            for (const item of cart.items) {
+              if (item.variantId && !shopifyVariantIds.has(String(item.variantId))) {
+                await shopifyCartClient.addToCart(item.variantId, item.quantity);
+              }
+            }
+          }
+        } catch (shopifyError) {
+        }
+      },
+      []
+    );
+    const recoverSession = reactExports.useCallback(
+      async () => {
+        safeStorage.remove(SESSION_KEY);
+        const visitorId = getVisitorId() || void 0;
+        const newSession = await createSession(visitorId);
+        dispatch({ type: "SET_SESSION", payload: newSession });
+        safeStorage.set(SESSION_KEY, newSession.sessionId);
+        return newSession.sessionId;
+      },
+      [createSession]
+    );
+    const sendMessage = reactExports.useCallback(
+      async (content) => {
+        var _a3;
+        if (!content.trim()) return;
+        let currentSessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!currentSessionId || !isValidSessionId(currentSessionId)) {
+          currentSessionId = await recoverSession();
+        }
+        lastActionRef.current = { type: "sendMessage", payload: content };
+        const userMessage = {
+          messageId: crypto.randomUUID(),
+          content,
+          sender: "user",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        dispatch({ type: "ADD_MESSAGE", payload: userMessage });
+        const useStreaming = state.connectionStatus === "connected" && !state.isStreaming;
+        if (useStreaming) {
+          try {
+            const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+            await widgetClient2.sendMessage(currentSessionId, content, { streaming: "true" });
+          } catch (error) {
+            if (isSessionError(error)) {
+              try {
+                currentSessionId = await recoverSession();
+                const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+                await widgetClient2.sendMessage(currentSessionId, content, { streaming: "true" });
+                return;
+              } catch {
+              }
+            }
+            addError(error, { action: "Try Again" });
+          }
+        } else {
+          dispatch({ type: "SET_TYPING", payload: true });
+          try {
+            const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+            const botMessage = await widgetClient2.sendMessage(currentSessionId, content);
+            dispatch({ type: "ADD_MESSAGE", payload: botMessage });
+            if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+              consentPromptShownRef.current = true;
+              dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
+            }
+            if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+              syncCartToShopify(botMessage.cart);
+            }
+          } catch (error) {
+            if (isSessionError(error)) {
+              try {
+                currentSessionId = await recoverSession();
+                const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+                const botMessage = await widgetClient2.sendMessage(currentSessionId, content);
+                dispatch({ type: "ADD_MESSAGE", payload: botMessage });
+                if (botMessage.consent_prompt_required && !consentPromptShownRef.current) {
+                  consentPromptShownRef.current = true;
+                  dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
+                }
+                if (shopifyCartClient.isOnShopify() && botMessage.cart) {
+                  syncCartToShopify(botMessage.cart);
+                }
+                return;
+              } catch {
+              }
+            }
+            addError(error, { action: "Try Again" });
+          } finally {
+            dispatch({ type: "SET_TYPING", payload: false });
+          }
+        }
+      },
+      [state.session, state.connectionStatus, state.isStreaming, addError, syncCartToShopify, recoverSession]
+    );
+    const addToCart2 = reactExports.useCallback(
+      async (product) => {
+        var _a3;
+        lastActionRef.current = { type: "addToCart", payload: product };
+        setAddingProductId(product.id);
+        try {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+          if (!sessionId || !isValidSessionId(sessionId)) {
+            sessionId = await recoverSession();
+          }
+          let updatedCart;
+          try {
+            updatedCart = await widgetClient2.addToCart(sessionId, product, 1);
+          } catch (error) {
+            if (isSessionError(error)) {
+              sessionId = await recoverSession();
+              updatedCart = await widgetClient2.addToCart(sessionId, product, 1);
+            } else {
+              throw error;
+            }
+          }
+          if (shopifyCartClient.isOnShopify() && product.variantId) {
+            try {
+              await shopifyCartClient.addToCart(product.variantId, 1);
+            } catch (shopifyError) {
+            }
+          }
+          const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
+          const confirmationMessage = {
+            messageId: crypto.randomUUID(),
+            content: `Added "${product.title}" to your cart!
+
+Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.`,
+            sender: "bot",
+            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+            cart: updatedCart
+          };
+          dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
+        } catch (error) {
+          addError(error, { action: "Try Again" });
+        } finally {
+          setAddingProductId(null);
+        }
+      },
+      [state.session, addError, recoverSession]
+    );
+    const removeFromCart2 = reactExports.useCallback(
+      async (variantId) => {
+        var _a3;
+        if (!variantId) return;
+        setRemovingItemId(variantId);
+        try {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+          if (!sessionId || !isValidSessionId(sessionId)) {
+            sessionId = await recoverSession();
+          }
+          let updatedCart;
+          try {
+            updatedCart = await widgetClient2.removeFromCart(sessionId, variantId);
+          } catch (error) {
+            if (isSessionError(error)) {
+              sessionId = await recoverSession();
+              updatedCart = await widgetClient2.removeFromCart(sessionId, variantId);
+            } else {
+              throw error;
+            }
+          }
+          const removedItem = state.messages.flatMap((m2) => {
+            var _a4;
+            return ((_a4 = m2.cart) == null ? void 0 : _a4.items) || [];
+          }).find((item) => item.variantId === variantId);
+          const itemTitle = (removedItem == null ? void 0 : removedItem.title) || "Item";
+          const itemWord = updatedCart.itemCount === 1 ? "item" : "items";
+          const confirmationMessage = {
+            messageId: crypto.randomUUID(),
+            content: updatedCart.itemCount > 0 ? `Removed "${itemTitle}" from your cart.
+
+Your cart now has ${updatedCart.itemCount} ${itemWord} totaling $${updatedCart.total.toFixed(2)}.` : `Removed "${itemTitle}" from your cart.
+
+Your cart is now empty.`,
+            sender: "bot",
+            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+            cart: updatedCart
+          };
+          dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
+          if (shopifyCartClient.isOnShopify()) {
+            try {
+              await shopifyCartClient.removeFromCart(variantId);
+            } catch (shopifyError) {
+            }
+          }
+        } catch (error) {
+          addError(error, { action: "Try Again" });
+        } finally {
+          setRemovingItemId(null);
+        }
+      },
+      [state.session, state.messages, addError, recoverSession]
+    );
+    const checkout = reactExports.useCallback(async () => {
+      var _a3, _b2;
+      lastActionRef.current = { type: "checkout" };
+      setIsCheckingOut(true);
+      try {
+        const shopDomain = (_a3 = state.config) == null ? void 0 : _a3.shopDomain;
+        if (!shopDomain) {
+          throw new Error("Shop domain not configured");
+        }
+        const messagesWithCart = state.messages.filter((m2) => m2.cart && m2.cart.items.length > 0);
+        const latestCart = messagesWithCart.length > 0 ? messagesWithCart[messagesWithCart.length - 1].cart : null;
+        if (!latestCart || latestCart.items.length === 0) {
+          throw new Error("Your cart is empty");
+        }
+        const validItems = latestCart.items.filter((item) => item.variantId && item.quantity > 0);
+        if (validItems.length === 0) {
+          throw new Error("No valid items in cart");
+        }
+        const cartItems = validItems.map((item) => `${item.variantId}:${item.quantity}`).join(",");
+        const checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
+        window.open(checkoutUrl, "_blank");
+        const confirmationMessage = {
+          messageId: crypto.randomUUID(),
+          content: "Opening checkout in a new tab...",
+          sender: "bot",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          checkoutUrl
+        };
+        dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
+      } catch (error) {
+        addError(error, {
+          action: "Try Again",
+          fallbackUrl: ((_b2 = state.config) == null ? void 0 : _b2.shopDomain) ? `https://${state.config.shopDomain}/cart` : void 0
+        });
+      } finally {
+        setIsCheckingOut(false);
+      }
+    }, [state.config, state.messages, addError]);
+    reactExports.useEffect(() => {
+      var _a3;
+      if (state.isOpen && state.messages.length === 0 && ((_a3 = state.config) == null ? void 0 : _a3.welcomeMessage) && !greetingShownRef.current) {
+        greetingShownRef.current = true;
+        const greetingMessage = {
+          messageId: crypto.randomUUID(),
+          content: state.config.welcomeMessage,
+          sender: "bot",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          feedbackEnabled: false
+        };
+        dispatch({ type: "ADD_MESSAGE", payload: greetingMessage });
+      }
+    }, [state.isOpen, state.messages.length, (_c = state.config) == null ? void 0 : _c.welcomeMessage]);
+    reactExports.useEffect(() => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !state.isOpen) return;
+      let cleanup = null;
+      const connectWebSocket = async () => {
+        const { connectWidgetWebSocket: connectWidgetWebSocket2, isWebSocketSupported: isWebSocketSupported2 } = await Promise.resolve().then(() => widgetWsClient);
+        if (!isWebSocketSupported2()) {
+          dispatch({ type: "SET_CONNECTION_STATUS", payload: "error" });
+          return;
+        }
+        cleanup = connectWidgetWebSocket2(state.session.sessionId, {
+          onMessage: (event) => {
+            if (event.type === "merchant_message") {
+              const data = event.data;
+              const merchantMessage = {
+                messageId: `merchant-${data.id}`,
+                content: data.content,
+                sender: "merchant",
+                createdAt: data.createdAt
+              };
+              dispatch({ type: "ADD_MESSAGE", payload: merchantMessage });
+            } else if (event.type === "handoff_resolved") {
+              const data = event.data;
+              const resolutionMessage = {
+                messageId: `resolution-${data.id}`,
+                content: data.content,
+                sender: "bot",
+                createdAt: data.createdAt,
+                contactOptions: data.contactOptions
+              };
+              dispatch({ type: "ADD_MESSAGE", payload: resolutionMessage });
+            } else if (event.type === "bot_stream_start") {
+              const data = event.data;
+              dispatch({ type: "START_STREAMING", payload: { messageId: data.messageId, createdAt: data.createdAt } });
+            } else if (event.type === "bot_stream_token") {
+              const data = event.data;
+              dispatch({ type: "UPDATE_STREAMING_MESSAGE", payload: { messageId: data.messageId, token: data.token } });
+            } else if (event.type === "bot_stream_end") {
+              const data = event.data;
+              const finalMessage = {
+                messageId: data.messageId,
+                content: data.content || "",
+                sender: "bot",
+                createdAt: data.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+                products: data.products,
+                cart: data.cart,
+                checkoutUrl: data.checkout_url,
+                quick_replies: data.quick_replies,
+                sources: data.sources,
+                suggestedReplies: data.suggestedReplies,
+                contactOptions: data.contactOptions,
+                consent_prompt_required: data.consent_prompt_required
+              };
+              dispatch({ type: "FINISH_STREAMING_MESSAGE", payload: finalMessage });
+              if (data.consent_prompt_required && !consentPromptShownRef.current) {
+                consentPromptShownRef.current = true;
+                dispatch({ type: "SET_CONSENT_PROMPT_SHOWN", payload: true });
+              }
+              if (shopifyCartClient.isOnShopify() && finalMessage.cart) {
+                syncCartToShopify(finalMessage.cart);
+              }
+            } else if (event.type === "bot_stream_error") {
+              const data = event.data;
+              dispatch({ type: "STREAMING_ERROR", payload: { messageId: data.messageId, error: data.error } });
+            }
+          },
+          onStatusChange: (status) => {
+            dispatch({ type: "SET_CONNECTION_STATUS", payload: status });
+          },
+          onError: () => {
+          },
+          onFallbackToPolling: () => {
+            console.log("[WidgetContext] WebSocket failed, widget will use polling for updates");
+          }
+        });
+      };
+      connectWebSocket();
+      return () => {
+        if (cleanup) cleanup();
+      };
+    }, [(_d = state.session) == null ? void 0 : _d.sessionId, state.isOpen, state.session]);
+    reactExports.useEffect(() => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId)) return;
+      Promise.resolve().then(() => analytics).then(({ widgetAnalytics: widgetAnalytics2 }) => {
+        widgetAnalytics2.initialize({
+          merchantId: parseInt(merchantId, 10),
+          sessionId: state.session.sessionId
+        });
+      });
+    }, [(_e = state.session) == null ? void 0 : _e.sessionId, merchantId, state.session]);
+    const retryLastAction = reactExports.useCallback(() => {
+      if (!lastActionRef.current) return;
+      const { type, payload } = lastActionRef.current;
+      switch (type) {
+        case "initWidget":
+          initWidget2(merchantId);
+          break;
+        case "sendMessage":
+          if (typeof payload === "string") sendMessage(payload);
+          break;
+        case "addToCart":
+          if (payload) addToCart2(payload);
+          break;
+        case "checkout":
+          checkout();
+          break;
+      }
+    }, [initWidget2, sendMessage, addToCart2, checkout, merchantId]);
+    const endSession = reactExports.useCallback(async () => {
+      var _a3;
+      if (((_a3 = state.session) == null ? void 0 : _a3.sessionId) && isValidSessionId(state.session.sessionId)) {
+        try {
+          await endWidgetSession(state.session.sessionId);
+        } catch {
+        }
+      }
+      safeStorage.remove(SESSION_KEY);
+      safeStorage.remove(MERCHANT_KEY);
+      dispatch({ type: "RESET" });
+    }, [state.session, endWidgetSession]);
+    const forgetPreferences = reactExports.useCallback(async () => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
+      try {
+        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+        const visitorId = getVisitorId() || void 0;
+        const result = await widgetClient2.forgetPreferences(state.session.sessionId, visitorId);
+        if (result.clearVisitorId) {
+          clearVisitorId();
+        }
+        const newConsentState = {
+          promptShown: false,
+          canStoreConversation: false,
+          status: "pending"
+        };
+        dispatch({ type: "SET_CONSENT_STATE", payload: newConsentState });
+      } catch (error) {
+        addError(error, { action: "Try Again" });
+      }
+    }, [state.session, addError]);
+    const clearHistory = reactExports.useCallback(async () => {
+      var _a3;
+      if (!((_a3 = state.session) == null ? void 0 : _a3.sessionId) || !isValidSessionId(state.session.sessionId)) return;
+      try {
+        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+        await widgetClient2.clearMessageHistory(state.session.sessionId);
+        clearMessageCache(state.session.sessionId);
+        dispatch({ type: "SET_MESSAGES", payload: [] });
+        greetingShownRef.current = false;
+        console.info("[WidgetContext] History cleared", { sessionId: state.session.sessionId });
+      } catch (error) {
+        addError(error, { action: "Try Again" });
+      }
+    }, [state.session, addError]);
+    const updatePosition = reactExports.useCallback((position) => {
+      dispatch({ type: "SET_POSITION", payload: position });
+      saveWidgetPosition(position);
+      setStoredPosition(merchantId, position);
+    }, [merchantId]);
+    const toggleMinimized = reactExports.useCallback(() => {
+      dispatch({ type: "TOGGLE_MINIMIZED" });
+    }, []);
+    const setThemeMode = reactExports.useCallback((mode) => {
+      dispatch({ type: "SET_THEME_MODE", payload: mode });
+      setStoredTheme(merchantId, mode);
+    }, [merchantId, dispatch]);
+    const value = reactExports.useMemo(
+      () => ({
+        state,
+        dispatch,
+        toggleChat,
+        sendMessage,
+        endSession,
+        initWidget: initWidget2,
+        merchantId,
+        addToCart: addToCart2,
+        removeFromCart: removeFromCart2,
+        checkout,
+        addingProductId,
+        removingItemId,
+        isCheckingOut,
+        addError,
+        dismissError,
+        clearErrors,
+        retryLastAction,
+        connectionStatus: state.connectionStatus,
+        recordConsent,
+        forgetPreferences,
+        clearHistory,
+        updatePosition,
+        toggleMinimized,
+        setThemeMode
+      }),
+      [
+        state,
+        toggleChat,
+        sendMessage,
+        endSession,
+        initWidget2,
+        merchantId,
+        addToCart2,
+        removeFromCart2,
+        checkout,
+        addingProductId,
+        removingItemId,
+        isCheckingOut,
+        addError,
+        dismissError,
+        clearErrors,
+        retryLastAction,
+        recordConsent,
+        forgetPreferences,
+        clearHistory,
+        updatePosition,
+        toggleMinimized,
+        setThemeMode
+      ]
+    );
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetContext.Provider, { value, children });
+  }
+  function useReducedMotion() {
+    const [prefersReducedMotion, setPrefersReducedMotion] = reactExports.useState(false);
+    reactExports.useEffect(() => {
+      if (typeof window === "undefined") return;
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setPrefersReducedMotion(mediaQuery.matches);
+      const handleChange = (event) => {
+        setPrefersReducedMotion(event.matches);
+      };
+      mediaQuery.addEventListener("change", handleChange);
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }, []);
+    return prefersReducedMotion;
+  }
+  const STORAGE_KEY = "widget_analytics_queue";
+  const DEFAULT_BATCH_SIZE = 10;
+  const DEFAULT_FLUSH_INTERVAL = 3e4;
+  class WidgetAnalyticsImpl {
+    constructor() {
+      __publicField(this, "merchantId", null);
+      __publicField(this, "sessionId", null);
+      __publicField(this, "batchSize", DEFAULT_BATCH_SIZE);
+      __publicField(this, "flushInterval", DEFAULT_FLUSH_INTERVAL);
+      __publicField(this, "flushTimer", null);
+      __publicField(this, "_isInitialized", false);
+      __publicField(this, "reducedMotion", false);
+      this.checkReducedMotion();
+    }
+    checkReducedMotion() {
+      if (typeof window !== "undefined" && window.matchMedia) {
+        const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        this.reducedMotion = mediaQuery.matches;
+        mediaQuery.addEventListener("change", (e) => {
+          this.reducedMotion = e.matches;
+        });
+      }
+    }
+    get isInitialized() {
+      return this._isInitialized;
+    }
+    initialize(config2) {
+      if (this._isInitialized) {
+        return;
+      }
+      this.merchantId = config2.merchantId;
+      this.sessionId = config2.sessionId;
+      this.batchSize = config2.batchSize ?? DEFAULT_BATCH_SIZE;
+      this.flushInterval = config2.flushInterval ?? DEFAULT_FLUSH_INTERVAL;
+      this._isInitialized = true;
+      this.setupFlushListeners();
+      this.startFlushTimer();
+    }
+    setupFlushListeners() {
+      if (typeof document === "undefined") {
+        return;
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          this.flush();
+        }
+      });
+      window.addEventListener("pagehide", () => {
+        this.flush();
+      });
+    }
+    startFlushTimer() {
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+      }
+      this.flushTimer = setTimeout(() => {
+        this.flush();
+        this.startFlushTimer();
+      }, this.flushInterval);
+    }
+    track(type, metadata) {
+      if (!this._isInitialized || !this.sessionId) {
+        console.warn("[WidgetAnalytics] Not initialized or missing sessionId");
+        return;
+      }
+      const event = {
+        type,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        session_id: this.sessionId,
+        metadata: {
+          ...metadata,
+          reducedMotion: this.reducedMotion
+        }
+      };
+      const queue = this.getQueue();
+      queue.push(event);
+      if (queue.length >= this.batchSize) {
+        this.flush();
+      } else {
+        this.saveQueue(queue);
+      }
+    }
+    getQueuedEvents() {
+      return this.getQueue();
+    }
+    getQueue() {
+      if (typeof sessionStorage === "undefined") {
+        return [];
+      }
+      try {
+        const stored = sessionStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch {
+      }
+      return [];
+    }
+    saveQueue(queue) {
+      if (typeof sessionStorage === "undefined") {
+        return;
+      }
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+      } catch {
+      }
+    }
+    clearQueue() {
+      if (typeof sessionStorage === "undefined") {
+        return;
+      }
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {
+      }
+    }
+    async flush() {
+      const queue = this.getQueue();
+      if (queue.length === 0) {
+        return 0;
+      }
+      this.clearQueue();
+      try {
+        const { flushWidgetAnalyticsEvents: flushWidgetAnalyticsEvents2 } = await Promise.resolve().then(() => analyticsService$1);
+        const result = await flushWidgetAnalyticsEvents2({
+          merchant_id: this.merchantId,
+          events: queue
+        });
+        return result.accepted;
+      } catch (error) {
+        console.error("[WidgetAnalytics] Flush failed:", error);
+        this.saveQueue(queue);
+        return 0;
+      }
+    }
+    updateSessionId(sessionId) {
+      this.sessionId = sessionId;
+    }
+    destroy() {
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer);
+        this.flushTimer = null;
+      }
+      this._isInitialized = false;
+      this.merchantId = null;
+      this.sessionId = null;
+      this.clearQueue();
+    }
+    isReducedMotion() {
+      return this.reducedMotion;
+    }
+  }
+  const widgetAnalytics = new WidgetAnalyticsImpl();
+  function trackWidgetOpen() {
+    widgetAnalytics.track("widget_open", {
+      url: typeof window !== "undefined" ? window.location.href : void 0
+    });
+  }
+  function trackMessageSend(messageLength) {
+    widgetAnalytics.track("message_send", {
+      messageLength
+    });
+  }
+  function trackQuickReplyClick(label) {
+    widgetAnalytics.track("quick_reply_click", {
+      label
+    });
+  }
+  function trackVoiceInput(durationMs, success) {
+    widgetAnalytics.track("voice_input", {
+      durationMs,
+      success
+    });
+  }
+  function trackProactiveTrigger(triggerType, engaged) {
+    widgetAnalytics.track("proactive_trigger", {
+      triggerType,
+      engaged
+    });
+  }
+  function trackCarouselEngagement(action, productId) {
+    widgetAnalytics.track("carousel_engagement", {
+      action,
+      productId
+    });
+  }
+  function logContactInteraction(contactType, action) {
+    widgetAnalytics.track("quick_reply_click", {
+      contactType,
+      action,
+      label: `contact_${contactType}`
+    });
+  }
+  const analytics = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    logContactInteraction,
+    trackCarouselEngagement,
+    trackMessageSend,
+    trackProactiveTrigger,
+    trackQuickReplyClick,
+    trackVoiceInput,
+    trackWidgetOpen,
+    widgetAnalytics
+  }, Symbol.toStringTag, { value: "Module" }));
+  function ChatBubble({ isOpen, onClick, theme, onPrefetch, unreadCount = 0 }) {
+    const [isHovered, setIsHovered] = reactExports.useState(false);
+    const reducedMotion = useReducedMotion();
+    const positionStyle = theme.position === "bottom-left" ? { left: 20 } : { right: 20 };
+    const handleClick = () => {
+      if (!isOpen) {
+        trackWidgetOpen();
+      }
+      onClick();
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleClick();
+      }
+    };
+    const handleMouseEnter = () => {
+      setIsHovered(true);
+      if (onPrefetch) {
+        onPrefetch();
+      }
+    };
+    const handleMouseLeave = () => {
+      setIsHovered(false);
+    };
+    const showBadge = !isOpen && unreadCount > 0;
+    const shouldScale = isHovered && !reducedMotion;
+    const bubbleTransform = shouldScale ? "scale(1.05)" : "scale(1)";
+    const bubbleBoxShadow = isHovered ? "0 6px 16px rgba(0, 0, 0, 0.2)" : "0 4px 12px rgba(0, 0, 0, 0.15)";
+    const shouldPulse = showBadge && !reducedMotion;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        className: `shopbot-chat-bubble ${showBadge ? "has-unread" : ""}`,
+        "data-testid": "chat-bubble",
+        onClick: handleClick,
+        onKeyDown: handleKeyDown,
+        onMouseEnter: handleMouseEnter,
+        onMouseLeave: handleMouseLeave,
+        "aria-label": isOpen ? "Close chat" : "Open chat",
+        "aria-expanded": isOpen,
+        style: {
+          position: "fixed",
+          bottom: 20,
+          ...positionStyle,
+          backgroundColor: theme.primaryColor,
+          borderRadius: "50%",
+          width: 60,
+          height: 60,
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: bubbleBoxShadow,
+          transition: reducedMotion ? "none" : "transform 200ms ease, box-shadow 200ms ease",
+          transform: bubbleTransform,
+          zIndex: 2147483647,
+          willChange: reducedMotion ? "auto" : "transform"
+        },
+        children: [
+          isOpen ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "svg",
+            {
+              width: "24",
+              height: "24",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "white",
+              strokeWidth: "2",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              "aria-hidden": "true",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+              ]
+            }
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "svg",
+            {
+              width: "24",
+              height: "24",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "white",
+              strokeWidth: "2",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              "aria-hidden": "true",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
+            }
+          ),
+          showBadge && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              "data-testid": "bubble-badge",
+              className: "bubble-badge",
+              style: {
+                position: "absolute",
+                top: -5,
+                right: -5,
+                backgroundColor: "#ef4444",
+                color: "white",
+                borderRadius: "50%",
+                minWidth: 20,
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "0 4px",
+                animationName: shouldPulse ? "badge-pulse" : "none",
+                animationDuration: shouldPulse ? "1s" : "0ms",
+                animationTimingFunction: "ease-in-out",
+                animationIterationCount: "infinite",
+                willChange: reducedMotion ? "auto" : "transform"
+              },
+              children: unreadCount > 99 ? "99+" : unreadCount
+            }
+          )
+        ]
+      }
+    );
+  }
+  class WidgetErrorBoundary extends reactExports.Component {
+    constructor() {
+      super(...arguments);
+      __publicField(this, "state", {
+        hasError: false,
+        error: null,
+        errorInfo: null,
+        retryCount: 0
+      });
+      __publicField(this, "handleRetry", () => {
+        var _a2, _b;
+        this.setState((prev) => ({
+          hasError: false,
+          error: null,
+          errorInfo: null,
+          retryCount: prev.retryCount + 1
+        }));
+        (_b = (_a2 = this.props).onRetry) == null ? void 0 : _b.call(_a2);
+      });
+      __publicField(this, "handleRefresh", () => {
+        window.location.reload();
+      });
+    }
+    static getDerivedStateFromError(error) {
+      return { hasError: true, error };
+    }
+    componentDidCatch(error, errorInfo) {
+      var _a2, _b;
+      this.setState({ errorInfo });
+      console.error("Widget Error:", error, errorInfo);
+      (_b = (_a2 = this.props).onError) == null ? void 0 : _b.call(_a2, error, errorInfo);
+    }
+    render() {
+      var _a2, _b, _c, _d;
+      if (this.state.hasError) {
+        if (this.props.fallback) {
+          return this.props.fallback;
+        }
+        const { error, errorInfo, retryCount } = this.state;
+        const isChunkError = ((_a2 = error == null ? void 0 : error.message) == null ? void 0 : _a2.includes("ChunkLoadError")) || ((_b = error == null ? void 0 : error.message) == null ? void 0 : _b.includes("Loading chunk"));
+        const isNetworkError = ((_c = error == null ? void 0 : error.message) == null ? void 0 : _c.includes("Network")) || ((_d = error == null ? void 0 : error.message) == null ? void 0 : _d.includes("Failed to fetch"));
+        return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            role: "alert",
+            "aria-live": "assertive",
+            className: "widget-error-boundary",
+            style: {
+              padding: "24px",
+              textAlign: "center",
+              fontFamily: "system-ui, -apple-system, sans-serif",
+              backgroundColor: "#fef2f2",
+              borderRadius: "12px",
+              border: "1px solid #fecaca",
+              maxWidth: "400px",
+              margin: "16px auto"
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "widget-error-boundary__icon",
+                  style: {
+                    width: "48px",
+                    height: "48px",
+                    margin: "0 auto 16px",
+                    backgroundColor: "#fee2e2",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  },
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                    "svg",
+                    {
+                      width: "24",
+                      height: "24",
+                      viewBox: "0 0 24 24",
+                      fill: "none",
+                      stroke: "#dc2626",
+                      strokeWidth: "2",
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "8", x2: "12", y2: "12" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })
+                      ]
+                    }
+                  )
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "h3",
+                {
+                  className: "widget-error-boundary__title",
+                  style: {
+                    margin: "0 0 8px",
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    color: "#1f2937"
+                  },
+                  children: isChunkError ? "Update Available" : isNetworkError ? "Connection Error" : "Something went wrong"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "p",
+                {
+                  className: "widget-error-boundary__message",
+                  style: {
+                    margin: "0 0 20px",
+                    fontSize: "14px",
+                    color: "#6b7280",
+                    lineHeight: 1.5
+                  },
+                  children: isChunkError ? "A new version is available. Please refresh to get the latest updates." : isNetworkError ? "Unable to connect to the server. Please check your connection." : "The chat encountered an unexpected error. Please try again."
+                }
+              ),
+              this.props.showDetails && error && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "details",
+                {
+                  className: "widget-error-boundary__details",
+                  style: {
+                    marginBottom: "16px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    color: "#6b7280"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "summary",
+                      {
+                        style: {
+                          cursor: "pointer",
+                          marginBottom: "8px"
+                        },
+                        children: "Error Details"
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "pre",
+                      {
+                        style: {
+                          backgroundColor: "#f3f4f6",
+                          padding: "12px",
+                          borderRadius: "6px",
+                          overflow: "auto",
+                          maxHeight: "120px",
+                          margin: 0
+                        },
+                        children: [
+                          error.toString(),
+                          (errorInfo == null ? void 0 : errorInfo.componentStack) && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                            "\n\nComponent Stack:",
+                            errorInfo.componentStack
+                          ] })
+                        ]
+                      }
+                    )
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "widget-error-boundary__actions",
+                  style: {
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "center"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: this.handleRetry,
+                        className: "widget-error-boundary__retry",
+                        style: {
+                          padding: "10px 20px",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          backgroundColor: "#6366f1",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          transition: "background-color 0.2s"
+                        },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "#4f46e5",
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "#6366f1",
+                        children: isChunkError || isNetworkError ? "Try Again" : "Retry"
+                      }
+                    ),
+                    (isChunkError || retryCount >= 2) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: this.handleRefresh,
+                        className: "widget-error-boundary__refresh",
+                        style: {
+                          padding: "10px 20px",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          backgroundColor: "transparent",
+                          color: "#6366f1",
+                          border: "1px solid #6366f1",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          transition: "background-color 0.2s"
+                        },
+                        onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "#eef2ff",
+                        onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "transparent",
+                        children: "Refresh Page"
+                      }
+                    )
+                  ]
+                }
+              ),
+              retryCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "p",
+                {
+                  className: "widget-error-boundary__retry-count",
+                  style: {
+                    marginTop: "12px",
+                    fontSize: "12px",
+                    color: "#9ca3af"
+                  },
+                  children: [
+                    "Retry attempts: ",
+                    retryCount
+                  ]
+                }
+              )
+            ]
+          }
+        );
+      }
+      return this.props.children;
+    }
+  }
+  function LoadingSpinner() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        style: {
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "20px",
+          width: "100%",
+          height: "100%",
+          minHeight: "200px"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              style: {
+                width: "24px",
+                height: "24px",
+                border: "2px solid #e5e7eb",
+                borderTopColor: "#6366f1",
+                borderRadius: "50%",
+                animation: "widget-spin 0.8s linear infinite"
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `@keyframes widget-spin { to { transform: rotate(360deg); } }` })
+        ]
+      }
+    );
+  }
+  var focusTrapReact = { exports: {} };
+  /*!
+  * tabbable 6.4.0
+  * @license MIT, https://github.com/focus-trap/tabbable/blob/master/LICENSE
+  */
+  var candidateSelectors = ["input:not([inert]):not([inert] *)", "select:not([inert]):not([inert] *)", "textarea:not([inert]):not([inert] *)", "a[href]:not([inert]):not([inert] *)", "button:not([inert]):not([inert] *)", "[tabindex]:not(slot):not([inert]):not([inert] *)", "audio[controls]:not([inert]):not([inert] *)", "video[controls]:not([inert]):not([inert] *)", '[contenteditable]:not([contenteditable="false"]):not([inert]):not([inert] *)', "details>summary:first-of-type:not([inert]):not([inert] *)", "details:not([inert]):not([inert] *)"];
+  var candidateSelector = /* @__PURE__ */ candidateSelectors.join(",");
+  var NoElement = typeof Element === "undefined";
+  var matches = NoElement ? function() {
+  } : Element.prototype.matches || Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+  var getRootNode = !NoElement && Element.prototype.getRootNode ? function(element) {
+    var _element$getRootNode;
+    return element === null || element === void 0 ? void 0 : (_element$getRootNode = element.getRootNode) === null || _element$getRootNode === void 0 ? void 0 : _element$getRootNode.call(element);
+  } : function(element) {
+    return element === null || element === void 0 ? void 0 : element.ownerDocument;
+  };
+  var _isInert = function isInert(node, lookUp) {
+    var _node$getAttribute;
+    if (lookUp === void 0) {
+      lookUp = true;
+    }
+    var inertAtt = node === null || node === void 0 ? void 0 : (_node$getAttribute = node.getAttribute) === null || _node$getAttribute === void 0 ? void 0 : _node$getAttribute.call(node, "inert");
+    var inert = inertAtt === "" || inertAtt === "true";
+    var result = inert || lookUp && node && // closest does not exist on shadow roots, so we fall back to a manual
+    // lookup upward, in case it is not defined.
+    (typeof node.closest === "function" ? node.closest("[inert]") : _isInert(node.parentNode));
+    return result;
+  };
+  var isContentEditable = function isContentEditable2(node) {
+    var _node$getAttribute2;
+    var attValue = node === null || node === void 0 ? void 0 : (_node$getAttribute2 = node.getAttribute) === null || _node$getAttribute2 === void 0 ? void 0 : _node$getAttribute2.call(node, "contenteditable");
+    return attValue === "" || attValue === "true";
+  };
+  var getCandidates = function getCandidates2(el2, includeContainer, filter) {
+    if (_isInert(el2)) {
+      return [];
+    }
+    var candidates = Array.prototype.slice.apply(el2.querySelectorAll(candidateSelector));
+    if (includeContainer && matches.call(el2, candidateSelector)) {
+      candidates.unshift(el2);
+    }
+    candidates = candidates.filter(filter);
+    return candidates;
+  };
+  var _getCandidatesIteratively = function getCandidatesIteratively(elements, includeContainer, options) {
+    var candidates = [];
+    var elementsToCheck = Array.from(elements);
+    while (elementsToCheck.length) {
+      var element = elementsToCheck.shift();
+      if (_isInert(element, false)) {
+        continue;
+      }
+      if (element.tagName === "SLOT") {
+        var assigned = element.assignedElements();
+        var content = assigned.length ? assigned : element.children;
+        var nestedCandidates = _getCandidatesIteratively(content, true, options);
+        if (options.flatten) {
+          candidates.push.apply(candidates, nestedCandidates);
+        } else {
+          candidates.push({
+            scopeParent: element,
+            candidates: nestedCandidates
+          });
+        }
+      } else {
+        var validCandidate = matches.call(element, candidateSelector);
+        if (validCandidate && options.filter(element) && (includeContainer || !elements.includes(element))) {
+          candidates.push(element);
+        }
+        var shadowRoot = element.shadowRoot || // check for an undisclosed shadow
+        typeof options.getShadowRoot === "function" && options.getShadowRoot(element);
+        var validShadowRoot = !_isInert(shadowRoot, false) && (!options.shadowRootFilter || options.shadowRootFilter(element));
+        if (shadowRoot && validShadowRoot) {
+          var _nestedCandidates = _getCandidatesIteratively(shadowRoot === true ? element.children : shadowRoot.children, true, options);
+          if (options.flatten) {
+            candidates.push.apply(candidates, _nestedCandidates);
+          } else {
+            candidates.push({
+              scopeParent: element,
+              candidates: _nestedCandidates
             });
           }
-        } catch (e) {
-          console.error("[WS] Failed to process message:", e);
-          console.error("[WS] Error stack:", e.stack);
+        } else {
+          elementsToCheck.unshift.apply(elementsToCheck, element.children);
         }
-      };
-      ws.onerror = (error) => {
-        console.warn("[WS] Error:", error);
-        updateStatus("error");
-        onError == null ? void 0 : onError(error);
-      };
-      ws.onclose = (event) => {
-        console.warn("[WS] Closed:", event.code, event.reason);
-        clearTimers();
-        if (!isClosed) {
-          updateStatus("disconnected");
-          scheduleReconnect();
-        }
-      };
-    };
-    const scheduleReconnect = () => {
-      if (isClosed) return;
-      if (reconnectAttempts < maxReconnectAttempts) {
-        reconnectAttempts++;
-        console.warn(`[WS] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
-        reconnectTimer = setTimeout(() => {
-          connect();
-        }, reconnectInterval);
-      } else {
-        console.warn("[WS] Max reconnect attempts reached");
-        updateStatus("error");
       }
-    };
-    connect();
-    return () => {
-      console.warn("[WS] Cleanup - closing connection");
-      isClosed = true;
-      clearTimers();
-      if (ws) {
-        ws.close(1e3, "Client disconnect");
-        ws = null;
+    }
+    return candidates;
+  };
+  var hasTabIndex = function hasTabIndex2(node) {
+    return !isNaN(parseInt(node.getAttribute("tabindex"), 10));
+  };
+  var getTabIndex = function getTabIndex2(node) {
+    if (!node) {
+      throw new Error("No node provided");
+    }
+    if (node.tabIndex < 0) {
+      if ((/^(AUDIO|VIDEO|DETAILS)$/.test(node.tagName) || isContentEditable(node)) && !hasTabIndex(node)) {
+        return 0;
       }
-      updateStatus("disconnected");
-    };
-  }
-  function isWebSocketSupported() {
-    return typeof WebSocket !== "undefined";
-  }
-  const widgetWsClient = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    connectWidgetWebSocket,
-    isWebSocketSupported
-  }, Symbol.toStringTag, { value: "Module" }));
-  async function flushWidgetAnalyticsEvents(payload) {
-    const response = await apiClient.post(
-      "/api/v1/analytics/widget/events",
-      payload
-    );
-    return response;
-  }
-  const analyticsService = {
-    /**
-     * Get sales breakdown by country, city, and province.
-     * Data is populated by Shopify order webhooks.
-     */
-    async getGeographic() {
-      const response = await apiClient.get(
-        "/api/v1/analytics/geographic"
-      );
-      return response;
-    },
-    /**
-     * Get anonymized analytics summary with order stats and conversation stats.
-     * All data is tier=ANONYMIZED with no PII. 30-day window.
-     */
-    async getSummary() {
-      const response = await apiClient.get(
-        "/api/v1/analytics/summary"
-      );
-      return response;
-    },
-    /**
-     * Get top products sold in the last N days.
-     */
-    async getTopProducts(days = 30, limit = 5) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/top-products?days=${days}&limit=${limit}`
-      );
-      return response;
-    },
-    /**
-     * Get pending orders including unfulfilled orders and estimated delivery dates.
-     */
-    async getPendingOrders(limit = 10, offset = 0) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/pending-orders?limit=${limit}&offset=${offset}`
-      );
-      return response;
-    },
-    async getBotQuality(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/bot-quality?days=${days}`
-      );
-      return response;
-    },
-    async getPeakHours(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/peak-hours?days=${days}`
-      );
-      return response;
-    },
-    async getConversionFunnel(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/conversion-funnel?days=${days}`
-      );
-      return response;
-    },
-    async getKnowledgeGaps(days = 30, limit = 10) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
-      );
-      return response;
-    },
-    async getBenchmarks(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/benchmarks?days=${days}`
-      );
-      return response;
-    },
-    async getSentimentTrend(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/sentiment-trend?days=${days}`
-      );
-      return response;
-    },
-    // ────────────────────────────────────────────────────────────────
-    // Widget Analytics (Story 9-10)
-    // ────────────────────────────────────────────────────────────────
-    /**
-     * Send batched widget analytics events to the backend.
-     */
-    async sendWidgetEvents(payload) {
-      return flushWidgetAnalyticsEvents(payload);
-    },
-    /**
-     * Get widget analytics metrics for the dashboard.
-     */
-    async getWidgetMetrics(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/widget?days=${days}`
-      );
-      return response;
-    },
-    /**
-     * Export widget analytics as CSV.
-     */
-    async exportWidgetAnalytics(startDate, endDate, merchantId) {
-      const response = await fetch(
-        `/api/v1/analytics/widget/export?merchant_id=${merchantId}&start_date=${startDate}&end_date=${endDate}`,
-        {
-          credentials: "include"
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`Export failed: ${response.status}`);
+    }
+    return node.tabIndex;
+  };
+  var getSortOrderTabIndex = function getSortOrderTabIndex2(node, isScope) {
+    var tabIndex = getTabIndex(node);
+    if (tabIndex < 0 && isScope && !hasTabIndex(node)) {
+      return 0;
+    }
+    return tabIndex;
+  };
+  var sortOrderedTabbables = function sortOrderedTabbables2(a, b) {
+    return a.tabIndex === b.tabIndex ? a.documentOrder - b.documentOrder : a.tabIndex - b.tabIndex;
+  };
+  var isInput = function isInput2(node) {
+    return node.tagName === "INPUT";
+  };
+  var isHiddenInput = function isHiddenInput2(node) {
+    return isInput(node) && node.type === "hidden";
+  };
+  var isDetailsWithSummary = function isDetailsWithSummary2(node) {
+    var r2 = node.tagName === "DETAILS" && Array.prototype.slice.apply(node.children).some(function(child) {
+      return child.tagName === "SUMMARY";
+    });
+    return r2;
+  };
+  var getCheckedRadio = function getCheckedRadio2(nodes, form) {
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].checked && nodes[i].form === form) {
+        return nodes[i];
       }
-      return response.blob();
-    },
-    // ────────────────────────────────────────────────────────────────
-    // Feedback Analytics (Story 10-4)
-    // ────────────────────────────────────────────────────────────────
-    async getFeedbackAnalytics(startDate, endDate) {
-      const params = new URLSearchParams();
-      if (startDate) params.append("start_date", startDate);
-      if (endDate) params.append("end_date", endDate);
-      const queryString = params.toString();
-      const response = await apiClient.get(
-        `/api/v1/feedback/analytics${queryString ? `?${queryString}` : ""}`
-      );
-      return response;
-    },
-    async getKnowledgeEffectiveness(days = 7) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/knowledge-effectiveness?days=${days}`
-      );
-      return response.data;
-    },
-    async getKnowledgeGapsData(days = 30, limit = 10) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
-      );
-      return response;
-    },
-    async getTopTopics(days = 7) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/top-topics?days=${days}`
-      );
-      return response.data;
-    },
-    async getResponseTimeDistribution(days = 7) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/response-time-distribution?days=${days}`
-      );
-      return response.data;
-    },
-    async getFaqUsage(days = 30) {
-      const response = await apiClient.get(
-        `/api/v1/analytics/faq-usage?days=${days}`
-      );
-      return response;
     }
   };
-  const analyticsService$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  var isTabbableRadio = function isTabbableRadio2(node) {
+    if (!node.name) {
+      return true;
+    }
+    var radioScope = node.form || getRootNode(node);
+    var queryRadios = function queryRadios2(name) {
+      return radioScope.querySelectorAll('input[type="radio"][name="' + name + '"]');
+    };
+    var radioSet;
+    if (typeof window !== "undefined" && typeof window.CSS !== "undefined" && typeof window.CSS.escape === "function") {
+      radioSet = queryRadios(window.CSS.escape(node.name));
+    } else {
+      try {
+        radioSet = queryRadios(node.name);
+      } catch (err) {
+        console.error("Looks like you have a radio button with a name attribute containing invalid CSS selector characters and need the CSS.escape polyfill: %s", err.message);
+        return false;
+      }
+    }
+    var checked = getCheckedRadio(radioSet, node.form);
+    return !checked || checked === node;
+  };
+  var isRadio = function isRadio2(node) {
+    return isInput(node) && node.type === "radio";
+  };
+  var isNonTabbableRadio = function isNonTabbableRadio2(node) {
+    return isRadio(node) && !isTabbableRadio(node);
+  };
+  var isNodeAttached = function isNodeAttached2(node) {
+    var _nodeRoot;
+    var nodeRoot = node && getRootNode(node);
+    var nodeRootHost = (_nodeRoot = nodeRoot) === null || _nodeRoot === void 0 ? void 0 : _nodeRoot.host;
+    var attached = false;
+    if (nodeRoot && nodeRoot !== node) {
+      var _nodeRootHost, _nodeRootHost$ownerDo, _node$ownerDocument;
+      attached = !!((_nodeRootHost = nodeRootHost) !== null && _nodeRootHost !== void 0 && (_nodeRootHost$ownerDo = _nodeRootHost.ownerDocument) !== null && _nodeRootHost$ownerDo !== void 0 && _nodeRootHost$ownerDo.contains(nodeRootHost) || node !== null && node !== void 0 && (_node$ownerDocument = node.ownerDocument) !== null && _node$ownerDocument !== void 0 && _node$ownerDocument.contains(node));
+      while (!attached && nodeRootHost) {
+        var _nodeRoot2, _nodeRootHost2, _nodeRootHost2$ownerD;
+        nodeRoot = getRootNode(nodeRootHost);
+        nodeRootHost = (_nodeRoot2 = nodeRoot) === null || _nodeRoot2 === void 0 ? void 0 : _nodeRoot2.host;
+        attached = !!((_nodeRootHost2 = nodeRootHost) !== null && _nodeRootHost2 !== void 0 && (_nodeRootHost2$ownerD = _nodeRootHost2.ownerDocument) !== null && _nodeRootHost2$ownerD !== void 0 && _nodeRootHost2$ownerD.contains(nodeRootHost));
+      }
+    }
+    return attached;
+  };
+  var isZeroArea = function isZeroArea2(node) {
+    var _node$getBoundingClie = node.getBoundingClientRect(), width = _node$getBoundingClie.width, height = _node$getBoundingClie.height;
+    return width === 0 && height === 0;
+  };
+  var isHidden = function isHidden2(node, _ref) {
+    var displayCheck = _ref.displayCheck, getShadowRoot = _ref.getShadowRoot;
+    if (displayCheck === "full-native") {
+      if ("checkVisibility" in node) {
+        var visible = node.checkVisibility({
+          // Checking opacity might be desirable for some use cases, but natively,
+          // opacity zero elements _are_ focusable and tabbable.
+          checkOpacity: false,
+          opacityProperty: false,
+          contentVisibilityAuto: true,
+          visibilityProperty: true,
+          // This is an alias for `visibilityProperty`. Contemporary browsers
+          // support both. However, this alias has wider browser support (Chrome
+          // >= 105 and Firefox >= 106, vs. Chrome >= 121 and Firefox >= 122), so
+          // we include it anyway.
+          checkVisibilityCSS: true
+        });
+        return !visible;
+      }
+    }
+    if (getComputedStyle(node).visibility === "hidden") {
+      return true;
+    }
+    var isDirectSummary = matches.call(node, "details>summary:first-of-type");
+    var nodeUnderDetails = isDirectSummary ? node.parentElement : node;
+    if (matches.call(nodeUnderDetails, "details:not([open]) *")) {
+      return true;
+    }
+    if (!displayCheck || displayCheck === "full" || // full-native can run this branch when it falls through in case
+    // Element#checkVisibility is unsupported
+    displayCheck === "full-native" || displayCheck === "legacy-full") {
+      if (typeof getShadowRoot === "function") {
+        var originalNode = node;
+        while (node) {
+          var parentElement = node.parentElement;
+          var rootNode = getRootNode(node);
+          if (parentElement && !parentElement.shadowRoot && getShadowRoot(parentElement) === true) {
+            return isZeroArea(node);
+          } else if (node.assignedSlot) {
+            node = node.assignedSlot;
+          } else if (!parentElement && rootNode !== node.ownerDocument) {
+            node = rootNode.host;
+          } else {
+            node = parentElement;
+          }
+        }
+        node = originalNode;
+      }
+      if (isNodeAttached(node)) {
+        return !node.getClientRects().length;
+      }
+      if (displayCheck !== "legacy-full") {
+        return true;
+      }
+    } else if (displayCheck === "non-zero-area") {
+      return isZeroArea(node);
+    }
+    return false;
+  };
+  var isDisabledFromFieldset = function isDisabledFromFieldset2(node) {
+    if (/^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(node.tagName)) {
+      var parentNode = node.parentElement;
+      while (parentNode) {
+        if (parentNode.tagName === "FIELDSET" && parentNode.disabled) {
+          for (var i = 0; i < parentNode.children.length; i++) {
+            var child = parentNode.children.item(i);
+            if (child.tagName === "LEGEND") {
+              return matches.call(parentNode, "fieldset[disabled] *") ? true : !child.contains(node);
+            }
+          }
+          return true;
+        }
+        parentNode = parentNode.parentElement;
+      }
+    }
+    return false;
+  };
+  var isNodeMatchingSelectorFocusable = function isNodeMatchingSelectorFocusable2(options, node) {
+    if (node.disabled || isHiddenInput(node) || isHidden(node, options) || // For a details element with a summary, the summary element gets the focus
+    isDetailsWithSummary(node) || isDisabledFromFieldset(node)) {
+      return false;
+    }
+    return true;
+  };
+  var isNodeMatchingSelectorTabbable = function isNodeMatchingSelectorTabbable2(options, node) {
+    if (isNonTabbableRadio(node) || getTabIndex(node) < 0 || !isNodeMatchingSelectorFocusable(options, node)) {
+      return false;
+    }
+    return true;
+  };
+  var isShadowRootTabbable = function isShadowRootTabbable2(shadowHostNode) {
+    var tabIndex = parseInt(shadowHostNode.getAttribute("tabindex"), 10);
+    if (isNaN(tabIndex) || tabIndex >= 0) {
+      return true;
+    }
+    return false;
+  };
+  var _sortByOrder = function sortByOrder(candidates) {
+    var regularTabbables = [];
+    var orderedTabbables = [];
+    candidates.forEach(function(item, i) {
+      var isScope = !!item.scopeParent;
+      var element = isScope ? item.scopeParent : item;
+      var candidateTabindex = getSortOrderTabIndex(element, isScope);
+      var elements = isScope ? _sortByOrder(item.candidates) : element;
+      if (candidateTabindex === 0) {
+        isScope ? regularTabbables.push.apply(regularTabbables, elements) : regularTabbables.push(element);
+      } else {
+        orderedTabbables.push({
+          documentOrder: i,
+          tabIndex: candidateTabindex,
+          item,
+          isScope,
+          content: elements
+        });
+      }
+    });
+    return orderedTabbables.sort(sortOrderedTabbables).reduce(function(acc, sortable) {
+      sortable.isScope ? acc.push.apply(acc, sortable.content) : acc.push(sortable.content);
+      return acc;
+    }, []).concat(regularTabbables);
+  };
+  var tabbable = function tabbable2(container, options) {
+    options = options || {};
+    var candidates;
+    if (options.getShadowRoot) {
+      candidates = _getCandidatesIteratively([container], options.includeContainer, {
+        filter: isNodeMatchingSelectorTabbable.bind(null, options),
+        flatten: false,
+        getShadowRoot: options.getShadowRoot,
+        shadowRootFilter: isShadowRootTabbable
+      });
+    } else {
+      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorTabbable.bind(null, options));
+    }
+    return _sortByOrder(candidates);
+  };
+  var focusable = function focusable2(container, options) {
+    options = options || {};
+    var candidates;
+    if (options.getShadowRoot) {
+      candidates = _getCandidatesIteratively([container], options.includeContainer, {
+        filter: isNodeMatchingSelectorFocusable.bind(null, options),
+        flatten: true,
+        getShadowRoot: options.getShadowRoot
+      });
+    } else {
+      candidates = getCandidates(container, options.includeContainer, isNodeMatchingSelectorFocusable.bind(null, options));
+    }
+    return candidates;
+  };
+  var isTabbable = function isTabbable2(node, options) {
+    options = options || {};
+    if (!node) {
+      throw new Error("No node provided");
+    }
+    if (matches.call(node, candidateSelector) === false) {
+      return false;
+    }
+    return isNodeMatchingSelectorTabbable(options, node);
+  };
+  var focusableCandidateSelector = /* @__PURE__ */ candidateSelectors.concat("iframe:not([inert]):not([inert] *)").join(",");
+  var isFocusable$1 = function isFocusable2(node, options) {
+    options = options || {};
+    if (!node) {
+      throw new Error("No node provided");
+    }
+    if (matches.call(node, focusableCandidateSelector) === false) {
+      return false;
+    }
+    return isNodeMatchingSelectorFocusable(options, node);
+  };
+  const index_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
-    analyticsService,
-    flushWidgetAnalyticsEvents
+    focusable,
+    getTabIndex,
+    isFocusable: isFocusable$1,
+    isTabbable,
+    tabbable
   }, Symbol.toStringTag, { value: "Module" }));
+  /*!
+  * focus-trap 8.0.0
+  * @license MIT, https://github.com/focus-trap/focus-trap/blob/master/LICENSE
+  */
+  function _arrayLikeToArray(r2, a) {
+    (null == a || a > r2.length) && (a = r2.length);
+    for (var e = 0, n2 = Array(a); e < a; e++) n2[e] = r2[e];
+    return n2;
+  }
+  function _arrayWithoutHoles(r2) {
+    if (Array.isArray(r2)) return _arrayLikeToArray(r2);
+  }
+  function asyncGeneratorStep(n2, t2, e, r2, o, a, c) {
+    try {
+      var i = n2[a](c), u2 = i.value;
+    } catch (n3) {
+      return void e(n3);
+    }
+    i.done ? t2(u2) : Promise.resolve(u2).then(r2, o);
+  }
+  function _asyncToGenerator(n2) {
+    return function() {
+      var t2 = this, e = arguments;
+      return new Promise(function(r2, o) {
+        var a = n2.apply(t2, e);
+        function _next(n3) {
+          asyncGeneratorStep(a, r2, o, _next, _throw, "next", n3);
+        }
+        function _throw(n3) {
+          asyncGeneratorStep(a, r2, o, _next, _throw, "throw", n3);
+        }
+        _next(void 0);
+      });
+    };
+  }
+  function _createForOfIteratorHelper(r2, e) {
+    var t2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
+    if (!t2) {
+      if (Array.isArray(r2) || (t2 = _unsupportedIterableToArray(r2)) || e) {
+        t2 && (r2 = t2);
+        var n2 = 0, F2 = function() {
+        };
+        return {
+          s: F2,
+          n: function() {
+            return n2 >= r2.length ? {
+              done: true
+            } : {
+              done: false,
+              value: r2[n2++]
+            };
+          },
+          e: function(r3) {
+            throw r3;
+          },
+          f: F2
+        };
+      }
+      throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+    }
+    var o, a = true, u2 = false;
+    return {
+      s: function() {
+        t2 = t2.call(r2);
+      },
+      n: function() {
+        var r3 = t2.next();
+        return a = r3.done, r3;
+      },
+      e: function(r3) {
+        u2 = true, o = r3;
+      },
+      f: function() {
+        try {
+          a || null == t2.return || t2.return();
+        } finally {
+          if (u2) throw o;
+        }
+      }
+    };
+  }
+  function _defineProperty$1(e, r2, t2) {
+    return (r2 = _toPropertyKey$1(r2)) in e ? Object.defineProperty(e, r2, {
+      value: t2,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    }) : e[r2] = t2, e;
+  }
+  function _iterableToArray(r2) {
+    if ("undefined" != typeof Symbol && null != r2[Symbol.iterator] || null != r2["@@iterator"]) return Array.from(r2);
+  }
+  function _nonIterableSpread() {
+    throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+  }
+  function ownKeys(e, r2) {
+    var t2 = Object.keys(e);
+    if (Object.getOwnPropertySymbols) {
+      var o = Object.getOwnPropertySymbols(e);
+      r2 && (o = o.filter(function(r3) {
+        return Object.getOwnPropertyDescriptor(e, r3).enumerable;
+      })), t2.push.apply(t2, o);
+    }
+    return t2;
+  }
+  function _objectSpread2(e) {
+    for (var r2 = 1; r2 < arguments.length; r2++) {
+      var t2 = null != arguments[r2] ? arguments[r2] : {};
+      r2 % 2 ? ownKeys(Object(t2), true).forEach(function(r3) {
+        _defineProperty$1(e, r3, t2[r3]);
+      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t2)) : ownKeys(Object(t2)).forEach(function(r3) {
+        Object.defineProperty(e, r3, Object.getOwnPropertyDescriptor(t2, r3));
+      });
+    }
+    return e;
+  }
+  function _regenerator() {
+    /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
+    var e, t2, r2 = "function" == typeof Symbol ? Symbol : {}, n2 = r2.iterator || "@@iterator", o = r2.toStringTag || "@@toStringTag";
+    function i(r3, n3, o2, i2) {
+      var c2 = n3 && n3.prototype instanceof Generator ? n3 : Generator, u3 = Object.create(c2.prototype);
+      return _regeneratorDefine(u3, "_invoke", function(r4, n4, o3) {
+        var i3, c3, u4, f3 = 0, p2 = o3 || [], y2 = false, G2 = {
+          p: 0,
+          n: 0,
+          v: e,
+          a: d,
+          f: d.bind(e, 4),
+          d: function(t3, r5) {
+            return i3 = t3, c3 = 0, u4 = e, G2.n = r5, a;
+          }
+        };
+        function d(r5, n5) {
+          for (c3 = r5, u4 = n5, t2 = 0; !y2 && f3 && !o4 && t2 < p2.length; t2++) {
+            var o4, i4 = p2[t2], d2 = G2.p, l2 = i4[2];
+            r5 > 3 ? (o4 = l2 === n5) && (u4 = i4[(c3 = i4[4]) ? 5 : (c3 = 3, 3)], i4[4] = i4[5] = e) : i4[0] <= d2 && ((o4 = r5 < 2 && d2 < i4[1]) ? (c3 = 0, G2.v = n5, G2.n = i4[1]) : d2 < l2 && (o4 = r5 < 3 || i4[0] > n5 || n5 > l2) && (i4[4] = r5, i4[5] = n5, G2.n = l2, c3 = 0));
+          }
+          if (o4 || r5 > 1) return a;
+          throw y2 = true, n5;
+        }
+        return function(o4, p3, l2) {
+          if (f3 > 1) throw TypeError("Generator is already running");
+          for (y2 && 1 === p3 && d(p3, l2), c3 = p3, u4 = l2; (t2 = c3 < 2 ? e : u4) || !y2; ) {
+            i3 || (c3 ? c3 < 3 ? (c3 > 1 && (G2.n = -1), d(c3, u4)) : G2.n = u4 : G2.v = u4);
+            try {
+              if (f3 = 2, i3) {
+                if (c3 || (o4 = "next"), t2 = i3[o4]) {
+                  if (!(t2 = t2.call(i3, u4))) throw TypeError("iterator result is not an object");
+                  if (!t2.done) return t2;
+                  u4 = t2.value, c3 < 2 && (c3 = 0);
+                } else 1 === c3 && (t2 = i3.return) && t2.call(i3), c3 < 2 && (u4 = TypeError("The iterator does not provide a '" + o4 + "' method"), c3 = 1);
+                i3 = e;
+              } else if ((t2 = (y2 = G2.n < 0) ? u4 : r4.call(n4, G2)) !== a) break;
+            } catch (t3) {
+              i3 = e, c3 = 1, u4 = t3;
+            } finally {
+              f3 = 1;
+            }
+          }
+          return {
+            value: t2,
+            done: y2
+          };
+        };
+      }(r3, o2, i2), true), u3;
+    }
+    var a = {};
+    function Generator() {
+    }
+    function GeneratorFunction() {
+    }
+    function GeneratorFunctionPrototype() {
+    }
+    t2 = Object.getPrototypeOf;
+    var c = [][n2] ? t2(t2([][n2]())) : (_regeneratorDefine(t2 = {}, n2, function() {
+      return this;
+    }), t2), u2 = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c);
+    function f2(e2) {
+      return Object.setPrototypeOf ? Object.setPrototypeOf(e2, GeneratorFunctionPrototype) : (e2.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine(e2, o, "GeneratorFunction")), e2.prototype = Object.create(u2), e2;
+    }
+    return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine(u2, "constructor", GeneratorFunctionPrototype), _regeneratorDefine(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine(u2), _regeneratorDefine(u2, o, "Generator"), _regeneratorDefine(u2, n2, function() {
+      return this;
+    }), _regeneratorDefine(u2, "toString", function() {
+      return "[object Generator]";
+    }), (_regenerator = function() {
+      return {
+        w: i,
+        m: f2
+      };
+    })();
+  }
+  function _regeneratorDefine(e, r2, n2, t2) {
+    var i = Object.defineProperty;
+    try {
+      i({}, "", {});
+    } catch (e2) {
+      i = 0;
+    }
+    _regeneratorDefine = function(e2, r3, n3, t3) {
+      function o(r4, n4) {
+        _regeneratorDefine(e2, r4, function(e3) {
+          return this._invoke(r4, n4, e3);
+        });
+      }
+      r3 ? i ? i(e2, r3, {
+        value: n3,
+        enumerable: !t3,
+        configurable: !t3,
+        writable: !t3
+      }) : e2[r3] = n3 : (o("next", 0), o("throw", 1), o("return", 2));
+    }, _regeneratorDefine(e, r2, n2, t2);
+  }
+  function _toConsumableArray(r2) {
+    return _arrayWithoutHoles(r2) || _iterableToArray(r2) || _unsupportedIterableToArray(r2) || _nonIterableSpread();
+  }
+  function _toPrimitive$1(t2, r2) {
+    if ("object" != typeof t2 || !t2) return t2;
+    var e = t2[Symbol.toPrimitive];
+    if (void 0 !== e) {
+      var i = e.call(t2, r2);
+      if ("object" != typeof i) return i;
+      throw new TypeError("@@toPrimitive must return a primitive value.");
+    }
+    return ("string" === r2 ? String : Number)(t2);
+  }
+  function _toPropertyKey$1(t2) {
+    var i = _toPrimitive$1(t2, "string");
+    return "symbol" == typeof i ? i : i + "";
+  }
+  function _unsupportedIterableToArray(r2, a) {
+    if (r2) {
+      if ("string" == typeof r2) return _arrayLikeToArray(r2, a);
+      var t2 = {}.toString.call(r2).slice(8, -1);
+      return "Object" === t2 && r2.constructor && (t2 = r2.constructor.name), "Map" === t2 || "Set" === t2 ? Array.from(r2) : "Arguments" === t2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t2) ? _arrayLikeToArray(r2, a) : void 0;
+    }
+  }
+  var activeFocusTraps = {
+    // Returns the trap from the top of the stack.
+    getActiveTrap: function getActiveTrap(trapStack) {
+      if ((trapStack === null || trapStack === void 0 ? void 0 : trapStack.length) > 0) {
+        return trapStack[trapStack.length - 1];
+      }
+      return null;
+    },
+    // Pauses the currently active trap, then adds a new trap to the stack.
+    activateTrap: function activateTrap(trapStack, trap) {
+      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
+      if (trap !== activeTrap) {
+        activeFocusTraps.pauseTrap(trapStack);
+      }
+      var trapIndex = trapStack.indexOf(trap);
+      if (trapIndex === -1) {
+        trapStack.push(trap);
+      } else {
+        trapStack.splice(trapIndex, 1);
+        trapStack.push(trap);
+      }
+    },
+    // Removes the trap from the top of the stack, then unpauses the next trap down.
+    deactivateTrap: function deactivateTrap(trapStack, trap) {
+      var trapIndex = trapStack.indexOf(trap);
+      if (trapIndex !== -1) {
+        trapStack.splice(trapIndex, 1);
+      }
+      activeFocusTraps.unpauseTrap(trapStack);
+    },
+    // Pauses the trap at the top of the stack.
+    pauseTrap: function pauseTrap(trapStack) {
+      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
+      activeTrap === null || activeTrap === void 0 || activeTrap._setPausedState(true);
+    },
+    // Unpauses the trap at the top of the stack.
+    unpauseTrap: function unpauseTrap(trapStack) {
+      var activeTrap = activeFocusTraps.getActiveTrap(trapStack);
+      if (activeTrap && !activeTrap._isManuallyPaused()) {
+        activeTrap._setPausedState(false);
+      }
+    }
+  };
+  var isSelectableInput = function isSelectableInput2(node) {
+    return node.tagName && node.tagName.toLowerCase() === "input" && typeof node.select === "function";
+  };
+  var isEscapeEvent = function isEscapeEvent2(e) {
+    return (e === null || e === void 0 ? void 0 : e.key) === "Escape" || (e === null || e === void 0 ? void 0 : e.key) === "Esc" || (e === null || e === void 0 ? void 0 : e.keyCode) === 27;
+  };
+  var isTabEvent = function isTabEvent2(e) {
+    return (e === null || e === void 0 ? void 0 : e.key) === "Tab" || (e === null || e === void 0 ? void 0 : e.keyCode) === 9;
+  };
+  var isKeyForward = function isKeyForward2(e) {
+    return isTabEvent(e) && !e.shiftKey;
+  };
+  var isKeyBackward = function isKeyBackward2(e) {
+    return isTabEvent(e) && e.shiftKey;
+  };
+  var delay = function delay2(fn) {
+    return setTimeout(fn, 0);
+  };
+  var valueOrHandler = function valueOrHandler2(value) {
+    for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+      params[_key - 1] = arguments[_key];
+    }
+    return typeof value === "function" ? value.apply(void 0, params) : value;
+  };
+  var getActualTarget = function getActualTarget2(event) {
+    return event.target.shadowRoot && typeof event.composedPath === "function" ? event.composedPath()[0] : event.target;
+  };
+  var internalTrapStack = [];
+  var createFocusTrap$1 = function createFocusTrap2(elements, userOptions) {
+    var doc = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.document) || document;
+    var trapStack = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.trapStack) || internalTrapStack;
+    var config2 = _objectSpread2({
+      returnFocusOnDeactivate: true,
+      escapeDeactivates: true,
+      delayInitialFocus: true,
+      isolateSubtrees: false,
+      isKeyForward,
+      isKeyBackward
+    }, userOptions);
+    var state = {
+      // containers given to createFocusTrap()
+      /** @type {Array<HTMLElement>} */
+      containers: [],
+      // list of objects identifying tabbable nodes in `containers` in the trap
+      // NOTE: it's possible that a group has no tabbable nodes if nodes get removed while the trap
+      //  is active, but the trap should never get to a state where there isn't at least one group
+      //  with at least one tabbable node in it (that would lead to an error condition that would
+      //  result in an error being thrown)
+      /** @type {Array<{
+       *    container: HTMLElement,
+       *    tabbableNodes: Array<HTMLElement>, // empty if none
+       *    focusableNodes: Array<HTMLElement>, // empty if none
+       *    posTabIndexesFound: boolean,
+       *    firstTabbableNode: HTMLElement|undefined,
+       *    lastTabbableNode: HTMLElement|undefined,
+       *    firstDomTabbableNode: HTMLElement|undefined,
+       *    lastDomTabbableNode: HTMLElement|undefined,
+       *    nextTabbableNode: (node: HTMLElement, forward: boolean) => HTMLElement|undefined
+       *  }>}
+       */
+      containerGroups: [],
+      // same order/length as `containers` list
+      // references to objects in `containerGroups`, but only those that actually have
+      //  tabbable nodes in them
+      // NOTE: same order as `containers` and `containerGroups`, but __not necessarily__
+      //  the same length
+      tabbableGroups: [],
+      // references to nodes that are siblings to the ancestors of this trap's containers.
+      /** @type {Set<HTMLElement>} */
+      adjacentElements: /* @__PURE__ */ new Set(),
+      // references to nodes that were inert or aria-hidden before the trap was activated.
+      /** @type {Set<HTMLElement>} */
+      alreadySilent: /* @__PURE__ */ new Set(),
+      nodeFocusedBeforeActivation: null,
+      mostRecentlyFocusedNode: null,
+      active: false,
+      paused: false,
+      manuallyPaused: false,
+      // timer ID for when delayInitialFocus is true and initial focus in this trap
+      //  has been delayed during activation
+      delayInitialFocusTimer: void 0,
+      // the most recent KeyboardEvent for the configured nav key (typically [SHIFT+]TAB), if any
+      recentNavEvent: void 0
+    };
+    var trap;
+    var getOption = function getOption2(configOverrideOptions, optionName, configOptionName) {
+      return configOverrideOptions && configOverrideOptions[optionName] !== void 0 ? configOverrideOptions[optionName] : config2[configOptionName || optionName];
+    };
+    var findContainerIndex = function findContainerIndex2(element, event) {
+      var composedPath = typeof (event === null || event === void 0 ? void 0 : event.composedPath) === "function" ? event.composedPath() : void 0;
+      return state.containerGroups.findIndex(function(_ref) {
+        var container = _ref.container, tabbableNodes = _ref.tabbableNodes;
+        return container.contains(element) || // fall back to explicit tabbable search which will take into consideration any
+        //  web components if the `tabbableOptions.getShadowRoot` option was used for
+        //  the trap, enabling shadow DOM support in tabbable (`Node.contains()` doesn't
+        //  look inside web components even if open)
+        (composedPath === null || composedPath === void 0 ? void 0 : composedPath.includes(container)) || tabbableNodes.find(function(node) {
+          return node === element;
+        });
+      });
+    };
+    var getNodeForOption = function getNodeForOption2(optionName) {
+      var _ref2 = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref2$hasFallback = _ref2.hasFallback, hasFallback = _ref2$hasFallback === void 0 ? false : _ref2$hasFallback, _ref2$params = _ref2.params, params = _ref2$params === void 0 ? [] : _ref2$params;
+      var optionValue = config2[optionName];
+      if (typeof optionValue === "function") {
+        optionValue = optionValue.apply(void 0, _toConsumableArray(params));
+      }
+      if (optionValue === true) {
+        optionValue = void 0;
+      }
+      if (!optionValue) {
+        if (optionValue === void 0 || optionValue === false) {
+          return optionValue;
+        }
+        throw new Error("`".concat(optionName, "` was specified but was not a node, or did not return a node"));
+      }
+      var node = optionValue;
+      if (typeof optionValue === "string") {
+        try {
+          node = doc.querySelector(optionValue);
+        } catch (err) {
+          throw new Error("`".concat(optionName, '` appears to be an invalid selector; error="').concat(err.message, '"'));
+        }
+        if (!node) {
+          if (!hasFallback) {
+            throw new Error("`".concat(optionName, "` as selector refers to no known node"));
+          }
+        }
+      }
+      return node;
+    };
+    var getInitialFocusNode = function getInitialFocusNode2() {
+      var node = getNodeForOption("initialFocus", {
+        hasFallback: true
+      });
+      if (node === false) {
+        return false;
+      }
+      if (node === void 0 || node && !isFocusable$1(node, config2.tabbableOptions)) {
+        if (findContainerIndex(doc.activeElement) >= 0) {
+          node = doc.activeElement;
+        } else {
+          var firstTabbableGroup = state.tabbableGroups[0];
+          var firstTabbableNode = firstTabbableGroup && firstTabbableGroup.firstTabbableNode;
+          node = firstTabbableNode || getNodeForOption("fallbackFocus");
+        }
+      } else if (node === null) {
+        node = getNodeForOption("fallbackFocus");
+      }
+      if (!node) {
+        throw new Error("Your focus-trap needs to have at least one focusable element");
+      }
+      return node;
+    };
+    var updateTabbableNodes = function updateTabbableNodes2() {
+      state.containerGroups = state.containers.map(function(container) {
+        var tabbableNodes = tabbable(container, config2.tabbableOptions);
+        var focusableNodes = focusable(container, config2.tabbableOptions);
+        var firstTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[0] : void 0;
+        var lastTabbableNode = tabbableNodes.length > 0 ? tabbableNodes[tabbableNodes.length - 1] : void 0;
+        var firstDomTabbableNode = focusableNodes.find(function(node) {
+          return isTabbable(node);
+        });
+        var lastDomTabbableNode = focusableNodes.slice().reverse().find(function(node) {
+          return isTabbable(node);
+        });
+        var posTabIndexesFound = !!tabbableNodes.find(function(node) {
+          return getTabIndex(node) > 0;
+        });
+        return {
+          container,
+          tabbableNodes,
+          focusableNodes,
+          /** True if at least one node with positive `tabindex` was found in this container. */
+          posTabIndexesFound,
+          /** First tabbable node in container, __tabindex__ order; `undefined` if none. */
+          firstTabbableNode,
+          /** Last tabbable node in container, __tabindex__ order; `undefined` if none. */
+          lastTabbableNode,
+          // NOTE: DOM order is NOT NECESSARILY "document position" order, but figuring that out
+          //  would require more than just https://developer.mozilla.org/en-US/docs/Web/API/Node/compareDocumentPosition
+          //  because that API doesn't work with Shadow DOM as well as it should (@see
+          //  https://github.com/whatwg/dom/issues/320) and since this first/last is only needed, so far,
+          //  to address an edge case related to positive tabindex support, this seems like a much easier,
+          //  "close enough most of the time" alternative for positive tabindexes which should generally
+          //  be avoided anyway...
+          /** First tabbable node in container, __DOM__ order; `undefined` if none. */
+          firstDomTabbableNode,
+          /** Last tabbable node in container, __DOM__ order; `undefined` if none. */
+          lastDomTabbableNode,
+          /**
+           * Finds the __tabbable__ node that follows the given node in the specified direction,
+           *  in this container, if any.
+           * @param {HTMLElement} node
+           * @param {boolean} [forward] True if going in forward tab order; false if going
+           *  in reverse.
+           * @returns {HTMLElement|undefined} The next tabbable node, if any.
+           */
+          nextTabbableNode: function nextTabbableNode(node) {
+            var forward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : true;
+            var nodeIdx = tabbableNodes.indexOf(node);
+            if (nodeIdx < 0) {
+              if (forward) {
+                return focusableNodes.slice(focusableNodes.indexOf(node) + 1).find(function(el2) {
+                  return isTabbable(el2);
+                });
+              }
+              return focusableNodes.slice(0, focusableNodes.indexOf(node)).reverse().find(function(el2) {
+                return isTabbable(el2);
+              });
+            }
+            return tabbableNodes[nodeIdx + (forward ? 1 : -1)];
+          }
+        };
+      });
+      state.tabbableGroups = state.containerGroups.filter(function(group) {
+        return group.tabbableNodes.length > 0;
+      });
+      if (state.tabbableGroups.length <= 0 && !getNodeForOption("fallbackFocus")) {
+        throw new Error("Your focus-trap must have at least one container with at least one tabbable node in it at all times");
+      }
+      if (state.containerGroups.find(function(g) {
+        return g.posTabIndexesFound;
+      }) && state.containerGroups.length > 1) {
+        throw new Error("At least one node with a positive tabindex was found in one of your focus-trap's multiple containers. Positive tabindexes are only supported in single-container focus-traps.");
+      }
+    };
+    var _getActiveElement = function getActiveElement(el2) {
+      var activeElement = el2.activeElement;
+      if (!activeElement) {
+        return;
+      }
+      if (activeElement.shadowRoot && activeElement.shadowRoot.activeElement !== null) {
+        return _getActiveElement(activeElement.shadowRoot);
+      }
+      return activeElement;
+    };
+    var _tryFocus = function tryFocus(node) {
+      if (node === false) {
+        return;
+      }
+      if (node === _getActiveElement(document)) {
+        return;
+      }
+      if (!node || !node.focus) {
+        _tryFocus(getInitialFocusNode());
+        return;
+      }
+      node.focus({
+        preventScroll: !!config2.preventScroll
+      });
+      state.mostRecentlyFocusedNode = node;
+      if (isSelectableInput(node)) {
+        node.select();
+      }
+    };
+    var getReturnFocusNode = function getReturnFocusNode2(previousActiveElement) {
+      var node = getNodeForOption("setReturnFocus", {
+        params: [previousActiveElement]
+      });
+      return node ? node : node === false ? false : previousActiveElement;
+    };
+    var findNextNavNode = function findNextNavNode2(_ref3) {
+      var target = _ref3.target, event = _ref3.event, _ref3$isBackward = _ref3.isBackward, isBackward = _ref3$isBackward === void 0 ? false : _ref3$isBackward;
+      target = target || getActualTarget(event);
+      updateTabbableNodes();
+      var destinationNode = null;
+      if (state.tabbableGroups.length > 0) {
+        var containerIndex = findContainerIndex(target, event);
+        var containerGroup = containerIndex >= 0 ? state.containerGroups[containerIndex] : void 0;
+        if (containerIndex < 0) {
+          if (isBackward) {
+            destinationNode = state.tabbableGroups[state.tabbableGroups.length - 1].lastTabbableNode;
+          } else {
+            destinationNode = state.tabbableGroups[0].firstTabbableNode;
+          }
+        } else if (isBackward) {
+          var startOfGroupIndex = state.tabbableGroups.findIndex(function(_ref4) {
+            var firstTabbableNode = _ref4.firstTabbableNode;
+            return target === firstTabbableNode;
+          });
+          if (startOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target, false))) {
+            startOfGroupIndex = containerIndex;
+          }
+          if (startOfGroupIndex >= 0) {
+            var destinationGroupIndex = startOfGroupIndex === 0 ? state.tabbableGroups.length - 1 : startOfGroupIndex - 1;
+            var destinationGroup = state.tabbableGroups[destinationGroupIndex];
+            destinationNode = getTabIndex(target) >= 0 ? destinationGroup.lastTabbableNode : destinationGroup.lastDomTabbableNode;
+          } else if (!isTabEvent(event)) {
+            destinationNode = containerGroup.nextTabbableNode(target, false);
+          }
+        } else {
+          var lastOfGroupIndex = state.tabbableGroups.findIndex(function(_ref5) {
+            var lastTabbableNode = _ref5.lastTabbableNode;
+            return target === lastTabbableNode;
+          });
+          if (lastOfGroupIndex < 0 && (containerGroup.container === target || isFocusable$1(target, config2.tabbableOptions) && !isTabbable(target, config2.tabbableOptions) && !containerGroup.nextTabbableNode(target))) {
+            lastOfGroupIndex = containerIndex;
+          }
+          if (lastOfGroupIndex >= 0) {
+            var _destinationGroupIndex = lastOfGroupIndex === state.tabbableGroups.length - 1 ? 0 : lastOfGroupIndex + 1;
+            var _destinationGroup = state.tabbableGroups[_destinationGroupIndex];
+            destinationNode = getTabIndex(target) >= 0 ? _destinationGroup.firstTabbableNode : _destinationGroup.firstDomTabbableNode;
+          } else if (!isTabEvent(event)) {
+            destinationNode = containerGroup.nextTabbableNode(target);
+          }
+        }
+      } else {
+        destinationNode = getNodeForOption("fallbackFocus");
+      }
+      return destinationNode;
+    };
+    var checkPointerDown = function checkPointerDown2(e) {
+      var target = getActualTarget(e);
+      if (findContainerIndex(target, e) >= 0) {
+        return;
+      }
+      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
+        trap.deactivate({
+          // NOTE: by setting `returnFocus: false`, deactivate() will do nothing,
+          //  which will result in the outside click setting focus to the node
+          //  that was clicked (and if not focusable, to "nothing"); by setting
+          //  `returnFocus: true`, we'll attempt to re-focus the node originally-focused
+          //  on activation (or the configured `setReturnFocus` node), whether the
+          //  outside click was on a focusable node or not
+          returnFocus: config2.returnFocusOnDeactivate
+        });
+        return;
+      }
+      if (valueOrHandler(config2.allowOutsideClick, e)) {
+        return;
+      }
+      e.preventDefault();
+    };
+    var checkFocusIn = function checkFocusIn2(event) {
+      var target = getActualTarget(event);
+      var targetContained = findContainerIndex(target, event) >= 0;
+      if (targetContained || target instanceof Document) {
+        if (targetContained) {
+          state.mostRecentlyFocusedNode = target;
+        }
+      } else {
+        event.stopImmediatePropagation();
+        var nextNode;
+        var navAcrossContainers = true;
+        if (state.mostRecentlyFocusedNode) {
+          if (getTabIndex(state.mostRecentlyFocusedNode) > 0) {
+            var mruContainerIdx = findContainerIndex(state.mostRecentlyFocusedNode);
+            var tabbableNodes = state.containerGroups[mruContainerIdx].tabbableNodes;
+            if (tabbableNodes.length > 0) {
+              var mruTabIdx = tabbableNodes.findIndex(function(node) {
+                return node === state.mostRecentlyFocusedNode;
+              });
+              if (mruTabIdx >= 0) {
+                if (config2.isKeyForward(state.recentNavEvent)) {
+                  if (mruTabIdx + 1 < tabbableNodes.length) {
+                    nextNode = tabbableNodes[mruTabIdx + 1];
+                    navAcrossContainers = false;
+                  }
+                } else {
+                  if (mruTabIdx - 1 >= 0) {
+                    nextNode = tabbableNodes[mruTabIdx - 1];
+                    navAcrossContainers = false;
+                  }
+                }
+              }
+            }
+          } else {
+            if (!state.containerGroups.some(function(g) {
+              return g.tabbableNodes.some(function(n2) {
+                return getTabIndex(n2) > 0;
+              });
+            })) {
+              navAcrossContainers = false;
+            }
+          }
+        } else {
+          navAcrossContainers = false;
+        }
+        if (navAcrossContainers) {
+          nextNode = findNextNavNode({
+            // move FROM the MRU node, not event-related node (which will be the node that is
+            //  outside the trap causing the focus escape we're trying to fix)
+            target: state.mostRecentlyFocusedNode,
+            isBackward: config2.isKeyBackward(state.recentNavEvent)
+          });
+        }
+        if (nextNode) {
+          _tryFocus(nextNode);
+        } else {
+          _tryFocus(state.mostRecentlyFocusedNode || getInitialFocusNode());
+        }
+      }
+      state.recentNavEvent = void 0;
+    };
+    var checkKeyNav = function checkKeyNav2(event) {
+      var isBackward = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : false;
+      state.recentNavEvent = event;
+      var destinationNode = findNextNavNode({
+        event,
+        isBackward
+      });
+      if (destinationNode) {
+        if (isTabEvent(event)) {
+          event.preventDefault();
+        }
+        _tryFocus(destinationNode);
+      }
+    };
+    var checkTabKey = function checkTabKey2(event) {
+      if (config2.isKeyForward(event) || config2.isKeyBackward(event)) {
+        checkKeyNav(event, config2.isKeyBackward(event));
+      }
+    };
+    var checkEscapeKey = function checkEscapeKey2(event) {
+      if (isEscapeEvent(event) && valueOrHandler(config2.escapeDeactivates, event) !== false) {
+        event.preventDefault();
+        trap.deactivate();
+      }
+    };
+    var checkClick = function checkClick2(e) {
+      var target = getActualTarget(e);
+      if (findContainerIndex(target, e) >= 0) {
+        return;
+      }
+      if (valueOrHandler(config2.clickOutsideDeactivates, e)) {
+        return;
+      }
+      if (valueOrHandler(config2.allowOutsideClick, e)) {
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    var addListeners = function addListeners2() {
+      if (!state.active) {
+        return Promise.resolve();
+      }
+      activeFocusTraps.activateTrap(trapStack, trap);
+      var promise;
+      if (config2.delayInitialFocus) {
+        promise = new Promise(function(resolve) {
+          state.delayInitialFocusTimer = delay(function() {
+            _tryFocus(getInitialFocusNode());
+            resolve();
+          });
+        });
+      } else {
+        promise = Promise.resolve();
+        _tryFocus(getInitialFocusNode());
+      }
+      doc.addEventListener("focusin", checkFocusIn, true);
+      doc.addEventListener("mousedown", checkPointerDown, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("touchstart", checkPointerDown, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("click", checkClick, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("keydown", checkTabKey, {
+        capture: true,
+        passive: false
+      });
+      doc.addEventListener("keydown", checkEscapeKey);
+      return promise;
+    };
+    var collectAdjacentElements = function collectAdjacentElements2(containers) {
+      if (state.active && !state.paused) {
+        trap._setSubtreeIsolation(false);
+      }
+      state.adjacentElements.clear();
+      state.alreadySilent.clear();
+      var containerAncestors = /* @__PURE__ */ new Set();
+      var adjacentElements = /* @__PURE__ */ new Set();
+      var _iterator = _createForOfIteratorHelper(containers), _step;
+      try {
+        for (_iterator.s(); !(_step = _iterator.n()).done; ) {
+          var container = _step.value;
+          containerAncestors.add(container);
+          var insideShadowRoot = typeof ShadowRoot !== "undefined" && container.getRootNode() instanceof ShadowRoot;
+          var current = container;
+          while (current) {
+            containerAncestors.add(current);
+            var parent = current.parentElement;
+            var siblings = [];
+            if (parent) {
+              siblings = parent.children;
+            } else if (!parent && insideShadowRoot) {
+              siblings = current.getRootNode().children;
+              parent = current.getRootNode().host;
+              insideShadowRoot = typeof ShadowRoot !== "undefined" && parent.getRootNode() instanceof ShadowRoot;
+            }
+            var _iterator2 = _createForOfIteratorHelper(siblings), _step2;
+            try {
+              for (_iterator2.s(); !(_step2 = _iterator2.n()).done; ) {
+                var child = _step2.value;
+                adjacentElements.add(child);
+              }
+            } catch (err) {
+              _iterator2.e(err);
+            } finally {
+              _iterator2.f();
+            }
+            current = parent;
+          }
+        }
+      } catch (err) {
+        _iterator.e(err);
+      } finally {
+        _iterator.f();
+      }
+      containerAncestors.forEach(function(el2) {
+        adjacentElements["delete"](el2);
+      });
+      state.adjacentElements = adjacentElements;
+    };
+    var removeListeners = function removeListeners2() {
+      if (!state.active) {
+        return;
+      }
+      doc.removeEventListener("focusin", checkFocusIn, true);
+      doc.removeEventListener("mousedown", checkPointerDown, true);
+      doc.removeEventListener("touchstart", checkPointerDown, true);
+      doc.removeEventListener("click", checkClick, true);
+      doc.removeEventListener("keydown", checkTabKey, true);
+      doc.removeEventListener("keydown", checkEscapeKey);
+      return trap;
+    };
+    var checkDomRemoval = function checkDomRemoval2(mutations) {
+      var isFocusedNodeRemoved = mutations.some(function(mutation) {
+        var removedNodes = Array.from(mutation.removedNodes);
+        return removedNodes.some(function(node) {
+          return node === state.mostRecentlyFocusedNode;
+        });
+      });
+      if (isFocusedNodeRemoved) {
+        _tryFocus(getInitialFocusNode());
+      }
+    };
+    var mutationObserver = typeof window !== "undefined" && "MutationObserver" in window ? new MutationObserver(checkDomRemoval) : void 0;
+    var updateObservedNodes = function updateObservedNodes2() {
+      if (!mutationObserver) {
+        return;
+      }
+      mutationObserver.disconnect();
+      if (state.active && !state.paused) {
+        state.containers.map(function(container) {
+          mutationObserver.observe(container, {
+            subtree: true,
+            childList: true
+          });
+        });
+      }
+    };
+    trap = {
+      get active() {
+        return state.active;
+      },
+      get paused() {
+        return state.paused;
+      },
+      activate: function activate(activateOptions) {
+        if (state.active) {
+          return this;
+        }
+        var onActivate = getOption(activateOptions, "onActivate");
+        var onPostActivate = getOption(activateOptions, "onPostActivate");
+        var checkCanFocusTrap = getOption(activateOptions, "checkCanFocusTrap");
+        var preexistingTrap = activeFocusTraps.getActiveTrap(trapStack);
+        var revertState = false;
+        if (preexistingTrap && !preexistingTrap.paused) {
+          var _preexistingTrap$_set;
+          (_preexistingTrap$_set = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set === void 0 || _preexistingTrap$_set.call(preexistingTrap, false);
+          revertState = true;
+        }
+        try {
+          if (!checkCanFocusTrap) {
+            updateTabbableNodes();
+          }
+          state.active = true;
+          state.paused = false;
+          state.nodeFocusedBeforeActivation = _getActiveElement(doc);
+          onActivate === null || onActivate === void 0 || onActivate();
+          var finishActivation = /* @__PURE__ */ function() {
+            var _ref6 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee() {
+              return _regenerator().w(function(_context) {
+                while (1) switch (_context.n) {
+                  case 0:
+                    if (checkCanFocusTrap) {
+                      updateTabbableNodes();
+                    }
+                    _context.n = 1;
+                    return addListeners();
+                  case 1:
+                    trap._setSubtreeIsolation(true);
+                    updateObservedNodes();
+                    onPostActivate === null || onPostActivate === void 0 || onPostActivate();
+                  case 2:
+                    return _context.a(2);
+                }
+              }, _callee);
+            }));
+            return function finishActivation2() {
+              return _ref6.apply(this, arguments);
+            };
+          }();
+          if (checkCanFocusTrap) {
+            checkCanFocusTrap(state.containers.concat()).then(finishActivation, finishActivation);
+            return this;
+          }
+          finishActivation();
+        } catch (error) {
+          if (preexistingTrap === activeFocusTraps.getActiveTrap(trapStack) && revertState) {
+            var _preexistingTrap$_set2;
+            (_preexistingTrap$_set2 = preexistingTrap._setSubtreeIsolation) === null || _preexistingTrap$_set2 === void 0 || _preexistingTrap$_set2.call(preexistingTrap, true);
+          }
+          throw error;
+        }
+        return this;
+      },
+      deactivate: function deactivate(deactivateOptions) {
+        if (!state.active) {
+          return this;
+        }
+        var options = _objectSpread2({
+          onDeactivate: config2.onDeactivate,
+          onPostDeactivate: config2.onPostDeactivate,
+          checkCanReturnFocus: config2.checkCanReturnFocus
+        }, deactivateOptions);
+        clearTimeout(state.delayInitialFocusTimer);
+        state.delayInitialFocusTimer = void 0;
+        if (!state.paused) {
+          trap._setSubtreeIsolation(false);
+        }
+        state.alreadySilent.clear();
+        removeListeners();
+        state.active = false;
+        state.paused = false;
+        updateObservedNodes();
+        activeFocusTraps.deactivateTrap(trapStack, trap);
+        var onDeactivate = getOption(options, "onDeactivate");
+        var onPostDeactivate = getOption(options, "onPostDeactivate");
+        var checkCanReturnFocus = getOption(options, "checkCanReturnFocus");
+        var returnFocus = getOption(options, "returnFocus", "returnFocusOnDeactivate");
+        onDeactivate === null || onDeactivate === void 0 || onDeactivate();
+        var finishDeactivation = function finishDeactivation2() {
+          delay(function() {
+            if (returnFocus) {
+              _tryFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation));
+            }
+            onPostDeactivate === null || onPostDeactivate === void 0 || onPostDeactivate();
+          });
+        };
+        if (returnFocus && checkCanReturnFocus) {
+          checkCanReturnFocus(getReturnFocusNode(state.nodeFocusedBeforeActivation)).then(finishDeactivation, finishDeactivation);
+          return this;
+        }
+        finishDeactivation();
+        return this;
+      },
+      pause: function pause(pauseOptions) {
+        if (!state.active) {
+          return this;
+        }
+        state.manuallyPaused = true;
+        return this._setPausedState(true, pauseOptions);
+      },
+      unpause: function unpause(unpauseOptions) {
+        if (!state.active) {
+          return this;
+        }
+        state.manuallyPaused = false;
+        if (trapStack[trapStack.length - 1] !== this) {
+          return this;
+        }
+        return this._setPausedState(false, unpauseOptions);
+      },
+      updateContainerElements: function updateContainerElements(containerElements) {
+        var elementsAsArray = [].concat(containerElements).filter(Boolean);
+        state.containers = elementsAsArray.map(function(element) {
+          return typeof element === "string" ? doc.querySelector(element) : element;
+        });
+        if (config2.isolateSubtrees) {
+          collectAdjacentElements(state.containers);
+        }
+        if (state.active) {
+          updateTabbableNodes();
+          if (!state.paused) {
+            trap._setSubtreeIsolation(true);
+          }
+        }
+        updateObservedNodes();
+        return this;
+      }
+    };
+    Object.defineProperties(trap, {
+      _isManuallyPaused: {
+        value: function value() {
+          return state.manuallyPaused;
+        }
+      },
+      _setPausedState: {
+        value: function value(paused, options) {
+          if (state.paused === paused) {
+            return this;
+          }
+          state.paused = paused;
+          if (paused) {
+            var onPause = getOption(options, "onPause");
+            var onPostPause = getOption(options, "onPostPause");
+            onPause === null || onPause === void 0 || onPause();
+            removeListeners();
+            trap._setSubtreeIsolation(false);
+            updateObservedNodes();
+            onPostPause === null || onPostPause === void 0 || onPostPause();
+          } else {
+            var onUnpause = getOption(options, "onUnpause");
+            var onPostUnpause = getOption(options, "onPostUnpause");
+            onUnpause === null || onUnpause === void 0 || onUnpause();
+            var finishUnpause = /* @__PURE__ */ function() {
+              var _ref7 = _asyncToGenerator(/* @__PURE__ */ _regenerator().m(function _callee2() {
+                return _regenerator().w(function(_context2) {
+                  while (1) switch (_context2.n) {
+                    case 0:
+                      updateTabbableNodes();
+                      _context2.n = 1;
+                      return addListeners();
+                    case 1:
+                      trap._setSubtreeIsolation(true);
+                      updateObservedNodes();
+                      onPostUnpause === null || onPostUnpause === void 0 || onPostUnpause();
+                    case 2:
+                      return _context2.a(2);
+                  }
+                }, _callee2);
+              }));
+              return function finishUnpause2() {
+                return _ref7.apply(this, arguments);
+              };
+            }();
+            finishUnpause();
+          }
+          return this;
+        }
+      },
+      _setSubtreeIsolation: {
+        value: function value(isEnabled) {
+          if (config2.isolateSubtrees) {
+            state.adjacentElements.forEach(function(el2) {
+              var _el$getAttribute;
+              if (isEnabled) {
+                switch (config2.isolateSubtrees) {
+                  case "aria-hidden":
+                    if (el2.ariaHidden === "true" || ((_el$getAttribute = el2.getAttribute("aria-hidden")) === null || _el$getAttribute === void 0 ? void 0 : _el$getAttribute.toLowerCase()) === "true") {
+                      state.alreadySilent.add(el2);
+                    }
+                    el2.setAttribute("aria-hidden", "true");
+                    break;
+                  default:
+                    if (el2.inert || el2.hasAttribute("inert")) {
+                      state.alreadySilent.add(el2);
+                    }
+                    el2.setAttribute("inert", true);
+                    break;
+                }
+              } else {
+                if (state.alreadySilent.has(el2)) ;
+                else {
+                  switch (config2.isolateSubtrees) {
+                    case "aria-hidden":
+                      el2.removeAttribute("aria-hidden");
+                      break;
+                    default:
+                      el2.removeAttribute("inert");
+                      break;
+                  }
+                }
+              }
+            });
+          }
+        }
+      }
+    });
+    trap.updateContainerElements(elements);
+    return trap;
+  };
+  const focusTrap_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    createFocusTrap: createFocusTrap$1
+  }, Symbol.toStringTag, { value: "Module" }));
+  const require$$1 = /* @__PURE__ */ getAugmentedNamespace(focusTrap_esm);
+  const require$$2 = /* @__PURE__ */ getAugmentedNamespace(index_esm);
+  function _typeof(o) {
+    "@babel/helpers - typeof";
+    return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+      return typeof o2;
+    } : function(o2) {
+      return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+    }, _typeof(o);
+  }
+  var _exec$, _exec;
+  function _classCallCheck(a, n2) {
+    if (!(a instanceof n2)) throw new TypeError("Cannot call a class as a function");
+  }
+  function _defineProperties(e, r2) {
+    for (var t2 = 0; t2 < r2.length; t2++) {
+      var o = r2[t2];
+      o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey(o.key), o);
+    }
+  }
+  function _createClass(e, r2, t2) {
+    return r2 && _defineProperties(e.prototype, r2), Object.defineProperty(e, "prototype", { writable: false }), e;
+  }
+  function _callSuper(t2, o, e) {
+    return o = _getPrototypeOf(o), _possibleConstructorReturn(t2, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], _getPrototypeOf(t2).constructor) : o.apply(t2, e));
+  }
+  function _possibleConstructorReturn(t2, e) {
+    if (e && ("object" == _typeof(e) || "function" == typeof e)) return e;
+    if (void 0 !== e) throw new TypeError("Derived constructors may only return object or undefined");
+    return _assertThisInitialized(t2);
+  }
+  function _assertThisInitialized(e) {
+    if (void 0 === e) throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+    return e;
+  }
+  function _isNativeReflectConstruct() {
+    try {
+      var t2 = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function() {
+      }));
+    } catch (t3) {
+    }
+    return (_isNativeReflectConstruct = function _isNativeReflectConstruct2() {
+      return !!t2;
+    })();
+  }
+  function _getPrototypeOf(t2) {
+    return _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function(t3) {
+      return t3.__proto__ || Object.getPrototypeOf(t3);
+    }, _getPrototypeOf(t2);
+  }
+  function _inherits(t2, e) {
+    if ("function" != typeof e && null !== e) throw new TypeError("Super expression must either be null or a function");
+    t2.prototype = Object.create(e && e.prototype, { constructor: { value: t2, writable: true, configurable: true } }), Object.defineProperty(t2, "prototype", { writable: false }), e && _setPrototypeOf(t2, e);
+  }
+  function _setPrototypeOf(t2, e) {
+    return _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function(t3, e2) {
+      return t3.__proto__ = e2, t3;
+    }, _setPrototypeOf(t2, e);
+  }
+  function _defineProperty(e, r2, t2) {
+    return (r2 = _toPropertyKey(r2)) in e ? Object.defineProperty(e, r2, { value: t2, enumerable: true, configurable: true, writable: true }) : e[r2] = t2, e;
+  }
+  function _toPropertyKey(t2) {
+    var i = _toPrimitive(t2, "string");
+    return "symbol" == _typeof(i) ? i : i + "";
+  }
+  function _toPrimitive(t2, r2) {
+    if ("object" != _typeof(t2) || !t2) return t2;
+    var e = t2[Symbol.toPrimitive];
+    if (void 0 !== e) {
+      var i = e.call(t2, r2);
+      if ("object" != _typeof(i)) return i;
+      throw new TypeError("@@toPrimitive must return a primitive value.");
+    }
+    return ("string" === r2 ? String : Number)(t2);
+  }
+  var React = reactExports;
+  var _require = require$$1, createFocusTrap = _require.createFocusTrap;
+  var _require2 = require$$2, isFocusable = _require2.isFocusable;
+  var reactVerMajor = parseInt((_exec$ = (_exec = /^(\d+)\./.exec(React.version)) === null || _exec === void 0 ? void 0 : _exec[1]) !== null && _exec$ !== void 0 ? _exec$ : 0, 10);
+  var FocusTrap = /* @__PURE__ */ function(_React$Component) {
+    function FocusTrap2(props) {
+      var _this;
+      _classCallCheck(this, FocusTrap2);
+      _this = _callSuper(this, FocusTrap2, [props]);
+      _defineProperty(_this, "getNodeForOption", function(optionName2) {
+        var _this$internalOptions;
+        var optionValue = (_this$internalOptions = this.internalOptions[optionName2]) !== null && _this$internalOptions !== void 0 ? _this$internalOptions : this.originalOptions[optionName2];
+        if (typeof optionValue === "function") {
+          for (var _len = arguments.length, params = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+            params[_key - 1] = arguments[_key];
+          }
+          optionValue = optionValue.apply(void 0, params);
+        }
+        if (optionValue === true) {
+          optionValue = void 0;
+        }
+        if (!optionValue) {
+          if (optionValue === void 0 || optionValue === false) {
+            return optionValue;
+          }
+          throw new Error("`".concat(optionName2, "` was specified but was not a node, or did not return a node"));
+        }
+        var node = optionValue;
+        if (typeof optionValue === "string") {
+          var _this$getDocument;
+          node = (_this$getDocument = this.getDocument()) === null || _this$getDocument === void 0 ? void 0 : _this$getDocument.querySelector(optionValue);
+          if (!node) {
+            throw new Error("`".concat(optionName2, "` as selector refers to no known node"));
+          }
+        }
+        return node;
+      });
+      _this.handleDeactivate = _this.handleDeactivate.bind(_this);
+      _this.handlePostDeactivate = _this.handlePostDeactivate.bind(_this);
+      _this.handleClickOutsideDeactivates = _this.handleClickOutsideDeactivates.bind(_this);
+      _this.internalOptions = {
+        // We need to hijack the returnFocusOnDeactivate option,
+        // because React can move focus into the element before we arrived at
+        // this lifecycle hook (e.g. with autoFocus inputs). So the component
+        // captures the previouslyFocusedElement in componentWillMount,
+        // then (optionally) returns focus to it in componentWillUnmount.
+        returnFocusOnDeactivate: false,
+        // the rest of these are also related to deactivation of the trap, and we
+        //  need to use them and control them as well
+        checkCanReturnFocus: null,
+        onDeactivate: _this.handleDeactivate,
+        onPostDeactivate: _this.handlePostDeactivate,
+        // we need to special-case this setting as well so that we can know if we should
+        //  NOT return focus if the trap gets auto-deactivated as the result of an
+        //  outside click (otherwise, we'll always think we should return focus because
+        //  of how we manage that flag internally here)
+        clickOutsideDeactivates: _this.handleClickOutsideDeactivates
+      };
+      _this.originalOptions = {
+        // because of the above `internalOptions`, we maintain our own flag for
+        //  this option, and default it to `true` because that's focus-trap's default
+        returnFocusOnDeactivate: true,
+        // because of the above `internalOptions`, we keep these separate since
+        //  they're part of the deactivation process which we configure (internally) to
+        //  be shared between focus-trap and focus-trap-react
+        onDeactivate: null,
+        onPostDeactivate: null,
+        checkCanReturnFocus: null,
+        // the user's setting, defaulted to false since focus-trap defaults this to false
+        clickOutsideDeactivates: false
+      };
+      var focusTrapOptions = props.focusTrapOptions;
+      for (var optionName in focusTrapOptions) {
+        if (!Object.prototype.hasOwnProperty.call(focusTrapOptions, optionName)) {
+          continue;
+        }
+        if (optionName === "returnFocusOnDeactivate" || optionName === "onDeactivate" || optionName === "onPostDeactivate" || optionName === "checkCanReturnFocus" || optionName === "clickOutsideDeactivates") {
+          _this.originalOptions[optionName] = focusTrapOptions[optionName];
+          continue;
+        }
+        _this.internalOptions[optionName] = focusTrapOptions[optionName];
+      }
+      _this.outsideClick = null;
+      _this.focusTrapElements = props.containerElements || [];
+      _this.updatePreviousElement();
+      return _this;
+    }
+    _inherits(FocusTrap2, _React$Component);
+    return _createClass(FocusTrap2, [{
+      key: "getDocument",
+      value: function getDocument() {
+        return this.props.focusTrapOptions.document || (typeof document !== "undefined" ? document : void 0);
+      }
+    }, {
+      key: "getReturnFocusNode",
+      value: function getReturnFocusNode() {
+        var node = this.getNodeForOption("setReturnFocus", this.previouslyFocusedElement);
+        return node ? node : node === false ? false : this.previouslyFocusedElement;
+      }
+      /** Update the previously focused element with the currently focused element. */
+    }, {
+      key: "updatePreviousElement",
+      value: function updatePreviousElement() {
+        var currentDocument = this.getDocument();
+        if (currentDocument) {
+          this.previouslyFocusedElement = currentDocument.activeElement;
+        }
+      }
+    }, {
+      key: "deactivateTrap",
+      value: function deactivateTrap() {
+        if (!this.focusTrap || !this.focusTrap.active) {
+          return;
+        }
+        this.focusTrap.deactivate({
+          // NOTE: we never let the trap return the focus since we do that ourselves
+          returnFocus: false,
+          // we'll call this in our own post deactivate handler so make sure the trap doesn't
+          //  do it prematurely
+          checkCanReturnFocus: null,
+          // let it call the user's original deactivate handler, if any, instead of
+          //  our own which calls back into this function
+          onDeactivate: this.originalOptions.onDeactivate
+          // NOTE: for post deactivate, don't specify anything so that it calls the
+          //  onPostDeactivate handler specified on `this.internalOptions`
+          //  which will always be our own `handlePostDeactivate()` handler, which
+          //  will finish things off by calling the user's provided onPostDeactivate
+          //  handler, if any, at the right time
+          // onPostDeactivate: NOTHING
+        });
+      }
+    }, {
+      key: "handleClickOutsideDeactivates",
+      value: function handleClickOutsideDeactivates(event) {
+        var allowDeactivation = typeof this.originalOptions.clickOutsideDeactivates === "function" ? this.originalOptions.clickOutsideDeactivates.call(null, event) : this.originalOptions.clickOutsideDeactivates;
+        if (allowDeactivation) {
+          this.outsideClick = {
+            target: event.target,
+            allowDeactivation
+          };
+        }
+        return allowDeactivation;
+      }
+    }, {
+      key: "handleDeactivate",
+      value: function handleDeactivate() {
+        if (this.originalOptions.onDeactivate) {
+          this.originalOptions.onDeactivate.call(null);
+        }
+        this.deactivateTrap();
+      }
+    }, {
+      key: "handlePostDeactivate",
+      value: function handlePostDeactivate() {
+        var _this2 = this;
+        var finishDeactivation = function finishDeactivation2() {
+          var returnFocusNode = _this2.getReturnFocusNode();
+          var canReturnFocus = !!// did the consumer allow it?
+          (_this2.originalOptions.returnFocusOnDeactivate && // can we actually focus the node?
+          returnFocusNode !== null && returnFocusNode !== void 0 && returnFocusNode.focus && // was there an outside click that allowed deactivation?
+          (!_this2.outsideClick || // did the consumer allow deactivation when the outside node was clicked?
+          _this2.outsideClick.allowDeactivation && // is the outside node NOT focusable (implying that it did NOT receive focus
+          //  as a result of the click-through) -- in which case do NOT restore focus
+          //  to `returnFocusNode` because focus should remain on the outside node
+          !isFocusable(_this2.outsideClick.target, _this2.internalOptions.tabbableOptions)));
+          var _this2$internalOption = _this2.internalOptions.preventScroll, preventScroll = _this2$internalOption === void 0 ? false : _this2$internalOption;
+          if (canReturnFocus) {
+            returnFocusNode.focus({
+              preventScroll
+            });
+          }
+          if (_this2.originalOptions.onPostDeactivate) {
+            _this2.originalOptions.onPostDeactivate.call(null);
+          }
+          _this2.outsideClick = null;
+        };
+        if (this.originalOptions.checkCanReturnFocus) {
+          this.originalOptions.checkCanReturnFocus.call(null, this.getReturnFocusNode()).then(finishDeactivation, finishDeactivation);
+        } else {
+          finishDeactivation();
+        }
+      }
+    }, {
+      key: "setupFocusTrap",
+      value: function setupFocusTrap() {
+        if (this.focusTrap) {
+          if (this.props.active && !this.focusTrap.active) {
+            this.focusTrap.activate();
+            if (this.props.paused) {
+              this.focusTrap.pause();
+            }
+          }
+        } else {
+          var nodesExist = this.focusTrapElements.some(Boolean);
+          if (nodesExist) {
+            this.focusTrap = this.props._createFocusTrap(this.focusTrapElements, this.internalOptions);
+            if (this.props.active) {
+              this.focusTrap.activate();
+            }
+            if (this.props.paused) {
+              this.focusTrap.pause();
+            }
+          }
+        }
+      }
+    }, {
+      key: "componentDidMount",
+      value: function componentDidMount() {
+        if (this.props.active) {
+          this.setupFocusTrap();
+        }
+      }
+    }, {
+      key: "componentDidUpdate",
+      value: function componentDidUpdate(prevProps) {
+        if (this.focusTrap) {
+          if (prevProps.containerElements !== this.props.containerElements) {
+            this.focusTrap.updateContainerElements(this.props.containerElements);
+          }
+          var hasActivated = !prevProps.active && this.props.active;
+          var hasDeactivated = prevProps.active && !this.props.active;
+          var hasPaused = !prevProps.paused && this.props.paused;
+          var hasUnpaused = prevProps.paused && !this.props.paused;
+          if (hasActivated) {
+            this.updatePreviousElement();
+            this.focusTrap.activate();
+          }
+          if (hasDeactivated) {
+            this.deactivateTrap();
+            return;
+          }
+          if (hasPaused) {
+            this.focusTrap.pause();
+          }
+          if (hasUnpaused) {
+            this.focusTrap.unpause();
+          }
+        } else {
+          if (prevProps.containerElements !== this.props.containerElements) {
+            this.focusTrapElements = this.props.containerElements;
+          }
+          if (this.props.active) {
+            this.updatePreviousElement();
+            this.setupFocusTrap();
+          }
+        }
+      }
+    }, {
+      key: "componentWillUnmount",
+      value: function componentWillUnmount() {
+        this.deactivateTrap();
+      }
+    }, {
+      key: "render",
+      value: function render() {
+        var _this3 = this;
+        var child = this.props.children ? React.Children.only(this.props.children) : void 0;
+        if (child) {
+          if (child.type && child.type === React.Fragment) {
+            throw new Error("A focus-trap cannot use a Fragment as its child container. Try replacing it with a <div> element.");
+          }
+          var callbackRef = function callbackRef2(element) {
+            var containerElements = _this3.props.containerElements;
+            if (child) {
+              if (reactVerMajor >= 19) {
+                if (typeof child.props.ref === "function") {
+                  child.props.ref(element);
+                } else if (child.props.ref) {
+                  child.props.ref.current = element;
+                }
+              } else {
+                if (typeof child.ref === "function") {
+                  child.ref(element);
+                } else if (child.ref) {
+                  child.ref.current = element;
+                }
+              }
+            }
+            _this3.focusTrapElements = containerElements ? containerElements : [element];
+          };
+          var childWithRef = React.cloneElement(child, {
+            ref: callbackRef
+          });
+          return childWithRef;
+        }
+        return null;
+      }
+    }]);
+  }(React.Component);
+  FocusTrap.defaultProps = {
+    active: true,
+    paused: false,
+    focusTrapOptions: {},
+    _createFocusTrap: createFocusTrap
+  };
+  focusTrapReact.exports = FocusTrap;
+  focusTrapReact.exports.FocusTrap = FocusTrap;
+  var focusTrapReactExports = focusTrapReact.exports;
+  const FocusTrap$1 = /* @__PURE__ */ getDefaultExportFromCjs(focusTrapReactExports);
+  function CloseIcon() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        width: "20",
+        height: "20",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", x2: "6", y1: "6", y2: "18" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", x2: "18", y1: "6", y2: "18" })
+        ]
+      }
+    );
+  }
+  function ChatIcon() {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "svg",
+      {
+        width: "20",
+        height: "20",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" })
+      }
+    );
+  }
+  function ProactiveModal({
+    trigger,
+    isOpen,
+    onAction,
+    onDismiss,
+    theme
+  }) {
+    const modalRef = reactExports.useRef(null);
+    const previousActiveElement = reactExports.useRef(null);
+    reactExports.useEffect(() => {
+      if (isOpen) {
+        previousActiveElement.current = document.activeElement;
+      }
+    }, [isOpen]);
+    reactExports.useEffect(() => {
+      if (!isOpen && previousActiveElement.current) {
+        previousActiveElement.current.focus();
+      }
+    }, [isOpen]);
+    reactExports.useEffect(() => {
+      const handleEscape = (e) => {
+        if (e.key === "Escape" && isOpen) {
+          onDismiss();
+        }
+      };
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [isOpen, onDismiss]);
+    if (!isOpen || !trigger) {
+      return null;
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(FocusTrap$1, { active: isOpen, focusTrapOptions: { initialFocus: false }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        ref: modalRef,
+        "data-testid": "proactive-modal",
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-live": "assertive",
+        "aria-labelledby": "proactive-title",
+        "aria-describedby": "proactive-message",
+        className: "proactive-modal-overlay",
+        onClick: (e) => {
+          if (e.target === e.currentTarget) onDismiss();
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "proactive-modal-container", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": "proactive-dismiss-button",
+              type: "button",
+              className: "proactive-modal-close",
+              onClick: onDismiss,
+              "aria-label": "Close proactive message",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseIcon, {})
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "proactive-modal-icon", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ChatIcon, {}) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "h2",
+            {
+              id: "proactive-title",
+              "data-testid": "proactive-title",
+              className: "proactive-modal-title",
+              children: "Need Help?"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "p",
+            {
+              id: "proactive-message",
+              "data-testid": "proactive-message",
+              className: "proactive-modal-message",
+              children: trigger.message
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "proactive-modal-actions", children: trigger.actions.map((action, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              "data-testid": `proactive-action-button-${index}`,
+              type: "button",
+              className: `proactive-action-button ${index === 0 ? "" : "proactive-action-secondary"}`,
+              onClick: () => {
+                trackProactiveTrigger(trigger.type, true);
+                onAction(action);
+              },
+              style: index === 0 && (theme == null ? void 0 : theme.primaryColor) ? { backgroundColor: theme.primaryColor } : void 0,
+              children: action.text
+            },
+            index
+          )) })
+        ] })
+      }
+    ) });
+  }
+  const DEFAULT_CAROUSEL_CONFIG = {
+    visibleCards: { mobile: 2, desktop: 3 },
+    cardWidth: 140,
+    cardGap: 12,
+    scrollDuration: 300
+  };
+  const DEFAULT_VOICE_CONFIG = {
+    enabled: true,
+    language: "en-US",
+    continuous: false,
+    interimResults: true
+  };
+  const DEFAULT_PROACTIVE_CONFIG = {
+    enabled: true,
+    triggers: [
+      {
+        type: "exit_intent",
+        enabled: true,
+        message: "Wait! Before you go, can we help you find something?",
+        actions: [
+          { text: "Get Help", prePopulatedMessage: "I need help finding a product." },
+          { text: "No thanks" }
+        ],
+        cooldown: 30
+      },
+      {
+        type: "time_on_page",
+        enabled: true,
+        threshold: 30,
+        message: "Finding what you need? Our assistant can help!",
+        actions: [
+          { text: "Chat Now", prePopulatedMessage: "Hi! Can you help me?" },
+          { text: "Not now" }
+        ],
+        cooldown: 60
+      },
+      {
+        type: "scroll_depth",
+        enabled: true,
+        threshold: 50,
+        message: "Looks like you're browsing! Need any recommendations?",
+        actions: [
+          { text: "Yes, please!", prePopulatedMessage: "Can you recommend some products?" },
+          { text: "No thanks" }
+        ],
+        cooldown: 30
+      },
+      {
+        type: "product_view",
+        enabled: true,
+        threshold: 3,
+        message: "I noticed you've viewed several products. Can I help you decide?",
+        actions: [
+          { text: "Compare Products", prePopulatedMessage: "Can you help me compare products?" },
+          { text: "Not now" }
+        ],
+        cooldown: 60
+      }
+    ]
+  };
+  const COOLDOWN_STORAGE_KEY = "widget-proactive-cooldown";
+  const DISMISSED_STORAGE_KEY = "widget-proactive-dismissed";
+  function getCooldowns() {
+    if (typeof window === "undefined") return {};
+    try {
+      const stored = sessionStorage.getItem(COOLDOWN_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }
+  function setCooldown(type, minutes) {
+    if (typeof window === "undefined") return;
+    try {
+      const cooldowns = getCooldowns();
+      cooldowns[type] = Date.now() + minutes * 60 * 1e3;
+      sessionStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+    } catch {
+    }
+  }
+  function isInCooldown(type) {
+    const cooldowns = getCooldowns();
+    return cooldowns[type] !== void 0 && cooldowns[type] > Date.now();
+  }
+  function getDismissedTriggers() {
+    if (typeof window === "undefined") return /* @__PURE__ */ new Set();
+    try {
+      const stored = sessionStorage.getItem(DISMISSED_STORAGE_KEY);
+      return stored ? new Set(JSON.parse(stored)) : /* @__PURE__ */ new Set();
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  }
+  function setDismissedTrigger(type) {
+    if (typeof window === "undefined") return;
+    try {
+      const dismissed = getDismissedTriggers();
+      dismissed.add(type);
+      sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissed]));
+    } catch {
+    }
+  }
+  function useProactiveTriggers(options = {}) {
+    const {
+      config: config2 = DEFAULT_PROACTIVE_CONFIG,
+      onTrigger,
+      productViewCount = 0,
+      cartHasItems = false
+    } = options;
+    const [activeTrigger, setActiveTrigger] = reactExports.useState(null);
+    const [dismissedTriggers, setDismissedTriggersState] = reactExports.useState(
+      getDismissedTriggers
+    );
+    const pageLoadTime = reactExports.useRef(Date.now());
+    const hasFiredRef = reactExports.useRef(/* @__PURE__ */ new Set());
+    const triggers = reactExports.useMemo(() => {
+      return config2.enabled ? config2.triggers.filter((t2) => t2.enabled) : [];
+    }, [config2]);
+    const fireTrigger = reactExports.useCallback(
+      (trigger) => {
+        const type = trigger.type;
+        if (hasFiredRef.current.has(type)) return;
+        if (dismissedTriggers.has(type)) return;
+        if (isInCooldown(type)) return;
+        hasFiredRef.current.add(type);
+        setCooldown(type, trigger.cooldown);
+        setActiveTrigger(trigger);
+        onTrigger == null ? void 0 : onTrigger(trigger);
+      },
+      [dismissedTriggers, onTrigger]
+    );
+    const triggerProactive = reactExports.useCallback(
+      (type) => {
+        const trigger = triggers.find((t2) => t2.type === type);
+        if (trigger) {
+          fireTrigger(trigger);
+        }
+      },
+      [triggers, fireTrigger]
+    );
+    const dismissTrigger = reactExports.useCallback(() => {
+      if (activeTrigger) {
+        setDismissedTrigger(activeTrigger.type);
+        setDismissedTriggersState((prev) => /* @__PURE__ */ new Set([...prev, activeTrigger.type]));
+      }
+      setActiveTrigger(null);
+    }, [activeTrigger]);
+    const resetTrigger = reactExports.useCallback((type) => {
+      hasFiredRef.current.delete(type);
+      try {
+        const cooldowns = getCooldowns();
+        delete cooldowns[type];
+        sessionStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+        const dismissed = getDismissedTriggers();
+        dismissed.delete(type);
+        sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...dismissed]));
+        setDismissedTriggersState(new Set(dismissed));
+      } catch {
+      }
+    }, []);
+    reactExports.useEffect(() => {
+      const exitIntentTrigger = triggers.find((t2) => t2.type === "exit_intent");
+      if (!exitIntentTrigger) return;
+      const handleMouseLeave = (e) => {
+        if (e.clientY <= 0 && !hasFiredRef.current.has("exit_intent")) {
+          fireTrigger(exitIntentTrigger);
+        }
+      };
+      document.addEventListener("mouseleave", handleMouseLeave);
+      return () => document.removeEventListener("mouseleave", handleMouseLeave);
+    }, [triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const timeTrigger = triggers.find((t2) => t2.type === "time_on_page");
+      if (!timeTrigger || !timeTrigger.threshold) return;
+      const thresholdMs = timeTrigger.threshold * 1e3;
+      const elapsed = Date.now() - pageLoadTime.current;
+      const remaining = thresholdMs - elapsed;
+      if (remaining <= 0) {
+        fireTrigger(timeTrigger);
+        return;
+      }
+      const timerId = setTimeout(() => {
+        fireTrigger(timeTrigger);
+      }, remaining);
+      return () => clearTimeout(timerId);
+    }, [triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const scrollTrigger = triggers.find((t2) => t2.type === "scroll_depth");
+      if (!scrollTrigger || !scrollTrigger.threshold) return;
+      let ticking = false;
+      const handleScroll = () => {
+        if (ticking) return;
+        if (hasFiredRef.current.has("scroll_depth")) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          const scrollTop = window.scrollY;
+          const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+          const scrollPercent = docHeight > 0 ? scrollTop / docHeight * 100 : 0;
+          if (scrollPercent >= scrollTrigger.threshold) {
+            fireTrigger(scrollTrigger);
+          }
+          ticking = false;
+        });
+      };
+      window.addEventListener("scroll", handleScroll, { passive: true });
+      return () => window.removeEventListener("scroll", handleScroll);
+    }, [triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const productViewTrigger = triggers.find((t2) => t2.type === "product_view");
+      if (!productViewTrigger || !productViewTrigger.threshold) return;
+      if (productViewCount >= productViewTrigger.threshold && !hasFiredRef.current.has("product_view")) {
+        fireTrigger(productViewTrigger);
+      }
+    }, [productViewCount, triggers, fireTrigger]);
+    reactExports.useEffect(() => {
+      const cartTrigger = triggers.find((t2) => t2.type === "cart_abandonment");
+      if (!cartTrigger) return;
+      const handleMouseLeave = (e) => {
+        if (e.clientY <= 0) {
+          if (cartHasItems && !hasFiredRef.current.has("cart_abandonment")) {
+            fireTrigger(cartTrigger);
+          }
+        }
+      };
+      const handleBeforeUnload = () => {
+        if (cartHasItems && !hasFiredRef.current.has("cart_abandonment")) {
+          setCooldown("cart_abandonment", cartTrigger.cooldown);
+          setDismissedTrigger("cart_abandonment");
+          hasFiredRef.current.add("cart_abandonment");
+        }
+      };
+      document.addEventListener("mouseleave", handleMouseLeave);
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => {
+        document.removeEventListener("mouseleave", handleMouseLeave);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
+    }, [cartHasItems, triggers, fireTrigger]);
+    return {
+      activeTrigger,
+      dismissedTriggers,
+      triggerProactive,
+      dismissTrigger,
+      resetTrigger,
+      isActive: activeTrigger !== null
+    };
+  }
+  const DEFAULT_THEME = {
+    primaryColor: "#6366f1",
+    backgroundColor: "#ffffff",
+    textColor: "#1f2937",
+    botBubbleColor: "#f3f4f6",
+    userBubbleColor: "#6366f1",
+    position: "bottom-right",
+    borderRadius: 16,
+    width: 380,
+    height: 600,
+    fontFamily: "Inter, sans-serif",
+    fontSize: 14
+  };
+  const THEME_CONSTRAINTS = {
+    borderRadius: { min: 0, max: 24 },
+    width: { min: 280, max: 600 },
+    height: { min: 400, max: 900 },
+    fontSize: { min: 12, max: 20 }
+  };
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+  function sanitizeColor(color) {
+    if (/^#[0-9a-fA-F]{6}$/.test(color)) {
+      return color;
+    }
+    return "#6366f1";
+  }
+  function sanitizeFontFamily(font) {
+    return font.replace(/[<>"']/g, "");
+  }
+  function validatePosition(position) {
+    if (position === "bottom-left") return "bottom-left";
+    return "bottom-right";
+  }
+  function sanitizeTheme(theme) {
+    const sanitized = {};
+    if (theme.primaryColor !== void 0) sanitized.primaryColor = sanitizeColor(theme.primaryColor);
+    if (theme.backgroundColor !== void 0) sanitized.backgroundColor = sanitizeColor(theme.backgroundColor);
+    if (theme.textColor !== void 0) sanitized.textColor = sanitizeColor(theme.textColor);
+    if (theme.botBubbleColor !== void 0) sanitized.botBubbleColor = sanitizeColor(theme.botBubbleColor);
+    if (theme.userBubbleColor !== void 0) sanitized.userBubbleColor = sanitizeColor(theme.userBubbleColor);
+    if (theme.position !== void 0) sanitized.position = validatePosition(theme.position);
+    if (typeof theme.borderRadius === "number") {
+      sanitized.borderRadius = clamp(
+        theme.borderRadius,
+        THEME_CONSTRAINTS.borderRadius.min,
+        THEME_CONSTRAINTS.borderRadius.max
+      );
+    }
+    if (typeof theme.width === "number") {
+      sanitized.width = clamp(theme.width, THEME_CONSTRAINTS.width.min, THEME_CONSTRAINTS.width.max);
+    }
+    if (typeof theme.height === "number") {
+      sanitized.height = clamp(
+        theme.height,
+        THEME_CONSTRAINTS.height.min,
+        THEME_CONSTRAINTS.height.max
+      );
+    }
+    if (theme.fontFamily !== void 0) sanitized.fontFamily = sanitizeFontFamily(theme.fontFamily);
+    if (typeof theme.fontSize === "number") {
+      sanitized.fontSize = clamp(
+        theme.fontSize,
+        THEME_CONSTRAINTS.fontSize.min,
+        THEME_CONSTRAINTS.fontSize.max
+      );
+    }
+    return sanitized;
+  }
+  function mergeThemes(merchantTheme, embedOverrides) {
+    const sanitizedMerchant = merchantTheme ? sanitizeTheme(merchantTheme) : {};
+    const sanitizedEmbed = embedOverrides ? sanitizeTheme(embedOverrides) : {};
+    return {
+      ...DEFAULT_THEME,
+      ...sanitizedMerchant,
+      ...sanitizedEmbed
+    };
+  }
+  function useThemeDetection() {
+    const [systemTheme, setSystemTheme] = reactExports.useState(() => {
+      if (typeof window === "undefined") {
+        return "light";
+      }
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    });
+    reactExports.useEffect(() => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = (e) => {
+        setSystemTheme(e.matches ? "dark" : "light");
+      };
+      setSystemTheme(mediaQuery.matches ? "dark" : "light");
+      mediaQuery.addEventListener("change", handleChange);
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }, []);
+    return {
+      systemTheme,
+      isDark: systemTheme === "dark"
+    };
+  }
+  function GlassmorphismChatWindow({
+    themeMode,
+    systemTheme,
+    children
+  }) {
+    const activeTheme = themeMode === "auto" ? systemTheme : themeMode;
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `glassmorphism-wrapper ${activeTheme}-mode`, children });
+  }
+  const modeIcons = {
+    light: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        width: "18",
+        height: "18",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": "true",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "5" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "1", x2: "12", y2: "3" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "21", x2: "12", y2: "23" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.22", y1: "4.22", x2: "5.64", y2: "5.64" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18.36", y1: "18.36", x2: "19.78", y2: "19.78" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "1", y1: "12", x2: "3", y2: "12" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "21", y1: "12", x2: "23", y2: "12" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.22", y1: "19.78", x2: "5.64", y2: "18.36" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18.36", y1: "5.64", x2: "19.78", y2: "4.22" })
+        ]
+      }
+    ),
+    dark: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "svg",
+      {
+        width: "18",
+        height: "18",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": "true",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" })
+      }
+    ),
+    auto: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "svg",
+      {
+        width: "18",
+        height: "18",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": "true",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 3v5h-5" })
+        ]
+      }
+    )
+  };
+  const modeDescriptions = {
+    light: "Light theme",
+    dark: "Dark theme",
+    auto: "Auto (follows system)"
+  };
+  function ThemeToggle({ themeMode, onToggle }) {
+    const ariaLabel = `Theme: ${modeDescriptions[themeMode]}. Click to change.`;
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onToggle,
+        className: "shopbot-theme-toggle",
+        "aria-label": ariaLabel,
+        title: modeDescriptions[themeMode],
+        children: modeIcons[themeMode]
+      }
+    );
+  }
+  function getNextThemeMode(current) {
+    const cycle = ["light", "dark", "auto"];
+    const currentIndex = cycle.indexOf(current);
+    const nextIndex = (currentIndex + 1) % cycle.length;
+    return cycle[nextIndex];
+  }
+  const positioningStyles = `
+.draggable-chat-window {
+  position: absolute;
+  transition: left 200ms ease-out, top 200ms ease-out;
+  will-change: left, top;
+}
+
+.draggable-chat-window.dragging {
+  transition: none;
+  user-select: none;
+}
+
+.chat-header-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.chat-header-drag-handle:active {
+  cursor: grabbing;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .draggable-chat-window {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+@media (max-width: 767px) {
+  .draggable-chat-window {
+    position: fixed;
+    left: 5% !important;
+    top: 15% !important;
+    width: 90%;
+    height: 80%;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draggable-chat-window {
+    transition: none !important;
+  }
+}
+`;
   function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
     const handleCardClick = () => {
       if (onClick && product.available) {
@@ -18986,15 +17508,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     const isDarkMode = theme.mode === "dark";
     const getButtonStyle = (isSelected) => {
-      if (isSelected) {
-        return {
-          backgroundColor: theme.primaryColor,
-          borderColor: theme.primaryColor
-        };
-      }
+      const bgColor = isSelected ? theme.primaryColor : isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)";
+      const border = isSelected ? `1px solid ${theme.primaryColor}` : isDarkMode ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)";
       return {
-        backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)",
-        borderColor: isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"
+        backgroundColor: bgColor,
+        border
       };
     };
     const getIconColor = (isSelected) => {
@@ -19008,39 +17526,108 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         role: "group",
         "aria-label": "Rate this response",
         className: `feedback-rating${isDarkMode ? " feedback-rating--dark" : ""}`,
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px"
+        },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
+            "div",
             {
-              "data-testid": "feedback-up",
-              type: "button",
-              role: "button",
-              "aria-label": "Rate as helpful",
-              "aria-pressed": rating === "positive",
-              disabled: isSubmitting,
-              onClick: () => handleRatingClick("positive"),
-              onKeyDown: (e) => handleKeyDown(e, "positive"),
-              className: `feedback-button${rating === "positive" ? " feedback-button--selected" : ""}`,
-              style: getButtonStyle(rating === "positive"),
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, { className: "feedback-button-icon", color: getIconColor(rating === "positive") })
+              style: {
+                fontSize: "12px",
+                fontWeight: 500,
+                color: theme.textColor,
+                opacity: 0.85,
+                textAlign: "center",
+                marginBottom: "4px"
+              },
+              children: "Was this helpful?"
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              "data-testid": "feedback-down",
-              type: "button",
-              role: "button",
-              "aria-label": "Rate as not helpful",
-              "aria-pressed": rating === "negative",
-              disabled: isSubmitting,
-              onClick: () => handleRatingClick("negative"),
-              onKeyDown: (e) => handleKeyDown(e, "negative"),
-              className: `feedback-button${rating === "negative" ? " feedback-button--selected" : ""}`,
-              style: getButtonStyle(rating === "negative"),
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, { className: "feedback-button-icon", color: getIconColor(rating === "negative") })
-            }
-          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "8px", alignItems: "center" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                "data-testid": "feedback-up",
+                type: "button",
+                role: "button",
+                "aria-label": "Rate as helpful",
+                "aria-pressed": rating === "positive",
+                disabled: isSubmitting,
+                onClick: () => handleRatingClick("positive"),
+                onKeyDown: (e) => handleKeyDown(e, "positive"),
+                className: `feedback-button${rating === "positive" ? " feedback-button--selected" : ""}`,
+                style: {
+                  ...getButtonStyle(rating === "positive"),
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid",
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  opacity: isSubmitting ? 0.5 : 1,
+                  transition: "all 0.2s ease"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsUpIcon, { className: "feedback-button-icon", color: getIconColor(rating === "positive") }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      style: {
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        color: getIconColor(rating === "positive")
+                      },
+                      children: "Yes"
+                    }
+                  )
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                "data-testid": "feedback-down",
+                type: "button",
+                role: "button",
+                "aria-label": "Rate as not helpful",
+                "aria-pressed": rating === "negative",
+                disabled: isSubmitting,
+                onClick: () => handleRatingClick("negative"),
+                onKeyDown: (e) => handleKeyDown(e, "negative"),
+                className: `feedback-button${rating === "negative" ? " feedback-button--selected" : ""}`,
+                style: {
+                  ...getButtonStyle(rating === "negative"),
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid",
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  opacity: isSubmitting ? 0.5 : 1,
+                  transition: "all 0.2s ease"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(ThumbsDownIcon, { className: "feedback-button-icon", color: getIconColor(rating === "negative") }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      style: {
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        color: getIconColor(rating === "negative")
+                      },
+                      children: "No"
+                    }
+                  )
+                ]
+              }
+            )
+          ] }),
           showCommentForm && /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
@@ -19640,7 +18227,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "div",
         {
-          "data-testid": "message-bubble",
+          "data-testid": message.isStreaming ? "streaming-message" : "message-bubble",
+          "data-streaming": message.isStreaming ? "true" : void 0,
           className: `message-bubble message-bubble--${position} message-bubble--${isUser ? "user" : "bot"}`,
           style: {
             padding: "10px 14px",
@@ -19651,7 +18239,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             animationName: shouldAnimate ? "message-send" : "none",
             animationDuration: shouldAnimate ? "200ms" : "0ms",
             animationTimingFunction: "ease-out",
-            animationFillMode: "forwards"
+            animationFillMode: "forwards",
+            boxShadow: message.isStreaming ? `inset 0 0 0 1px ${theme.primaryColor}40` : void 0
           },
           children: [
             displayName && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -19670,6 +18259,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "div",
               {
+                "data-testid": isUser ? "user-message-content" : "bot-message-content",
                 className: "message-bubble__content",
                 style: { whiteSpace: "pre-wrap", wordBreak: "break-word" },
                 children: renderMessageContent(message.content)
@@ -21857,6 +20447,74 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     );
   }
+  function StreamingIndicator({ isVisible, theme }) {
+    if (!isVisible) return null;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        "data-testid": "streaming-indicator",
+        role: "status",
+        "aria-live": "polite",
+        "aria-label": "Streaming response",
+        style: {
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "4px 8px",
+          marginLeft: 12,
+          marginBottom: 4
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              style: {
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                backgroundColor: theme.primaryColor,
+                animationName: "streaming-pulse",
+                animationDuration: "1s",
+                animationTimingFunction: "ease-in-out",
+                animationIterationCount: "infinite"
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              style: {
+                fontSize: 11,
+                color: theme.textColor,
+                opacity: 0.7
+              },
+              children: "streaming..."
+            }
+          )
+        ]
+      }
+    );
+  }
+  function StreamErrorIndicator({ error }) {
+    if (!error) return null;
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        "data-testid": "stream-error-indicator",
+        role: "alert",
+        style: {
+          padding: "8px 12px",
+          margin: "4px 12px",
+          borderRadius: 8,
+          backgroundColor: "#fef2f2",
+          border: "1px solid #fecaca",
+          color: "#991b1b",
+          fontSize: 13
+        },
+        children: "Something went wrong with the streaming response. Please try again."
+      }
+    );
+  }
   function ChatWindow({
     isOpen,
     onClose,
@@ -21889,7 +20547,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     onThemeToggle,
     faqQuickButtons,
     onFaqButtonClick,
-    onFeedbackSubmit
+    onFeedbackSubmit,
+    isStreaming = false,
+    streamingError = null
   }) {
     var _a2, _b, _c, _d;
     const [inputValue, setInputValue] = reactExports.useState("");
@@ -21901,6 +20561,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     const [activeSuggestions, setActiveSuggestions] = reactExports.useState(null);
     const inputRef = reactExports.useRef(null);
     const menuRef = reactExports.useRef(null);
+    const quickReplyRef = reactExports.useRef(null);
+    const suggestedReplyRef = reactExports.useRef(null);
+    const reducedMotion = useReducedMotion();
     const handleInputChange = (value) => {
       setInputValue(value);
       if (value.length > 0 && activeSuggestions) {
@@ -22003,6 +20666,28 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         setShowFaqButtons(false);
       }
     }, [messages, showFaqButtons]);
+    reactExports.useEffect(() => {
+      if (activeQuickReplies && activeQuickReplies.length > 0 && quickReplyRef.current) {
+        setTimeout(() => {
+          var _a3;
+          (_a3 = quickReplyRef.current) == null ? void 0 : _a3.scrollIntoView({
+            behavior: reducedMotion ? "auto" : "smooth",
+            block: "end"
+          });
+        }, 100);
+      }
+    }, [activeQuickReplies, reducedMotion]);
+    reactExports.useEffect(() => {
+      if (activeSuggestions && activeSuggestions.length > 0 && suggestedReplyRef.current) {
+        setTimeout(() => {
+          var _a3;
+          (_a3 = suggestedReplyRef.current) == null ? void 0 : _a3.scrollIntoView({
+            behavior: reducedMotion ? "auto" : "smooth",
+            block: "end"
+          });
+        }, 100);
+      }
+    }, [activeSuggestions, reducedMotion]);
     if (!isOpen) return null;
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     const isDefaultPosition = isMobile || !position || position.x === 0 && position.y === 0;
@@ -22307,7 +20992,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 onFeedbackSubmit
               }
             ),
-            activeSuggestions && activeSuggestions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            activeSuggestions && activeSuggestions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: suggestedReplyRef, style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
               SuggestedReplies,
               {
                 suggestions: activeSuggestions,
@@ -22316,7 +21001,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 disabled: isTyping
               }
             ) }),
-            activeQuickReplies && activeQuickReplies.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            activeQuickReplies && activeQuickReplies.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: quickReplyRef, style: { flexShrink: 0, padding: "0 12px 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
               QuickReplyButtons,
               {
                 quickReplies: activeQuickReplies,
@@ -22356,6 +21041,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 theme
               }
             ) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamingIndicator, { isVisible: isStreaming, theme }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamErrorIndicator, { error: streamingError }),
             (errors.length > 0 || error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
@@ -22437,6 +21124,1867 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const ChatWindow$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: ChatWindow
+  }, Symbol.toStringTag, { value: "Module" }));
+  function WidgetInner({ theme }) {
+    var _a2, _b, _c, _d, _e;
+    const {
+      state,
+      dispatch,
+      toggleChat,
+      initWidget: initWidget2,
+      sendMessage,
+      merchantId,
+      addToCart: addToCart2,
+      removeFromCart: removeFromCart2,
+      checkout,
+      addingProductId,
+      removingItemId,
+      isCheckingOut,
+      dismissError,
+      retryLastAction,
+      recordConsent,
+      clearHistory,
+      toggleMinimized,
+      setThemeMode
+    } = useWidgetContext();
+    const { systemTheme } = useThemeDetection();
+    const merchantTheme = (_a2 = state.config) == null ? void 0 : _a2.theme;
+    const mergedTheme = reactExports.useMemo(
+      () => mergeThemes(merchantTheme, theme),
+      [merchantTheme, theme]
+    );
+    const [prePopulatedMessage, setPrePopulatedMessage] = reactExports.useState(null);
+    const productViewCount = reactExports.useMemo(() => {
+      const productIds = /* @__PURE__ */ new Set();
+      state.messages.forEach((m2) => {
+        var _a3;
+        (_a3 = m2.products) == null ? void 0 : _a3.forEach((p2) => {
+          const id2 = p2.id || p2.variantId;
+          if (id2) productIds.add(id2);
+        });
+      });
+      return productIds.size;
+    }, [state.messages]);
+    const proactiveConfig = ((_b = state.config) == null ? void 0 : _b.proactiveEngagementConfig) ?? DEFAULT_PROACTIVE_CONFIG;
+    const cartHasItems = reactExports.useMemo(() => {
+      return state.messages.some((m2) => {
+        var _a3, _b2;
+        return (((_b2 = (_a3 = m2.cart) == null ? void 0 : _a3.items) == null ? void 0 : _b2.length) ?? 0) > 0;
+      });
+    }, [state.messages]);
+    const {
+      activeTrigger,
+      dismissTrigger: dismissProactive,
+      isActive: isProactiveActive
+    } = useProactiveTriggers({
+      config: proactiveConfig,
+      productViewCount,
+      cartHasItems
+    });
+    const handleProactiveAction = reactExports.useCallback(
+      (action) => {
+        if (action.prePopulatedMessage) {
+          setPrePopulatedMessage(action.prePopulatedMessage);
+        }
+        if (!state.isOpen) {
+          toggleChat();
+        }
+        dismissProactive();
+      },
+      [state.isOpen, toggleChat, dismissProactive]
+    );
+    reactExports.useEffect(() => {
+      if (prePopulatedMessage && state.isOpen) {
+        const timer = setTimeout(() => {
+          setPrePopulatedMessage(null);
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }, [prePopulatedMessage, state.isOpen]);
+    const handleThemeToggle = reactExports.useCallback(() => {
+      const nextMode = getNextThemeMode(state.themeMode);
+      setThemeMode(nextMode);
+    }, [state.themeMode, setThemeMode]);
+    const handleFeedbackSubmit = reactExports.useCallback(
+      async (messageId, rating, comment) => {
+        var _a3;
+        const sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!sessionId) {
+          console.error("[Widget] Cannot submit feedback: no session ID");
+          return;
+        }
+        try {
+          await widgetClient.submitFeedback(messageId, rating, sessionId, merchantId, comment);
+          dispatch({ type: "UPDATE_MESSAGE_FEEDBACK", payload: { messageId, rating } });
+        } catch (error) {
+          console.error("[Widget] Failed to submit feedback:", error);
+          throw error;
+        }
+      },
+      [(_c = state.session) == null ? void 0 : _c.sessionId, merchantId, dispatch]
+    );
+    const handleFaqButtonClick = reactExports.useCallback(
+      async (button) => {
+        var _a3;
+        const sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!sessionId) {
+          console.error("[Widget] Cannot track FAQ click: no session ID");
+          await sendMessage(button.question);
+          return;
+        }
+        try {
+          widgetClient.trackFaqClick(button.id, sessionId, merchantId).catch((error) => {
+            console.error("[Widget] Failed to track FAQ click:", error);
+          });
+        } catch (error) {
+          console.error("[Widget] FAQ click tracking error:", error);
+        }
+        await sendMessage(button.question);
+      },
+      [(_d = state.session) == null ? void 0 : _d.sessionId, merchantId, sendMessage]
+    );
+    const prefetchChatWindow = reactExports.useCallback(() => {
+      Promise.resolve().then(() => ChatWindow$1);
+    }, []);
+    reactExports.useEffect(() => {
+      console.log("[Widget.tsx] useEffect triggered, calling initWidget for merchantId:", merchantId);
+      initWidget2(merchantId);
+    }, [merchantId]);
+    const handleBubbleClick = reactExports.useCallback(() => {
+      if (state.isMinimized) {
+        toggleMinimized();
+      } else {
+        toggleChat();
+      }
+    }, [state.isMinimized, toggleMinimized, toggleChat]);
+    console.log("[Widget] Rendering WidgetInner:", {
+      merchantId,
+      isOpen: state.isOpen,
+      isMinimized: state.isMinimized,
+      isLoading: state.isLoading,
+      position: state.position,
+      themePosition: mergedTheme.position,
+      viewport: `${window.innerWidth}x${window.innerHeight}`
+    });
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
+        /* CSS ISOLATION: Protect widget from parent page styles */
+        .shopbot-widget-root {
+          font-family: var(--widget-font, Inter, sans-serif) !important;
+          font-size: var(--widget-font-size, 14px) !important;
+          color: var(--widget-text, #1f2937) !important;
+          line-height: 1.5 !important;
+          text-shadow: none !important;
+        }
+
+        /* Reset common inherited properties that cause conflicts */
+        .shopbot-widget-root *,
+        .shopbot-widget-root *::before,
+        .shopbot-widget-root *::after {
+          box-sizing: border-box !important;
+        }
+
+        /* Quick Reply Button Contrast Fix */
+        .shopbot-widget-root .quick-reply-button {
+          color: var(--widget-primary, #6366f1) !important;
+          border-color: var(--widget-primary, #6366f1) !important;
+          background-color: transparent !important;
+          font-weight: 500 !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .shopbot-widget-root .quick-reply-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1) !important;
+        }
+
+        /* Typing Indicator Visibility Fix */
+        .shopbot-widget-root .typing-indicator {
+          color: var(--widget-text, #1f2937) !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .shopbot-widget-root .typing-dot {
+          background-color: var(--widget-primary, #6366f1) !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+
+        /* FAQ Quick Buttons Visibility Fix */
+        .shopbot-widget-root .faq-quick-button {
+          color: var(--widget-primary, #6366f1) !important;
+          border-color: var(--widget-primary, #6366f1) !important;
+          background-color: transparent !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .shopbot-widget-root .faq-quick-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1) !important;
+        }
+
+        /* Message visibility */
+        .shopbot-widget-root .message-bubble {
+          color: var(--widget-text, #1f2937) !important;
+          opacity: 1 !important;
+        }
+        .shopbot-widget-root .message-bubble--bot {
+          background-color: var(--widget-bot-bubble, #f3f4f6) !important;
+        }
+        .shopbot-widget-root .message-bubble--user {
+          background-color: var(--widget-user-bubble, #6366f1) !important;
+          color: white !important;
+        }
+
+        /* Input visibility */
+        .shopbot-widget-root input,
+        .shopbot-widget-root textarea {
+          color: var(--widget-text, #1f2937) !important;
+          background-color: white !important;
+          opacity: 1 !important;
+        }
+        .shopbot-widget-root input::placeholder,
+        .shopbot-widget-root textarea::placeholder {
+          color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Button visibility */
+        .shopbot-widget-root button {
+          color: inherit !important;
+        }
+
+        .shopbot-widget-root * {
+          box-sizing: border-box;
+        }
+        .shopbot-chat-bubble:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+        }
+        .shopbot-chat-bubble:active {
+          transform: scale(0.95);
+        }
+        .shopbot-chat-window {
+          animation: shopbot-slideUp 0.2s ease-out;
+        }
+        .shopbot-chat-window.dragging {
+          animation: none;
+        }
+        @keyframes shopbot-slideUp {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes shopbot-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .shopbot-chat-bubble.has-unread {
+          animation: shopbot-pulse 2s ease-in-out infinite;
+        }
+        .chat-header-drag-handle {
+          cursor: grab;
+        }
+        .chat-header-drag-handle:active {
+          cursor: grabbing;
+        }
+        
+        .shopbot-chat-window.is-default-position {
+          position: fixed !important;
+          bottom: 90px !important;
+          right: ${mergedTheme.position === "bottom-left" ? "auto" : "20px"} !important;
+          left: ${mergedTheme.position === "bottom-left" ? "20px" : "auto"} !important;
+          top: auto !important;
+          transform: none !important;
+        }
+
+        @media (max-width: 767px) {
+          .shopbot-chat-window.is-default-position {
+            bottom: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0 !important;
+          }
+        }
+        
+        /* Smart Positioning Styles */
+        ${positioningStyles}
+        
+        /* Glassmorphism Styles */
+        .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+          background: rgba(15, 23, 42, 0.8) !important;
+          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .chat-header {
+          background: rgba(15, 23, 42, 0.6) !important;
+          -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+        }
+        .glassmorphism-wrapper.dark-mode .message-timestamp {
+          color: #94a3b8 !important;
+        }
+        .glassmorphism-wrapper.light-mode .shopbot-chat-window {
+          background: rgba(255, 255, 255, 0.7) !important;
+          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #1e293b !important;
+        }
+        .glassmorphism-wrapper.light-mode .chat-header {
+          background: rgba(255, 255, 255, 0.5) !important;
+          -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+        }
+        .glassmorphism-wrapper.light-mode .message-timestamp {
+          color: #64748b !important;
+        }
+        .glassmorphism-wrapper .shopbot-chat-window,
+        .glassmorphism-wrapper .shopbot-chat-window * {
+          transition: background 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .glassmorphism-wrapper .shopbot-chat-window,
+          .glassmorphism-wrapper .shopbot-chat-window * {
+            transition: none !important;
+            animation: none !important;
+          }
+        }
+        @supports not (backdrop-filter: blur(1px)) {
+          .glassmorphism-wrapper.dark-mode .shopbot-chat-window {
+            background: rgba(15, 23, 42, 0.95);
+          }
+          .glassmorphism-wrapper.light-mode .shopbot-chat-window {
+            background: rgba(255, 255, 255, 0.95);
+          }
+        }
+        .shopbot-theme-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          color: white;
+          transition: background 0.15s ease;
+          padding: 0;
+        }
+        .shopbot-theme-toggle:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+        .shopbot-theme-toggle:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, 0.5);
+          outline-offset: 2px;
+        }
+        .shopbot-theme-toggle svg {
+          width: 18px;
+          height: 18px;
+        }
+        
+        /* Product Carousel Styles */
+        .product-carousel {
+          display: flex;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          gap: 12px;
+          padding: 4px 0;
+          margin: 0 -4px;
+        }
+        .product-carousel::-webkit-scrollbar {
+          display: none;
+        }
+        .carousel-card {
+          scroll-snap-align: start;
+          flex-shrink: 0;
+          width: 140px;
+          border-radius: 8px;
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+          transition: transform 200ms ease, box-shadow 200ms ease;
+          cursor: pointer;
+        }
+        .carousel-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        .carousel-card:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .carousel-card-image {
+          position: relative;
+          width: 100%;
+          padding-bottom: 100%;
+          background: #f1f5f9;
+          overflow: hidden;
+        }
+        .carousel-card-image img {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: opacity 200ms ease;
+        }
+        .carousel-card-image img.loading {
+          opacity: 0;
+        }
+        .carousel-card-skeleton {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: skeleton-shimmer 1.5s infinite;
+        }
+        @keyframes skeleton-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .carousel-card-content {
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .carousel-card-title {
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.3;
+          color: #1e293b;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin: 0;
+          min-height: 34px;
+        }
+        .carousel-card-price {
+          font-size: 14px;
+          font-weight: 600;
+          color: #6366f1;
+          margin: 0;
+        }
+        .carousel-card-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 6px 8px;
+          margin-top: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          color: white;
+          background: #6366f1;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 150ms ease, opacity 150ms ease;
+        }
+        .carousel-card-button:hover {
+          background: #4f46e5;
+        }
+        .carousel-card-button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        .carousel-card-button:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+        }
+        .carousel-arrows {
+          position: absolute;
+          top: 50%;
+          left: 0;
+          right: 0;
+          transform: translateY(-50%);
+          display: flex;
+          justify-content: space-between;
+          pointer-events: none;
+          padding: 0 4px;
+          opacity: 0;
+          transition: opacity 200ms ease;
+        }
+        .product-carousel-wrapper:hover .carousel-arrows {
+          opacity: 1;
+        }
+        .carousel-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          transition: background 150ms ease, box-shadow 150ms ease;
+          color: #1e293b;
+        }
+        .carousel-arrow:hover {
+          background: #f8fafc;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .carousel-arrow:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+        .carousel-arrow:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+        }
+        .carousel-dots {
+          display: flex;
+          justify-content: center;
+          gap: 6px;
+          padding: 8px 0 4px;
+        }
+        .carousel-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.2);
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          transition: background 150ms ease, transform 150ms ease;
+        }
+        .carousel-dot:hover {
+          background: rgba(0, 0, 0, 0.4);
+        }
+        .carousel-dot.active {
+          width: 10px;
+          height: 10px;
+          background: #6366f1;
+        }
+        .carousel-dot:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+        }
+        .product-carousel-wrapper {
+          position: relative;
+          width: 100%;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .carousel-card:hover {
+            transform: none;
+          }
+          .product-carousel {
+            scroll-behavior: auto;
+          }
+          .carousel-card-skeleton {
+            animation: none;
+          }
+          .carousel-card,
+          .carousel-arrow,
+          .carousel-dot,
+          .carousel-card-image img,
+          .carousel-arrows {
+            transition: none;
+          }
+        }
+        
+        /* Quick Reply Buttons Styles */
+        .quick-reply-buttons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 8px 16px;
+        }
+        .quick-reply-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-height: 44px;
+          min-width: 44px;
+          padding: 10px 16px;
+          border: 1px solid var(--widget-primary, #6366f1);
+          border-radius: 20px;
+          background-color: transparent;
+          color: var(--widget-primary, #6366f1);
+          font-weight: 500;
+          font-size: 14px;
+          cursor: pointer;
+          transition: transform 100ms ease, background-color 150ms ease, opacity 150ms ease, border-color 150ms ease;
+          white-space: nowrap;
+        }
+        .quick-reply-button:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        .quick-reply-button:active:not(:disabled) {
+          transform: scale(0.95);
+          background-color: rgba(99, 102, 241, 0.15);
+        }
+        .quick-reply-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .quick-reply-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        @media (max-width: 479px) {
+          .quick-reply-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+          .quick-reply-button {
+            width: 100%;
+          }
+        }
+        @media (min-width: 480px) {
+          .quick-reply-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .quick-reply-button {
+            transition: none;
+          }
+          .quick-reply-button:active:not(:disabled) {
+            transform: none;
+          }
+        }
+        
+        /* Voice Input Styles */
+        .voice-input-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .voice-input-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          border: none;
+          border-radius: 50%;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+          cursor: pointer;
+          transition: background-color 150ms ease, opacity 150ms ease;
+        }
+        .voice-input-button:hover:not(:disabled) {
+          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+        }
+        .voice-input-button:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .voice-input-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .voice-input-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .voice-input-button.listening {
+          background-color: #ef4444;
+          animation: voice-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes voice-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+          50% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        }
+        .voice-input-button.processing {
+          background-color: var(--widget-primary, #6366f1);
+        }
+        .voice-input-button.error {
+          background-color: #ef4444;
+        }
+        .waveform-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          height: 24px;
+        }
+        .waveform-bar {
+          width: 3px;
+          height: 24px;
+          background-color: white;
+          border-radius: 2px;
+          animation: waveform-pulse 1s ease-in-out infinite;
+        }
+        .waveform-bar:nth-child(1) { animation-delay: 0s; }
+        .waveform-bar:nth-child(2) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.15s; }
+        .waveform-bar:nth-child(5) { animation-delay: 0s; }
+        @keyframes waveform-pulse {
+          0%, 100% { transform: scaleY(0.5); }
+          50% { transform: scaleY(1); }
+        }
+        .voice-interim-transcript {
+          font-style: italic;
+          color: #6b7280;
+          font-size: 14px;
+          padding: 4px 12px;
+          min-height: 24px;
+        }
+        .voice-error-message {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          background-color: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+          color: #dc2626;
+          font-size: 13px;
+        }
+        .voice-cancel-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border: none;
+          border-radius: 50%;
+          background-color: #f3f4f6;
+          color: #6b7280;
+          cursor: pointer;
+          transition: background-color 150ms ease;
+        }
+        .voice-cancel-button:hover {
+          background-color: #e5e7eb;
+        }
+        .voice-cancel-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .voice-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: voice-spin 0.8s linear infinite;
+        }
+        @keyframes voice-spin {
+          to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .voice-input-button,
+          .voice-cancel-button,
+          .waveform-bar,
+          .voice-spinner {
+            animation: none !important;
+            transition: none !important;
+          }
+          .voice-input-button:active:not(:disabled) {
+            transform: none;
+          }
+          .voice-input-button.listening {
+            animation: none;
+          }
+          .waveform-bar {
+            transform: scaleY(0.75);
+          }
+        }
+        
+        /* Proactive Modal Styles */
+        .proactive-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2147483646;
+          animation: proactive-fade-in 0.2s ease-out;
+        }
+        .proactive-modal-container {
+          background-color: var(--widget-bg, #ffffff);
+          border-radius: var(--widget-radius, 16px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+          max-width: 400px;
+          width: 90%;
+          padding: 24px;
+          position: relative;
+          color: var(--widget-text, #1f2937);
+          animation: proactive-scale-in 0.2s ease-out;
+        }
+        .proactive-modal-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 16px;
+          border-radius: 50%;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+        }
+        @keyframes proactive-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes proactive-scale-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .proactive-modal-close {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          min-height: 32px;
+          border: none;
+          border-radius: 50%;
+          background-color: transparent;
+          color: var(--widget-text, #6b7280);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 150ms ease;
+        }
+        .proactive-modal-close:hover {
+          background-color: rgba(0, 0, 0, 0.05);
+        }
+        .proactive-modal-close:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .proactive-modal-title {
+          font-size: 18px;
+          font-weight: 600;
+          margin: 0 0 12px 0;
+          padding-right: 32px;
+          color: inherit;
+        }
+        .proactive-modal-message {
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0 0 20px 0;
+          color: inherit;
+        }
+        .proactive-modal-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .proactive-action-button {
+          flex: 1;
+          min-width: 100px;
+          min-height: 44px;
+          padding: 12px 16px;
+          border: 1px solid var(--widget-primary, #6366f1);
+          border-radius: 8px;
+          background-color: var(--widget-primary, #6366f1);
+          color: white;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 150ms ease, transform 100ms ease;
+        }
+        .proactive-action-button:hover:not(:disabled) {
+          background-color: color-mix(in srgb, var(--widget-primary, #6366f1) 85%, black);
+        }
+        .proactive-action-button:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .proactive-action-button:focus-visible {
+          outline: 2px solid var(--widget-primary, #6366f1);
+          outline-offset: 2px;
+        }
+        .proactive-action-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .proactive-action-button.proactive-action-secondary {
+          background-color: transparent;
+          color: var(--widget-primary, #6366f1);
+        }
+        .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        @media (max-width: 479px) {
+          .proactive-modal-container {
+            max-width: 90%;
+            padding: 20px;
+            margin: 16px;
+          }
+          .proactive-modal-actions {
+            flex-direction: column;
+          }
+          .proactive-action-button {
+            width: 100%;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .proactive-modal-overlay,
+          .proactive-modal-container {
+            animation: none;
+          }
+          .proactive-modal-close,
+          .proactive-action-button {
+            transition: none;
+          }
+          .proactive-action-button:active:not(:disabled) {
+            transform: none;
+          }
+        }
+        
+        /* Message Grouping Styles */
+        /* NOTE: These inline styles are the primary implementation. External CSS in
+         * message-grouping.css + injectMessageGroupingStyles() are prepared for future
+         * Shadow DOM support but not currently used (widget renders to regular DOM). */
+        .message-group {
+          margin-bottom: 12px;
+        }
+        .message-group__row {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+        }
+        .message-group__row--user {
+          flex-direction: row-reverse;
+        }
+        .message-group__avatar {
+          flex-shrink: 0;
+        }
+        .message-group__content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          max-width: 75%;
+        }
+        .message-bubble {
+          padding: 10px 14px;
+          word-break: break-word;
+          animation: message-fade-in 0.2s ease-out;
+        }
+        .message-bubble--first.message-bubble--bot {
+          border-radius: 16px 16px 16px 4px;
+        }
+        .message-bubble--first.message-bubble--user {
+          border-radius: 16px 16px 4px 16px;
+        }
+        .message-bubble--middle.message-bubble--bot,
+        .message-bubble--middle.message-bubble--user {
+          border-radius: 4px;
+        }
+        .message-bubble--last.message-bubble--bot {
+          border-radius: 4px 4px 16px 16px;
+        }
+        .message-bubble--last.message-bubble--user {
+          border-radius: 16px 4px 4px 16px;
+        }
+        .message-bubble--single.message-bubble--bot,
+        .message-bubble--single.message-bubble--user {
+          border-radius: 16px;
+        }
+        .message-bubble--system {
+          background-color: transparent;
+          color: var(--widget-text);
+          opacity: 0.7;
+          font-size: 12px;
+          text-align: center;
+          padding: 4px 8px;
+        }
+        .message-bubble__sender {
+          font-size: 11px;
+          font-weight: 600;
+          margin-bottom: 4px;
+          opacity: 0.8;
+        }
+        .message-bubble__content {
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .message-bubble__timestamp {
+          font-size: 10px;
+          color: var(--widget-text);
+          opacity: 0.5;
+          margin-top: 2px;
+        }
+        .message-bubble__timestamp--user {
+          text-align: right;
+          margin-right: 4px;
+        }
+        .message-bubble__timestamp--bot {
+          text-align: left;
+          margin-left: 4px;
+        }
+        .message-bubble__rich-content {
+          max-width: 100%;
+          margin-top: 8px;
+        }
+        @keyframes message-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        /* Animation Keyframes for Microinteractions */
+        @keyframes typing-dot-bounce {
+          0%, 60%, 100% {
+            transform: translateY(0);
+          }
+          30% {
+            transform: translateY(-8px);
+          }
+        }
+        
+        @keyframes message-send {
+          0% {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        @keyframes ripple {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(4);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes checkmark-draw {
+          0% {
+            stroke-dashoffset: 24;
+          }
+          100% {
+            stroke-dashoffset: 0;
+          }
+        }
+        
+        @keyframes badge-pulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+        
+        @keyframes streaming-pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.3;
+          }
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+          .message-bubble {
+            animation: none;
+          }
+          .typing-dot,
+          .bubble-badge,
+          .ripple-effect {
+            animation: none !important;
+          }
+        }
+        
+        /* Feedback Rating Styles */
+        .feedback-rating {
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 0 12px;
+          flex-shrink: 0;
+        }
+
+        .feedback-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
+          padding: 10px;
+          border: 1.5px solid rgba(0, 0, 0, 0.15);
+          border-radius: 22px;
+          background-color: rgba(0, 0, 0, 0.03);
+          color: #4b5563;
+          cursor: pointer;
+          transition: all 150ms ease;
+        }
+
+        .feedback-button-icon {
+          width: 22px;
+          height: 22px;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          transition: fill 150ms ease, stroke 150ms ease;
+        }
+
+        .feedback-button--selected .feedback-button-icon {
+          fill: currentColor;
+        }
+
+        .feedback-button:hover {
+          background-color: rgba(0, 0, 0, 0.08);
+          border-color: rgba(0, 0, 0, 0.25);
+          transform: scale(1.05);
+        }
+
+        .feedback-button:active {
+          transform: scale(0.95);
+        }
+
+        .feedback-button:focus {
+          outline: none;
+          box-shadow: 0 0 0 3px var(--widget-primary, #4f46e5);
+        }
+
+        .feedback-button--selected {
+          background-color: var(--widget-primary, #4f46e5);
+          color: #ffffff;
+          border-color: var(--widget-primary, #4f46e5);
+        }
+
+        .feedback-button--selected:hover {
+          background-color: var(--widget-primary, #4f46e5);
+          opacity: 0.9;
+        }
+
+        .feedback-button:disabled {
+          cursor: wait;
+          opacity: 0.5;
+        }
+
+        .feedback-rating--dark .feedback-button {
+          color: rgba(255, 255, 255, 0.85);
+          border-color: rgba(255, 255, 255, 0.2);
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .feedback-rating--dark .feedback-button:hover {
+          background-color: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.35);
+        }
+
+        .feedback-comment-form {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 8px;
+          background-color: rgba(0, 0, 0, 0.02);
+          border-radius: 12px;
+          flex: 1;
+          max-width: 300px;
+        }
+
+        .feedback-rating--dark .feedback-comment-form {
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .feedback-comment-label {
+          font-size: 12px;
+          color: var(--widget-text, #1f2937);
+        }
+
+        .feedback-comment-textarea {
+          width: 100%;
+          padding: 8px;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+          background-color: white;
+          color: var(--widget-text, #1f2937);
+          font-family: var(--widget-font, inherit);
+          font-size: 14px;
+          resize: none;
+        }
+
+        .feedback-rating--dark .feedback-comment-textarea {
+          border-color: rgba(255, 255, 255, 0.2);
+          background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .feedback-comment-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+
+        .feedback-comment-skip {
+          padding: 6px 12px;
+          border: none;
+          border-radius: 6px;
+          background-color: transparent;
+          color: var(--widget-text, #1f2937);
+          font-size: 14px;
+          cursor: pointer;
+          opacity: 0.7;
+        }
+
+        .feedback-comment-skip:hover {
+          opacity: 1;
+        }
+
+        .feedback-comment-submit {
+          padding: 6px 12px;
+          border: none;
+          border-radius: 6px;
+          background-color: var(--widget-primary, #4f46e5);
+          color: white;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        .feedback-comment-submit:hover {
+          opacity: 0.9;
+        }
+
+        .feedback-comment-count {
+          font-size: 11px;
+          color: var(--widget-text, #1f2937);
+          opacity: 0.6;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .feedback-button {
+            transition: none;
+          }
+        }
+      ` }),
+      state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+        position: "fixed",
+        bottom: 20,
+        right: mergedTheme.position === "bottom-left" ? void 0 : 20,
+        left: mergedTheme.position === "bottom-left" ? 20 : void 0,
+        width: 60,
+        height: 60,
+        borderRadius: "50%",
+        backgroundColor: mergedTheme.primaryColor,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2147483647
+      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ChatBubble,
+          {
+            isOpen: state.isOpen && !state.isMinimized,
+            onClick: handleBubbleClick,
+            theme: mergedTheme,
+            onPrefetch: prefetchChatWindow,
+            unreadCount: state.unreadCount
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ProactiveModal,
+          {
+            trigger: activeTrigger,
+            isOpen: isProactiveActive && !state.isOpen,
+            onAction: handleProactiveAction,
+            onDismiss: dismissProactive,
+            theme: {
+              primaryColor: mergedTheme.primaryColor,
+              backgroundColor: mergedTheme.backgroundColor,
+              textColor: mergedTheme.textColor
+            }
+          }
+        ),
+        state.isOpen && !state.isMinimized && /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "fixed", bottom: 100, right: 20, zIndex: 2147483647 }, children: "Failed to load chat." }), children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          GlassmorphismChatWindow,
+          {
+            themeMode: state.themeMode,
+            systemTheme,
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              ChatWindow,
+              {
+                isOpen: state.isOpen && !state.isMinimized,
+                onClose: toggleChat,
+                theme: mergedTheme,
+                config: state.config,
+                messages: state.messages,
+                isTyping: state.isTyping,
+                onSendMessage: sendMessage,
+                error: state.error,
+                errors: state.errors,
+                onDismissError: dismissError,
+                onRetryError: retryLastAction,
+                onAddToCart: addToCart2,
+                onRemoveFromCart: removeFromCart2,
+                onCheckout: checkout,
+                addingProductId,
+                removingItemId,
+                isCheckingOut,
+                sessionId: (_e = state.session) == null ? void 0 : _e.sessionId,
+                connectionStatus: state.connectionStatus,
+                consentState: state.consentState,
+                onRecordConsent: recordConsent,
+                onClearHistory: clearHistory,
+                position: state.position,
+                isDragging: state.isDragging,
+                isMinimized: state.isMinimized,
+                onDragStart: () => {
+                },
+                onMinimize: toggleMinimized,
+                themeMode: state.themeMode,
+                onThemeToggle: handleThemeToggle,
+                faqQuickButtons: state.faqQuickButtons,
+                onFaqButtonClick: handleFaqButtonClick,
+                onFeedbackSubmit: handleFeedbackSubmit,
+                isStreaming: state.isStreaming,
+                streamingError: state.streamingError
+              }
+            )
+          }
+        ) }) })
+      ] })
+    ] });
+  }
+  function Widget({ merchantId, theme, initialSessionId }) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetErrorBoundary, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetProvider, { merchantId, initialSessionId, children: /* @__PURE__ */ jsxRuntimeExports.jsx(WidgetInner, { theme }) }) });
+  }
+  let capturedScript = null;
+  let widgetRoot = null;
+  let widgetContainer = null;
+  const MERCHANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+  function isValidMerchantId(id2) {
+    if (!id2 || typeof id2 !== "string") return false;
+    return MERCHANT_ID_PATTERN.test(id2);
+  }
+  function getConfig() {
+    var _a2, _b;
+    if ((_a2 = window.ShopBotConfig) == null ? void 0 : _a2.merchantId) {
+      return window.ShopBotConfig;
+    }
+    if ((_b = capturedScript == null ? void 0 : capturedScript.dataset) == null ? void 0 : _b.merchantId) {
+      let theme;
+      if (capturedScript.dataset.theme) {
+        try {
+          theme = JSON.parse(capturedScript.dataset.theme);
+        } catch {
+        }
+      }
+      return {
+        merchantId: capturedScript.dataset.merchantId,
+        theme
+      };
+    }
+    return null;
+  }
+  function initWidget() {
+    if (widgetContainer && widgetRoot) {
+      return;
+    }
+    const config2 = getConfig();
+    if (!(config2 == null ? void 0 : config2.merchantId)) {
+      return;
+    }
+    if (!isValidMerchantId(config2.merchantId)) {
+      return;
+    }
+    widgetContainer = document.createElement("div");
+    widgetContainer.id = "shopbot-widget-root";
+    widgetContainer.className = "shopbot-widget-root";
+    document.body.appendChild(widgetContainer);
+    widgetRoot = createRoot(widgetContainer);
+    widgetRoot.render(
+      reactExports.createElement(Widget, {
+        merchantId: config2.merchantId,
+        theme: config2.theme,
+        initialSessionId: config2.sessionId
+      })
+    );
+  }
+  function unmountWidget() {
+    if (widgetRoot) {
+      widgetRoot.unmount();
+      widgetRoot = null;
+    }
+    if (widgetContainer) {
+      widgetContainer.remove();
+      widgetContainer = null;
+    }
+  }
+  function isWidgetMounted() {
+    return widgetContainer !== null && widgetRoot !== null;
+  }
+  if (document.currentScript instanceof HTMLScriptElement) {
+    capturedScript = document.currentScript;
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initWidget);
+  } else {
+    initWidget();
+  }
+  if (typeof window !== "undefined") {
+    window.ShopBotWidget = {
+      version: "0.2.0",
+      init: initWidget,
+      unmount: unmountWidget,
+      isMounted: isWidgetMounted
+    };
+  }
+  function getWsBaseUrl() {
+    const apiBase = getWidgetApiBase();
+    try {
+      const url = new URL(apiBase);
+      return url.origin.replace(/^http/, "ws");
+    } catch {
+      return apiBase.replace(/^http/, "ws").replace(/\/api\/v1\/widget$/, "");
+    }
+  }
+  function connectWidgetWebSocket(sessionId, options = {}) {
+    const {
+      onMessage,
+      onStatusChange,
+      onError,
+      reconnectInterval = 3e3,
+      maxReconnectAttempts = 3,
+      // Reduced from 10 to fail faster
+      onFallbackToPolling
+    } = options;
+    let ws = null;
+    let reconnectAttempts = 0;
+    let isClosed = false;
+    let heartbeatTimer = null;
+    let reconnectTimer = null;
+    let hasFallenBack = false;
+    const updateStatus = (status) => {
+      console.debug("[WS] Status:", status);
+      onStatusChange == null ? void 0 : onStatusChange(status);
+    };
+    const clearTimers = () => {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+    const startHeartbeat = () => {
+      heartbeatTimer = setInterval(() => {
+        if ((ws == null ? void 0 : ws.readyState) === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+          console.debug("[WS] Heartbeat ping sent");
+        }
+      }, 25e3);
+    };
+    const connect = () => {
+      if (isClosed) return;
+      console.debug("[WS] ========== WIDGET WS CLIENT v20260308-12-00 ==========");
+      const wsBaseUrl = getWsBaseUrl();
+      const url = `${wsBaseUrl}/ws/widget/${sessionId}`;
+      console.debug("[WS] Connecting to:", url);
+      updateStatus("connecting");
+      try {
+        ws = new WebSocket(url);
+      } catch (error) {
+        console.debug("[WS] Failed to create WebSocket:", error);
+        updateStatus("error");
+        scheduleReconnect();
+        return;
+      }
+      ws.onopen = () => {
+        console.debug("[WS] Connection opened");
+        reconnectAttempts = 0;
+        updateStatus("connected");
+        startHeartbeat();
+      };
+      ws.onmessage = (event) => {
+        console.debug("[WS] onmessage triggered, data type:", typeof event.data);
+        try {
+          if (event.data === "pong") {
+            console.debug("[WS] Heartbeat pong received");
+            return;
+          }
+          console.debug("[WS] Parsing JSON...");
+          const parsed = JSON.parse(event.data);
+          console.debug("[WS] Message received:", parsed);
+          console.debug("[WS] Message type:", parsed.type);
+          if (parsed.type === "ping") {
+            console.debug("[WS] Handling ping, responding with pong");
+            if ((ws == null ? void 0 : ws.readyState) === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "pong" }));
+            }
+            return;
+          }
+          if (parsed.type === "pong") {
+            console.debug("[WS] Handling pong, ignoring");
+            return;
+          }
+          console.debug("[WS] Not ping/pong, checking onMessage callback...");
+          console.debug("[WS] onMessage exists:", !!onMessage);
+          console.debug("[WS] onMessage type:", typeof onMessage);
+          if (onMessage) {
+            console.debug("[WS] Calling onMessage with:", parsed);
+            try {
+              onMessage(parsed);
+              console.debug("[WS] onMessage call completed successfully");
+            } catch (callbackError) {
+              console.error("[WS] Error in onMessage callback:", callbackError);
+            }
+          } else {
+            console.debug("[WS] ⚠️ onMessage callback is undefined!");
+            console.debug("[WS] Available callbacks:", {
+              onMessage: typeof onMessage,
+              onStatusChange: typeof onStatusChange,
+              onError: typeof onError
+            });
+          }
+        } catch (e) {
+          console.error("[WS] Failed to process message:", e);
+          console.error("[WS] Error stack:", e.stack);
+        }
+      };
+      ws.onerror = (error) => {
+        console.debug("[WS] Error:", error);
+        updateStatus("error");
+        onError == null ? void 0 : onError(error);
+      };
+      ws.onclose = (event) => {
+        console.debug("[WS] Closed:", event.code, event.reason);
+        clearTimers();
+        if (!isClosed) {
+          updateStatus("disconnected");
+          scheduleReconnect();
+        }
+      };
+    };
+    const scheduleReconnect = () => {
+      if (isClosed || hasFallenBack) return;
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        console.debug(`[WS] Reconnecting in ${reconnectInterval}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+        reconnectTimer = setTimeout(() => {
+          connect();
+        }, reconnectInterval);
+      } else {
+        console.debug("[WS] Max reconnect attempts reached, falling back to polling");
+        hasFallenBack = true;
+        updateStatus("error");
+        if (onFallbackToPolling) {
+          console.log("[WS] Calling onFallbackToPolling callback");
+          onFallbackToPolling();
+        }
+        clearTimers();
+        if (ws) {
+          ws.close(1e3, "Falling back to polling");
+          ws = null;
+        }
+      }
+    };
+    connect();
+    return () => {
+      console.debug("[WS] Cleanup - closing connection");
+      isClosed = true;
+      clearTimers();
+      if (ws) {
+        ws.close(1e3, "Client disconnect");
+        ws = null;
+      }
+      updateStatus("disconnected");
+    };
+  }
+  function isWebSocketSupported() {
+    return typeof WebSocket !== "undefined";
+  }
+  const widgetWsClient = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    connectWidgetWebSocket,
+    isWebSocketSupported
+  }, Symbol.toStringTag, { value: "Module" }));
+  async function flushWidgetAnalyticsEvents(payload) {
+    const response = await apiClient.post(
+      "/api/v1/analytics/widget/events",
+      payload
+    );
+    return response;
+  }
+  const analyticsService = {
+    /**
+     * Get sales breakdown by country, city, and province.
+     * Data is populated by Shopify order webhooks.
+     */
+    async getGeographic() {
+      const response = await apiClient.get(
+        "/api/v1/analytics/geographic"
+      );
+      return response;
+    },
+    /**
+     * Get anonymized analytics summary with order stats and conversation stats.
+     * All data is tier=ANONYMIZED with no PII. 30-day window.
+     */
+    async getSummary() {
+      const response = await apiClient.get("/api/v1/analytics/summary");
+      return response;
+    },
+    /**
+     * Get top products sold in the last N days.
+     */
+    async getTopProducts(days = 30, limit = 5) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/top-products?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    /**
+     * Get pending orders including unfulfilled orders and estimated delivery dates.
+     */
+    async getPendingOrders(limit = 10, offset = 0) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/pending-orders?limit=${limit}&offset=${offset}`
+      );
+      return response;
+    },
+    async getBotQuality(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/bot-quality?days=${days}`
+      );
+      return response;
+    },
+    async getPeakHours(days = 30) {
+      const response = await apiClient.get(`/api/v1/analytics/peak-hours?days=${days}`);
+      return response;
+    },
+    async getConversionFunnel(days = 30) {
+      const response = await apiClient.get(`/api/v1/analytics/conversion-funnel?days=${days}`);
+      return response;
+    },
+    async getKnowledgeGaps(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    async getBenchmarks(days = 30) {
+      const response = await apiClient.get(`/api/v1/analytics/benchmarks?days=${days}`);
+      return response;
+    },
+    async getSentimentTrend(days = 30) {
+      const response = await apiClient.get(`/api/v1/analytics/sentiment-trend?days=${days}`);
+      return response;
+    },
+    // ────────────────────────────────────────────────────────────────
+    // Widget Analytics (Story 9-10)
+    // ────────────────────────────────────────────────────────────────
+    /**
+     * Send batched widget analytics events to the backend.
+     */
+    async sendWidgetEvents(payload) {
+      return flushWidgetAnalyticsEvents(payload);
+    },
+    /**
+     * Get widget analytics metrics for the dashboard.
+     */
+    async getWidgetMetrics(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/widget?days=${days}`
+      );
+      return response;
+    },
+    /**
+     * Export widget analytics as CSV.
+     */
+    async exportWidgetAnalytics(startDate, endDate, merchantId) {
+      const response = await fetch(
+        `/api/v1/analytics/widget/export?merchant_id=${merchantId}&start_date=${startDate}&end_date=${endDate}`,
+        {
+          credentials: "include"
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.status}`);
+      }
+      return response.blob();
+    },
+    // ────────────────────────────────────────────────────────────────
+    // Feedback Analytics (Story 10-4)
+    // ────────────────────────────────────────────────────────────────
+    async getFeedbackAnalytics(startDate, endDate) {
+      const params = new URLSearchParams();
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      const queryString = params.toString();
+      const response = await apiClient.get(
+        `/api/v1/feedback/analytics${queryString ? `?${queryString}` : ""}`
+      );
+      return response;
+    },
+    async getKnowledgeEffectiveness(days = 7) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/knowledge-effectiveness?days=${days}`
+      );
+      return response.data;
+    },
+    async getKnowledgeGapsData(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/knowledge-gaps?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    async getTopTopics(days = 7) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/top-topics?days=${days}`
+      );
+      return response.data;
+    },
+    async getResponseTimeDistribution(days = 7) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/response-time-distribution?days=${days}`
+      );
+      return response.data;
+    },
+    async getQuestionCategories(days = 30) {
+      const response = await apiClient.get(`/api/v1/analytics/question-categories?days=${days}`);
+      return response;
+    },
+    async getFailedQueries(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/failed-queries?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    async getPerformanceAlerts(days = 1) {
+      const response = await apiClient.get(`/api/v1/analytics/performance-alerts?days=${days}`);
+      return response;
+    },
+    async getQuickActions() {
+      const response = await apiClient.get("/api/v1/analytics/quick-actions");
+      return response;
+    },
+    async getFaqUsage(days = 30) {
+      const response = await apiClient.get(`/api/v1/analytics/faq-usage?days=${days}`);
+      return response;
+    },
+    async getConversationFlowOverview(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/overview?days=${days}`
+      );
+      return response;
+    },
+    async getConversationFlowLengthDistribution(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/length-distribution?days=${days}`
+      );
+      return response;
+    },
+    async getConversationFlowClarificationPatterns(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/clarification-patterns?days=${days}`
+      );
+      return response;
+    },
+    async getConversationFlowFrictionPoints(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/friction-points?days=${days}`
+      );
+      return response;
+    },
+    async getConversationFlowSentimentStages(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/sentiment-stages?days=${days}`
+      );
+      return response;
+    },
+    async getConversationFlowHandoffCorrelation(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/handoff-correlation?days=${days}`
+      );
+      return response;
+    },
+    async getConversationFlowContextUtilization(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/conversation-flow/context-utilization?days=${days}`
+      );
+      return response;
+    },
+    // ────────────────────────────────────────────────────────────────
+    // Answer Performance Dashboard APIs
+    // ────────────────────────────────────────────────────────────────
+    /**
+     * Get Answer Quality Score - Aggregate RAG performance metric
+     */
+    async getAnswerQuality(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/answer-quality?days=${days}`
+      );
+      return response;
+    },
+    /**
+     * Get Top Customer Questions with performance metrics
+     */
+    async getTopQuestions(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/top-questions?days=${days}&limit=${limit}`
+      );
+      return response;
+    },
+    /**
+     * Get Customer Feedback Metrics for RAG answers
+     */
+    async getCustomerFeedback(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/customer-feedback?days=${days}`
+      );
+      return response;
+    },
+    /**
+     * Get Document Performance and Usage Analytics
+     */
+    async getDocumentPerformance(days = 30) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/document-performance?days=${days}`
+      );
+      return response;
+    },
+    /**
+     * Get High-Impact Improvements - Prioritized action items
+     */
+    async getHighImpactImprovements(days = 30, limit = 10) {
+      const response = await apiClient.get(
+        `/api/v1/analytics/high-impact-improvements?days=${days}&limit=${limit}`
+      );
+      return response;
+    }
+  };
+  const analyticsService$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    analyticsService,
+    flushWidgetAnalyticsEvents
   }, Symbol.toStringTag, { value: "Module" }));
   exports2.Widget = Widget;
   exports2.getConfig = getConfig;

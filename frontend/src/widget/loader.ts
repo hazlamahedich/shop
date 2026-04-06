@@ -76,6 +76,7 @@ function initWidget(): void {
 
   widgetContainer = document.createElement('div');
   widgetContainer.id = 'shopbot-widget-root';
+  widgetContainer.className = 'shopbot-widget-root';
   document.body.appendChild(widgetContainer);
 
   widgetRoot = ReactDOM.createRoot(widgetContainer);
