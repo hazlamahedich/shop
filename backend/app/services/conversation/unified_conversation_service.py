@@ -560,52 +560,53 @@ class UnifiedConversationService:
                                 context=context,
                                 entities=entities,
                             )
-                    else:
-                        # Story 8-5: Check for e-commerce intent in General mode
-                        if (
-                            merchant.onboarding_mode == "general"
-                            and intent_name.upper() in GeneralModeFallbackHandler.ECOMMERCE_INTENTS
-                        ):
-                            self.logger.info(
-                                "general_mode_ecommerce_fallback",
-                                merchant_id=merchant.id,
-                                intent=intent_name,
-                            )
-                            handler = self.general_mode_fallback_handler
-                            entities = None
-                            if classification.entities:
-                                entities = classification.entities.model_dump(exclude_none=True)
-                                entities["original_intent"] = intent_name
-                            response = await handler.handle(
-                                db=db,
-                                merchant=merchant,
-                                llm_service=llm_service,
-                                message=message,
-                                context=context,
-                                entities=entities,
-                            )
-                            intent_name = "general_mode_fallback"
                         else:
-                            handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
-                            handler = self._handlers.get(handler_name, self._handlers["llm"])
+                            # Story 8-5: Check for e-commerce intent in General mode
+                            if (
+                                merchant.onboarding_mode == "general"
+                                and intent_name.upper()
+                                in GeneralModeFallbackHandler.ECOMMERCE_INTENTS
+                            ):
+                                self.logger.info(
+                                    "general_mode_ecommerce_fallback",
+                                    merchant_id=merchant.id,
+                                    intent=intent_name,
+                                )
+                                handler = self.general_mode_fallback_handler
+                                entities = None
+                                if classification.entities:
+                                    entities = classification.entities.model_dump(exclude_none=True)
+                                    entities["original_intent"] = intent_name
+                                response = await handler.handle(
+                                    db=db,
+                                    merchant=merchant,
+                                    llm_service=llm_service,
+                                    message=message,
+                                    context=context,
+                                    entities=entities,
+                                )
+                                intent_name = "general_mode_fallback"
+                            else:
+                                handler_name = self.INTENT_TO_HANDLER_MAP.get(intent_name, "llm")
+                                handler = self._handlers.get(handler_name, self._handlers["llm"])
 
-                            entities = None
-                            if classification.entities:
-                                entities = classification.entities.model_dump(exclude_none=True)
+                                entities = None
+                                if classification.entities:
+                                    entities = classification.entities.model_dump(exclude_none=True)
 
-                            if handler_name == "cart":
-                                entities = entities or {}
-                                cart_action = self._determine_cart_action(intent_name)
-                                entities["cart_action"] = cart_action
+                                if handler_name == "cart":
+                                    entities = entities or {}
+                                    cart_action = self._determine_cart_action(intent_name)
+                                    entities["cart_action"] = cart_action
 
-                            response = await handler.handle(
-                                db=db,
-                                merchant=merchant,
-                                llm_service=llm_service,
-                                message=message,
-                                context=context,
-                                entities=entities,
-                            )
+                                response = await handler.handle(
+                                    db=db,
+                                    merchant=merchant,
+                                    llm_service=llm_service,
+                                    message=message,
+                                    context=context,
+                                    entities=entities,
+                                )
 
             # Single exit point: ALWAYS persist and return
             processing_time_ms = (time.time() - start_time) * 1000
