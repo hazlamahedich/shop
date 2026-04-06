@@ -59,10 +59,12 @@ class TestResponseTypeToTransitionMapping:
             "checkout",
             "order_tracking",
             "handoff",
-            "error",
             "order_confirmation",
             "general_mode_fallback",
             "proactive_gathering",
+            "clarification_natural",
+            "summarization",
+            "sentiment_adaptive",
         }
         assert set(RESPONSE_TYPE_TO_TRANSITION.keys()) == expected_types
 
@@ -78,7 +80,6 @@ class TestResponseTypeToTransitionMapping:
             ("checkout", TransitionCategory.CONFIRMING),
             ("order_tracking", TransitionCategory.SHOWING_RESULTS),
             ("handoff", TransitionCategory.ACKNOWLEDGING),
-            ("error", TransitionCategory.ACKNOWLEDGING),
             ("order_confirmation", TransitionCategory.CONFIRMING),
         ],
     )

@@ -290,13 +290,20 @@ class OrderHandler(BaseHandler):
         Returns:
             ConversationResponse with order status or error
         """
+        orders = await tracking_service.track_order_by_customer_email(
+            db=db,
+            merchant_id=merchant.id,
+            email=email,
+            limit=5,
+        )
+
         profile = await customer_service.find_by_email(
             db=db,
             merchant_id=merchant.id,
             email=email,
         )
 
-        if not profile:
+        if not orders and not profile:
             return ConversationResponse(
                 message=PersonalityAwareResponseFormatter.format_response(
                     "order_tracking",
@@ -307,18 +314,13 @@ class OrderHandler(BaseHandler):
                 confidence=1.0,
             )
 
-        orders = await customer_service.get_customer_orders(
-            db=db,
-            customer_profile_id=profile.id,
-            limit=5,
-        )
-
         if not orders:
+            customer_name = profile.first_name or "there" if profile else "there"
             welcome_msg = PersonalityAwareResponseFormatter.format_response(
                 "order_tracking",
                 "welcome_back",
                 merchant.personality,
-                customer_name=profile.first_name or "there",
+                customer_name=customer_name,
             )
             selector = get_transition_selector()
             browse_phrase = selector.select(
@@ -363,26 +365,35 @@ class OrderHandler(BaseHandler):
             )
             response_text = f"{transition}\n\n{raw_text}"
 
+        customer_name = profile.first_name or "there" if profile else "there"
         device_link_msg = PersonalityAwareResponseFormatter.format_response(
             "order_tracking",
             "device_linked",
             merchant.personality,
-            customer_name=profile.first_name or "there",
+            customer_name=customer_name,
         )
 
         conversation_data = context.conversation_data or {}
-        updated_data = await customer_service.link_device_to_profile(
-            db=db,
-            profile=profile,
-            platform_sender_id=context.platform_sender_id or context.session_id,
-            conversation_data=conversation_data,
-        )
+        updated_data = conversation_data.copy()
+        if profile:
+            try:
+                updated_data = await customer_service.link_device_to_profile(
+                    db=db,
+                    profile=profile,
+                    platform_sender_id=context.platform_sender_id or context.session_id,
+                    conversation_data=conversation_data,
+                )
+            except Exception as e:
+                logger.warning("device_link_failed", error=str(e))
+                updated_data["customer_email"] = email
+        else:
+            updated_data["customer_email"] = email
 
         logger.info(
             "cross_device_lookup_success",
             merchant_id=merchant.id,
             email=email,
-            profile_id=profile.id,
+            profile_id=profile.id if profile else None,
             order_count=len(orders),
         )
 

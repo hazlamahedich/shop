@@ -299,7 +299,6 @@ RESPONSE_TYPE_TO_TRANSITION: dict[str, TransitionCategory] = {
     "checkout": TransitionCategory.CONFIRMING,
     "order_tracking": TransitionCategory.SHOWING_RESULTS,
     "handoff": TransitionCategory.ACKNOWLEDGING,
-    "error": TransitionCategory.ACKNOWLEDGING,
     "order_confirmation": TransitionCategory.CONFIRMING,
     "general_mode_fallback": TransitionCategory.ACKNOWLEDGING,
     "proactive_gathering": TransitionCategory.CLARIFYING,

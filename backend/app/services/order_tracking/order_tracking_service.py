@@ -241,6 +241,44 @@ class OrderTrackingService:
                 error_message="Failed to lookup order by customer",
             )
 
+    async def track_order_by_customer_email(
+        self,
+        db: AsyncSession,
+        merchant_id: int,
+        email: str,
+        limit: int = 5,
+    ) -> list[Order]:
+        """Track orders by customer email address.
+
+        Args:
+            db: Database session
+            merchant_id: Merchant ID to scope the search
+            email: Customer email address
+            limit: Maximum number of recent orders to return
+
+        Returns:
+            List of Order instances (empty if none found)
+        """
+        try:
+            stmt = (
+                select(Order)
+                .where(Order.merchant_id == merchant_id)
+                .where(Order.customer_email == email.lower())
+                .where(Order.is_test == False)
+                .order_by(Order.created_at.desc())
+                .limit(limit)
+            )
+            result = await db.execute(stmt)
+            return list(result.scalars().all())
+        except Exception as e:
+            logger.error(
+                "order_tracking_by_email_failed",
+                merchant_id=merchant_id,
+                email=email,
+                error=str(e),
+            )
+            return []
+
     async def track_order_by_number(
         self,
         db: AsyncSession,

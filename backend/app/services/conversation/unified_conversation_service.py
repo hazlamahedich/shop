@@ -1344,6 +1344,9 @@ class UnifiedConversationService:
         order_patterns = [
             r"(where\s+is\s+my|track\s+my|check\s+my|where'?s?\s+my|when'?s?\s+my)\s+(order|stuff|package|delivery|shipment)",
             r"(order\s+status|shipping\s+status|delivery\s+status)",
+            r"(status\s+(of|on|for)\s+(my\s+)?(order|orders|stuff|package|delivery|shipment))",
+            r"(what'?s?\s+the\s+status\s+(of|on)\s+)",
+            r"(any\s+updates?\s+(on\s+)?(my\s+)?(order|orders|stuff|package|delivery))",
             r"^order$",
             r"(?:^|\s)(?:#|order\s*(?:#|number|no\.?)?\s*)(?:[0-9][A-Za-z0-9\-]*|[A-Za-z]+[-][A-Za-z0-9\-]+|[A-Za-z]+[0-9][A-Za-z0-9\-]*)",
             r"(?:order\s*(?:number|#|no\.?)?\s*|#)\s*[A-Za-z0-9\-]{4,20}",
@@ -2895,7 +2898,7 @@ class UnifiedConversationService:
 
             existing_gap = await db.execute(
                 select(KnowledgeGap).where(
-                    KnowledgeGap.merchant_id == merchant.id,
+                    KnowledgeGap.merchant_id == merchant_id,
                     KnowledgeGap.question_hash == question_hash,
                     KnowledgeGap.resolved == False,
                 )
@@ -2909,13 +2912,13 @@ class UnifiedConversationService:
                 existing.sample_response = bot_response
                 self.logger.debug(
                     "knowledge_gap_updated",
-                    merchant_id=merchant.id,
+                    merchant_id=merchant_id,
                     question_hash=question_hash,
                     occurrence_count=existing.occurrence_count,
                 )
             else:
                 new_gap = KnowledgeGap(
-                    merchant_id=merchant.id,
+                    merchant_id=merchant_id,
                     conversation_id=conversation_id,
                     question=user_message,
                     question_hash=question_hash,
@@ -2926,7 +2929,7 @@ class UnifiedConversationService:
                 db.add(new_gap)
                 self.logger.info(
                     "knowledge_gap_detected",
-                    merchant_id=merchant.id,
+                    merchant_id=merchant_id,
                     question_preview=user_message[:50],
                     gap_types=gap_types,
                 )
@@ -2936,7 +2939,7 @@ class UnifiedConversationService:
         except Exception as e:
             self.logger.warning(
                 "knowledge_gap_detection_failed",
-                merchant_id=merchant.id,
+                merchant_id=merchant_id,
                 error=str(e),
             )
 
