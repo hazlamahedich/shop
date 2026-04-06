@@ -45,6 +45,7 @@ class TestGivenTurnDataWhenWriteConversationTurn:
             intent_detected="product_search",
             sentiment="EMPATHETIC",
             context_snapshot=snapshot,
+            merchant_id=1,
         )
 
         db.add.assert_called_once()
@@ -55,6 +56,7 @@ class TestGivenTurnDataWhenWriteConversationTurn:
         assert turn_obj.intent_detected == "product_search"
         assert turn_obj.sentiment == "EMPATHETIC"
         assert turn_obj.context_snapshot == snapshot
+        assert turn_obj.merchant_id == 1
 
     @pytest.mark.p0
     @pytest.mark.test_id("STORY-11-12a-008")
@@ -79,4 +81,5 @@ class TestGivenTurnDataWhenWriteConversationTurn:
                 intent_detected="greeting",
                 sentiment=None,
                 context_snapshot={},
+                merchant_id=1,
             )

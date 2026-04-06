@@ -32,12 +32,11 @@ class ConversationFlowAnalyticsService:
         self.db = db
 
     def _get_turns_base_query(self, merchant_id: int, days: int) -> Any:
-        """Shared base query: conversation_turns JOIN conversations, filtered by merchant and date."""
+        """Shared base query: conversation_turns filtered directly by merchant_id and date."""
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         return (
             select(ConversationTurn)
-            .join(Conversation, ConversationTurn.conversation_id == Conversation.id)
-            .where(Conversation.merchant_id == merchant_id)
+            .where(ConversationTurn.merchant_id == merchant_id)
             .where(ConversationTurn.created_at >= cutoff)
         )
 
@@ -739,8 +738,7 @@ class ConversationFlowAnalyticsService:
                 .where(Conversation.merchant_id == merchant_id)
                 .where(ConversationTurn.created_at >= cutoff)
                 .where(
-                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean()
-                    == True  # noqa: E712
+                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean() == True  # noqa: E712
                 )
             )
             turns_with_context = with_context_result.scalar() or 0
@@ -771,8 +769,7 @@ class ConversationFlowAnalyticsService:
                 .where(ConversationTurn.created_at >= cutoff)
                 .where(mode_expr != None)  # noqa: E711
                 .where(
-                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean()
-                    == True  # noqa: E712
+                    ConversationTurn.context_snapshot["has_context_reference"].as_boolean() == True  # noqa: E712
                 )
                 .group_by(mode_expr)
             )

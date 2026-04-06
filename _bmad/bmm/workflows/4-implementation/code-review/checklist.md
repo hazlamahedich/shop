@@ -13,6 +13,8 @@
 - [ ] Tests identified and mapped to ACs; gaps noted
 - [ ] Code quality review performed on changed files
 - [ ] Security review performed on changed files and dependencies
+- [ ] Personality system: No hardcoded English strings in handler responses — all user-facing text routed through `with_personality` decorator or personality templates
+- [ ] Personality system: New handlers/intent responses use `PersonalityTracker` for tone consistency across conversation turns
 - [ ] Outcome decided (Approve/Changes Requested/Blocked)
 - [ ] Review notes appended under "Senior Developer Review (AI)"
 - [ ] Change Log updated with review entry

@@ -18,6 +18,8 @@ from typing import Any
 
 import structlog
 
+from app.services.shared.keyword_match import compile_keyword_pattern
+
 from app.core.errors import ErrorCode
 from app.services.analytics.sentiment_analyzer import (
     Sentiment,
@@ -167,13 +169,15 @@ class SentimentAdapterService:
         if score.sentiment != Sentiment.NEGATIVE:
             return False
         neg_ratio = score.negative_score / max(score.positive_score + score.negative_score, 0.001)
-        has_frustration_kw = any(kw in lower for kw in FRUSTRATION_KEYWORDS)
+        _frustration_pattern = compile_keyword_pattern(FRUSTRATION_KEYWORDS)
+        has_frustration_kw = bool(_frustration_pattern.search(lower))
         return neg_ratio > 0.6 or (neg_ratio > 0.4 and has_frustration_kw)
 
     def _is_concise(self, lower: str, score: SentimentScore) -> bool:
         if score.sentiment == Sentiment.POSITIVE:
             return False
-        has_keyword = any(kw in lower for kw in URGENCY_KEYWORDS)
+        _urgency_pattern = compile_keyword_pattern(URGENCY_KEYWORDS)
+        has_keyword = bool(_urgency_pattern.search(lower))
         if not has_keyword:
             return False
         cleaned = MARKDOWN_BOLD_ITALIC_RE.sub("", lower)
@@ -188,7 +192,8 @@ class SentimentAdapterService:
     def _is_detailed(self, lower: str, score: SentimentScore) -> bool:
         from app.services.analytics.sentiment_analyzer import QUESTION_INDICATORS
 
-        q_count = sum(1 for qi in QUESTION_INDICATORS if qi in lower)
+        _question_pattern = compile_keyword_pattern(QUESTION_INDICATORS)
+        q_count = len(_question_pattern.findall(lower))
         question_marks = lower.count("?")
         if q_count >= 2:
             return score.sentiment in (Sentiment.NEUTRAL, Sentiment.NEGATIVE)

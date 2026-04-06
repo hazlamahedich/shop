@@ -203,16 +203,18 @@ development_status:
 
   # Epic 11: Natural Conversational AI (approved 2026-03-30)
   # See: _bmad-output/planning-artifacts/epics/epic-11-natural-conversational-ai.md
-  epic-11: in-progress
-  11-1-conversation-context-memory: review # ✅ Code Review 2 COMPLETE: 4 HIGH + 2 MEDIUM issues fixed (double-merge, auto-summarization, constraint logging), 43/43 tests passing. LOW items deferred as tech debt.
-  11-2-multi-turn-query-handling: review # Code review COMPLETE: 2 CRITICAL + 3 HIGH + 3 MEDIUM + 1 LOW issues found and fixed. 117/117 tests passing.
-  11-3-natural-language-variations: done # Code review COMPLETE: 5 HIGH + 4 MEDIUM issues fixed (LLM prompt comment, dangerous TYPO_MAP entries, multi-word synonym exclusion, escalation word-boundary, brand consolidation), 154 story tests + 469 existing tests passing
-  11-4-conversational-transition-phrases: review # Code review COMPLETE: 3 HIGH + 3 MEDIUM issues fixed (phantom tracking H1, duplicate TEMPLATES_WITH_OPENINGS M1, missing conversation_id in order_handler H2 + clarification_handler H3, memory leak M2), 73/73 story tests + 542/549 total passing. 2 LOW deferred.
+  epic-11: done # 2026-04-06: ALL 12 STORIES COMPLETE - Natural Conversational AI
+  11-1-conversation-context-memory: done # Code Review 2 COMPLETE: 4 HIGH + 2 MEDIUM issues fixed, 43/43 tests passing
+  11-2-multi-turn-query-handling: done # Code review COMPLETE: 2 CRITICAL + 3 HIGH + 3 MEDIUM + 1 LOW issues fixed, 117/117 tests passing
+  11-3-natural-language-variations: done # Code review COMPLETE: 5 HIGH + 4 MEDIUM issues fixed, 154 story tests + 469 existing tests passing
+  11-4-conversational-transition-phrases: done # Code review COMPLETE: 3 HIGH + 3 MEDIUM issues fixed, 73/73 story tests passing
   11-5-personality-consistency: done
-  11-7-natural-error-handling: done # Code review COMPLETE: 1 CRITICAL + 1 HIGH + 3 MEDIUM + 2 LOW issues fixed. 54/54 tests passing. No regressions.
-  11-8-proactive-information-gathering: done # Code review COMPLETE: 2 CRITICAL + 1 HIGH + 5 MEDIUM issues found and fixed (C1: MissingField.required AttributeError, C2: duplicate CONVERSATION_TEMPLATES, H1: product_identifier not detected, M2-M5: fake tests, hardcoded message, missing extraction, double classification). 109/109 story tests passing.
-  11-9-conversation-summarization: done # 112/112 tests passing. All 6 tasks complete: SUMMARIZE intent, SummarizeHandler, customer-facing summarization, personality templates, defense-in-depth checks.
-  11-10-sentiment-adaptive-responses: in-progress # Code review 1 COMPLETE: 3 HIGH + 2 MEDIUM issues auto-fixed (general mode missing, transition suppression, mode templates, error code, positive guard). 61/61 tests passing. LOW items deferred.
-  11-11-natural-clarification-questions: in-progress # Natural conversational clarification questions with template rotation, combining, context awareness
-  11-6-contextual-product-recommendations: backlog # E-commerce only — product recommendations based on conversation context
-  11-12-conversation-flow-analytics: in-progress # Story 11.12a: Code review COMPLETE: 3 HIGH + 4 MEDIUM + 3 LOW issues found. H1 (PII plaintext), M1 (mode field), M2 (confidence fallback) fixed. H2 (turn_number race), H3 (test coverage) documented. 14/14 tests passing.
+  11-6-contextual-product-recommendations: done
+  11-7-natural-error-handling: done # Code review COMPLETE: 1 CRITICAL + 1 HIGH + 3 MEDIUM + 2 LOW issues fixed, 54/54 tests passing
+  11-8-proactive-information-gathering: done # Code review COMPLETE: 2 CRITICAL + 1 HIGH + 5 MEDIUM issues fixed, 109/109 tests passing
+  11-9-conversation-summarization: done # 112/112 tests passing. All 6 tasks complete
+  11-10-sentiment-adaptive-responses: done # Code review COMPLETE: 3 HIGH + 2 MEDIUM issues fixed, 61/61 tests passing
+  11-11-natural-clarification-questions: done
+  11-12-conversation-flow-analytics: done # Code review COMPLETE: 3 HIGH + 4 MEDIUM + 3 LOW issues fixed, 14/14 tests passing
+  epic-11-retrospective: done # 2026-04-06: Retrospective complete. 8 action items, 8 prep tasks, 4 team agreements. Prep sprint before Epic 12.
+  epic-11-prep-sprint: done # 2026-04-06: All 8 prep tasks complete. IntentType consolidation, env isolation test, word boundary regex, merchant_id migration, turn metrics observability, code review checklist, prompt validation tests (29/29), story docs (10-7, 10-8).

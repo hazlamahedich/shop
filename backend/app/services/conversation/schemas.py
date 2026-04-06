@@ -315,26 +315,3 @@ class ConversationResponse(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return self.model_dump(exclude_none=True)
-
-
-class IntentType(str, Enum):
-    """Supported intent types for unified routing."""
-
-    PRODUCT_SEARCH = "product_search"
-    PRODUCT_INQUIRY = "product_inquiry"
-    PRODUCT_COMPARISON = "product_comparison"
-    GREETING = "greeting"
-    CLARIFICATION = "clarification"
-    CART_VIEW = "cart_view"
-    CART_ADD = "cart_add"
-    CART_REMOVE = "cart_remove"
-    CART_CLEAR = "cart_clear"
-    ADD_LAST_VIEWED = "add_last_viewed"
-    CHECKOUT = "checkout"
-    ORDER_TRACKING = "order_tracking"
-    HUMAN_HANDOFF = "human_handoff"
-    FORGET_PREFERENCES = "forget_preferences"
-    CHECK_CONSENT_STATUS = "check_consent_status"
-    PRODUCT_RECOMMENDATION = "product_recommendation"
-    GENERAL = "general"
-    UNKNOWN = "unknown"

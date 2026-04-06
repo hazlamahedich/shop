@@ -121,6 +121,7 @@ class ConversationTurn(Base):
 
     Records each turn in a conversation for analytics and context tracking.
     Stores message content, intent, sentiment, and context snapshot.
+    Includes merchant_id for direct data isolation queriesability.
     """
 
     __tablename__ = "conversation_turns"
@@ -129,6 +130,11 @@ class ConversationTurn(Base):
     conversation_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    merchant_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("merchants.id", ondelete="CASCADE"),
         nullable=False,
     )
     turn_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -145,6 +151,7 @@ class ConversationTurn(Base):
 
     __table_args__ = (
         UniqueConstraint("conversation_id", "turn_number", name="uq_conversation_turns_conv_turn"),
+        Index("ix_conversation_turns_merchant", "merchant_id"),
     )
 
     def __repr__(self) -> str:

@@ -149,7 +149,7 @@ class UnifiedConversationService:
     _turn_write_metrics: ClassVar[dict[str, int]] = {
         "duplicate": 0,
         "unknown": 0,
-    }  # TODO: TECH-DEBT — process-local only; invisible to APM, resets on restart. Wire into structlog metrics or Prometheus counter.
+    }
 
     INTENT_TO_HANDLER_MAP = {
         "product_search": "search",
@@ -2761,6 +2761,7 @@ class UnifiedConversationService:
         intent_detected: str | None,
         sentiment: str | None,
         context_snapshot: dict[str, Any],
+        merchant_id: int | None = None,
     ) -> None:
         async with db.begin_nested():
             turn = ConversationTurn(
@@ -2769,6 +2770,7 @@ class UnifiedConversationService:
                 intent_detected=intent_detected,
                 context_snapshot=context_snapshot,
                 sentiment=sentiment,
+                merchant_id=merchant_id,
             )
             db.add(turn)
             await db.flush()
@@ -2815,6 +2817,7 @@ class UnifiedConversationService:
                 intent_detected=intent_name,
                 sentiment=sentiment_strategy_name,
                 context_snapshot=turn_context_snapshot,
+                merchant_id=context.merchant_id,
             )
         except Exception as e:
             error_type = "duplicate" if isinstance(e, IntegrityError) else "unknown"
@@ -2826,6 +2829,12 @@ class UnifiedConversationService:
                 error=str(e),
                 error_type=error_type,
                 metric_count=UnifiedConversationService._turn_write_metrics[error_type],
+            )
+            self.logger.info(
+                "metric",
+                metric_name="conversation_turn_write_failure_total",
+                error_type=error_type,
+                metric_value=UnifiedConversationService._turn_write_metrics[error_type],
             )
 
     async def _detect_and_record_knowledge_gap(

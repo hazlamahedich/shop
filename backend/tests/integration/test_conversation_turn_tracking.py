@@ -75,6 +75,7 @@ class TestConversationTurnTracking:
                 intent_detected="product_search",
                 sentiment="EMPATHETIC",
                 context_snapshot=given_snapshot,
+                merchant_id=given_merchant_id,
             )
 
         result = await db_session.execute(
@@ -110,6 +111,7 @@ class TestConversationTurnTracking:
             turn_number=given_turn_number,
             intent_detected="greeting",
             context_snapshot={"confidence": 0.9},
+            merchant_id=test_merchant,
         )
         db_session.add(turn_a)
         await db_session.flush()
@@ -119,6 +121,7 @@ class TestConversationTurnTracking:
             turn_number=given_turn_number,
             intent_detected="product_search",
             context_snapshot={"confidence": 0.8},
+            merchant_id=test_merchant,
         )
         db_session.add(turn_b)
 
@@ -154,6 +157,7 @@ class TestConversationTurnTracking:
                 intent_detected="general",
                 sentiment="EMPATHETIC",
                 context_snapshot=when_snapshot,
+                merchant_id=given_merchant_id,
             )
 
         result = await db_session.execute(
@@ -201,6 +205,7 @@ class TestConversationTurnTracking:
                     intent_detected=intent,
                     sentiment=None,
                     context_snapshot=snapshot,
+                    merchant_id=given_merchant_id,
                 )
             history.append({"role": "user", "content": f"turn {idx}"})
 

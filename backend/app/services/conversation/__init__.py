@@ -4,8 +4,8 @@ from .schemas import (
     Channel,
     ConversationContext,
     ConversationResponse,
-    IntentType,
 )
+from app.services.intent.classification_schema import IntentType
 from .unified_conversation_service import UnifiedConversationService
 
 __all__ = [
