@@ -81,7 +81,7 @@ class CustomerLookupService:
                     updated_at=now,
                 )
                 .on_conflict_do_update(
-                    constraint="ix_customer_profiles_merchant_email",
+                    index_elements=["merchant_id", "email"],
                     set_={
                         "phone": phone or CustomerProfile.phone,
                         "first_name": first_name or CustomerProfile.first_name,
@@ -107,7 +107,7 @@ class CustomerLookupService:
             )
 
             result = await db.execute(stmt)
-            await db.commit()
+            await db.flush()
 
             row = result.fetchone()
             if row:
@@ -137,7 +137,6 @@ class CustomerLookupService:
             return await self._fetch_profile_by_email(db, merchant_id, email)
 
         except Exception as e:
-            await db.rollback()
             logger.error(
                 "customer_profile_upsert_failed",
                 merchant_id=merchant_id,

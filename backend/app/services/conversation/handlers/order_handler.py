@@ -212,6 +212,20 @@ class OrderHandler(BaseHandler):
         orders = result.orders if result.orders else [result.order]
         conversation_id = str(context.session_id)
 
+        customer_name = None
+        profile = None
+        first_order = orders[0]
+        if first_order.customer_email:
+            profile = await customer_service.find_by_email(
+                db=db,
+                merchant_id=merchant.id,
+                email=first_order.customer_email,
+            )
+            if profile and profile.first_name:
+                customer_name = profile.first_name
+            elif first_order.customer_first_name:
+                customer_name = first_order.customer_first_name
+
         if len(orders) == 1:
             order = orders[0]
             product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
@@ -223,7 +237,8 @@ class OrderHandler(BaseHandler):
                 conversation_id=conversation_id,
                 mode="ecommerce",
             )
-            response_text = f"{transition}\n\n{raw_response}"
+            greeting = f"Hey {customer_name}! " if customer_name else ""
+            response_text = f"{greeting}{transition}\n\n{raw_response}"
             order_dict = {
                 "order_number": order.order_number,
                 "status": order.status,
@@ -248,7 +263,8 @@ class OrderHandler(BaseHandler):
                 conversation_id=conversation_id,
                 mode="ecommerce",
             )
-            response_text = f"{transition}\n\n{raw_text}"
+            greeting = f"Hey {customer_name}! " if customer_name else ""
+            response_text = f"{greeting}{transition}\n\n{raw_text}"
             order_dict = None
 
         logger.info(
@@ -262,13 +278,7 @@ class OrderHandler(BaseHandler):
         conversation_data = context.conversation_data or {}
         updated_data = conversation_data.copy()
 
-        first_order = orders[0]
         if first_order.customer_email:
-            profile = await customer_service.find_by_email(
-                db=db,
-                merchant_id=merchant.id,
-                email=first_order.customer_email,
-            )
             if not profile:
                 profile = await customer_service.upsert_customer_profile(
                     db=db,
@@ -377,6 +387,9 @@ class OrderHandler(BaseHandler):
                 confidence=1.0,
             )
 
+        customer_name = profile.first_name if profile and profile.first_name else None
+        greeting = f"Hey {customer_name}! " if customer_name else ""
+
         if len(orders) == 1:
             order = orders[0]
             product_images = await self._fetch_product_images(db=db, merchant=merchant, order=order)
@@ -388,7 +401,7 @@ class OrderHandler(BaseHandler):
                 conversation_id=str(context.session_id),
                 mode="ecommerce",
             )
-            response_text = f"{transition}\n\n{raw_response}"
+            response_text = f"{greeting}{transition}\n\n{raw_response}"
         else:
             response_parts = []
             for order in orders:
@@ -405,14 +418,14 @@ class OrderHandler(BaseHandler):
                 conversation_id=str(context.session_id),
                 mode="ecommerce",
             )
-            response_text = f"{transition}\n\n{raw_text}"
+            response_text = f"{greeting}{transition}\n\n{raw_text}"
 
-        customer_name = profile.first_name or "there" if profile else "there"
+        device_link_name = customer_name or "there"
         device_link_msg = PersonalityAwareResponseFormatter.format_response(
             "order_tracking",
             "device_linked",
             merchant.personality,
-            customer_name=customer_name,
+            customer_name=device_link_name,
         )
 
         conversation_data = context.conversation_data or {}
@@ -684,9 +697,23 @@ class OrderHandler(BaseHandler):
             return product_images
 
         except Exception as e:
-            logger.warning(
-                "fetch_product_images_failed",
-                order_id=order.id,
+            logger.error(
+                "order_handler_failed",
+                merchant_id=merchant.id,
                 error=str(e),
+                error_type=type(e).__name__,
+            )
+            from app.services.conversation.error_recovery_service import (
+                ErrorType,
+                NaturalErrorRecoveryService,
+            )
+
+            return await NaturalErrorRecoveryService().recover(
+                error_type=ErrorType.ORDER_LOOKUP_FAILED,
+                merchant=merchant,
+                context=context,
+                error=e,
+                intent="order_tracking",
+                conversation_id=str(context.session_id),
             )
             return {}

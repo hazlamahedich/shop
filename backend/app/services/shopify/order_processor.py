@@ -261,9 +261,14 @@ def parse_shopify_order(payload: dict[str, Any]) -> dict[str, Any]:
         }
 
     # Story 4-13: Customer identity extraction
+    # Fallback to shipping_address for guest checkouts where customer lacks names
     customer_phone = customer.get("phone")
     customer_first_name = customer.get("first_name")
     customer_last_name = customer.get("last_name")
+    if not customer_first_name and shipping_address:
+        customer_first_name = shipping_address.get("first_name")
+    if not customer_last_name and shipping_address:
+        customer_last_name = shipping_address.get("last_name")
 
     # Story 4-13: Geographic data extraction
     shipping_city = shipping_address.get("city") if shipping_address else None
@@ -489,18 +494,11 @@ async def upsert_order(
                     "payment_details", existing_order.payment_details
                 ),
                 # Story 4-13: Customer identity fields
-                "customer_phone": order_data.get("customer_phone", existing_order.customer_phone),
-                "customer_first_name": order_data.get(
-                    "customer_first_name", existing_order.customer_first_name
-                ),
-                "customer_last_name": order_data.get(
-                    "customer_last_name", existing_order.customer_last_name
-                ),
-                # Story 4-13: Geographic fields
-                "shipping_city": order_data.get("shipping_city", existing_order.shipping_city),
-                "shipping_province": order_data.get(
-                    "shipping_province", existing_order.shipping_province
-                ),
+                "customer_phone": order_data.get("customer_phone") or existing_order.customer_phone,
+                "customer_first_name": order_data.get("customer_first_name")
+                or existing_order.customer_first_name,
+                "customer_last_name": order_data.get("customer_last_name")
+                or existing_order.customer_last_name,
                 "shipping_country": order_data.get(
                     "shipping_country", existing_order.shipping_country
                 ),
