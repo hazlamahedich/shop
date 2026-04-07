@@ -20,10 +20,17 @@ interface EmbedCodePreviewProps {
 
 type Platform = 'html' | 'shopify' | 'react' | 'wordpress';
 
+const WIDGET_VERSION = '20260407';
+
+function getWidgetScriptUrl(apiBaseUrl?: string): string {
+  const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
+  return baseUrl.replace('/api/v1/widget', `/static/widget/widget.umd.js?v=${WIDGET_VERSION}`);
+}
+
 function generateEmbedCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
   const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
-  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
+  const scriptUrl = getWidgetScriptUrl(apiBaseUrl);
   return `<script>
   window.ShopBotConfig = {
     merchantId: '${id}',
@@ -39,7 +46,7 @@ function generateEmbedCode(merchantId: number | null, primaryColor: string, apiB
 function generateReactCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
   const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
-  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
+  const scriptUrl = getWidgetScriptUrl(apiBaseUrl);
   return `// In your Next.js page or _app.tsx:
 import Script from 'next/script';
 
@@ -66,7 +73,7 @@ import Script from 'next/script';
 function generateWordPressCode(merchantId: number | null, primaryColor: string, apiBaseUrl?: string): string {
   const id = merchantId ?? 'YOUR_MERCHANT_ID';
   const baseUrl = apiBaseUrl || 'https://your-domain-name.com/api/v1/widget';
-  const scriptUrl = baseUrl.replace('/api/v1/widget', '/static/widget/widget.umd.js');
+  const scriptUrl = getWidgetScriptUrl(apiBaseUrl);
   return `// Add this to your theme's functions.php file:
 
 function shop_bot_widget() {
