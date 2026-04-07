@@ -268,16 +268,18 @@ function ChatWindow({
     height: isMobile ? '100%' : theme.height,
     maxWidth: isMobile ? '100%' : 'calc(100vw - 40px)',
     maxHeight: isMobile ? '100%' : 'calc(100vh - 40px)',
-    backgroundColor: theme.backgroundColor,
+    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.8)' : theme.backgroundColor,
     borderRadius: theme.borderRadius,
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+    boxShadow: isDark
+      ? '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.1)'
+      : '0 8px 32px rgba(0, 0, 0, 0.15)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
     zIndex: 2147483646,
     fontFamily: theme.fontFamily,
     fontSize: theme.fontSize,
-    color: theme.textColor,
+    color: isDark ? '#f8fafc' : theme.textColor,
     transition: isDragging ? 'none' : 'transform 0.2s ease-out',
     userSelect: isDragging ? 'none' : 'auto',
   };
@@ -532,6 +534,7 @@ function ChatWindow({
           businessName={config?.businessName}
           welcomeMessage={config?.welcomeMessage}
           theme={theme}
+          themeMode={themeMode}
           isLoading={isTyping}
           onAddToCart={onAddToCart}
           onProductClick={handleProductClick}
@@ -600,6 +603,7 @@ function ChatWindow({
                     : null
               }
               theme={theme}
+              themeMode={themeMode}
               botName={config?.botName ?? 'Mantisbot'}
               personality={config?.personality}
               onConfirmConsent={onRecordConsent}
@@ -618,8 +622,8 @@ function ChatWindow({
           </div>
         )}
 
-        <StreamingIndicator isVisible={isStreaming} theme={theme} />
-        <StreamErrorIndicator error={streamingError} />
+        <StreamingIndicator isVisible={isStreaming} theme={theme} themeMode={themeMode} />
+        <StreamErrorIndicator error={streamingError} themeMode={themeMode} />
 
         {(errors.length > 0 || error) && (
           <div

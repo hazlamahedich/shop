@@ -31,7 +31,8 @@ export function MessageInput({
   showVoiceInput = true,
 }: MessageInputProps) {
   const [interimTranscript, setInterimTranscript] = React.useState('');
-  
+  const isDark = themeMode === 'dark';
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (value.trim()) {
@@ -49,7 +50,7 @@ export function MessageInput({
       onSend();
     }
   };
-  
+
   const handleVoiceTranscript = (transcript: string) => {
     onChange(transcript);
     setInterimTranscript('');
@@ -57,7 +58,7 @@ export function MessageInput({
       inputRef.current.focus();
     }
   };
-  
+
   const handleInterimTranscript = (transcript: string) => {
     setInterimTranscript(transcript);
   };
@@ -70,15 +71,15 @@ export function MessageInput({
         display: 'flex',
         flexDirection: 'column',
         padding: 12,
-        borderTop: '1px solid #e5e7eb',
-        backgroundColor: theme.backgroundColor,
+        borderTop: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : theme.backgroundColor,
         borderRadius: `0 0 ${theme.borderRadius}px ${theme.borderRadius}px`,
         flexShrink: 0,
       }}
     >
       <style>{`
         .shopbot-message-input::placeholder {
-          color: ${theme.textColor};
+          color: ${isDark ? '#94a3b8' : theme.textColor};
           opacity: 0.5;
         }
       `}</style>
@@ -88,7 +89,7 @@ export function MessageInput({
           aria-live="polite"
           style={{
             fontStyle: 'italic',
-            color: '#6b7280',
+            color: isDark ? '#94a3b8' : '#6b7280',
             fontSize: 13,
             padding: '4px 0',
             marginBottom: 8,
@@ -126,14 +127,14 @@ export function MessageInput({
           style={{
             flex: 1,
             padding: '10px 14px',
-            border: themeMode === 'dark' ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.2)',
+            border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.2)',
             borderRadius: 20,
             fontSize: theme.fontSize,
             fontFamily: theme.fontFamily,
             outline: 'none',
-            color: theme.textColor,
-            backgroundColor: disabled 
-              ? (themeMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)') 
+            color: isDark ? '#f8fafc' : theme.textColor,
+            backgroundColor: disabled
+              ? (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)')
               : 'transparent',
           }}
         />
@@ -144,8 +145,12 @@ export function MessageInput({
           aria-label="Send message"
           style={{
             padding: '10px 16px',
-            backgroundColor: disabled || !value.trim() ? '#e5e7eb' : theme.primaryColor,
-            color: disabled || !value.trim() ? '#9ca3af' : 'white',
+            backgroundColor: disabled || !value.trim()
+              ? (isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb')
+              : theme.primaryColor,
+            color: disabled || !value.trim()
+              ? (isDark ? '#64748b' : '#9ca3af')
+              : 'white',
             border: 'none',
             borderRadius: 20,
             cursor: disabled || !value.trim() ? 'not-allowed' : 'pointer',

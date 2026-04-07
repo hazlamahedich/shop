@@ -17951,6 +17951,7 @@ Your cart is now empty.`,
     businessName,
     welcomeMessage,
     theme,
+    themeMode,
     isLoading,
     onAddToCart,
     onProductClick,
@@ -17967,6 +17968,7 @@ Your cart is now empty.`,
     const messagesEndRef = reactExports.useRef(null);
     const prevMessageIdsRef = reactExports.useRef(/* @__PURE__ */ new Set());
     const reducedMotion = useReducedMotion();
+    const isDark = themeMode === "dark";
     const groups = reactExports.useMemo(() => groupMessages(messages), [messages]);
     const getNewMessageIds = reactExports.useCallback(() => {
       const currentIds = new Set(messages.map((m2) => m2.messageId));
@@ -18015,7 +18017,7 @@ Your cart is now empty.`,
             justifyContent: "center",
             padding: 16,
             textAlign: "center",
-            color: theme.textColor,
+            color: isDark ? "#94a3b8" : theme.textColor,
             opacity: 0.7
           },
           children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
@@ -18063,6 +18065,7 @@ Your cart is now empty.`,
               botName,
               businessName,
               theme,
+              themeMode,
               onAddToCart,
               onProductClick,
               onRemoveFromCart,
@@ -18087,6 +18090,7 @@ Your cart is now empty.`,
     botName,
     businessName,
     theme,
+    themeMode,
     onAddToCart,
     onProductClick,
     onRemoveFromCart,
@@ -18103,6 +18107,7 @@ Your cart is now empty.`,
     const isUser = group.sender === "user";
     const isSystem = group.sender === "system";
     const showAvatar = !isUser && !isSystem;
+    const isDark = themeMode === "dark";
     let displayName = botName;
     if (isUser) {
       displayName = ((_a2 = group.messages[0]) == null ? void 0 : _a2.customerName) || "User";
@@ -18126,7 +18131,7 @@ Your cart is now empty.`,
               className: "message-bubble message-bubble--system",
               style: {
                 textAlign: "center",
-                color: theme.textColor,
+                color: isDark ? "#94a3b8" : theme.textColor,
                 opacity: 0.7,
                 fontSize: 12,
                 padding: "4px 8px"
@@ -18188,6 +18193,7 @@ Your cart is now empty.`,
                           position,
                           displayName: isFirst ? displayName : void 0,
                           theme,
+                          themeMode,
                           showRichContent: isLast,
                           onAddToCart,
                           onProductClick,
@@ -18235,6 +18241,7 @@ Your cart is now empty.`,
     position,
     displayName,
     theme,
+    themeMode,
     showRichContent,
     onAddToCart,
     onProductClick,
@@ -18249,6 +18256,7 @@ Your cart is now empty.`,
     onFeedbackSubmit
   }) {
     const isUser = sender === "user";
+    const isDark = themeMode === "dark";
     const getBorderRadius = () => {
       if (position === "single") return "16px";
       if (position === "first") return isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px";
@@ -18267,8 +18275,8 @@ Your cart is now empty.`,
           style: {
             padding: "10px 14px",
             borderRadius: getBorderRadius(),
-            backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
-            color: isUser ? "white" : theme.textColor,
+            backgroundColor: isUser ? theme.userBubbleColor : isDark ? "rgba(255, 255, 255, 0.08)" : theme.botBubbleColor,
+            color: isUser ? "white" : isDark ? "#f1f5f9" : theme.textColor,
             wordBreak: "break-word",
             animationName: shouldAnimate ? "message-send" : "none",
             animationDuration: shouldAnimate ? "200ms" : "0ms",
@@ -18851,6 +18859,7 @@ Your cart is now empty.`,
     showVoiceInput = true
   }) {
     const [interimTranscript, setInterimTranscript] = reactExports.useState("");
+    const isDark = themeMode === "dark";
     const handleSubmit = (event) => {
       event.preventDefault();
       if (value.trim()) {
@@ -18886,15 +18895,15 @@ Your cart is now empty.`,
           display: "flex",
           flexDirection: "column",
           padding: 12,
-          borderTop: "1px solid #e5e7eb",
-          backgroundColor: theme.backgroundColor,
+          borderTop: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e5e7eb",
+          backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : theme.backgroundColor,
           borderRadius: `0 0 ${theme.borderRadius}px ${theme.borderRadius}px`,
           flexShrink: 0
         },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
         .shopbot-message-input::placeholder {
-          color: ${theme.textColor};
+          color: ${isDark ? "#94a3b8" : theme.textColor};
           opacity: 0.5;
         }
       ` }),
@@ -18905,7 +18914,7 @@ Your cart is now empty.`,
               "aria-live": "polite",
               style: {
                 fontStyle: "italic",
-                color: "#6b7280",
+                color: isDark ? "#94a3b8" : "#6b7280",
                 fontSize: 13,
                 padding: "4px 0",
                 marginBottom: 8
@@ -18945,13 +18954,13 @@ Your cart is now empty.`,
                 style: {
                   flex: 1,
                   padding: "10px 14px",
-                  border: themeMode === "dark" ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
+                  border: isDark ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
                   borderRadius: 20,
                   fontSize: theme.fontSize,
                   fontFamily: theme.fontFamily,
                   outline: "none",
-                  color: theme.textColor,
-                  backgroundColor: disabled ? themeMode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" : "transparent"
+                  color: isDark ? "#f8fafc" : theme.textColor,
+                  backgroundColor: disabled ? isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" : "transparent"
                 }
               }
             ),
@@ -18964,8 +18973,8 @@ Your cart is now empty.`,
                 "aria-label": "Send message",
                 style: {
                   padding: "10px 16px",
-                  backgroundColor: disabled || !value.trim() ? "#e5e7eb" : theme.primaryColor,
-                  color: disabled || !value.trim() ? "#9ca3af" : "white",
+                  backgroundColor: disabled || !value.trim() ? isDark ? "rgba(255,255,255,0.1)" : "#e5e7eb" : theme.primaryColor,
+                  color: disabled || !value.trim() ? isDark ? "#64748b" : "#9ca3af" : "white",
                   border: "none",
                   borderRadius: 20,
                   cursor: disabled || !value.trim() ? "not-allowed" : "pointer",
@@ -19963,12 +19972,14 @@ Your cart is now empty.`,
     promptShown,
     consentGranted,
     theme,
+    themeMode,
     botName,
     personality = "friendly",
     onConfirmConsent,
     onDismiss
   }) {
     const [isProcessing, setIsProcessing] = reactExports.useState(false);
+    const isDark = themeMode === "dark";
     console.log("[ConsentPrompt] render:", { isOpen, promptShown, consentGranted, shouldRender: isOpen && promptShown && consentGranted === null });
     if (!isOpen || !promptShown || consentGranted !== null) {
       return null;
@@ -19996,7 +20007,7 @@ Your cart is now empty.`,
         className: "shopbot-consent-prompt",
         style: {
           padding: "16px",
-          backgroundColor: theme.botBubbleColor,
+          backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : theme.botBubbleColor,
           borderRadius: theme.borderRadius,
           margin: "8px 0",
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)"
@@ -20010,7 +20021,7 @@ Your cart is now empty.`,
                 fontSize: "14px",
                 fontWeight: 600,
                 marginBottom: "8px",
-                color: theme.textColor
+                color: isDark ? "#f8fafc" : theme.textColor
               },
               children: messages.title
             }
@@ -20023,7 +20034,7 @@ Your cart is now empty.`,
                 fontSize: "13px",
                 lineHeight: "1.5",
                 marginBottom: "12px",
-                color: theme.textColor,
+                color: isDark ? "#cbd5e1" : theme.textColor,
                 opacity: 0.9
               },
               children: messages.description.replace("{botName}", botName)
@@ -20048,9 +20059,9 @@ Your cart is now empty.`,
                       padding: "8px 16px",
                       fontSize: "13px",
                       fontWeight: 500,
-                      border: `1px solid ${theme.primaryColor}`,
+                      border: `1px solid ${isDark ? "#c7d2fe" : theme.primaryColor}`,
                       backgroundColor: "transparent",
-                      color: theme.primaryColor,
+                      color: isDark ? "#c7d2fe" : theme.primaryColor,
                       borderRadius: theme.borderRadius / 2,
                       cursor: disabled ? "not-allowed" : "pointer",
                       opacity: disabled ? 0.6 : 1,
@@ -20510,8 +20521,9 @@ Your cart is now empty.`,
       }
     );
   }
-  function StreamingIndicator({ isVisible, theme }) {
+  function StreamingIndicator({ isVisible, theme, themeMode }) {
     if (!isVisible) return null;
+    const isDark = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -20548,7 +20560,7 @@ Your cart is now empty.`,
             {
               style: {
                 fontSize: 11,
-                color: theme.textColor,
+                color: isDark ? "#94a3b8" : theme.textColor,
                 opacity: 0.7
               },
               children: "streaming..."
@@ -20558,8 +20570,9 @@ Your cart is now empty.`,
       }
     );
   }
-  function StreamErrorIndicator({ error }) {
+  function StreamErrorIndicator({ error, themeMode }) {
     if (!error) return null;
+    const isDark = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
@@ -20569,9 +20582,9 @@ Your cart is now empty.`,
           padding: "8px 12px",
           margin: "4px 12px",
           borderRadius: 8,
-          backgroundColor: "#fef2f2",
-          border: "1px solid #fecaca",
-          color: "#991b1b",
+          backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2",
+          border: isDark ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid #fecaca",
+          color: isDark ? "#fca5a5" : "#991b1b",
           fontSize: 13
         },
         children: "Something went wrong with the streaming response. Please try again."
@@ -20767,16 +20780,16 @@ Your cart is now empty.`,
       height: isMobile ? "100%" : theme.height,
       maxWidth: isMobile ? "100%" : "calc(100vw - 40px)",
       maxHeight: isMobile ? "100%" : "calc(100vh - 40px)",
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: isDark ? "rgba(15, 23, 42, 0.8)" : theme.backgroundColor,
       borderRadius: theme.borderRadius,
-      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+      boxShadow: isDark ? "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.1)" : "0 8px 32px rgba(0, 0, 0, 0.15)",
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
       zIndex: 2147483646,
       fontFamily: theme.fontFamily,
       fontSize: theme.fontSize,
-      color: theme.textColor,
+      color: isDark ? "#f8fafc" : theme.textColor,
       transition: isDragging ? "none" : "transform 0.2s ease-out",
       userSelect: isDragging ? "none" : "auto"
     };
@@ -21043,6 +21056,7 @@ Your cart is now empty.`,
                 businessName: config2 == null ? void 0 : config2.businessName,
                 welcomeMessage: config2 == null ? void 0 : config2.welcomeMessage,
                 theme,
+                themeMode,
                 isLoading: isTyping,
                 onAddToCart,
                 onProductClick: handleProductClick,
@@ -21096,6 +21110,7 @@ Your cart is now empty.`,
                 promptShown: consentState.promptShown,
                 consentGranted: consentState.status === "opted_in" ? true : consentState.status === "opted_out" ? false : null,
                 theme,
+                themeMode,
                 botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
                 personality: config2 == null ? void 0 : config2.personality,
                 onConfirmConsent: onRecordConsent
@@ -21110,8 +21125,8 @@ Your cart is now empty.`,
                 themeMode
               }
             ) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamingIndicator, { isVisible: isStreaming, theme }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamErrorIndicator, { error: streamingError }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamingIndicator, { isVisible: isStreaming, theme, themeMode }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamErrorIndicator, { error: streamingError, themeMode }),
             (errors.length > 0 || error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {

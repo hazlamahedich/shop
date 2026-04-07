@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup, FeedbackRatingValue, ContactOption } from '../types/widget';
+import type { WidgetTheme, WidgetMessage, WidgetProduct, QuickReply, MessageGroup, FeedbackRatingValue, ThemeMode } from '../types/widget';
 import { ProductList } from './ProductCard';
 import { ProductCarousel } from './ProductCarousel';
 import { CartView } from './CartView';
@@ -17,6 +17,7 @@ export interface MessageListProps {
   businessName?: string;
   welcomeMessage?: string;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   isLoading?: boolean;
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
@@ -37,6 +38,7 @@ export function MessageList({
   businessName,
   welcomeMessage,
   theme,
+  themeMode,
   isLoading,
   onAddToCart,
   onProductClick,
@@ -53,6 +55,7 @@ export function MessageList({
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const prevMessageIdsRef = React.useRef<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === 'dark';
 
   const groups = React.useMemo(() => groupMessages(messages), [messages]);
 
@@ -111,7 +114,7 @@ export function MessageList({
           justifyContent: 'center',
           padding: 16,
           textAlign: 'center',
-          color: theme.textColor,
+          color: isDark ? '#94a3b8' : theme.textColor,
           opacity: 0.7,
         }}
       >
@@ -158,6 +161,7 @@ export function MessageList({
           botName={botName}
           businessName={businessName}
           theme={theme}
+          themeMode={themeMode}
           onAddToCart={onAddToCart}
           onProductClick={onProductClick}
           onRemoveFromCart={onRemoveFromCart}
@@ -181,6 +185,7 @@ interface MessageGroupComponentProps {
   botName: string;
   businessName?: string;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
@@ -199,6 +204,7 @@ function MessageGroupComponent({
   botName,
   businessName,
   theme,
+  themeMode,
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
@@ -214,6 +220,7 @@ function MessageGroupComponent({
   const isUser = group.sender === 'user';
   const isSystem = group.sender === 'system';
   const showAvatar = !isUser && !isSystem;
+  const isDark = themeMode === 'dark';
 
   let displayName = botName;
   if (isUser) {
@@ -239,7 +246,7 @@ function MessageGroupComponent({
             className="message-bubble message-bubble--system"
             style={{
               textAlign: 'center',
-              color: theme.textColor,
+              color: isDark ? '#94a3b8' : theme.textColor,
               opacity: 0.7,
               fontSize: 12,
               padding: '4px 8px',
@@ -302,6 +309,7 @@ function MessageGroupComponent({
                   position={position}
                   displayName={isFirst ? displayName : undefined}
                   theme={theme}
+                  themeMode={themeMode}
                   showRichContent={isLast}
                   onAddToCart={onAddToCart}
                   onProductClick={onProductClick}
@@ -347,6 +355,7 @@ interface MessageBubbleInGroupProps {
   position: 'first' | 'middle' | 'last' | 'single';
   displayName?: string;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   showRichContent: boolean;
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
@@ -367,6 +376,7 @@ function MessageBubbleInGroup({
   position,
   displayName,
   theme,
+  themeMode,
   showRichContent,
   onAddToCart,
   onProductClick,
@@ -381,6 +391,7 @@ function MessageBubbleInGroup({
   onFeedbackSubmit,
 }: MessageBubbleInGroupProps) {
   const isUser = sender === 'user';
+  const isDark = themeMode === 'dark';
 
   const getBorderRadius = (): string => {
     if (position === 'single') return '16px';
@@ -401,8 +412,8 @@ function MessageBubbleInGroup({
         style={{
           padding: '10px 14px',
           borderRadius: getBorderRadius(),
-          backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
-          color: isUser ? 'white' : theme.textColor,
+          backgroundColor: isUser ? theme.userBubbleColor : (isDark ? 'rgba(255, 255, 255, 0.08)' : theme.botBubbleColor),
+          color: isUser ? 'white' : (isDark ? '#f1f5f9' : theme.textColor),
           wordBreak: 'break-word',
           animationName: shouldAnimate ? 'message-send' : 'none',
           animationDuration: shouldAnimate ? '200ms' : '0ms',

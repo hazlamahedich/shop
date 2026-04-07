@@ -1,12 +1,15 @@
-import type { WidgetTheme } from '../types/widget';
+import type { WidgetTheme, ThemeMode } from '../types/widget';
 
 export interface StreamingIndicatorProps {
   isVisible: boolean;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
 }
 
-export function StreamingIndicator({ isVisible, theme }: StreamingIndicatorProps) {
+export function StreamingIndicator({ isVisible, theme, themeMode }: StreamingIndicatorProps) {
   if (!isVisible) return null;
+
+  const isDark = themeMode === 'dark';
 
   return (
     <div
@@ -38,7 +41,7 @@ export function StreamingIndicator({ isVisible, theme }: StreamingIndicatorProps
       <span
         style={{
           fontSize: 11,
-          color: theme.textColor,
+          color: isDark ? '#94a3b8' : theme.textColor,
           opacity: 0.7,
         }}
       >
@@ -50,10 +53,13 @@ export function StreamingIndicator({ isVisible, theme }: StreamingIndicatorProps
 
 export interface StreamErrorIndicatorProps {
   error: string | null;
+  themeMode?: ThemeMode;
 }
 
-export function StreamErrorIndicator({ error }: StreamErrorIndicatorProps) {
+export function StreamErrorIndicator({ error, themeMode }: StreamErrorIndicatorProps) {
   if (!error) return null;
+
+  const isDark = themeMode === 'dark';
 
   return (
     <div
@@ -63,9 +69,9 @@ export function StreamErrorIndicator({ error }: StreamErrorIndicatorProps) {
         padding: '8px 12px',
         margin: '4px 12px',
         borderRadius: 8,
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fecaca',
-        color: '#991b1b',
+        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+        border: isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #fecaca',
+        color: isDark ? '#fca5a5' : '#991b1b',
         fontSize: 13,
       }}
     >

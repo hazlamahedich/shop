@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetTheme, PersonalityType } from '../types/widget';
+import type { WidgetTheme, PersonalityType, ThemeMode } from '../types/widget';
 
 const CONSENT_MESSAGES: Record<PersonalityType, { title: string; description: string }> = {
   friendly: {
@@ -23,6 +23,7 @@ export interface ConsentPromptProps {
   promptShown: boolean;
   consentGranted: boolean | null;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   botName: string;
   personality?: PersonalityType;
   onConfirmConsent: (consented: boolean) => Promise<void>;
@@ -36,12 +37,14 @@ export function ConsentPrompt({
   promptShown,
   consentGranted,
   theme,
+  themeMode,
   botName,
   personality = 'friendly',
   onConfirmConsent,
   onDismiss,
 }: ConsentPromptProps) {
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const isDark = themeMode === 'dark';
 
   // Debug logging for Story 6-1 consent prompt visibility
   console.log('[ConsentPrompt] render:', { isOpen, promptShown, consentGranted, shouldRender: isOpen && promptShown && consentGranted === null });
@@ -75,7 +78,7 @@ export function ConsentPrompt({
       className="shopbot-consent-prompt"
       style={{
         padding: '16px',
-        backgroundColor: theme.botBubbleColor,
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.botBubbleColor,
         borderRadius: theme.borderRadius,
         margin: '8px 0',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
@@ -87,7 +90,7 @@ export function ConsentPrompt({
           fontSize: '14px',
           fontWeight: 600,
           marginBottom: '8px',
-          color: theme.textColor,
+          color: isDark ? '#f8fafc' : theme.textColor,
         }}
       >
         {messages.title}
@@ -98,7 +101,7 @@ export function ConsentPrompt({
           fontSize: '13px',
           lineHeight: '1.5',
           marginBottom: '12px',
-          color: theme.textColor,
+          color: isDark ? '#cbd5e1' : theme.textColor,
           opacity: 0.9,
         }}
       >
@@ -119,9 +122,9 @@ export function ConsentPrompt({
             padding: '8px 16px',
             fontSize: '13px',
             fontWeight: 500,
-            border: `1px solid ${theme.primaryColor}`,
+            border: `1px solid ${isDark ? '#c7d2fe' : theme.primaryColor}`,
             backgroundColor: 'transparent',
-            color: theme.primaryColor,
+            color: isDark ? '#c7d2fe' : theme.primaryColor,
             borderRadius: theme.borderRadius / 2,
             cursor: disabled ? 'not-allowed' : 'pointer',
             opacity: disabled ? 0.6 : 1,
