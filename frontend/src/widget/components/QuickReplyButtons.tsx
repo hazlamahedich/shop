@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { QuickReply, WidgetTheme } from '../types/widget';
+import type { QuickReply, WidgetTheme, ThemeMode } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useRipple } from '../hooks/useRipple';
 import { trackQuickReplyClick } from '../utils/analytics';
@@ -8,6 +8,7 @@ export interface QuickReplyButtonsProps {
   quickReplies: QuickReply[];
   onReply: (reply: QuickReply) => void;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   dismissOnSelect?: boolean;
   disabled?: boolean;
 }
@@ -18,6 +19,7 @@ interface QuickReplyButtonProps {
   onClick: (reply: QuickReply, index: number) => void;
   onKeyDown: (e: React.KeyboardEvent, reply: QuickReply, index: number) => void;
   theme: WidgetTheme;
+  isDark: boolean;
   disabled: boolean;
   isSelected: boolean;
   reducedMotion: boolean;
@@ -29,6 +31,7 @@ function QuickReplyButton({
   onClick,
   onKeyDown,
   theme,
+  isDark,
   disabled,
   isSelected,
   reducedMotion,
@@ -40,6 +43,12 @@ function QuickReplyButton({
     createRipple(e);
     onClick(reply, index);
   };
+
+  const textColor = isDark ? '#c7d2fe' : theme.primaryColor;
+  const bgColor = isDark ? 'rgba(199, 210, 254, 0.1)' : `${theme.primaryColor}1a`;
+  const borderColor = isDark ? 'rgba(199, 210, 254, 0.2)' : `${theme.primaryColor}33`;
+  const hoverBg = isDark ? 'rgba(199, 210, 254, 0.15)' : `${theme.primaryColor}26`;
+  const hoverBorder = isDark ? 'rgba(199, 210, 254, 0.35)' : `${theme.primaryColor}66`;
 
   return (
     <button
@@ -59,10 +68,10 @@ function QuickReplyButton({
         gap: '6px',
         minHeight: '40px',
         padding: '8px 14px',
-        border: `1px solid ${theme.primaryColor}33`, // 20% opacity border
+        border: `1px solid ${borderColor}`,
         borderRadius: '16px',
-        backgroundColor: `${theme.primaryColor}1a`, // 10% opacity background
-        color: theme.primaryColor,
+        backgroundColor: bgColor,
+        color: textColor,
         fontFamily: theme.fontFamily,
         fontSize: '13px',
         fontWeight: 500,
@@ -72,19 +81,19 @@ function QuickReplyButton({
         whiteSpace: 'nowrap',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+        boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)',
       }}
       onMouseEnter={(e) => {
         if (!disabled && !isSelected) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`; // 15% opacity
-          e.currentTarget.style.borderColor = `${theme.primaryColor}66`; // 40% opacity
+          e.currentTarget.style.backgroundColor = hoverBg;
+          e.currentTarget.style.borderColor = hoverBorder;
           e.currentTarget.style.transform = 'translateY(-1px)';
         }
       }}
       onMouseLeave={(e) => {
         if (!disabled && !isSelected) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-          e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+          e.currentTarget.style.backgroundColor = bgColor;
+          e.currentTarget.style.borderColor = borderColor;
           e.currentTarget.style.transform = 'translateY(0)';
         }
       }}
@@ -125,11 +134,13 @@ export function QuickReplyButtons({
   quickReplies,
   onReply,
   theme,
+  themeMode,
   dismissOnSelect = true,
   disabled = false,
 }: QuickReplyButtonsProps) {
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === 'dark';
 
   const handleClick = (reply: QuickReply, index: number) => {
     if (disabled) return;
@@ -173,6 +184,7 @@ export function QuickReplyButtons({
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           theme={theme}
+          isDark={isDark}
           disabled={disabled}
           isSelected={dismissOnSelect && selectedIndex !== null}
           reducedMotion={reducedMotion}

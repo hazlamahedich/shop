@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { WidgetError, ErrorAction } from '../types/errors';
 import { ErrorSeverity, formatRetryTime } from '../types/errors';
+import type { ThemeMode } from '../types/widget';
 
 export interface ErrorToastProps {
   error: WidgetError;
@@ -10,6 +11,7 @@ export interface ErrorToastProps {
   autoDismiss?: boolean;
   autoDismissDelay?: number;
   showProgress?: boolean;
+  themeMode?: ThemeMode;
 }
 
 const severityStyles: Record<ErrorSeverity, { bg: string; border: string; icon: string }> = {
@@ -43,12 +45,14 @@ export function ErrorToast({
   autoDismiss = true,
   autoDismissDelay = 8000,
   showProgress = true,
+  themeMode,
 }: ErrorToastProps) {
   const [isVisible, setIsVisible] = React.useState(false);
   const [isExiting, setIsExiting] = React.useState(false);
   const [timeLeft, setTimeLeft] = React.useState(autoDismissDelay);
   const [isPaused, setIsPaused] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const isDark = themeMode === 'dark';
 
   React.useEffect(() => {
     requestAnimationFrame(() => {
@@ -165,7 +169,7 @@ export function ErrorToast({
             style={{
               fontWeight: 600,
               fontSize: '14px',
-              color: '#1f2937',
+              color: isDark ? '#f1f5f9' : '#1f2937',
               marginBottom: '4px',
             }}
           >
@@ -177,7 +181,7 @@ export function ErrorToast({
               className="error-toast__detail"
               style={{
                 fontSize: '13px',
-                color: '#4b5563',
+                color: isDark ? '#cbd5e1' : '#4b5563',
                 marginBottom: error.retryable || actions?.length ? '12px' : 0,
               }}
             >
@@ -257,8 +261,8 @@ export function ErrorToast({
                     fontSize: '13px',
                     fontWeight: 500,
                     backgroundColor: action.primary ? styles.border : 'transparent',
-                    color: action.primary ? 'white' : '#4b5563',
-                    border: `1px solid ${action.primary ? styles.border : '#d1d5db'}`,
+                    color: action.primary ? 'white' : (isDark ? '#cbd5e1' : '#4b5563'),
+                    border: `1px solid ${action.primary ? styles.border : (isDark ? 'rgba(255,255,255,0.2)' : '#d1d5db')}`,
                     borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'opacity 0.2s',
@@ -275,7 +279,7 @@ export function ErrorToast({
                   className="error-toast__retry-after"
                   style={{
                     fontSize: '12px',
-                    color: '#6b7280',
+                    color: isDark ? '#94a3b8' : '#6b7280',
                     display: 'flex',
                     alignItems: 'center',
                   }}
@@ -297,12 +301,12 @@ export function ErrorToast({
             border: 'none',
             padding: '4px',
             cursor: 'pointer',
-            color: '#9ca3af',
+            color: isDark ? '#94a3b8' : '#9ca3af',
             flexShrink: 0,
             transition: 'color 0.2s',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#4b5563')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+          onMouseEnter={(e) => (e.currentTarget.style.color = isDark ? '#e2e8f0' : '#4b5563')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = isDark ? '#94a3b8' : '#9ca3af')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -320,6 +324,7 @@ export interface ErrorToastContainerProps {
   onRetry?: (id: string) => void;
   maxVisible?: number;
   position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+  themeMode?: ThemeMode;
 }
 
 export function ErrorToastContainer({
@@ -328,7 +333,9 @@ export function ErrorToastContainer({
   onRetry,
   maxVisible = 3,
   position = 'top-right',
+  themeMode,
 }: ErrorToastContainerProps) {
+  const isDark = themeMode === 'dark';
   const visibleErrors = errors.filter((e) => !e.dismissed).slice(0, maxVisible);
 
   if (visibleErrors.length === 0) return null;
@@ -361,6 +368,7 @@ export function ErrorToastContainer({
           error={error}
           onDismiss={onDismiss}
           onRetry={onRetry}
+          themeMode={themeMode}
         />
       ))}
       
@@ -369,7 +377,7 @@ export function ErrorToastContainer({
           className="error-toast__more"
           style={{
             fontSize: '12px',
-            color: '#6b7280',
+            color: isDark ? '#94a3b8' : '#6b7280',
             textAlign: 'center',
             padding: '8px',
           }}

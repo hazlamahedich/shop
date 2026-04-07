@@ -1,11 +1,12 @@
 import * as React from 'react';
-import type { WidgetTheme } from '../types/widget';
+import type { WidgetTheme, ThemeMode } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface SuggestedRepliesProps {
   suggestions: string[];
   onSelect: (suggestion: string) => void;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   disabled?: boolean;
 }
 
@@ -13,10 +14,12 @@ export function SuggestedReplies({
   suggestions,
   onSelect,
   theme,
+  themeMode,
   disabled = false,
 }: SuggestedRepliesProps) {
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === 'dark';
 
   const handleClick = (suggestion: string, index: number) => {
     if (disabled) return;
@@ -72,10 +75,10 @@ export function SuggestedReplies({
             justifyContent: 'center',
             minHeight: '40px',
             padding: '8px 16px',
-            border: `1px solid ${theme.primaryColor}33`,
+            border: `1px solid ${isDark ? 'rgba(199, 210, 254, 0.2)' : `${theme.primaryColor}33`}`,
             borderRadius: '20px',
-            backgroundColor: `${theme.primaryColor}1a`,
-            color: theme.primaryColor,
+            backgroundColor: isDark ? 'rgba(199, 210, 254, 0.1)' : `${theme.primaryColor}1a`,
+            color: isDark ? '#c7d2fe' : theme.primaryColor,
             fontFamily: theme.fontFamily,
             fontSize: '13px',
             fontWeight: 500,
@@ -84,20 +87,20 @@ export function SuggestedReplies({
             transition: reducedMotion ? 'none' : 'all 150ms ease',
             whiteSpace: 'nowrap',
             flexShrink: 0,
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)',
             position: 'relative',
           }}
           onMouseEnter={(e) => {
             if (!disabled && selectedIndex === null) {
-              e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-              e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(199, 210, 254, 0.15)' : `${theme.primaryColor}26`;
+              e.currentTarget.style.borderColor = isDark ? 'rgba(199, 210, 254, 0.35)' : `${theme.primaryColor}66`;
               e.currentTarget.style.transform = 'translateY(-1px)';
             }
           }}
           onMouseLeave={(e) => {
             if (!disabled && selectedIndex === null) {
-              e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-              e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+              e.currentTarget.style.backgroundColor = isDark ? 'rgba(199, 210, 254, 0.1)' : `${theme.primaryColor}1a`;
+              e.currentTarget.style.borderColor = isDark ? 'rgba(199, 210, 254, 0.2)' : `${theme.primaryColor}33`;
               e.currentTarget.style.transform = 'translateY(0)';
             }
           }}

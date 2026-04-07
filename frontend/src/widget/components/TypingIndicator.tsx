@@ -1,15 +1,17 @@
 import * as React from 'react';
-import type { WidgetTheme } from '../types/widget';
+import type { WidgetTheme, ThemeMode } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export interface TypingIndicatorProps {
   isVisible: boolean;
   botName: string;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
 }
 
-export function TypingIndicator({ isVisible, botName, theme }: TypingIndicatorProps) {
+export function TypingIndicator({ isVisible, botName, theme, themeMode }: TypingIndicatorProps) {
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === 'dark';
 
   if (!isVisible) return null;
 
@@ -29,7 +31,7 @@ export function TypingIndicator({ isVisible, botName, theme }: TypingIndicatorPr
         style={{
           padding: '10px 14px',
           borderRadius: 16,
-          backgroundColor: theme.botBubbleColor,
+          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.botBubbleColor,
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
@@ -38,7 +40,7 @@ export function TypingIndicator({ isVisible, botName, theme }: TypingIndicatorPr
         <span
           style={{
             fontSize: 11,
-            color: theme.textColor,
+            color: isDark ? '#94a3b8' : theme.textColor,
             marginBottom: 2,
             opacity: 0.8,
           }}
@@ -62,7 +64,7 @@ export function TypingIndicator({ isVisible, botName, theme }: TypingIndicatorPr
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                backgroundColor: theme.primaryColor,
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.4)' : theme.primaryColor,
                 animationName: reducedMotion ? 'none' : 'typing-dot-bounce',
                 animationDuration: reducedMotion ? '0ms' : '1.4s',
                 animationTimingFunction: 'ease-in-out',

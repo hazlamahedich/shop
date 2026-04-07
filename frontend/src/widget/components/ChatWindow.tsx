@@ -98,6 +98,7 @@ function ChatWindow({
   const [activeSuggestions, setActiveSuggestions] = React.useState<string[] | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const isDark = themeMode === 'dark';
   const quickReplyRef = React.useRef<HTMLDivElement>(null);
   const suggestedReplyRef = React.useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
@@ -385,12 +386,13 @@ function ChatWindow({
                       top: '100%',
                       right: 0,
                       marginTop: '4px',
-                      backgroundColor: 'white',
+                      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'white',
                       borderRadius: '8px',
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                       minWidth: '150px',
                       zIndex: 10,
                       overflow: 'hidden',
+                      border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
                     }}
                   >
                     <button
@@ -405,13 +407,13 @@ function ChatWindow({
                         border: 'none',
                         cursor: 'pointer',
                         fontSize: '14px',
-                        color: theme.textColor,
+                        color: isDark ? '#f8fafc' : theme.textColor,
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
                       }}
                       onMouseEnter={(e) => {
-                        (e.target as HTMLElement).style.backgroundColor = '#f3f4f6';
+                        (e.target as HTMLElement).style.backgroundColor = isDark ? 'rgba(255, 255, 255, 0.1)' : '#f3f4f6';
                       }}
                       onMouseLeave={(e) => {
                         (e.target as HTMLElement).style.backgroundColor = 'transparent';
@@ -520,7 +522,7 @@ function ChatWindow({
         {/* Connection Status Indicator */}
         {connectionStatus !== 'connected' && (
           <div style={{ padding: '8px 12px', flexShrink: 0 }}>
-            <ConnectionStatusIndicator status={connectionStatus} />
+            <ConnectionStatusIndicator status={connectionStatus} themeMode={themeMode} />
           </div>
         )}
 
@@ -551,6 +553,7 @@ function ChatWindow({
               suggestions={activeSuggestions}
               onSelect={handleSuggestionSelect}
               theme={theme}
+              themeMode={themeMode}
               disabled={isTyping}
             />
           </div>
@@ -563,6 +566,7 @@ function ChatWindow({
               quickReplies={activeQuickReplies}
               onReply={handleQuickReply}
               theme={theme}
+              themeMode={themeMode}
               dismissOnSelect={true}
             />
           </div>
@@ -571,10 +575,11 @@ function ChatWindow({
         {/* FAQ Quick Buttons - Story 10-2 */}
         {showFaqButtons && faqQuickButtons && faqQuickButtons.length > 0 && config?.onboardingMode === 'general' && (
           <div style={{ flexShrink: 0, padding: '0 12px 8px' }}>
-            <FAQQuickButtons
+             <FAQQuickButtons
               buttons={faqQuickButtons}
               onButtonClick={handleFaqButtonClick}
               theme={theme}
+              themeMode={themeMode}
               disabled={isTyping}
             />
           </div>
@@ -604,10 +609,11 @@ function ChatWindow({
 
         {isTyping && (
           <div style={{ flexShrink: 0 }}>
-            <TypingIndicator
+             <TypingIndicator
               isVisible={isTyping}
               botName={config?.botName ?? 'Mantisbot'}
               theme={theme}
+              themeMode={themeMode}
             />
           </div>
         )}
@@ -626,7 +632,7 @@ function ChatWindow({
             }}
           >
             {errors.filter((e) => !e.dismissed).map((widgetError) => (
-              <ErrorToast
+               <ErrorToast
                 key={widgetError.id}
                 error={widgetError}
                 onDismiss={onDismissError || (() => {})}
@@ -634,6 +640,7 @@ function ChatWindow({
                 autoDismiss={true}
                 autoDismissDelay={10000}
                 showProgress={true}
+                themeMode={themeMode}
               />
             ))}
             {error && errors.filter((e) => !e.dismissed).length === 0 && (
@@ -642,11 +649,11 @@ function ChatWindow({
                 role="alert"
                 style={{
                   padding: '12px 16px',
-                  backgroundColor: '#fee2e2',
-                  color: '#dc2626',
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                  color: isDark ? '#fca5a5' : '#dc2626',
                   fontSize: '13px',
                   borderRadius: '8px',
-                  borderLeft: '4px solid #dc2626',
+                  borderLeft: isDark ? '4px solid #ef4444' : '4px solid #dc2626',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '12px',

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { FAQQuickButton, WidgetTheme } from '../types/widget';
+import type { FAQQuickButton, WidgetTheme, ThemeMode } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useRipple } from '../hooks/useRipple';
 
@@ -7,6 +7,7 @@ export interface FAQQuickButtonsProps {
   buttons: FAQQuickButton[];
   onButtonClick: (button: FAQQuickButton) => void;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   disabled?: boolean;
 }
 
@@ -15,6 +16,7 @@ interface FAQQuickButtonItemProps {
   index: number;
   onClick: (button: FAQQuickButton, index: number) => void;
   theme: WidgetTheme;
+  isDark: boolean;
   disabled: boolean;
   reducedMotion: boolean;
 }
@@ -24,6 +26,7 @@ function FAQQuickButtonItem({
   index,
   onClick,
   theme,
+  isDark,
   disabled,
   reducedMotion,
 }: FAQQuickButtonItemProps) {
@@ -41,6 +44,12 @@ function FAQQuickButtonItem({
       onClick(button, index);
     }
   };
+
+  const textColor = isDark ? '#c7d2fe' : theme.primaryColor;
+  const bgColor = isDark ? 'rgba(199, 210, 254, 0.1)' : `${theme.primaryColor}1a`;
+  const borderColor = isDark ? 'rgba(199, 210, 254, 0.2)' : `${theme.primaryColor}33`;
+  const hoverBg = isDark ? 'rgba(199, 210, 254, 0.15)' : `${theme.primaryColor}26`;
+  const hoverBorder = isDark ? 'rgba(199, 210, 254, 0.35)' : `${theme.primaryColor}66`;
 
   return (
     <button
@@ -60,10 +69,10 @@ function FAQQuickButtonItem({
         gap: '6px',
         minHeight: '40px',
         padding: '8px 14px',
-        border: `1px solid ${theme.primaryColor}33`, // 20% opacity border
+        border: `1px solid ${borderColor}`,
         borderRadius: '16px',
-        backgroundColor: `${theme.primaryColor}1a`, // 10% opacity background
-        color: theme.primaryColor,
+        backgroundColor: bgColor,
+        color: textColor,
         fontFamily: theme.fontFamily,
         fontSize: '13px',
         fontWeight: 500,
@@ -73,19 +82,19 @@ function FAQQuickButtonItem({
         whiteSpace: 'nowrap',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+        boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.05)',
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`; // 15% opacity
-          e.currentTarget.style.borderColor = `${theme.primaryColor}66`; // 40% opacity
+          e.currentTarget.style.backgroundColor = hoverBg;
+          e.currentTarget.style.borderColor = hoverBorder;
           e.currentTarget.style.transform = 'translateY(-1px)';
         }
       }}
       onMouseLeave={(e) => {
         if (!disabled) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-          e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+          e.currentTarget.style.backgroundColor = bgColor;
+          e.currentTarget.style.borderColor = borderColor;
           e.currentTarget.style.transform = 'translateY(0)';
         }
       }}
@@ -125,9 +134,11 @@ export const FAQQuickButtons: React.FC<FAQQuickButtonsProps> = ({
   buttons,
   onButtonClick,
   theme,
+  themeMode,
   disabled = false,
 }) => {
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === 'dark';
 
   const handleClick = (button: FAQQuickButton, _index: number) => {
     onButtonClick(button);
@@ -157,6 +168,7 @@ export const FAQQuickButtons: React.FC<FAQQuickButtonsProps> = ({
           index={index}
           onClick={handleClick}
           theme={theme}
+          isDark={isDark}
           disabled={disabled}
           reducedMotion={reducedMotion}
         />

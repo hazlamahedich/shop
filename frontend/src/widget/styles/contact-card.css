@@ -83,11 +83,11 @@
   color: #f3f4f6;
 }
 
-.contact-card--dark . contact-card__option {
+.contact-card--dark .contact-card__option {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.contact-card--dark . contact-card__option:hover {
+.contact-card--dark .contact-card__option:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
