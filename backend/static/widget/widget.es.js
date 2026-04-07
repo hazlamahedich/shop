@@ -13130,12 +13130,23 @@ Your cart is now empty.`,
             dispatch({ type: "UPDATE_STREAMING_MESSAGE", payload: { messageId: data.messageId, token: data.token } });
           } else if (event.type === "bot_stream_end") {
             const data = event.data;
+            const rawProducts = data.products;
             const finalMessage = {
               messageId: data.messageId,
               content: data.content || "",
               sender: "bot",
               createdAt: data.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-              products: data.products,
+              products: rawProducts == null ? void 0 : rawProducts.map((p2) => ({
+                id: p2.id || p2.product_id,
+                variantId: p2.variantId || p2.variant_id,
+                title: p2.title,
+                description: p2.description,
+                price: p2.price,
+                imageUrl: p2.imageUrl || p2.image_url,
+                available: p2.available,
+                productType: p2.productType || p2.product_type,
+                isPinned: p2.isPinned || p2.is_pinned
+              })),
               cart: data.cart,
               checkoutUrl: data.checkout_url,
               quick_replies: data.quick_replies,
@@ -15873,8 +15884,8 @@ function ProactiveModal({
   ) });
 }
 const DEFAULT_CAROUSEL_CONFIG = {
-  visibleCards: { mobile: 2, desktop: 3 },
-  cardWidth: 140,
+  visibleCards: { mobile: 1.5, desktop: 2 },
+  cardWidth: 160,
   cardGap: 12,
   scrollDuration: 300
 };
@@ -16538,13 +16549,26 @@ function useRipple() {
   };
   return { ripples, createRipple };
 }
+function optimizeImageUrl(url, size = 280) {
+  if (!url) return void 0;
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes("shopify.com") || urlObj.hostname.includes("myshopify.com")) {
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}width=${size}&height=${size}`;
+    }
+  } catch {
+  }
+  return url;
+}
 function ProductCardCompact({
   product,
   theme,
   onAddToCart,
   onClick,
   isAdding,
-  cardWidth
+  cardWidth,
+  loading = "lazy"
 }) {
   const [imageLoaded, setImageLoaded] = reactExports.useState(false);
   const [imageError, setImageError] = reactExports.useState(false);
@@ -16594,12 +16618,21 @@ function ProductCardCompact({
           product.imageUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
             "img",
             {
-              src: product.imageUrl,
+              src: optimizeImageUrl(product.imageUrl),
               alt: product.title,
-              className: imageLoaded ? "" : "loading",
               onLoad: handleImageLoad,
               onError: handleImageError,
-              loading: "lazy"
+              loading,
+              style: {
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                opacity: imageLoaded ? 1 : 0,
+                transition: "opacity 200ms ease"
+              }
             }
           ),
           imageError && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -16968,7 +17001,8 @@ function ProductCarousel({
                     onAddToCart: handleAddToCart,
                     onClick: handleProductClick,
                     isAdding: addingProductId === product.id,
-                    cardWidth
+                    cardWidth,
+                    loading: index < visibleCards ? "eager" : "lazy"
                   }
                 )
               },
@@ -18942,8 +18976,9 @@ function MessageInput({
     }
   );
 }
-function TypingIndicator({ isVisible, botName, theme }) {
+function TypingIndicator({ isVisible, botName, theme, themeMode }) {
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === "dark";
   if (!isVisible) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
@@ -18963,7 +18998,7 @@ function TypingIndicator({ isVisible, botName, theme }) {
           style: {
             padding: "10px 14px",
             borderRadius: 16,
-            backgroundColor: theme.botBubbleColor,
+            backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : theme.botBubbleColor,
             display: "flex",
             flexDirection: "column",
             gap: 8
@@ -18974,7 +19009,7 @@ function TypingIndicator({ isVisible, botName, theme }) {
               {
                 style: {
                   fontSize: 11,
-                  color: theme.textColor,
+                  color: isDark ? "#94a3b8" : theme.textColor,
                   marginBottom: 2,
                   opacity: 0.8
                 },
@@ -18999,7 +19034,7 @@ function TypingIndicator({ isVisible, botName, theme }) {
                       width: 8,
                       height: 8,
                       borderRadius: "50%",
-                      backgroundColor: theme.primaryColor,
+                      backgroundColor: isDark ? "rgba(255, 255, 255, 0.4)" : theme.primaryColor,
                       animationName: reducedMotion ? "none" : "typing-dot-bounce",
                       animationDuration: reducedMotion ? "0ms" : "1.4s",
                       animationTimingFunction: "ease-in-out",
@@ -19046,13 +19081,15 @@ function ErrorToast({
   actions,
   autoDismiss = true,
   autoDismissDelay = 8e3,
-  showProgress = true
+  showProgress = true,
+  themeMode
 }) {
   const [isVisible, setIsVisible] = reactExports.useState(false);
   const [isExiting, setIsExiting] = reactExports.useState(false);
   const [timeLeft, setTimeLeft] = reactExports.useState(autoDismissDelay);
   const [isPaused, setIsPaused] = reactExports.useState(false);
   const timerRef = reactExports.useRef(null);
+  const isDark = themeMode === "dark";
   reactExports.useEffect(() => {
     requestAnimationFrame(() => {
       setIsVisible(true);
@@ -19168,7 +19205,7 @@ function ErrorToast({
                         style: {
                           fontWeight: 600,
                           fontSize: "14px",
-                          color: "#1f2937",
+                          color: isDark ? "#f1f5f9" : "#1f2937",
                           marginBottom: "4px"
                         },
                         children: error.message
@@ -19180,7 +19217,7 @@ function ErrorToast({
                         className: "error-toast__detail",
                         style: {
                           fontSize: "13px",
-                          color: "#4b5563",
+                          color: isDark ? "#cbd5e1" : "#4b5563",
                           marginBottom: error.retryable || (actions == null ? void 0 : actions.length) ? "12px" : 0
                         },
                         children: error.detail
@@ -19259,8 +19296,8 @@ function ErrorToast({
                                 fontSize: "13px",
                                 fontWeight: 500,
                                 backgroundColor: action.primary ? styles.border : "transparent",
-                                color: action.primary ? "white" : "#4b5563",
-                                border: `1px solid ${action.primary ? styles.border : "#d1d5db"}`,
+                                color: action.primary ? "white" : isDark ? "#cbd5e1" : "#4b5563",
+                                border: `1px solid ${action.primary ? styles.border : isDark ? "rgba(255,255,255,0.2)" : "#d1d5db"}`,
                                 borderRadius: "6px",
                                 cursor: "pointer",
                                 transition: "opacity 0.2s"
@@ -19277,7 +19314,7 @@ function ErrorToast({
                               className: "error-toast__retry-after",
                               style: {
                                 fontSize: "12px",
-                                color: "#6b7280",
+                                color: isDark ? "#94a3b8" : "#6b7280",
                                 display: "flex",
                                 alignItems: "center"
                               },
@@ -19305,12 +19342,12 @@ function ErrorToast({
                     border: "none",
                     padding: "4px",
                     cursor: "pointer",
-                    color: "#9ca3af",
+                    color: isDark ? "#94a3b8" : "#9ca3af",
                     flexShrink: 0,
                     transition: "color 0.2s"
                   },
-                  onMouseEnter: (e) => e.currentTarget.style.color = "#4b5563",
-                  onMouseLeave: (e) => e.currentTarget.style.color = "#9ca3af",
+                  onMouseEnter: (e) => e.currentTarget.style.color = isDark ? "#e2e8f0" : "#4b5563",
+                  onMouseLeave: (e) => e.currentTarget.style.color = isDark ? "#94a3b8" : "#9ca3af",
                   children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
@@ -19830,37 +19867,38 @@ const __iconNode = [
   ["path", { d: "m2 2 20 20", key: "1ooewy" }]
 ];
 const WifiOff = createLucideIcon("wifi-off", __iconNode);
-const ConnectionStatusIndicator = ({ status }) => {
+const ConnectionStatusIndicator = ({ status, themeMode }) => {
   if (status === "connected") {
     return null;
   }
+  const isDark = themeMode === "dark";
   const getStatusConfig = () => {
     switch (status) {
       case "connecting":
         return {
           icon: LoaderCircle,
           text: "Connecting...",
-          bgColor: "bg-yellow-50",
-          textColor: "text-yellow-700",
-          borderColor: "border-yellow-200",
+          bgColor: isDark ? "rgba(234, 179, 8, 0.15)" : "#fefce8",
+          textColor: isDark ? "#fde047" : "#a16207",
+          borderColor: isDark ? "rgba(234, 179, 8, 0.3)" : "#fde68a",
           animate: true
         };
       case "disconnected":
         return {
           icon: WifiOff,
           text: "Disconnected - Reconnecting...",
-          bgColor: "bg-orange-50",
-          textColor: "text-orange-700",
-          borderColor: "border-orange-200",
+          bgColor: isDark ? "rgba(249, 115, 22, 0.15)" : "#fff7ed",
+          textColor: isDark ? "#fdba74" : "#c2410c",
+          borderColor: isDark ? "rgba(249, 115, 22, 0.3)" : "#fed7aa",
           animate: false
         };
       case "error":
         return {
           icon: WifiOff,
           text: "Connection error",
-          bgColor: "bg-red-50",
-          textColor: "text-red-700",
-          borderColor: "border-red-200",
+          bgColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2",
+          textColor: isDark ? "#fca5a5" : "#b91c1c",
+          borderColor: isDark ? "rgba(239, 68, 68, 0.3)" : "#fecaca",
           animate: false
         };
       default:
@@ -19873,17 +19911,26 @@ const ConnectionStatusIndicator = ({ status }) => {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: `
-        flex items-center gap-2 px-3 py-2 text-sm
-        ${config2.bgColor} ${config2.textColor} border ${config2.borderColor}
-        rounded-lg
-      `,
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "8px 12px",
+        fontSize: "13px",
+        backgroundColor: config2.bgColor,
+        color: config2.textColor,
+        border: `1px solid ${config2.borderColor}`,
+        borderRadius: "8px"
+      },
       children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           Icon2,
           {
             size: 14,
-            className: config2.animate ? "animate-spin" : ""
+            style: {
+              animation: config2.animate ? "spin 1s linear infinite" : "none",
+              flexShrink: 0
+            }
           }
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: config2.text })
@@ -20065,6 +20112,7 @@ function QuickReplyButton({
   onClick,
   onKeyDown,
   theme,
+  isDark,
   disabled,
   isSelected,
   reducedMotion
@@ -20075,6 +20123,11 @@ function QuickReplyButton({
     createRipple(e);
     onClick(reply, index);
   };
+  const textColor = isDark ? "#c7d2fe" : theme.primaryColor;
+  const bgColor = isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`;
+  const borderColor = isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`;
+  const hoverBg = isDark ? "rgba(199, 210, 254, 0.15)" : `${theme.primaryColor}26`;
+  const hoverBorder = isDark ? "rgba(199, 210, 254, 0.35)" : `${theme.primaryColor}66`;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "button",
     {
@@ -20093,12 +20146,10 @@ function QuickReplyButton({
         gap: "6px",
         minHeight: "40px",
         padding: "8px 14px",
-        border: `1px solid ${theme.primaryColor}33`,
-        // 20% opacity border
+        border: `1px solid ${borderColor}`,
         borderRadius: "16px",
-        backgroundColor: `${theme.primaryColor}1a`,
-        // 10% opacity background
-        color: theme.primaryColor,
+        backgroundColor: bgColor,
+        color: textColor,
         fontFamily: theme.fontFamily,
         fontSize: "13px",
         fontWeight: 500,
@@ -20108,19 +20159,19 @@ function QuickReplyButton({
         whiteSpace: "nowrap",
         position: "relative",
         overflow: "hidden",
-        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+        boxShadow: isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "0 1px 2px rgba(0, 0, 0, 0.05)"
       },
       onMouseEnter: (e) => {
         if (!disabled && !isSelected) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-          e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+          e.currentTarget.style.backgroundColor = hoverBg;
+          e.currentTarget.style.borderColor = hoverBorder;
           e.currentTarget.style.transform = "translateY(-1px)";
         }
       },
       onMouseLeave: (e) => {
         if (!disabled && !isSelected) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-          e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+          e.currentTarget.style.backgroundColor = bgColor;
+          e.currentTarget.style.borderColor = borderColor;
           e.currentTarget.style.transform = "translateY(0)";
         }
       },
@@ -20158,11 +20209,13 @@ function QuickReplyButtons({
   quickReplies,
   onReply,
   theme,
+  themeMode,
   dismissOnSelect = true,
   disabled = false
 }) {
   const [selectedIndex, setSelectedIndex] = reactExports.useState(null);
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === "dark";
   const handleClick = (reply, index) => {
     if (disabled) return;
     setSelectedIndex(index);
@@ -20201,6 +20254,7 @@ function QuickReplyButtons({
           onClick: handleClick,
           onKeyDown: handleKeyDown,
           theme,
+          isDark,
           disabled,
           isSelected: dismissOnSelect && selectedIndex !== null,
           reducedMotion
@@ -20215,6 +20269,7 @@ function FAQQuickButtonItem({
   index,
   onClick,
   theme,
+  isDark,
   disabled,
   reducedMotion
 }) {
@@ -20230,6 +20285,11 @@ function FAQQuickButtonItem({
       onClick(button, index);
     }
   };
+  const textColor = isDark ? "#c7d2fe" : theme.primaryColor;
+  const bgColor = isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`;
+  const borderColor = isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`;
+  const hoverBg = isDark ? "rgba(199, 210, 254, 0.15)" : `${theme.primaryColor}26`;
+  const hoverBorder = isDark ? "rgba(199, 210, 254, 0.35)" : `${theme.primaryColor}66`;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "button",
     {
@@ -20249,12 +20309,10 @@ function FAQQuickButtonItem({
         gap: "6px",
         minHeight: "40px",
         padding: "8px 14px",
-        border: `1px solid ${theme.primaryColor}33`,
-        // 20% opacity border
+        border: `1px solid ${borderColor}`,
         borderRadius: "16px",
-        backgroundColor: `${theme.primaryColor}1a`,
-        // 10% opacity background
-        color: theme.primaryColor,
+        backgroundColor: bgColor,
+        color: textColor,
         fontFamily: theme.fontFamily,
         fontSize: "13px",
         fontWeight: 500,
@@ -20264,19 +20322,19 @@ function FAQQuickButtonItem({
         whiteSpace: "nowrap",
         position: "relative",
         overflow: "hidden",
-        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+        boxShadow: isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "0 1px 2px rgba(0, 0, 0, 0.05)"
       },
       onMouseEnter: (e) => {
         if (!disabled) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-          e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+          e.currentTarget.style.backgroundColor = hoverBg;
+          e.currentTarget.style.borderColor = hoverBorder;
           e.currentTarget.style.transform = "translateY(-1px)";
         }
       },
       onMouseLeave: (e) => {
         if (!disabled) {
-          e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-          e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+          e.currentTarget.style.backgroundColor = bgColor;
+          e.currentTarget.style.borderColor = borderColor;
           e.currentTarget.style.transform = "translateY(0)";
         }
       },
@@ -20313,9 +20371,11 @@ const FAQQuickButtons = ({
   buttons,
   onButtonClick,
   theme,
+  themeMode,
   disabled = false
 }) => {
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === "dark";
   const handleClick = (button, _index) => {
     onButtonClick(button);
   };
@@ -20342,6 +20402,7 @@ const FAQQuickButtons = ({
           index,
           onClick: handleClick,
           theme,
+          isDark,
           disabled,
           reducedMotion
         },
@@ -20354,10 +20415,12 @@ function SuggestedReplies({
   suggestions,
   onSelect,
   theme,
+  themeMode,
   disabled = false
 }) {
   const [selectedIndex, setSelectedIndex] = reactExports.useState(null);
   const reducedMotion = useReducedMotion();
+  const isDark = themeMode === "dark";
   const handleClick = (suggestion, index) => {
     if (disabled) return;
     setSelectedIndex(index);
@@ -20407,10 +20470,10 @@ function SuggestedReplies({
             justifyContent: "center",
             minHeight: "40px",
             padding: "8px 16px",
-            border: `1px solid ${theme.primaryColor}33`,
+            border: `1px solid ${isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`}`,
             borderRadius: "20px",
-            backgroundColor: `${theme.primaryColor}1a`,
-            color: theme.primaryColor,
+            backgroundColor: isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`,
+            color: isDark ? "#c7d2fe" : theme.primaryColor,
             fontFamily: theme.fontFamily,
             fontSize: "13px",
             fontWeight: 500,
@@ -20419,20 +20482,20 @@ function SuggestedReplies({
             transition: reducedMotion ? "none" : "all 150ms ease",
             whiteSpace: "nowrap",
             flexShrink: 0,
-            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+            boxShadow: isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "0 1px 2px rgba(0, 0, 0, 0.05)",
             position: "relative"
           },
           onMouseEnter: (e) => {
             if (!disabled && selectedIndex === null) {
-              e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-              e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+              e.currentTarget.style.backgroundColor = isDark ? "rgba(199, 210, 254, 0.15)" : `${theme.primaryColor}26`;
+              e.currentTarget.style.borderColor = isDark ? "rgba(199, 210, 254, 0.35)" : `${theme.primaryColor}66`;
               e.currentTarget.style.transform = "translateY(-1px)";
             }
           },
           onMouseLeave: (e) => {
             if (!disabled && selectedIndex === null) {
-              e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-              e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+              e.currentTarget.style.backgroundColor = isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`;
+              e.currentTarget.style.borderColor = isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`;
               e.currentTarget.style.transform = "translateY(0)";
             }
           },
@@ -20557,6 +20620,7 @@ function ChatWindow({
   const [activeSuggestions, setActiveSuggestions] = reactExports.useState(null);
   const inputRef = reactExports.useRef(null);
   const menuRef = reactExports.useRef(null);
+  const isDark = themeMode === "dark";
   const quickReplyRef = reactExports.useRef(null);
   const suggestedReplyRef = reactExports.useRef(null);
   const reducedMotion = useReducedMotion();
@@ -20817,12 +20881,13 @@ function ChatWindow({
                           top: "100%",
                           right: 0,
                           marginTop: "4px",
-                          backgroundColor: "white",
+                          backgroundColor: isDark ? "rgba(15, 23, 42, 0.95)" : "white",
                           borderRadius: "8px",
                           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                           minWidth: "150px",
                           zIndex: 10,
-                          overflow: "hidden"
+                          overflow: "hidden",
+                          border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "none"
                         },
                         children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
                           "button",
@@ -20838,13 +20903,13 @@ function ChatWindow({
                               border: "none",
                               cursor: "pointer",
                               fontSize: "14px",
-                              color: theme.textColor,
+                              color: isDark ? "#f8fafc" : theme.textColor,
                               display: "flex",
                               alignItems: "center",
                               gap: "8px"
                             },
                             onMouseEnter: (e) => {
-                              e.target.style.backgroundColor = "#f3f4f6";
+                              e.target.style.backgroundColor = isDark ? "rgba(255, 255, 255, 0.1)" : "#f3f4f6";
                             },
                             onMouseLeave: (e) => {
                               e.target.style.backgroundColor = "transparent";
@@ -20965,7 +21030,7 @@ function ChatWindow({
               ]
             }
           ),
-          connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus }) }),
+          connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus, themeMode }) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             MessageList,
             {
@@ -20994,6 +21059,7 @@ function ChatWindow({
               suggestions: activeSuggestions,
               onSelect: handleSuggestionSelect,
               theme,
+              themeMode,
               disabled: isTyping
             }
           ) }),
@@ -21003,6 +21069,7 @@ function ChatWindow({
               quickReplies: activeQuickReplies,
               onReply: handleQuickReply,
               theme,
+              themeMode,
               dismissOnSelect: true
             }
           ) }),
@@ -21012,6 +21079,7 @@ function ChatWindow({
               buttons: faqQuickButtons,
               onButtonClick: handleFaqButtonClick,
               theme,
+              themeMode,
               disabled: isTyping
             }
           ) }),
@@ -21034,7 +21102,8 @@ function ChatWindow({
             {
               isVisible: isTyping,
               botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
-              theme
+              theme,
+              themeMode
             }
           ) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(StreamingIndicator, { isVisible: isStreaming, theme }),
@@ -21059,7 +21128,8 @@ function ChatWindow({
                     onRetry: onRetryError,
                     autoDismiss: true,
                     autoDismissDelay: 1e4,
-                    showProgress: true
+                    showProgress: true,
+                    themeMode
                   },
                   widgetError.id
                 )),
@@ -21070,11 +21140,11 @@ function ChatWindow({
                     role: "alert",
                     style: {
                       padding: "12px 16px",
-                      backgroundColor: "#fee2e2",
-                      color: "#dc2626",
+                      backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fee2e2",
+                      color: isDark ? "#fca5a5" : "#dc2626",
                       fontSize: "13px",
                       borderRadius: "8px",
-                      borderLeft: "4px solid #dc2626",
+                      borderLeft: isDark ? "4px solid #ef4444" : "4px solid #dc2626",
                       display: "flex",
                       alignItems: "flex-start",
                       gap: "12px"
@@ -21497,7 +21567,7 @@ function WidgetInner({ theme }) {
         .carousel-card {
           scroll-snap-align: start;
           flex-shrink: 0;
-          width: 140px;
+          width: 160px;
           border-radius: 8px;
           background: #ffffff;
           border: 1px solid rgba(0, 0, 0, 0.1);
@@ -21521,12 +21591,12 @@ function WidgetInner({ theme }) {
           overflow: hidden;
         }
         .carousel-card-image img {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
           transition: opacity 200ms ease;
         }
         .carousel-card-image img.loading {
@@ -22377,6 +22447,190 @@ function WidgetInner({ theme }) {
           .feedback-button {
             transition: none;
           }
+        }
+
+        /* ============================================
+         * COMPREHENSIVE DARK MODE OVERRIDES
+         * Using .glassmorphism-wrapper.dark-mode to
+         * override inline styles with !important
+         * ============================================ */
+
+        /* Carousel Cards - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .carousel-card {
+          background: rgba(15, 23, 42, 0.8) !important;
+          border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .carousel-card-title {
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .carousel-card-skeleton {
+          background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%) !important;
+          background-size: 200% 100% !important;
+        }
+        .glassmorphism-wrapper.dark-mode .carousel-arrow {
+          background: rgba(15, 23, 42, 0.8) !important;
+          border-color: rgba(255, 255, 255, 0.1) !important;
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .carousel-dot {
+          background: rgba(255, 255, 255, 0.2) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .carousel-dot:hover {
+          background: rgba(255, 255, 255, 0.4) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .carousel-card-image {
+          background: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        /* Voice Input - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .voice-interim-transcript {
+          color: #9ca3af !important;
+        }
+        .glassmorphism-wrapper.dark-mode .voice-error-message {
+          background-color: rgba(239, 68, 68, 0.1) !important;
+          border-color: rgba(239, 68, 68, 0.3) !important;
+          color: #fca5a5 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .voice-cancel-button {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+          color: #9ca3af !important;
+        }
+        .glassmorphism-wrapper.dark-mode .voice-cancel-button:hover {
+          background-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* Proactive Modal - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .proactive-modal-container {
+          background: rgba(15, 23, 42, 0.9) !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .proactive-modal-close {
+          color: #94a3b8 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .proactive-modal-close:hover {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* Scrollbar - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .message-list::-webkit-scrollbar-thumb {
+          background-color: rgba(255, 255, 255, 0.2) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .message-list::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(255, 255, 255, 0.35) !important;
+        }
+
+        /* Input / Textarea - Dark Mode */
+        .glassmorphism-wrapper.dark-mode input,
+        .glassmorphism-wrapper.dark-mode textarea {
+          color: #f8fafc !important;
+          background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        .glassmorphism-wrapper.dark-mode input::placeholder,
+        .glassmorphism-wrapper.dark-mode textarea::placeholder {
+          color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        /* Bot Message Bubble - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .message-bubble--bot {
+          background-color: rgba(255, 255, 255, 0.08) !important;
+          color: #f8fafc !important;
+        }
+
+        /* Source Citation - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .source-citation {
+          background: rgba(255, 255, 255, 0.1) !important;
+          border-color: rgba(255, 255, 255, 0.08) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .source-card--clickable:hover {
+          background: rgba(255, 255, 255, 0.12) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .source-card--clickable:active {
+          background: rgba(255, 255, 255, 0.18) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .source-citation__toggle:hover {
+          background: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* Quick Reply / FAQ / Suggested Buttons - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .quick-reply-button,
+        .glassmorphism-wrapper.dark-mode .faq-quick-button,
+        .glassmorphism-wrapper.dark-mode .suggested-reply-chip {
+          color: #c7d2fe !important;
+          border-color: rgba(165, 180, 252, 0.4) !important;
+          background-color: rgba(165, 180, 252, 0.12) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .quick-reply-button:hover:not(:disabled),
+        .glassmorphism-wrapper.dark-mode .faq-quick-button:hover:not(:disabled),
+        .glassmorphism-wrapper.dark-mode .suggested-reply-chip:hover:not(:disabled) {
+          background-color: rgba(165, 180, 252, 0.22) !important;
+          border-color: rgba(165, 180, 252, 0.6) !important;
+        }
+
+        /* Error Toast - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .error-toast__title {
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .error-toast__detail {
+          color: #cbd5e1 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .error-toast__retry-after {
+          color: #94a3b8 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .error-toast__dismiss {
+          color: #94a3b8 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .error-toast__dismiss:hover {
+          color: #e2e8f0 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .error-toast__action:not(.error-toast__action--primary) {
+          color: #cbd5e1 !important;
+          border-color: rgba(255, 255, 255, 0.2) !important;
+        }
+        .glassmorphism-wrapper.dark-mode .error-toast__more {
+          color: #94a3b8 !important;
+        }
+
+        /* Typing Indicator - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .typing-indicator {
+          color: #f8fafc !important;
+        }
+
+        /* Feedback Comment Textarea - Dark Mode (extra specificity) */
+        .glassmorphism-wrapper.dark-mode .feedback-comment-textarea {
+          background-color: rgba(0, 0, 0, 0.2) !important;
+          border-color: rgba(255, 255, 255, 0.2) !important;
+          color: #f8fafc !important;
+        }
+
+        /* Connection Status - Dark Mode */
+        .glassmorphism-wrapper.dark-mode .connection-status {
+          color: #f8fafc !important;
+        }
+        .glassmorphism-wrapper.dark-mode .connection-status--connecting {
+          background-color: rgba(234, 179, 8, 0.15) !important;
+          border-color: rgba(234, 179, 8, 0.3) !important;
+          color: #fde68a !important;
+        }
+        .glassmorphism-wrapper.dark-mode .connection-status--disconnected {
+          background-color: rgba(249, 115, 22, 0.15) !important;
+          border-color: rgba(249, 115, 22, 0.3) !important;
+          color: #fdba74 !important;
+        }
+        .glassmorphism-wrapper.dark-mode .connection-status--error {
+          background-color: rgba(239, 68, 68, 0.15) !important;
+          border-color: rgba(239, 68, 68, 0.3) !important;
+          color: #fca5a5 !important;
+        }
+
+        /* Light Mode Proactive Modal */
+        .glassmorphism-wrapper.light-mode .proactive-modal-container {
+          background: rgba(255, 255, 255, 0.9) !important;
+          border: 1px solid rgba(0, 0, 0, 0.05) !important;
+          color: #1e293b !important;
         }
       ` }),
     state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
