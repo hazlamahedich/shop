@@ -41,14 +41,14 @@ export function LLMConfiguration() {
     <Card data-testid="llm-configuration">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>LLM Provider Configuration</span>
+          <span>AI Service Setup</span>
           {isConfigured && (
             <Badge variant="default">Configured</Badge>
           )}
         </CardTitle>
         <CardDescription>
-          Configure your AI provider to enable intelligent customer responses.
-          Choose between free local (Ollama) or paid cloud providers.
+          Configure your AI service to enable intelligent customer responses.
+          Choose between free local (Ollama) or paid cloud services.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

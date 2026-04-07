@@ -62,7 +62,7 @@ const Sidebar = () => {
     { icon: Smile, label: 'Bot Personality', path: '/personality' },
     { icon: Bot, label: 'Bot Config', path: '/bot-config' },
     { icon: Settings, label: 'Settings', path: '/settings' },
-    { icon: Cpu, label: 'LLM Settings', path: '/settings/provider' }
+    { icon: Cpu, label: 'AI Service Settings', path: '/settings/provider' }
   );
 
   const navItems = baseNavItems;

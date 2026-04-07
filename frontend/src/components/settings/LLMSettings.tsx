@@ -92,7 +92,7 @@ export function LLMSettings() {
   };
 
   const handleClear = async () => {
-    if (!confirm('Are you sure you want to clear the LLM configuration?')) {
+    if (!confirm('Are you sure you want to clear the AI service configuration?')) {
       return;
     }
 
@@ -119,9 +119,9 @@ export function LLMSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>LLM Provider Settings</CardTitle>
+        <CardTitle>AI Service Settings</CardTitle>
         <CardDescription>
-          Manage your LLM provider configuration and switch providers anytime.
+          Manage your AI service configuration and switch services anytime.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -140,12 +140,12 @@ export function LLMSettings() {
         {/* Current Status */}
         <LLMStatus configuration={configuration} />
 
-        {/* API Key Update (for cloud providers) */}
+        {/* Service Key Update (for cloud providers) */}
         {currentProvider !== 'ollama' && (
           <div>
             <Label className="flex items-center gap-2 mb-2">
               <Key className="w-4 h-4" />
-              API Key
+              Service Key
             </Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -153,7 +153,7 @@ export function LLMSettings() {
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter new API key to update"
+                  placeholder="Enter new service key to update"
                   className="pr-10"
                 />
                 <button
@@ -167,7 +167,7 @@ export function LLMSettings() {
               <Button
                 onClick={async () => {
                   if (!apiKey.trim()) {
-                    setError('Please enter an API key');
+                    setError('Please enter a service key');
                     return;
                   }
                   setError('');
@@ -176,7 +176,7 @@ export function LLMSettings() {
                   try {
                     await switchProvider(currentProvider, apiKey.trim(), currentModel);
                     setApiKey('');
-                    setSuccessMsg('API key updated successfully');
+                    setSuccessMsg('Service key updated successfully');
                     setTimeout(() => setSuccessMsg(''), 3000);
                   } catch (err) {
                     setError((err as Error).message);
@@ -190,14 +190,14 @@ export function LLMSettings() {
               </Button>
             </div>
             <p className="text-xs text-white/50 mt-1">
-              Your API key is encrypted and stored securely. Enter a new key above to update it.
+              Your service key is encrypted and stored securely. Enter a new key above to update it.
             </p>
             {['anthropic', 'glm'].includes(currentProvider) && (
               <Alert className="mt-4 bg-indigo-500/10 text-indigo-300 border-indigo-500/20">
                 <p className="text-sm">
-                  <span className="font-semibold">{currentProvider === 'anthropic' ? 'Anthropic (Claude)' : 'GLM'}</span> does 
-                  not provide native embeddings. To use a knowledge base, 
-                  you must also have a valid OpenAI API key or a local Ollama 
+                  <span className="font-semibold">{currentProvider === 'anthropic' ? 'Anthropic (Claude)' : 'GLM'}</span> does
+                  not provide native embeddings. To use a knowledge base,
+                  you must also have a valid OpenAI service key or a local Ollama 
                   instance configured for embeddings.
                 </p>
               </Alert>

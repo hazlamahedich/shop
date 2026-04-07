@@ -23,7 +23,7 @@ export const BudgetReservoirGauge: React.FC<BudgetReservoirGaugeProps> = ({
        
        <div className="flex justify-between items-start mb-6 relative z-10">
          <div className="space-y-1">
-           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Budget Reservoir</h4>
+           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Budget Remaining</h4>
            <div className="flex items-baseline gap-2">
              <span className="text-3xl font-black text-white tracking-tighter">${capacity.toLocaleString()}</span>
            </div>
@@ -38,7 +38,7 @@ export const BudgetReservoirGauge: React.FC<BudgetReservoirGaugeProps> = ({
             />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                <span className="text-[10px] font-black text-white uppercase tracking-widest mix-blend-difference">
-                 {percentage.toFixed(1)}% Consumed
+                 {percentage.toFixed(1)}% Used
                </span>
             </div>
           </div>

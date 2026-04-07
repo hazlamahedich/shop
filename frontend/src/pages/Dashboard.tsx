@@ -86,16 +86,16 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-black text-white tracking-tighter uppercase font-heading">
-                {onboardingMode === 'general' ? 'Knowledge Hub' : 'Command Center'}
+                {onboardingMode === 'general' ? 'Knowledge Hub' : 'Store Dashboard'}
               </h2>
               <div className="px-2 py-0.5 bg-[#00f5d4]/10 border border-[#00f5d4]/20 rounded text-[10px] font-black text-[#00f5d4] tracking-widest uppercase">
-                {onboardingMode === 'general' ? 'RAG HUD' : 'v2.0 HUD'}
+                {onboardingMode === 'general' ? 'Knowledge' : 'Store'}
               </div>
             </div>
             <p className="text-xs text-white/30 mt-1 font-bold uppercase tracking-widest">
               {onboardingMode === 'general'
                 ? 'System intelligence and knowledge distribution'
-                : 'Real-time commerce telemetry from Shopify'}
+                : 'Real-time store data from Shopify'}
             </p>
           </div>
 

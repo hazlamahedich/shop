@@ -1,7 +1,7 @@
-/** 
- * LLM Provider Settings Page.
+/**
+ * AI Service Settings Page.
  *
- * Story 3.4: LLM Provider Switching
+ * Story 3.4: AI Service Switching
  * Re-imagined with high-fidelity Mantis aesthetic for a prestigious configuration experience.
  */
 
@@ -32,7 +32,7 @@ export const ProviderSettings: React.FC = () => {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#030303]">
         <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.4em]">Querying Node Registry...</p>
+        <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.4em]">Loading services...</p>
       </div>
     );
   }
@@ -47,22 +47,22 @@ export const ProviderSettings: React.FC = () => {
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
             <Cpu size={12} />
-            Neural Core Configuration
+            AI Service Configuration
           </div>
           <h1 className="text-5xl font-black tracking-tight text-white leading-none mantis-glow-text">
-            LLM Providers
+            AI Services
           </h1>
           <p className="text-lg text-emerald-500/60 font-medium max-w-xl">
-            Calibrate the neural engine. Switch between low-latency local nodes or high-density cloud matrices.
+            Configure your AI service. Switch between local or cloud services.
           </p>
         </div>
 
         <div className="flex items-center gap-6">
            <div className="flex flex-col items-end">
-             <span className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest block mb-1">System Health</span>
+             <span className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest block mb-1">Service Status</span>
              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Nominal Status</span>
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Active</span>
              </div>
            </div>
         </div>
@@ -72,7 +72,7 @@ export const ProviderSettings: React.FC = () => {
         <div className="lg:col-span-2 space-y-10">
            {/* Current Node Status Section */}
            <div className="space-y-6">
-             <h2 className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.4em] ml-2">Active Link Profile</h2>
+             <h2 className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.4em] ml-2">Current Service</h2>
              {currentProvider ? (
                <GlassCard accent="mantis" className="group p-10 border-emerald-500/20 bg-emerald-500/[0.03] shadow-[0_20px_80px_rgba(0,0,0,0.4)] transition-all duration-500 overflow-hidden relative">
                  <div className="absolute right-0 top-0 w-64 h-64 bg-emerald-500/[0.03] blur-3xl pointer-events-none translate-x-1/2 -translate-y-1/2"></div>
@@ -86,7 +86,7 @@ export const ProviderSettings: React.FC = () => {
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                           <h3 className="text-3xl font-black text-white uppercase tracking-tight mantis-glow-text">{currentProvider.name}</h3>
-                          <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black rounded-full uppercase tracking-widest">Primary Node</span>
+                          <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black rounded-full uppercase tracking-widest">Active Service</span>
                         </div>
                         <div className="flex items-center gap-6">
                           <div className="flex items-center gap-2">
@@ -106,17 +106,17 @@ export const ProviderSettings: React.FC = () => {
                    <div className="h-20 w-px bg-white/[0.05] hidden md:block"></div>
                    
                    <div className="text-right">
-                      <p className="text-[9px] font-black text-emerald-900/20 uppercase tracking-[0.3em] mb-3">Provisioning Status</p>
+                      <p className="text-[9px] font-black text-emerald-900/20 uppercase tracking-[0.3em] mb-3">Connection Status</p>
                       <div className="flex items-center justify-end gap-3 text-emerald-400">
                          <Activity size={18} className="animate-pulse" />
-                         <span className="text-xl font-black uppercase tracking-tight">Full Sync</span>
+                         <span className="text-xl font-black uppercase tracking-tight">Connected</span>
                       </div>
                    </div>
                  </div>
                </GlassCard>
              ) : (
                <GlassCard className="p-20 text-center border-dashed border-white/[0.05] bg-white/[0.005]">
-                  <p className="text-xs font-black text-emerald-900/20 uppercase tracking-[0.5em]">No Active Neural Link Detected</p>
+                  <p className="text-xs font-black text-emerald-900/20 uppercase tracking-[0.5em]">No service connected</p>
                </GlassCard>
              )}
            </div>
@@ -124,7 +124,7 @@ export const ProviderSettings: React.FC = () => {
            {/* Provider Grid Section */}
            <div className="space-y-8">
              <div className="flex items-center justify-between">
-               <h2 className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.4em] ml-2">Available Nodes</h2>
+               <h2 className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.4em] ml-2">Available Services</h2>
                <div className="h-px bg-white/[0.05] flex-1 mx-8 hidden sm:block"></div>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -146,7 +146,7 @@ export const ProviderSettings: React.FC = () => {
                  <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-500">
                     <Activity size={20} />
                  </div>
-                 <h3 className="font-black text-white uppercase tracking-tight">Node Integrity</h3>
+                 <h3 className="font-black text-white uppercase tracking-tight">Service Status</h3>
               </div>
               <p className="text-xs text-emerald-500/60 font-medium uppercase tracking-widest leading-relaxed">
                 Regularly verify node connectivity. Latency spikes and credential expiration may interrupt neural flow. 

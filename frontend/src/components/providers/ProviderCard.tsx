@@ -68,14 +68,14 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, isActive }
           {isActive && (
             <div className="flex items-center gap-3 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.1)]">
               <Activity size={12} className="text-emerald-400 animate-pulse" />
-              <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Active Node</span>
+              <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Active Service</span>
             </div>
           )}
         </div>
 
         {/* Pricing Matrix */}
         <div className="mb-6 p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl group-hover:border-emerald-500/10 transition-colors">
-          <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-[0.3em] mb-2">Token Cost Index (1M)</p>
+          <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-[0.3em] mb-2">Price per 1M Requests</p>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-white tracking-tighter">${provider.pricing.inputCost.toFixed(2)}</span>
             <span className="text-xs text-emerald-900/20 font-black">/</span>
@@ -93,11 +93,11 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, isActive }
           </div>
         </div>
 
-        {/* Neural Density */}
+        {/* Service Type */}
         <div className="mb-6 flex items-center justify-between px-4 py-3 bg-white/[0.01] border border-white/[0.03] rounded-xl">
           <div className="flex items-center gap-2">
             <Cpu size={14} className="text-emerald-500/40" />
-            <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">Neural Nodes</span>
+            <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">Service Type</span>
           </div>
           <span className="text-xs font-black text-white">{provider.models.length} Models</span>
         </div>

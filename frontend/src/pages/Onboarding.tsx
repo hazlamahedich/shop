@@ -113,8 +113,8 @@ const Onboarding = () => {
 
   const steps = [
     { id: 0, label: 'Choose Type', name: 'Choose Your Assistant', icon: Cpu, minutes: 2 },
-    { id: 1, label: 'Get Ready', name: 'Complete Prerequisites', icon: ListTodo, minutes: 15 },
-    { id: 2, label: 'Go Live', name: 'Deploy Your Assistant', icon: Rocket, minutes: 10 },
+    { id: 1, label: 'Get Ready', name: 'Complete Requirements', icon: ListTodo, minutes: 15 },
+    { id: 2, label: 'Go Live', name: 'Set Up Your Assistant', icon: Rocket, minutes: 10 },
     { id: 3, label: 'Connect', name: 'Configure Services', icon: Settings2, minutes: 8 },
   ];
 

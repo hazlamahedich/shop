@@ -100,8 +100,8 @@ const PREREQUISITES: PrerequisiteItem[] = [
   },
   {
     key: "llmProviderChoice",
-    title: "Choose AI Provider",
-    description: "Pick the AI brain for your assistant",
+    title: "Choose AI Service",
+    description: "Pick the AI service for your assistant",
     whyMatters: "This powers your assistant's intelligence - how it understands and responds to customers",
     estimatedTime: "5 minutes",
     helpUrl: "https://ollama.com/download",

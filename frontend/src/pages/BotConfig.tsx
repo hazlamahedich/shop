@@ -103,7 +103,7 @@ export const BotConfig: React.FC = () => {
               </div>
             </div>
             <p className="text-sm text-white/40 max-w-2xl leading-relaxed uppercase font-bold tracking-tight">
-              Tactical Interface for Neural Identity and Priority Alignment.
+              Configure your bot's identity and behavior settings.
             </p>
           </div>
         </div>
@@ -124,7 +124,7 @@ export const BotConfig: React.FC = () => {
                 type="button"
                 onClick={clearError}
                 className="text-white/20 hover:text-white transition-colors p-2"
-                aria-label="Dismiss error"
+                aria-label="Close"
               >
                 ×
               </button>

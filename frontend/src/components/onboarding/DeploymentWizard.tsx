@@ -220,20 +220,20 @@ export function DeploymentWizard(): React.ReactElement {
               {/* Progress Bar */}
               <div data-testid="deployment-progress">
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-slate-600">Deployment Progress</span>
+                  <span className="text-slate-600">Setup Progress</span>
                   <span className="font-medium">{progress}%</span>
                 </div>
                 <Progress value={progress} max={100} />
               </div>
 
-              {/* Deployment Logs */}
+              {/* Setup Logs */}
               {logs.length > 0 && (
                 <div>
                   <h3
                     className="text-sm font-medium text-slate-700 mb-2"
                     id="deployment-logs-title"
                   >
-                    Deployment Logs
+                    Setup Logs
                   </h3>
                   <ScrollArea className="h-48 w-full rounded-md border border-slate-200">
                     <div

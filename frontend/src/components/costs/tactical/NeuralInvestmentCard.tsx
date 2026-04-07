@@ -14,16 +14,16 @@ export const NeuralInvestmentCard: React.FC<NeuralInvestmentCardProps> = ({
 }) => {
   return (
     <MetricHUDCard
-      title="Total Neural Investment"
+      title="Total AI Usage"
       value={`$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       accent="mantis"
       trend={{
-        value: `Efficiency Delta: ${efficiencyDelta > 0 ? '+' : ''}${efficiencyDelta.toFixed(1)}%`,
+        value: `Efficiency Change: ${efficiencyDelta > 0 ? '+' : ''}${efficiencyDelta.toFixed(1)}%`,
         isPositive: efficiencyDelta >= 0
       }}
     >
       <div className="flex flex-col items-end">
-        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Predicted Burn</span>
+        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Predicted Cost</span>
         <span className="text-sm font-black text-white tracking-widest">${predictedBurn.toLocaleString()}/Day</span>
       </div>
     </MetricHUDCard>

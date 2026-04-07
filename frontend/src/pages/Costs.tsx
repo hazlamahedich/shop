@@ -1,8 +1,8 @@
 /**
- * Costs Page - Tactical HUD Redesign
+ * Costs Page - Dashboard
  *
- * High-density real-time cost tracking and budget management.
- * Re-engineered based on the Stitch "AI Costs & Budget - Tactical HUD" design.
+ * Real-time cost tracking and budget management.
+ * Designed for clear visibility into AI service costs and budget usage.
  */
 
 import { useEffect, useState, useMemo } from 'react';
@@ -92,7 +92,7 @@ const Costs = () => {
 
   const handleSaveCaps = () => {
     setIsEditingCaps(false);
-    toast('Resource Protocols Updated Successfully', 'success');
+    toast('Usage limits updated successfully', 'success');
   };
 
   const setPreset = (label: string, days: number) => {
@@ -200,10 +200,10 @@ const Costs = () => {
         {/* GLOBAL HEADER & PRESETS */}
         <div className="lg:col-span-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2">
           <div className="space-y-1">
-            <h2 className="text-3xl font-black text-white tracking-tighter uppercase font-display">Cost Intelligence</h2>
+            <h2 className="text-3xl font-black text-white tracking-tighter uppercase font-display">Cost Summary</h2>
             <p className="text-xs font-black text-white/40 uppercase tracking-[0.2em] flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[var(--mantis-glow)] animate-pulse" />
-              Live Telemetry Feed
+              Live Data Feed
             </p>
           </div>
           
@@ -220,7 +220,7 @@ const Costs = () => {
           </div>
         </div>
 
-        {/* TOP ROW: Neural Investment & Budget Reservoir */}
+        {/* TOP ROW: Usage & Budget */}
         <div className="lg:col-span-8">
           <NeuralInvestmentCard 
             totalCost={costSummary?.totalCostUsd || 0} 
@@ -236,7 +236,7 @@ const Costs = () => {
           />
         </div>
 
-        {/* MIDDLE ROW: Expenditure Index & Resource Caps */}
+        {/* MIDDLE ROW: Spending & Budget Limits */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] rounded-2xl p-8 backdrop-blur-xl relative overflow-hidden h-[450px] flex flex-col group/index">
             {/* Ghost Border */}
@@ -245,10 +245,10 @@ const Costs = () => {
             <div className="flex justify-between items-start z-20 mb-10">
               <div className="space-y-1">
                 <h3 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                  Expenditure Index
+                  Spending Overview
                   <Info size={14} className="text-white/20 cursor-help hover:text-[var(--mantis-glow)] transition-colors" />
                 </h3>
-                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">{activePreset} Spectral Pulse</p>
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">{activePreset} Daily Breakdown</p>
               </div>
             </div>
 
@@ -263,7 +263,7 @@ const Costs = () => {
                  <div className="absolute inset-x-0 border-t border-dashed border-amber-500/40 z-10 hover:border-amber-500/80 transition-colors" 
                       style={{ bottom: `${Math.min((dailyWarning / maxDailyCost) * 100, 100)}%`, boxShadow: '0 0 10px rgba(245,158,11,0.1)' }}>
                     <span className="absolute -top-6 right-0 text-[9px] font-black text-amber-500 uppercase tracking-[0.2em] bg-[#131318] px-2 py-0.5 rounded border border-amber-500/20 backdrop-blur-sm">
-                      DAILY WARNING: ${dailyWarning.toLocaleString()}
+                      DAILY LIMIT: ${dailyWarning.toLocaleString()}
                     </span>
                  </div>
                )}
@@ -297,7 +297,7 @@ const Costs = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 relative z-10 w-full">
               <div className="flex items-center gap-3">
                 <Target size={18} className="text-rose-500" />
-                <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Resource Caps</h3>
+                <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Budget Limits</h3>
               </div>
               <button 
                 onClick={() => isEditingCaps ? handleSaveCaps() : setIsEditingCaps(true)}
@@ -312,7 +312,7 @@ const Costs = () => {
             
             <div className="space-y-8 flex-1">
                <div className="space-y-3">
-                 <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block">Monthly Hard Stop</label>
+                 <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block">Monthly Budget Limit</label>
                  <div className="flex items-center justify-between p-4 bg-black/40 border border-white/5 rounded-xl group-hover/caps:border-white/10 transition-colors">
                    {isEditingCaps ? (
                      <div className="flex items-center gap-2">
@@ -329,15 +329,15 @@ const Costs = () => {
                      <span className="text-xl font-black text-white tracking-tighter">${monthlyCap.toLocaleString()}</span>
                    )}
                    <span className="px-2 py-1 bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase tracking-widest rounded border border-rose-500/20 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" /> Armed
+                      <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" /> Active
                    </span>
                  </div>
                </div>
 
                <div className="space-y-3">
                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block flex justify-between">
-                    Daily Warning Signal
-                    <span className="text-[var(--mantis-glow)]">{((dailyWarning / monthlyCap) * 100).toFixed(1)}% of Cap</span>
+                    Daily Warning Amount
+                    <span className="text-[var(--mantis-glow)]">{((dailyWarning / monthlyCap) * 100).toFixed(1)}% of Limit</span>
                  </label>
                  <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl transition-colors">
                    {isEditingCaps ? (
@@ -359,17 +359,17 @@ const Costs = () => {
                </div>
             </div>
             
-            <button 
+            <button
               onClick={handleSaveCaps}
               disabled={!isEditingCaps}
               className={cn(
                 "w-full py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all mt-6",
-                isEditingCaps 
-                  ? "bg-[var(--mantis-glow)]/10 text-[var(--mantis-glow)] border border-[var(--mantis-glow)]/30 hover:bg-[var(--mantis-glow)]/20 shadow-[0_0_15px_rgba(0,245,212,0.1)]" 
+                isEditingCaps
+                  ? "bg-[var(--mantis-glow)]/10 text-[var(--mantis-glow)] border border-[var(--mantis-glow)]/30 hover:bg-[var(--mantis-glow)]/20 shadow-[0_0_15px_rgba(0,245,212,0.1)]"
                   : "bg-white/2 border border-white/5 text-white/20 cursor-not-allowed"
               )}
             >
-              Update Protocols
+              Update Limits
             </button>
           </div>
         </div>
@@ -384,11 +384,11 @@ const Costs = () => {
           >
              <div className="pt-5 space-y-4 border-t border-white/10 mt-5">
                 <div className="flex items-center justify-between">
-                   <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Model Mix Routing</span>
+                   <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">AI Model Selection</span>
                    <span className="text-[10px] font-black text-[var(--mantis-glow)] uppercase tracking-widest bg-[var(--mantis-glow)]/10 px-2 py-0.5 rounded border border-[var(--mantis-glow)]/20">Optimized</span>
                 </div>
                 <p className="text-[11px] text-white/40 leading-relaxed font-medium">
-                  System is achieving <span className="text-white">{efficiencyMetrics.ragResponsePercentage}% RAG accuracy</span> with <span className="text-[var(--mantis-glow)]">{efficiencyMetrics.optimizationSavingsPercentage}% cheaper</span> sub-model routing fallback strategies.
+                  System is achieving <span className="text-white">{efficiencyMetrics.ragResponsePercentage}% accuracy</span> with <span className="text-[var(--mantis-glow)]">{efficiencyMetrics.optimizationSavingsPercentage}% savings</span> from AI model selection.
                 </p>
              </div>
           </MetricHUDCard>
@@ -414,14 +414,14 @@ const Costs = () => {
                 
                 <div className="flex flex-col justify-center items-end space-y-6 md:border-l md:border-white/10 md:pl-8 h-full">
                    <div className="text-right">
-                      <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] block mb-2">Orchestration System</span>
+                      <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] block mb-2">System Status</span>
                       <span className="text-[11px] font-black text-[var(--mantis-glow)] uppercase tracking-widest flex items-center justify-end gap-2">
                         <div className="w-1.5 h-1.5 bg-[var(--mantis-glow)] rounded-full animate-pulse shadow-[0_0_8px_rgba(0,245,212,0.8)]" />
-                        Live Sync
+                        Connected
                       </span>
                    </div>
                    
-                   {/* Live Telemetry Visualization */}
+                   {/* Live Data Visualization */}
                    <div className="flex items-end gap-1.5 h-16 opacity-80">
                       {[0.8, 0.4, 0.9, 0.2, 0.7, 0.5, 1, 0.3, 0.6, 0.8].map((h, i) => (
                         <div 
