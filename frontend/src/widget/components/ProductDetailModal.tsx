@@ -1,11 +1,12 @@
 import * as React from 'react';
-import type { WidgetProductDetail, WidgetTheme } from '../types/widget';
+import type { WidgetProductDetail, WidgetTheme, ThemeMode } from '../types/widget';
 import { widgetClient, WidgetApiException } from '../api/widgetClient';
 
 export interface ProductDetailModalProps {
   productId: string | null;
   sessionId: string;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   isOpen: boolean;
   onClose: () => void;
   onAddToCart?: (product: WidgetProductDetail, quantity: number) => void;
@@ -15,6 +16,7 @@ export function ProductDetailModal({
   productId,
   sessionId,
   theme,
+  themeMode,
   isOpen,
   onClose,
   onAddToCart,
@@ -24,6 +26,8 @@ export function ProductDetailModal({
   const [error, setError] = React.useState<string | null>(null);
   const [quantity, setQuantity] = React.useState(1);
   const [added, setAdded] = React.useState(false);
+
+  const isDark = themeMode === 'dark';
 
   React.useEffect(() => {
     if (!isOpen || !productId) {
@@ -119,18 +123,18 @@ export function ProductDetailModal({
   const getStockStatus = () => {
     if (!product) return null;
     if (!product.available) {
-      return { text: 'Out of Stock', color: '#dc2626', bg: '#fef2f2' };
+      return { text: 'Out of Stock', color: '#dc2626', bg: isDark ? 'rgba(220, 38, 38, 0.15)' : '#fef2f2' };
     }
     if (product.inventoryQuantity === 0) {
-      return { text: 'Out of Stock', color: '#dc2626', bg: '#fef2f2' };
+      return { text: 'Out of Stock', color: '#dc2626', bg: isDark ? 'rgba(220, 38, 38, 0.15)' : '#fef2f2' };
     }
     if (product.inventoryQuantity && product.inventoryQuantity <= 5) {
-      return { text: `Only ${product.inventoryQuantity} in stock`, color: '#ea580c', bg: '#fff7ed' };
+      return { text: `Only ${product.inventoryQuantity} in stock`, color: '#ea580c', bg: isDark ? 'rgba(234, 88, 12, 0.15)' : '#fff7ed' };
     }
     if (product.inventoryQuantity && product.inventoryQuantity <= 10) {
-      return { text: `${product.inventoryQuantity} in stock`, color: '#ca8a04', bg: '#fefce8' };
+      return { text: `${product.inventoryQuantity} in stock`, color: '#ca8a04', bg: isDark ? 'rgba(202, 138, 4, 0.15)' : '#fefce8' };
     }
-    return { text: 'In Stock', color: '#16a34a', bg: '#f0fdf4' };
+    return { text: 'In Stock', color: '#16a34a', bg: isDark ? 'rgba(22, 163, 74, 0.15)' : '#f0fdf4' };
   };
 
   const stockStatus = getStockStatus();
@@ -148,13 +152,13 @@ export function ProductDetailModal({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
       }}
       onClick={handleBackdropClick}
     >
       <div
         style={{
-          backgroundColor: '#ffffff',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#ffffff',
           borderRadius: '16px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           maxWidth: '400px',
@@ -173,10 +177,10 @@ export function ProductDetailModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '16px',
-            borderBottom: '1px solid #e5e7eb',
+            borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb',
           }}
         >
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#111827', margin: 0 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: isDark ? '#f8fafc' : '#111827', margin: 0 }}>
             Product Details
           </h2>
           <button
@@ -191,7 +195,7 @@ export function ProductDetailModal({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#9ca3af',
+              color: isDark ? '#64748b' : '#9ca3af',
             }}
             aria-label="Close modal"
           >
@@ -222,7 +226,7 @@ export function ProductDetailModal({
               <button
                 type="button"
                 onClick={handleCloseClick}
-                style={{ padding: '8px 16px', fontSize: '14px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ padding: '8px 16px', fontSize: '14px', color: isDark ? '#94a3b8' : '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 Close
               </button>
@@ -236,7 +240,7 @@ export function ProductDetailModal({
                 style={{
                   position: 'relative',
                   aspectRatio: '1 / 1',
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f3f4f6',
                   borderRadius: '8px',
                   overflow: 'hidden',
                   marginBottom: '16px',
@@ -246,7 +250,7 @@ export function ProductDetailModal({
                   <img src={product.imageUrl} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#64748b' : '#9ca3af'} strokeWidth="1.5">
                       <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
@@ -254,7 +258,7 @@ export function ProductDetailModal({
               </div>
 
               {/* Title & Price */}
-              <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: 600, color: isDark ? '#f8fafc' : '#111827', marginBottom: '8px' }}>
                 {product.title}
               </h3>
               <p style={{ fontSize: '24px', fontWeight: 700, color: theme.primaryColor, marginBottom: '12px' }}>
@@ -284,23 +288,23 @@ export function ProductDetailModal({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '12px', fontSize: '14px' }}>
                 {product.productType && (
                   <div>
-                    <span style={{ color: '#6b7280' }}>Category: </span>
-                    <span style={{ fontWeight: 500, color: '#111827' }}>{product.productType}</span>
+                    <span style={{ color: isDark ? '#94a3b8' : '#6b7280' }}>Category: </span>
+                    <span style={{ fontWeight: 500, color: isDark ? '#f8fafc' : '#111827' }}>{product.productType}</span>
                   </div>
                 )}
                 {product.vendor && (
                   <div>
-                    <span style={{ color: '#6b7280' }}>Vendor: </span>
-                    <span style={{ fontWeight: 500, color: '#111827' }}>{product.vendor}</span>
+                    <span style={{ color: isDark ? '#94a3b8' : '#6b7280' }}>Vendor: </span>
+                    <span style={{ fontWeight: 500, color: isDark ? '#f8fafc' : '#111827' }}>{product.vendor}</span>
                   </div>
                 )}
               </div>
 
               {/* Description */}
               {product.description && (
-                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
-                  <h4 style={{ fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>Description</h4>
-                  <p style={{ fontSize: '14px', color: '#4b5563', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                <div style={{ borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb', paddingTop: '12px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 500, color: isDark ? '#e2e8f0' : '#374151', marginBottom: '8px' }}>Description</h4>
+                  <p style={{ fontSize: '14px', color: isDark ? '#cbd5e1' : '#4b5563', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                     {product.description}
                   </p>
                 </div>
@@ -311,11 +315,11 @@ export function ProductDetailModal({
 
         {/* Footer */}
         {product && (
-          <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+          <div style={{ padding: '16px', borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb', backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f9fafb' }}>
             {inStock && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '14px', color: '#4b5563' }}>Qty:</span>
-                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: '8px' }}>
+                <span style={{ fontSize: '14px', color: isDark ? '#cbd5e1' : '#4b5563' }}>Qty:</span>
+                <div style={{ display: 'flex', alignItems: 'center', border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #d1d5db', borderRadius: '8px' }}>
                   <button
                     type="button"
                     onClick={handleDecrement}
@@ -328,11 +332,11 @@ export function ProductDetailModal({
                       justifyContent: 'center',
                       background: 'none',
                       border: 'none',
-                      borderRight: '1px solid #d1d5db',
+                      borderRight: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #d1d5db',
                       cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
                       fontSize: '16px',
                       fontWeight: 500,
-                      color: '#374151',
+                      color: isDark ? '#e2e8f0' : '#374151',
                       opacity: quantity <= 1 ? 0.5 : 1,
                     }}
                   >
@@ -351,11 +355,11 @@ export function ProductDetailModal({
                       justifyContent: 'center',
                       background: 'none',
                       border: 'none',
-                      borderLeft: '1px solid #d1d5db',
+                      borderLeft: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #d1d5db',
                       cursor: quantity >= maxQuantity ? 'not-allowed' : 'pointer',
                       fontSize: '16px',
                       fontWeight: 500,
-                      color: '#374151',
+                      color: isDark ? '#e2e8f0' : '#374151',
                       opacity: quantity >= maxQuantity ? 0.5 : 1,
                     }}
                   >
@@ -389,8 +393,8 @@ export function ProductDetailModal({
                 onClick={handleCloseClick}
                 style={{
                   padding: '10px 16px',
-                  backgroundColor: '#e5e7eb',
-                  color: '#374151',
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e5e7eb',
+                  color: isDark ? '#e2e8f0' : '#374151',
                   borderRadius: '8px',
                   fontWeight: 500,
                   fontSize: '14px',

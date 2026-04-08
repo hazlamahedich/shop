@@ -1,6 +1,12 @@
-import * as React from 'react';
+import type { ThemeMode } from '../types/widget';
 
-export function LoadingSpinner() {
+export interface LoadingSpinnerProps {
+  themeMode?: ThemeMode;
+}
+
+export function LoadingSpinner({ themeMode }: LoadingSpinnerProps) {
+  const isDark = themeMode === 'dark';
+
   return (
     <div
       style={{
@@ -17,8 +23,8 @@ export function LoadingSpinner() {
         style={{
           width: '24px',
           height: '24px',
-          border: '2px solid #e5e7eb',
-          borderTopColor: '#6366f1',
+          border: `2px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : '#e5e7eb'}`,
+          borderTopColor: isDark ? '#818cf8' : '#6366f1',
           borderRadius: '50%',
           animation: 'widget-spin 0.8s linear infinite',
         }}

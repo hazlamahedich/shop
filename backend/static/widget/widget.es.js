@@ -11889,17 +11889,32 @@ class WidgetApiClient {
   async endSession(sessionId) {
     await this.request(`/session/${sessionId}`, { method: "DELETE" });
   }
+  async lookupSessionByVisitor(merchantId, visitorId) {
+    var _a2, _b;
+    try {
+      const data = await this.request(
+        `/session/by-visitor/${merchantId}/${encodeURIComponent(visitorId)}`
+      );
+      return ((_a2 = data.data) == null ? void 0 : _a2.sessionId) ?? ((_b = data.data) == null ? void 0 : _b.session_id) ?? null;
+    } catch {
+      return null;
+    }
+  }
   async getMessageHistory(sessionId) {
     const data = await this.request(
       `/session/${sessionId}/messages`
     );
     const messages = (data.data.messages || []).map((m2) => ({
-      messageId: m2.id || m2.message_id || "",
+      messageId: m2.id || m2.message_id || m2.messageId || "",
       content: m2.content,
       sender: m2.role || m2.sender || "bot",
-      createdAt: m2.timestamp || m2.created_at || "",
+      createdAt: m2.timestamp || m2.created_at || m2.createdAt || "",
       products: m2.products,
       cart: m2.cart,
+      checkoutUrl: m2.checkout_url || m2.checkoutUrl,
+      quickReplies: m2.quick_replies || m2.quickReplies,
+      sources: m2.sources,
+      suggestedReplies: m2.suggested_replies || m2.suggestedReplies,
       contactOptions: m2.contact_options || m2.contactOptions,
       customerName: m2.customer_name || m2.customerName,
       userRating: m2.user_rating || m2.userRating
@@ -12080,6 +12095,19 @@ class WidgetApiClient {
     const encodedVariantId = encodeURIComponent(variantId);
     const data = await this.request(
       `/cart/${encodedVariantId}?session_id=${sessionId}`,
+      {
+        method: "DELETE"
+      }
+    );
+    const parsed = WidgetCartSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, "Invalid cart response");
+    }
+    return this.parseCartResponse(parsed.data);
+  }
+  async clearCart(sessionId) {
+    const data = await this.request(
+      `/cart?session_id=${sessionId}`,
       {
         method: "DELETE"
       }
@@ -12386,6 +12414,26 @@ const SESSION_KEY = "widget_session_id";
 const MERCHANT_KEY = "widget_merchant_id";
 const VISITOR_KEY = "widget_visitor_id";
 const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
+function getOrCreateVisitorId() {
+  const stored = safeLocalStorage.get(VISITOR_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      const createdAt = new Date(parsed.createdAt).getTime();
+      const now = Date.now();
+      if (now - createdAt < VISITOR_MAX_AGE_MS) {
+        return parsed.visitorId;
+      }
+    } catch {
+    }
+  }
+  const visitorId = crypto.randomUUID();
+  safeLocalStorage.set(VISITOR_KEY, JSON.stringify({
+    visitorId,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  }));
+  return visitorId;
+}
 function getVisitorId() {
   const stored = safeLocalStorage.get(VISITOR_KEY);
   if (!stored) return null;
@@ -12400,6 +12448,13 @@ function getVisitorId() {
   } catch {
     return null;
   }
+}
+function getStoredSessionForMerchant(merchantId) {
+  const storedId = safeStorage.get(SESSION_KEY);
+  const storedMerchant = safeStorage.get(MERCHANT_KEY);
+  if (!storedId || !isValidSessionId(storedId)) return null;
+  if (storedMerchant !== merchantId) return null;
+  return storedId;
 }
 function clearVisitorId() {
   safeLocalStorage.remove(VISITOR_KEY);
@@ -12644,6 +12699,7 @@ function WidgetProvider({ children, merchantId, initialSessionId }) {
   const [state, dispatch] = reactExports.useReducer(widgetReducer, initialState);
   const [addingProductId, setAddingProductId] = reactExports.useState(null);
   const [removingItemId, setRemovingItemId] = reactExports.useState(null);
+  const [isClearingCart, setIsClearingCart] = reactExports.useState(false);
   const [isCheckingOut, setIsCheckingOut] = reactExports.useState(false);
   const lastActionRef = reactExports.useRef(null);
   const greetingShownRef = reactExports.useRef(false);
@@ -12698,17 +12754,12 @@ function WidgetProvider({ children, merchantId, initialSessionId }) {
   }, []);
   const {
     createSession,
-    getSession,
     endSession: endWidgetSession
   } = reactExports.useMemo(
     () => ({
       createSession: async (visitorId) => {
         const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
         return widgetClient2.createSession(merchantId, visitorId);
-      },
-      getSession: async (sessionId) => {
-        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-        return widgetClient2.getSession(sessionId);
       },
       endSession: async (sessionId) => {
         const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
@@ -12774,26 +12825,90 @@ function WidgetProvider({ children, merchantId, initialSessionId }) {
           console.log("[WidgetContext] No valid stored position, using default theme placement");
           dispatch({ type: "SET_POSITION", payload: null });
         }
-        let sessionId = initialSessionId;
-        if (!sessionId) {
+        let restoredSession = false;
+        if (initialSessionId) {
+          console.log("[WidgetContext] Using injected initialSessionId:", initialSessionId);
+          try {
+            const session = await widgetClient2.getSession(initialSessionId);
+            if (session) {
+              dispatch({ type: "SET_SESSION", payload: session });
+              safeStorage.set(SESSION_KEY, session.sessionId);
+              safeStorage.set(MERCHANT_KEY, mId);
+              const { messages } = await widgetClient2.getMessageHistory(initialSessionId);
+              if (messages.length > 0) {
+                dispatch({ type: "SET_MESSAGES", payload: messages });
+                greetingShownRef.current = true;
+              }
+              restoredSession = true;
+            }
+          } catch {
+            console.warn("[WidgetContext] Failed to load injected session");
+          }
+        }
+        if (!restoredSession) {
+          const storedSessionId = getStoredSessionForMerchant(mId);
+          if (storedSessionId) {
+            console.log("[WidgetContext] Found stored session, attempting restore:", storedSessionId);
+            try {
+              const session = await widgetClient2.getSession(storedSessionId);
+              if (session) {
+                dispatch({ type: "SET_SESSION", payload: session });
+                safeStorage.set(SESSION_KEY, session.sessionId);
+                safeStorage.set(MERCHANT_KEY, mId);
+                const { messages } = await widgetClient2.getMessageHistory(storedSessionId);
+                if (messages.length > 0) {
+                  dispatch({ type: "SET_MESSAGES", payload: messages });
+                  greetingShownRef.current = true;
+                }
+                restoredSession = true;
+                console.log("[WidgetContext] Session restored from sessionStorage");
+              } else {
+                safeStorage.remove(SESSION_KEY);
+              }
+            } catch {
+              console.warn("[WidgetContext] Failed to restore session from sessionStorage");
+              safeStorage.remove(SESSION_KEY);
+            }
+          }
+        }
+        if (!restoredSession) {
+          const visitorId = getVisitorId();
+          if (visitorId) {
+            console.log("[WidgetContext] Trying visitor-based session lookup");
+            try {
+              const foundSessionId = await widgetClient2.lookupSessionByVisitor(mId, visitorId);
+              if (foundSessionId) {
+                const session = await widgetClient2.getSession(foundSessionId);
+                if (session) {
+                  dispatch({ type: "SET_SESSION", payload: session });
+                  safeStorage.set(SESSION_KEY, session.sessionId);
+                  safeStorage.set(MERCHANT_KEY, mId);
+                  const { messages } = await widgetClient2.getMessageHistory(foundSessionId);
+                  if (messages.length > 0) {
+                    dispatch({ type: "SET_MESSAGES", payload: messages });
+                    greetingShownRef.current = true;
+                  }
+                  restoredSession = true;
+                  console.log("[WidgetContext] Session restored from visitor lookup");
+                }
+              }
+            } catch {
+              console.warn("[WidgetContext] Visitor-based session lookup failed");
+            }
+          }
+        }
+        if (!restoredSession) {
           console.log("[WidgetContext] Creating new session...");
-          const session2 = await widgetClient2.createSession(mId);
+          const visitorId = getOrCreateVisitorId();
+          const session = await widgetClient2.createSession(mId, visitorId);
           if (initRequestIdRef.current !== requestId) {
             console.log("[WidgetContext] Session creation superseded by request:", initRequestIdRef.current);
             return;
           }
-          console.log("[WidgetContext] Session created:", session2);
-          dispatch({ type: "SET_SESSION", payload: session2 });
-          safeStorage.set(SESSION_KEY, session2.sessionId);
+          console.log("[WidgetContext] Session created:", session);
+          dispatch({ type: "SET_SESSION", payload: session });
+          safeStorage.set(SESSION_KEY, session.sessionId);
           safeStorage.set(MERCHANT_KEY, merchantId);
-        } else {
-          console.log("[WidgetContext] Loading existing conversation history for session:", sessionId);
-          const messages = await widgetClient2.getHistory(session.sessionId);
-          console.log("[WidgetContext] History loaded:", (messages == null ? void 0 : messages.length) || 0, "messages");
-          dispatch({ type: "SET_MESSAGES", payload: messages });
-          if (messages.length > 0) {
-            greetingShownRef.current = true;
-          }
         }
         console.log("[WidgetContext] ✅ Initialization complete, clearing loading state");
         dispatch({ type: "SET_LOADING", payload: false });
@@ -13039,8 +13154,51 @@ Your cart is now empty.`,
     },
     [state.session, state.messages, addError, recoverSession]
   );
+  const clearCart2 = reactExports.useCallback(
+    async () => {
+      var _a3;
+      setIsClearingCart(true);
+      try {
+        const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+        let sessionId = (_a3 = state.session) == null ? void 0 : _a3.sessionId;
+        if (!sessionId || !isValidSessionId(sessionId)) {
+          sessionId = await recoverSession();
+        }
+        let updatedCart;
+        try {
+          updatedCart = await widgetClient2.clearCart(sessionId);
+        } catch (error) {
+          if (isSessionError(error)) {
+            sessionId = await recoverSession();
+            updatedCart = await widgetClient2.clearCart(sessionId);
+          } else {
+            throw error;
+          }
+        }
+        const confirmationMessage = {
+          messageId: crypto.randomUUID(),
+          content: "Your cart has been cleared. All items have been removed.",
+          sender: "bot",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          cart: updatedCart
+        };
+        dispatch({ type: "ADD_MESSAGE", payload: confirmationMessage });
+        if (shopifyCartClient.isOnShopify()) {
+          try {
+            await shopifyCartClient.clearCart();
+          } catch (shopifyError) {
+          }
+        }
+      } catch (error) {
+        addError(error, { action: "Try Again" });
+      } finally {
+        setIsClearingCart(false);
+      }
+    },
+    [state.session, addError, recoverSession]
+  );
   const checkout = reactExports.useCallback(async () => {
-    var _a3, _b2;
+    var _a3, _b2, _c2;
     lastActionRef.current = { type: "checkout" };
     setIsCheckingOut(true);
     try {
@@ -13053,12 +13211,24 @@ Your cart is now empty.`,
       if (!latestCart || latestCart.items.length === 0) {
         throw new Error("Your cart is empty");
       }
-      const validItems = latestCart.items.filter((item) => item.variantId && item.quantity > 0);
-      if (validItems.length === 0) {
-        throw new Error("No valid items in cart");
+      let checkoutUrl;
+      if (latestCart.shopifyCartUrl) {
+        checkoutUrl = latestCart.shopifyCartUrl;
+      } else {
+        let sessionId = (_b2 = state.session) == null ? void 0 : _b2.sessionId;
+        if (!sessionId || !isValidSessionId(sessionId)) {
+          sessionId = await recoverSession();
+        }
+        try {
+          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
+          const result = await widgetClient2.checkout(sessionId);
+          checkoutUrl = result.checkoutUrl;
+        } catch {
+          const validItems = latestCart.items.filter((item) => item.variantId && item.quantity > 0);
+          const cartItems = validItems.map((item) => `${item.variantId}:${item.quantity}`).join(",");
+          checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
+        }
       }
-      const cartItems = validItems.map((item) => `${item.variantId}:${item.quantity}`).join(",");
-      const checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
       window.open(checkoutUrl, "_blank");
       const confirmationMessage = {
         messageId: crypto.randomUUID(),
@@ -13071,7 +13241,7 @@ Your cart is now empty.`,
     } catch (error) {
       addError(error, {
         action: "Try Again",
-        fallbackUrl: ((_b2 = state.config) == null ? void 0 : _b2.shopDomain) ? `https://${state.config.shopDomain}/cart` : void 0
+        fallbackUrl: ((_c2 = state.config) == null ? void 0 : _c2.shopDomain) ? `https://${state.config.shopDomain}/cart` : void 0
       });
     } finally {
       setIsCheckingOut(false);
@@ -13280,9 +13450,11 @@ Your cart is now empty.`,
       merchantId,
       addToCart: addToCart2,
       removeFromCart: removeFromCart2,
+      clearCart: clearCart2,
       checkout,
       addingProductId,
       removingItemId,
+      isClearingCart,
       isCheckingOut,
       addError,
       dismissError,
@@ -13305,9 +13477,11 @@ Your cart is now empty.`,
       merchantId,
       addToCart2,
       removeFromCart2,
+      clearCart2,
       checkout,
       addingProductId,
       removingItemId,
+      isClearingCart,
       isCheckingOut,
       addError,
       dismissError,
@@ -16375,7 +16549,8 @@ const positioningStyles = `
   }
 }
 `;
-function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
+function ProductCard({ product, theme, themeMode, onAddToCart, onClick, isAdding }) {
+  const isDark = themeMode === "dark";
   const handleCardClick = () => {
     if (onClick && product.available) {
       onClick(product);
@@ -16406,9 +16581,9 @@ function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
         display: "flex",
         gap: 12,
         padding: 12,
-        backgroundColor: "#ffffff",
+        backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#ffffff",
         borderRadius: 12,
-        border: product.isPinned ? `2px solid ${theme.primaryColor}` : "1px solid #e5e7eb",
+        border: product.isPinned ? `2px solid ${theme.primaryColor}` : isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb",
         marginBottom: 8,
         cursor: onClick ? "pointer" : "default",
         transition: "box-shadow 0.2s, border-color 0.2s",
@@ -16472,7 +16647,7 @@ function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
             {
               style: {
                 fontSize: 11,
-                color: "#6b7280",
+                color: isDark ? "#94a3b8" : "#6b7280",
                 marginBottom: 4
               },
               children: product.productType
@@ -16520,7 +16695,7 @@ function ProductCard({ product, theme, onAddToCart, onClick, isAdding }) {
     }
   );
 }
-function ProductList({ products, theme, onAddToCart, onProductClick, addingProductId }) {
+function ProductList({ products, theme, themeMode, onAddToCart, onProductClick, addingProductId }) {
   if (products.length === 0) {
     return null;
   }
@@ -16529,6 +16704,7 @@ function ProductList({ products, theme, onAddToCart, onProductClick, addingProdu
     {
       product,
       theme,
+      themeMode,
       onAddToCart,
       onClick: onProductClick,
       isAdding: addingProductId === product.id
@@ -16905,11 +17081,13 @@ function useCarousel({ itemCount, config: config2, isMobile = false }) {
 function ProductCarousel({
   products,
   theme,
+  themeMode,
   onAddToCart,
   onProductClick,
   addingProductId,
   config: config2
 }) {
+  const isDark = themeMode === "dark";
   const [isMobile, setIsMobile] = reactExports.useState(false);
   const mergedConfig = { ...DEFAULT_CAROUSEL_CONFIG, ...config2 };
   reactExports.useEffect(() => {
@@ -16972,7 +17150,7 @@ function ProductCarousel({
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: "product-carousel-wrapper",
+      className: `product-carousel-wrapper${isDark ? " dark-mode" : ""}`,
       "data-testid": "product-carousel-wrapper",
       role: "region",
       "aria-label": `Product carousel with ${products.length} products`,
@@ -17037,11 +17215,15 @@ function ProductCarousel({
 function CartView({
   cart,
   theme,
+  themeMode,
   onRemoveItem,
+  onClearCart,
   onCheckout,
   isCheckingOut,
-  removingItemId
+  removingItemId,
+  isClearingCart
 }) {
+  const isDark = themeMode === "dark";
   if (cart.items.length === 0) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
@@ -17050,7 +17232,7 @@ function CartView({
         style: {
           padding: 16,
           textAlign: "center",
-          color: "#6b7280",
+          color: isDark ? "#94a3b8" : "#6b7280",
           fontSize: 13
         },
         children: "Your cart is empty"
@@ -17062,7 +17244,7 @@ function CartView({
     {
       className: "cart-view",
       style: {
-        backgroundColor: "#f9fafb",
+        backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#f9fafb",
         borderRadius: 12,
         padding: 12,
         marginTop: 8
@@ -17077,32 +17259,78 @@ function CartView({
               marginBottom: 12,
               display: "flex",
               alignItems: "center",
-              gap: 8
+              gap: 8,
+              justifyContent: "space-between"
             },
             children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "svg",
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "svg",
+                  {
+                    width: "16",
+                    height: "16",
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: "2",
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "9", cy: "21", r: "1" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "20", cy: "21", r: "1" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" })
+                    ]
+                  }
+                ),
+                "Your Cart (",
+                cart.itemCount,
+                " ",
+                cart.itemCount === 1 ? "item" : "items",
+                ")"
+              ] }),
+              onClearCart && cart.items.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "button",
                 {
-                  width: "16",
-                  height: "16",
-                  viewBox: "0 0 24 24",
-                  fill: "none",
-                  stroke: "currentColor",
-                  strokeWidth: "2",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round",
+                  type: "button",
+                  onClick: onClearCart,
+                  disabled: isClearingCart,
+                  style: {
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    backgroundColor: "transparent",
+                    color: isDark ? "#f87171" : "#ef4444",
+                    border: `1px solid ${isDark ? "#f87171" : "#ef4444"}`,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    opacity: isClearingCart ? 0.5 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4
+                  },
+                  "aria-label": "Clear all items from cart",
                   children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "9", cy: "21", r: "1" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "20", cy: "21", r: "1" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" })
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "svg",
+                      {
+                        width: "12",
+                        height: "12",
+                        viewBox: "0 0 24 24",
+                        fill: "none",
+                        stroke: "currentColor",
+                        strokeWidth: "2",
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                        children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "3 6 5 6 21 6" }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" })
+                        ]
+                      }
+                    ),
+                    isClearingCart ? "Clearing..." : "Clear All"
                   ]
                 }
-              ),
-              "Your Cart (",
-              cart.itemCount,
-              " ",
-              cart.itemCount === 1 ? "item" : "items",
-              ")"
+              )
             ]
           }
         ),
@@ -17111,7 +17339,8 @@ function CartView({
           {
             item,
             onRemove: onRemoveItem,
-            isRemoving: removingItemId === item.variantId
+            isRemoving: removingItemId === item.variantId,
+            isDark
           },
           item.variantId
         )),
@@ -17124,7 +17353,7 @@ function CartView({
               alignItems: "center",
               marginTop: 12,
               paddingTop: 12,
-              borderTop: "1px solid #e5e7eb"
+              borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb"
             },
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontWeight: 600 }, children: [
@@ -17202,7 +17431,7 @@ function CartView({
     }
   );
 }
-function CartItemView({ item, onRemove, isRemoving }) {
+function CartItemView({ item, onRemove, isRemoving, isDark }) {
   const handleRemove = () => {
     if (onRemove && item.variantId) {
       onRemove(item.variantId);
@@ -17217,7 +17446,7 @@ function CartItemView({ item, onRemove, isRemoving }) {
         justifyContent: "space-between",
         alignItems: "center",
         padding: "8px 0",
-        borderBottom: "1px solid #e5e7eb"
+        borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb"
       },
       children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
@@ -17234,7 +17463,7 @@ function CartItemView({ item, onRemove, isRemoving }) {
               children: item.title
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, color: "#6b7280" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, color: isDark ? "#94a3b8" : "#6b7280" }, children: [
             "Qty: ",
             item.quantity,
             " × $",
@@ -17956,9 +18185,11 @@ function MessageList({
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   onQuickRepliesAvailable,
   onSuggestedRepliesAvailable,
@@ -18069,9 +18300,11 @@ function MessageList({
             onAddToCart,
             onProductClick,
             onRemoveFromCart,
+            onClearCart,
             onCheckout,
             addingProductId,
             removingItemId,
+            isClearingCart,
             isCheckingOut,
             newMessageIds,
             reducedMotion,
@@ -18094,9 +18327,11 @@ function MessageGroupComponent({
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   newMessageIds,
   reducedMotion,
@@ -18198,9 +18433,11 @@ function MessageGroupComponent({
                         onAddToCart,
                         onProductClick,
                         onRemoveFromCart,
+                        onClearCart,
                         onCheckout,
                         addingProductId,
                         removingItemId,
+                        isClearingCart,
                         isCheckingOut,
                         isNew: newMessageIds.has(message.messageId),
                         reducedMotion,
@@ -18216,7 +18453,7 @@ function MessageGroupComponent({
                         title: formatAbsoluteTime(message.createdAt),
                         style: {
                           fontSize: 10,
-                          color: theme.mode === "dark" ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.5)",
+                          color: isDark ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.5)",
                           marginTop: 2,
                           textAlign: isUser ? "right" : "left",
                           marginRight: isUser ? 4 : 0,
@@ -18246,9 +18483,11 @@ function MessageBubbleInGroup({
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   isNew = false,
   reducedMotion = false,
@@ -18320,6 +18559,7 @@ function MessageBubbleInGroup({
           {
             products: message.products,
             theme,
+            themeMode,
             onAddToCart,
             onProductClick,
             addingProductId
@@ -18329,6 +18569,7 @@ function MessageBubbleInGroup({
           {
             products: message.products,
             theme,
+            themeMode,
             onAddToCart,
             onProductClick,
             addingProductId
@@ -18346,10 +18587,13 @@ function MessageBubbleInGroup({
           {
             cart: message.cart,
             theme,
+            themeMode,
             onRemoveItem: onRemoveFromCart,
+            onClearCart,
             onCheckout,
             isCheckingOut,
-            removingItemId
+            removingItemId,
+            isClearingCart
           }
         )
       }
@@ -19380,6 +19624,7 @@ function ProductDetailModal({
   productId,
   sessionId,
   theme,
+  themeMode,
   isOpen,
   onClose,
   onAddToCart
@@ -19389,6 +19634,7 @@ function ProductDetailModal({
   const [error, setError] = reactExports.useState(null);
   const [quantity, setQuantity] = reactExports.useState(1);
   const [added, setAdded] = reactExports.useState(false);
+  const isDark = themeMode === "dark";
   reactExports.useEffect(() => {
     if (!isOpen || !productId) {
       setProduct(null);
@@ -19471,18 +19717,18 @@ function ProductDetailModal({
   const getStockStatus = () => {
     if (!product) return null;
     if (!product.available) {
-      return { text: "Out of Stock", color: "#dc2626", bg: "#fef2f2" };
+      return { text: "Out of Stock", color: "#dc2626", bg: isDark ? "rgba(220, 38, 38, 0.15)" : "#fef2f2" };
     }
     if (product.inventoryQuantity === 0) {
-      return { text: "Out of Stock", color: "#dc2626", bg: "#fef2f2" };
+      return { text: "Out of Stock", color: "#dc2626", bg: isDark ? "rgba(220, 38, 38, 0.15)" : "#fef2f2" };
     }
     if (product.inventoryQuantity && product.inventoryQuantity <= 5) {
-      return { text: `Only ${product.inventoryQuantity} in stock`, color: "#ea580c", bg: "#fff7ed" };
+      return { text: `Only ${product.inventoryQuantity} in stock`, color: "#ea580c", bg: isDark ? "rgba(234, 88, 12, 0.15)" : "#fff7ed" };
     }
     if (product.inventoryQuantity && product.inventoryQuantity <= 10) {
-      return { text: `${product.inventoryQuantity} in stock`, color: "#ca8a04", bg: "#fefce8" };
+      return { text: `${product.inventoryQuantity} in stock`, color: "#ca8a04", bg: isDark ? "rgba(202, 138, 4, 0.15)" : "#fefce8" };
     }
-    return { text: "In Stock", color: "#16a34a", bg: "#f0fdf4" };
+    return { text: "In Stock", color: "#16a34a", bg: isDark ? "rgba(22, 163, 74, 0.15)" : "#f0fdf4" };
   };
   const stockStatus = getStockStatus();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -19499,14 +19745,14 @@ function ProductDetailModal({
         alignItems: "center",
         justifyContent: "center",
         padding: "16px",
-        backgroundColor: "rgba(0, 0, 0, 0.5)"
+        backgroundColor: isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.5)"
       },
       onClick: handleBackdropClick,
       children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "div",
         {
           style: {
-            backgroundColor: "#ffffff",
+            backgroundColor: isDark ? "rgba(15, 23, 42, 0.95)" : "#ffffff",
             borderRadius: "16px",
             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             maxWidth: "400px",
@@ -19526,10 +19772,10 @@ function ProductDetailModal({
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "16px",
-                  borderBottom: "1px solid #e5e7eb"
+                  borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb"
                 },
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { style: { fontSize: "18px", fontWeight: 600, color: "#111827", margin: 0 }, children: "Product Details" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { style: { fontSize: "18px", fontWeight: 600, color: isDark ? "#f8fafc" : "#111827", margin: 0 }, children: "Product Details" }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
@@ -19544,7 +19790,7 @@ function ProductDetailModal({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#9ca3af"
+                        color: isDark ? "#64748b" : "#9ca3af"
                       },
                       "aria-label": "Close modal",
                       children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M18 6L6 18M6 6l12 12" }) })
@@ -19573,7 +19819,7 @@ function ProductDetailModal({
                   {
                     type: "button",
                     onClick: handleCloseClick,
-                    style: { padding: "8px 16px", fontSize: "14px", color: "#6b7280", background: "none", border: "none", cursor: "pointer" },
+                    style: { padding: "8px 16px", fontSize: "14px", color: isDark ? "#94a3b8" : "#6b7280", background: "none", border: "none", cursor: "pointer" },
                     children: "Close"
                   }
                 )
@@ -19585,15 +19831,15 @@ function ProductDetailModal({
                     style: {
                       position: "relative",
                       aspectRatio: "1 / 1",
-                      backgroundColor: "#f3f4f6",
+                      backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f3f4f6",
                       borderRadius: "8px",
                       overflow: "hidden",
                       marginBottom: "16px"
                     },
-                    children: product.imageUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: product.imageUrl, alt: product.title, style: { width: "100%", height: "100%", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "64", height: "64", viewBox: "0 0 24 24", fill: "none", stroke: "#9ca3af", strokeWidth: "1.5", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" }) }) })
+                    children: product.imageUrl ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: product.imageUrl, alt: product.title, style: { width: "100%", height: "100%", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "64", height: "64", viewBox: "0 0 24 24", fill: "none", stroke: isDark ? "#64748b" : "#9ca3af", strokeWidth: "1.5", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" }) }) })
                   }
                 ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { fontSize: "20px", fontWeight: 600, color: "#111827", marginBottom: "8px" }, children: product.title }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { fontSize: "20px", fontWeight: 600, color: isDark ? "#f8fafc" : "#111827", marginBottom: "8px" }, children: product.title }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { fontSize: "24px", fontWeight: 700, color: theme.primaryColor, marginBottom: "12px" }, children: [
                   "$",
                   product.price.toFixed(2)
@@ -19617,24 +19863,24 @@ function ProductDetailModal({
                 ),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexWrap: "wrap", gap: "16px", marginBottom: "12px", fontSize: "14px" }, children: [
                   product.productType && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#6b7280" }, children: "Category: " }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 500, color: "#111827" }, children: product.productType })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: isDark ? "#94a3b8" : "#6b7280" }, children: "Category: " }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 500, color: isDark ? "#f8fafc" : "#111827" }, children: product.productType })
                   ] }),
                   product.vendor && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#6b7280" }, children: "Vendor: " }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 500, color: "#111827" }, children: product.vendor })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: isDark ? "#94a3b8" : "#6b7280" }, children: "Vendor: " }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 500, color: isDark ? "#f8fafc" : "#111827" }, children: product.vendor })
                   ] })
                 ] }),
-                product.description && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { borderTop: "1px solid #e5e7eb", paddingTop: "12px" }, children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { style: { fontSize: "14px", fontWeight: 500, color: "#374151", marginBottom: "8px" }, children: "Description" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: "14px", color: "#4b5563", lineHeight: 1.6, whiteSpace: "pre-line" }, children: product.description })
+                product.description && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb", paddingTop: "12px" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { style: { fontSize: "14px", fontWeight: 500, color: isDark ? "#e2e8f0" : "#374151", marginBottom: "8px" }, children: "Description" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: "14px", color: isDark ? "#cbd5e1" : "#4b5563", lineHeight: 1.6, whiteSpace: "pre-line" }, children: product.description })
                 ] })
               ] })
             ] }),
-            product && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px", borderTop: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }, children: [
+            product && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px", borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb", backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f9fafb" }, children: [
               inStock && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }, children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "14px", color: "#4b5563" }, children: "Qty:" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", border: "1px solid #d1d5db", borderRadius: "8px" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "14px", color: isDark ? "#cbd5e1" : "#4b5563" }, children: "Qty:" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", border: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid #d1d5db", borderRadius: "8px" }, children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
@@ -19649,11 +19895,11 @@ function ProductDetailModal({
                         justifyContent: "center",
                         background: "none",
                         border: "none",
-                        borderRight: "1px solid #d1d5db",
+                        borderRight: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid #d1d5db",
                         cursor: quantity <= 1 ? "not-allowed" : "pointer",
                         fontSize: "16px",
                         fontWeight: 500,
-                        color: "#374151",
+                        color: isDark ? "#e2e8f0" : "#374151",
                         opacity: quantity <= 1 ? 0.5 : 1
                       },
                       children: "-"
@@ -19674,11 +19920,11 @@ function ProductDetailModal({
                         justifyContent: "center",
                         background: "none",
                         border: "none",
-                        borderLeft: "1px solid #d1d5db",
+                        borderLeft: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid #d1d5db",
                         cursor: quantity >= maxQuantity ? "not-allowed" : "pointer",
                         fontSize: "16px",
                         fontWeight: 500,
-                        color: "#374151",
+                        color: isDark ? "#e2e8f0" : "#374151",
                         opacity: quantity >= maxQuantity ? 0.5 : 1
                       },
                       children: "+"
@@ -19715,8 +19961,8 @@ function ProductDetailModal({
                     onClick: handleCloseClick,
                     style: {
                       padding: "10px 16px",
-                      backgroundColor: "#e5e7eb",
-                      color: "#374151",
+                      backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#e5e7eb",
+                      color: isDark ? "#e2e8f0" : "#374151",
                       borderRadius: "8px",
                       fontWeight: 500,
                       fontSize: "14px",
@@ -20607,9 +20853,11 @@ function ChatWindow({
   onRetryError,
   onAddToCart,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   sessionId,
   connectionStatus = "disconnected",
@@ -20639,7 +20887,9 @@ function ChatWindow({
   const [activeSuggestions, setActiveSuggestions] = reactExports.useState(null);
   const inputRef = reactExports.useRef(null);
   const menuRef = reactExports.useRef(null);
-  const isDark = themeMode === "dark";
+  const { systemTheme } = useThemeDetection();
+  const activeThemeMode = themeMode === "auto" ? systemTheme : themeMode ?? "light";
+  const isDark = activeThemeMode === "dark";
   const quickReplyRef = reactExports.useRef(null);
   const suggestedReplyRef = reactExports.useRef(null);
   const reducedMotion = useReducedMotion();
@@ -21058,14 +21308,16 @@ function ChatWindow({
               businessName: config2 == null ? void 0 : config2.businessName,
               welcomeMessage: config2 == null ? void 0 : config2.welcomeMessage,
               theme,
-              themeMode,
+              themeMode: activeThemeMode,
               isLoading: isTyping,
               onAddToCart,
               onProductClick: handleProductClick,
               onRemoveFromCart,
+              onClearCart,
               onCheckout,
               addingProductId,
               removingItemId,
+              isClearingCart,
               isCheckingOut,
               onQuickRepliesAvailable: handleQuickRepliesAvailable,
               onSuggestedRepliesAvailable: handleSuggestedRepliesAvailable,
@@ -21201,6 +21453,7 @@ function ChatWindow({
         productId: selectedProductId,
         sessionId,
         theme,
+        themeMode: activeThemeMode,
         isOpen: isProductModalOpen,
         onClose: handleProductModalClose,
         onAddToCart: handleProductAddToCart
@@ -21232,7 +21485,9 @@ function WidgetInner({ theme }) {
     recordConsent,
     clearHistory,
     toggleMinimized,
-    setThemeMode
+    setThemeMode,
+    clearCart: clearCart2,
+    isClearingCart
   } = useWidgetContext();
   const { systemTheme } = useThemeDetection();
   const merchantTheme = (_a2 = state.config) == null ? void 0 : _a2.theme;
@@ -22529,9 +22784,11 @@ function WidgetInner({ theme }) {
               onRetryError: retryLastAction,
               onAddToCart: addToCart2,
               onRemoveFromCart: removeFromCart2,
+              onClearCart: clearCart2,
               onCheckout: checkout,
               addingProductId,
               removingItemId,
+              isClearingCart,
               isCheckingOut,
               sessionId: (_e = state.session) == null ? void 0 : _e.sessionId,
               connectionStatus: state.connectionStatus,

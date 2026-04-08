@@ -207,9 +207,11 @@ interface WidgetContextValue {
   merchantId: string;
   addToCart: (product: WidgetProduct) => Promise<void>;
   removeFromCart: (variantId: string) => Promise<void>;
+  clearCart: () => Promise<void>;
   checkout: () => Promise<void>;
   addingProductId: string | null;
   removingItemId: string | null;
+  isClearingCart: boolean;
   isCheckingOut: boolean;
   addError: (error: unknown, context?: { action?: string; fallbackUrl?: string }) => void;
   dismissError: (errorId: string) => void;
@@ -244,6 +246,7 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
   const [state, dispatch] = React.useReducer(widgetReducer, initialState);
   const [addingProductId, setAddingProductId] = React.useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = React.useState<string | null>(null);
+  const [isClearingCart, setIsClearingCart] = React.useState(false);
   const [isCheckingOut, setIsCheckingOut] = React.useState(false);
   const lastActionRef = React.useRef<{ type: string; payload?: unknown } | null>(null);
   const greetingShownRef = React.useRef(false);
@@ -730,13 +733,13 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
   const removeFromCart = React.useCallback(
     async (variantId: string) => {
       if (!variantId) return;
-      
+
       setRemovingItemId(variantId);
       try {
         const { widgetClient } = await import('../api/widgetClient');
-        
+
         let sessionId = state.session?.sessionId;
-        
+
         if (!sessionId || !isValidSessionId(sessionId)) {
           sessionId = await recoverSession();
         }
@@ -786,6 +789,55 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
     [state.session, state.messages, addError, recoverSession]
   );
 
+  const clearCart = React.useCallback(
+    async () => {
+      setIsClearingCart(true);
+      try {
+        const { widgetClient } = await import('../api/widgetClient');
+
+        let sessionId = state.session?.sessionId;
+
+        if (!sessionId || !isValidSessionId(sessionId)) {
+          sessionId = await recoverSession();
+        }
+
+        let updatedCart;
+        try {
+          updatedCart = await widgetClient.clearCart(sessionId);
+        } catch (error) {
+          if (isSessionError(error)) {
+            sessionId = await recoverSession();
+            updatedCart = await widgetClient.clearCart(sessionId);
+          } else {
+            throw error;
+          }
+        }
+
+        const confirmationMessage = {
+          messageId: crypto.randomUUID(),
+          content: 'Your cart has been cleared. All items have been removed.',
+          sender: 'bot' as const,
+          createdAt: new Date().toISOString(),
+          cart: updatedCart,
+        };
+        dispatch({ type: 'ADD_MESSAGE', payload: confirmationMessage });
+
+        if (shopifyCartClient.isOnShopify()) {
+          try {
+            await shopifyCartClient.clearCart();
+          } catch (shopifyError) {
+            // Ignore Shopify sync errors
+          }
+        }
+      } catch (error) {
+        addError(error, { action: 'Try Again' });
+      } finally {
+        setIsClearingCart(false);
+      }
+    },
+    [state.session, addError, recoverSession]
+  );
+
   const checkout = React.useCallback(async () => {
     lastActionRef.current = { type: 'checkout' };
     setIsCheckingOut(true);
@@ -805,16 +857,29 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         throw new Error('Your cart is empty');
       }
 
-      const validItems = latestCart.items.filter(item => item.variantId && item.quantity > 0);
-      if (validItems.length === 0) {
-        throw new Error('No valid items in cart');
+      let checkoutUrl: string;
+
+      if (latestCart.shopifyCartUrl) {
+        checkoutUrl = latestCart.shopifyCartUrl;
+      } else {
+        let sessionId = state.session?.sessionId;
+
+        if (!sessionId || !isValidSessionId(sessionId)) {
+          sessionId = await recoverSession();
+        }
+
+        try {
+          const { widgetClient } = await import('../api/widgetClient');
+          const result = await widgetClient.checkout(sessionId);
+          checkoutUrl = result.checkoutUrl;
+        } catch {
+          const validItems = latestCart.items.filter(item => item.variantId && item.quantity > 0);
+          const cartItems = validItems
+            .map(item => `${item.variantId}:${item.quantity}`)
+            .join(',');
+          checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
+        }
       }
-
-      const cartItems = validItems
-        .map(item => `${item.variantId}:${item.quantity}`)
-        .join(',');
-
-      const checkoutUrl = `https://${shopDomain}/cart/${cartItems}`;
 
       window.open(checkoutUrl, '_blank');
 
@@ -1071,9 +1136,11 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       merchantId,
       addToCart,
       removeFromCart,
+      clearCart,
       checkout,
       addingProductId,
       removingItemId,
+      isClearingCart,
       isCheckingOut,
       addError,
       dismissError,
@@ -1096,9 +1163,11 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
       merchantId,
       addToCart,
       removeFromCart,
+      clearCart,
       checkout,
       addingProductId,
       removingItemId,
+      isClearingCart,
       isCheckingOut,
       addError,
       dismissError,

@@ -430,6 +430,20 @@ export class WidgetApiClient {
     return this.parseCartResponse(parsed.data);
   }
 
+  async clearCart(sessionId: string): Promise<WidgetCart> {
+    const data = await this.request<{ data: unknown }>(
+      `/cart?session_id=${sessionId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    const parsed = WidgetCartSchema.safeParse(data.data);
+    if (!parsed.success) {
+      throw new WidgetApiException(0, 'Invalid cart response');
+    }
+    return this.parseCartResponse(parsed.data);
+  }
+
   async updateQuantity(
     sessionId: string,
     variantId: string,

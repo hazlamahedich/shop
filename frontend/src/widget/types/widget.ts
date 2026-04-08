@@ -288,8 +288,8 @@ export interface CarouselConfig {
 }
 
 export const DEFAULT_CAROUSEL_CONFIG: CarouselConfig = {
-  visibleCards: { mobile: 2, desktop: 3 },
-  cardWidth: 140,
+  visibleCards: { mobile: 1.5, desktop: 2 },
+  cardWidth: 160,
   cardGap: 12,
   scrollDuration: 300,
 };

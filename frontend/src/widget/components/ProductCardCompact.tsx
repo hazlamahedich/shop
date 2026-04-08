@@ -3,6 +3,20 @@ import type { WidgetProduct, WidgetTheme } from '../types/widget';
 import { useRipple } from '../hooks/useRipple';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
+function optimizeImageUrl(url: string | undefined, size: number = 280): string | undefined {
+  if (!url) return undefined;
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes('shopify.com') || urlObj.hostname.includes('myshopify.com')) {
+      const separator = url.includes('?') ? '&' : '?';
+      return `${url}${separator}width=${size}&height=${size}`;
+    }
+  } catch {
+    // Not a valid URL, return as-is
+  }
+  return url;
+}
+
 export interface ProductCardCompactProps {
   product: WidgetProduct;
   theme: WidgetTheme;
@@ -10,6 +24,7 @@ export interface ProductCardCompactProps {
   onClick?: (product: WidgetProduct) => void;
   isAdding?: boolean;
   cardWidth: number;
+  loading?: 'lazy' | 'eager';
 }
 
 export function ProductCardCompact({
@@ -19,6 +34,7 @@ export function ProductCardCompact({
   onClick,
   isAdding,
   cardWidth,
+  loading = 'lazy',
 }: ProductCardCompactProps) {
   const [imageLoaded, setImageLoaded] = React.useState(false);
   const [imageError, setImageError] = React.useState(false);
@@ -72,12 +88,21 @@ export function ProductCardCompact({
         {!imageLoaded && !imageError && <div className="carousel-card-skeleton" data-testid="carousel-card-skeleton" aria-hidden="true" />}
         {product.imageUrl && (
           <img
-            src={product.imageUrl}
+            src={optimizeImageUrl(product.imageUrl)}
             alt={product.title}
-            className={imageLoaded ? '' : 'loading'}
             onLoad={handleImageLoad}
             onError={handleImageError}
-            loading="lazy"
+            loading={loading}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: imageLoaded ? 1 : 0,
+              transition: 'opacity 200ms ease',
+            }}
           />
         )}
         {imageError && (

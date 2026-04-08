@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetTheme, ContactOption } from '../types/widget';
+import type { WidgetTheme, ContactOption, ThemeMode } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { logContactInteraction } from '../utils/analytics';
 import { getBusinessHoursMessage, type BusinessHoursConfig } from '../utils/businessHours';
@@ -7,6 +7,7 @@ import { getBusinessHoursMessage, type BusinessHoursConfig } from '../utils/busi
 export interface ContactCardProps {
   contactOptions: ContactOption[];
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   conversationId?: string;
   businessHours?: BusinessHoursConfig | null;
   onContactClick?: (option: ContactOption) => void;
@@ -16,12 +17,13 @@ export interface ContactCardProps {
 export function ContactCard({
   contactOptions,
   theme,
+  themeMode,
   conversationId,
   businessHours,
   onContactClick,
   onShowToast,
 }: ContactCardProps) {
-  const isDarkMode = theme.mode === 'dark';
+  const isDarkMode = themeMode === 'dark';
   const reducedMotion = useReducedMotion();
 
   const isMobile = React.useCallback((): boolean => {
@@ -78,7 +80,7 @@ export function ContactCard({
       <div 
         style={{ 
           fontSize: 12, 
-          color: theme.textColor, 
+          color: isDarkMode ? '#94a3b8' : theme.textColor, 
           opacity: 0.7, 
           marginBottom: 8,
           fontWeight: 500
@@ -119,7 +121,7 @@ export function ContactCard({
               backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
               cursor: 'pointer',
               transition: reducedMotion ? 'none' : 'all 150ms ease',
-              color: theme.textColor,
+              color: isDarkMode ? '#e2e8f0' : theme.textColor,
               fontSize: 13,
               fontWeight: 500,
             }}

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { WidgetProduct, WidgetTheme, CarouselConfig } from '../types/widget';
+import type { WidgetProduct, WidgetTheme, CarouselConfig, ThemeMode } from '../types/widget';
 import { DEFAULT_CAROUSEL_CONFIG } from '../types/widget';
 import { ProductCardCompact } from './ProductCardCompact';
 import { CarouselArrows } from './CarouselArrows';
@@ -10,6 +10,7 @@ import { trackCarouselEngagement } from '../utils/analytics';
 export interface ProductCarouselProps {
   products: WidgetProduct[];
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
   addingProductId?: string | null;
@@ -19,11 +20,13 @@ export interface ProductCarouselProps {
 export function ProductCarousel({
   products,
   theme,
+  themeMode,
   onAddToCart,
   onProductClick,
   addingProductId,
   config,
 }: ProductCarouselProps) {
+  const isDark = themeMode === 'dark';
   const [isMobile, setIsMobile] = React.useState(false);
 
   const mergedConfig = { ...DEFAULT_CAROUSEL_CONFIG, ...config };
@@ -100,7 +103,7 @@ export function ProductCarousel({
 
   return (
     <div
-      className="product-carousel-wrapper"
+      className={`product-carousel-wrapper${isDark ? ' dark-mode' : ''}`}
       data-testid="product-carousel-wrapper"
       role="region"
       aria-label={`Product carousel with ${products.length} products`}
@@ -129,6 +132,7 @@ export function ProductCarousel({
               onClick={handleProductClick}
               isAdding={addingProductId === product.id}
               cardWidth={cardWidth}
+              loading={index < visibleCards ? 'eager' : 'lazy'}
             />
           </div>
         ))}

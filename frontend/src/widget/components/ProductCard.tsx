@@ -1,15 +1,18 @@
 import * as React from 'react';
-import type { WidgetProduct, WidgetTheme } from '../types/widget';
+import type { WidgetProduct, WidgetTheme, ThemeMode } from '../types/widget';
 
 export interface ProductCardProps {
   product: WidgetProduct;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   onAddToCart?: (product: WidgetProduct) => void;
   onClick?: (product: WidgetProduct) => void;
   isAdding?: boolean;
 }
 
-export function ProductCard({ product, theme, onAddToCart, onClick, isAdding }: ProductCardProps) {
+export function ProductCard({ product, theme, themeMode, onAddToCart, onClick, isAdding }: ProductCardProps) {
+  const isDark = themeMode === 'dark';
+
   const handleCardClick = () => {
     if (onClick && product.available) {
       onClick(product);
@@ -42,9 +45,9 @@ export function ProductCard({ product, theme, onAddToCart, onClick, isAdding }: 
         display: 'flex',
         gap: 12,
         padding: 12,
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
         borderRadius: 12,
-        border: product.isPinned ? `2px solid ${theme.primaryColor}` : '1px solid #e5e7eb',
+        border: product.isPinned ? `2px solid ${theme.primaryColor}` : (isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb'),
         marginBottom: 8,
         cursor: onClick ? 'pointer' : 'default',
         transition: 'box-shadow 0.2s, border-color 0.2s',
@@ -104,7 +107,7 @@ export function ProductCard({ product, theme, onAddToCart, onClick, isAdding }: 
           <div
             style={{
               fontSize: 11,
-              color: '#6b7280',
+              color: isDark ? '#94a3b8' : '#6b7280',
               marginBottom: 4,
             }}
           >
@@ -149,12 +152,13 @@ export function ProductCard({ product, theme, onAddToCart, onClick, isAdding }: 
 export interface ProductListProps {
   products: WidgetProduct[];
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
   addingProductId?: string | null;
 }
 
-export function ProductList({ products, theme, onAddToCart, onProductClick, addingProductId }: ProductListProps) {
+export function ProductList({ products, theme, themeMode, onAddToCart, onProductClick, addingProductId }: ProductListProps) {
   if (products.length === 0) {
     return null;
   }
@@ -166,6 +170,7 @@ export function ProductList({ products, theme, onAddToCart, onProductClick, addi
           key={product.id}
           product={product}
           theme={theme}
+          themeMode={themeMode}
           onAddToCart={onAddToCart}
           onClick={onProductClick}
           isAdding={addingProductId === product.id}

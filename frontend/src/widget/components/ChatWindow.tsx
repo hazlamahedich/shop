@@ -1,6 +1,7 @@
 import * as React from 'react';
 import FocusTrap from 'focus-trap-react';
 import type { WidgetTheme, WidgetConfig, WidgetMessage, WidgetProduct, WidgetProductDetail, ConnectionStatus, ConsentState, WidgetPosition, ThemeMode, QuickReply, FAQQuickButton, FeedbackRatingValue } from '../types/widget';
+import { useThemeDetection } from '../hooks/useThemeDetection';
 import type { WidgetError } from '../types/errors';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -30,9 +31,11 @@ export interface ChatWindowProps {
   onRetryError?: (errorId: string) => void;
   onAddToCart?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
+  onClearCart?: () => void;
   onCheckout?: () => void;
   addingProductId?: string | null;
   removingItemId?: string | null;
+  isClearingCart?: boolean;
   isCheckingOut?: boolean;
   sessionId?: string;
   connectionStatus?: ConnectionStatus;
@@ -67,9 +70,11 @@ function ChatWindow({
   onRetryError,
   onAddToCart,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   sessionId,
   connectionStatus = 'disconnected',
@@ -98,7 +103,9 @@ function ChatWindow({
   const [activeSuggestions, setActiveSuggestions] = React.useState<string[] | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
-  const isDark = themeMode === 'dark';
+  const { systemTheme } = useThemeDetection();
+  const activeThemeMode: 'light' | 'dark' = themeMode === 'auto' ? systemTheme : (themeMode ?? 'light');
+  const isDark = activeThemeMode === 'dark';
   const quickReplyRef = React.useRef<HTMLDivElement>(null);
   const suggestedReplyRef = React.useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
@@ -534,14 +541,16 @@ function ChatWindow({
           businessName={config?.businessName}
           welcomeMessage={config?.welcomeMessage}
           theme={theme}
-          themeMode={themeMode}
+          themeMode={activeThemeMode}
           isLoading={isTyping}
           onAddToCart={onAddToCart}
           onProductClick={handleProductClick}
           onRemoveFromCart={onRemoveFromCart}
+          onClearCart={onClearCart}
           onCheckout={onCheckout}
           addingProductId={addingProductId}
           removingItemId={removingItemId}
+          isClearingCart={isClearingCart}
           isCheckingOut={isCheckingOut}
           onQuickRepliesAvailable={handleQuickRepliesAvailable}
           onSuggestedRepliesAvailable={handleSuggestedRepliesAvailable}
@@ -688,6 +697,7 @@ function ChatWindow({
         productId={selectedProductId}
         sessionId={sessionId}
         theme={theme}
+        themeMode={activeThemeMode}
         isOpen={isProductModalOpen}
         onClose={handleProductModalClose}
         onAddToCart={handleProductAddToCart}

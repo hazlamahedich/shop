@@ -1,11 +1,12 @@
 import * as React from 'react';
-import type { SourceCitation as SourceCitationType, WidgetTheme } from '../types/widget';
+import type { SourceCitation as SourceCitationType, WidgetTheme, ThemeMode } from '../types/widget';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import '../styles/source-citation.css';
 
 export interface SourceCitationProps {
   sources: SourceCitationType[];
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   maxVisible?: number;
 }
 
@@ -21,7 +22,8 @@ const getScoreColor = (score: number): string => {
 
 export function SourceCitation({
   sources,
-  theme,
+  theme: _theme,
+  themeMode,
 }: SourceCitationProps) {
   const reducedMotion = useReducedMotion();
 
@@ -42,7 +44,7 @@ export function SourceCitation({
   };
 
   const isClickable = !!topSource.url;
-  const isDarkMode = theme.mode === 'dark';
+  const isDarkMode = themeMode === 'dark';
 
   return (
     <div

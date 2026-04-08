@@ -1,11 +1,12 @@
 import * as React from 'react';
-import type { WidgetTheme, FeedbackRatingValue } from '../types/widget';
+import type { WidgetTheme, FeedbackRatingValue, ThemeMode } from '../types/widget';
 
 export interface FeedbackRatingProps {
   messageId: string;
   feedbackEnabled?: boolean;
   userRating?: FeedbackRatingValue;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   onSubmit: (messageId: string, rating: FeedbackRatingValue, comment?: string) => Promise<void>;
 }
 
@@ -50,6 +51,7 @@ export function FeedbackRating({
   feedbackEnabled = true,
   userRating,
   theme,
+  themeMode,
   onSubmit,
 }: FeedbackRatingProps) {
   const [rating, setRating] = React.useState<FeedbackRatingValue | null>(userRating || null);
@@ -126,7 +128,7 @@ export function FeedbackRating({
     return null;
   }
 
-  const isDarkMode = theme.mode === 'dark';
+  const isDarkMode = themeMode === 'dark';
 
   // WCAG AA compliant colors (minimum 4.5:1 contrast ratio)
   const getButtonStyle = (isSelected: boolean) => {
@@ -169,8 +171,8 @@ export function FeedbackRating({
          style={{
            fontSize: '12px',
            fontWeight: 500,
-           color: theme.textColor,
-           opacity: 0.85,
+            color: isDarkMode ? '#94a3b8' : theme.textColor,
+            opacity: 0.85,
            textAlign: 'center',
            marginBottom: '4px',
          }}
@@ -263,7 +265,7 @@ export function FeedbackRating({
             maxWidth: '300px',
           }}
         >
-          <label htmlFor={`feedback-comment-${messageId}`} style={{ fontSize: '12px', color: theme.textColor }}>
+          <label htmlFor={`feedback-comment-${messageId}`} style={{ fontSize: '12px', color: isDarkMode ? '#cbd5e1' : theme.textColor }}>
             Tell us how we can improve (optional):
           </label>
           <textarea
@@ -281,7 +283,7 @@ export function FeedbackRating({
               border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'}`,
               borderRadius: '8px',
               backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : '#fff',
-              color: theme.textColor,
+              color: isDarkMode ? '#e2e8f0' : theme.textColor,
               fontFamily: theme.fontFamily,
               fontSize: '14px',
               resize: 'none',
@@ -296,8 +298,8 @@ export function FeedbackRating({
                 padding: '6px 12px',
                 border: 'none',
                 borderRadius: '6px',
-                backgroundColor: 'transparent',
-                color: theme.textColor,
+                 backgroundColor: 'transparent',
+                 color: isDarkMode ? '#94a3b8' : theme.textColor,
                 fontSize: '14px',
                 cursor: 'pointer',
                 opacity: 0.7,
@@ -323,7 +325,7 @@ export function FeedbackRating({
               Submit
             </button>
           </div>
-          <span style={{ fontSize: '11px', color: theme.textColor, opacity: 0.6 }}>
+          <span style={{ fontSize: '11px', color: isDarkMode ? '#94a3b8' : theme.textColor, opacity: 0.6 }}>
             {comment.length}/500 characters
           </span>
         </div>

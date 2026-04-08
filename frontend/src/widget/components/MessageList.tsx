@@ -22,9 +22,11 @@ export interface MessageListProps {
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
+  onClearCart?: () => void;
   onCheckout?: () => void;
   addingProductId?: string | null;
   removingItemId?: string | null;
+  isClearingCart?: boolean;
   isCheckingOut?: boolean;
   onQuickRepliesAvailable?: (replies: QuickReply[]) => void;
   onSuggestedRepliesAvailable?: (suggestions: string[]) => void;
@@ -43,9 +45,11 @@ export function MessageList({
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   onQuickRepliesAvailable,
   onSuggestedRepliesAvailable,
@@ -165,9 +169,11 @@ export function MessageList({
           onAddToCart={onAddToCart}
           onProductClick={onProductClick}
           onRemoveFromCart={onRemoveFromCart}
+          onClearCart={onClearCart}
           onCheckout={onCheckout}
           addingProductId={addingProductId}
           removingItemId={removingItemId}
+          isClearingCart={isClearingCart}
           isCheckingOut={isCheckingOut}
           newMessageIds={newMessageIds}
           reducedMotion={reducedMotion}
@@ -189,9 +195,11 @@ interface MessageGroupComponentProps {
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
+  onClearCart?: () => void;
   onCheckout?: () => void;
   addingProductId?: string | null;
   removingItemId?: string | null;
+  isClearingCart?: boolean;
   isCheckingOut?: boolean;
   newMessageIds: Set<string>;
   reducedMotion: boolean;
@@ -208,9 +216,11 @@ function MessageGroupComponent({
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   newMessageIds,
   reducedMotion,
@@ -314,9 +324,11 @@ function MessageGroupComponent({
                   onAddToCart={onAddToCart}
                   onProductClick={onProductClick}
                   onRemoveFromCart={onRemoveFromCart}
+                  onClearCart={onClearCart}
                   onCheckout={onCheckout}
                   addingProductId={addingProductId}
                   removingItemId={removingItemId}
+                  isClearingCart={isClearingCart}
                   isCheckingOut={isCheckingOut}
                   isNew={newMessageIds.has(message.messageId)}
                   reducedMotion={reducedMotion}
@@ -330,7 +342,7 @@ function MessageGroupComponent({
                     title={formatAbsoluteTime(message.createdAt)}
                     style={{
                       fontSize: 10,
-                      color: theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(0, 0, 0, 0.5)',
+                      color: isDark ? 'rgba(255, 255, 255, 0.85)' : 'rgba(0, 0, 0, 0.5)',
                       marginTop: 2,
                       textAlign: isUser ? 'right' : 'left',
                       marginRight: isUser ? 4 : 0,
@@ -360,9 +372,11 @@ interface MessageBubbleInGroupProps {
   onAddToCart?: (product: WidgetProduct) => void;
   onProductClick?: (product: WidgetProduct) => void;
   onRemoveFromCart?: (variantId: string) => void;
+  onClearCart?: () => void;
   onCheckout?: () => void;
   addingProductId?: string | null;
   removingItemId?: string | null;
+  isClearingCart?: boolean;
   isCheckingOut?: boolean;
   isNew?: boolean;
   reducedMotion?: boolean;
@@ -381,9 +395,11 @@ function MessageBubbleInGroup({
   onAddToCart,
   onProductClick,
   onRemoveFromCart,
+  onClearCart,
   onCheckout,
   addingProductId,
   removingItemId,
+  isClearingCart,
   isCheckingOut,
   isNew = false,
   reducedMotion = false,
@@ -453,6 +469,7 @@ function MessageBubbleInGroup({
             <ProductCarousel
               products={message.products}
               theme={theme}
+              themeMode={themeMode}
               onAddToCart={onAddToCart}
               onProductClick={onProductClick}
               addingProductId={addingProductId}
@@ -461,6 +478,7 @@ function MessageBubbleInGroup({
             <ProductList
               products={message.products}
               theme={theme}
+              themeMode={themeMode}
               onAddToCart={onAddToCart}
               onProductClick={onProductClick}
               addingProductId={addingProductId}
@@ -477,10 +495,13 @@ function MessageBubbleInGroup({
           <CartView
             cart={message.cart}
             theme={theme}
+            themeMode={themeMode}
             onRemoveItem={onRemoveFromCart}
+            onClearCart={onClearCart}
             onCheckout={onCheckout}
             isCheckingOut={isCheckingOut}
             removingItemId={removingItemId}
+            isClearingCart={isClearingCart}
           />
         </div>
       )}
@@ -509,7 +530,7 @@ function MessageBubbleInGroup({
 
       {showRichContent && !isUser && message.sources && message.sources.length > 0 && (
         <div className="message-bubble__sources">
-          <SourceCitation sources={message.sources} theme={theme} />
+          <SourceCitation sources={message.sources} theme={theme} themeMode={themeMode} />
         </div>
       )}
 
@@ -519,6 +540,7 @@ function MessageBubbleInGroup({
           feedbackEnabled={message.feedbackEnabled}
           userRating={message.userRating}
           theme={theme}
+          themeMode={themeMode}
           onSubmit={onFeedbackSubmit}
         />
       )}
@@ -527,6 +549,7 @@ function MessageBubbleInGroup({
         <ContactCard
           contactOptions={message.contactOptions}
           theme={theme}
+          themeMode={themeMode}
           conversationId={sessionId}
           onContactClick={() => {}}
         />

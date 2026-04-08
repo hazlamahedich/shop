@@ -40,6 +40,8 @@ function WidgetInner({ theme }: WidgetInnerProps) {
     clearHistory,
     toggleMinimized,
     setThemeMode,
+    clearCart,
+    isClearingCart,
   } = useWidgetContext();
   const { systemTheme } = useThemeDetection();
   const merchantTheme = state.config?.theme;
@@ -1312,7 +1314,7 @@ function WidgetInner({ theme }: WidgetInnerProps) {
           justifyContent: 'center',
           zIndex: 2147483647,
         }}>
-          <LoadingSpinner />
+          <LoadingSpinner themeMode={state.themeMode} />
         </div>
       ) : (
         <>
@@ -1355,9 +1357,11 @@ function WidgetInner({ theme }: WidgetInnerProps) {
                     onRetryError={retryLastAction}
                     onAddToCart={addToCart}
                     onRemoveFromCart={removeFromCart}
+                    onClearCart={clearCart}
                     onCheckout={checkout}
                     addingProductId={addingProductId}
                     removingItemId={removingItemId}
+                    isClearingCart={isClearingCart}
                     isCheckingOut={isCheckingOut}
                     sessionId={state.session?.sessionId}
                     connectionStatus={state.connectionStatus}

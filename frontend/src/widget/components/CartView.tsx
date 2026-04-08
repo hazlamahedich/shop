@@ -1,23 +1,31 @@
 import * as React from 'react';
-import type { WidgetCart, WidgetCartItem, WidgetTheme } from '../types/widget';
+import type { WidgetCart, WidgetCartItem, WidgetTheme, ThemeMode } from '../types/widget';
 
 export interface CartViewProps {
   cart: WidgetCart;
   theme: WidgetTheme;
+  themeMode?: ThemeMode;
   onRemoveItem?: (variantId: string) => void;
+  onClearCart?: () => void;
   onCheckout?: () => void;
   isCheckingOut?: boolean;
   removingItemId?: string | null;
+  isClearingCart?: boolean;
 }
 
 export function CartView({
   cart,
   theme,
+  themeMode,
   onRemoveItem,
+  onClearCart,
   onCheckout,
   isCheckingOut,
   removingItemId,
+  isClearingCart,
 }: CartViewProps) {
+  const isDark = themeMode === 'dark';
+
   if (cart.items.length === 0) {
     return (
       <div
@@ -25,7 +33,7 @@ export function CartView({
         style={{
           padding: 16,
           textAlign: 'center',
-          color: '#6b7280',
+          color: isDark ? '#94a3b8' : '#6b7280',
           fontSize: 13,
         }}
       >
@@ -38,7 +46,7 @@ export function CartView({
     <div
       className="cart-view"
       style={{
-        backgroundColor: '#f9fafb',
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f9fafb',
         borderRadius: 12,
         padding: 12,
         marginTop: 8,
@@ -52,23 +60,63 @@ export function CartView({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
+          justifyContent: 'space-between',
         }}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="9" cy="21" r="1" />
-          <circle cx="20" cy="21" r="1" />
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-        </svg>
-        Your Cart ({cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'})
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+          </svg>
+          Your Cart ({cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'})
+        </div>
+        {onClearCart && cart.items.length > 0 && (
+          <button
+            type="button"
+            onClick={onClearCart}
+            disabled={isClearingCart}
+            style={{
+              padding: '4px 8px',
+              fontSize: 11,
+              fontWeight: 500,
+              backgroundColor: 'transparent',
+              color: isDark ? '#f87171' : '#ef4444',
+              border: `1px solid ${isDark ? '#f87171' : '#ef4444'}`,
+              borderRadius: 6,
+              cursor: 'pointer',
+              opacity: isClearingCart ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+            aria-label="Clear all items from cart"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            {isClearingCart ? 'Clearing...' : 'Clear All'}
+          </button>
+        )}
       </div>
 
       {cart.items.map((item) => (
@@ -77,6 +125,7 @@ export function CartView({
           item={item}
           onRemove={onRemoveItem}
           isRemoving={removingItemId === item.variantId}
+          isDark={isDark}
         />
       ))}
 
@@ -87,7 +136,7 @@ export function CartView({
           alignItems: 'center',
           marginTop: 12,
           paddingTop: 12,
-          borderTop: '1px solid #e5e7eb',
+          borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb',
         }}
       >
         <div style={{ fontWeight: 600 }}>Total: ${(cart.total ?? 0).toFixed(2)}</div>
@@ -158,9 +207,10 @@ interface CartItemViewProps {
   item: WidgetCartItem;
   onRemove?: (variantId: string) => void;
   isRemoving?: boolean;
+  isDark?: boolean;
 }
 
-function CartItemView({ item, onRemove, isRemoving }: CartItemViewProps) {
+function CartItemView({ item, onRemove, isRemoving, isDark }: CartItemViewProps) {
   const handleRemove = () => {
     if (onRemove && item.variantId) {
       onRemove(item.variantId);
@@ -175,7 +225,7 @@ function CartItemView({ item, onRemove, isRemoving }: CartItemViewProps) {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '8px 0',
-        borderBottom: '1px solid #e5e7eb',
+        borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -190,7 +240,7 @@ function CartItemView({ item, onRemove, isRemoving }: CartItemViewProps) {
         >
           {item.title}
         </div>
-        <div style={{ fontSize: 12, color: '#6b7280' }}>
+        <div style={{ fontSize: 12, color: isDark ? '#94a3b8' : '#6b7280' }}>
           Qty: {item.quantity} × ${(item.price ?? 0).toFixed(2)}
         </div>
       </div>

@@ -284,194 +284,78 @@ async def create_widget_session(
     )
 
 
-@router.get(
-    "/widget/session/{session_id}",
-    response_model=WidgetSessionMetadataEnvelope,
-    summary="Get widget session metadata",
-    description="Retrieve metadata for an active widget session",
+@router.delete(
+    "/widget/cart",
+    response_model=WidgetCartEnvelope,
+    summary="Clear cart",
+    description="Clear all items from widget cart",
 )
-async def get_widget_session(
+async def clear_widget_cart(
     request: Request,
     session_id: str,
-) -> WidgetSessionMetadataEnvelope:
-    """Get widget session metadata.
-
-    Returns metadata about an active widget session including
-    creation time, last activity, and expiry.
-
-    Args:
-        request: FastAPI request
-        session_id: Widget session identifier
-
-    Returns:
-        WidgetSessionMetadataEnvelope with session details
-
-    Raises:
-        APIError: If session not found or expired
-    """
-    # Validate UUID format (Story 5-7 AC3)
+    db: AsyncSession = Depends(get_db),
+) -> WidgetCartEnvelope:
     if not is_valid_session_id(session_id):
         raise APIError(
             ErrorCode.VALIDATION_ERROR,
             "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
         )
 
     session_service = WidgetSessionService()
     session = await session_service.get_session_or_error(session_id)
 
+    from app.services.cart.cart_service import CartService
+    from app.services.cart.shopify_cart_sync import ShopifyCartSync
+    from app.services.conversation.cart_key_strategy import CartKeyStrategy
+
+    cart_service = CartService()
+    cart_key = CartKeyStrategy.for_widget(session_id)
+
+    await cart_service.clear_cart(cart_key)
+
+    try:
+        sync_service = ShopifyCartSync(merchant_id=session.merchant_id)
+        await sync_service.sync_clear_cart(cart_key)
+    except Exception as e:
+        logger.warning(
+            "widget_cart_sync_clear_failed",
+            session_id=session_id,
+            error=str(e),
+        )
+
+    cart = await cart_service.get_cart(cart_key)
+
+    cart_items = [
+        WidgetCartItem(
+            variant_id=item.variant_id,
+            title=item.title,
+            price=float(item.price) if item.price else 0.0,
+            quantity=item.quantity,
+        )
+        for item in cart.items
+    ]
+
     logger.info(
-        "widget_session_retrieved",
+        "widget_cart_cleared",
         session_id=session_id,
         merchant_id=session.merchant_id,
     )
 
-    return WidgetSessionMetadataEnvelope(
-        data=WidgetSessionMetadataResponse(
-            session_id=session.session_id,
-            merchant_id=session.merchant_id,
-            expires_at=session.expires_at,
-            created_at=session.created_at,
-            last_activity_at=session.last_activity_at,
-        ),
-        meta=create_meta(),
-    )
-
-
-@router.get(
-    "/widget/session/by-visitor/{merchant_id}/{visitor_id}",
-    response_model=WidgetVisitorSessionEnvelope,
-    summary="Look up session by visitor",
-    description="Find the most recent active session for a visitor",
-)
-async def get_session_by_visitor(
-    merchant_id: int,
-    visitor_id: str,
-) -> WidgetVisitorSessionEnvelope:
-    """Look up active session for a visitor.
-
-    Finds the most recent active session associated with a visitor ID,
-    enabling session restoration across tabs.
-
-    Args:
-        merchant_id: Merchant ID
-        visitor_id: Visitor identifier from localStorage
-
-    Returns:
-        WidgetVisitorSessionEnvelope with session_id or null
-    """
-    session_service = WidgetSessionService()
-    session_id = await session_service.get_session_by_visitor(merchant_id, visitor_id)
-
-    logger.info(
-        "widget_visitor_session_lookup",
-        merchant_id=merchant_id,
-        visitor_id=visitor_id[:8],
-        found=session_id is not None,
-    )
-
-    return WidgetVisitorSessionEnvelope(
-        data=WidgetVisitorSessionResponse(session_id=session_id),
-        meta=create_meta(),
-    )
-
-
-@router.get(
-    "/widget/session/{session_id}/messages",
-    response_model=WidgetMessageHistoryEnvelope,
-    summary="Get widget message history",
-    description="Retrieve message history for a widget session",
-)
-async def get_widget_message_history(
-    request: Request,
-    session_id: str,
-    db: AsyncSession = Depends(get_db),
-) -> WidgetMessageHistoryEnvelope:
-    """Get message history for a widget session.
-
-    Returns message history with expiration status. History persists
-    for 7 days, after which it is automatically cleared.
-
-    Args:
-        request: FastAPI request
-        session_id: Widget session identifier
-
-    Returns:
-        WidgetMessageHistoryEnvelope with messages and expiration info
-
-    Raises:
-        APIError: If session ID format is invalid
-    """
-    if not is_valid_session_id(session_id):
-        raise APIError(
-            ErrorCode.VALIDATION_ERROR,
-            "Invalid session ID format",
-        )
-
-    session_service = WidgetSessionService()
-
-    history_status = await session_service.get_message_history_status(session_id)
-
-    if history_status["expired"]:
-        return WidgetMessageHistoryEnvelope(
-            data=WidgetMessageHistoryResponse(
-                messages=[],
-                expired=True,
-                expires_at=None,
-            ),
-            meta=create_meta(),
-        )
-
-    messages = await session_service.get_message_history(session_id)
-
-    # Fetch feedback ratings for all bot messages
-    message_ids = [msg.get("message_id") for msg in messages if msg.get("role") == "bot"]
-    feedback_map: dict[str, str] = {}
-
-    if message_ids:
-        feedback_query = select(MessageFeedback).where(
-            MessageFeedback.widget_message_id.in_(message_ids),
-            MessageFeedback.session_id == session_id,
-        )
-        feedback_result = await db.execute(feedback_query)
-        feedback_records = feedback_result.scalars().all()
-
-        feedback_map = {
-            record.widget_message_id: record.rating.value
-            for record in feedback_records
-            if record.widget_message_id
-        }
-
-    def _build_history_item(msg: dict) -> WidgetMessageHistoryItem:
-        return WidgetMessageHistoryItem(
-            role=msg.get("role", "user"),
-            content=msg.get("content", ""),
-            timestamp=msg.get("timestamp", ""),
-            customer_name=msg.get("customer_name"),
-            user_rating=feedback_map.get(msg.get("message_id"))
-            if msg.get("role") == "bot"
-            else None,
-            products=msg.get("products"),
-            cart=msg.get("cart"),
-            checkout_url=msg.get("checkout_url"),
-            quick_replies=msg.get("quick_replies"),
-            sources=msg.get("sources"),
-            suggested_replies=msg.get("suggested_replies"),
-            contact_options=msg.get("contact_options"),
-        )
-
-    history_items = [_build_history_item(msg) for msg in messages]
-
-    logger.info(
-        "widget_message_history_retrieved",
-        session_id=session_id,
-        message_count=len(history_items),
-    )
-
-    return WidgetMessageHistoryEnvelope(
-        data=WidgetMessageHistoryResponse(
-            messages=history_items,
-            expired=False,
-            expires_at=history_status.get("expires_at"),
+    return WidgetCartEnvelope(
+        data=WidgetCartResponse(
+            items=cart_items,
+            subtotal=float(cart.subtotal) if cart.subtotal else 0.0,
+            currency=cart.currency_code.value if cart.currency_code else "USD",
+            item_count=sum(item.quantity for item in cart.items),
+            shopify_cart_url=cart.shopify_cart_url,
         ),
         meta=create_meta(),
     )
@@ -1155,8 +1039,9 @@ async def get_widget_product(
         if product.get("variants"):
             variant_id = str(product["variants"][0].get("id", ""))
 
-        # Fallback: use product ID as variant ID if no variants available
-        # This handles mock products and products without variants
+        if not variant_id and product.get("variant_id"):
+            variant_id = str(product["variant_id"])
+
         if not variant_id:
             variant_id = str(product.get("id", ""))
 
@@ -1664,18 +1549,60 @@ async def widget_checkout(
             "No shop domain configured",
         )
 
-    variant_parts = []
-    for item in cart.items:
-        if item.variant_id:
-            variant_parts.append(f"{item.variant_id}:{item.quantity}")
+    checkout_url = None
 
-    if not variant_parts:
-        raise APIError(
-            ErrorCode.WIDGET_CART_EMPTY,
-            "No valid items in cart",
+    try:
+        from app.services.shopify.shopify_cart_client import ShopifyCartClient
+        from app.services.shopify_oauth import ShopifyService
+
+        shopify_svc = ShopifyService(db)
+        storefront_token = await shopify_svc.get_storefront_token(merchant.id)
+
+        if storefront_token:
+            lines = []
+            for item in cart.items:
+                if item.variant_id:
+                    lines.append(
+                        {
+                            "merchandiseId": f"gid://shopify/ProductVariant/{item.variant_id}",
+                            "quantity": item.quantity,
+                        }
+                    )
+
+            if lines:
+                shopify_client = ShopifyCartClient(
+                    access_token=storefront_token,
+                    shop_domain=shop_domain,
+                )
+                shopify_cart = await shopify_client.create_cart(lines=lines)
+                checkout_url = shopify_cart.get("checkout_url")
+
+                if checkout_url:
+                    logger.info(
+                        "widget_checkout_shopify_created",
+                        session_id=checkout_request.session_id,
+                        merchant_id=merchant.id,
+                    )
+    except Exception as e:
+        logger.warning(
+            "widget_checkout_shopify_failed_fallback",
+            session_id=checkout_request.session_id,
+            error=str(e),
         )
 
-    checkout_url = f"https://{shop_domain}/cart/" + ",".join(variant_parts)
+    if not checkout_url:
+        variant_parts = []
+        for item in cart.items:
+            if item.variant_id:
+                variant_parts.append(f"{item.variant_id}:{item.quantity}")
+
+        if not variant_parts:
+            raise APIError(
+                ErrorCode.WIDGET_CART_EMPTY,
+                "No valid items in cart",
+            )
+
+        checkout_url = f"https://{shop_domain}/cart/" + ",".join(variant_parts)
 
     logger.info(
         "widget_checkout_generated",
