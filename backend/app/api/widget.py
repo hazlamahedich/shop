@@ -1155,11 +1155,17 @@ async def get_widget_product(
         if product.get("variants"):
             variant_id = str(product["variants"][0].get("id", ""))
 
+        # Fallback: use product ID as variant ID if no variants available
+        # This handles mock products and products without variants
+        if not variant_id:
+            variant_id = str(product.get("id", ""))
+
         logger.info(
             "widget_product_fetched",
             session_id=session_id,
             merchant_id=merchant.id,
             product_id=product_id,
+            variant_id=variant_id,
         )
 
         return WidgetProductDetailEnvelope(
