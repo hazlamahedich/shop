@@ -187,7 +187,6 @@ class OrderTrackingService:
                     select(Order)
                     .where(Order.merchant_id == merchant_id)
                     .where(Order.customer_email == customer_email)
-                    .where(Order.is_test == False)
                     .order_by(Order.created_at.desc())
                     .limit(limit)
                 )

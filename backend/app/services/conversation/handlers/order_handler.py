@@ -191,6 +191,9 @@ class OrderHandler(BaseHandler):
             if context.conversation_data:
                 customer_email = context.conversation_data.get("customer_email")
 
+            if not customer_email:
+                customer_email = self._normalize_email(message)
+
             result = await tracking_service.track_order_by_customer(
                 db=db,
                 merchant_id=merchant.id,
@@ -551,12 +554,18 @@ class OrderHandler(BaseHandler):
         - Common domain typos (gmial -> gmail)
 
         Args:
-            message: Raw message that might be an email
+            message: Raw message that might contain an email
 
         Returns:
             Normalized email if valid, None otherwise
         """
-        email = message.strip().lower()
+        import re
+
+        email_match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", message)
+        if not email_match:
+            return None
+
+        email = email_match.group(0).strip().lower()
 
         while ".." in email:
             email = email.replace("..", ".")

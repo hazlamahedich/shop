@@ -75,11 +75,11 @@ INTENT_REQUIREMENTS: dict[IntentType, list[IntentRequirement]] = {
     IntentType.ORDER_TRACKING: [
         IntentRequirement(
             "order_number",
-            "order number",
+            "order number or email",
             True,
             1,
             "ecommerce",
-            ["#1001", "ORD-123", "1001"],
+            ["#1001", "ORD-123", "1001", "email@example.com"],
         ),
     ],
     IntentType.HUMAN_HANDOFF: [

@@ -79,6 +79,7 @@ class ProactiveGatheringService:
         entities: ExtractedEntities,
         context: ConversationContext,
         mode: str,
+        user_message: str = "",
     ) -> list[MissingField]:
         if intent in _SKIP_INTENTS:
             return []
@@ -91,7 +92,7 @@ class ProactiveGatheringService:
         for req in requirements:
             if not self._is_mode_compatible(req.mode, mode):
                 continue
-            if self._field_already_known(req.field_name, entities, context):
+            if self._field_already_known(req.field_name, entities, context, user_message):
                 continue
             missing.append(
                 MissingField(
@@ -204,6 +205,7 @@ class ProactiveGatheringService:
         field_name: str,
         entities: ExtractedEntities,
         context: ConversationContext,
+        user_message: str = "",
     ) -> bool:
         entity_fields = {
             "budget": entities.budget,
@@ -234,7 +236,18 @@ class ProactiveGatheringService:
             ctx_state.last_search_category or ctx_constraints.get("category")
         ):
             return True
+        if field_name == "order_number" and user_message:
+            email = self._extract_email_from_text(user_message)
+            if email:
+                return True
         return False
+
+    @staticmethod
+    def _extract_email_from_text(text: str) -> str | None:
+        import re
+
+        match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", text)
+        return match.group(0) if match else None
 
     def _resolve_personality(self, personality: str | None) -> PersonalityType:
         personality_lower = personality.lower() if personality else "friendly"

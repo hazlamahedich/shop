@@ -1305,7 +1305,7 @@ class UnifiedConversationService:
                 return ClassificationResult(
                     intent=ClassifierIntentType.CART_CLEAR,
                     confidence=0.95,
-                    entities=ExtractedEntities(),
+                    entities=ExtractedEntities(cart_action="clear"),  # ✅ Set cart_action entity
                     raw_message=message,
                     llm_provider="pattern",
                     model="regex",
@@ -3058,6 +3058,7 @@ class UnifiedConversationService:
             entities,
             context,
             mode,
+            message,
         )
         if not missing:
             return None
