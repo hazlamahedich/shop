@@ -32,7 +32,7 @@ def _get_merchant_id_from_request(request: Request) -> int:
     """Extract merchant_id from authenticated request.
 
     Uses request.state.merchant_id set by authentication middleware.
-    Falls back to X-Merchant-Id header in DEBUG mode or X-Test-Mode for testing.
+    Falls back to X-Merchant-Id header in DEBUG mode.
     Defaults to merchant_id=1 for development when no auth is present.
     """
     merchant_id = getattr(request.state, "merchant_id", None)
@@ -40,18 +40,6 @@ def _get_merchant_id_from_request(request: Request) -> int:
         return merchant_id
 
     if settings().get("IS_TESTING"):
-        return 1
-
-    if request.headers.get("X-Test-Mode", "").lower() == "true":
-        merchant_id_header = request.headers.get("X-Merchant-Id")
-        if merchant_id_header:
-            try:
-                return int(merchant_id_header)
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid X-Merchant-Id header format",
-                )
         return 1
 
     if settings()["DEBUG"]:
@@ -73,6 +61,42 @@ def _get_merchant_id_from_request(request: Request) -> int:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Authentication required",
     )
+
+
+ANALYTICS_RATE_LIMIT = 60
+ANALYTICS_RATE_PERIOD = 60
+_analytics_request_times: dict[str, list[float]] = {}
+
+
+def _check_analytics_rate_limit(request: Request) -> None:
+    """Rate limit analytics endpoints: 60 req/min per merchant."""
+    import os
+    import time
+
+    if os.getenv("IS_TESTING", "false").lower() == "true":
+        return
+
+    merchant_id = _get_merchant_id_from_request(request)
+    key = f"analytics:{merchant_id}"
+    now = time.time()
+    window_start = now - ANALYTICS_RATE_PERIOD
+    _analytics_request_times.setdefault(key, [])
+    _analytics_request_times[key] = [
+        ts for ts in _analytics_request_times[key] if ts > window_start
+    ]
+    if len(_analytics_request_times[key]) >= ANALYTICS_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "Too many requests",
+                "message": (
+                    f"Analytics rate limit exceeded."
+                    f" Maximum {ANALYTICS_RATE_LIMIT} requests per {ANALYTICS_RATE_PERIOD} seconds."
+                ),
+                "retry_after": ANALYTICS_RATE_PERIOD,
+            },
+        )
+    _analytics_request_times[key].append(now)
 
 
 class WidgetAnalyticsEventPayload(BaseModel):
@@ -144,10 +168,8 @@ async def get_widget_analytics_metrics(
     """Get widget analytics metrics for a merchant.
 
     Story 9-10: Analytics & Performance Monitoring
-
-    Returns aggregated metrics including open rates, message rates,
-    quick reply usage, voice input usage, and carousel engagement.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = WidgetAnalyticsService(db)
     metrics = await service.get_metrics(merchant_id, days)
@@ -165,9 +187,8 @@ async def export_widget_analytics_csv(
     """Export widget analytics as CSV.
 
     Story 9-10: Analytics & Performance Monitoring
-
-    Returns CSV file with widget analytics events for the specified period.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = WidgetAnalyticsService(db)
     csv_data = await service.export_csv(merchant_id, start_date, end_date, event_type)
@@ -188,6 +209,7 @@ async def get_analytics_summary(
     - Conversation stats (30 days)
     - Order stats with MoM comparison
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     summary = await service.get_anonymized_summary(merchant_id)
@@ -207,6 +229,7 @@ async def get_knowledge_gaps(
 
     Returns detected gaps in bot knowledge for FAQ creation.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     gaps = await service.get_knowledge_gaps(merchant_id, days, limit)
@@ -224,6 +247,7 @@ async def get_peak_hours(
     Returns hourly breakdown of conversation activity by day of week.
     Used by PeakHoursHeatmapWidget to show when customers are most active.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     peak_hours_data = await service.get_peak_hours(merchant_id, days)
@@ -241,6 +265,7 @@ async def get_bot_quality(
     Returns metrics including CSAT score, response time, fallback rate, and resolution rate.
     Used by BotQualityWidget to show bot performance.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     metrics = await service.get_bot_quality_metrics(merchant_id, days)
@@ -258,6 +283,7 @@ async def get_conversion_funnel(
     Returns funnel stages from conversation to purchase.
     Used by ConversionFunnelWidget to show conversion journey.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     funnel_data = await service.get_conversion_funnel(merchant_id, days)
@@ -275,6 +301,7 @@ async def get_benchmarks(
     Returns comparison metrics against industry averages.
     Used by QualityMetricsWidget to show benchmark comparison.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     benchmark_data = await service.get_benchmark_comparison(merchant_id, days)
@@ -292,6 +319,7 @@ async def get_sentiment_trend(
     Returns sentiment analysis of customer messages.
     Used by QualityMetricsWidget to show customer sentiment.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     sentiment_data = await service.get_sentiment_trend(merchant_id, days)
@@ -315,6 +343,7 @@ async def get_knowledge_effectiveness(
     - Average confidence score
     - 7-day trend sparkline
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     effectiveness_data = await service.get_knowledge_effectiveness(merchant_id, days)
@@ -334,6 +363,7 @@ async def get_top_topics(
     Returns most frequently queried topics from RAG query logs.
     Uses simple frequency ranking (MVP approach).
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     topics_data = await service.get_top_topics(merchant_id, days)
@@ -367,6 +397,7 @@ async def get_top_products(
     Story 7: Dashboard Widgets.
     Returns most sold products with quantity and revenue.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     products = await service.get_top_products(merchant_id, days, limit)
@@ -384,6 +415,7 @@ async def get_pending_orders(
 
     Returns orders awaiting fulfillment.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     orders = await service.get_pending_orders(merchant_id, limit, offset)
@@ -403,6 +435,7 @@ async def get_response_time_distribution(
     Returns percentile metrics (P50, P95, P99), histogram distribution,
     previous period comparison, and warning for slow responses.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_response_time_distribution(merchant_id, days)
@@ -425,6 +458,7 @@ async def get_faq_usage(
     """
     import hashlib
 
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_faq_usage(merchant_id, days, include_unused)
@@ -455,6 +489,7 @@ async def get_geographic_analytics(
 
     Returns sales breakdown by country, city, and province.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_geographic_analytics(merchant_id)
@@ -476,6 +511,7 @@ async def export_faq_usage_csv(
     import csv
     import io
 
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_faq_usage(merchant_id, days, include_unused=True)
@@ -526,6 +562,7 @@ async def get_answer_quality_score(
 
     Returns score, status, and 14-day trend.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.calculate_answer_quality_score(merchant_id, days)
@@ -548,6 +585,7 @@ async def get_top_questions(
     - Category classification
     - Trend indicator (rising/falling/stable)
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_top_questions_with_metrics(merchant_id, days, limit)
@@ -568,6 +606,7 @@ async def get_customer_feedback(
     - Top feedback themes
     - Sentiment analysis
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_customer_feedback_metrics(merchant_id, days)
@@ -594,6 +633,7 @@ async def get_document_performance(
     - Use limit to control page size (default: 50, max: 100)
     - Use offset for pagination (default: 0)
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_document_usage_stats(merchant_id, days, limit, offset)
@@ -615,6 +655,7 @@ async def get_high_impact_improvements(
     - Suggested actions (add FAQ, upload doc, update doc)
     - Priority level (high/medium/low)
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_high_impact_improvements(merchant_id, days, limit)
@@ -637,6 +678,7 @@ async def get_question_categories(
     - Trend indicator
     - Top questions in category
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_question_categories(merchant_id, days)
@@ -660,6 +702,7 @@ async def get_failed_queries(
     - Estimated impact
     - Category
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_failed_queries(merchant_id, days, limit)
@@ -682,6 +725,7 @@ async def get_performance_alerts(
     - Suggested action
     - Timestamp
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_performance_alerts(merchant_id, days)
@@ -702,6 +746,7 @@ async def get_quick_actions(
     - Priority level
     - Estimated time
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = AggregatedAnalyticsService(db)
     data = await service.get_quick_actions(merchant_id)
@@ -724,6 +769,7 @@ async def get_conversation_flow_overview(
     Story 11.12b: Overview combining key metrics from all sub-analyses.
     Returns total conversations, average turns, by mode, daily trend.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_overview(merchant_id, days)
@@ -741,6 +787,7 @@ async def get_conversation_flow_length_distribution(
 
     Returns avg/median/P90 turns counts, grouped by mode, daily trend.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_conversation_length_distribution(merchant_id, days)
@@ -757,6 +804,7 @@ async def get_conversation_flow_clarification_patterns(
     Story 11.12b: Clarification patterns (AC2)
     Returns most common clarification sequences, depth, success rate.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_clarification_patterns(merchant_id, days)
@@ -773,6 +821,7 @@ async def get_conversation_flow_friction_points(
     Story 11.12b: Friction points (AC3)
     Returns drop-off intents, repeated intents, processing time outliers.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_friction_points(merchant_id, days)
@@ -789,6 +838,7 @@ async def get_conversation_flow_sentiment_stages(
     Story 11.12b: Sentiment stages (AC4)
     Returns sentiment counts for early/mid/late stages, negative shift detection.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_sentiment_distribution_by_stage(merchant_id, days)
@@ -805,6 +855,7 @@ async def get_conversation_flow_handoff_correlation(
     Story 11.12b: Handoff correlation (AC5)
     Returns top handoff triggers, avg conversation length, handoff rate per intent.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_handoff_correlation(merchant_id, days)
@@ -821,6 +872,7 @@ async def get_conversation_flow_context_utilization(
     Story 11.12b: Context utilization (AC6)
     Returns utilization rate by mode, low utilization conversations.
     """
+    _check_analytics_rate_limit(request)
     merchant_id = _get_merchant_id_from_request(request)
     service = ConversationFlowAnalyticsService(db)
     return await service.get_context_utilization(merchant_id, days)

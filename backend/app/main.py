@@ -20,24 +20,24 @@ from app.api import health as health_router
 from app.api.analytics import router as analytics_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
-from app.api.password_reset import router as password_reset_router
 from app.api.bot_config import router as bot_config_router
 from app.api.business_hours import router as business_hours_router
 from app.api.business_info import router as business_info_router
 from app.api.carriers import router as carriers_router
-from app.api.disputes import router as disputes_router
 from app.api.consent import router as consent_router
-from app.api.conversations import router as conversation_router
 from app.api.conversation_context import router as conversation_context_router
+from app.api.conversations import router as conversation_router
 from app.api.cost_tracking import router as cost_tracking_router
 from app.api.csrf import router as csrf_router
+from app.api.dashboard_ws import router as dashboard_ws_router
 from app.api.data_deletion import router as data_deletion_router
 from app.api.data_export import router as data_export_router
 from app.api.deployment import router as deployment_router
+from app.api.disputes import router as disputes_router
 from app.api.export import router as export_router
+from app.api.faq_click import router as faq_click_router
 from app.api.faqs import router as faqs_router
 from app.api.feedback import router as feedback_router
-from app.api.faq_click import router as faq_click_router
 from app.api.handoff_alerts import router as handoff_alerts_router
 from app.api.health import router as health_router
 from app.api.integrations import router as integrations_router
@@ -47,6 +47,7 @@ from app.api.merchant import router as merchant_router
 from app.api.merchant_profile import router as merchant_profile_router
 from app.api.multi_turn import router as multi_turn_router
 from app.api.onboarding import router as onboarding_router
+from app.api.password_reset import router as password_reset_router
 from app.api.preview import router as preview_router
 from app.api.product_pins import router as product_pins_router
 from app.api.search import router as search_router
@@ -59,7 +60,6 @@ from app.api.widget import router as widget_router
 from app.api.widget_events import router as widget_events_router
 from app.api.widget_settings import router as widget_settings_router
 from app.api.widget_ws import router as widget_ws_router
-from app.api.dashboard_ws import router as dashboard_ws_router
 from app.background_jobs.data_retention import shutdown_scheduler, start_scheduler
 from app.background_jobs.widget_cleanup import (
     shutdown_widget_cleanup_scheduler,
@@ -73,8 +73,9 @@ from app.core.config import settings
 from app.core.database import close_db, engine, init_db
 from app.core.errors import APIError, ErrorCode
 from app.middleware.auth import AuthenticationMiddleware
-
 from app.middleware.csrf import setup_csrf_middleware
+from app.middleware.rate_limit import GlobalRateLimitMiddleware
+from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.middleware.security import setup_security_middleware
 from app.schemas.deployment import (  # noqa: F401 (export for type generation)
     DeploymentLogEntry,
@@ -239,14 +240,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_db()
 
 
-# Create FastAPI application
+_debug = settings().get("DEBUG", True)
+
 app = FastAPI(
     title="Mantisbot",
     description="AI-powered conversational commerce for Facebook Messenger",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _debug else None,
+    redoc_url="/redoc" if _debug else None,
+    openapi_url="/openapi.json" if _debug else None,
     lifespan=lifespan,
 )
 
@@ -310,7 +312,6 @@ app.add_middleware(
         "X-Webhook-Signature",
         "X-CSRF-Token",
         "X-Merchant-Id",
-        "X-Test-Mode",
         "Accept",
     ],
 )
@@ -322,6 +323,12 @@ setup_csrf_middleware(app)
 
 # Authentication middleware (MEDIUM-11: added for cookie validation)
 app.add_middleware(AuthenticationMiddleware)
+
+# Global rate limiting (DDoS mitigation: 300 req/min per IP, 20/min for auth)
+app.add_middleware(GlobalRateLimitMiddleware)
+
+# Request body size limit (DDoS mitigation: 10MB max)
+app.add_middleware(RequestSizeLimitMiddleware)
 
 # Setup security middleware (HTTPS enforcement, HSTS, CSP, etc.)
 # NFR-S1: HTTPS Enforcement with HSTS
@@ -369,12 +376,16 @@ async def serve_widget_file(filename: str):
 
     widget_file = WIDGET_DIST_PATH / filename
     if widget_file.exists():
+        if filename.endswith(".map"):
+            cache_control = "no-cache"
+        else:
+            cache_control = "public, max-age=3600"
         return FileResponse(
             widget_file,
             media_type="application/javascript" if filename.endswith(".js") else "text/css",
             headers={
                 "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Cache-Control": cache_control,
             },
         )
     return JSONResponse(status_code=404, content={"error": f"File not found: {filename}"})

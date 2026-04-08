@@ -15,7 +15,7 @@ import os
 from datetime import UTC
 
 import structlog
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -863,12 +863,16 @@ async def get_widget_session(
 async def get_widget_message_history(
     request: Request,
     session_id: str,
+    limit: int = Query(50, ge=1, le=200, description="Maximum messages to return"),
+    offset: int = Query(0, ge=0, description="Number of messages to skip"),
 ) -> WidgetMessageHistoryEnvelope:
     """Get message history for a widget session.
 
     Args:
         request: FastAPI request
         session_id: Widget session identifier
+        limit: Maximum number of messages to return
+        offset: Number of messages to skip for pagination
 
     Returns:
         WidgetMessageHistoryEnvelope with message history
@@ -895,8 +899,10 @@ async def get_widget_message_history(
     messages_raw = await session_service.get_message_history(session_id)
     history_status = await session_service.get_message_history_status(session_id)
 
+    messages_page = messages_raw[offset : offset + limit]
+
     history_items = []
-    for msg in messages_raw:
+    for msg in messages_page:
         history_items.append(
             WidgetMessageHistoryItem(
                 message_id=msg.get("message_id"),

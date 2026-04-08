@@ -130,8 +130,8 @@ class TestRateLimitingSecurity:
             )
             assert not is_limited, "Request after window should be allowed"
 
-    def test_rate_limit_uses_x_forwarded_for(self):
-        """Rate limit respects X-Forwarded-For header for client IP."""
+    def test_rate_limit_uses_x_forwarded_for_from_trusted_proxy(self):
+        """Rate limit respects X-Forwarded-For only from trusted proxies."""
         from fastapi import Request
 
         RateLimiter.reset_all()
@@ -141,17 +141,33 @@ class TestRateLimitingSecurity:
         mock_request.client = MagicMock()
         mock_request.client.host = "10.0.0.1"
 
-        ip = RateLimiter.get_widget_client_ip(mock_request)
+        with patch("app.core.config.settings", return_value={"TRUSTED_PROXIES": "10.0.0.1"}):
+            ip = RateLimiter.get_widget_client_ip(mock_request)
         assert ip == "203.0.113.1"
 
-    def test_rate_limit_bypassed_in_test_mode(self):
-        """Rate limit is bypassed when IS_TESTING=true or X-Test-Mode header."""
+    def test_rate_limit_ignores_x_forwarded_for_from_untrusted(self):
+        """Rate limit ignores X-Forwarded-For from non-proxy IPs."""
         from fastapi import Request
 
         RateLimiter.reset_all()
 
         mock_request = MagicMock(spec=Request)
-        mock_request.headers = {"X-Test-Mode": "true"}
+        mock_request.headers = {"X-Forwarded-For": "203.0.113.1, 10.0.0.1"}
+        mock_request.client = MagicMock()
+        mock_request.client.host = "10.0.0.1"
+
+        with patch("app.core.config.settings", return_value={"TRUSTED_PROXIES": ""}):
+            ip = RateLimiter.get_widget_client_ip(mock_request)
+        assert ip == "10.0.0.1"
+
+    def test_rate_limit_bypassed_in_test_mode(self):
+        """Rate limit is bypassed when IS_TESTING=true env var is set."""
+        from fastapi import Request
+
+        RateLimiter.reset_all()
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {}
         mock_request.client = MagicMock()
         mock_request.client.host = "10.0.0.3"
 

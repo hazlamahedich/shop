@@ -95,10 +95,7 @@ class CSRFMiddleware:
 
         request = Request(scope, receive)
 
-        if (
-            os.getenv("IS_TESTING", "false").lower() == "true"
-            or request.headers.get("X-Test-Mode") == "true"
-        ):
+        if os.getenv("IS_TESTING", "false").lower() == "true":
             await self.app(scope, receive, send)
             return
 

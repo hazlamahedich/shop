@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -64,7 +65,6 @@ class AuthenticationMiddleware:
         "/api/oauth/",
         "/api/integrations/shopify/callback",
         "/api/integrations/shopify/authorize",
-        "/api/v1/data/export",
         "/api/v1/consent/",
         "/api/v1/widget/",
         "/ws/widget/",
@@ -74,11 +74,8 @@ class AuthenticationMiddleware:
         "/api/deletion/",
         "/api/gdpr-request",
         "/api/compliance/",
-        "/api/customers/",
         "/api/carriers/",
         "/api/merchant/mode",
-        "/api/llm/",
-        "/api/onboarding/",
         "/api/v1/feedback",
         "/api/v1/analytics/widget/events",
     ]
@@ -157,9 +154,6 @@ class AuthenticationMiddleware:
                 return False
 
         if os.getenv("IS_TESTING", "false").lower() == "true":
-            return True
-
-        if request.headers.get("X-Test-Mode", "").lower() == "true":
             return True
 
         return False

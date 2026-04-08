@@ -24,6 +24,7 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
+    Query,
     Request,
     UploadFile,
     status,
@@ -252,13 +253,22 @@ async def _process_document_chunks(
 @router.get("")
 async def list_documents(
     request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """List all documents for the merchant."""
+    """List all documents for the merchant with pagination."""
     merchant_id = get_request_merchant_id(request)
 
     try:
-        # Query documents with chunk counts
+        count_result = await db.execute(
+            select(func.count(KnowledgeDocument.id)).where(
+                KnowledgeDocument.merchant_id == merchant_id
+            )
+        )
+        total = count_result.scalar() or 0
+        offset = (page - 1) * per_page
+
         result = await db.execute(
             select(
                 KnowledgeDocument,
@@ -268,6 +278,8 @@ async def list_documents(
             .where(KnowledgeDocument.merchant_id == merchant_id)
             .group_by(KnowledgeDocument.id)
             .order_by(KnowledgeDocument.created_at.desc())
+            .offset(offset)
+            .limit(per_page)
         )
         rows = result.all()
 
@@ -294,6 +306,12 @@ async def list_documents(
             "meta": {
                 "requestId": "list",
                 "timestamp": datetime.now(UTC).isoformat(),
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 0,
+                },
             },
         }
 

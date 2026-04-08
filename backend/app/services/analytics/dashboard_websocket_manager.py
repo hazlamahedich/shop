@@ -18,6 +18,10 @@ import structlog
 from fastapi import WebSocket
 
 from app.core.config import settings
+from app.core.connection_limits import (
+    MAX_CONNECTIONS_PER_DASHBOARD_MERCHANT,
+    MAX_TOTAL_DASHBOARD_CONNECTIONS,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -49,6 +53,7 @@ class DashboardConnectionManager:
         self._listener_tasks: dict[int, asyncio.Task] = {}
         self._lock = asyncio.Lock()
         self._logger = structlog.get_logger(__name__)
+        self._total_connections = 0
 
     def _get_redis(self) -> redis.Redis:
         """Get or create Redis client."""
@@ -65,6 +70,28 @@ class DashboardConnectionManager:
             merchant_id: Merchant identifier
             websocket: WebSocket connection from FastAPI
         """
+        async with self._lock:
+            if self._total_connections >= MAX_TOTAL_DASHBOARD_CONNECTIONS:
+                self._logger.warning(
+                    "dashboard_ws_rejected_total_limit",
+                    merchant_id=merchant_id,
+                    total_connections=self._total_connections,
+                    limit=MAX_TOTAL_DASHBOARD_CONNECTIONS,
+                )
+                await websocket.close(code=1013, reason="Server overloaded")
+                return
+
+            merchant_conns = len(self._connections.get(merchant_id, set()))
+            if merchant_conns >= MAX_CONNECTIONS_PER_DASHBOARD_MERCHANT:
+                self._logger.warning(
+                    "dashboard_ws_rejected_merchant_limit",
+                    merchant_id=merchant_id,
+                    merchant_connections=merchant_conns,
+                    limit=MAX_CONNECTIONS_PER_DASHBOARD_MERCHANT,
+                )
+                await websocket.close(code=1008, reason="Too many connections for merchant")
+                return
+
         try:
             await websocket.accept()
         except Exception as e:
@@ -78,10 +105,10 @@ class DashboardConnectionManager:
         async with self._lock:
             if merchant_id not in self._connections:
                 self._connections[merchant_id] = set()
-                # Start Redis listener for this merchant
                 await self._start_redis_listener(merchant_id)
 
             self._connections[merchant_id].add(websocket)
+            self._total_connections += 1
             conn_count = len(self._connections[merchant_id])
 
         self._logger.info(
@@ -120,8 +147,8 @@ class DashboardConnectionManager:
         async with self._lock:
             if merchant_id in self._connections:
                 self._connections[merchant_id].discard(websocket)
+                self._total_connections = max(0, self._total_connections - 1)
 
-                # Clean up if no more connections for this merchant
                 if not self._connections[merchant_id]:
                     del self._connections[merchant_id]
                     await self._stop_redis_listener(merchant_id)

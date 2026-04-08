@@ -128,13 +128,9 @@ class RateLimiter:
         # Bypass rate limiting in test mode
         if os.getenv("IS_TESTING", "false").lower() == "true":
             return
-        if request.headers.get("X-Test-Mode", "").lower() == "true":
-            return
 
-        # Use IP address as base identifier
         client_id = cls.get_client_identifier(request)
 
-        # Also track by email if provided (more restrictive)
         if email:
             client_id = f"{client_id}:{email}"
 
@@ -190,10 +186,6 @@ class RateLimiter:
         # Check both environment variable and test header
         if os.getenv("IS_TESTING", "false").lower() == "true":
             return
-        if request.headers.get("X-Test-Mode", "").lower() == "true":
-            # Only apply rate limiting if the request also has X-Merchant-Id (authenticated test)
-            if not request.headers.get("X-Merchant-Id"):
-                return
 
         client_id = cls.get_client_identifier(request)
 
@@ -211,7 +203,8 @@ class RateLimiter:
     def get_widget_client_ip(cls, request: Request) -> str:
         """Get client IP for widget rate limiting.
 
-        Respects X-Forwarded-For header for reverse proxy setups.
+        Only trusts X-Forwarded-For when the connection comes from
+        a known proxy (configured via TRUSTED_PROXIES env var).
 
         Args:
             request: FastAPI request object
@@ -219,10 +212,20 @@ class RateLimiter:
         Returns:
             Client IP address string
         """
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+        from app.core.config import settings
+
+        config = settings()
+        trusted_proxies_str = config.get("TRUSTED_PROXIES", "")
+        trusted_proxies = set(trusted_proxies_str.split(",")) if trusted_proxies_str else set()
+
+        remote_ip = request.client.host if request.client else "unknown"
+
+        if trusted_proxies and remote_ip in trusted_proxies:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
+
+        return remote_ip
 
     @classmethod
     def check_widget_rate_limit(
@@ -241,8 +244,6 @@ class RateLimiter:
             None if allowed, retry_after seconds if rate limited
         """
         if os.getenv("IS_TESTING", "false").lower() == "true":
-            return None
-        if request.headers.get("X-Test-Mode", "").lower() == "true":
             return None
 
         client_ip = cls.get_widget_client_ip(request)
@@ -309,8 +310,6 @@ class RateLimiter:
             None if allowed, retry_after seconds if rate limited
         """
         if os.getenv("IS_TESTING", "false").lower() == "true":
-            return None
-        if request.headers.get("X-Test-Mode", "").lower() == "true":
             return None
 
         client_id = f"widget_analytics:{session_id}"

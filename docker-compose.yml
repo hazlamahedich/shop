@@ -22,7 +22,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: shop-redis
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 200mb
+      --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
@@ -32,6 +36,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   backend:
     build:
@@ -64,6 +72,14 @@ services:
       - ./backend:/app
       - ./frontend/dist/widget:/app/frontend/dist/widget:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
 
 volumes:
   postgres_data:

@@ -4,19 +4,23 @@ Provides real-time analytics updates for dashboard connections.
 Updates are pushed when underlying data changes (RAG queries, metrics, etc).
 
 Story 10.7: Knowledge Effectiveness Widget - Real-time Updates
+
+DDoS Hardening: JWT authentication required via query param ?token=<jwt>
+or cookie. No default merchant_id fallback.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 from datetime import UTC, datetime
 from typing import Any
 
 import structlog
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 
-from app.api.analytics import _get_merchant_id_from_request
+from app.core.auth import validate_jwt
 from app.services.analytics.dashboard_websocket_manager import (
     get_dashboard_connection_manager,
 )
@@ -25,9 +29,53 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
-# Heartbeat settings
-HEARTBEAT_INTERVAL = 30  # seconds
-HEARTBEAT_TIMEOUT = 45  # seconds
+HEARTBEAT_INTERVAL = 30
+HEARTBEAT_TIMEOUT = 45
+
+
+def _authenticate_websocket(websocket: WebSocket) -> int | None:
+    """Extract and validate JWT from WebSocket connection.
+
+    Tries query param ?token=<jwt>, then cookie, then Authorization header.
+
+    Args:
+        websocket: WebSocket connection
+
+    Returns:
+        merchant_id if authenticated, None otherwise
+    """
+    token = None
+
+    if hasattr(websocket, "query_params"):
+        token = websocket.query_params.get("token")
+
+    if not token:
+        cookies: dict[str, str] = {}
+        for header_name, header_value in websocket.scope.get("headers", []):
+            if header_name == b"cookie":
+                cookie_str = header_value.decode("latin-1")
+                for part in cookie_str.split(";"):
+                    part = part.strip()
+                    if "=" in part:
+                        name, _, value = part.partition("=")
+                        cookies[name.strip()] = value.strip()
+                break
+        token = cookies.get("session_token")
+
+    if not token:
+        headers = dict(websocket.headers)
+        auth_header = headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+    if not token:
+        return None
+
+    try:
+        payload = validate_jwt(token)
+        return payload.merchant_id
+    except Exception:
+        return None
 
 
 @router.websocket("/ws/dashboard/analytics")
@@ -35,6 +83,8 @@ async def dashboard_analytics_websocket(
     websocket: WebSocket,
 ) -> None:
     """WebSocket endpoint for real-time dashboard analytics updates.
+
+    Requires JWT authentication via query param ?token=<jwt> or cookie.
 
     Provides real-time updates for:
     - Knowledge effectiveness metrics (Story 10.7)
@@ -53,43 +103,35 @@ async def dashboard_analytics_websocket(
             - {"type": "connected", "data": {...}} - Connection confirmation
             - {"type": "analytics_update", "data": {...}} - Analytics update
             - {"type": "error", "data": {...}} - Error notification
-
-    Message Types:
-        - knowledge_effectiveness: Knowledge base effectiveness metrics
-        - bot_quality: Bot quality metrics (CSAT, response time, etc.)
-        - response_time: Response time distribution metrics
-        - faq_usage: FAQ usage statistics
-        - top_topics: Top queried topics
     """
-    # Extract merchant_id from query params or headers
-    merchant_id = None
+    is_testing = os.getenv("IS_TESTING", "false").lower() == "true"
 
-    # Try query param first
-    if hasattr(websocket, "query_params"):
-        merchant_id_str = websocket.query_params.get("merchant_id")
-        if merchant_id_str:
-            try:
-                merchant_id = int(merchant_id_str)
-            except ValueError:
-                pass
+    merchant_id: int | None = None
 
-    # Fallback to headers
+    if is_testing:
+        if hasattr(websocket, "query_params"):
+            merchant_id_str = websocket.query_params.get("merchant_id")
+            if merchant_id_str:
+                try:
+                    merchant_id = int(merchant_id_str)
+                except ValueError:
+                    pass
+        if merchant_id is None:
+            headers = dict(websocket.headers)
+            merchant_id_str = headers.get("X-Merchant-Id") or headers.get("x-merchant-id")
+            if merchant_id_str:
+                try:
+                    merchant_id = int(merchant_id_str)
+                except ValueError:
+                    pass
+        if merchant_id is None:
+            merchant_id = 1
+    else:
+        merchant_id = _authenticate_websocket(websocket)
+
     if merchant_id is None:
-        headers = dict(websocket.headers)
-        merchant_id_str = headers.get("X-Merchant-Id") or headers.get("x-merchant-id")
-        if merchant_id_str:
-            try:
-                merchant_id = int(merchant_id_str)
-            except ValueError:
-                pass
-
-    # Default to merchant 1 in development
-    if merchant_id is None:
-        merchant_id = 1
-        logger.warning(
-            "dashboard_ws_no_merchant_id_using_default",
-            default_merchant_id=merchant_id,
-        )
+        await websocket.close(code=4401, reason="Authentication required")
+        return
 
     manager = get_dashboard_connection_manager()
 
@@ -99,7 +141,6 @@ async def dashboard_analytics_websocket(
     )
 
     try:
-        # Accept and register connection
         await manager.connect(merchant_id, websocket)
 
         logger.info(
@@ -108,24 +149,17 @@ async def dashboard_analytics_websocket(
             connection_count=manager.get_connection_count(merchant_id),
         )
 
-        # Start heartbeat task
         heartbeat_task = asyncio.create_task(_heartbeat_loop(websocket, merchant_id))
 
         try:
-            # Main message loop
             while True:
                 try:
-                    # Wait for message with timeout for heartbeat
                     message = await asyncio.wait_for(
                         websocket.receive_text(),
                         timeout=HEARTBEAT_TIMEOUT,
                     )
-
-                    # Handle message
                     await _handle_message(websocket, merchant_id, message)
-
                 except TimeoutError:
-                    # No message received within timeout - client may be dead
                     logger.warning(
                         "dashboard_ws_timeout",
                         merchant_id=merchant_id,
@@ -144,7 +178,6 @@ async def dashboard_analytics_websocket(
                 error=str(e),
             )
         finally:
-            # Cancel heartbeat task
             heartbeat_task.cancel()
             try:
                 await heartbeat_task
@@ -152,7 +185,6 @@ async def dashboard_analytics_websocket(
                 pass
 
     finally:
-        # Unregister connection
         await manager.disconnect(merchant_id, websocket)
 
 

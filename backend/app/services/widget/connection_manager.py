@@ -22,6 +22,10 @@ import structlog
 from fastapi import WebSocket
 
 from app.core.config import settings
+from app.core.connection_limits import (
+    MAX_CONNECTIONS_PER_WIDGET_SESSION,
+    MAX_TOTAL_WIDGET_CONNECTIONS,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -55,6 +59,7 @@ class WidgetConnectionManager:
         self._listener_tasks: dict[str, asyncio.Task] = {}
         self._lock = asyncio.Lock()
         self._logger = structlog.get_logger(__name__)
+        self._total_connections = 0
 
     def _get_redis(self) -> redis.Redis:
         """Get or create Redis client."""
@@ -71,6 +76,28 @@ class WidgetConnectionManager:
             session_id: Widget session identifier
             websocket: WebSocket connection from FastAPI
         """
+        async with self._lock:
+            if self._total_connections >= MAX_TOTAL_WIDGET_CONNECTIONS:
+                self._logger.warning(
+                    "websocket_rejected_total_limit",
+                    session_id=session_id,
+                    total_connections=self._total_connections,
+                    limit=MAX_TOTAL_WIDGET_CONNECTIONS,
+                )
+                await websocket.close(code=1013, reason="Server overloaded")
+                return
+
+            session_conns = len(self._connections.get(session_id, set()))
+            if session_conns >= MAX_CONNECTIONS_PER_WIDGET_SESSION:
+                self._logger.warning(
+                    "websocket_rejected_session_limit",
+                    session_id=session_id,
+                    session_connections=session_conns,
+                    limit=MAX_CONNECTIONS_PER_WIDGET_SESSION,
+                )
+                await websocket.close(code=1008, reason="Too many connections for session")
+                return
+
         try:
             await websocket.accept()
         except Exception as e:
@@ -85,10 +112,10 @@ class WidgetConnectionManager:
         async with self._lock:
             if session_id not in self._connections:
                 self._connections[session_id] = set()
-                # Start Redis listener for this session
                 await self._start_redis_listener(session_id)
 
             self._connections[session_id].add(websocket)
+            self._total_connections += 1
             conn_count = len(self._connections[session_id])
 
         self._logger.info(
@@ -127,8 +154,8 @@ class WidgetConnectionManager:
         async with self._lock:
             if session_id in self._connections:
                 self._connections[session_id].discard(websocket)
+                self._total_connections = max(0, self._total_connections - 1)
 
-                # Clean up if no more connections for this session
                 if not self._connections[session_id]:
                     del self._connections[session_id]
                     await self._stop_redis_listener(session_id)

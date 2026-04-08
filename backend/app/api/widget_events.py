@@ -18,6 +18,7 @@ import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
+from app.core.connection_limits import MAX_SSE_CONNECTIONS_PER_SESSION, MAX_TOTAL_SSE_CONNECTIONS
 from app.core.errors import APIError, ErrorCode
 from app.core.validators import is_valid_session_id
 
@@ -35,26 +36,45 @@ class SSEConnectionManager:
 
     def __init__(self) -> None:
         """Initialize the SSE connection manager."""
-        # Map of session_id -> list of queues (one per connection)
         self._connections: dict[str, list[Queue]] = {}
         self._lock = asyncio.Lock()
         self.logger = structlog.get_logger(__name__)
+        self._total_connections = 0
 
-    async def connect(self, session_id: str) -> Queue:
+    async def connect(self, session_id: str) -> Queue | None:
         """Register a new SSE connection for a session.
 
         Args:
             session_id: Widget session identifier
 
         Returns:
-            Queue for receiving messages
+            Queue for receiving messages, or None if connection limit exceeded
         """
-        queue: Queue = Queue()
-
         async with self._lock:
+            if self._total_connections >= MAX_TOTAL_SSE_CONNECTIONS:
+                self.logger.warning(
+                    "sse_rejected_total_limit",
+                    session_id=session_id,
+                    total_connections=self._total_connections,
+                    limit=MAX_TOTAL_SSE_CONNECTIONS,
+                )
+                return None
+
+            session_conns = len(self._connections.get(session_id, []))
+            if session_conns >= MAX_SSE_CONNECTIONS_PER_SESSION:
+                self.logger.warning(
+                    "sse_rejected_session_limit",
+                    session_id=session_id,
+                    session_connections=session_conns,
+                    limit=MAX_SSE_CONNECTIONS_PER_SESSION,
+                )
+                return None
+
+            queue: Queue = Queue()
             if session_id not in self._connections:
                 self._connections[session_id] = []
             self._connections[session_id].append(queue)
+            self._total_connections += 1
 
         self.logger.info(
             "sse_client_connected",
@@ -75,10 +95,10 @@ class SSEConnectionManager:
             if session_id in self._connections:
                 try:
                     self._connections[session_id].remove(queue)
+                    self._total_connections = max(0, self._total_connections - 1)
                 except ValueError:
                     pass
 
-                # Clean up empty session entries
                 if not self._connections[session_id]:
                     del self._connections[session_id]
 
@@ -283,8 +303,14 @@ async def widget_events(
 
     manager = get_sse_manager()
 
-    # Register this connection
     queue = await manager.connect(session_id)
+
+    if queue is None:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Too many connections for this session",
+            details={"retry_after": 60},
+        )
 
     logger.info(
         "sse_connection_established",
