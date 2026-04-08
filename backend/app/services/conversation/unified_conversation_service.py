@@ -655,7 +655,7 @@ class UnifiedConversationService:
                                 "title": chunk.document_name,
                                 "filename": doc.filename,
                                 "documentType": doc.file_type,  # type: ignore
-                                "relevanceScore": chunk.similarity,
+                                "relevanceScore": float(chunk.similarity),
                                 "url": doc.source_url,
                                 "chunkIndex": chunk.chunk_index,
                             }

@@ -765,6 +765,166 @@ async def get_faq_quick_buttons(
     )
 
 
+@router.get(
+    "/widget/session/by-visitor/{merchant_id}/{visitor_id}",
+    response_model=WidgetVisitorSessionEnvelope,
+    summary="Lookup session by visitor",
+    description="Find active session for a visitor",
+)
+async def lookup_widget_session_by_visitor(
+    request: Request,
+    merchant_id: int,
+    visitor_id: str,
+) -> WidgetVisitorSessionEnvelope:
+    """Look up active session ID for a visitor.
+
+    Args:
+        request: FastAPI request
+        merchant_id: Merchant ID
+        visitor_id: Visitor identifier
+
+    Returns:
+        WidgetVisitorSessionEnvelope with session ID if found
+    """
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session_id = await session_service.get_session_by_visitor(merchant_id, visitor_id)
+
+    return WidgetVisitorSessionEnvelope(
+        data=WidgetVisitorSessionResponse(session_id=session_id),
+        meta=create_meta(),
+    )
+
+
+@router.get(
+    "/widget/session/{session_id}",
+    response_model=WidgetSessionMetadataEnvelope,
+    summary="Get widget session",
+    description="Retrieve widget session data",
+)
+async def get_widget_session(
+    request: Request,
+    session_id: str,
+) -> WidgetSessionMetadataEnvelope:
+    """Get widget session data.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+
+    Returns:
+        WidgetSessionMetadataEnvelope with session data
+
+    Raises:
+        APIError: If session not found or expired
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+    session = await session_service.get_session_or_error(session_id)
+
+    return WidgetSessionMetadataEnvelope(
+        data=WidgetSessionMetadataResponse(
+            session_id=session.session_id,
+            merchant_id=session.merchant_id,
+            expires_at=session.expires_at,
+            created_at=session.created_at,
+            last_activity_at=session.last_activity_at,
+        ),
+        meta=create_meta(),
+    )
+
+
+@router.get(
+    "/widget/session/{session_id}/messages",
+    response_model=WidgetMessageHistoryEnvelope,
+    summary="Get message history",
+    description="Get message history for a widget session",
+)
+async def get_widget_message_history(
+    request: Request,
+    session_id: str,
+) -> WidgetMessageHistoryEnvelope:
+    """Get message history for a widget session.
+
+    Args:
+        request: FastAPI request
+        session_id: Widget session identifier
+
+    Returns:
+        WidgetMessageHistoryEnvelope with message history
+
+    Raises:
+        APIError: If session ID format is invalid
+    """
+    if not is_valid_session_id(session_id):
+        raise APIError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid session ID format",
+        )
+
+    retry_after = _check_rate_limit(request)
+    if retry_after:
+        raise APIError(
+            ErrorCode.WIDGET_RATE_LIMITED,
+            "Rate limit exceeded",
+            {"retry_after": retry_after},
+        )
+
+    session_service = WidgetSessionService()
+
+    messages_raw = await session_service.get_message_history(session_id)
+    history_status = await session_service.get_message_history_status(session_id)
+
+    history_items = []
+    for msg in messages_raw:
+        history_items.append(
+            WidgetMessageHistoryItem(
+                message_id=msg.get("message_id"),
+                role=msg.get("role", "bot"),
+                content=msg.get("content", ""),
+                timestamp=msg.get("timestamp", ""),
+                customer_name=msg.get("customer_name"),
+                user_rating=msg.get("user_rating"),
+                products=msg.get("products"),
+                cart=msg.get("cart"),
+                checkout_url=msg.get("checkout_url"),
+                quick_replies=msg.get("quick_replies"),
+                sources=msg.get("sources"),
+                suggested_replies=msg.get("suggested_replies"),
+                contact_options=msg.get("contact_options"),
+            )
+        )
+
+    return WidgetMessageHistoryEnvelope(
+        data=WidgetMessageHistoryResponse(
+            messages=history_items,
+            expired=history_status.get("expired", False),
+            expires_at=history_status.get("expires_at"),
+        ),
+        meta=create_meta(),
+    )
+
+
 @router.delete(
     "/widget/session/{session_id}",
     response_model=SuccessEnvelope,

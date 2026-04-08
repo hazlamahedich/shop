@@ -453,14 +453,14 @@ class RetrievalService:
         """
         try:
             matched = len(results) > 0
-            confidence = results[0].similarity if matched else None
+            confidence = float(results[0].similarity) if matched else None
             sources = (
                 [
                     {
                         "document_id": r.document_id,
                         "document_name": r.document_name,
                         "chunk_id": r.chunk_id,
-                        "similarity": r.similarity,
+                        "similarity": float(r.similarity),
                     }
                     for r in results[:3]
                 ]

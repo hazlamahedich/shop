@@ -48,60 +48,12 @@ The user is experiencing **five issues** in their e-commerce chat widget applica
 - ✅ **FIXED corrupted ChatWindow.tsx code** (lines 207-227) - replaced broken code with proper React.useEffect for hiding FAQ buttons after user message
 - ✅ **FIXED initWidget guard clause** - added missing `return` and removed redundant `!state.isLoading` check
 - ✅ **FIXED greenlet error** in `widget_message_service.py` by caching merchant attributes before async operations
-- ⚠️ **Not yet completed**: Verify the fixes resolve the widget loading loop
-- ⚠️ **Not yet completed**: Greenlet error not investigated (in backend services)
-- ⚠️ **Not yet completed**: Quick reply chips not investigated fully
-- ⚠️ **Not yet completed**: End-to-end testing in browser needed
-
-## Relevant files / directories
-### Frontend Files Modified:
-- `frontend/src/widget/components/ChatWindow.tsx` - **FIXED corrupted code at lines 207-227**. The old broken code:
-  ```javascript
-  // BROKEN CODE (REMOVED):
-  const [messages] = messages.filter(m => m.sender === 'user');
-    if (userMessages.length > 0) {
-      setShowFaqButtons(false);
-    }
-  }, [messages]);
-  // ... more malformed blocks
-  ```
-  New fixed code:
-  ```javascript
-  // FIXED CODE:
-  React.useEffect(() => {
-    const userMessages = messages.filter((m) => m.sender === 'user');
-    if (userMessages.length > 0 && showFaqButtons) {
-      setShowFaqButtons(false);
-    }
-  }, [messages, showFaqButtons]);
-  ```
-- `frontend/src/widget/context/WidgetContext.tsx` - **FIXED initWidget guard clause** at lines 249-257:
-  - Added missing `return` after `if (!mId)` check
-  - Removed redundant `&& !state.isLoading` from initialization skip check
-
-### Frontend Files (for reference):
-- `frontend/src/widget/Widget.tsx` - Widget component, calls `initWidget(merchantId)` in useEffect
-- `frontend/src/widget/loader.ts` - Widget loader script
-- `frontend/src/widget/api/widgetClient.ts` - API client with `getConfig()`, `getFaqButtons()`, `sendMessage()`
-- `frontend/src/widget/components/FAQQuickButtons.tsx` - FAQ button component
-- `frontend/src/widget/components/QuickReplyButtons.tsx` - Quick reply component
-- `frontend/src/widget/components/SuggestedReplies.tsx` - Suggested replies component
-- `frontend/public/widget-test.html` - Widget test page
-
-### Backend Files (need investigation):
-- `backend/app/api/widget.py` - Widget API endpoints
-- `backend/app/services/widget/widget_message_service.py` - WidgetMessageService.process_message()
-- `backend/app/services/conversation/unified_conversation_service.py` - UnifiedConversationService (likely source of greenlet error)
-### Backend APIs verified working:
-- `GET /api/v1/widget/config/{merchantId}` - Returns widget config
-- `GET /api/v1/widget/faq-buttons/{merchantId}` - Returns FAQ buttons
+- ✅ **FIXED message persistence** - Added 3 missing GET endpoints to `backend/app/api/widget.py`:
+  - `GET /widget/session/{session_id}` - Retrieve session data for restoration
+  - `GET /widget/session/{session_id}/messages` - Retrieve message history from Redis
+  - `GET /widget/session/by-visitor/{merchant_id}/{visitor_id}` - Look up session by visitor ID
+- ✅ **FIXED TTL bug** in `widget_session_service.py` `refresh_session()` - message history TTL was being reset from 7 days to 1 hour on every message exchange
 
 ## Next Steps
-1. **Test the fixes in browser** - Start frontend dev server and verify:
-   - Widget loads without looping
-   - Greeting appears once
-   - FAQ buttons appear with greeting
-   - FAQ buttons hide after first user message
-2. **Investigate greenlet error** - Check backend services for lazy-loaded SQLAlchemy relationships accessed outside async context
-3. **Investigate quick replies** - Check if backend returns `suggestedReplies` in message response and if frontend properly handles them
-4. **Run end-to-end test** at `http://localhost:5174/widget-test.html?merchantId=1`
+1. Test end-to-end: session restore, message persistence across refresh, cart/order operations
+2. Start backend + frontend and verify at `http://localhost:5174/widget-test.html?merchantId=1`

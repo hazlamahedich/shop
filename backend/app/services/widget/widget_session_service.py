@@ -255,7 +255,7 @@ class WidgetSessionService:
 
         # Also refresh message history TTL
         messages_key = self._get_messages_key(session_id)
-        await self.redis.expire(messages_key, self.SESSION_TTL_SECONDS)
+        await self.redis.expire(messages_key, self.MESSAGE_HISTORY_TTL_SECONDS)
 
         self.logger.debug(
             "widget_session_refreshed",
