@@ -46,6 +46,7 @@ class WidgetSessionService:
     KEY_PREFIX = "widget:session"
     MESSAGES_KEY_PREFIX = "widget:messages"
     VISITOR_KEY_PREFIX = "widget:visitor"
+    VISITOR_SESSION_KEY_PREFIX = "widget:visitor_session"
     MAX_MESSAGE_HISTORY = 100
 
     def __init__(
@@ -101,6 +102,9 @@ class WidgetSessionService:
             Redis key string
         """
         return f"{self.VISITOR_KEY_PREFIX}:{merchant_id}:{visitor_id}"
+
+    def _get_visitor_session_key(self, merchant_id: int, visitor_id: str) -> str:
+        return f"{self.VISITOR_SESSION_KEY_PREFIX}:{merchant_id}:{visitor_id}"
 
     async def _check_returning_shopper(
         self,
@@ -179,6 +183,14 @@ class WidgetSessionService:
             self.SESSION_TTL_SECONDS,
             session.model_dump_json(),
         )
+
+        if resolved_visitor_id:
+            visitor_session_key = self._get_visitor_session_key(merchant_id, resolved_visitor_id)
+            await self.redis.setex(
+                visitor_session_key,
+                self.MESSAGE_HISTORY_TTL_SECONDS,
+                session.session_id,
+            )
 
         self.logger.info(
             "widget_session_created",
@@ -266,10 +278,18 @@ class WidgetSessionService:
         key = self._get_session_key(session_id)
         messages_key = self._get_messages_key(session_id)
 
+        session = await self.get_session(session_id)
+
         # Delete both session and message history
         deleted = await self.redis.delete(key, messages_key)
 
         if deleted > 0:
+            if session and session.visitor_id:
+                visitor_session_key = self._get_visitor_session_key(
+                    session.merchant_id, session.visitor_id
+                )
+                await self.redis.delete(visitor_session_key)
+
             # Close the associated conversation
             try:
                 from app.core.database import get_db
@@ -332,6 +352,33 @@ class WidgetSessionService:
         exists = await self.redis.exists(key)
         return exists > 0
 
+    async def get_session_by_visitor(
+        self,
+        merchant_id: int,
+        visitor_id: str,
+    ) -> str | None:
+        """Look up active session ID for a visitor.
+
+        Args:
+            merchant_id: Merchant ID
+            visitor_id: Visitor identifier
+
+        Returns:
+            Session ID if found and valid, None otherwise
+        """
+        visitor_session_key = self._get_visitor_session_key(merchant_id, visitor_id)
+        session_id = await self.redis.get(visitor_session_key)
+
+        if not session_id:
+            return None
+
+        session = await self.get_session(session_id)
+        if not session:
+            await self.redis.delete(visitor_session_key)
+            return None
+
+        return session_id
+
     async def get_session_or_error(self, session_id: str) -> WidgetSessionData:
         """Get session or raise appropriate error.
 
@@ -370,6 +417,7 @@ class WidgetSessionService:
         content: str,
         message_id: str | None = None,
         customer_name: str | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         """Add a message to session history.
 
@@ -379,18 +427,32 @@ class WidgetSessionService:
             content: Message content
             message_id: Message ID for feedback matching
             customer_name: Optional customer name for user messages
+            extra: Optional extra fields (products, cart, checkout_url, etc.)
         """
         messages_key = self._get_messages_key(session_id)
 
-        message = json.dumps(
-            {
-                "message_id": message_id,
-                "role": role,
-                "content": content,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "customer_name": customer_name,
-            }
-        )
+        message_data: dict[str, Any] = {
+            "message_id": message_id,
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "customer_name": customer_name,
+        }
+
+        if extra:
+            for key in (
+                "products",
+                "cart",
+                "checkout_url",
+                "quick_replies",
+                "suggested_replies",
+                "sources",
+                "contact_options",
+            ):
+                if key in extra and extra[key] is not None:
+                    message_data[key] = extra[key]
+
+        message = json.dumps(message_data)
 
         # Add to list (RPUSH adds to end)
         await self.redis.rpush(messages_key, message)

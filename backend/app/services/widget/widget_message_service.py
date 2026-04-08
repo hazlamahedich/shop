@@ -275,12 +275,29 @@ class WidgetMessageService:
         bot_message = response.message
         bot_msg_id = str(response.message_id) if response.message_id else str(uuid4())
 
+        extra: dict[str, Any] = {}
+        if response.products:
+            extra["products"] = response.products
+        if response.cart:
+            extra["cart"] = response.cart
+        if response.checkout_url:
+            extra["checkout_url"] = response.checkout_url
+        if response.quick_replies:
+            extra["quick_replies"] = response.quick_replies
+        if response.sources:
+            extra["sources"] = response.sources
+        if response.suggested_replies:
+            extra["suggested_replies"] = response.suggested_replies
+        if response.contact_options:
+            extra["contact_options"] = response.contact_options
+
         await self.session_service.add_message_to_history(
             session.session_id,
             "bot",
             bot_message,
             message_id=bot_msg_id,
             customer_name=session.customer_name,
+            extra=extra or None,
         )
         await self.session_service.refresh_session(session.session_id)
 
@@ -302,33 +319,12 @@ class WidgetMessageService:
             "customer_name": session.customer_name,
         }
 
-        if response.products:
-            result["products"] = response.products
-        if response.cart:
-            result["cart"] = response.cart
-        if response.checkout_url:
-            result["checkout_url"] = response.checkout_url
+        result.update(extra)
+
         if response.intent:
             result["intent"] = response.intent
         if response.confidence is not None:
             result["confidence"] = response.confidence
-
-        # Story 9-4: Pass through quick_replies if present
-        if response.quick_replies:
-            result["quick_replies"] = response.quick_replies
-
-        # Story 10-1: Pass through Sources if present
-        # Sources are already converted to dict format in unified_conversation_service.py
-        if response.sources:
-            result["sources"] = response.sources
-
-        # Story 10-3: Pass through suggested_replies if present
-        if response.suggested_replies:
-            result["suggested_replies"] = response.suggested_replies
-
-        # Story 10-5: Pass through contact_options if present
-        if response.contact_options:
-            result["contact_options"] = response.contact_options
 
         # Save response metadata to session for next request (Story 6-2)
         # This preserves pending lookup flags and other state
@@ -887,16 +883,7 @@ class WidgetMessageService:
                     session.session_id, bot_msg_id, chunk_buffer
                 )
 
-            await self.session_service.add_message_to_history(
-                session.session_id,
-                "bot",
-                full_content,
-                message_id=bot_msg_id,
-                customer_name=session.customer_name,
-            )
-            await self.session_service.refresh_session(session.session_id)
-
-            extra_fields = {}
+            extra_fields: dict[str, Any] = {}
             if response.products:
                 extra_fields["products"] = response.products
             if response.cart:
@@ -911,6 +898,16 @@ class WidgetMessageService:
                 extra_fields["suggested_replies"] = response.suggested_replies
             if response.contact_options:
                 extra_fields["contact_options"] = response.contact_options
+
+            await self.session_service.add_message_to_history(
+                session.session_id,
+                "bot",
+                full_content,
+                message_id=bot_msg_id,
+                customer_name=session.customer_name,
+                extra=extra_fields or None,
+            )
+            await self.session_service.refresh_session(session.session_id)
 
             if response.metadata:
                 try:

@@ -306,6 +306,18 @@ class WidgetSessionMetadataEnvelope(MinimalEnvelope):
     data: WidgetSessionMetadataResponse
 
 
+class WidgetVisitorSessionResponse(BaseSchema):
+    """Response for visitor-based session lookup."""
+
+    session_id: str | None = None
+
+
+class WidgetVisitorSessionEnvelope(MinimalEnvelope):
+    """Envelope for visitor session lookup response."""
+
+    data: WidgetVisitorSessionResponse
+
+
 class SendMessageRequest(BaseSchema):
     """Request to send a message in widget.
 
@@ -549,9 +561,15 @@ class WidgetMessageHistoryItem(BaseSchema):
     role: str
     content: str
     timestamp: str
-    contact_options: list[ContactOptionSchema] | None = Field(default=None, alias="contactOptions")
     customer_name: str | None = Field(default=None, alias="customerName")
     user_rating: str | None = Field(default=None, alias="userRating")
+    products: list[dict[str, Any]] | None = None
+    cart: dict[str, Any] | None = None
+    checkout_url: str | None = Field(default=None, alias="checkoutUrl")
+    quick_replies: list[QuickReply] | None = Field(default=None, alias="quickReplies")
+    sources: list[SourceCitation] | None = None
+    suggested_replies: list[str] | None = Field(default=None, alias="suggestedReplies")
+    contact_options: list[ContactOptionSchema] | None = Field(default=None, alias="contactOptions")
 
 
 class WidgetMessageHistoryResponse(BaseSchema):

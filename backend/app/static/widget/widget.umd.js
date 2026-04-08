@@ -11893,17 +11893,32 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     async endSession(sessionId) {
       await this.request(`/session/${sessionId}`, { method: "DELETE" });
     }
+    async lookupSessionByVisitor(merchantId, visitorId) {
+      var _a2, _b;
+      try {
+        const data = await this.request(
+          `/session/by-visitor/${merchantId}/${encodeURIComponent(visitorId)}`
+        );
+        return ((_a2 = data.data) == null ? void 0 : _a2.sessionId) ?? ((_b = data.data) == null ? void 0 : _b.session_id) ?? null;
+      } catch {
+        return null;
+      }
+    }
     async getMessageHistory(sessionId) {
       const data = await this.request(
         `/session/${sessionId}/messages`
       );
       const messages = (data.data.messages || []).map((m2) => ({
-        messageId: m2.id || m2.message_id || "",
+        messageId: m2.id || m2.message_id || m2.messageId || "",
         content: m2.content,
         sender: m2.role || m2.sender || "bot",
-        createdAt: m2.timestamp || m2.created_at || "",
+        createdAt: m2.timestamp || m2.created_at || m2.createdAt || "",
         products: m2.products,
         cart: m2.cart,
+        checkoutUrl: m2.checkout_url || m2.checkoutUrl,
+        quickReplies: m2.quick_replies || m2.quickReplies,
+        sources: m2.sources,
+        suggestedReplies: m2.suggested_replies || m2.suggestedReplies,
         contactOptions: m2.contact_options || m2.contactOptions,
         customerName: m2.customer_name || m2.customerName,
         userRating: m2.user_rating || m2.userRating
@@ -12390,6 +12405,26 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const MERCHANT_KEY = "widget_merchant_id";
   const VISITOR_KEY = "widget_visitor_id";
   const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
+  function getOrCreateVisitorId() {
+    const stored = safeLocalStorage.get(VISITOR_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const createdAt = new Date(parsed.createdAt).getTime();
+        const now = Date.now();
+        if (now - createdAt < VISITOR_MAX_AGE_MS) {
+          return parsed.visitorId;
+        }
+      } catch {
+      }
+    }
+    const visitorId = crypto.randomUUID();
+    safeLocalStorage.set(VISITOR_KEY, JSON.stringify({
+      visitorId,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    }));
+    return visitorId;
+  }
   function getVisitorId() {
     const stored = safeLocalStorage.get(VISITOR_KEY);
     if (!stored) return null;
@@ -12404,6 +12439,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     } catch {
       return null;
     }
+  }
+  function getStoredSessionForMerchant(merchantId) {
+    const storedId = safeStorage.get(SESSION_KEY);
+    const storedMerchant = safeStorage.get(MERCHANT_KEY);
+    if (!storedId || !isValidSessionId(storedId)) return null;
+    if (storedMerchant !== merchantId) return null;
+    return storedId;
   }
   function clearVisitorId() {
     safeLocalStorage.remove(VISITOR_KEY);
@@ -12702,17 +12744,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }, []);
     const {
       createSession,
-      getSession,
       endSession: endWidgetSession
     } = reactExports.useMemo(
       () => ({
         createSession: async (visitorId) => {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           return widgetClient2.createSession(merchantId, visitorId);
-        },
-        getSession: async (sessionId) => {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          return widgetClient2.getSession(sessionId);
         },
         endSession: async (sessionId) => {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
@@ -12778,26 +12815,90 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             console.log("[WidgetContext] No valid stored position, using default theme placement");
             dispatch({ type: "SET_POSITION", payload: null });
           }
-          let sessionId = initialSessionId;
-          if (!sessionId) {
+          let restoredSession = false;
+          if (initialSessionId) {
+            console.log("[WidgetContext] Using injected initialSessionId:", initialSessionId);
+            try {
+              const session = await widgetClient2.getSession(initialSessionId);
+              if (session) {
+                dispatch({ type: "SET_SESSION", payload: session });
+                safeStorage.set(SESSION_KEY, session.sessionId);
+                safeStorage.set(MERCHANT_KEY, mId);
+                const { messages } = await widgetClient2.getMessageHistory(initialSessionId);
+                if (messages.length > 0) {
+                  dispatch({ type: "SET_MESSAGES", payload: messages });
+                  greetingShownRef.current = true;
+                }
+                restoredSession = true;
+              }
+            } catch {
+              console.warn("[WidgetContext] Failed to load injected session");
+            }
+          }
+          if (!restoredSession) {
+            const storedSessionId = getStoredSessionForMerchant(mId);
+            if (storedSessionId) {
+              console.log("[WidgetContext] Found stored session, attempting restore:", storedSessionId);
+              try {
+                const session = await widgetClient2.getSession(storedSessionId);
+                if (session) {
+                  dispatch({ type: "SET_SESSION", payload: session });
+                  safeStorage.set(SESSION_KEY, session.sessionId);
+                  safeStorage.set(MERCHANT_KEY, mId);
+                  const { messages } = await widgetClient2.getMessageHistory(storedSessionId);
+                  if (messages.length > 0) {
+                    dispatch({ type: "SET_MESSAGES", payload: messages });
+                    greetingShownRef.current = true;
+                  }
+                  restoredSession = true;
+                  console.log("[WidgetContext] Session restored from sessionStorage");
+                } else {
+                  safeStorage.remove(SESSION_KEY);
+                }
+              } catch {
+                console.warn("[WidgetContext] Failed to restore session from sessionStorage");
+                safeStorage.remove(SESSION_KEY);
+              }
+            }
+          }
+          if (!restoredSession) {
+            const visitorId = getVisitorId();
+            if (visitorId) {
+              console.log("[WidgetContext] Trying visitor-based session lookup");
+              try {
+                const foundSessionId = await widgetClient2.lookupSessionByVisitor(mId, visitorId);
+                if (foundSessionId) {
+                  const session = await widgetClient2.getSession(foundSessionId);
+                  if (session) {
+                    dispatch({ type: "SET_SESSION", payload: session });
+                    safeStorage.set(SESSION_KEY, session.sessionId);
+                    safeStorage.set(MERCHANT_KEY, mId);
+                    const { messages } = await widgetClient2.getMessageHistory(foundSessionId);
+                    if (messages.length > 0) {
+                      dispatch({ type: "SET_MESSAGES", payload: messages });
+                      greetingShownRef.current = true;
+                    }
+                    restoredSession = true;
+                    console.log("[WidgetContext] Session restored from visitor lookup");
+                  }
+                }
+              } catch {
+                console.warn("[WidgetContext] Visitor-based session lookup failed");
+              }
+            }
+          }
+          if (!restoredSession) {
             console.log("[WidgetContext] Creating new session...");
-            const session2 = await widgetClient2.createSession(mId);
+            const visitorId = getOrCreateVisitorId();
+            const session = await widgetClient2.createSession(mId, visitorId);
             if (initRequestIdRef.current !== requestId) {
               console.log("[WidgetContext] Session creation superseded by request:", initRequestIdRef.current);
               return;
             }
-            console.log("[WidgetContext] Session created:", session2);
-            dispatch({ type: "SET_SESSION", payload: session2 });
-            safeStorage.set(SESSION_KEY, session2.sessionId);
+            console.log("[WidgetContext] Session created:", session);
+            dispatch({ type: "SET_SESSION", payload: session });
+            safeStorage.set(SESSION_KEY, session.sessionId);
             safeStorage.set(MERCHANT_KEY, merchantId);
-          } else {
-            console.log("[WidgetContext] Loading existing conversation history for session:", sessionId);
-            const messages = await widgetClient2.getHistory(session.sessionId);
-            console.log("[WidgetContext] History loaded:", (messages == null ? void 0 : messages.length) || 0, "messages");
-            dispatch({ type: "SET_MESSAGES", payload: messages });
-            if (messages.length > 0) {
-              greetingShownRef.current = true;
-            }
           }
           console.log("[WidgetContext] ✅ Initialization complete, clearing loading state");
           dispatch({ type: "SET_LOADING", payload: false });
@@ -13134,12 +13235,23 @@ Your cart is now empty.`,
               dispatch({ type: "UPDATE_STREAMING_MESSAGE", payload: { messageId: data.messageId, token: data.token } });
             } else if (event.type === "bot_stream_end") {
               const data = event.data;
+              const rawProducts = data.products;
               const finalMessage = {
                 messageId: data.messageId,
                 content: data.content || "",
                 sender: "bot",
                 createdAt: data.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-                products: data.products,
+                products: rawProducts == null ? void 0 : rawProducts.map((p2) => ({
+                  id: p2.id || p2.product_id,
+                  variantId: p2.variantId || p2.variant_id,
+                  title: p2.title,
+                  description: p2.description,
+                  price: p2.price,
+                  imageUrl: p2.imageUrl || p2.image_url,
+                  available: p2.available,
+                  productType: p2.productType || p2.product_type,
+                  isPinned: p2.isPinned || p2.is_pinned
+                })),
                 cart: data.cart,
                 checkoutUrl: data.checkout_url,
                 quick_replies: data.quick_replies,
@@ -13904,7 +14016,8 @@ Your cart is now empty.`,
       return this.props.children;
     }
   }
-  function LoadingSpinner() {
+  function LoadingSpinner({ themeMode }) {
+    const isDark = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -13924,8 +14037,8 @@ Your cart is now empty.`,
               style: {
                 width: "24px",
                 height: "24px",
-                border: "2px solid #e5e7eb",
-                borderTopColor: "#6366f1",
+                border: `2px solid ${isDark ? "rgba(255, 255, 255, 0.15)" : "#e5e7eb"}`,
+                borderTopColor: isDark ? "#818cf8" : "#6366f1",
                 borderRadius: "50%",
                 animation: "widget-spin 0.8s linear infinite"
               }
@@ -15877,8 +15990,8 @@ Your cart is now empty.`,
     ) });
   }
   const DEFAULT_CAROUSEL_CONFIG = {
-    visibleCards: { mobile: 2, desktop: 3 },
-    cardWidth: 140,
+    visibleCards: { mobile: 1.5, desktop: 2 },
+    cardWidth: 160,
     cardGap: 12,
     scrollDuration: 300
   };
@@ -16542,13 +16655,26 @@ Your cart is now empty.`,
     };
     return { ripples, createRipple };
   }
+  function optimizeImageUrl(url, size = 280) {
+    if (!url) return void 0;
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.hostname.includes("shopify.com") || urlObj.hostname.includes("myshopify.com")) {
+        const separator = url.includes("?") ? "&" : "?";
+        return `${url}${separator}width=${size}&height=${size}`;
+      }
+    } catch {
+    }
+    return url;
+  }
   function ProductCardCompact({
     product,
     theme,
     onAddToCart,
     onClick,
     isAdding,
-    cardWidth
+    cardWidth,
+    loading = "lazy"
   }) {
     const [imageLoaded, setImageLoaded] = reactExports.useState(false);
     const [imageError, setImageError] = reactExports.useState(false);
@@ -16598,12 +16724,21 @@ Your cart is now empty.`,
             product.imageUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
               "img",
               {
-                src: product.imageUrl,
+                src: optimizeImageUrl(product.imageUrl),
                 alt: product.title,
-                className: imageLoaded ? "" : "loading",
                 onLoad: handleImageLoad,
                 onError: handleImageError,
-                loading: "lazy"
+                loading,
+                style: {
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  opacity: imageLoaded ? 1 : 0,
+                  transition: "opacity 200ms ease"
+                }
               }
             ),
             imageError && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -16972,7 +17107,8 @@ Your cart is now empty.`,
                       onAddToCart: handleAddToCart,
                       onClick: handleProductClick,
                       isAdding: addingProductId === product.id,
-                      cardWidth
+                      cardWidth,
+                      loading: index < visibleCards ? "eager" : "lazy"
                     }
                   )
                 },
@@ -17294,7 +17430,8 @@ Your cart is now empty.`,
   };
   function SourceCitation({
     sources,
-    theme
+    theme: _theme,
+    themeMode
   }) {
     const reducedMotion = useReducedMotion();
     if (!sources || sources.length === 0) {
@@ -17312,7 +17449,7 @@ Your cart is now empty.`,
       }
     };
     const isClickable = !!topSource.url;
-    const isDarkMode = theme.mode === "dark";
+    const isDarkMode = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -17441,6 +17578,7 @@ Your cart is now empty.`,
     feedbackEnabled = true,
     userRating,
     theme,
+    themeMode,
     onSubmit
   }) {
     const [rating, setRating] = reactExports.useState(userRating || null);
@@ -17506,7 +17644,7 @@ Your cart is now empty.`,
     if (!feedbackEnabled) {
       return null;
     }
-    const isDarkMode = theme.mode === "dark";
+    const isDarkMode = themeMode === "dark";
     const getButtonStyle = (isSelected) => {
       const bgColor = isSelected ? theme.primaryColor : isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)";
       const border = isSelected ? `1px solid ${theme.primaryColor}` : isDarkMode ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)";
@@ -17538,7 +17676,7 @@ Your cart is now empty.`,
               style: {
                 fontSize: "12px",
                 fontWeight: 500,
-                color: theme.textColor,
+                color: isDarkMode ? "#94a3b8" : theme.textColor,
                 opacity: 0.85,
                 textAlign: "center",
                 marginBottom: "4px"
@@ -17643,7 +17781,7 @@ Your cart is now empty.`,
                 maxWidth: "300px"
               },
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: theme.textColor }, children: "Tell us how we can improve (optional):" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: isDarkMode ? "#cbd5e1" : theme.textColor }, children: "Tell us how we can improve (optional):" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "textarea",
                   {
@@ -17661,7 +17799,7 @@ Your cart is now empty.`,
                       border: `1px solid ${isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"}`,
                       borderRadius: "8px",
                       backgroundColor: isDarkMode ? "rgba(0, 0, 0, 0.2)" : "#fff",
-                      color: theme.textColor,
+                      color: isDarkMode ? "#e2e8f0" : theme.textColor,
                       fontFamily: theme.fontFamily,
                       fontSize: "14px",
                       resize: "none"
@@ -17680,7 +17818,7 @@ Your cart is now empty.`,
                         border: "none",
                         borderRadius: "6px",
                         backgroundColor: "transparent",
-                        color: theme.textColor,
+                        color: isDarkMode ? "#94a3b8" : theme.textColor,
                         fontSize: "14px",
                         cursor: "pointer",
                         opacity: 0.7
@@ -17708,7 +17846,7 @@ Your cart is now empty.`,
                     }
                   )
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: theme.textColor, opacity: 0.6 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: isDarkMode ? "#94a3b8" : theme.textColor, opacity: 0.6 }, children: [
                   comment.length,
                   "/500 characters"
                 ] })
@@ -17745,12 +17883,13 @@ Your cart is now empty.`,
   function ContactCard({
     contactOptions,
     theme,
+    themeMode,
     conversationId,
     businessHours,
     onContactClick,
     onShowToast
   }) {
-    const isDarkMode = theme.mode === "dark";
+    const isDarkMode = themeMode === "dark";
     const reducedMotion = useReducedMotion();
     const isMobile = reactExports.useCallback(() => {
       return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -17799,7 +17938,7 @@ Your cart is now empty.`,
         {
           style: {
             fontSize: 12,
-            color: theme.textColor,
+            color: isDarkMode ? "#94a3b8" : theme.textColor,
             opacity: 0.7,
             marginBottom: 8,
             fontWeight: 500
@@ -17841,7 +17980,7 @@ Your cart is now empty.`,
                 backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.02)",
                 cursor: "pointer",
                 transition: reducedMotion ? "none" : "all 150ms ease",
-                color: theme.textColor,
+                color: isDarkMode ? "#e2e8f0" : theme.textColor,
                 fontSize: 13,
                 fontWeight: 500
               },
@@ -17917,6 +18056,7 @@ Your cart is now empty.`,
     businessName,
     welcomeMessage,
     theme,
+    themeMode,
     isLoading,
     onAddToCart,
     onProductClick,
@@ -17933,6 +18073,7 @@ Your cart is now empty.`,
     const messagesEndRef = reactExports.useRef(null);
     const prevMessageIdsRef = reactExports.useRef(/* @__PURE__ */ new Set());
     const reducedMotion = useReducedMotion();
+    const isDark = themeMode === "dark";
     const groups = reactExports.useMemo(() => groupMessages(messages), [messages]);
     const getNewMessageIds = reactExports.useCallback(() => {
       const currentIds = new Set(messages.map((m2) => m2.messageId));
@@ -17981,7 +18122,7 @@ Your cart is now empty.`,
             justifyContent: "center",
             padding: 16,
             textAlign: "center",
-            color: theme.textColor,
+            color: isDark ? "#94a3b8" : theme.textColor,
             opacity: 0.7
           },
           children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
@@ -18029,6 +18170,7 @@ Your cart is now empty.`,
               botName,
               businessName,
               theme,
+              themeMode,
               onAddToCart,
               onProductClick,
               onRemoveFromCart,
@@ -18053,6 +18195,7 @@ Your cart is now empty.`,
     botName,
     businessName,
     theme,
+    themeMode,
     onAddToCart,
     onProductClick,
     onRemoveFromCart,
@@ -18069,6 +18212,7 @@ Your cart is now empty.`,
     const isUser = group.sender === "user";
     const isSystem = group.sender === "system";
     const showAvatar = !isUser && !isSystem;
+    const isDark = themeMode === "dark";
     let displayName = botName;
     if (isUser) {
       displayName = ((_a2 = group.messages[0]) == null ? void 0 : _a2.customerName) || "User";
@@ -18092,7 +18236,7 @@ Your cart is now empty.`,
               className: "message-bubble message-bubble--system",
               style: {
                 textAlign: "center",
-                color: theme.textColor,
+                color: isDark ? "#94a3b8" : theme.textColor,
                 opacity: 0.7,
                 fontSize: 12,
                 padding: "4px 8px"
@@ -18154,6 +18298,7 @@ Your cart is now empty.`,
                           position,
                           displayName: isFirst ? displayName : void 0,
                           theme,
+                          themeMode,
                           showRichContent: isLast,
                           onAddToCart,
                           onProductClick,
@@ -18201,6 +18346,7 @@ Your cart is now empty.`,
     position,
     displayName,
     theme,
+    themeMode,
     showRichContent,
     onAddToCart,
     onProductClick,
@@ -18215,6 +18361,7 @@ Your cart is now empty.`,
     onFeedbackSubmit
   }) {
     const isUser = sender === "user";
+    const isDark = themeMode === "dark";
     const getBorderRadius = () => {
       if (position === "single") return "16px";
       if (position === "first") return isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px";
@@ -18233,8 +18380,8 @@ Your cart is now empty.`,
           style: {
             padding: "10px 14px",
             borderRadius: getBorderRadius(),
-            backgroundColor: isUser ? theme.userBubbleColor : theme.botBubbleColor,
-            color: isUser ? "white" : theme.textColor,
+            backgroundColor: isUser ? theme.userBubbleColor : isDark ? "rgba(255, 255, 255, 0.08)" : theme.botBubbleColor,
+            color: isUser ? "white" : isDark ? "#f1f5f9" : theme.textColor,
             wordBreak: "break-word",
             animationName: shouldAnimate ? "message-send" : "none",
             animationDuration: shouldAnimate ? "200ms" : "0ms",
@@ -18331,7 +18478,7 @@ Your cart is now empty.`,
           children: "Complete Checkout →"
         }
       ) }),
-      showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme }) }),
+      showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme, themeMode }) }),
       showRichContent && !isUser && sender === "bot" && onFeedbackSubmit && /* @__PURE__ */ jsxRuntimeExports.jsx(
         FeedbackRating,
         {
@@ -18339,6 +18486,7 @@ Your cart is now empty.`,
           feedbackEnabled: message.feedbackEnabled,
           userRating: message.userRating,
           theme,
+          themeMode,
           onSubmit: onFeedbackSubmit
         }
       ),
@@ -18347,6 +18495,7 @@ Your cart is now empty.`,
         {
           contactOptions: message.contactOptions,
           theme,
+          themeMode,
           conversationId: sessionId,
           onContactClick: () => {
           }
@@ -18817,6 +18966,7 @@ Your cart is now empty.`,
     showVoiceInput = true
   }) {
     const [interimTranscript, setInterimTranscript] = reactExports.useState("");
+    const isDark = themeMode === "dark";
     const handleSubmit = (event) => {
       event.preventDefault();
       if (value.trim()) {
@@ -18852,15 +19002,15 @@ Your cart is now empty.`,
           display: "flex",
           flexDirection: "column",
           padding: 12,
-          borderTop: "1px solid #e5e7eb",
-          backgroundColor: theme.backgroundColor,
+          borderTop: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e5e7eb",
+          backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : theme.backgroundColor,
           borderRadius: `0 0 ${theme.borderRadius}px ${theme.borderRadius}px`,
           flexShrink: 0
         },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `
         .shopbot-message-input::placeholder {
-          color: ${theme.textColor};
+          color: ${isDark ? "#94a3b8" : theme.textColor};
           opacity: 0.5;
         }
       ` }),
@@ -18871,7 +19021,7 @@ Your cart is now empty.`,
               "aria-live": "polite",
               style: {
                 fontStyle: "italic",
-                color: "#6b7280",
+                color: isDark ? "#94a3b8" : "#6b7280",
                 fontSize: 13,
                 padding: "4px 0",
                 marginBottom: 8
@@ -18911,13 +19061,13 @@ Your cart is now empty.`,
                 style: {
                   flex: 1,
                   padding: "10px 14px",
-                  border: themeMode === "dark" ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
+                  border: isDark ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
                   borderRadius: 20,
                   fontSize: theme.fontSize,
                   fontFamily: theme.fontFamily,
                   outline: "none",
-                  color: theme.textColor,
-                  backgroundColor: disabled ? themeMode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" : "transparent"
+                  color: isDark ? "#f8fafc" : theme.textColor,
+                  backgroundColor: disabled ? isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" : "transparent"
                 }
               }
             ),
@@ -18930,8 +19080,8 @@ Your cart is now empty.`,
                 "aria-label": "Send message",
                 style: {
                   padding: "10px 16px",
-                  backgroundColor: disabled || !value.trim() ? "#e5e7eb" : theme.primaryColor,
-                  color: disabled || !value.trim() ? "#9ca3af" : "white",
+                  backgroundColor: disabled || !value.trim() ? isDark ? "rgba(255,255,255,0.1)" : "#e5e7eb" : theme.primaryColor,
+                  color: disabled || !value.trim() ? isDark ? "#64748b" : "#9ca3af" : "white",
                   border: "none",
                   borderRadius: 20,
                   cursor: disabled || !value.trim() ? "not-allowed" : "pointer",
@@ -18946,8 +19096,9 @@ Your cart is now empty.`,
       }
     );
   }
-  function TypingIndicator({ isVisible, botName, theme }) {
+  function TypingIndicator({ isVisible, botName, theme, themeMode }) {
     const reducedMotion = useReducedMotion();
+    const isDark = themeMode === "dark";
     if (!isVisible) return null;
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
@@ -18967,7 +19118,7 @@ Your cart is now empty.`,
             style: {
               padding: "10px 14px",
               borderRadius: 16,
-              backgroundColor: theme.botBubbleColor,
+              backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : theme.botBubbleColor,
               display: "flex",
               flexDirection: "column",
               gap: 8
@@ -18978,7 +19129,7 @@ Your cart is now empty.`,
                 {
                   style: {
                     fontSize: 11,
-                    color: theme.textColor,
+                    color: isDark ? "#94a3b8" : theme.textColor,
                     marginBottom: 2,
                     opacity: 0.8
                   },
@@ -19003,7 +19154,7 @@ Your cart is now empty.`,
                         width: 8,
                         height: 8,
                         borderRadius: "50%",
-                        backgroundColor: theme.primaryColor,
+                        backgroundColor: isDark ? "rgba(255, 255, 255, 0.4)" : theme.primaryColor,
                         animationName: reducedMotion ? "none" : "typing-dot-bounce",
                         animationDuration: reducedMotion ? "0ms" : "1.4s",
                         animationTimingFunction: "ease-in-out",
@@ -19050,13 +19201,15 @@ Your cart is now empty.`,
     actions,
     autoDismiss = true,
     autoDismissDelay = 8e3,
-    showProgress = true
+    showProgress = true,
+    themeMode
   }) {
     const [isVisible, setIsVisible] = reactExports.useState(false);
     const [isExiting, setIsExiting] = reactExports.useState(false);
     const [timeLeft, setTimeLeft] = reactExports.useState(autoDismissDelay);
     const [isPaused, setIsPaused] = reactExports.useState(false);
     const timerRef = reactExports.useRef(null);
+    const isDark = themeMode === "dark";
     reactExports.useEffect(() => {
       requestAnimationFrame(() => {
         setIsVisible(true);
@@ -19172,7 +19325,7 @@ Your cart is now empty.`,
                           style: {
                             fontWeight: 600,
                             fontSize: "14px",
-                            color: "#1f2937",
+                            color: isDark ? "#f1f5f9" : "#1f2937",
                             marginBottom: "4px"
                           },
                           children: error.message
@@ -19184,7 +19337,7 @@ Your cart is now empty.`,
                           className: "error-toast__detail",
                           style: {
                             fontSize: "13px",
-                            color: "#4b5563",
+                            color: isDark ? "#cbd5e1" : "#4b5563",
                             marginBottom: error.retryable || (actions == null ? void 0 : actions.length) ? "12px" : 0
                           },
                           children: error.detail
@@ -19263,8 +19416,8 @@ Your cart is now empty.`,
                                   fontSize: "13px",
                                   fontWeight: 500,
                                   backgroundColor: action.primary ? styles.border : "transparent",
-                                  color: action.primary ? "white" : "#4b5563",
-                                  border: `1px solid ${action.primary ? styles.border : "#d1d5db"}`,
+                                  color: action.primary ? "white" : isDark ? "#cbd5e1" : "#4b5563",
+                                  border: `1px solid ${action.primary ? styles.border : isDark ? "rgba(255,255,255,0.2)" : "#d1d5db"}`,
                                   borderRadius: "6px",
                                   cursor: "pointer",
                                   transition: "opacity 0.2s"
@@ -19281,7 +19434,7 @@ Your cart is now empty.`,
                                 className: "error-toast__retry-after",
                                 style: {
                                   fontSize: "12px",
-                                  color: "#6b7280",
+                                  color: isDark ? "#94a3b8" : "#6b7280",
                                   display: "flex",
                                   alignItems: "center"
                                 },
@@ -19309,12 +19462,12 @@ Your cart is now empty.`,
                       border: "none",
                       padding: "4px",
                       cursor: "pointer",
-                      color: "#9ca3af",
+                      color: isDark ? "#94a3b8" : "#9ca3af",
                       flexShrink: 0,
                       transition: "color 0.2s"
                     },
-                    onMouseEnter: (e) => e.currentTarget.style.color = "#4b5563",
-                    onMouseLeave: (e) => e.currentTarget.style.color = "#9ca3af",
+                    onMouseEnter: (e) => e.currentTarget.style.color = isDark ? "#e2e8f0" : "#4b5563",
+                    onMouseLeave: (e) => e.currentTarget.style.color = isDark ? "#94a3b8" : "#9ca3af",
                     children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
@@ -19834,37 +19987,38 @@ Your cart is now empty.`,
     ["path", { d: "m2 2 20 20", key: "1ooewy" }]
   ];
   const WifiOff = createLucideIcon("wifi-off", __iconNode);
-  const ConnectionStatusIndicator = ({ status }) => {
+  const ConnectionStatusIndicator = ({ status, themeMode }) => {
     if (status === "connected") {
       return null;
     }
+    const isDark = themeMode === "dark";
     const getStatusConfig = () => {
       switch (status) {
         case "connecting":
           return {
             icon: LoaderCircle,
             text: "Connecting...",
-            bgColor: "bg-yellow-50",
-            textColor: "text-yellow-700",
-            borderColor: "border-yellow-200",
+            bgColor: isDark ? "rgba(234, 179, 8, 0.15)" : "#fefce8",
+            textColor: isDark ? "#fde047" : "#a16207",
+            borderColor: isDark ? "rgba(234, 179, 8, 0.3)" : "#fde68a",
             animate: true
           };
         case "disconnected":
           return {
             icon: WifiOff,
             text: "Disconnected - Reconnecting...",
-            bgColor: "bg-orange-50",
-            textColor: "text-orange-700",
-            borderColor: "border-orange-200",
+            bgColor: isDark ? "rgba(249, 115, 22, 0.15)" : "#fff7ed",
+            textColor: isDark ? "#fdba74" : "#c2410c",
+            borderColor: isDark ? "rgba(249, 115, 22, 0.3)" : "#fed7aa",
             animate: false
           };
         case "error":
           return {
             icon: WifiOff,
             text: "Connection error",
-            bgColor: "bg-red-50",
-            textColor: "text-red-700",
-            borderColor: "border-red-200",
+            bgColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2",
+            textColor: isDark ? "#fca5a5" : "#b91c1c",
+            borderColor: isDark ? "rgba(239, 68, 68, 0.3)" : "#fecaca",
             animate: false
           };
         default:
@@ -19877,17 +20031,26 @@ Your cart is now empty.`,
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
-        className: `
-        flex items-center gap-2 px-3 py-2 text-sm
-        ${config2.bgColor} ${config2.textColor} border ${config2.borderColor}
-        rounded-lg
-      `,
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: "8px 12px",
+          fontSize: "13px",
+          backgroundColor: config2.bgColor,
+          color: config2.textColor,
+          border: `1px solid ${config2.borderColor}`,
+          borderRadius: "8px"
+        },
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             Icon2,
             {
               size: 14,
-              className: config2.animate ? "animate-spin" : ""
+              style: {
+                animation: config2.animate ? "spin 1s linear infinite" : "none",
+                flexShrink: 0
+              }
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: config2.text })
@@ -19916,12 +20079,14 @@ Your cart is now empty.`,
     promptShown,
     consentGranted,
     theme,
+    themeMode,
     botName,
     personality = "friendly",
     onConfirmConsent,
     onDismiss
   }) {
     const [isProcessing, setIsProcessing] = reactExports.useState(false);
+    const isDark = themeMode === "dark";
     console.log("[ConsentPrompt] render:", { isOpen, promptShown, consentGranted, shouldRender: isOpen && promptShown && consentGranted === null });
     if (!isOpen || !promptShown || consentGranted !== null) {
       return null;
@@ -19949,7 +20114,7 @@ Your cart is now empty.`,
         className: "shopbot-consent-prompt",
         style: {
           padding: "16px",
-          backgroundColor: theme.botBubbleColor,
+          backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : theme.botBubbleColor,
           borderRadius: theme.borderRadius,
           margin: "8px 0",
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)"
@@ -19963,7 +20128,7 @@ Your cart is now empty.`,
                 fontSize: "14px",
                 fontWeight: 600,
                 marginBottom: "8px",
-                color: theme.textColor
+                color: isDark ? "#f8fafc" : theme.textColor
               },
               children: messages.title
             }
@@ -19976,7 +20141,7 @@ Your cart is now empty.`,
                 fontSize: "13px",
                 lineHeight: "1.5",
                 marginBottom: "12px",
-                color: theme.textColor,
+                color: isDark ? "#cbd5e1" : theme.textColor,
                 opacity: 0.9
               },
               children: messages.description.replace("{botName}", botName)
@@ -20001,9 +20166,9 @@ Your cart is now empty.`,
                       padding: "8px 16px",
                       fontSize: "13px",
                       fontWeight: 500,
-                      border: `1px solid ${theme.primaryColor}`,
+                      border: `1px solid ${isDark ? "#c7d2fe" : theme.primaryColor}`,
                       backgroundColor: "transparent",
-                      color: theme.primaryColor,
+                      color: isDark ? "#c7d2fe" : theme.primaryColor,
                       borderRadius: theme.borderRadius / 2,
                       cursor: disabled ? "not-allowed" : "pointer",
                       opacity: disabled ? 0.6 : 1,
@@ -20069,6 +20234,7 @@ Your cart is now empty.`,
     onClick,
     onKeyDown,
     theme,
+    isDark,
     disabled,
     isSelected,
     reducedMotion
@@ -20079,6 +20245,11 @@ Your cart is now empty.`,
       createRipple(e);
       onClick(reply, index);
     };
+    const textColor = isDark ? "#c7d2fe" : theme.primaryColor;
+    const bgColor = isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`;
+    const borderColor = isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`;
+    const hoverBg = isDark ? "rgba(199, 210, 254, 0.15)" : `${theme.primaryColor}26`;
+    const hoverBorder = isDark ? "rgba(199, 210, 254, 0.35)" : `${theme.primaryColor}66`;
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "button",
       {
@@ -20097,12 +20268,10 @@ Your cart is now empty.`,
           gap: "6px",
           minHeight: "40px",
           padding: "8px 14px",
-          border: `1px solid ${theme.primaryColor}33`,
-          // 20% opacity border
+          border: `1px solid ${borderColor}`,
           borderRadius: "16px",
-          backgroundColor: `${theme.primaryColor}1a`,
-          // 10% opacity background
-          color: theme.primaryColor,
+          backgroundColor: bgColor,
+          color: textColor,
           fontFamily: theme.fontFamily,
           fontSize: "13px",
           fontWeight: 500,
@@ -20112,19 +20281,19 @@ Your cart is now empty.`,
           whiteSpace: "nowrap",
           position: "relative",
           overflow: "hidden",
-          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+          boxShadow: isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "0 1px 2px rgba(0, 0, 0, 0.05)"
         },
         onMouseEnter: (e) => {
           if (!disabled && !isSelected) {
-            e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-            e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+            e.currentTarget.style.backgroundColor = hoverBg;
+            e.currentTarget.style.borderColor = hoverBorder;
             e.currentTarget.style.transform = "translateY(-1px)";
           }
         },
         onMouseLeave: (e) => {
           if (!disabled && !isSelected) {
-            e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-            e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+            e.currentTarget.style.backgroundColor = bgColor;
+            e.currentTarget.style.borderColor = borderColor;
             e.currentTarget.style.transform = "translateY(0)";
           }
         },
@@ -20162,11 +20331,13 @@ Your cart is now empty.`,
     quickReplies,
     onReply,
     theme,
+    themeMode,
     dismissOnSelect = true,
     disabled = false
   }) {
     const [selectedIndex, setSelectedIndex] = reactExports.useState(null);
     const reducedMotion = useReducedMotion();
+    const isDark = themeMode === "dark";
     const handleClick = (reply, index) => {
       if (disabled) return;
       setSelectedIndex(index);
@@ -20205,6 +20376,7 @@ Your cart is now empty.`,
             onClick: handleClick,
             onKeyDown: handleKeyDown,
             theme,
+            isDark,
             disabled,
             isSelected: dismissOnSelect && selectedIndex !== null,
             reducedMotion
@@ -20219,6 +20391,7 @@ Your cart is now empty.`,
     index,
     onClick,
     theme,
+    isDark,
     disabled,
     reducedMotion
   }) {
@@ -20234,6 +20407,11 @@ Your cart is now empty.`,
         onClick(button, index);
       }
     };
+    const textColor = isDark ? "#c7d2fe" : theme.primaryColor;
+    const bgColor = isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`;
+    const borderColor = isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`;
+    const hoverBg = isDark ? "rgba(199, 210, 254, 0.15)" : `${theme.primaryColor}26`;
+    const hoverBorder = isDark ? "rgba(199, 210, 254, 0.35)" : `${theme.primaryColor}66`;
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "button",
       {
@@ -20253,12 +20431,10 @@ Your cart is now empty.`,
           gap: "6px",
           minHeight: "40px",
           padding: "8px 14px",
-          border: `1px solid ${theme.primaryColor}33`,
-          // 20% opacity border
+          border: `1px solid ${borderColor}`,
           borderRadius: "16px",
-          backgroundColor: `${theme.primaryColor}1a`,
-          // 10% opacity background
-          color: theme.primaryColor,
+          backgroundColor: bgColor,
+          color: textColor,
           fontFamily: theme.fontFamily,
           fontSize: "13px",
           fontWeight: 500,
@@ -20268,19 +20444,19 @@ Your cart is now empty.`,
           whiteSpace: "nowrap",
           position: "relative",
           overflow: "hidden",
-          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+          boxShadow: isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "0 1px 2px rgba(0, 0, 0, 0.05)"
         },
         onMouseEnter: (e) => {
           if (!disabled) {
-            e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-            e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+            e.currentTarget.style.backgroundColor = hoverBg;
+            e.currentTarget.style.borderColor = hoverBorder;
             e.currentTarget.style.transform = "translateY(-1px)";
           }
         },
         onMouseLeave: (e) => {
           if (!disabled) {
-            e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-            e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+            e.currentTarget.style.backgroundColor = bgColor;
+            e.currentTarget.style.borderColor = borderColor;
             e.currentTarget.style.transform = "translateY(0)";
           }
         },
@@ -20317,9 +20493,11 @@ Your cart is now empty.`,
     buttons,
     onButtonClick,
     theme,
+    themeMode,
     disabled = false
   }) => {
     const reducedMotion = useReducedMotion();
+    const isDark = themeMode === "dark";
     const handleClick = (button, _index) => {
       onButtonClick(button);
     };
@@ -20346,6 +20524,7 @@ Your cart is now empty.`,
             index,
             onClick: handleClick,
             theme,
+            isDark,
             disabled,
             reducedMotion
           },
@@ -20358,10 +20537,12 @@ Your cart is now empty.`,
     suggestions,
     onSelect,
     theme,
+    themeMode,
     disabled = false
   }) {
     const [selectedIndex, setSelectedIndex] = reactExports.useState(null);
     const reducedMotion = useReducedMotion();
+    const isDark = themeMode === "dark";
     const handleClick = (suggestion, index) => {
       if (disabled) return;
       setSelectedIndex(index);
@@ -20411,10 +20592,10 @@ Your cart is now empty.`,
               justifyContent: "center",
               minHeight: "40px",
               padding: "8px 16px",
-              border: `1px solid ${theme.primaryColor}33`,
+              border: `1px solid ${isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`}`,
               borderRadius: "20px",
-              backgroundColor: `${theme.primaryColor}1a`,
-              color: theme.primaryColor,
+              backgroundColor: isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`,
+              color: isDark ? "#c7d2fe" : theme.primaryColor,
               fontFamily: theme.fontFamily,
               fontSize: "13px",
               fontWeight: 500,
@@ -20423,20 +20604,20 @@ Your cart is now empty.`,
               transition: reducedMotion ? "none" : "all 150ms ease",
               whiteSpace: "nowrap",
               flexShrink: 0,
-              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+              boxShadow: isDark ? "0 1px 2px rgba(0, 0, 0, 0.2)" : "0 1px 2px rgba(0, 0, 0, 0.05)",
               position: "relative"
             },
             onMouseEnter: (e) => {
               if (!disabled && selectedIndex === null) {
-                e.currentTarget.style.backgroundColor = `${theme.primaryColor}26`;
-                e.currentTarget.style.borderColor = `${theme.primaryColor}66`;
+                e.currentTarget.style.backgroundColor = isDark ? "rgba(199, 210, 254, 0.15)" : `${theme.primaryColor}26`;
+                e.currentTarget.style.borderColor = isDark ? "rgba(199, 210, 254, 0.35)" : `${theme.primaryColor}66`;
                 e.currentTarget.style.transform = "translateY(-1px)";
               }
             },
             onMouseLeave: (e) => {
               if (!disabled && selectedIndex === null) {
-                e.currentTarget.style.backgroundColor = `${theme.primaryColor}1a`;
-                e.currentTarget.style.borderColor = `${theme.primaryColor}33`;
+                e.currentTarget.style.backgroundColor = isDark ? "rgba(199, 210, 254, 0.1)" : `${theme.primaryColor}1a`;
+                e.currentTarget.style.borderColor = isDark ? "rgba(199, 210, 254, 0.2)" : `${theme.primaryColor}33`;
                 e.currentTarget.style.transform = "translateY(0)";
               }
             },
@@ -20447,8 +20628,9 @@ Your cart is now empty.`,
       }
     );
   }
-  function StreamingIndicator({ isVisible, theme }) {
+  function StreamingIndicator({ isVisible, theme, themeMode }) {
     if (!isVisible) return null;
+    const isDark = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -20485,7 +20667,7 @@ Your cart is now empty.`,
             {
               style: {
                 fontSize: 11,
-                color: theme.textColor,
+                color: isDark ? "#94a3b8" : theme.textColor,
                 opacity: 0.7
               },
               children: "streaming..."
@@ -20495,8 +20677,9 @@ Your cart is now empty.`,
       }
     );
   }
-  function StreamErrorIndicator({ error }) {
+  function StreamErrorIndicator({ error, themeMode }) {
     if (!error) return null;
+    const isDark = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
@@ -20506,9 +20689,9 @@ Your cart is now empty.`,
           padding: "8px 12px",
           margin: "4px 12px",
           borderRadius: 8,
-          backgroundColor: "#fef2f2",
-          border: "1px solid #fecaca",
-          color: "#991b1b",
+          backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2",
+          border: isDark ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid #fecaca",
+          color: isDark ? "#fca5a5" : "#991b1b",
           fontSize: 13
         },
         children: "Something went wrong with the streaming response. Please try again."
@@ -20561,6 +20744,7 @@ Your cart is now empty.`,
     const [activeSuggestions, setActiveSuggestions] = reactExports.useState(null);
     const inputRef = reactExports.useRef(null);
     const menuRef = reactExports.useRef(null);
+    const isDark = themeMode === "dark";
     const quickReplyRef = reactExports.useRef(null);
     const suggestedReplyRef = reactExports.useRef(null);
     const reducedMotion = useReducedMotion();
@@ -20703,16 +20887,16 @@ Your cart is now empty.`,
       height: isMobile ? "100%" : theme.height,
       maxWidth: isMobile ? "100%" : "calc(100vw - 40px)",
       maxHeight: isMobile ? "100%" : "calc(100vh - 40px)",
-      backgroundColor: theme.backgroundColor,
+      backgroundColor: isDark ? "rgba(15, 23, 42, 0.8)" : theme.backgroundColor,
       borderRadius: theme.borderRadius,
-      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+      boxShadow: isDark ? "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.1)" : "0 8px 32px rgba(0, 0, 0, 0.15)",
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
       zIndex: 2147483646,
       fontFamily: theme.fontFamily,
       fontSize: theme.fontSize,
-      color: theme.textColor,
+      color: isDark ? "#f8fafc" : theme.textColor,
       transition: isDragging ? "none" : "transform 0.2s ease-out",
       userSelect: isDragging ? "none" : "auto"
     };
@@ -20821,12 +21005,13 @@ Your cart is now empty.`,
                             top: "100%",
                             right: 0,
                             marginTop: "4px",
-                            backgroundColor: "white",
+                            backgroundColor: isDark ? "rgba(15, 23, 42, 0.95)" : "white",
                             borderRadius: "8px",
                             boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                             minWidth: "150px",
                             zIndex: 10,
-                            overflow: "hidden"
+                            overflow: "hidden",
+                            border: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "none"
                           },
                           children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
                             "button",
@@ -20842,13 +21027,13 @@ Your cart is now empty.`,
                                 border: "none",
                                 cursor: "pointer",
                                 fontSize: "14px",
-                                color: theme.textColor,
+                                color: isDark ? "#f8fafc" : theme.textColor,
                                 display: "flex",
                                 alignItems: "center",
                                 gap: "8px"
                               },
                               onMouseEnter: (e) => {
-                                e.target.style.backgroundColor = "#f3f4f6";
+                                e.target.style.backgroundColor = isDark ? "rgba(255, 255, 255, 0.1)" : "#f3f4f6";
                               },
                               onMouseLeave: (e) => {
                                 e.target.style.backgroundColor = "transparent";
@@ -20969,7 +21154,7 @@ Your cart is now empty.`,
                 ]
               }
             ),
-            connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus }) }),
+            connectionStatus !== "connected" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "8px 12px", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionStatusIndicator, { status: connectionStatus, themeMode }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               MessageList,
               {
@@ -20978,6 +21163,7 @@ Your cart is now empty.`,
                 businessName: config2 == null ? void 0 : config2.businessName,
                 welcomeMessage: config2 == null ? void 0 : config2.welcomeMessage,
                 theme,
+                themeMode,
                 isLoading: isTyping,
                 onAddToCart,
                 onProductClick: handleProductClick,
@@ -20998,6 +21184,7 @@ Your cart is now empty.`,
                 suggestions: activeSuggestions,
                 onSelect: handleSuggestionSelect,
                 theme,
+                themeMode,
                 disabled: isTyping
               }
             ) }),
@@ -21007,6 +21194,7 @@ Your cart is now empty.`,
                 quickReplies: activeQuickReplies,
                 onReply: handleQuickReply,
                 theme,
+                themeMode,
                 dismissOnSelect: true
               }
             ) }),
@@ -21016,6 +21204,7 @@ Your cart is now empty.`,
                 buttons: faqQuickButtons,
                 onButtonClick: handleFaqButtonClick,
                 theme,
+                themeMode,
                 disabled: isTyping
               }
             ) }),
@@ -21028,6 +21217,7 @@ Your cart is now empty.`,
                 promptShown: consentState.promptShown,
                 consentGranted: consentState.status === "opted_in" ? true : consentState.status === "opted_out" ? false : null,
                 theme,
+                themeMode,
                 botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
                 personality: config2 == null ? void 0 : config2.personality,
                 onConfirmConsent: onRecordConsent
@@ -21038,11 +21228,12 @@ Your cart is now empty.`,
               {
                 isVisible: isTyping,
                 botName: (config2 == null ? void 0 : config2.botName) ?? "Mantisbot",
-                theme
+                theme,
+                themeMode
               }
             ) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamingIndicator, { isVisible: isStreaming, theme }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamErrorIndicator, { error: streamingError }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamingIndicator, { isVisible: isStreaming, theme, themeMode }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StreamErrorIndicator, { error: streamingError, themeMode }),
             (errors.length > 0 || error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
               "div",
               {
@@ -21063,7 +21254,8 @@ Your cart is now empty.`,
                       onRetry: onRetryError,
                       autoDismiss: true,
                       autoDismissDelay: 1e4,
-                      showProgress: true
+                      showProgress: true,
+                      themeMode
                     },
                     widgetError.id
                   )),
@@ -21074,11 +21266,11 @@ Your cart is now empty.`,
                       role: "alert",
                       style: {
                         padding: "12px 16px",
-                        backgroundColor: "#fee2e2",
-                        color: "#dc2626",
+                        backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fee2e2",
+                        color: isDark ? "#fca5a5" : "#dc2626",
                         fontSize: "13px",
                         borderRadius: "8px",
-                        borderLeft: "4px solid #dc2626",
+                        borderLeft: isDark ? "4px solid #ef4444" : "4px solid #dc2626",
                         display: "flex",
                         alignItems: "flex-start",
                         gap: "12px"
@@ -22396,7 +22588,7 @@ Your cart is now empty.`,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 2147483647
-      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, { themeMode: state.themeMode }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           ChatBubble,
           {

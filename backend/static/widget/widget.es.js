@@ -13911,7 +13911,8 @@ class WidgetErrorBoundary extends reactExports.Component {
     return this.props.children;
   }
 }
-function LoadingSpinner() {
+function LoadingSpinner({ themeMode }) {
+  const isDark = themeMode === "dark";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
@@ -13931,8 +13932,8 @@ function LoadingSpinner() {
             style: {
               width: "24px",
               height: "24px",
-              border: "2px solid #e5e7eb",
-              borderTopColor: "#6366f1",
+              border: `2px solid ${isDark ? "rgba(255, 255, 255, 0.15)" : "#e5e7eb"}`,
+              borderTopColor: isDark ? "#818cf8" : "#6366f1",
               borderRadius: "50%",
               animation: "widget-spin 0.8s linear infinite"
             }
@@ -17324,7 +17325,8 @@ const getScoreColor = (score) => {
 };
 function SourceCitation({
   sources,
-  theme
+  theme: _theme,
+  themeMode
 }) {
   const reducedMotion = useReducedMotion();
   if (!sources || sources.length === 0) {
@@ -17342,7 +17344,7 @@ function SourceCitation({
     }
   };
   const isClickable = !!topSource.url;
-  const isDarkMode = theme.mode === "dark";
+  const isDarkMode = themeMode === "dark";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
@@ -17471,6 +17473,7 @@ function FeedbackRating({
   feedbackEnabled = true,
   userRating,
   theme,
+  themeMode,
   onSubmit
 }) {
   const [rating, setRating] = reactExports.useState(userRating || null);
@@ -17536,7 +17539,7 @@ function FeedbackRating({
   if (!feedbackEnabled) {
     return null;
   }
-  const isDarkMode = theme.mode === "dark";
+  const isDarkMode = themeMode === "dark";
   const getButtonStyle = (isSelected) => {
     const bgColor = isSelected ? theme.primaryColor : isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)";
     const border = isSelected ? `1px solid ${theme.primaryColor}` : isDarkMode ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)";
@@ -17568,7 +17571,7 @@ function FeedbackRating({
             style: {
               fontSize: "12px",
               fontWeight: 500,
-              color: theme.textColor,
+              color: isDarkMode ? "#94a3b8" : theme.textColor,
               opacity: 0.85,
               textAlign: "center",
               marginBottom: "4px"
@@ -17673,7 +17676,7 @@ function FeedbackRating({
               maxWidth: "300px"
             },
             children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: theme.textColor }, children: "Tell us how we can improve (optional):" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: isDarkMode ? "#cbd5e1" : theme.textColor }, children: "Tell us how we can improve (optional):" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "textarea",
                 {
@@ -17691,7 +17694,7 @@ function FeedbackRating({
                     border: `1px solid ${isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"}`,
                     borderRadius: "8px",
                     backgroundColor: isDarkMode ? "rgba(0, 0, 0, 0.2)" : "#fff",
-                    color: theme.textColor,
+                    color: isDarkMode ? "#e2e8f0" : theme.textColor,
                     fontFamily: theme.fontFamily,
                     fontSize: "14px",
                     resize: "none"
@@ -17710,7 +17713,7 @@ function FeedbackRating({
                       border: "none",
                       borderRadius: "6px",
                       backgroundColor: "transparent",
-                      color: theme.textColor,
+                      color: isDarkMode ? "#94a3b8" : theme.textColor,
                       fontSize: "14px",
                       cursor: "pointer",
                       opacity: 0.7
@@ -17738,7 +17741,7 @@ function FeedbackRating({
                   }
                 )
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: theme.textColor, opacity: 0.6 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: isDarkMode ? "#94a3b8" : theme.textColor, opacity: 0.6 }, children: [
                 comment.length,
                 "/500 characters"
               ] })
@@ -17775,12 +17778,13 @@ function getBusinessHoursMessage(businessHours) {
 function ContactCard({
   contactOptions,
   theme,
+  themeMode,
   conversationId,
   businessHours,
   onContactClick,
   onShowToast
 }) {
-  const isDarkMode = theme.mode === "dark";
+  const isDarkMode = themeMode === "dark";
   const reducedMotion = useReducedMotion();
   const isMobile = reactExports.useCallback(() => {
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -17829,7 +17833,7 @@ function ContactCard({
       {
         style: {
           fontSize: 12,
-          color: theme.textColor,
+          color: isDarkMode ? "#94a3b8" : theme.textColor,
           opacity: 0.7,
           marginBottom: 8,
           fontWeight: 500
@@ -17871,7 +17875,7 @@ function ContactCard({
               backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.02)",
               cursor: "pointer",
               transition: reducedMotion ? "none" : "all 150ms ease",
-              color: theme.textColor,
+              color: isDarkMode ? "#e2e8f0" : theme.textColor,
               fontSize: 13,
               fontWeight: 500
             },
@@ -18369,7 +18373,7 @@ function MessageBubbleInGroup({
         children: "Complete Checkout →"
       }
     ) }),
-    showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme }) }),
+    showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme, themeMode }) }),
     showRichContent && !isUser && sender === "bot" && onFeedbackSubmit && /* @__PURE__ */ jsxRuntimeExports.jsx(
       FeedbackRating,
       {
@@ -18377,6 +18381,7 @@ function MessageBubbleInGroup({
         feedbackEnabled: message.feedbackEnabled,
         userRating: message.userRating,
         theme,
+        themeMode,
         onSubmit: onFeedbackSubmit
       }
     ),
@@ -18385,6 +18390,7 @@ function MessageBubbleInGroup({
       {
         contactOptions: message.contactOptions,
         theme,
+        themeMode,
         conversationId: sessionId,
         onContactClick: () => {
         }
@@ -21582,7 +21588,7 @@ function WidgetInner({ theme }) {
         .carousel-card {
           scroll-snap-align: start;
           flex-shrink: 0;
-          width: 160px;
+          width: 140px;
           border-radius: 8px;
           background: #ffffff;
           border: 1px solid rgba(0, 0, 0, 0.1);
@@ -21606,12 +21612,12 @@ function WidgetInner({ theme }) {
           overflow: hidden;
         }
         .carousel-card-image img {
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          object-fit: cover !important;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
           transition: opacity 200ms ease;
         }
         .carousel-card-image img.loading {
@@ -22463,190 +22469,6 @@ function WidgetInner({ theme }) {
             transition: none;
           }
         }
-
-        /* ============================================
-         * COMPREHENSIVE DARK MODE OVERRIDES
-         * Using .glassmorphism-wrapper.dark-mode to
-         * override inline styles with !important
-         * ============================================ */
-
-        /* Carousel Cards - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .carousel-card {
-          background: rgba(15, 23, 42, 0.8) !important;
-          border-color: rgba(255, 255, 255, 0.1) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-card-title {
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-card-skeleton {
-          background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%) !important;
-          background-size: 200% 100% !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-arrow {
-          background: rgba(15, 23, 42, 0.8) !important;
-          border-color: rgba(255, 255, 255, 0.1) !important;
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-dot {
-          background: rgba(255, 255, 255, 0.2) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-dot:hover {
-          background: rgba(255, 255, 255, 0.4) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-card-image {
-          background: rgba(255, 255, 255, 0.05) !important;
-        }
-
-        /* Voice Input - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .voice-interim-transcript {
-          color: #9ca3af !important;
-        }
-        .glassmorphism-wrapper.dark-mode .voice-error-message {
-          background-color: rgba(239, 68, 68, 0.1) !important;
-          border-color: rgba(239, 68, 68, 0.3) !important;
-          color: #fca5a5 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .voice-cancel-button {
-          background-color: rgba(255, 255, 255, 0.1) !important;
-          color: #9ca3af !important;
-        }
-        .glassmorphism-wrapper.dark-mode .voice-cancel-button:hover {
-          background-color: rgba(255, 255, 255, 0.2) !important;
-        }
-
-        /* Proactive Modal - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .proactive-modal-container {
-          background: rgba(15, 23, 42, 0.9) !important;
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .proactive-modal-close {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .proactive-modal-close:hover {
-          background-color: rgba(255, 255, 255, 0.1) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
-          background-color: rgba(255, 255, 255, 0.1) !important;
-        }
-
-        /* Scrollbar - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .message-list::-webkit-scrollbar-thumb {
-          background-color: rgba(255, 255, 255, 0.2) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .message-list::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(255, 255, 255, 0.35) !important;
-        }
-
-        /* Input / Textarea - Dark Mode */
-        .glassmorphism-wrapper.dark-mode input,
-        .glassmorphism-wrapper.dark-mode textarea {
-          color: #f8fafc !important;
-          background-color: rgba(255, 255, 255, 0.05) !important;
-        }
-        .glassmorphism-wrapper.dark-mode input::placeholder,
-        .glassmorphism-wrapper.dark-mode textarea::placeholder {
-          color: rgba(255, 255, 255, 0.4) !important;
-        }
-
-        /* Bot Message Bubble - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .message-bubble--bot {
-          background-color: rgba(255, 255, 255, 0.08) !important;
-          color: #f8fafc !important;
-        }
-
-        /* Source Citation - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .source-citation {
-          background: rgba(255, 255, 255, 0.1) !important;
-          border-color: rgba(255, 255, 255, 0.08) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .source-card--clickable:hover {
-          background: rgba(255, 255, 255, 0.12) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .source-card--clickable:active {
-          background: rgba(255, 255, 255, 0.18) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .source-citation__toggle:hover {
-          background: rgba(255, 255, 255, 0.1) !important;
-        }
-
-        /* Quick Reply / FAQ / Suggested Buttons - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .quick-reply-button,
-        .glassmorphism-wrapper.dark-mode .faq-quick-button,
-        .glassmorphism-wrapper.dark-mode .suggested-reply-chip {
-          color: #c7d2fe !important;
-          border-color: rgba(165, 180, 252, 0.4) !important;
-          background-color: rgba(165, 180, 252, 0.12) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .quick-reply-button:hover:not(:disabled),
-        .glassmorphism-wrapper.dark-mode .faq-quick-button:hover:not(:disabled),
-        .glassmorphism-wrapper.dark-mode .suggested-reply-chip:hover:not(:disabled) {
-          background-color: rgba(165, 180, 252, 0.22) !important;
-          border-color: rgba(165, 180, 252, 0.6) !important;
-        }
-
-        /* Error Toast - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .error-toast__title {
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__detail {
-          color: #cbd5e1 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__retry-after {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__dismiss {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__dismiss:hover {
-          color: #e2e8f0 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__action:not(.error-toast__action--primary) {
-          color: #cbd5e1 !important;
-          border-color: rgba(255, 255, 255, 0.2) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__more {
-          color: #94a3b8 !important;
-        }
-
-        /* Typing Indicator - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .typing-indicator {
-          color: #f8fafc !important;
-        }
-
-        /* Feedback Comment Textarea - Dark Mode (extra specificity) */
-        .glassmorphism-wrapper.dark-mode .feedback-comment-textarea {
-          background-color: rgba(0, 0, 0, 0.2) !important;
-          border-color: rgba(255, 255, 255, 0.2) !important;
-          color: #f8fafc !important;
-        }
-
-        /* Connection Status - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .connection-status {
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .connection-status--connecting {
-          background-color: rgba(234, 179, 8, 0.15) !important;
-          border-color: rgba(234, 179, 8, 0.3) !important;
-          color: #fde68a !important;
-        }
-        .glassmorphism-wrapper.dark-mode .connection-status--disconnected {
-          background-color: rgba(249, 115, 22, 0.15) !important;
-          border-color: rgba(249, 115, 22, 0.3) !important;
-          color: #fdba74 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .connection-status--error {
-          background-color: rgba(239, 68, 68, 0.15) !important;
-          border-color: rgba(239, 68, 68, 0.3) !important;
-          color: #fca5a5 !important;
-        }
-
-        /* Light Mode Proactive Modal */
-        .glassmorphism-wrapper.light-mode .proactive-modal-container {
-          background: rgba(255, 255, 255, 0.9) !important;
-          border: 1px solid rgba(0, 0, 0, 0.05) !important;
-          color: #1e293b !important;
-        }
       ` }),
     state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
       position: "fixed",
@@ -22661,7 +22483,7 @@ function WidgetInner({ theme }) {
       alignItems: "center",
       justifyContent: "center",
       zIndex: 2147483647
-    }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, { themeMode: state.themeMode }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         ChatBubble,
         {

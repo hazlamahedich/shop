@@ -53,6 +53,8 @@ from app.schemas.widget import (
     WidgetSessionMetadataEnvelope,
     WidgetSessionMetadataResponse,
     WidgetSessionResponse,
+    WidgetVisitorSessionEnvelope,
+    WidgetVisitorSessionResponse,
     create_meta,
 )
 from app.schemas.widget_search import (
@@ -336,6 +338,44 @@ async def get_widget_session(
 
 
 @router.get(
+    "/widget/session/by-visitor/{merchant_id}/{visitor_id}",
+    response_model=WidgetVisitorSessionEnvelope,
+    summary="Look up session by visitor",
+    description="Find the most recent active session for a visitor",
+)
+async def get_session_by_visitor(
+    merchant_id: int,
+    visitor_id: str,
+) -> WidgetVisitorSessionEnvelope:
+    """Look up active session for a visitor.
+
+    Finds the most recent active session associated with a visitor ID,
+    enabling session restoration across tabs.
+
+    Args:
+        merchant_id: Merchant ID
+        visitor_id: Visitor identifier from localStorage
+
+    Returns:
+        WidgetVisitorSessionEnvelope with session_id or null
+    """
+    session_service = WidgetSessionService()
+    session_id = await session_service.get_session_by_visitor(merchant_id, visitor_id)
+
+    logger.info(
+        "widget_visitor_session_lookup",
+        merchant_id=merchant_id,
+        visitor_id=visitor_id[:8],
+        found=session_id is not None,
+    )
+
+    return WidgetVisitorSessionEnvelope(
+        data=WidgetVisitorSessionResponse(session_id=session_id),
+        meta=create_meta(),
+    )
+
+
+@router.get(
     "/widget/session/{session_id}/messages",
     response_model=WidgetMessageHistoryEnvelope,
     summary="Get widget message history",
@@ -401,8 +441,8 @@ async def get_widget_message_history(
             if record.widget_message_id
         }
 
-    history_items = [
-        WidgetMessageHistoryItem(
+    def _build_history_item(msg: dict) -> WidgetMessageHistoryItem:
+        return WidgetMessageHistoryItem(
             role=msg.get("role", "user"),
             content=msg.get("content", ""),
             timestamp=msg.get("timestamp", ""),
@@ -410,9 +450,16 @@ async def get_widget_message_history(
             user_rating=feedback_map.get(msg.get("message_id"))
             if msg.get("role") == "bot"
             else None,
+            products=msg.get("products"),
+            cart=msg.get("cart"),
+            checkout_url=msg.get("checkout_url"),
+            quick_replies=msg.get("quick_replies"),
+            sources=msg.get("sources"),
+            suggested_replies=msg.get("suggested_replies"),
+            contact_options=msg.get("contact_options"),
         )
-        for msg in messages
-    ]
+
+    history_items = [_build_history_item(msg) for msg in messages]
 
     logger.info(
         "widget_message_history_retrieved",

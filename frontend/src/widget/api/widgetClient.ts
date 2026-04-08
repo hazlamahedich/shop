@@ -181,17 +181,32 @@ export class WidgetApiClient {
     await this.request(`/session/${sessionId}`, { method: 'DELETE' });
   }
 
+  async lookupSessionByVisitor(merchantId: string, visitorId: string): Promise<string | null> {
+    try {
+      const data = await this.request<{ data: { sessionId?: string; session_id?: string; } }>(
+        `/session/by-visitor/${merchantId}/${encodeURIComponent(visitorId)}`
+      );
+      return data.data?.sessionId ?? data.data?.session_id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async getMessageHistory(sessionId: string): Promise<{ messages: WidgetMessage[]; expired: boolean }> {
     const data = await this.request<{ data: { messages: any[]; expired: boolean } }>(
       `/session/${sessionId}/messages`
     );
     const messages = (data.data.messages || []).map((m: any) => ({
-      messageId: m.id || m.message_id || '',
+      messageId: m.id || m.message_id || m.messageId || '',
       content: m.content,
       sender: m.role || m.sender || 'bot',
-      createdAt: m.timestamp || m.created_at || '',
+      createdAt: m.timestamp || m.created_at || m.createdAt || '',
       products: m.products,
       cart: m.cart,
+      checkoutUrl: m.checkout_url || m.checkoutUrl,
+      quickReplies: m.quick_replies || m.quickReplies,
+      sources: m.sources,
+      suggestedReplies: m.suggested_replies || m.suggestedReplies,
       contactOptions: m.contact_options || m.contactOptions,
       customerName: m.customer_name || m.customerName,
       userRating: m.user_rating || m.userRating,

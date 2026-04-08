@@ -104,6 +104,16 @@ export function getVisitorId(): string | null {
   }
 }
 
+export function getStoredSessionForMerchant(merchantId: string): string | null {
+  const storedId = safeStorage.get(SESSION_KEY);
+  const storedMerchant = safeStorage.get(MERCHANT_KEY);
+
+  if (!storedId || !isValidSessionId(storedId)) return null;
+  if (storedMerchant !== merchantId) return null;
+
+  return storedId;
+}
+
 export function clearVisitorId(): void {
   safeLocalStorage.remove(VISITOR_KEY);
 }

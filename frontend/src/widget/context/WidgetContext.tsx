@@ -29,6 +29,7 @@ import {
   isValidSessionId,
   getStoredTheme,
   setStoredTheme,
+  getStoredSessionForMerchant,
   type CachedMessage,
 } from '../utils/storage';
 
@@ -308,17 +309,12 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
 
   const {
     createSession,
-    getSession,
     endSession: endWidgetSession,
   } = React.useMemo(
     () => ({
       createSession: async (visitorId?: string) => {
         const { widgetClient } = await import('../api/widgetClient');
         return widgetClient.createSession(merchantId, visitorId);
-      },
-      getSession: async (sessionId: string) => {
-        const { widgetClient } = await import('../api/widgetClient');
-        return widgetClient.getSession(sessionId);
       },
       endSession: async (sessionId: string) => {
         const { widgetClient } = await import('../api/widgetClient');
@@ -413,13 +409,96 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
         }
 
         
-        // Check for provided session ID (injection for tests)
-        let sessionId = initialSessionId;
+        // Session restoration / creation
+        let restoredSession = false;
 
-        if (!sessionId) {
-          // Create new session
-          console.log('[WidgetContext] Creating new session...')
-          const session = await widgetClient.createSession(mId);
+        // If initialSessionId is provided (test injection), use it directly
+        if (initialSessionId) {
+          console.log('[WidgetContext] Using injected initialSessionId:', initialSessionId);
+          try {
+            const session = await widgetClient.getSession(initialSessionId);
+            if (session) {
+              dispatch({ type: 'SET_SESSION', payload: session });
+              safeStorage.set(SESSION_KEY, session.sessionId);
+              safeStorage.set(MERCHANT_KEY, mId);
+
+              const { messages } = await widgetClient.getMessageHistory(initialSessionId);
+              if (messages.length > 0) {
+                dispatch({ type: 'SET_MESSAGES', payload: messages });
+                greetingShownRef.current = true;
+              }
+              restoredSession = true;
+            }
+          } catch {
+            console.warn('[WidgetContext] Failed to load injected session');
+          }
+        }
+
+        // Tier 1: Check sessionStorage for existing session
+        if (!restoredSession) {
+          const storedSessionId = getStoredSessionForMerchant(mId);
+          if (storedSessionId) {
+            console.log('[WidgetContext] Found stored session, attempting restore:', storedSessionId);
+            try {
+              const session = await widgetClient.getSession(storedSessionId);
+              if (session) {
+                dispatch({ type: 'SET_SESSION', payload: session });
+                safeStorage.set(SESSION_KEY, session.sessionId);
+                safeStorage.set(MERCHANT_KEY, mId);
+
+                const { messages } = await widgetClient.getMessageHistory(storedSessionId);
+                if (messages.length > 0) {
+                  dispatch({ type: 'SET_MESSAGES', payload: messages });
+                  greetingShownRef.current = true;
+                }
+
+                restoredSession = true;
+                console.log('[WidgetContext] Session restored from sessionStorage');
+              } else {
+                safeStorage.remove(SESSION_KEY);
+              }
+            } catch {
+              console.warn('[WidgetContext] Failed to restore session from sessionStorage');
+              safeStorage.remove(SESSION_KEY);
+            }
+          }
+        }
+
+        // Tier 2: Try visitor-based session lookup
+        if (!restoredSession) {
+          const visitorId = getVisitorId();
+          if (visitorId) {
+            console.log('[WidgetContext] Trying visitor-based session lookup');
+            try {
+              const foundSessionId = await widgetClient.lookupSessionByVisitor(mId, visitorId);
+              if (foundSessionId) {
+                const session = await widgetClient.getSession(foundSessionId);
+                if (session) {
+                  dispatch({ type: 'SET_SESSION', payload: session });
+                  safeStorage.set(SESSION_KEY, session.sessionId);
+                  safeStorage.set(MERCHANT_KEY, mId);
+
+                  const { messages } = await widgetClient.getMessageHistory(foundSessionId);
+                  if (messages.length > 0) {
+                    dispatch({ type: 'SET_MESSAGES', payload: messages });
+                    greetingShownRef.current = true;
+                  }
+
+                  restoredSession = true;
+                  console.log('[WidgetContext] Session restored from visitor lookup');
+                }
+              }
+            } catch {
+              console.warn('[WidgetContext] Visitor-based session lookup failed');
+            }
+          }
+        }
+
+        // Fall back to creating a new session
+        if (!restoredSession) {
+          console.log('[WidgetContext] Creating new session...');
+          const visitorId = getOrCreateVisitorId();
+          const session = await widgetClient.createSession(mId, visitorId);
 
           // Check if this request is still valid
           if (initRequestIdRef.current !== requestId) {
@@ -431,18 +510,6 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
           dispatch({ type: 'SET_SESSION', payload: session });
           safeStorage.set(SESSION_KEY, session.sessionId);
           safeStorage.set(MERCHANT_KEY, merchantId);
-        } else {
-          // Load existing conversation history
-          console.log('[WidgetContext] Loading existing conversation history for session:', sessionId);
-          const messages = await widgetClient.getHistory(session.sessionId);
-          console.log('[WidgetContext] History loaded:', messages?.length || 0, 'messages');
-
-          dispatch({ type: 'SET_MESSAGES', payload: messages });
-
-          // Mark greeting as shown if we have history
-          if (messages.length > 0) {
-            greetingShownRef.current = true;
-          }
         }
 
         // Successfully initialized - clear loading state
@@ -830,12 +897,23 @@ export function WidgetProvider({ children, merchantId, initialSessionId }: Widge
             dispatch({ type: 'UPDATE_STREAMING_MESSAGE', payload: { messageId: data.messageId, token: data.token } });
           } else if (event.type === 'bot_stream_end') {
             const data = event.data as Record<string, unknown>;
+            const rawProducts = data.products as Array<Record<string, unknown>> | undefined;
             const finalMessage: WidgetMessage = {
               messageId: data.messageId as string,
               content: (data.content as string) || '',
               sender: 'bot',
               createdAt: (data.createdAt as string) || new Date().toISOString(),
-              products: data.products as WidgetMessage['products'],
+              products: rawProducts?.map((p) => ({
+                id: (p.id || p.product_id) as string,
+                variantId: (p.variantId || p.variant_id) as string,
+                title: p.title as string,
+                description: p.description as string | undefined,
+                price: p.price as number,
+                imageUrl: (p.imageUrl || p.image_url) as string | undefined,
+                available: p.available as boolean,
+                productType: (p.productType || p.product_type) as string | undefined,
+                isPinned: (p.isPinned || p.is_pinned) as boolean | undefined,
+              })),
               cart: data.cart as WidgetMessage['cart'],
               checkoutUrl: data.checkout_url as string | undefined,
               quick_replies: data.quick_replies as WidgetMessage['quick_replies'],

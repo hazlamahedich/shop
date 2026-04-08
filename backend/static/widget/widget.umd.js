@@ -11893,17 +11893,32 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     async endSession(sessionId) {
       await this.request(`/session/${sessionId}`, { method: "DELETE" });
     }
+    async lookupSessionByVisitor(merchantId, visitorId) {
+      var _a2, _b;
+      try {
+        const data = await this.request(
+          `/session/by-visitor/${merchantId}/${encodeURIComponent(visitorId)}`
+        );
+        return ((_a2 = data.data) == null ? void 0 : _a2.sessionId) ?? ((_b = data.data) == null ? void 0 : _b.session_id) ?? null;
+      } catch {
+        return null;
+      }
+    }
     async getMessageHistory(sessionId) {
       const data = await this.request(
         `/session/${sessionId}/messages`
       );
       const messages = (data.data.messages || []).map((m2) => ({
-        messageId: m2.id || m2.message_id || "",
+        messageId: m2.id || m2.message_id || m2.messageId || "",
         content: m2.content,
         sender: m2.role || m2.sender || "bot",
-        createdAt: m2.timestamp || m2.created_at || "",
+        createdAt: m2.timestamp || m2.created_at || m2.createdAt || "",
         products: m2.products,
         cart: m2.cart,
+        checkoutUrl: m2.checkout_url || m2.checkoutUrl,
+        quickReplies: m2.quick_replies || m2.quickReplies,
+        sources: m2.sources,
+        suggestedReplies: m2.suggested_replies || m2.suggestedReplies,
         contactOptions: m2.contact_options || m2.contactOptions,
         customerName: m2.customer_name || m2.customerName,
         userRating: m2.user_rating || m2.userRating
@@ -12390,6 +12405,26 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const MERCHANT_KEY = "widget_merchant_id";
   const VISITOR_KEY = "widget_visitor_id";
   const VISITOR_MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1e3;
+  function getOrCreateVisitorId() {
+    const stored = safeLocalStorage.get(VISITOR_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const createdAt = new Date(parsed.createdAt).getTime();
+        const now = Date.now();
+        if (now - createdAt < VISITOR_MAX_AGE_MS) {
+          return parsed.visitorId;
+        }
+      } catch {
+      }
+    }
+    const visitorId = crypto.randomUUID();
+    safeLocalStorage.set(VISITOR_KEY, JSON.stringify({
+      visitorId,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    }));
+    return visitorId;
+  }
   function getVisitorId() {
     const stored = safeLocalStorage.get(VISITOR_KEY);
     if (!stored) return null;
@@ -12404,6 +12439,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     } catch {
       return null;
     }
+  }
+  function getStoredSessionForMerchant(merchantId) {
+    const storedId = safeStorage.get(SESSION_KEY);
+    const storedMerchant = safeStorage.get(MERCHANT_KEY);
+    if (!storedId || !isValidSessionId(storedId)) return null;
+    if (storedMerchant !== merchantId) return null;
+    return storedId;
   }
   function clearVisitorId() {
     safeLocalStorage.remove(VISITOR_KEY);
@@ -12702,17 +12744,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }, []);
     const {
       createSession,
-      getSession,
       endSession: endWidgetSession
     } = reactExports.useMemo(
       () => ({
         createSession: async (visitorId) => {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
           return widgetClient2.createSession(merchantId, visitorId);
-        },
-        getSession: async (sessionId) => {
-          const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
-          return widgetClient2.getSession(sessionId);
         },
         endSession: async (sessionId) => {
           const { widgetClient: widgetClient2 } = await Promise.resolve().then(() => widgetClient$1);
@@ -12778,26 +12815,90 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             console.log("[WidgetContext] No valid stored position, using default theme placement");
             dispatch({ type: "SET_POSITION", payload: null });
           }
-          let sessionId = initialSessionId;
-          if (!sessionId) {
+          let restoredSession = false;
+          if (initialSessionId) {
+            console.log("[WidgetContext] Using injected initialSessionId:", initialSessionId);
+            try {
+              const session = await widgetClient2.getSession(initialSessionId);
+              if (session) {
+                dispatch({ type: "SET_SESSION", payload: session });
+                safeStorage.set(SESSION_KEY, session.sessionId);
+                safeStorage.set(MERCHANT_KEY, mId);
+                const { messages } = await widgetClient2.getMessageHistory(initialSessionId);
+                if (messages.length > 0) {
+                  dispatch({ type: "SET_MESSAGES", payload: messages });
+                  greetingShownRef.current = true;
+                }
+                restoredSession = true;
+              }
+            } catch {
+              console.warn("[WidgetContext] Failed to load injected session");
+            }
+          }
+          if (!restoredSession) {
+            const storedSessionId = getStoredSessionForMerchant(mId);
+            if (storedSessionId) {
+              console.log("[WidgetContext] Found stored session, attempting restore:", storedSessionId);
+              try {
+                const session = await widgetClient2.getSession(storedSessionId);
+                if (session) {
+                  dispatch({ type: "SET_SESSION", payload: session });
+                  safeStorage.set(SESSION_KEY, session.sessionId);
+                  safeStorage.set(MERCHANT_KEY, mId);
+                  const { messages } = await widgetClient2.getMessageHistory(storedSessionId);
+                  if (messages.length > 0) {
+                    dispatch({ type: "SET_MESSAGES", payload: messages });
+                    greetingShownRef.current = true;
+                  }
+                  restoredSession = true;
+                  console.log("[WidgetContext] Session restored from sessionStorage");
+                } else {
+                  safeStorage.remove(SESSION_KEY);
+                }
+              } catch {
+                console.warn("[WidgetContext] Failed to restore session from sessionStorage");
+                safeStorage.remove(SESSION_KEY);
+              }
+            }
+          }
+          if (!restoredSession) {
+            const visitorId = getVisitorId();
+            if (visitorId) {
+              console.log("[WidgetContext] Trying visitor-based session lookup");
+              try {
+                const foundSessionId = await widgetClient2.lookupSessionByVisitor(mId, visitorId);
+                if (foundSessionId) {
+                  const session = await widgetClient2.getSession(foundSessionId);
+                  if (session) {
+                    dispatch({ type: "SET_SESSION", payload: session });
+                    safeStorage.set(SESSION_KEY, session.sessionId);
+                    safeStorage.set(MERCHANT_KEY, mId);
+                    const { messages } = await widgetClient2.getMessageHistory(foundSessionId);
+                    if (messages.length > 0) {
+                      dispatch({ type: "SET_MESSAGES", payload: messages });
+                      greetingShownRef.current = true;
+                    }
+                    restoredSession = true;
+                    console.log("[WidgetContext] Session restored from visitor lookup");
+                  }
+                }
+              } catch {
+                console.warn("[WidgetContext] Visitor-based session lookup failed");
+              }
+            }
+          }
+          if (!restoredSession) {
             console.log("[WidgetContext] Creating new session...");
-            const session2 = await widgetClient2.createSession(mId);
+            const visitorId = getOrCreateVisitorId();
+            const session = await widgetClient2.createSession(mId, visitorId);
             if (initRequestIdRef.current !== requestId) {
               console.log("[WidgetContext] Session creation superseded by request:", initRequestIdRef.current);
               return;
             }
-            console.log("[WidgetContext] Session created:", session2);
-            dispatch({ type: "SET_SESSION", payload: session2 });
-            safeStorage.set(SESSION_KEY, session2.sessionId);
+            console.log("[WidgetContext] Session created:", session);
+            dispatch({ type: "SET_SESSION", payload: session });
+            safeStorage.set(SESSION_KEY, session.sessionId);
             safeStorage.set(MERCHANT_KEY, merchantId);
-          } else {
-            console.log("[WidgetContext] Loading existing conversation history for session:", sessionId);
-            const messages = await widgetClient2.getHistory(session.sessionId);
-            console.log("[WidgetContext] History loaded:", (messages == null ? void 0 : messages.length) || 0, "messages");
-            dispatch({ type: "SET_MESSAGES", payload: messages });
-            if (messages.length > 0) {
-              greetingShownRef.current = true;
-            }
           }
           console.log("[WidgetContext] ✅ Initialization complete, clearing loading state");
           dispatch({ type: "SET_LOADING", payload: false });
@@ -13915,7 +14016,8 @@ Your cart is now empty.`,
       return this.props.children;
     }
   }
-  function LoadingSpinner() {
+  function LoadingSpinner({ themeMode }) {
+    const isDark = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -13935,8 +14037,8 @@ Your cart is now empty.`,
               style: {
                 width: "24px",
                 height: "24px",
-                border: "2px solid #e5e7eb",
-                borderTopColor: "#6366f1",
+                border: `2px solid ${isDark ? "rgba(255, 255, 255, 0.15)" : "#e5e7eb"}`,
+                borderTopColor: isDark ? "#818cf8" : "#6366f1",
                 borderRadius: "50%",
                 animation: "widget-spin 0.8s linear infinite"
               }
@@ -17328,7 +17430,8 @@ Your cart is now empty.`,
   };
   function SourceCitation({
     sources,
-    theme
+    theme: _theme,
+    themeMode
   }) {
     const reducedMotion = useReducedMotion();
     if (!sources || sources.length === 0) {
@@ -17346,7 +17449,7 @@ Your cart is now empty.`,
       }
     };
     const isClickable = !!topSource.url;
-    const isDarkMode = theme.mode === "dark";
+    const isDarkMode = themeMode === "dark";
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
@@ -17475,6 +17578,7 @@ Your cart is now empty.`,
     feedbackEnabled = true,
     userRating,
     theme,
+    themeMode,
     onSubmit
   }) {
     const [rating, setRating] = reactExports.useState(userRating || null);
@@ -17540,7 +17644,7 @@ Your cart is now empty.`,
     if (!feedbackEnabled) {
       return null;
     }
-    const isDarkMode = theme.mode === "dark";
+    const isDarkMode = themeMode === "dark";
     const getButtonStyle = (isSelected) => {
       const bgColor = isSelected ? theme.primaryColor : isDarkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.04)";
       const border = isSelected ? `1px solid ${theme.primaryColor}` : isDarkMode ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)";
@@ -17572,7 +17676,7 @@ Your cart is now empty.`,
               style: {
                 fontSize: "12px",
                 fontWeight: 500,
-                color: theme.textColor,
+                color: isDarkMode ? "#94a3b8" : theme.textColor,
                 opacity: 0.85,
                 textAlign: "center",
                 marginBottom: "4px"
@@ -17677,7 +17781,7 @@ Your cart is now empty.`,
                 maxWidth: "300px"
               },
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: theme.textColor }, children: "Tell us how we can improve (optional):" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { htmlFor: `feedback-comment-${messageId}`, style: { fontSize: "12px", color: isDarkMode ? "#cbd5e1" : theme.textColor }, children: "Tell us how we can improve (optional):" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "textarea",
                   {
@@ -17695,7 +17799,7 @@ Your cart is now empty.`,
                       border: `1px solid ${isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)"}`,
                       borderRadius: "8px",
                       backgroundColor: isDarkMode ? "rgba(0, 0, 0, 0.2)" : "#fff",
-                      color: theme.textColor,
+                      color: isDarkMode ? "#e2e8f0" : theme.textColor,
                       fontFamily: theme.fontFamily,
                       fontSize: "14px",
                       resize: "none"
@@ -17714,7 +17818,7 @@ Your cart is now empty.`,
                         border: "none",
                         borderRadius: "6px",
                         backgroundColor: "transparent",
-                        color: theme.textColor,
+                        color: isDarkMode ? "#94a3b8" : theme.textColor,
                         fontSize: "14px",
                         cursor: "pointer",
                         opacity: 0.7
@@ -17742,7 +17846,7 @@ Your cart is now empty.`,
                     }
                   )
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: theme.textColor, opacity: 0.6 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: "11px", color: isDarkMode ? "#94a3b8" : theme.textColor, opacity: 0.6 }, children: [
                   comment.length,
                   "/500 characters"
                 ] })
@@ -17779,12 +17883,13 @@ Your cart is now empty.`,
   function ContactCard({
     contactOptions,
     theme,
+    themeMode,
     conversationId,
     businessHours,
     onContactClick,
     onShowToast
   }) {
-    const isDarkMode = theme.mode === "dark";
+    const isDarkMode = themeMode === "dark";
     const reducedMotion = useReducedMotion();
     const isMobile = reactExports.useCallback(() => {
       return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -17833,7 +17938,7 @@ Your cart is now empty.`,
         {
           style: {
             fontSize: 12,
-            color: theme.textColor,
+            color: isDarkMode ? "#94a3b8" : theme.textColor,
             opacity: 0.7,
             marginBottom: 8,
             fontWeight: 500
@@ -17875,7 +17980,7 @@ Your cart is now empty.`,
                 backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.02)",
                 cursor: "pointer",
                 transition: reducedMotion ? "none" : "all 150ms ease",
-                color: theme.textColor,
+                color: isDarkMode ? "#e2e8f0" : theme.textColor,
                 fontSize: 13,
                 fontWeight: 500
               },
@@ -18373,7 +18478,7 @@ Your cart is now empty.`,
           children: "Complete Checkout →"
         }
       ) }),
-      showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme }) }),
+      showRichContent && !isUser && message.sources && message.sources.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "message-bubble__sources", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SourceCitation, { sources: message.sources, theme, themeMode }) }),
       showRichContent && !isUser && sender === "bot" && onFeedbackSubmit && /* @__PURE__ */ jsxRuntimeExports.jsx(
         FeedbackRating,
         {
@@ -18381,6 +18486,7 @@ Your cart is now empty.`,
           feedbackEnabled: message.feedbackEnabled,
           userRating: message.userRating,
           theme,
+          themeMode,
           onSubmit: onFeedbackSubmit
         }
       ),
@@ -18389,6 +18495,7 @@ Your cart is now empty.`,
         {
           contactOptions: message.contactOptions,
           theme,
+          themeMode,
           conversationId: sessionId,
           onContactClick: () => {
           }
@@ -21586,7 +21693,7 @@ Your cart is now empty.`,
         .carousel-card {
           scroll-snap-align: start;
           flex-shrink: 0;
-          width: 160px;
+          width: 140px;
           border-radius: 8px;
           background: #ffffff;
           border: 1px solid rgba(0, 0, 0, 0.1);
@@ -21610,12 +21717,12 @@ Your cart is now empty.`,
           overflow: hidden;
         }
         .carousel-card-image img {
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          object-fit: cover !important;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
           transition: opacity 200ms ease;
         }
         .carousel-card-image img.loading {
@@ -22467,190 +22574,6 @@ Your cart is now empty.`,
             transition: none;
           }
         }
-
-        /* ============================================
-         * COMPREHENSIVE DARK MODE OVERRIDES
-         * Using .glassmorphism-wrapper.dark-mode to
-         * override inline styles with !important
-         * ============================================ */
-
-        /* Carousel Cards - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .carousel-card {
-          background: rgba(15, 23, 42, 0.8) !important;
-          border-color: rgba(255, 255, 255, 0.1) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-card-title {
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-card-skeleton {
-          background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%) !important;
-          background-size: 200% 100% !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-arrow {
-          background: rgba(15, 23, 42, 0.8) !important;
-          border-color: rgba(255, 255, 255, 0.1) !important;
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-dot {
-          background: rgba(255, 255, 255, 0.2) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-dot:hover {
-          background: rgba(255, 255, 255, 0.4) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .carousel-card-image {
-          background: rgba(255, 255, 255, 0.05) !important;
-        }
-
-        /* Voice Input - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .voice-interim-transcript {
-          color: #9ca3af !important;
-        }
-        .glassmorphism-wrapper.dark-mode .voice-error-message {
-          background-color: rgba(239, 68, 68, 0.1) !important;
-          border-color: rgba(239, 68, 68, 0.3) !important;
-          color: #fca5a5 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .voice-cancel-button {
-          background-color: rgba(255, 255, 255, 0.1) !important;
-          color: #9ca3af !important;
-        }
-        .glassmorphism-wrapper.dark-mode .voice-cancel-button:hover {
-          background-color: rgba(255, 255, 255, 0.2) !important;
-        }
-
-        /* Proactive Modal - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .proactive-modal-container {
-          background: rgba(15, 23, 42, 0.9) !important;
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .proactive-modal-close {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .proactive-modal-close:hover {
-          background-color: rgba(255, 255, 255, 0.1) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .proactive-action-button.proactive-action-secondary:hover:not(:disabled) {
-          background-color: rgba(255, 255, 255, 0.1) !important;
-        }
-
-        /* Scrollbar - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .message-list::-webkit-scrollbar-thumb {
-          background-color: rgba(255, 255, 255, 0.2) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .message-list::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(255, 255, 255, 0.35) !important;
-        }
-
-        /* Input / Textarea - Dark Mode */
-        .glassmorphism-wrapper.dark-mode input,
-        .glassmorphism-wrapper.dark-mode textarea {
-          color: #f8fafc !important;
-          background-color: rgba(255, 255, 255, 0.05) !important;
-        }
-        .glassmorphism-wrapper.dark-mode input::placeholder,
-        .glassmorphism-wrapper.dark-mode textarea::placeholder {
-          color: rgba(255, 255, 255, 0.4) !important;
-        }
-
-        /* Bot Message Bubble - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .message-bubble--bot {
-          background-color: rgba(255, 255, 255, 0.08) !important;
-          color: #f8fafc !important;
-        }
-
-        /* Source Citation - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .source-citation {
-          background: rgba(255, 255, 255, 0.1) !important;
-          border-color: rgba(255, 255, 255, 0.08) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .source-card--clickable:hover {
-          background: rgba(255, 255, 255, 0.12) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .source-card--clickable:active {
-          background: rgba(255, 255, 255, 0.18) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .source-citation__toggle:hover {
-          background: rgba(255, 255, 255, 0.1) !important;
-        }
-
-        /* Quick Reply / FAQ / Suggested Buttons - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .quick-reply-button,
-        .glassmorphism-wrapper.dark-mode .faq-quick-button,
-        .glassmorphism-wrapper.dark-mode .suggested-reply-chip {
-          color: #c7d2fe !important;
-          border-color: rgba(165, 180, 252, 0.4) !important;
-          background-color: rgba(165, 180, 252, 0.12) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .quick-reply-button:hover:not(:disabled),
-        .glassmorphism-wrapper.dark-mode .faq-quick-button:hover:not(:disabled),
-        .glassmorphism-wrapper.dark-mode .suggested-reply-chip:hover:not(:disabled) {
-          background-color: rgba(165, 180, 252, 0.22) !important;
-          border-color: rgba(165, 180, 252, 0.6) !important;
-        }
-
-        /* Error Toast - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .error-toast__title {
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__detail {
-          color: #cbd5e1 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__retry-after {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__dismiss {
-          color: #94a3b8 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__dismiss:hover {
-          color: #e2e8f0 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__action:not(.error-toast__action--primary) {
-          color: #cbd5e1 !important;
-          border-color: rgba(255, 255, 255, 0.2) !important;
-        }
-        .glassmorphism-wrapper.dark-mode .error-toast__more {
-          color: #94a3b8 !important;
-        }
-
-        /* Typing Indicator - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .typing-indicator {
-          color: #f8fafc !important;
-        }
-
-        /* Feedback Comment Textarea - Dark Mode (extra specificity) */
-        .glassmorphism-wrapper.dark-mode .feedback-comment-textarea {
-          background-color: rgba(0, 0, 0, 0.2) !important;
-          border-color: rgba(255, 255, 255, 0.2) !important;
-          color: #f8fafc !important;
-        }
-
-        /* Connection Status - Dark Mode */
-        .glassmorphism-wrapper.dark-mode .connection-status {
-          color: #f8fafc !important;
-        }
-        .glassmorphism-wrapper.dark-mode .connection-status--connecting {
-          background-color: rgba(234, 179, 8, 0.15) !important;
-          border-color: rgba(234, 179, 8, 0.3) !important;
-          color: #fde68a !important;
-        }
-        .glassmorphism-wrapper.dark-mode .connection-status--disconnected {
-          background-color: rgba(249, 115, 22, 0.15) !important;
-          border-color: rgba(249, 115, 22, 0.3) !important;
-          color: #fdba74 !important;
-        }
-        .glassmorphism-wrapper.dark-mode .connection-status--error {
-          background-color: rgba(239, 68, 68, 0.15) !important;
-          border-color: rgba(239, 68, 68, 0.3) !important;
-          color: #fca5a5 !important;
-        }
-
-        /* Light Mode Proactive Modal */
-        .glassmorphism-wrapper.light-mode .proactive-modal-container {
-          background: rgba(255, 255, 255, 0.9) !important;
-          border: 1px solid rgba(0, 0, 0, 0.05) !important;
-          color: #1e293b !important;
-        }
       ` }),
       state.isLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
         position: "fixed",
@@ -22665,7 +22588,7 @@ Your cart is now empty.`,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 2147483647
-      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, {}) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingSpinner, { themeMode: state.themeMode }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           ChatBubble,
           {
