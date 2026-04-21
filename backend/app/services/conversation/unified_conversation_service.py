@@ -67,6 +67,21 @@ from app.services.conversation.sentiment_adapter import (
     SentimentAdaptation,
     SentimentStrategy,
 )
+from app.services.empathy.empathy_engine import (
+    analyze_and_respond_with_empathy,
+)
+from app.services.context.edge_case_handler import EdgeCaseHandler
+from app.services.context.enhanced_context_service import EnhancedContextService
+from app.services.conversation.enhancers.ab_testing import ABTestFramework
+from app.services.conversation.enhancers.conversation_goals import ConversationGoalTracker
+from app.services.conversation.enhancers.conversation_summarizer import ConversationSummarizer
+from app.services.conversation.enhancers.performance_optimizer import ConversationOptimizer
+from app.services.conversation.enhancers.proactive_suggestions import ProactiveSuggestionEngine
+from app.services.conversation.enhancers.quality_metrics import ConversationQualityTracker
+from app.services.conversation.enhancers.quick_replies import QuickReplyGenerator
+from app.services.conversation.enhancers.response_consistency import ResponseConsistencyChecker
+from app.services.conversation.enhancers.response_variety import ResponseVarietyEnhancer
+from app.services.conversation.enhancers.typing_simulator import NaturalTypingSimulator
 from app.services.cost_tracking.budget_aware_llm_wrapper import BudgetAwareLLMWrapper
 from app.services.intent.classification_schema import (
     ClassificationResult,
@@ -520,6 +535,211 @@ class UnifiedConversationService:
                             strategy=adaptation.strategy.value,
                         )
 
+                    # Week 1 Integration: Enhanced Empathy Engine
+                    # Deep emotional analysis beyond basic sentiment
+                    try:
+                        empathy_result = await analyze_and_respond_with_empathy(
+                            message=message,
+                            conversation_id=context.conversation_id,
+                            personality=merchant.personality,
+                            db=db,
+                            redis_client=self.redis,
+                        )
+
+                        # Store emotional profile in context for response generation
+                        if empathy_result and empathy_result.get("emotional_profile"):
+                            context.metadata["emotional_profile"] = {
+                                "primary_emotion": empathy_result["emotional_profile"].primary_emotion.value,
+                                "intensity": empathy_result.get("intensity", 0.0),
+                                "empathy_level": empathy_result.get("empathy_level", "none"),
+                                "suggested_responses": empathy_result.get("suggested_responses", []),
+                            }
+                            self.logger.debug(
+                                "empathy_analysis_completed",
+                                emotion=context.metadata["emotional_profile"]["primary_emotion"],
+                                intensity=context.metadata["emotional_profile"]["intensity"],
+                                empathy_level=context.metadata["emotional_profile"]["empathy_level"],
+                            )
+                    except Exception as e:
+                        # Non-blocking: if empathy fails, continue with basic sentiment
+                        self.logger.warning(
+                            "empathy_analysis_failed",
+                            error=str(e),
+                            conversation_id=context.conversation_id,
+                        )
+
+                    # Week 2 Integration: Edge Case Handler & Enhanced Context Service
+                    try:
+                        # Initialize handlers
+                        edge_handler = EdgeCaseHandler(db, self.redis)
+                        context_service = EnhancedContextService(db, self.redis)
+
+                        # Track current topic and entities
+                        current_topic = intent_name or "general"
+                        await context_service.track_entity(
+                            conversation_id=context.conversation_id,
+                            merchant_id=merchant.id,
+                            entity_type="current_intent",
+                            entity_value=current_topic,
+                            personality=merchant.personality.value,
+                        )
+
+                        # Handle extreme context switching (6+ topic changes)
+                        if len(context.conversation_history) > 10:
+                            topic_history = [
+                                {
+                                    "from": turn.metadata.get("previous_topic", "unknown"),
+                                    "to": turn.metadata.get("current_topic", "unknown"),
+                                    "timestamp": turn.timestamp.isoformat(),
+                                }
+                                for turn in context.conversation_history[-5:]
+                            ]
+
+                            enhanced_context = await edge_handler.handle_extreme_context_switching(
+                                conversation_id=context.conversation_id,
+                                merchant_id=merchant.id,
+                                topic_history=topic_history,
+                                current_personality=merchant.personality.value,
+                            )
+
+                            if enhanced_context.get("context_restoration_phrases"):
+                                context.metadata["context_restoration"] = enhanced_context
+
+                        # Handle reference resolution (ambiguous pronouns)
+                        conversation_history_list = [
+                            {"role": "user", "content": turn.user_message}
+                            for turn in context.conversation_history[-3:]
+                        ] if context.conversation_history else []
+
+                        reference_resolution = await edge_handler.handle_reference_resolution(
+                            conversation_id=context.conversation_id,
+                            message=message,
+                            conversation_history=conversation_history_list,
+                            personality=merchant.personality.value,
+                        )
+
+                        if reference_resolution.get("needs_clarification"):
+                            context.metadata["reference_clarification"] = reference_resolution
+
+                        # Update context with topic tracking for bridging
+                        previous_topic = context.metadata.get("last_topic", "general")
+                        if previous_topic != current_topic:
+                            topic_bridging = await context_service.update_context_with_topic_switch(
+                                conversation_id=context.conversation_id,
+                                merchant_id=merchant.id,
+                                old_topic=previous_topic,
+                                new_topic=current_topic,
+                                personality=merchant.personality.value,
+                            )
+
+                            if topic_bridging.get("bridging_phrases"):
+                                context.metadata["topic_bridging"] = topic_bridging
+
+                            context.metadata["last_topic"] = current_topic
+
+                        # Store enhanced context for response generation
+                        enhanced_context_data = await context_service.get_enhanced_context(
+                            conversation_id=context.conversation_id,
+                            merchant_id=merchant.id,
+                            personality=merchant.personality.value,
+                        )
+
+                        if enhanced_context_data:
+                            context.metadata["enhanced_context"] = enhanced_context_data
+
+                        self.logger.debug(
+                            "week2_integration_completed",
+                            context_switching=bool(context.metadata.get("context_restoration")),
+                            reference_clarification=bool(context.metadata.get("reference_clarification")),
+                            topic_bridging=bool(context.metadata.get("topic_bridging")),
+                        )
+                    except Exception as e:
+                        # Non-blocking: if edge case handling fails, continue with basic flow
+                        self.logger.warning(
+                            "week2_integration_failed",
+                            error=str(e),
+                            conversation_id=context.conversation_id,
+                        )
+
+                    # Week 3 Integration: All 10 Enhancement Systems
+                    try:
+                        # Initialize all enhancers
+                        consistency_checker = ResponseConsistencyChecker()
+                        goal_tracker = ConversationGoalTracker()
+                        suggestion_engine = ProactiveSuggestionEngine()
+                        summarizer = ConversationSummarizer()
+                        variety_enhancer = ResponseVarietyEnhancer()
+                        quality_tracker = ConversationQualityTracker()
+                        ab_tester = ABTestFramework()
+                        optimizer = ConversationOptimizer()
+                        typing_simulator = NaturalTypingSimulator()
+                        quick_reply_gen = QuickReplyGenerator()
+
+                        # Track conversation goals
+                        goal_state = await goal_tracker.track_goal_progress(
+                            conversation_id=context.conversation_id,
+                            current_intent=intent_name or "general",
+                            entities=entities,
+                            context=context,
+                            db=db,
+                        )
+                        if goal_state and context.metadata is None:
+                            context.metadata = {}
+                        if goal_state:
+                            context.metadata["goal_state"] = goal_state
+
+                        # Check if conversation needs summarization (10+ turns)
+                        turn_count = len(context.conversation_history)
+                        if turn_count >= 10:
+                            summary = await summarizer.summarize_conversation(
+                                conversation_id=context.conversation_id,
+                                turn_count=turn_count,
+                                db=db,
+                                personality=merchant.personality.value,
+                            )
+                            if summary and context.metadata is None:
+                                context.metadata = {}
+                            if summary:
+                                context.metadata["conversation_summary"] = summary
+
+                        # Performance optimization: Check cache
+                        cache_hit, cached_response = await optimizer.optimize_response_generation(
+                            context=context,
+                            intent=intent_name or "general",
+                            merchant=merchant.personality,
+                            message=message,
+                        )
+                        if cache_hit and cached_response:
+                            # Use cached response if available
+                            if response is None:
+                                response = cached_response
+                                if hasattr(response, 'message'):
+                                    context.metadata["from_cache"] = True
+
+                        # A/B Testing: Assign test group
+                        test_group = await ab_tester.assign_test_group(
+                            conversation_id=context.conversation_id,
+                            merchant_id=merchant.id,
+                            test_name="enhanced_conversation_flow",
+                        )
+                        if context.metadata is None:
+                            context.metadata = {}
+                        context.metadata["ab_test_group"] = test_group
+
+                        self.logger.debug(
+                            "week3_enhancers_initialized",
+                            conversation_id=context.conversation_id,
+                            goal_state=goal_state.get("goal", "unknown") if goal_state else "unknown",
+                            test_group=test_group,
+                        )
+                    except Exception as e:
+                        # Non-blocking: if enhancer initialization fails, continue
+                        self.logger.warning(
+                            "week3_enhancers_init_failed",
+                            error=str(e),
+                            conversation_id=context.conversation_id,
+                        )
+
                     self.logger.info(
                         "unified_conversation_classified",
                         merchant_id=merchant.id,
@@ -765,6 +985,146 @@ class UnifiedConversationService:
                         error_code=ErrorCode.SENTIMENT_ADAPTATION_FAILED,
                     )
 
+            # Week 1 Integration: Apply Empathy Engine responses
+            empathy_data = context.metadata.get("emotional_profile")
+            if empathy_data and response and empathy_data.get("empathy_level") != "none":
+                try:
+                    empathy_level = empathy_data.get("empathy_level")
+                    suggested_responses = empathy_data.get("suggested_responses", [])
+
+                    if suggested_responses and empathy_level in ["low", "medium", "high"]:
+                        # Choose the most appropriate empathetic response
+                        empathy_phrase = suggested_responses[0]
+
+                        # Apply transition suppression to avoid double-acknowledgment
+                        msg = response.message
+                        from app.services.personality.transition_phrases import TRANSITION_PHRASES
+
+                        transition_suppressed = False
+                        all_phrases: list[str] = []
+                        for cat_phrases in TRANSITION_PHRASES.values():
+                            all_phrases.extend(cat_phrases.get(merchant.personality, []))
+                        for phrase in sorted(all_phrases, key=len, reverse=True):
+                            prefix = phrase.rstrip(".")
+                            if prefix and msg.startswith(prefix):
+                                msg = msg[len(prefix) :].lstrip()
+                                transition_suppressed = True
+                                break
+
+                        # Prepend empathetic opening to the response
+                        response.message = f"{empathy_phrase}\n\n{msg}"
+
+                        # Store empathy metadata
+                        response.metadata["empathy_applied"] = True
+                        response.metadata["empathy_level"] = empathy_level
+                        response.metadata["primary_emotion"] = empathy_data.get("primary_emotion")
+                        response.metadata["emotional_intensity"] = empathy_data.get("intensity")
+                        response.metadata["transition_suppressed"] = transition_suppressed
+
+                        self.logger.debug(
+                            "empathy_applied_to_response",
+                            empathy_level=empathy_level,
+                            emotion=empathy_data.get("primary_emotion"),
+                            intensity=empathy_data.get("intensity"),
+                        )
+                except Exception as e:
+                    # Non-blocking: if empathy application fails, continue with existing response
+                    self.logger.warning(
+                        "empathy_application_failed",
+                        error=str(e),
+                        conversation_id=context.conversation_id,
+                    )
+
+            # Week 2 Integration: Apply Edge Case Handling & Enhanced Context
+            # Apply topic bridging phrases for context restoration
+            topic_bridging = context.metadata.get("topic_bridging")
+            if topic_bridging and response:
+                try:
+                    bridging_phrases = topic_bridging.get("bridging_phrases", [])
+                    if bridging_phrases:
+                        # Choose the most appropriate bridging phrase
+                        bridging_phrase = bridging_phrases[0]
+
+                        # Apply transition suppression
+                        msg = response.message
+                        from app.services.personality.transition_phrases import TRANSITION_PHRASES
+
+                        transition_suppressed = False
+                        all_phrases: list[str] = []
+                        for cat_phrases in TRANSITION_PHRASES.values():
+                            all_phrases.extend(cat_phrases.get(merchant.personality, []))
+                        for phrase in sorted(all_phrases, key=len, reverse=True):
+                            prefix = phrase.rstrip(".")
+                            if prefix and msg.startswith(prefix):
+                                msg = msg[len(prefix) :].lstrip()
+                                transition_suppressed = True
+                                break
+
+                        # Prepend bridging phrase to response
+                        response.message = f"{bridging_phrase}\n\n{msg}"
+
+                        # Store bridging metadata
+                        response.metadata["topic_bridging_applied"] = True
+                        response.metadata["bridging_phrase"] = bridging_phrase
+                        response.metadata["transition_suppressed"] = transition_suppressed
+
+                        self.logger.debug(
+                            "topic_bridging_applied",
+                            bridging_phrase=bridging_phrase,
+                        )
+                except Exception as e:
+                    # Non-blocking: if bridging fails, continue with existing response
+                    self.logger.warning(
+                        "topic_bridging_failed",
+                        error=str(e),
+                        conversation_id=context.conversation_id,
+                    )
+
+            # Apply enhanced context cross-references
+            enhanced_context = context.metadata.get("enhanced_context")
+            if enhanced_context and response:
+                try:
+                    cross_references = enhanced_context.get("cross_references", [])
+                    if cross_references:
+                        # Add relevant cross-reference to response
+                        cross_ref = cross_references[0] if cross_references else None
+
+                        if cross_ref:
+                            # Apply transition suppression
+                            msg = response.message
+                            from app.services.personality.transition_phrases import TRANSITION_PHRASES
+
+                            transition_suppressed = False
+                            all_phrases: list[str] = []
+                            for cat_phrases in TRANSITION_PHRASES.values():
+                                all_phrases.extend(cat_phrases.get(merchant.personality, []))
+                            for phrase in sorted(all_phrases, key=len, reverse=True):
+                                prefix = phrase.rstrip(".")
+                                if prefix and msg.startswith(prefix):
+                                    msg = msg[len(prefix) :].lstrip()
+                                    transition_suppressed = True
+                                    break
+
+                            # Prepend cross-reference to response
+                            response.message = f"{cross_ref}\n\n{msg}"
+
+                            # Store cross-reference metadata
+                            response.metadata["cross_reference_applied"] = True
+                            response.metadata["cross_reference"] = cross_ref
+                            response.metadata["transition_suppressed"] = transition_suppressed
+
+                            self.logger.debug(
+                                "cross_reference_applied",
+                                cross_ref=cross_ref,
+                            )
+                except Exception as e:
+                    # Non-blocking: if cross-reference fails, continue with existing response
+                    self.logger.warning(
+                        "cross_reference_failed",
+                        error=str(e),
+                        conversation_id=context.conversation_id,
+                    )
+
             # Capture merchant attributes before persistence (which may rollback and expire objects)
             merchant_id_for_log = context.merchant_id
             merchant_onboarding_mode = merchant.onboarding_mode
@@ -818,6 +1178,112 @@ class UnifiedConversationService:
                 confidence=confidence,
                 processing_time_ms=processing_time_ms,
             )
+
+            # Week 3 Integration: Post-Response Enhancements (All 10 Systems)
+            try:
+                # Initialize enhancers
+                consistency_checker = ResponseConsistencyChecker()
+                variety_enhancer = ResponseVarietyEnhancer()
+                quality_tracker = ConversationQualityTracker()
+                ab_tester = ABTestFramework()
+                optimizer = ConversationOptimizer()
+                typing_simulator = NaturalTypingSimulator()
+                suggestion_engine = ProactiveSuggestionEngine()
+                quick_reply_gen = QuickReplyGenerator()
+
+                # 1. Response Consistency Check
+                consistency_check = await consistency_checker.check_response_consistency(
+                    proposed_response=response.message,
+                    conversation_history=context.conversation_history,
+                    conversation_id=context.conversation_id,
+                    personality=merchant.personality,
+                )
+                response.metadata["consistency_check"] = consistency_check
+
+                # 2. Response Variety Enhancement
+                enhanced_message = await variety_enhancer.enhance_variety(
+                    base_response=response.message,
+                    conversation_id=context.conversation_id,
+                    personality=merchant.personality,
+                )
+                if enhanced_message != response.message:
+                    response.metadata["response_variety_applied"] = True
+                    response.message = enhanced_message
+
+                # 3. Quick Replies Generation
+                quick_replies = await quick_reply_gen.generate_quick_replies(
+                    context=context,
+                    response_metadata=response.metadata,
+                    merchant_mode=merchant.onboarding_mode,
+                    personality=merchant.personality,
+                )
+                if quick_replies:
+                    response.quick_replies = quick_replies
+                    response.metadata["quick_replies_generated"] = len(quick_replies)
+
+                # 4. Proactive Suggestions
+                suggestions = await suggestion_engine.generate_suggestions(
+                    context=context,
+                    current_intent=intent_name or "general",
+                    merchant_mode=merchant.onboarding_mode,
+                    personality=merchant.personality,
+                )
+                if suggestions:
+                    response.metadata["proactive_suggestions"] = suggestions
+
+                # 5. Quality Metrics Tracking
+                quality_metrics = await quality_tracker.track_quality_metrics(
+                    conversation_id=context.conversation_id,
+                    context=context,
+                    response_metadata=response.metadata,
+                    merchant=merchant.personality,
+                    processing_time_ms=processing_time_ms,
+                )
+                response.metadata["quality_metrics"] = quality_metrics
+
+                # 6. Typing Simulation (Calculate duration, don't actually delay)
+                typing_duration = await typing_simulator.get_typing_duration(
+                    response_length=len(response.message),
+                    complexity=0.5,
+                    conversation_id=context.conversation_id,
+                    personality=merchant.personality,
+                )
+                response.metadata["typing_duration_seconds"] = typing_duration
+
+                # 7. Cache Response for Performance
+                await optimizer.cache_response(
+                    context=context,
+                    intent=intent_name or "general",
+                    merchant=merchant.personality,
+                    response=response.message,
+                )
+
+                # 8. Record A/B Test Results
+                test_group = context.metadata.get("ab_test_group", "control")
+                await ab_tester.record_test_result(
+                    conversation_id=context.conversation_id,
+                    test_name="enhanced_conversation_flow",
+                    metrics=quality_metrics,
+                    merchant_id=merchant.id,
+                )
+
+                self.logger.debug(
+                    "week3_post_response_enhancements_complete",
+                    consistency_score=consistency_check.get("is_consistent", False),
+                    variety_applied=response.metadata.get("response_variety_applied", False),
+                    quick_replies=len(quick_replies) if quick_replies else 0,
+                    suggestions=len(suggestions) if suggestions else 0,
+                    quality_score=quality_metrics.get("satisfaction_predictor", 0.5),
+                    typing_duration=typing_duration,
+                    test_group=test_group,
+                )
+            except Exception as e:
+                # Non-blocking: if post-response enhancements fail, still return response
+                self.logger.warning(
+                    "week3_post_response_enhancements_failed",
+                    error=str(e),
+                    conversation_id=context.conversation_id,
+                )
 
             return response
 
